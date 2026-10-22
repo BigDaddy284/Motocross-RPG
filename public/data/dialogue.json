@@ -1,0 +1,35 @@
+{
+  "note": "Placeholder lines for the test build. The real tutorial script and NPC text come later.",
+  "dialogue": {
+    "garage_mechanic.hello": { "lines": [
+      { "speaker": "npc", "text": "So you're the new rider everyone's on about? That 50 of yours won't fire, will it." },
+      { "speaker": "npc", "text": "Top end's gone. Bring it round and we'll sort it together. That's for the full game, mind." }
+    ] },
+    "van_seller.hello": { "lines": [
+      { "speaker": "npc", "text": "Need a van to get to the tracks? I've got a used one out back. Six hundred quid, no haggling." }
+    ] },
+    "bike_shop_owner.hello": { "lines": [
+      { "speaker": "npc", "text": "Parts for 50s and 65s, Grades 1 to 3. Shelves are empty in this test build, sorry." }
+    ] },
+    "tyre_specialist.hello": { "lines": [
+      { "speaker": "npc", "text": "Tyres, rims, spokes. Hard pack round here, so you'll want a hard-pack rear." }
+    ] },
+    "fabricator.hello": { "lines": [
+      { "speaker": "npc", "text": "Looking for shifts? Come back when the job board's up and running." }
+    ] },
+    "engine_rebuilder.hello": { "lines": [
+      { "speaker": "npc", "text": "Engines are my trade. Do enough jobs for me and I might let you use the practice yard." }
+    ] },
+    "local_racer.hello": { "lines": [
+      { "speaker": "npc", "text": "You race? There are three local tracks round here. The practice track's just past this gate." },
+      { "speaker": "player", "text": "I'll be out there soon." },
+      { "speaker": "npc", "text": "See you on the gate, then." }
+    ] },
+    "modifier_owner.hello": { "lines": [
+      { "speaker": "npc", "text": "This old machine? Put a clean part in and see what comes out. Not today, though." }
+    ] },
+    "neighbour.hello": { "lines": [
+      { "speaker": "npc", "text": "Oh, hello! I'm always on this computer. Pop round any time." }
+    ] }
+  }
+}

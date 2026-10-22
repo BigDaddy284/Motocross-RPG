@@ -1,0 +1,216 @@
+{
+ "generated": "2026-10-22",
+ "source": "art/ (shared project folder)",
+ "maps": [
+  {
+   "id": "area1-home-town",
+   "title": "Home Town",
+   "kind": "area"
+  },
+  {
+   "id": "area1-industrial-zone",
+   "title": "Industrial Zone",
+   "kind": "area"
+  },
+  {
+   "id": "area1-venue-farmland",
+   "title": "Farmland MX",
+   "kind": "area"
+  },
+  {
+   "id": "area1-venue-woodland",
+   "title": "Woodland MX",
+   "kind": "area"
+  },
+  {
+   "id": "area1-venue-quarry",
+   "title": "Quarry MX",
+   "kind": "area"
+  },
+  {
+   "id": "int-home-bike-shop",
+   "title": "General bike shop",
+   "kind": "interior"
+  },
+  {
+   "id": "int-home-local-garage",
+   "title": "Local garage",
+   "kind": "interior"
+  },
+  {
+   "id": "int-home-neighbour",
+   "title": "Neighbour's house",
+   "kind": "interior"
+  },
+  {
+   "id": "int-home-rented-room",
+   "title": "Rented room",
+   "kind": "interior"
+  },
+  {
+   "id": "int-home-shed-workshop",
+   "title": "Shed workshop (Tier 1)",
+   "kind": "interior"
+  },
+  {
+   "id": "int-home-starter-terrace",
+   "title": "Starter terrace (house Tier 1)",
+   "kind": "interior"
+  },
+  {
+   "id": "int-home-tool-shop",
+   "title": "Tool shop",
+   "kind": "interior"
+  },
+  {
+   "id": "int-home-tyre-shop",
+   "title": "Tyres and wheels",
+   "kind": "interior"
+  },
+  {
+   "id": "int-home-van-office",
+   "title": "Van seller's office",
+   "kind": "interior"
+  },
+  {
+   "id": "int-iz-engine-rebuilder",
+   "title": "Engine rebuilder",
+   "kind": "interior"
+  },
+  {
+   "id": "int-iz-fabrication-shop",
+   "title": "Fabrication shop",
+   "kind": "interior"
+  },
+  {
+   "id": "int-iz-modifier-unit",
+   "title": "Modifier machine unit",
+   "kind": "interior"
+  }
+ ],
+ "characters": {
+  "frame": [
+   64,
+   64
+  ],
+  "anchor": [
+   32,
+   63
+  ],
+  "rows": [
+   "down",
+   "left",
+   "right",
+   "up"
+  ],
+  "walk": {
+   "columns": 6,
+   "fps": 10
+  },
+  "act": {
+   "columns": [
+    "idle0",
+    "idle1",
+    "reach"
+   ],
+   "idle_fps": 3
+  },
+  "sheets": {
+   "npc-01-garage-mechanic": {
+    "name": "Garage mechanic",
+    "walk": "art/characters/npcs/npc-01-garage-mechanic.png",
+    "act": "art/characters/npcs/npc-01-garage-mechanic.act.png"
+   },
+   "npc-02-van-seller": {
+    "name": "Van seller",
+    "walk": "art/characters/npcs/npc-02-van-seller.png",
+    "act": "art/characters/npcs/npc-02-van-seller.act.png"
+   },
+   "npc-03-bike-shop-owner": {
+    "name": "General bike shop owner",
+    "walk": "art/characters/npcs/npc-03-bike-shop-owner.png",
+    "act": "art/characters/npcs/npc-03-bike-shop-owner.act.png"
+   },
+   "npc-04-tyre-specialist": {
+    "name": "Tyres and wheels specialist",
+    "walk": "art/characters/npcs/npc-04-tyre-specialist.png",
+    "act": "art/characters/npcs/npc-04-tyre-specialist.act.png"
+   },
+   "npc-05-fabrication-boss": {
+    "name": "Fabrication shop boss",
+    "walk": "art/characters/npcs/npc-05-fabrication-boss.png",
+    "act": "art/characters/npcs/npc-05-fabrication-boss.act.png"
+   },
+   "npc-06-engine-rebuilder": {
+    "name": "Engine rebuilder",
+    "walk": "art/characters/npcs/npc-06-engine-rebuilder.png",
+    "act": "art/characters/npcs/npc-06-engine-rebuilder.act.png"
+   },
+   "npc-07-local-racer": {
+    "name": "Local racer",
+    "walk": "art/characters/npcs/npc-07-local-racer.png",
+    "act": "art/characters/npcs/npc-07-local-racer.act.png"
+   },
+   "npc-08-local-champion": {
+    "name": "Local Champion",
+    "walk": "art/characters/npcs/npc-08-local-champion.png",
+    "act": "art/characters/npcs/npc-08-local-champion.act.png"
+   },
+   "npc-09-running-coach": {
+    "name": "Running track coach",
+    "walk": "art/characters/npcs/npc-09-running-coach.png",
+    "act": "art/characters/npcs/npc-09-running-coach.act.png"
+   },
+   "npc-10-practice-track-owner": {
+    "name": "Practice track owner",
+    "walk": "art/characters/npcs/npc-10-practice-track-owner.png",
+    "act": "art/characters/npcs/npc-10-practice-track-owner.act.png"
+   },
+   "npc-11-modifier-machine-owner": {
+    "name": "Modifier machine owner",
+    "walk": "art/characters/npcs/npc-11-modifier-machine-owner.png",
+    "act": "art/characters/npcs/npc-11-modifier-machine-owner.act.png"
+   },
+   "npc-12-neighbour-pc": {
+    "name": "Neighbour with a PC",
+    "walk": "art/characters/npcs/npc-12-neighbour-pc.png",
+    "act": "art/characters/npcs/npc-12-neighbour-pc.act.png"
+   },
+   "player-m-start-a": {
+    "name": "player-m-start-a",
+    "walk": "art/characters/player/player-m-start-a.png",
+    "act": "art/characters/player/player-m-start-a.act.png"
+   },
+   "player-f-start-a": {
+    "name": "player-f-start-a",
+    "walk": "art/characters/player/player-f-start-a.png",
+    "act": "art/characters/player/player-f-start-a.act.png"
+   },
+   "player-m-start-b": {
+    "name": "player-m-start-b",
+    "walk": "art/characters/player/player-m-start-b.png",
+    "act": "art/characters/player/player-m-start-b.act.png"
+   },
+   "player-f-start-b": {
+    "name": "player-f-start-b",
+    "walk": "art/characters/player/player-f-start-b.png",
+    "act": "art/characters/player/player-f-start-b.act.png"
+   },
+   "player-m-mxgear": {
+    "name": "player-m-mxgear",
+    "walk": "art/characters/player/player-m-mxgear.png",
+    "act": "art/characters/player/player-m-mxgear.act.png"
+   },
+   "player-f-mxgear": {
+    "name": "player-f-mxgear",
+    "walk": "art/characters/player/player-f-mxgear.png",
+    "act": "art/characters/player/player-f-mxgear.act.png"
+   },
+   "player-m-mx-nohelmet": {
+    "name": "player-m-mx-nohelmet",
+    "walk": "art/characters/player/player-m-mx-nohelmet.png",
+    "act": "art/characters/player/player-m-mx-nohelmet.act.png"
+   }
+  }
+ }
+}
