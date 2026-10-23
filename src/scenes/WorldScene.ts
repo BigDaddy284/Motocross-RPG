@@ -8,11 +8,13 @@ import type { SaveData } from '../core/saves';
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
 import { applyMapState, clearedPatches, hiddenSprites } from '../core/mapState';
 import { WORLD_MAP, spawnTile, stepTriggerAt } from '../core/travel';
+import { entryFee, practiceFee, venueProblem, type VenueDef } from '../core/raceDay';
 import { CAREER_SLOT, services } from '../services';
 import { Character, TILE } from '../world/Character';
 import { MapView, OVERHEAD_DEPTH, isMapCached, loadMapImages } from '../world/MapView';
 import { actionMessage } from '../world/messages';
 import type { HudScene } from './HudScene';
+import type { RaceSceneData } from './RaceScene';
 
 // The walkable world: one map at a time, the player, NPCs, doors and exits.
 // Changing map restarts this scene with the arrival tile, so nothing from the old map lingers.
@@ -41,7 +43,8 @@ interface Shift {
 /** What a click or the interact key is aimed at. */
 type Target =
   | { kind: 'npc'; placement: NpcPlacement; character: Character }
-  | { kind: 'object'; object: MapObject; tiles: Tile[] };
+  | { kind: 'object'; object: MapObject; tiles: Tile[] }
+  | { kind: 'venue'; venue: VenueDef; tiles: Tile[] };
 
 export class WorldScene extends Phaser.Scene {
   private save!: SaveData;
@@ -125,7 +128,7 @@ export class WorldScene extends Phaser.Scene {
     this.setupInput();
     this.time.addEvent({ delay: AUTOSAVE_MS, loop: true, callback: () => this.autosave('timer') });
     this.hud.showMapTitle(map.title);
-    this.hud.showCareer(this.save.career);
+    this.hud.showCareer(this.save.career, this.save.flags);
     this.hud.showShift(null);
     cam.fadeIn(250, 20, 20, 30);
     this.busy = false;
@@ -247,6 +250,16 @@ export class WorldScene extends Phaser.Scene {
       const tiles = objectTiles(o, this.map.tileSize);
       if (tiles.some((t) => t.x === tile.x && t.y === tile.y)) return { kind: 'object', object: o, tiles };
     }
+    // Ride-on spots with no map object of their own, such as the backyard loop.
+    for (const v of services.content.tracks.venues) {
+      if (v.map !== this.map.id || !v.area) continue;
+      const [ax, ay, aw, ah] = v.area;
+      if (tile.x >= ax && tile.x < ax + aw && tile.y >= ay && tile.y < ay + ah) {
+        const tiles: Tile[] = [];
+        for (let y = ay; y < ay + ah; y++) for (let x = ax; x < ax + aw; x++) tiles.push({ x, y });
+        return { kind: 'venue', venue: v, tiles };
+      }
+    }
     return null;
   }
 
@@ -288,11 +301,23 @@ export class WorldScene extends Phaser.Scene {
       this.talkTo(target.placement, target.character);
       return;
     }
+    if (target.kind === 'venue') {
+      this.openVenue(target.venue);
+      return;
+    }
     const o = target.object;
     if (this.useForShift(o)) return;
     const action = typeof o.props.action === 'string' ? o.props.action : null;
     const objectKey = `${this.map.id}:${o.name}:${o.x},${o.y}`;
     if (action && this.runStory({ use: action, map: this.map.id, object: objectKey }, '')) return;
+    const venue = o.type === 'venue' ? services.content.tracks.venues.find((v) => v.id === o.props.venue) : undefined;
+    if (venue) {
+      if (venue.office && !venue.locked) {
+        const official = services.content.npcs.find((n) => n.id === venue.office);
+        this.hud.toast(`${venue.name}: sign on with the ${official?.name.toLowerCase() ?? 'track official'} at the race office.`);
+      } else this.openVenue(venue);
+      return;
+    }
     if (o.type === 'travel' && o.props.to === WORLD_MAP) {
       const lock = services.travel.lockFor(this.map, o, this.save.flags);
       if (lock) this.hud.toast(lock.message);
@@ -312,6 +337,11 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
     this.faceNpc(character);
+    const office = services.content.tracks.venues.find((v) => v.office === npc.id && v.map === this.map.id);
+    if (office) {
+      this.openVenue(office, () => this.faceBack(placement, character));
+      return;
+    }
     this.say(npc.name, this.dialogueFor(npc), () => this.faceBack(placement, character));
   }
 
@@ -366,7 +396,7 @@ export class WorldScene extends Phaser.Scene {
       const object = 'use' in ev ? ev.object : undefined;
       const step: StoryStep = m.step;
       const completed = advanceStory(story, career, this.save.flags, items, object);
-      this.hud.showCareer(career);
+      this.hud.showCareer(career, this.save.flags);
       const show = () => {
         onClose();
         if (!completed) return;
@@ -440,7 +470,7 @@ export class WorldScene extends Phaser.Scene {
       shift.station = 0;
       shift.made += 1;
       this.save.career.money += pence(shift.job.pay);
-      this.hud.showCareer(this.save.career);
+      this.hud.showCareer(this.save.career, this.save.flags);
       if (shift.made >= shift.job.batch) {
         const c = this.save.career.counters;
         c[shift.job.id] = (c[shift.job.id] ?? 0) + 1;
@@ -483,6 +513,68 @@ export class WorldScene extends Phaser.Scene {
   private clearStationMarks(): void {
     for (const m of this.stationMarks) m.destroy();
     this.stationMarks = [];
+  }
+
+  // ---- tracks: the race office, practice and the backyard loop ----
+
+  private openVenue(venue: VenueDef, onClose: () => void = () => this.player.idle()): void {
+    const rc = services.content;
+    const career = this.save.career;
+    const problem = venueProblem(rc, venue, career, this.save.flags);
+    if (problem) {
+      this.hud.toast(problem);
+      onClose();
+      return;
+    }
+    const pFee = practiceFee(rc, venue);
+    if (venue.practiceOnly) {
+      this.hud.confirm(`Ride the ${venue.name.toLowerCase()}?\nFree. Laps wear your parts and give practice XP.`, 'Ride', () => this.ride('practice', venue, pFee, onClose), onClose);
+      return;
+    }
+    const fee = entryFee(rc, venue, this.save.flags);
+    const cls = rc.racing.classes[venue.class ?? '50cc'];
+    const field = (rc.riders.fields[venue.field ?? ''] ?? []).length + 1;
+    const first = fee === 0 && venue.firstRaceFree;
+    const text = [
+      first ? "First time here? Your first race day is on us." : 'Race office. What can I do for you?',
+      `${venue.class} race day: ${field} riders including the Local Champion, 2 motos of ${cls.laps} laps. Prize money to 10th in each moto.`,
+    ].join('\n\n');
+    const short = (p: number) => career.money < p;
+    this.hud.choose(venue.name, text, [
+      { label: 'Race day', note: first ? 'Entry: free (first race)' : `Entry: ${formatMoney(fee)}${short(fee) ? " — you can't afford it" : ''}`, enabled: !short(fee), onPick: () => this.ride('raceday', venue, fee, onClose) },
+      { label: 'Free practice', note: `${formatMoney(pFee)}: ride laps on your own until you stop.${short(pFee) ? " You can't afford it." : ''}`, enabled: !short(pFee), onPick: () => this.ride('practice', venue, pFee, onClose) },
+      { label: 'Not now', onPick: onClose },
+    ], onClose);
+  }
+
+  /** Hands over to the race screen; the world sleeps until it is done. */
+  private ride(mode: 'practice' | 'raceday', venue: VenueDef, fee: number, onClose: () => void): void {
+    this.busy = true;
+    this.path = [];
+    this.player.stopWalking();
+    const data: RaceSceneData = {
+      mode,
+      venue,
+      fee,
+      save: this.snapshot(),
+      onDone: (save, message) => {
+        this.scene.wake('hud');
+        this.scene.wake();
+        this.save = save;
+        this.busy = false;
+        onClose();
+        this.hud.showCareer(this.save.career, this.save.flags);
+        this.milestoneSave();
+        this.hud.toast(message);
+      },
+    };
+    this.cameras.main.fadeOut(200, 20, 20, 30);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.sleep('hud');
+      this.scene.sleep();
+      this.scene.launch('race', data);
+      this.cameras.main.fadeIn(200, 20, 20, 30);
+    });
   }
 
   // ---- the world map ----

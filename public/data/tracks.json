@@ -1,0 +1,47 @@
+{
+  "note": "Tracks and venues (Spec 9.3, 18.5). A venue with a track can be ridden: needs is the flag that opens it, office is the NPC who takes entries, area is the tiles [x, y, w, h] on its map you click to ride (for venues without a race office), and locked is the message while it stays shut. Sections run in order from the start line back to it; lengths in metres along the racing line. path is the shape drawn on the race screen, as points on a 100 x 60 grid, starting at the start line. gates is the gate bonus curve in percent of start time, best gate first (Spec 10.4).",
+  "tracks": [
+    {
+      "id": "backyard", "name": "Backyard loop", "size": "practice", "surface": "hard_pack", "practiceOnly": true,
+      "path": [[50, 46], [72.0, 46.0], [80.0, 43.9], [85.9, 38.0], [88.0, 30.0], [85.9, 22.0], [80.0, 16.1], [72.0, 14.0], [28.0, 14.0], [20.0, 16.1], [14.1, 22.0], [12.0, 30.0], [14.1, 38.0], [20.0, 43.9], [28.0, 46.0]],
+      "sections": [
+        { "type": "straight", "length": 40, "passing": 0.6 },
+        { "type": "berm", "length": 35, "passing": 0.3 },
+        { "type": "tabletop", "length": 25, "passing": 0.1 },
+        { "type": "straight", "length": 30, "passing": 0.6 },
+        { "type": "berm", "length": 35, "passing": 0.3 }
+      ]
+    },
+    {
+      "id": "farmland", "name": "Farmland MX", "size": "small", "surface": "hard_pack",
+      "gates": [3, 3, 2, 2, 2, 1, 1, 1, 1, 0, 0, 0, 0, -1, -1, -2],
+      "path": [[30, 54], [78, 54], [90, 50], [94, 40], [94, 14], [88, 6], [20, 6], [8, 12], [6, 22], [12, 28], [68, 28], [74, 33], [68, 38], [14, 38], [7, 44], [12, 52]],
+      "sections": [
+        { "type": "start_gate", "length": 110, "passing": 0.7 },
+        { "type": "first_corner", "length": 45, "passing": 0.8 },
+        { "type": "straight", "length": 70, "passing": 0.6 },
+        { "type": "tabletop", "length": 40, "passing": 0.2 },
+        { "type": "fast_sweeper", "length": 60, "passing": 0.5 },
+        { "type": "double", "length": 35, "passing": 0.1 },
+        { "type": "straight", "length": 80, "passing": 0.6 },
+        { "type": "berm", "length": 45, "passing": 0.4 },
+        { "type": "rhythm", "length": 70, "passing": 0.1 },
+        { "type": "rutted_corner", "length": 50, "passing": 0.3 },
+        { "type": "straight", "length": 60, "passing": 0.5 },
+        { "type": "hairpin", "length": 40, "passing": 0.7 },
+        { "type": "braking_bumps", "length": 50, "passing": 0.4 },
+        { "type": "straight", "length": 75, "passing": 0.6 },
+        { "type": "step_up", "length": 35, "passing": 0.1 },
+        { "type": "flat_corner", "length": 45, "passing": 0.5 },
+        { "type": "tabletop", "length": 40, "passing": 0.2 },
+        { "type": "berm", "length": 45, "passing": 0.4 }
+      ]
+    }
+  ],
+  "venues": [
+    {"id": "venue-farmland", "name": "Farmland MX", "map": "area1-venue-farmland", "track": "farmland", "class": "50cc", "field": "area1.local", "office": "npc.track_official", "needs": "found.venue-farmland", "practiceFeePct": 25, "firstRaceFree": true},
+    {"id": "venue-quarry", "name": "Quarry MX", "map": "area1-venue-quarry", "locked": "The owner's not letting anyone race here yet. Do them a favour first. (Comes in a later build.)"},
+    {"id": "venue-woodland", "name": "Woodland MX", "map": "area1-venue-woodland", "locked": "Private track. The owner wants a favour before you can ride. (Comes in a later build.)"},
+    {"id": "backyard", "name": "Backyard loop", "map": "area1-home-town", "area": [3, 10, 6, 4], "track": "backyard", "class": "50cc", "practiceOnly": true}
+  ]
+}

@@ -117,6 +117,15 @@
     "local_racer.after": { "lines": [
       { "speaker": "npc", "text": "Farmland MX, west road. I'll see you on the gate." }
     ] },
+    "track_official.hello": { "lines": [
+      { "speaker": "npc", "text": "Race office. Sign on here for race days and practice." }
+    ] },
+    "local_champion.hello": { "lines": [
+      { "speaker": "npc", "text": "New face. Signing on for the 50s? Don't worry, everyone gets lapped by me once." }
+    ] },
+    "local_champion.after": { "lines": [
+      { "speaker": "npc", "text": "Not bad out there. Keep coming back. I'll be on the gate every week." }
+    ] },
     "modifier_owner.hello": { "lines": [
       { "speaker": "npc", "text": "This old machine? Put a clean part in and see what comes out. Not today, though." }
     ] },

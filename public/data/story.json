@@ -97,5 +97,9 @@
       "effects": { "flags": ["found.venue-farmland"] }
     }
   ],
-  "done": "Free roam. Race days arrive in test build 3."
+  "done": "Free roam: race at Farmland MX, practise on the backyard loop, or work shifts for money.",
+  "after": [
+    { "unless": "first_race_done", "text": "Race at Farmland MX: sign on with the track official at the race office. Your first race is free." },
+    { "unless": "first_race_finished", "text": "Finish both motos of a race day at Farmland MX. Practise on the backyard loop behind your rented room." }
+  ]
 }

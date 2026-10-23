@@ -89,7 +89,9 @@ describe('the opening chain', () => {
     for (const step of story.steps.slice(vanStep)) play(state, flags, step);
     expect(state.money).toBe(0);
     expect(flags.van_owned && flags.van_loaded).toBe(true);
-    expect(journal(story, state)).toBe(story.done);
+    expect(journal(story, state, flags)).toBe(story.after![0].text);
+    expect(journal(story, state, { ...flags, first_race_done: true })).toBe(story.after![1].text);
+    expect(journal(story, state, { ...flags, first_race_done: true, first_race_finished: true })).toBe(story.done);
   });
 
   it('fitting the top end costs £90 and leaves about £30 once the £120 is paid', () => {

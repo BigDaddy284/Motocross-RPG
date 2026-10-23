@@ -1,0 +1,59 @@
+{
+  "note": "Lead and child skills (GDD 6.1), XP table and unlocks (Spec 2.1), and the cross-skill triangle (GDD 6.2). Child skills use the OSRS XP table; a lead's level uses the same table times its multiplier, from the sum of its children's XP plus its bonus pool.",
+  "maxLevel": 99,
+  "crossBonus": 0.05,
+  "leads": [
+    {
+      "id": "rider", "name": "Rider Ability", "multiplier": 5, "bonusTo": "mech",
+      "desc": "How well you ride. Racing trains every Rider Ability skill at once; it also unlocks the bigger bike classes.",
+      "children": [
+        { "id": "balance", "name": "Balance", "desc": "Ruts, whoops and landings: faster through them and fewer crashes." },
+        { "id": "riding_position", "name": "Riding Position", "desc": "A little faster everywhere, most of all on straights and rhythm sections." },
+        { "id": "cornering", "name": "Cornering and Braking", "desc": "Corner speed, and fewer mistakes in braking zones." },
+        { "id": "jumps_ruts", "name": "Jumps and Ruts", "desc": "Jump and rut speed, and safer landings." },
+        { "id": "starts", "name": "Starts", "desc": "How well you get off the gate and into the first corner." },
+        { "id": "overtaking", "name": "Overtaking", "desc": "Your chance of making a pass stick, and how little a failed one costs." },
+        { "id": "consistency", "name": "Consistency", "desc": "Steadier lap times and fewer mistakes. Never removes them completely." }
+      ],
+      "unlocks": [
+        { "level": 10, "text": "65cc class" },
+        { "level": 20, "text": "85cc Small Wheel class" },
+        { "level": 30, "text": "85cc Big Wheel class" },
+        { "level": 40, "text": "125cc Youth class" },
+        { "level": 50, "text": "125cc class" },
+        { "level": 60, "text": "250cc F class" },
+        { "level": 70, "text": "450cc F class" },
+        { "level": 80, "text": "40+ Vets class" },
+        { "level": 90, "text": "50+ Vets class" },
+        { "level": 95, "text": "60+ Vets class" },
+        { "level": 99, "text": "The Ultimate Event" }
+      ]
+    },
+    {
+      "id": "mech", "name": "Mechanical Engineer", "multiplier": 5, "bonusTo": "fitness",
+      "desc": "Fitting, repairing, tuning and making parts. No direct effect in races.",
+      "children": [
+        { "id": "bodywork", "name": "Bodywork", "desc": "Frames, plastics and controls." },
+        { "id": "wheels", "name": "Wheels", "desc": "Wheels, tyres and brakes." },
+        { "id": "suspension", "name": "Suspension", "desc": "Forks and shock." },
+        { "id": "engine_components", "name": "Engine Components", "desc": "Top end, bottom end, intake and drivetrain." },
+        { "id": "engine_assembly", "name": "Engine Assembly", "desc": "Engine rebuilds, and better grades on engine parts you make." },
+        { "id": "welding", "name": "Welding", "desc": "Fabricating frames and brackets." },
+        { "id": "machining", "name": "Machining", "desc": "Turning and milling parts to tolerance." }
+      ],
+      "unlocks": []
+    },
+    {
+      "id": "fitness", "name": "Fitness", "multiplier": 4, "bonusTo": "rider",
+      "desc": "Strength, stamina and recovery. Worth up to about 3% of lap time in total.",
+      "children": [
+        { "id": "agility", "name": "Agility", "desc": "Faster crash recovery." },
+        { "id": "strength", "name": "Strength", "desc": "Speed in rough and late-race sections; less arm pump." },
+        { "id": "endurance", "name": "Endurance", "desc": "Slower energy drain, most of all in Endurance races." },
+        { "id": "martial_arts", "name": "Martial Arts", "desc": "Sometimes turns a bad crash into a lighter one." },
+        { "id": "wellbeing", "name": "Wellbeing", "desc": "A little more consistency late in a moto." }
+      ],
+      "unlocks": []
+    }
+  ]
+}

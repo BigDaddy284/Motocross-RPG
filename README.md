@@ -2,7 +2,7 @@
 
 A single-player, offline motocross career RPG. Start as an unknown rider with a broken 50cc and work your way up to legend.
 
-This is **test build 0.2**: the opening of a career. Name your rider, pick one of four starter 50cc bikes, then follow the garage mechanic's tutorial from a broken top end all the way to buying the van and driving out to the local tracks. All art is placeholder art in the agreed style, imported from the project's art threads.
+This is **test build 0.3**: your first race day. After the garage mechanic's tutorial and the van, sign on at Farmland MX and race two motos against the Local Champion and 14 other riders, or put laps in on the backyard loop. Every lap trains your Rider Ability skills and wears your bike. All art is placeholder art in the agreed style, imported from the project's art threads.
 
 ## Play it
 
@@ -25,9 +25,25 @@ This is **test build 0.2**: the opening of a career. Name your rider, pick one o
 | Next line of dialogue | Click, E, Space or Enter | Tap the box |
 | Zoom (50% to 200%) | Mouse wheel, + and -, or the Zoom button's slider | Zoom button, then drag the slider |
 | Bike, bag and current task | Tab, I or B | Bike button |
+| Skills | K, or the Skills tab in the Bike panel | Bike button, then Skills |
 | Pause menu (save, settings) | Esc | ☰ button |
 
 ## What's in this build
+
+### New in test build 0.3: XP, practice and the first race day
+
+Checked against the rest of the "Starter career slice" checklist (Systems Specification section 22), apart from the Local Champion championship, which comes next:
+
+- **Skills and XP.** All three lead skills and their 19 child skills (GDD 6.1) on the OSRS XP table, with the lead skills at 5× (Rider Ability, Mechanical Engineer) and 4× (Fitness). Rider Ability XP gives Mechanical Engineer a 5% cross-skill bonus, and so on round the triangle (GDD 6.2). A Skills tab shows every level and the progress to the next one, and results show level-ups.
+- **The race simulation** (Spec 10). Each lap is worked out section by section from your skills and your bike's stats: start gates with a bonus curve, clean air and traffic after the first corner, noise that Consistency narrows, mistakes and rare crashes that damage the parts the section puts at risk, passing within a second of the rider ahead, and ruts that deepen moto by moto. The same engine runs live and auto-complete, and a test checks that a held message gives exactly the same result both ways.
+- **Wear** by distance on every part (Spec 7.3): youth classes at ×0.8, faster wear below 20%, knock-on from worn and broken parts, and a small chance of a random breakage. A broken engine part ends your moto; 4 broken parts retire you.
+- **Farmland MX race day.** Talk to the track official at the race office. The first race day is free, then entry is £20. 16 riders including the Local Champion, 2 motos of 5 laps. Pick your gate (moto 1 in random order, moto 2 in moto 1 finishing order), pick a starting message, then race live or auto-complete. Leaving before moto 2 counts as a DNF.
+- **The race screen.** The track with every rider as a dot (you are orange), the running order with gaps, your position, the gaps ahead and behind, your broken parts, a feed of passes and mistakes, and the section times of your last lap under Details. Play it at 2×, 8× or 32×, or pause.
+- **The pit board** comes out each time the leader crosses the line: STEADY, PUSH or SAVE BIKE, 3 changes per moto, plus "It's over, bike blown" to retire.
+- **Results.** Each moto shows positions, gaps, best laps, points, prize money (3× entry to the winner, paid to 10th) and XP. The day shows the overall order, the podium bonus, your money, XP by skill and what wore on your bike.
+- **Backyard practice.** Click the dirt loop behind your rented room. Ride laps on your own until you stop: free, practice XP at a tenth of the race rate, and real wear. Farmland MX also has free practice for £5.
+- Saves are now version 3; a test build 0.2 save upgrades with every skill at level 1.
+- New content files, all checked at start-up: `skills.json`, `racing.json` (every race rule and tuning number), `tracks.json` (track sections and venues) and `riders.json` (the CPU riders and the local field). `npx vite-node tools/sim/balance.ts 300 1` runs 300 race days and prints the spread of results, crashes, money, XP and wear, for tuning.
 
 ### New in test build 0.2: the starter career slice
 
@@ -38,7 +54,7 @@ Checked against the "Starter career slice" part of the Systems Specification che
 - The opening chain, run by the garage mechanic. You get a used top end, pay £90 to fit it on the garage bench, and earn £120 for it. Then come errands to the bike shop, tyre shop and engine rebuilder, two customer bike services, and a visit to the van seller. It can't be skipped, and it pays out so you reach the van £80 short.
 - Until the chain is done, roadworks block the west road and the NPCs outside it don't acknowledge you. When it ends, the roadworks are cleared away and a fresh tarmac patch is left behind.
 - Repeatable shifts at the fabrication shop (20 brackets at 75p) and the engine rebuilder (16 pistons at £1.25). Each part is a pass through three stations: click the highlighted station, wait for it, and move on. You're paid per part, even if you stop early.
-- The used van for £600. A final task loads your bike and spares from your rented room, which opens the venue route and the world map. You can drive to Farmland MX, Quarry MX and Woodland MX and look around. The local racer points you to Farmland MX. Race days come in test build 3.
+- The used van for £600. A final task loads your bike and spares from your rented room, which opens the venue route and the world map. You can drive to Farmland MX, Quarry MX and Woodland MX and look around. The local racer points you to Farmland MX.
 - Saves are now version 2. A test build 0.1 save upgrades on load and starts the opening chain with a Hondmoto. Autosave also runs after every task step and every finished batch.
 - New content files, all checked at start-up: `bikes.json` (stats, part slots, brands), `items.json`, `story.json` (the opening chain, step by step) and `world.json` (locks, world map, shift jobs).
 
@@ -60,8 +76,8 @@ Checked against the first-build checklist in the Systems Specification, section 
 
 | Path | What it holds |
 | --- | --- |
-| `src/core/` | Game rules with no graphics: pathfinding, saves, settings, content checks, doors and exits, money, bikes and the opening chain (`career.ts`), and story changes to maps (`mapState.ts`). Covered by tests. |
-| `src/scenes/` | Phaser screens: boot, menus, settings, the world and the on-screen HUD. |
+| `src/core/` | Game rules with no graphics: pathfinding, saves, settings, content checks, doors and exits, money, bikes and the opening chain (`career.ts`), story changes to maps (`mapState.ts`), skills and XP (`skills.ts`), the race simulation (`race.ts`) and race days, practice and venues (`raceDay.ts`). Covered by tests. |
+| `src/scenes/` | Phaser screens: boot, menus, settings, the world, the on-screen HUD, and the race and practice screen. |
 | `src/world/` | Drawing maps and characters. |
 | `public/data/` | Game content as JSON: NPCs, dialogue, bikes, items, the opening chain (`story.json`) and the world map, locks and shift jobs (`world.json`). Every file is checked when the game starts. |
 | `public/assets/` | Art and baked maps, written by the import tool. Don't edit by hand. |
