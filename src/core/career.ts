@@ -89,6 +89,8 @@ export interface JobDef {
 }
 
 export interface WorldData {
+  /** Testing only: multiplies all shift pay. Review before Final v1. */
+  testPayMultiplier?: number;
   locks: { map: string; object: string; flag: string; message: string }[];
   worldMap: { map: string; spawn: string; name: string; note: string }[];
   jobs: JobDef[];
@@ -123,6 +125,9 @@ export interface CareerState {
 }
 
 export const pence = (pounds: number) => Math.round(pounds * 100);
+
+/** A shift job's pay per part in pence, after the testing multiplier. */
+export const jobPay = (world: WorldData, job: JobDef) => pence(job.pay * (world.testPayMultiplier ?? 1));
 
 export function formatMoney(p: number): string {
   const sign = p < 0 ? '−' : '';

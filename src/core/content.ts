@@ -205,9 +205,10 @@ export const STORY_SCHEMA: Schema = {
 
 export const WORLD_SCHEMA: Schema = {
   type: 'object',
-  optional: ['note'],
+  optional: ['note', 'testPayMultiplier'],
   fields: {
     note: { type: 'string' },
+    testPayMultiplier: { type: 'number', min: 0 },
     locks: {
       type: 'array',
       items: { type: 'object', fields: { map: { type: 'string', pattern: ID }, object: { type: 'string', nonEmpty: true }, flag: { type: 'string', pattern: ID }, message: { type: 'string', nonEmpty: true } } },

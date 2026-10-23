@@ -1,5 +1,6 @@
 {
-  "note": "Story locks on map objects, the world map's destinations, and the repeatable shift jobs (Spec 14.5a, 15.5). Pay is in pounds per part.",
+  "note": "Story locks on map objects, the world map's destinations, and the repeatable shift jobs (Spec 14.5a, 15.5). Pay is in pounds per part. testPayMultiplier boosts all shift pay while testing (Boss, test build 3): set it back to 1, or remove it, before Final v1.",
+  "testPayMultiplier": 3,
   "locks": [
     { "map": "area1-home-town", "object": "To the venue route", "flag": "van_loaded", "message": "You'll need a van, loaded with your bike, to get to the tracks." },
     { "map": "area1-home-town", "object": "Bus stop", "flag": "van_loaded", "message": "The bus won't take a bike. You'll need a van to get to the tracks." }

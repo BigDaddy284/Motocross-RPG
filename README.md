@@ -42,6 +42,7 @@ Checked against the rest of the "Starter career slice" checklist (Systems Specif
 - **The pit board** comes out each time the leader crosses the line: STEADY, PUSH or SAVE BIKE, 3 changes per moto, plus "It's over, bike blown" to retire.
 - **Results.** Each moto shows positions, gaps, best laps, points, prize money (3× entry to the winner, paid to 10th) and XP. The day shows the overall order, the podium bonus, your money, XP by skill and what wore on your bike.
 - **Backyard practice.** Click the dirt loop behind your rented room. Ride laps on your own until you stop: free, practice XP at a tenth of the race rate, and real wear. Farmland MX also has free practice for £5.
+- **Testing only:** shift pay is tripled (`testPayMultiplier: 3` in `world.json`), so a fabrication bracket pays £2.25 and a piston £3.75. Set it back to 1 before Final v1.
 - Saves are now version 3; a test build 0.2 save upgrades with every skill at level 1.
 - New content files, all checked at start-up: `skills.json`, `racing.json` (every race rule and tuning number), `tracks.json` (track sections and venues) and `riders.json` (the CPU riders and the local field). `npx vite-node tools/sim/balance.ts 300 1` runs 300 race days and prints the spread of results, crashes, money, XP and wear, for tuning.
 

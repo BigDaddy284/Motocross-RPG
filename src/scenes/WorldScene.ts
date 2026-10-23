@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { advanceStory, fillText, formatMoney, matchStory, pence, type JobDef, type StoryEvent, type StoryStep } from '../core/career';
+import { advanceStory, fillText, formatMoney, jobPay, matchStory, pence, type JobDef, type StoryEvent, type StoryStep } from '../core/career';
 import { npcsOnMap, type DialogueLine, type NpcDef, type NpcPlacement } from '../core/content';
 import { Grid, STEPS } from '../core/grid';
 import { objectTiles, type BakedMap, type Facing, type MapObject, type Tile } from '../core/mapTypes';
@@ -445,7 +445,7 @@ export class WorldScene extends Phaser.Scene {
       this.hud.toast('Nobody here has time to show you the work yet. Finish helping the garage mechanic first.');
       return true;
     }
-    const pay = formatMoney(pence(job.pay));
+    const pay = formatMoney(jobPay(services.content.world, job));
     this.hud.confirm(`${job.name}: make a batch of ${job.batch} ${job.product}s at ${pay} each.\nYou're paid for every part, even if you stop early.`, 'Start shift', () => {
       this.shift = { job, made: 0, station: 0 };
       this.showShift();
@@ -469,12 +469,12 @@ export class WorldScene extends Phaser.Scene {
     if (shift.station >= shift.job.stations.length) {
       shift.station = 0;
       shift.made += 1;
-      this.save.career.money += pence(shift.job.pay);
+      this.save.career.money += jobPay(services.content.world, shift.job);
       this.hud.showCareer(this.save.career, this.save.flags);
       if (shift.made >= shift.job.batch) {
         const c = this.save.career.counters;
         c[shift.job.id] = (c[shift.job.id] ?? 0) + 1;
-        this.endShift(`Batch done: ${shift.made} ${shift.job.product}s, ${formatMoney(pence(shift.job.pay) * shift.made)} earned.`);
+        this.endShift(`Batch done: ${shift.made} ${shift.job.product}s, ${formatMoney(jobPay(services.content.world, shift.job) * shift.made)} earned.`);
         this.milestoneSave();
         return;
       }

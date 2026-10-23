@@ -4,6 +4,7 @@ import {
   bikeProblem,
   bikeStats,
   formatMoney,
+  jobPay,
   journal,
   matchStory,
   newCareerState,
@@ -174,5 +175,14 @@ describe('roadworks and the venue route', () => {
       const out = m.objects.find((o) => o.type === 'exit')!;
       expect(travel.resolve(m, out, {})?.kind, m.id).toBe('worldMap');
     }
+  });
+});
+
+describe('testing pay boost', () => {
+  it('triples shift pay while testing (review before Final v1)', () => {
+    const fab = world.jobs.find((j) => j.id === 'job.fabrication')!;
+    expect(world.testPayMultiplier).toBe(3);
+    expect(jobPay(world, fab)).toBe(225);
+    expect(jobPay({ ...world, testPayMultiplier: undefined }, fab)).toBe(75);
   });
 });
