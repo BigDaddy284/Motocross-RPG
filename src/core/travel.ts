@@ -2,8 +2,10 @@ import type { WorldData } from './career';
 import { objectTile, objectTiles, type BakedMap, type MapObject, type Tile } from './mapTypes';
 
 // Doors, exits and spawns between maps, all read from the maps' Data layers:
-// - an area map door names an interior; stepping on it enters at the interior's spawn tile;
-// - an interior exit returns to the area map whose door leads in, on that building's return tile;
+// - an area map door names an interior; stepping on it enters at the interior's spawn tile,
+//   or at the spawn its `spawn` prop names (a building with a second door);
+// - an interior exit returns to the area map whose door leads in, on that building's return tile,
+//   or on the return tile its `return` prop names;
 // - an area exit names another area map and a spawn point there.
 
 export interface Arrival {
@@ -60,13 +62,13 @@ export class Travel {
 
     if (via.type === 'door' && typeof p.interior === 'string') {
       const target = this.maps.get(interiorMapId(p.interior));
-      const tile = target && spawnTile(target);
+      const tile = target && spawnTile(target, typeof p.spawn === 'string' ? p.spawn : undefined);
       if (!target || !tile) return { kind: 'blocked', message: `${via.name} isn't open in this build.`, via };
       return { kind: 'travel', to: { map: target.id, tile }, via };
     }
 
     if (via.type === 'exit' && map.kind === 'interior') {
-      const back = this.returnFor(String(p.interior));
+      const back = this.returnFor(String(p.interior), typeof p.return === 'string' ? p.return : undefined);
       return back ? { kind: 'travel', to: back, via } : { kind: 'blocked', message: 'This door leads nowhere yet.', via };
     }
 
@@ -79,13 +81,13 @@ export class Travel {
     return null;
   }
 
-  /** The return tile outside the building whose door leads into this interior. */
-  returnFor(interiorId: string): Arrival | null {
+  /** The return tile outside the building whose door leads into this interior (the named one, if given). */
+  returnFor(interiorId: string, name?: string): Arrival | null {
     for (const m of this.maps.values()) {
       if (m.kind !== 'area') continue;
       const door = m.objects.find((o) => o.type === 'door' && o.props.interior === interiorId);
       if (!door) continue;
-      const ret = m.objects.find((o) => o.type === 'return' && o.props.building === door.props.building);
+      const ret = m.objects.find((o) => o.type === 'return' && o.props.building === door.props.building && (!name || o.name === name));
       const tile = ret ? objectTile(ret, m.tileSize) : { ...objectTile(door, m.tileSize), y: objectTile(door, m.tileSize).y + 1 };
       return { map: m.id, tile };
     }

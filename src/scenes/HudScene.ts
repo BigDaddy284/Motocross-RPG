@@ -3,7 +3,7 @@ import { bikeProblem, bikeStats, formatMoney, journal, statMax, type CareerState
 import type { DialogueLine } from '../core/content';
 import { services } from '../services';
 import { COLORS, hex, textStyle } from '../ui/theme';
-import { ZOOM_MAX, ZOOM_MIN } from '../core/settings';
+import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
 import { button, panel, slider, statBar } from '../ui/widgets';
 import type { WorldScene } from './WorldScene';
 
@@ -127,7 +127,7 @@ export class HudScene extends Phaser.Scene {
       this.zoomDragging = true;
       services.settings.update('display', 'zoom', v);
       this.zoomDragging = false;
-    }, 10, (v) => `${v}%`);
+    }, ZOOM_STEP, (v) => `${v}%`);
     c.once('destroy', () => sl.destroy());
   }
 

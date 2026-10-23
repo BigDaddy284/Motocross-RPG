@@ -43,6 +43,19 @@ describe('Area 1 maps', () => {
     });
   }
 
+  it('the MX garage side door enters and leaves by the living-room doorway', () => {
+    const door = home.objects.find((o) => o.type === 'door' && o.props.spawn === 'side_door')!;
+    const r = travel.resolve(home, door);
+    expect(r?.kind === 'travel' && r.to).toEqual({ map: 'int-home-local-garage', tile: { x: 8, y: 5 } });
+    const inside = maps.get('int-home-local-garage')!;
+    const exit = inside.objects.find((o) => o.type === 'exit' && o.props.return === 'side_door')!;
+    const back = travel.resolve(inside, exit);
+    expect(back?.kind === 'travel' && back.to).toEqual({ map: 'area1-home-town', tile: { x: 36, y: 19 } });
+    for (const x of [36, 37]) expect(Grid.fromMap(home).isFree(x, 18), 'door tile').toBe(true);
+    const front = travel.resolve(inside, inside.objects.find((o) => o.type === 'exit' && !o.props.return)!);
+    expect(front?.kind === 'travel' && front.to.tile).toEqual({ x: 34, y: 19 });
+  });
+
   it('the road between Home Town and the Industrial Zone works both ways', () => {
     const iz = maps.get('area1-industrial-zone')!;
     const toIz = travel.resolve(home, home.objects.find((o) => o.name === 'To the Industrial Zone')!);
