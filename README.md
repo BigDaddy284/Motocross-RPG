@@ -23,7 +23,7 @@ This is **test build 0.2**: the opening of a career. Name your rider, pick one o
 | Walk | WASD or arrow keys, or click where you want to go | Tap where you want to go |
 | Talk to an NPC or use an object | Click it, or face it and press E or Space | Tap it |
 | Next line of dialogue | Click, E, Space or Enter | Tap the box |
-| Zoom (50% to 200%) | Mouse wheel, or + and - | + and - buttons |
+| Zoom (50% to 200%) | Mouse wheel, + and -, or the Zoom button's slider | Zoom button, then drag the slider |
 | Bike, bag and current task | Tab, I or B | Bike button |
 | Pause menu (save, settings) | Esc | ☰ button |
 

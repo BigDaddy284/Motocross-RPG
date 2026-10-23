@@ -3,7 +3,8 @@ import { bikeProblem, bikeStats, formatMoney, journal, statMax, type CareerState
 import type { DialogueLine } from '../core/content';
 import { services } from '../services';
 import { COLORS, hex, textStyle } from '../ui/theme';
-import { button, panel, statBar } from '../ui/widgets';
+import { ZOOM_MAX, ZOOM_MIN } from '../core/settings';
+import { button, panel, slider, statBar } from '../ui/widgets';
 import type { WorldScene } from './WorldScene';
 
 // Screen-space layer over the world: map name, money and task, messages, the dialogue box, the
@@ -28,6 +29,9 @@ export class HudScene extends Phaser.Scene {
   private onModalClose: (() => void) | null = null;
   private career: CareerState | null = null;
   private uiButtons: Phaser.GameObjects.Container[] = [];
+  /** The zoom slider that pops out beside the Zoom button. */
+  private zoomPop: Phaser.GameObjects.Container | null = null;
+  private zoomDragging = false;
   private advance: (() => void) | null = null;
 
   constructor() {
@@ -55,9 +59,15 @@ export class HudScene extends Phaser.Scene {
     this.toastBg = this.add.rectangle(0, 0, 10, 10, COLORS.ink, 0.88).setStrokeStyle(2, COLORS.panelLight).setVisible(false);
     this.toastText = this.add.text(0, 0, '', textStyle(this.ts(18), COLORS.cream, { align: 'center' })).setOrigin(0.5).setVisible(false);
     this.saveText = this.add.text(0, 0, '', textStyle(this.ts(16), COLORS.muted, { stroke: '#14141e', strokeThickness: 3 })).setOrigin(1, 0).setAlpha(0);
+    this.zoomPop = null;
     this.layout();
     this.scale.on('resize', this.layout, this);
-    this.events.once('shutdown', () => this.scale.off('resize', this.layout, this));
+    // Keep the slider in step when the mouse wheel or + and - change the zoom.
+    const unsub = services.settings.onChange(() => this.zoomPop && !this.zoomDragging && this.openZoom());
+    this.events.once('shutdown', () => {
+      this.scale.off('resize', this.layout, this);
+      unsub();
+    });
 
     const kb = this.input.keyboard!;
     // One owner for these keys, so a press that closes a dialogue or menu can't also reopen it.
@@ -92,15 +102,41 @@ export class HudScene extends Phaser.Scene {
     for (const b of this.uiButtons) b.destroy();
     this.uiButtons = [
       button(this, width - 34, 34, '☰', () => this.world.openPause(), 48, 48),
-      button(this, width - 34, 92, '+', () => this.world.zoomBy(10), 48, 48),
-      button(this, width - 34, 146, '−', () => this.world.zoomBy(-10), 48, 48),
-      button(this, width - 50, 206, 'Bike', () => !this.modal && !this.dialogue && this.openPanel('bike'), 80, 48),
+      button(this, width - 50, 92, 'Zoom', () => (this.zoomPop ? this.closeZoom() : this.openZoom()), 80, 48),
+      button(this, width - 50, 150, 'Bike', () => !this.modal && !this.dialogue && this.openPanel('bike'), 80, 48),
     ];
+    if (this.zoomPop) this.openZoom();
     this.saveText.setPosition(width - 70, 18);
     this.shiftText.setPosition(width / 2, 14);
     this.toastText.setPosition(width / 2, height - 60);
     this.toastText.setWordWrapWidth(Math.min(700, width - 60));
     this.fitToast();
+  }
+
+  /** A draggable zoom slider beside the Zoom button. Mouse wheel and + and - still zoom too. */
+  private openZoom(): void {
+    this.zoomPop?.destroy();
+    const { width } = this.scale;
+    const w = 300;
+    const c = this.add.container(width - 100 - w / 2, 92);
+    c.add(panel(this, 0, 0, w, 56).setInteractive());
+    c.add(this.add.text(-w / 2 + 14, 0, 'Zoom', textStyle(this.ts(16))).setOrigin(0, 0.5));
+    this.zoomPop = c;
+    // The slider sits outside the panel's container so its drag maths works in screen space.
+    const sl = slider(this, c.x - w / 2 + 76, c.y, 150, ZOOM_MIN, ZOOM_MAX, services.settings.get().display.zoom, (v) => {
+      this.zoomDragging = true;
+      services.settings.update('display', 'zoom', v);
+      this.zoomDragging = false;
+    }, 10, (v) => `${v}%`);
+    c.once('destroy', () => sl.destroy());
+  }
+
+  /** Closes the zoom slider. Returns true if it was open, so a click on the world only closes it. */
+  closeZoom(): boolean {
+    const open = !!this.zoomPop;
+    this.zoomPop?.destroy();
+    this.zoomPop = null;
+    return open;
   }
 
   /** True when a pointer is over a HUD button or panel, so the world ignores the click. */

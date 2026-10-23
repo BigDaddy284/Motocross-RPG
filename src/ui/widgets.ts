@@ -56,6 +56,7 @@ export function slider(
   value: number,
   onChange: (v: number) => void,
   step = 5,
+  format: (v: number) => string = String,
 ): Phaser.GameObjects.Container {
   const track = scene.add.rectangle(0, 0, width, 6, COLORS.panelLight).setOrigin(0, 0.5);
   const fill = scene.add.rectangle(0, 0, 0, 6, COLORS.accent).setOrigin(0, 0.5);
@@ -67,7 +68,7 @@ export function slider(
     const px = ((v - min) / (max - min)) * width;
     knob.x = px;
     fill.width = px;
-    label.setText(String(v));
+    label.setText(format(v));
     if (notify && v !== value) {
       value = v;
       onChange(v);

@@ -76,6 +76,17 @@ export class SaveManager {
     return full;
   }
 
+  /**
+   * Overwrites the current save without moving it into the backups, for frequent small saves
+   * such as the rider's spot on every map change, so they don't push out older backups.
+   */
+  update(slot: string, data: Omit<SaveData, 'version' | 'savedAt'>): SaveData {
+    if (this.store.get(this.key(slot)) === null) return this.write(slot, data);
+    const full: SaveData = { ...data, version: SAVE_VERSION, savedAt: this.now().toISOString() };
+    this.store.set(this.key(slot), JSON.stringify(full));
+    return full;
+  }
+
   load(slot: string): LoadResult {
     const raw = this.store.get(this.key(slot));
     if (raw === null) return { status: 'empty' };

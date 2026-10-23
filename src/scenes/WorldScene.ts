@@ -116,6 +116,18 @@ export class WorldScene extends Phaser.Scene {
     cam.fadeIn(250, 20, 20, 30);
     this.busy = false;
     if (this.intro) this.say('', services.content.story.intro);
+
+    // Remember the rider's spot: on arriving on every map, and whenever the page is hidden or
+    // closed, so Continue puts them back where they were (not just where the last autosave was).
+    this.quickSave();
+    const onHide = () => document.visibilityState === 'hidden' && this.quickSave();
+    const onPageHide = () => this.quickSave();
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', onPageHide);
+    this.events.once('shutdown', () => {
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', onPageHide);
+    });
   }
 
   update(_time: number, delta: number): void {
@@ -149,6 +161,7 @@ export class WorldScene extends Phaser.Scene {
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => {
       if (p.getDistance() > 12) return; // a drag, not a click
       if (this.busy || this.hud.isDialogueOpen() || this.hud.pointerOnUi(p)) return;
+      if (this.hud.closeZoom()) return;
       const w = this.cameras.main.getWorldPoint(p.x, p.y);
       this.clickAt(w.x, w.y);
     });
@@ -544,6 +557,15 @@ export class WorldScene extends Phaser.Scene {
   private snapshot(): SaveData {
     const p = this.player?.tile ?? this.save.position;
     return { ...this.save, position: { map: this.map.id, x: p.x, y: p.y, facing: this.player?.facing ?? 'down' } };
+  }
+
+  /** Saves the current spot without rotating backups. */
+  private quickSave(): void {
+    try {
+      this.save = services.saves.update(CAREER_SLOT, this.snapshot());
+    } catch {
+      // Storage full or blocked: the timed autosave reports it.
+    }
   }
 
   private writeSave(): void {

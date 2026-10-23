@@ -64,6 +64,16 @@ describe('SaveManager', () => {
     expect(data?.career.bike.parts.top_end.condition).toBe(0);
   });
 
+  it('a quick update keeps the rider\'s spot without pushing out backups', () => {
+    const saves = new SaveManager(new MemoryStore());
+    saves.write('career-1', sample(1));
+    saves.write('career-1', sample(2));
+    saves.update('career-1', sample(9));
+    const r = saves.load('career-1');
+    expect(r.status === 'ok' && r.data.position.x).toBe(9);
+    expect(saves.backups('career-1').map((b) => b.index)).toEqual([1]);
+  });
+
   it('lists career slots without backups', () => {
     const saves = new SaveManager(new MemoryStore());
     saves.write('career-1', sample(1));
