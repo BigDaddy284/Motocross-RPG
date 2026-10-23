@@ -2,7 +2,7 @@
 
 A single-player, offline motocross career RPG. Start as an unknown rider with a broken 50cc and work your way up to legend.
 
-This is **test build 0.1**: the first playable prototype. You can walk around Home Town and the Industrial Zone, go in and out of every Area 1 building, talk to nine NPCs, and save and continue. All art is placeholder art in the agreed style, imported from the project's art threads.
+This is **test build 0.2**: the opening of a career. Name your rider, pick one of four starter 50cc bikes, then follow the garage mechanic's tutorial from a broken top end all the way to buying the van and driving out to the local tracks. All art is placeholder art in the agreed style, imported from the project's art threads.
 
 ## Play it
 
@@ -23,10 +23,26 @@ This is **test build 0.1**: the first playable prototype. You can walk around Ho
 | Walk | WASD or arrow keys, or click where you want to go | Tap where you want to go |
 | Talk to an NPC or use an object | Click it, or face it and press E or Space | Tap it |
 | Next line of dialogue | Click, E, Space or Enter | Tap the box |
-| Zoom (50% to 200%) | Mouse wheel, or + and - | + and - buttons |
+| Zoom (50% to 200%) | Mouse wheel, + and -, or the Zoom button's slider | Zoom button, then drag the slider |
+| Bike, bag and current task | Tab, I or B | Bike button |
 | Pause menu (save, settings) | Esc | ☰ button |
 
 ## What's in this build
+
+### New in test build 0.2: the starter career slice
+
+Checked against the "Starter career slice" part of the Systems Specification checklist (section 22), up to the van:
+
+- Character creation: pick a rider, type a rider name (it can't be changed later), and choose one of four starter 50cc bikes: Yamamoto, Kwakmoto, Sukimoto or Hondmoto. Each leans a different way with the same overall total.
+- Money and a bike: you start with £150 and a second-hand bike whose Grade 1 parts are at 50–80% condition, with the top end at 0%. The Bike panel shows the six bike stats, every part's grade and condition, your bag and your current task. The task also shows on screen under your money.
+- The opening chain, run by the garage mechanic. You get a used top end, pay £90 to fit it on the garage bench, and earn £120 for it. Then come errands to the bike shop, tyre shop and engine rebuilder, two customer bike services, and a visit to the van seller. It can't be skipped, and it pays out so you reach the van £80 short.
+- Until the chain is done, roadworks block the west road and the NPCs outside it don't acknowledge you. When it ends, the roadworks are cleared away and a fresh tarmac patch is left behind.
+- Repeatable shifts at the fabrication shop (20 brackets at 75p) and the engine rebuilder (16 pistons at £1.25). Each part is a pass through three stations: click the highlighted station, wait for it, and move on. You're paid per part, even if you stop early.
+- The used van for £600. A final task loads your bike and spares from your rented room, which opens the venue route and the world map. You can drive to Farmland MX, Quarry MX and Woodland MX and look around. The local racer points you to Farmland MX. Race days come in test build 3.
+- Saves are now version 2. A test build 0.1 save upgrades on load and starts the opening chain with a Hondmoto. Autosave also runs after every task step and every finished batch.
+- New content files, all checked at start-up: `bikes.json` (stats, part slots, brands), `items.json`, `story.json` (the opening chain, step by step) and `world.json` (locks, world map, shift jobs).
+
+### From test build 0.1
 
 Checked against the first-build checklist in the Systems Specification, section 22:
 
@@ -44,10 +60,10 @@ Checked against the first-build checklist in the Systems Specification, section 
 
 | Path | What it holds |
 | --- | --- |
-| `src/core/` | Game rules with no graphics: pathfinding, saves, settings, content checks, doors and exits. Covered by tests. |
+| `src/core/` | Game rules with no graphics: pathfinding, saves, settings, content checks, doors and exits, money, bikes and the opening chain (`career.ts`), and story changes to maps (`mapState.ts`). Covered by tests. |
 | `src/scenes/` | Phaser screens: boot, menus, settings, the world and the on-screen HUD. |
 | `src/world/` | Drawing maps and characters. |
-| `public/data/` | Game content as JSON: NPCs and dialogue. More content files join these as systems arrive. |
+| `public/data/` | Game content as JSON: NPCs, dialogue, bikes, items, the opening chain (`story.json`) and the world map, locks and shift jobs (`world.json`). Every file is checked when the game starts. |
 | `public/assets/` | Art and baked maps, written by the import tool. Don't edit by hand. |
 | `tools/import-art.mjs` | Copies the art from the shared art folder and bakes each Tiled map into one game-ready file. |
 | `tools/map-editor.html` | Standalone map and tile editor for the game maps and the Tiled sources. |

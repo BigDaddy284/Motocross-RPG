@@ -181,6 +181,13 @@ function bakeMap(mapFile, kind, buildings) {
         });
         continue;
       }
+      // A blocker's cleared look (cleared_tile, a tile name) is baked as an image the game draws
+      // over the blocker's ground detail once the story clears it.
+      if (o.type === 'blocker' && typeof p.cleared_tile === 'string') {
+        const t = [...gids.values()].find((g) => g.props.name === p.cleared_tile);
+        if (!t) throw new Error(`${id}: blocker ${o.name} names unknown cleared_tile ${p.cleared_tile}`);
+        p.cleared_img = img(t.imageAbs);
+      }
       objects.push({
         type: o.type,
         name: o.name,

@@ -1,0 +1,49 @@
+{
+  "note": "Bike stat model (Spec 5) and the four starter 50cc bikes (Spec 18.8, 18.9). Numbers are provisional first-pass values.",
+  "stats": [
+    { "id": "power", "name": "Power" },
+    { "id": "response", "name": "Response" },
+    { "id": "handling", "name": "Handling" },
+    { "id": "absorption", "name": "Absorption" },
+    { "id": "grip", "name": "Grip" },
+    { "id": "braking", "name": "Braking" }
+  ],
+  "slots": [
+    { "id": "frame", "name": "Frame", "weights": { "handling": 0.35, "absorption": 0.2 } },
+    { "id": "top_end", "name": "Top end", "weights": { "power": 0.35, "response": 0.3 }, "engine": true },
+    { "id": "bottom_end", "name": "Bottom end", "weights": { "power": 0.3 }, "engine": true },
+    { "id": "intake_exhaust", "name": "Intake and exhaust", "weights": { "power": 0.25, "response": 0.3 } },
+    { "id": "drivetrain", "name": "Drivetrain", "weights": { "power": 0.1, "response": 0.4 } },
+    { "id": "forks", "name": "Forks", "weights": { "handling": 0.25, "absorption": 0.4 } },
+    { "id": "shock", "name": "Shock", "weights": { "absorption": 0.4, "grip": 0.4 } },
+    { "id": "wheels_tyres", "name": "Wheels and tyres", "weights": { "handling": 0.2, "grip": 0.6 } },
+    { "id": "brakes", "name": "Brakes", "weights": { "braking": 1 } },
+    { "id": "bodywork", "name": "Bodywork and controls", "weights": { "handling": 0.2 } }
+  ],
+  "classes": [
+    { "id": "50cc", "name": "50cc", "ceiling": 400 }
+  ],
+  "starter": { "class": "50cc", "grade": 1, "condition": [0.5, 0.8], "brokenSlot": "top_end" },
+  "brands": [
+    {
+      "id": "yamamoto", "name": "Yamamoto", "starter": "Yamamoto YM50",
+      "character": "Strong engine. Most power, a little less stable.",
+      "lean": { "power": 1.12, "response": 1.04, "handling": 0.96, "absorption": 0.96, "grip": 0.96, "braking": 0.96 }
+    },
+    {
+      "id": "kwakmoto", "name": "Kwakmoto", "starter": "Kwakmoto KX50",
+      "character": "Snappy and light. Best throttle response and starts.",
+      "lean": { "power": 1.0, "response": 1.12, "handling": 1.04, "absorption": 0.94, "grip": 0.96, "braking": 0.94 }
+    },
+    {
+      "id": "sukimoto", "name": "Sukimoto", "starter": "Sukimoto SZ50",
+      "character": "Sharp chassis. Best handling and grip in the corners.",
+      "lean": { "power": 0.94, "response": 0.96, "handling": 1.12, "absorption": 0.98, "grip": 1.06, "braking": 0.94 }
+    },
+    {
+      "id": "hondmoto", "name": "Hondmoto", "starter": "Hondmoto HR50",
+      "character": "The all-rounder. Plush and stable on landings.",
+      "lean": { "power": 0.98, "response": 0.98, "handling": 1.0, "absorption": 1.06, "grip": 0.98, "braking": 1.0 }
+    }
+  ]
+}

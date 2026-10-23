@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BACKUP_COUNT, SaveManager, parseSave } from '../src/core/saves';
+import { BACKUP_COUNT, SAVE_VERSION, SaveManager, parseSave } from '../src/core/saves';
 import { MemoryStore } from '../src/core/storage';
 
 const sample = (x: number) => ({
@@ -7,6 +7,13 @@ const sample = (x: number) => ({
   position: { map: 'area1-home-town', x, y: 19, facing: 'down' as const },
   flags: {},
   stats: { playSeconds: x },
+  career: {
+    money: 15000,
+    bike: { brand: 'yamamoto', class: '50cc', parts: { top_end: { grade: 1, condition: 0 } } },
+    bag: [],
+    story: { step: 0, used: [] },
+    counters: {},
+  },
 });
 
 describe('SaveManager', () => {
@@ -45,6 +52,26 @@ describe('SaveManager', () => {
     expect(parseSave('{"version":99}')).toBeNull();
     expect(parseSave('not json')).toBeNull();
     expect(parseSave(JSON.stringify({ ...sample(1), version: 1, savedAt: 'x', position: { map: 'a', x: 1.5, y: 1, facing: 'down' } }))).toBeNull();
+  });
+
+  it('upgrades a test build 0.1 save to the start of the opening chain', () => {
+    const { career: _, ...v1 } = sample(4);
+    const data = parseSave(JSON.stringify({ ...v1, version: 1, savedAt: '2026-10-20T10:00:00.000Z' }));
+    expect(data?.version).toBe(SAVE_VERSION);
+    expect(data?.position.x).toBe(4);
+    expect(data?.career.money).toBe(15000);
+    expect(data?.career.story.step).toBe(0);
+    expect(data?.career.bike.parts.top_end.condition).toBe(0);
+  });
+
+  it('a quick update keeps the rider\'s spot without pushing out backups', () => {
+    const saves = new SaveManager(new MemoryStore());
+    saves.write('career-1', sample(1));
+    saves.write('career-1', sample(2));
+    saves.update('career-1', sample(9));
+    const r = saves.load('career-1');
+    expect(r.status === 'ok' && r.data.position.x).toBe(9);
+    expect(saves.backups('career-1').map((b) => b.index)).toEqual([1]);
   });
 
   it('lists career slots without backups', () => {

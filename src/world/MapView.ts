@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { BakedMap } from '../core/mapTypes';
+import type { BakedMap, MapSprite } from '../core/mapTypes';
 
 // Draws a baked map. Ground layers are painted once into a texture that stays cached, so a
 // second visit to a map skips both the image downloads and the painting (Spec 22, map caching).
@@ -26,7 +26,11 @@ export function isMapCached(scene: Phaser.Scene, map: BakedMap): boolean {
 export class MapView {
   readonly objects: Phaser.GameObjects.GameObject[] = [];
 
-  constructor(scene: Phaser.Scene, map: BakedMap) {
+  /**
+   * `hidden` sprites are left out and `patches` drawn over the ground, for story changes such as
+   * cleared roadworks (core/mapState).
+   */
+  constructor(scene: Phaser.Scene, map: BakedMap, hidden: ReadonlySet<MapSprite> = new Set(), patches: { img: number; x: number; y: number }[] = []) {
     const t = map.tileSize;
     const groundKey = `ground:${map.id}`;
     if (!scene.textures.exists(groundKey)) {
@@ -43,8 +47,10 @@ export class MapView {
       dt.endDraw();
     }
     this.objects.push(scene.add.image(0, 0, groundKey).setOrigin(0).setDepth(-1));
+    for (const p of patches) this.objects.push(scene.add.image(p.x * t, p.y * t, imageKey(map.images[p.img])).setOrigin(0).setDepth(-0.9));
 
     for (const s of map.sprites) {
+      if (hidden.has(s)) continue;
       const key = imageKey(map.images[s.img]);
       let frame: string | undefined;
       if (s.crop) {

@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { newCareerState } from '../core/career';
 import type { SaveData } from '../core/saves';
 import { spawnTile } from '../core/travel';
 import { CAREER_SLOT, services } from '../services';
@@ -36,15 +37,17 @@ export function startCareer(scene: Phaser.Scene, slot: string): void {
 }
 
 /** A fresh career at the Home Town new-game spawn. Overwrites slot 1, keeping it as backup 1. */
-export function newCareer(scene: Phaser.Scene, look: string): void {
+export function newCareer(scene: Phaser.Scene, pick: { look: string; name: string; brand: string }): void {
   const home = services.maps.get(START_MAP)!;
   const t = spawnTile(home, 'new_game')!;
+  const { bikes, story } = services.content;
   const data: Omit<SaveData, 'version' | 'savedAt'> = {
-    rider: { name: 'Rider', look },
+    rider: { name: pick.name, look: pick.look },
     position: { map: START_MAP, x: t.x, y: t.y, facing: 'down' },
     flags: {},
     stats: { playSeconds: 0 },
+    career: newCareerState(bikes, story, pick.brand),
   };
   const saved = services.saves.write(CAREER_SLOT, data);
-  scene.scene.start('world', { save: saved });
+  scene.scene.start('world', { save: saved, intro: true });
 }

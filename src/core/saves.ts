@@ -1,3 +1,4 @@
+import type { CareerState } from './career';
 import type { Facing } from './mapTypes';
 import type { KeyValueStore } from './storage';
 
@@ -6,7 +7,7 @@ import type { KeyValueStore } from './storage';
 // - a save from an older build loads through the migration steps below;
 // - a save that cannot be read is kept under a "corrupt" key and the newest good backup is offered.
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 export const BACKUP_COUNT = 5;
 
 export interface SaveData {
@@ -17,12 +18,27 @@ export interface SaveData {
   position: { map: string; x: number; y: number; facing: Facing };
   flags: Record<string, boolean>;
   stats: { playSeconds: number };
+  career: CareerState;
 }
+
+const V1_SLOTS = ['frame', 'top_end', 'bottom_end', 'intake_exhaust', 'drivetrain', 'forks', 'shock', 'wheels_tyres', 'brakes', 'bodywork'];
 
 type Migration = (old: Record<string, unknown>) => Record<string, unknown>;
 
 /** MIGRATIONS[n] upgrades a version n save to version n + 1. */
-const MIGRATIONS: Record<number, Migration> = {};
+const MIGRATIONS: Record<number, Migration> = {
+  // Test build 0.1 had no money, bike or story: start the opening chain with a Hondmoto, the all-rounder.
+  1: (old) => ({
+    ...old,
+    career: {
+      money: 15000,
+      bike: { brand: 'hondmoto', class: '50cc', parts: Object.fromEntries(V1_SLOTS.map((s) => [s, { grade: 1, condition: s === 'top_end' ? 0 : 0.65 }])) },
+      bag: [],
+      story: { step: 0, used: [] },
+      counters: {},
+    },
+  }),
+};
 
 export type LoadResult =
   | { status: 'ok'; data: SaveData; fromBackup?: number }
@@ -56,6 +72,17 @@ export class SaveManager {
       }
       this.store.set(this.key(slot, 1), current);
     }
+    this.store.set(this.key(slot), JSON.stringify(full));
+    return full;
+  }
+
+  /**
+   * Overwrites the current save without moving it into the backups, for frequent small saves
+   * such as the rider's spot on every map change, so they don't push out older backups.
+   */
+  update(slot: string, data: Omit<SaveData, 'version' | 'savedAt'>): SaveData {
+    if (this.store.get(this.key(slot)) === null) return this.write(slot, data);
+    const full: SaveData = { ...data, version: SAVE_VERSION, savedAt: this.now().toISOString() };
     this.store.set(this.key(slot), JSON.stringify(full));
     return full;
   }
@@ -131,6 +158,22 @@ function isSaveData(o: Record<string, unknown>): o is SaveData & Record<string, 
     !!p && typeof p.map === 'string' && Number.isInteger(p.x) && Number.isInteger(p.y) &&
     ['down', 'left', 'right', 'up'].includes(p.facing as string) &&
     typeof o.flags === 'object' && o.flags !== null &&
-    typeof (o.stats as Record<string, unknown> | undefined)?.playSeconds === 'number'
+    typeof (o.stats as Record<string, unknown> | undefined)?.playSeconds === 'number' &&
+    isCareer(o.career)
+  );
+}
+
+function isCareer(v: unknown): boolean {
+  const c = v as Record<string, unknown> | undefined;
+  if (!c || typeof c !== 'object') return false;
+  const bike = c.bike as Record<string, unknown> | undefined;
+  const story = c.story as Record<string, unknown> | undefined;
+  return (
+    Number.isInteger(c.money) &&
+    !!bike && typeof bike.brand === 'string' && typeof bike.class === 'string' && typeof bike.parts === 'object' && bike.parts !== null &&
+    Object.values(bike.parts).every((p) => Number.isInteger(p?.grade) && typeof p?.condition === 'number') &&
+    Array.isArray(c.bag) && c.bag.every((b) => typeof b?.id === 'string') &&
+    !!story && Number.isInteger(story.step) && Array.isArray(story.used) &&
+    typeof c.counters === 'object' && c.counters !== null
   );
 }

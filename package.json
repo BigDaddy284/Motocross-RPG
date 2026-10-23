@@ -1,6 +1,6 @@
 {
   "name": "the-motocross-rpg",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Motocross RPG: The Road to Legend. Single-player, offline motocross career RPG.",
   "private": true,
   "type": "module",

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { CONTENT_FILES, checkContent, type Manifest } from '../core/content';
+import { CONTENT_FILES, checkContent, type Manifest, type RawContent } from '../core/content';
 import type { BakedMap } from '../core/mapTypes';
 import { Travel } from '../core/travel';
 import { formatError } from '../core/validate';
@@ -19,8 +19,7 @@ export class BootScene extends Phaser.Scene {
     const label = this.add.text(width / 2, height / 2, 'Loading…', textStyle(22)).setOrigin(0.5);
     this.load.on('progress', (v: number) => label.setText(`Loading… ${Math.round(v * 100)}%`));
     this.load.json('manifest', 'assets/manifest.json');
-    this.load.json('content:npcs', CONTENT_FILES.npcs);
-    this.load.json('content:dialogue', CONTENT_FILES.dialogue);
+    for (const [k, file] of Object.entries(CONTENT_FILES)) this.load.json(`content:${k}`, file);
   }
 
   create(): void {
@@ -38,11 +37,8 @@ export class BootScene extends Phaser.Scene {
   private finish(manifest: Manifest): void {
     const maps = new Map<string, BakedMap>();
     for (const m of manifest.maps) maps.set(m.id, this.cache.json.get(`map:${m.id}`) as BakedMap);
-    const { content, errors } = checkContent(
-      { npcs: this.cache.json.get('content:npcs'), dialogue: this.cache.json.get('content:dialogue') },
-      manifest,
-      maps,
-    );
+    const raw = Object.fromEntries(Object.keys(CONTENT_FILES).map((k) => [k, this.cache.json.get(`content:${k}`)])) as RawContent;
+    const { content, errors } = checkContent(raw, manifest, maps);
     if (!content || errors.length) {
       this.showErrors(errors.map(formatError));
       return;
@@ -50,7 +46,7 @@ export class BootScene extends Phaser.Scene {
     services.manifest = manifest;
     services.content = content;
     services.maps = maps;
-    services.travel = new Travel(maps);
+    services.travel = new Travel(maps, content.world.locks);
     this.scene.start('menu');
   }
 

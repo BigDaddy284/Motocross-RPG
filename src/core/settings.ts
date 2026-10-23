@@ -22,6 +22,8 @@ export const DEFAULT_SETTINGS: Settings = {
 /** Zoom range from the style guide: 50% to 200%. */
 export const ZOOM_MIN = 50;
 export const ZOOM_MAX = 200;
+/** One click of the zoom buttons, mouse wheel or +/- keys. */
+export const ZOOM_STEP = 10;
 
 const KEY = 'settings';
 

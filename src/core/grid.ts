@@ -54,6 +54,11 @@ export class Grid {
     return !this.walls.has(edgeKey(a, b));
   }
 
+  /** Opens a blocked tile, for map changes such as cleared roadworks. */
+  unblock(x: number, y: number): void {
+    if (this.inBounds(x, y)) this.blocked[y * this.width + x] = false;
+  }
+
   setOccupied(t: Tile, occupied: boolean): void {
     if (occupied) this.occupants.add(key(t.x, t.y));
     else this.occupants.delete(key(t.x, t.y));

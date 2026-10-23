@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { checkContent, npcsOnMap } from '../src/core/content';
 import { formatError } from '../src/core/validate';
-import { loadManifest, loadMaps, publicFileExists, readPublic } from './helpers';
+import { loadManifest, loadMaps, publicFileExists, rawContent } from './helpers';
 
 const manifest = loadManifest();
 const maps = loadMaps();
-const raw = () => ({ npcs: readPublic('data/npcs.json'), dialogue: readPublic('data/dialogue.json') });
+const raw = rawContent;
 
 describe('content files', () => {
   it('pass every check', () => {
@@ -21,7 +21,7 @@ describe('content files', () => {
   });
 
   it('a broken file is rejected with a message naming the file and field', () => {
-    const r = raw() as { npcs: { npcs: Record<string, unknown>[] }; dialogue: unknown };
+    const r = raw() as ReturnType<typeof raw> & { npcs: { npcs: Record<string, unknown>[] } };
     r.npcs.npcs[1].facing = 'sideways';
     delete r.npcs.npcs[2].name;
     const { content, errors } = checkContent(r, manifest, maps);
@@ -33,7 +33,7 @@ describe('content files', () => {
   });
 
   it('catches references to things that do not exist', () => {
-    const r = raw() as { npcs: { npcs: Record<string, unknown>[] }; dialogue: unknown };
+    const r = raw() as ReturnType<typeof raw> & { npcs: { npcs: Record<string, unknown>[] } };
     r.npcs.npcs[0].sprite = 'npc-99-nobody';
     r.npcs.npcs[0].tile = [0, 0];
     const { errors } = checkContent(r, manifest, maps);
