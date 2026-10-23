@@ -30,10 +30,6 @@ const AREA_MAPS = [
 const INTERIOR_DIR = 'buildings/tiled/maps/interiors';
 const BUILDINGS_DATA = 'buildings/data/area1-buildings-v3.json';
 
-// The furniture tile set says its objects are anchored top-left, but the Buildings thread's maps
-// give each furniture object's bottom edge as y (they render correctly only that way). Until the
-// tile set is fixed at the source, read those objects bottom-left like Tiled's default.
-const ALIGN_OVERRIDES = { 'interior-furniture': 'bottomleft' };
 
 const copied = new Set();
 
@@ -67,7 +63,7 @@ function loadTilesets(mapFile, map) {
     if (!ts.source) throw new Error(`${mapFile}: embedded tilesets are not supported`);
     const tsFile = path.resolve(path.dirname(mapFile), ts.source);
     const tileset = readJson(tsFile);
-    const align = ALIGN_OVERRIDES[tileset.name] ?? tileset.objectalignment ?? 'bottomleft';
+    const align = tileset.objectalignment ?? 'bottomleft';
     for (const tile of tileset.tiles ?? []) {
       lookup.set(ts.firstgid + tile.id, {
         firstgid: ts.firstgid,
