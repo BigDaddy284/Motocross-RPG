@@ -1,0 +1,101 @@
+{
+  "note": "The opening chain (GDD 4.2, Spec 14.1 and 18.8), played in order. Money is in pounds. Start £150; the chain pays £460 and fitting costs £90, so you reach the van £80 short.",
+  "startMoney": 150,
+  "intro": "story.intro",
+  "steps": [
+    {
+      "id": "meet_mechanic", "journal": "Your 50cc won't start. Ask the garage mechanic on the high street for help.",
+      "on": { "talk": "npc.garage_mechanic" }, "lines": "story.meet_mechanic",
+      "effects": { "give": ["part.top_end_used"] }
+    },
+    {
+      "id": "fit_top_end", "journal": "Fit the top end at the garage workbench. Bench time costs £90.",
+      "on": { "use": "workshop.fit_tune", "map": "int-home-local-garage" },
+      "needs": { "money": 90, "items": ["part.top_end_used"] }, "notReady": "story.fit_top_end.short",
+      "confirm": "Pay £90 for bench time and fit the top end?",
+      "lines": "story.fit_top_end",
+      "effects": { "money": -90, "fit": "part.top_end_used" }
+    },
+    {
+      "id": "paid_top_end", "journal": "Your bike runs. Tell the garage mechanic.",
+      "on": { "talk": "npc.garage_mechanic" }, "lines": "story.paid_top_end",
+      "effects": { "money": 120 }
+    },
+    {
+      "id": "collect_order", "journal": "Collect the garage's parts order from the general bike shop.",
+      "on": { "talk": "npc.bike_shop_owner" }, "lines": "story.collect_order",
+      "effects": { "give": ["task.parts_order"] }
+    },
+    {
+      "id": "deliver_order", "journal": "Take the parts order back to the garage mechanic.",
+      "on": { "talk": "npc.garage_mechanic" }, "lines": "story.deliver_order",
+      "effects": { "take": ["task.parts_order"], "money": 50 }
+    },
+    {
+      "id": "service_bikes", "journal": "Service both customer bikes on the stands in the garage.",
+      "on": { "use": "workshop.bike", "map": "int-home-local-garage" }, "times": 2,
+      "lines": "story.service_bike"
+    },
+    {
+      "id": "paid_service", "journal": "Both bikes are done. Tell the garage mechanic.",
+      "on": { "talk": "npc.garage_mechanic" }, "lines": "story.paid_service",
+      "effects": { "money": 100 }
+    },
+    {
+      "id": "collect_tyres", "journal": "Pick up a pair of tyres from the tyres and wheels shop.",
+      "on": { "talk": "npc.tyre_specialist" }, "lines": "story.collect_tyres",
+      "effects": { "give": ["task.tyres"] }
+    },
+    {
+      "id": "fit_tyres", "journal": "Fit the new tyres on the tyre machine in the garage.",
+      "on": { "use": "train.tyre_change", "map": "int-home-local-garage" },
+      "needs": { "items": ["task.tyres"] }, "lines": "story.fit_tyres",
+      "effects": { "take": ["task.tyres"] }
+    },
+    {
+      "id": "paid_tyres", "journal": "Tyres fitted. Tell the garage mechanic.",
+      "on": { "talk": "npc.garage_mechanic" }, "lines": "story.paid_tyres",
+      "effects": { "money": 70, "give": ["task.cylinder"] }
+    },
+    {
+      "id": "rebore", "journal": "Take the worn cylinder to the engine rebuilder in the Industrial Zone.",
+      "on": { "talk": "npc.engine_rebuilder" }, "lines": "story.rebore",
+      "effects": { "take": ["task.cylinder"], "give": ["task.cylinder_rebored"] }
+    },
+    {
+      "id": "paid_rebore", "journal": "Bring the rebored cylinder back to the garage mechanic.",
+      "on": { "talk": "npc.garage_mechanic" }, "lines": "story.paid_rebore",
+      "effects": { "take": ["task.cylinder_rebored"], "money": 80 }
+    },
+    {
+      "id": "meet_van_seller", "journal": "Go and see the van seller about getting to the tracks.",
+      "on": { "talk": "npc.van_seller" }, "lines": "story.meet_van_seller"
+    },
+    {
+      "id": "tutorial_end", "journal": "Report back to the garage mechanic.",
+      "on": { "talk": "npc.garage_mechanic" }, "lines": "story.tutorial_end",
+      "effects": { "money": 40, "flags": ["tutorial_done", "roadworks_done"] },
+      "toast": "The roadworks are finished and the venue road is open. Everyone in town has time for you now."
+    },
+    {
+      "id": "buy_van", "journal": "Buy the used van for £600. Shifts at the fabrication shop or engine rebuilder will cover the gap.",
+      "on": { "talk": "npc.van_seller" },
+      "needs": { "money": 600 }, "notReady": "story.buy_van.short",
+      "confirm": "Buy the used van for £600?",
+      "lines": "story.buy_van",
+      "effects": { "money": -600, "flags": ["van_owned"] }
+    },
+    {
+      "id": "load_van", "journal": "Load your bike, spares and tools into the van. Your spares are in the chest in your rented room.",
+      "on": { "use": "storage.parts", "map": "int-home-rented-room" }, "lines": "story.load_van",
+      "effects": { "flags": ["van_loaded"] },
+      "toast": "The venue route is open. Head west out of Home Town to reach the tracks."
+    },
+    {
+      "id": "find_track", "journal": "Ask the local racer near the practice track where to race.",
+      "on": { "talk": "npc.local_racer" }, "lines": "story.find_track",
+      "effects": { "flags": ["found.venue-farmland"] }
+    }
+  ],
+  "done": "Free roam. Race days arrive in test build 3."
+}

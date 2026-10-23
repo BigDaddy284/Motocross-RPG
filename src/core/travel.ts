@@ -1,3 +1,4 @@
+import type { WorldData } from './career';
 import { objectTile, objectTiles, type BakedMap, type MapObject, type Tile } from './mapTypes';
 
 // Doors, exits and spawns between maps, all read from the maps' Data layers:
@@ -12,6 +13,7 @@ export interface Arrival {
 
 export type StepResult =
   | { kind: 'travel'; to: Arrival; via: MapObject }
+  | { kind: 'worldMap'; via: MapObject }
   | { kind: 'blocked'; message: string; via: MapObject }
   | null;
 
@@ -33,13 +35,28 @@ export function spawnTile(map: BakedMap, name?: string): Tile | null {
   return s ? objectTile(s, map.tileSize) : null;
 }
 
+export const WORLD_MAP = 'world_map';
+
 export class Travel {
-  constructor(private readonly maps: Map<string, BakedMap>) {}
+  constructor(
+    private readonly maps: Map<string, BakedMap>,
+    private readonly locks: WorldData['locks'] = [],
+  ) {}
+
+  /** The story lock on an object that is still shut, if any. */
+  lockFor(map: BakedMap, via: MapObject, flags: Record<string, boolean>): WorldData['locks'][number] | null {
+    return this.locks.find((l) => l.map === map.id && l.object === via.name && !flags[l.flag]) ?? null;
+  }
 
   /** Where stepping onto a door or exit leads, or why it can't be used yet. */
-  resolve(map: BakedMap, via: MapObject): StepResult {
+  resolve(map: BakedMap, via: MapObject, flags: Record<string, boolean> = {}): StepResult {
     const p = via.props;
-    if (p.locked) return { kind: 'blocked', message: `${via.name} is locked for now.`, via };
+    const lock = this.lockFor(map, via, flags);
+    if (lock) return { kind: 'blocked', message: lock.message, via };
+    // A map lock opens with a story lock above or the flag named by its unlock property.
+    const storyOpened = this.locks.some((l) => l.map === map.id && l.object === via.name);
+    if (p.locked && !storyOpened && !(typeof p.unlock === 'string' && flags[p.unlock])) return { kind: 'blocked', message: `${via.name} is locked for now.`, via };
+    if (p.to === WORLD_MAP) return { kind: 'worldMap', via };
 
     if (via.type === 'door' && typeof p.interior === 'string') {
       const target = this.maps.get(interiorMapId(p.interior));

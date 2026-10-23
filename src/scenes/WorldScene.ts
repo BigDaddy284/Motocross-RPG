@@ -1,14 +1,16 @@
 import Phaser from 'phaser';
-import { npcsOnMap, type NpcPlacement } from '../core/content';
+import { advanceStory, fillText, formatMoney, matchStory, pence, type JobDef, type StoryEvent, type StoryStep } from '../core/career';
+import { npcsOnMap, type DialogueLine, type NpcDef, type NpcPlacement } from '../core/content';
 import { Grid, STEPS } from '../core/grid';
 import { objectTiles, type BakedMap, type Facing, type MapObject, type Tile } from '../core/mapTypes';
 import { findPathToAny, findPathTowards, standingTiles } from '../core/pathfinding';
 import type { SaveData } from '../core/saves';
 import { ZOOM_MAX, ZOOM_MIN } from '../core/settings';
-import { stepTriggerAt } from '../core/travel';
+import { applyMapState, clearedPatches, hiddenSprites } from '../core/mapState';
+import { WORLD_MAP, spawnTile, stepTriggerAt } from '../core/travel';
 import { CAREER_SLOT, services } from '../services';
 import { Character, TILE } from '../world/Character';
-import { MapView, isMapCached, loadMapImages } from '../world/MapView';
+import { MapView, OVERHEAD_DEPTH, isMapCached, loadMapImages } from '../world/MapView';
 import { actionMessage } from '../world/messages';
 import type { HudScene } from './HudScene';
 
@@ -23,6 +25,15 @@ const DESIGN_H = 720;
 
 interface WorldData {
   save: SaveData;
+  /** A brand-new career: show the opening lines. */
+  intro?: boolean;
+}
+
+/** A shift in progress: which station is next and how many parts are made. */
+interface Shift {
+  job: JobDef;
+  made: number;
+  station: number;
 }
 
 /** What a click or the interact key is aimed at. */
@@ -42,6 +53,9 @@ export class WorldScene extends Phaser.Scene {
   private busy = false;
   private keys!: Record<'up' | 'down' | 'left' | 'right' | 'w' | 'a' | 's' | 'd', Phaser.Input.Keyboard.Key>;
   private hud!: HudScene;
+  private intro = false;
+  private shift: Shift | null = null;
+  private stationMarks: Phaser.GameObjects.GameObject[] = [];
 
   constructor() {
     super('world');
@@ -49,6 +63,9 @@ export class WorldScene extends Phaser.Scene {
 
   init(data: WorldData): void {
     this.save = structuredClone(data.save);
+    this.intro = !!data.intro;
+    this.shift = null;
+    this.stationMarks = [];
     this.npcs = [];
     this.path = [];
     this.onArrive = null;
@@ -66,11 +83,12 @@ export class WorldScene extends Phaser.Scene {
     const firstVisit = !isMapCached(this, map);
     const started = performance.now();
     await loadMapImages(this, map);
-    new MapView(this, map);
+    new MapView(this, map, hiddenSprites(map, this.save.flags), clearedPatches(map, this.save.flags));
     if (firstVisit) console.info(`Map ${map.id}: first visit ${Math.round(performance.now() - started)} ms`);
     else console.info(`Map ${map.id}: cached visit ${Math.round(performance.now() - started)} ms`);
 
     this.grid = Grid.fromMap(map);
+    applyMapState(map, this.grid, this.save.flags);
     for (const p of npcsOnMap(services.content, map)) {
       const character = new Character(this, p.npc.sprite, p, p.facing);
       this.grid.setOccupied(p, true);
@@ -93,8 +111,11 @@ export class WorldScene extends Phaser.Scene {
     this.setupInput();
     this.time.addEvent({ delay: AUTOSAVE_MS, loop: true, callback: () => this.autosave('timer') });
     this.hud.showMapTitle(map.title);
+    this.hud.showCareer(this.save.career);
+    this.hud.showShift(null);
     cam.fadeIn(250, 20, 20, 30);
     this.busy = false;
+    if (this.intro) this.say('', services.content.story.intro);
   }
 
   update(_time: number, delta: number): void {
@@ -225,19 +246,215 @@ export class WorldScene extends Phaser.Scene {
 
   private use(target: Target): void {
     if (target.kind === 'npc') {
-      const { npc } = target.placement;
-      const turn: Record<Facing, Facing> = { down: 'up', up: 'down', left: 'right', right: 'left' };
-      target.character.face(turn[this.player.facing]);
-      this.player.reach();
-      const lines = services.content.dialogue[npc.dialogue].lines;
-      this.hud.openDialogue(npc.name, this.save.rider.name, lines, () => {
-        this.player.idle();
-        target.character.face(target.placement.facing);
-      });
+      this.talkTo(target.placement, target.character);
       return;
     }
-    const msg = actionMessage(target.object);
+    const o = target.object;
+    if (this.useForShift(o)) return;
+    const action = typeof o.props.action === 'string' ? o.props.action : null;
+    const objectKey = `${this.map.id}:${o.name}:${o.x},${o.y}`;
+    if (action && this.runStory({ use: action, map: this.map.id, object: objectKey }, '')) return;
+    if (o.type === 'travel' && o.props.to === WORLD_MAP) {
+      const lock = services.travel.lockFor(this.map, o, this.save.flags);
+      if (lock) this.hud.toast(lock.message);
+      else this.openWorldMap();
+      return;
+    }
+    const msg = actionMessage(o, this.save.flags);
     if (msg) this.hud.toast(msg);
+  }
+
+  private talkTo(placement: NpcPlacement, character: Character): void {
+    const { npc } = placement;
+    if (this.runStory({ talk: npc.id }, npc.name, () => this.faceBack(placement, character), () => this.faceNpc(character))) return;
+    if (npc.quietUntil && !this.save.flags[npc.quietUntil]) {
+      // GDD 4.2: NPCs outside the opening chain don't acknowledge the rider until it's done.
+      this.hud.toast(`The ${npc.name.toLowerCase()} doesn't look up.`);
+      return;
+    }
+    this.faceNpc(character);
+    this.say(npc.name, this.dialogueFor(npc), () => this.faceBack(placement, character));
+  }
+
+  private faceNpc(character: Character): void {
+    const turn: Record<Facing, Facing> = { down: 'up', up: 'down', left: 'right', right: 'left' };
+    character.face(turn[this.player.facing]);
+    this.player.reach();
+  }
+
+  private faceBack(placement: NpcPlacement, character: Character): void {
+    this.player.idle();
+    character.face(placement.facing);
+  }
+
+  /** The NPC's line set for the current flags (npcs.json talk), or their default dialogue. */
+  private dialogueFor(npc: NpcDef): string {
+    const f = this.save.flags;
+    const rule = npc.talk?.find((t) => (t.if === undefined || f[t.if]) && (t.unless === undefined || !f[t.unless]));
+    return rule?.dialogue ?? npc.dialogue;
+  }
+
+  /** Shows a dialogue by key, filling in {rider} and any extra values. */
+  private say(speaker: string, key: string, onClose: () => void = () => this.player.idle(), vars: Record<string, string> = {}): void {
+    const all = { rider: this.save.rider.name, ...vars };
+    const lines: DialogueLine[] = services.content.dialogue[key].lines.map((l) => ({ ...l, text: fillText(l.text, all) }));
+    this.hud.openDialogue(speaker, this.save.rider.name, lines, onClose);
+  }
+
+  /**
+   * Plays the current opening-chain step if this talk or use is it. Returns false when the event
+   * has nothing to do with the story, so the normal response runs instead.
+   */
+  private runStory(ev: StoryEvent, speaker: string, onClose: () => void = () => this.player.idle(), onStart: () => void = () => this.player.reach()): boolean {
+    const { story, items } = services.content;
+    const career = this.save.career;
+    const m = matchStory(story, career, ev);
+    if (!m) return false;
+    if (m.kind === 'alreadyUsed') {
+      this.hud.toast("You've already done that one.");
+      return true;
+    }
+    onStart();
+    if (m.kind === 'notReady') {
+      if (m.step.notReady) this.say(speaker, m.step.notReady, onClose, { short: formatMoney(m.short) });
+      else {
+        this.hud.toast(m.short > 0 ? `You're ${formatMoney(m.short)} short.` : "You don't have what you need for this yet.");
+        onClose();
+      }
+      return true;
+    }
+    const finish = () => {
+      const object = 'use' in ev ? ev.object : undefined;
+      const step: StoryStep = m.step;
+      const completed = advanceStory(story, career, this.save.flags, items, object);
+      this.hud.showCareer(career);
+      const show = () => {
+        onClose();
+        if (!completed) return;
+        if (step.effects?.money) this.hud.toast(step.toast ?? `${step.effects.money > 0 ? '+' : ''}${formatMoney(pence(step.effects.money))}`);
+        else if (step.toast) this.hud.toast(step.toast);
+        if (step.effects?.flags?.length) this.refreshMapState();
+        this.milestoneSave();
+      };
+      if (step.lines) this.say(speaker, step.lines, show);
+      else show();
+    };
+    if (m.step.confirm) this.hud.confirm(m.step.confirm, 'Yes', finish, onClose);
+    else finish();
+    return true;
+  }
+
+  /** Flags such as cleared roadworks change the map: reload it in place. */
+  private refreshMapState(): void {
+    const hidden = hiddenSprites(this.map, this.save.flags);
+    if (!hidden.size) return;
+    this.time.delayedCall(300, () => {
+      this.save.position = { map: this.map.id, x: this.player.tile.x, y: this.player.tile.y, facing: this.player.facing };
+      this.scene.restart({ save: this.save });
+    });
+  }
+
+  // ---- shift work (Spec 15.5: click a station, wait for it, move to the next; one pass makes one part) ----
+
+  /** Starts a shift at a job's start object, or works the next station. Returns true if handled. */
+  private useForShift(o: MapObject): boolean {
+    if (this.shift) {
+      const st = this.shift.job.stations[this.shift.station];
+      if (o.name === st.object) {
+        void this.workStation();
+        return true;
+      }
+      if (this.shift.job.stations.some((s) => s.object === o.name)) {
+        this.hud.toast(`Next: ${st.label}.`);
+        return true;
+      }
+      return false;
+    }
+    const job = services.content.world.jobs.find((j) => j.map === this.map.id && j.start === o.name);
+    if (!job) return false;
+    if (job.needs && !this.save.flags[job.needs]) {
+      this.hud.toast('Nobody here has time to show you the work yet. Finish helping the garage mechanic first.');
+      return true;
+    }
+    const pay = formatMoney(pence(job.pay));
+    this.hud.confirm(`${job.name}: make a batch of ${job.batch} ${job.product}s at ${pay} each.\nYou're paid for every part, even if you stop early.`, 'Start shift', () => {
+      this.shift = { job, made: 0, station: 0 };
+      this.showShift();
+      void this.workStation();
+    }, () => this.player.idle());
+    return true;
+  }
+
+  private async workStation(): Promise<void> {
+    const shift = this.shift;
+    if (!shift || this.busy) return;
+    const st = shift.job.stations[shift.station];
+    this.busy = true;
+    this.clearStationMarks();
+    this.player.reach();
+    await this.hud.progress(st.label, st.ms);
+    this.player.idle();
+    this.busy = false;
+    if (this.shift !== shift) return;
+    shift.station += 1;
+    if (shift.station >= shift.job.stations.length) {
+      shift.station = 0;
+      shift.made += 1;
+      this.save.career.money += pence(shift.job.pay);
+      this.hud.showCareer(this.save.career);
+      if (shift.made >= shift.job.batch) {
+        const c = this.save.career.counters;
+        c[shift.job.id] = (c[shift.job.id] ?? 0) + 1;
+        this.endShift(`Batch done: ${shift.made} ${shift.job.product}s, ${formatMoney(pence(shift.job.pay) * shift.made)} earned.`);
+        this.milestoneSave();
+        return;
+      }
+    }
+    this.showShift();
+  }
+
+  private showShift(): void {
+    const s = this.shift;
+    if (!s) return;
+    const st = s.job.stations[s.station];
+    this.hud.showShift(`${s.job.name}: ${s.made} of ${s.job.batch} ${s.job.product}s\nNext: ${st.label}`);
+    this.markStation(st.object);
+  }
+
+  private endShift(message: string): void {
+    this.shift = null;
+    this.clearStationMarks();
+    this.hud.showShift(null);
+    this.hud.toast(message);
+  }
+
+  /** A pulsing ring under every object that can do the next station. */
+  private markStation(name: string): void {
+    this.clearStationMarks();
+    for (const o of this.map.objects.filter((x) => x.name === name)) {
+      const tiles = objectTiles(o, this.map.tileSize);
+      const cx = (tiles.reduce((a, t) => a + t.x, 0) / tiles.length + 0.5) * TILE;
+      const cy = (tiles.reduce((a, t) => a + t.y, 0) / tiles.length + 0.5) * TILE;
+      const ring = this.add.ellipse(cx, cy + 18, TILE * Math.max(1, tiles.length * 0.8), 26).setStrokeStyle(4, 0xef6c18, 0.95).setDepth(OVERHEAD_DEPTH);
+      if (!services.settings.get().accessibility.reducedEffects) this.tweens.add({ targets: ring, alpha: 0.35, duration: 600, yoyo: true, repeat: -1 });
+      this.stationMarks.push(ring);
+    }
+  }
+
+  private clearStationMarks(): void {
+    for (const m of this.stationMarks) m.destroy();
+    this.stationMarks = [];
+  }
+
+  // ---- the world map ----
+
+  private openWorldMap(): void {
+    this.hud.openWorldMap(this.map.id, (mapId, spawn) => {
+      const target = services.maps.get(mapId);
+      const tile = target && spawnTile(target, spawn);
+      if (!target || !tile) return;
+      this.leaveTo({ map: mapId, x: tile.x, y: tile.y, facing: 'up' });
+    });
   }
 
   /** A small ring where the player clicked, so a click always shows a response. */
@@ -294,22 +511,32 @@ export class WorldScene extends Phaser.Scene {
   private checkTrigger(): boolean {
     const via = stepTriggerAt(this.map, this.player.tile);
     if (!via) return false;
-    const r = services.travel.resolve(this.map, via);
+    const r = services.travel.resolve(this.map, via, this.save.flags);
     if (!r) return false;
-    if (r.kind === 'blocked') {
+    if (r.kind === 'blocked' || r.kind === 'worldMap') {
       this.path = [];
       this.onArrive = null;
-      this.hud.toast(r.message);
+      if (r.kind === 'blocked') this.hud.toast(r.message);
+      else {
+        this.player.stopWalking();
+        this.openWorldMap();
+      }
       return false;
     }
+    const entering = this.map.kind === 'area' && via.type === 'door';
+    this.leaveTo({ map: r.to.map, x: r.to.tile.x, y: r.to.tile.y, facing: entering ? 'up' : 'down' });
+    return true;
+  }
+
+  /** Fades out and loads another map. Leaving ends any shift; the parts made are already paid. */
+  private leaveTo(position: SaveData['position']): void {
+    if (this.shift) this.endShift(`Shift ended: ${this.shift.made} ${this.shift.job.product}s made.`);
     this.busy = true;
     this.path = [];
     this.player.stopWalking();
-    const entering = this.map.kind === 'area' && via.type === 'door';
-    this.save.position = { map: r.to.map, x: r.to.tile.x, y: r.to.tile.y, facing: entering ? 'up' : 'down' };
+    this.save.position = position;
     this.cameras.main.fadeOut(200, 20, 20, 30);
     this.cameras.main.once('camerafadeoutcomplete', () => this.scene.restart({ save: this.save }));
-    return true;
   }
 
   // ---- saving ----
@@ -321,6 +548,16 @@ export class WorldScene extends Phaser.Scene {
 
   private writeSave(): void {
     this.save = services.saves.write(CAREER_SLOT, this.snapshot());
+  }
+
+  /** Autosave at milestones such as a finished task or batch (Spec 21b). */
+  private milestoneSave(): void {
+    try {
+      this.writeSave();
+      this.hud.saveIndicator('Autosaved');
+    } catch {
+      this.hud.toast('Saving failed: storage is full or blocked.');
+    }
   }
 
   private autosave(reason: 'timer' | 'manual'): void {

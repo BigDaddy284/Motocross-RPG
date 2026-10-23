@@ -39,7 +39,7 @@ export class MenuScene extends Phaser.Scene {
       ['Load', () => this.showLoad(), hasSave],
       ['Settings', () => this.scene.start('settings', { back: 'menu' }), true],
       ['Archive', () => this.showInfo('Archive', 'Finished and abandoned careers will be kept here. Nothing to show in the test build.'), true],
-      ['Info', () => this.showInfo('Info', `${BUILD_LABEL}\n\nWalk with WASD or the arrow keys, or click or tap where you want to go.\nClick an NPC to talk. E or Space talks to whoever you are facing.\nMouse wheel or + and - to zoom. Esc for the pause menu.\n\nAll art is placeholder art in the agreed style.`), true],
+      ['Info', () => this.showInfo('Info', `${BUILD_LABEL}\n\nWalk with WASD or the arrow keys, or click or tap where you want to go.\nClick an NPC to talk. E or Space talks to whoever you are facing.\nTab, I or B opens your bike, bag and task.\nMouse wheel or + and - to zoom. Esc for the pause menu.\n\nAll art is placeholder art in the agreed style.`), true],
       ['Exit', () => this.exit(), true],
     ];
     items.forEach(([label, fn, on], i) => menu.add(button(this, 0, 180 + i * 56, label, fn).setEnabled(on)));

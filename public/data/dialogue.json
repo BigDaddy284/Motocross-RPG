@@ -1,29 +1,121 @@
 {
-  "note": "Placeholder lines for the test build. The real tutorial script and NPC text come later.",
+  "note": "NPC lines and the opening chain's script. {rider} is the rider's name, {short} is how much money is missing. Speaker narrator has no name box.",
   "dialogue": {
+    "story.intro": { "lines": [
+      { "speaker": "narrator", "text": "Your first bike: a tired 50cc, bought with everything you had. You kick it over. Nothing." },
+      { "speaker": "narrator", "text": "The garage on the high street fixes anything with an engine. Maybe the mechanic there can help." },
+      { "speaker": "narrator", "text": "Press Tab or tap Bike to check your bike, your bag and your current task." }
+    ] },
+    "story.meet_mechanic": { "lines": [
+      { "speaker": "npc", "text": "So you're the new rider everyone's on about? Let's have a listen to that 50." },
+      { "speaker": "narrator", "text": "The mechanic pulls the plug, squints at it, and shakes their head." },
+      { "speaker": "npc", "text": "Top end's gone. Zero compression. That bike's going nowhere until it's replaced." },
+      { "speaker": "npc", "text": "Here, take this used top end. It's off a customer's old bike and it's still got plenty of life in it." },
+      { "speaker": "player", "text": "I haven't got any tools." },
+      { "speaker": "npc", "text": "No, you'd need a proper workshop for that. Use my bench. It's £90 for bench time and the gaskets. Fit it and I'll pay you £120 for helping out after." },
+      { "speaker": "narrator", "text": "You got a used top end. The workbench is in the far corner of the garage." }
+    ] },
+    "story.fit_top_end.short": { "lines": [
+      { "speaker": "narrator", "text": "Bench time is £90. You're {short} short." }
+    ] },
+    "story.fit_top_end": { "lines": [
+      { "speaker": "narrator", "text": "You strip off the old cylinder head, clean the gasket faces and fit the new top end, step by step." },
+      { "speaker": "narrator", "text": "One kick. Two. The little 50 coughs, then settles into a crackly idle. It runs!" }
+    ] },
+    "story.paid_top_end": { "lines": [
+      { "speaker": "npc", "text": "Hear that? Sounds like a bike again. Nice work. Here's the £120 I promised." },
+      { "speaker": "npc", "text": "If you're after more, I've got jobs. First, pop to the general bike shop up the road and collect my parts order." }
+    ] },
+    "story.collect_order": { "lines": [
+      { "speaker": "npc", "text": "The garage order? It's right here. Mind, it's heavier than it looks." },
+      { "speaker": "npc", "text": "Once you're racing, come back and see me for parts. I stock Grades 1 to 3 for the 50s and 65s." }
+    ] },
+    "story.deliver_order": { "lines": [
+      { "speaker": "npc", "text": "Lovely, that's everything. Here's £50 for the legwork." },
+      { "speaker": "npc", "text": "Now, there are two customer bikes on the stands. Give them both a service: chain, filter and a once-over." }
+    ] },
+    "story.service_bike": { "lines": [
+      { "speaker": "narrator", "text": "You adjust the chain, wash the air filter and check every bolt. That's one bike done." }
+    ] },
+    "story.paid_service": { "lines": [
+      { "speaker": "npc", "text": "Neat work. You've got the hands for this. That's £100." },
+      { "speaker": "npc", "text": "Next, the tyres and wheels shop has a pair of tyres for me. Fetch them and fit them on my tyre machine." }
+    ] },
+    "story.collect_tyres": { "lines": [
+      { "speaker": "npc", "text": "For the garage? Here you go, one pair of hard-pack tyres." },
+      { "speaker": "npc", "text": "Hard pack round here, so you'll want a hard-pack rear on your own bike too, one day." }
+    ] },
+    "story.fit_tyres": { "lines": [
+      { "speaker": "narrator", "text": "You break the beads, lever the old tyres off and seat the new ones. It's harder than it looks." }
+    ] },
+    "story.paid_tyres": { "lines": [
+      { "speaker": "npc", "text": "Not a pinch in sight. Here's £70." },
+      { "speaker": "npc", "text": "One more errand. This cylinder needs a rebore, and the engine rebuilder in the Industrial Zone does the best work. It's east along the main road." }
+    ] },
+    "story.rebore": { "lines": [
+      { "speaker": "npc", "text": "From the garage, is it? Give it here." },
+      { "speaker": "narrator", "text": "The lathe whines for a minute. The engine rebuilder hands the cylinder back, bright and true." },
+      { "speaker": "npc", "text": "There you go. If you ever want shifts, I've always got engine work. So does the fabrication shop next door." }
+    ] },
+    "story.paid_rebore": { "lines": [
+      { "speaker": "npc", "text": "Perfect bore. That's £80." },
+      { "speaker": "npc", "text": "You'll want to get to the tracks next, and for that you need a van. Go and see the van seller, south of here." }
+    ] },
+    "story.meet_van_seller": { "lines": [
+      { "speaker": "npc", "text": "The mechanic sent you? Then you'll want the old van out back." },
+      { "speaker": "npc", "text": "It's high mileage, but it starts every time. It holds one bike, twenty parts and ten tools. Six hundred quid, no haggling." },
+      { "speaker": "player", "text": "I'll come back when I've got the money." }
+    ] },
+    "story.tutorial_end": { "lines": [
+      { "speaker": "npc", "text": "Six hundred for the van? Fair price. Here's £40 extra for all your help today." },
+      { "speaker": "npc", "text": "If you're still short, the fabrication shop and the engine rebuilder always need shift workers." },
+      { "speaker": "npc", "text": "Oh, and the council's finally finished the roadworks on the west road. That's your way to the tracks." }
+    ] },
+    "story.buy_van.short": { "lines": [
+      { "speaker": "npc", "text": "Six hundred, and you're {short} short. Shifts in the Industrial Zone pay. Come back when you've got it." }
+    ] },
+    "story.buy_van": { "lines": [
+      { "speaker": "npc", "text": "Pleasure doing business. Here are the keys. I've parked it outside your room." },
+      { "speaker": "npc", "text": "Load your bike and your spares before you set off. A rider without spares is a spectator." }
+    ] },
+    "story.load_van": { "lines": [
+      { "speaker": "narrator", "text": "You wheel the bike up the ramp, strap it down, then load your spares and tools." },
+      { "speaker": "narrator", "text": "Everything has its place. Ready to go racing." }
+    ] },
+    "story.find_track": { "lines": [
+      { "speaker": "npc", "text": "Got yourself a van? Then you're a proper racer now." },
+      { "speaker": "npc", "text": "Try Farmland MX first. It's hard pack, flowing, and good for a first race. Take the west road out of town." },
+      { "speaker": "npc", "text": "There are two more tracks round here, but they're private. You'll need to do the owners a favour before they'll let you ride." },
+      { "speaker": "npc", "text": "See you on the gate." }
+    ] },
+
+    "busy.tutorial": { "lines": [
+      { "speaker": "npc", "text": "Not now, I'm in the middle of something. Check your task." }
+    ] },
     "garage_mechanic.hello": { "lines": [
-      { "speaker": "npc", "text": "So you're the new rider everyone's on about? That 50 of yours won't fire, will it." },
-      { "speaker": "npc", "text": "Top end's gone. Bring it round and we'll sort it together. That's for the full game, mind." }
+      { "speaker": "npc", "text": "How's the 50 running? Bring it round if you need bench time." }
     ] },
     "van_seller.hello": { "lines": [
-      { "speaker": "npc", "text": "Need a van to get to the tracks? I've got a used one out back. Six hundred quid, no haggling." }
+      { "speaker": "npc", "text": "Treat that van right and it'll get you to every track in the area." }
     ] },
     "bike_shop_owner.hello": { "lines": [
-      { "speaker": "npc", "text": "Parts for 50s and 65s, Grades 1 to 3. Shelves are empty in this test build, sorry." }
+      { "speaker": "npc", "text": "Parts for 50s and 65s, Grades 1 to 3. The shelves are still being stocked, sorry." }
     ] },
     "tyre_specialist.hello": { "lines": [
       { "speaker": "npc", "text": "Tyres, rims, spokes. Hard pack round here, so you'll want a hard-pack rear." }
     ] },
     "fabricator.hello": { "lines": [
-      { "speaker": "npc", "text": "Looking for shifts? Come back when the job board's up and running." }
+      { "speaker": "npc", "text": "Looking for shifts? Use the blue bench inside to start a batch of frame brackets. It's 75p a bracket." }
     ] },
     "engine_rebuilder.hello": { "lines": [
-      { "speaker": "npc", "text": "Engines are my trade. Do enough jobs for me and I might let you use the practice yard." }
+      { "speaker": "npc", "text": "Want a shift? Start at the long bench inside. It's £1.25 a piston." },
+      { "speaker": "npc", "text": "Do enough work for me and I might let you use the practice yard." }
     ] },
     "local_racer.hello": { "lines": [
-      { "speaker": "npc", "text": "You race? There are three local tracks round here. The practice track's just past this gate." },
-      { "speaker": "player", "text": "I'll be out there soon." },
-      { "speaker": "npc", "text": "See you on the gate, then." }
+      { "speaker": "npc", "text": "You race? There are three local tracks round here, but you'll need a van to reach them." }
+    ] },
+    "local_racer.after": { "lines": [
+      { "speaker": "npc", "text": "Farmland MX, west road. I'll see you on the gate." }
     ] },
     "modifier_owner.hello": { "lines": [
       { "speaker": "npc", "text": "This old machine? Put a clean part in and see what comes out. Not today, though." }

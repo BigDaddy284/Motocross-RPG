@@ -4,12 +4,12 @@ import { Grid } from '../src/core/grid';
 import { reachable, standingTiles } from '../src/core/pathfinding';
 import { Travel, spawnTile, stepTriggerAt } from '../src/core/travel';
 import { objectTile } from '../src/core/mapTypes';
-import { loadManifest, loadMaps, readPublic } from './helpers';
+import { loadManifest, loadMaps, rawContent } from './helpers';
 
 const maps = loadMaps();
 const travel = new Travel(maps);
 const home = maps.get('area1-home-town')!;
-const { content } = checkContent({ npcs: readPublic('data/npcs.json'), dialogue: readPublic('data/dialogue.json') }, loadManifest(), maps);
+const { content } = checkContent(rawContent(), loadManifest(), maps);
 
 describe('Area 1 maps', () => {
   it('Home Town has a new-game spawn on a free tile', () => {

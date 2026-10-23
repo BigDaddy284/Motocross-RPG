@@ -1,7 +1,7 @@
 import type { MapObject } from '../core/mapTypes';
 
-// What clicking a usable object says in the test build. Each action id comes from the
-// buildings and area map data; the systems behind them arrive in later builds.
+// What clicking a usable object says when no story step or shift uses it. Each action id comes
+// from the buildings and area map data; most of the systems behind them arrive in later builds.
 
 const ACTIONS: Record<string, string> = {
   outfit: 'Changing outfits',
@@ -33,18 +33,26 @@ const ACTIONS: Record<string, string> = {
 
 const pretty = (s: string) => s.replace(/[_-]+/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
 
+/** Objects that already do something in this build, with what they say outside the story. */
+const NOW: Record<string, (flags: Record<string, boolean>) => string> = {
+  'shop.van': (f) => (f.van_owned ? "The van's yours. It's parked outside your room." : 'Used van: £600, no haggling. Talk to the van seller.'),
+  'workshop.fit_tune': () => 'The garage workbench. Nothing to fit right now.',
+  'storage.parts': (f) => (f.van_loaded ? 'Your spares are packed in the van.' : 'Your spares chest.'),
+};
+
 /** The message for a usable object, or null if clicking it should just walk there. */
-export function actionMessage(o: MapObject): string | null {
+export function actionMessage(o: MapObject, flags: Record<string, boolean> = {}): string | null {
   switch (o.type) {
     case 'interact': {
       const action = String(o.props.action ?? '');
+      if (NOW[action]) return NOW[action](flags);
       const what = ACTIONS[action] ?? pretty(action || o.name);
       return `${pretty(o.name)}: ${what} comes in a later build.`;
     }
     case 'click':
       return `${o.name}: nobody's in right now.`;
     case 'venue':
-      return `${o.name}: practice and racing come in a later build.`;
+      return `${o.name}: practice and race days arrive in test build 3.`;
     case 'gate':
       return `${o.name} is locked.`;
     case 'travel':
