@@ -50,6 +50,7 @@ Checked against the first-build checklist in the Systems Specification, section 
 | `public/data/` | Game content as JSON: NPCs and dialogue. More content files join these as systems arrive. |
 | `public/assets/` | Art and baked maps, written by the import tool. Don't edit by hand. |
 | `tools/import-art.mjs` | Copies the art from the shared art folder and bakes each Tiled map into one game-ready file. |
+| `tools/map-editor.html` | Standalone map and tile editor for the game maps and the Tiled sources. |
 | `tests/` | Unit tests, plus checks that every door, exit and NPC on the real maps works. |
 
 ### Technology
@@ -64,6 +65,17 @@ When the art threads change a map or sprite, run the import tool against the sha
 npm run import-art -- /path/to/art
 npm test
 ```
+
+### Editing maps
+
+`tools/map-editor.html` is a map and tile editor for this game. It is one file with no build step: open it in Chrome or Edge (double-click it), click **Open folder…** and pick either:
+
+- `public/assets` to edit the **game maps** exactly as the game loads them, or
+- the shared `art` folder to edit the **Tiled source maps** (`.tmj`).
+
+It paints tiles on every ground layer, edits collision, moves, copies, clears and swaps regions (buildings move with their doors), places and moves props, and checks that doors, spawns and exits sit on free tiles. In Chrome and Edge, Save writes straight back into the folder; other browsers download the file instead. An unchanged map saves back byte for byte.
+
+`npm run import-art` rebuilds every game map from the Tiled sources, so edits made only to a game map are lost the next time the art is imported. For changes that should last, edit the `.tmj` map, then run the import. After saving, run `npm test`.
 
 ### Checks
 
