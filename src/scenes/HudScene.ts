@@ -42,8 +42,10 @@ export class HudScene extends Phaser.Scene {
     return this.scene.get('world') as WorldScene;
   }
 
+  /** A text size after the player's Text size setting, eased down a little on narrow phone screens. */
   private ts(size: number): number {
-    return Math.round((size * services.settings.get().accessibility.textScale) / 100);
+    const narrow = Math.min(1, Math.max(0.72, Math.min(this.scale.width, this.scale.height * 1.6) / 900));
+    return Math.round((size * services.settings.get().accessibility.textScale * narrow) / 100);
   }
 
   create(): void {
@@ -108,6 +110,7 @@ export class HudScene extends Phaser.Scene {
     if (this.zoomPop) this.openZoom();
     this.saveText.setPosition(width - 70, 18);
     this.shiftText.setPosition(width / 2, 14);
+    this.taskText.setWordWrapWidth(Math.min(520, width - 140));
     this.toastText.setPosition(width / 2, height - 60);
     this.toastText.setWordWrapWidth(Math.min(700, width - 60));
     this.fitToast();
@@ -188,21 +191,30 @@ export class HudScene extends Phaser.Scene {
   openDialogue(npcName: string, riderName: string, lines: DialogueLine[], onClose: () => void): void {
     this.dialogue?.destroy();
     const { width, height } = this.scale;
-    const w = Math.min(900, width - 32);
-    const h = 150;
-    const c = this.add.container(width / 2, height - h / 2 - 16);
+    const w = Math.min(960, width - 24);
+    const pad = 20;
+    const nameStyle = textStyle(this.ts(18), COLORS.accent, { fontStyle: 'bold' });
+    const bodyStyle = textStyle(this.ts(20), COLORS.cream, { wordWrap: { width: w - 2 * pad - 8 }, lineSpacing: 4 });
+    const name = this.add.text(0, 0, 'M', nameStyle);
+    const body = this.add.text(0, 0, '', bodyStyle);
+    // Size the box to the longest line at the chosen text size, so big text never spills out.
+    const nameH = name.height;
+    const tallest = Math.max(...lines.map((l) => body.setText(l.text).height));
+    const hintH = this.ts(14) + 8;
+    const h = Math.max(140, pad + nameH + 8 + tallest + hintH + pad / 2);
+    const c = this.add.container(width / 2, height - h / 2 - 12);
     const bg = panel(this, 0, 0, w, h).setInteractive({ useHandCursor: true });
-    const name = this.add.text(-w / 2 + 24, -h / 2 + 16, '', textStyle(this.ts(18), COLORS.accent, { fontStyle: 'bold' }));
-    const body = this.add.text(-w / 2 + 24, -h / 2 + 46, '', textStyle(this.ts(19), COLORS.cream, { wordWrap: { width: w - 48 }, lineSpacing: 4 }));
-    const hint = this.add.text(w / 2 - 16, h / 2 - 12, '', textStyle(this.ts(14), COLORS.muted)).setOrigin(1, 1);
+    name.setPosition(-w / 2 + pad, -h / 2 + pad - 4);
+    const hint = this.add.text(w / 2 - 16, h / 2 - 10, '', textStyle(this.ts(14), COLORS.muted)).setOrigin(1, 1);
     c.add([bg, name, body, hint]);
     this.dialogue = c;
     let i = 0;
     const show = () => {
       const line = lines[i];
+      const narrator = line.speaker === 'narrator';
       name.setText(line.speaker === 'npc' ? npcName : line.speaker === 'player' ? riderName : '');
-      body.setText(line.text).setColor(hex(line.speaker === 'narrator' ? COLORS.muted : COLORS.cream)).setFontStyle(line.speaker === 'narrator' ? 'italic' : '');
-      body.setY(line.speaker === 'narrator' ? -h / 2 + 30 : -h / 2 + 46);
+      body.setText(line.text).setFontStyle(narrator ? 'italic' : '').setColor(hex(narrator ? 0xcfc6b0 : COLORS.cream));
+      body.setPosition(-w / 2 + pad, narrator ? -h / 2 + pad : -h / 2 + pad + nameH + 4);
       hint.setText(i < lines.length - 1 ? 'Next ▸' : 'Close ▸');
     };
     const close = () => {

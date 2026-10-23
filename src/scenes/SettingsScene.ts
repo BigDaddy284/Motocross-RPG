@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP, type Settings } from '../core/settings';
+import { TEXT_MAX, TEXT_MIN, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP, type Settings } from '../core/settings';
 import { services } from '../services';
 import { COLORS, textStyle } from '../ui/theme';
 import { button, panel, slider, toggle } from '../ui/widgets';
@@ -82,7 +82,7 @@ export class SettingsScene extends Phaser.Scene {
         });
         break;
       case 'Accessibility':
-        label(0, 'Text size (%)'); slider(this, sliderX, rowY(0), sliderW, 80, 150, s.accessibility.textScale, upd('accessibility', 'textScale'), 10);
+        label(0, 'Text size (%)'); slider(this, sliderX, rowY(0), sliderW, TEXT_MIN, TEXT_MAX, s.accessibility.textScale, upd('accessibility', 'textScale'), 10);
         label(1, 'Reduced effects'); toggle(this, sliderX + 26, rowY(1), s.accessibility.reducedEffects, upd('accessibility', 'reducedEffects'));
         label(2, 'High contrast'); toggle(this, sliderX + 26, rowY(2), s.accessibility.highContrast, upd('accessibility', 'highContrast'));
         break;

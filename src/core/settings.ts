@@ -14,7 +14,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   audio: { master: 80, music: 70, engines: 80, crowd: 70, muted: false },
   display: { zoom: 100, fullscreen: false },
-  accessibility: { textScale: 100, reducedEffects: false, highContrast: false },
+  accessibility: { textScale: 130, reducedEffects: false, highContrast: false },
   gameplay: { tutorialPrompts: true, contextHints: true, reminders: true },
   controls: { up: 'W', down: 'S', left: 'A', right: 'D', interact: 'E', menu: 'ESC' },
 };
@@ -22,6 +22,9 @@ export const DEFAULT_SETTINGS: Settings = {
 /** Zoom range from the style guide: 50% to 200%. */
 export const ZOOM_MIN = 50;
 export const ZOOM_MAX = 200;
+/** Text size range (%). The default sits in the middle so players can go either way. */
+export const TEXT_MIN = 80;
+export const TEXT_MAX = 180;
 /** One click of the zoom buttons, mouse wheel or +/- keys. */
 export const ZOOM_STEP = 10;
 
@@ -84,5 +87,6 @@ function load(store: KeyValueStore): Settings {
     }
   }
   out.display.zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, out.display.zoom));
+  out.accessibility.textScale = Math.min(TEXT_MAX, Math.max(TEXT_MIN, out.accessibility.textScale));
   return out;
 }
