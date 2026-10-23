@@ -2,6 +2,8 @@
 // and shift work. Pure rules with no graphics, so they can be tested and reused by a later
 // standalone economy tool (GDD 2.2).
 
+import { newSkillState, type SkillState } from './skills';
+
 export interface StatDef {
   id: string;
   name: string;
@@ -68,6 +70,8 @@ export interface StoryData {
   intro: string;
   steps: StoryStep[];
   done: string;
+  /** Task lines once the opening chain is over: the first whose if is set, or whose unless is not. */
+  after?: { if?: string; unless?: string; text: string }[];
 }
 
 export interface JobDef {
@@ -85,6 +89,8 @@ export interface JobDef {
 }
 
 export interface WorldData {
+  /** Testing only: multiplies all shift pay. Review before Final v1. */
+  testPayMultiplier?: number;
   locks: { map: string; object: string; flag: string; message: string }[];
   worldMap: { map: string; spawn: string; name: string; note: string }[];
   jobs: JobDef[];
@@ -113,11 +119,15 @@ export interface CareerState {
   bag: BagItem[];
   /** Index of the current opening-chain step, and the objects already used for a multi-use step. */
   story: { step: number; used: string[] };
-  /** Running totals such as batches finished per employer. */
+  /** Running totals such as batches finished per employer, race days and wins. */
   counters: Record<string, number>;
+  skills: SkillState;
 }
 
 export const pence = (pounds: number) => Math.round(pounds * 100);
+
+/** A shift job's pay per part in pence, after the testing multiplier. */
+export const jobPay = (world: WorldData, job: JobDef) => pence(job.pay * (world.testPayMultiplier ?? 1));
 
 export function formatMoney(p: number): string {
   const sign = p < 0 ? '−' : '';
@@ -138,7 +148,7 @@ export function starterBike(bikes: BikesData, brand: string, rng: () => number =
 }
 
 export function newCareerState(bikes: BikesData, story: StoryData, brand: string, rng?: () => number): CareerState {
-  return { money: pence(story.startMoney), bike: starterBike(bikes, brand, rng), bag: [], story: { step: 0, used: [] }, counters: {} };
+  return { money: pence(story.startMoney), bike: starterBike(bikes, brand, rng), bag: [], story: { step: 0, used: [] }, counters: {}, skills: newSkillState() };
 }
 
 /** Spec 7.1 and 7.2: 0.80 + 0.20 × condition, and a broken part keeps only 10%. */
@@ -250,9 +260,9 @@ export function advanceStory(story: StoryData, state: CareerState, flags: Record
 }
 
 /** The task line for the journal. */
-export function journal(story: StoryData, state: CareerState): string {
+export function journal(story: StoryData, state: CareerState, flags: Record<string, boolean> = {}): string {
   const step = currentStep(story, state);
-  if (!step) return story.done;
+  if (!step) return story.after?.find((a) => (a.if === undefined || flags[a.if]) && (a.unless === undefined || !flags[a.unless]))?.text ?? story.done;
   const n = step.times ?? 1;
   return n > 1 ? `${step.journal} (${state.story.used.length} of ${n})` : step.journal;
 }

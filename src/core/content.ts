@@ -1,6 +1,10 @@
 import type { BikesData, ItemDef, StoryData, WorldData } from './career';
 import { Grid } from './grid';
 import { objectTile, type BakedMap, type Facing } from './mapTypes';
+import type { RacingData } from './race';
+import { RACING_SCHEMA, RIDERS_SCHEMA, SKILLS_SCHEMA, TRACKS_SCHEMA, checkRaceContent } from './raceContent';
+import type { RidersData, TracksData } from './raceDay';
+import type { SkillsData } from './skills';
 import { validate, type ContentError, type Schema } from './validate';
 
 // Game content loaded from public/data. Each file is checked against its schema, then the files
@@ -33,6 +37,10 @@ export interface Content {
   items: Record<string, ItemDef>;
   story: StoryData;
   world: WorldData;
+  skills: SkillsData;
+  racing: RacingData;
+  tracks: TracksData;
+  riders: RidersData;
 }
 
 export interface Manifest {
@@ -162,12 +170,16 @@ const IDS: Schema = { type: 'array', items: { type: 'string', pattern: ID } };
 
 export const STORY_SCHEMA: Schema = {
   type: 'object',
-  optional: ['note'],
+  optional: ['note', 'after'],
   fields: {
     note: { type: 'string' },
     startMoney: { type: 'number', min: 0 },
     intro: { type: 'string', pattern: ID },
     done: { type: 'string', nonEmpty: true },
+    after: {
+      type: 'array',
+      items: { type: 'object', optional: ['if', 'unless'], fields: { if: { type: 'string', pattern: ID }, unless: { type: 'string', pattern: ID }, text: { type: 'string', nonEmpty: true } } },
+    },
     steps: {
       type: 'array',
       minItems: 1,
@@ -193,9 +205,10 @@ export const STORY_SCHEMA: Schema = {
 
 export const WORLD_SCHEMA: Schema = {
   type: 'object',
-  optional: ['note'],
+  optional: ['note', 'testPayMultiplier'],
   fields: {
     note: { type: 'string' },
+    testPayMultiplier: { type: 'number', min: 0 },
     locks: {
       type: 'array',
       items: { type: 'object', fields: { map: { type: 'string', pattern: ID }, object: { type: 'string', nonEmpty: true }, flag: { type: 'string', pattern: ID }, message: { type: 'string', nonEmpty: true } } },
@@ -237,6 +250,10 @@ export const CONTENT_FILES = {
   items: 'data/items.json',
   story: 'data/story.json',
   world: 'data/world.json',
+  skills: 'data/skills.json',
+  racing: 'data/racing.json',
+  tracks: 'data/tracks.json',
+  riders: 'data/riders.json',
 } as const;
 
 export type RawContent = Record<keyof typeof CONTENT_FILES, unknown>;
@@ -248,6 +265,10 @@ const SCHEMAS: Record<keyof typeof CONTENT_FILES, Schema> = {
   items: ITEMS_SCHEMA,
   story: STORY_SCHEMA,
   world: WORLD_SCHEMA,
+  skills: SKILLS_SCHEMA,
+  racing: RACING_SCHEMA,
+  tracks: TRACKS_SCHEMA,
+  riders: RIDERS_SCHEMA,
 };
 
 /** Checks raw file contents and returns the typed content, or every problem found. */
@@ -262,6 +283,10 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
     items: (raw.items as { items: Record<string, ItemDef> }).items,
     story: raw.story as StoryData,
     world: raw.world as WorldData,
+    skills: raw.skills as SkillsData,
+    racing: raw.racing as RacingData,
+    tracks: raw.tracks as TracksData,
+    riders: raw.riders as RidersData,
   };
   const file = CONTENT_FILES.npcs;
   const seen = new Set<string>();
@@ -282,6 +307,7 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
     }
   });
   errors.push(...checkCareerContent(content, maps));
+  errors.push(...checkRaceContent(content, maps));
   return { content, errors };
 }
 

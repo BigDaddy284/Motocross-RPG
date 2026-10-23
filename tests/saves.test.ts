@@ -13,6 +13,7 @@ const sample = (x: number) => ({
     bag: [],
     story: { step: 0, used: [] },
     counters: {},
+    skills: { xp: { starts: 120 }, bonus: {} },
   },
 });
 
@@ -62,6 +63,16 @@ describe('SaveManager', () => {
     expect(data?.career.money).toBe(15000);
     expect(data?.career.story.step).toBe(0);
     expect(data?.career.bike.parts.top_end.condition).toBe(0);
+    expect(data?.career.skills).toEqual({ xp: {}, bonus: {} });
+  });
+
+  it('upgrades a test build 0.2 save with every skill at level 1', () => {
+    const { career, ...rest } = sample(5);
+    const { skills: _, ...v2career } = career;
+    const data = parseSave(JSON.stringify({ ...rest, career: v2career, version: 2, savedAt: '2026-10-23T10:00:00.000Z' }));
+    expect(data?.version).toBe(SAVE_VERSION);
+    expect(data?.career.money).toBe(15000);
+    expect(data?.career.skills).toEqual({ xp: {}, bonus: {} });
   });
 
   it('a quick update keeps the rider\'s spot without pushing out backups', () => {

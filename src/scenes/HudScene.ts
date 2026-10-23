@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { bikeProblem, bikeStats, formatMoney, journal, statMax, type CareerState } from '../core/career';
+import { childLevel, childXp, leadLevel, leadXp, levelProgress } from '../core/skills';
 import type { DialogueLine } from '../core/content';
 import { services } from '../services';
 import { COLORS, hex, textStyle } from '../ui/theme';
@@ -11,7 +12,7 @@ import type { WorldScene } from './WorldScene';
 // bike / bag / task panel, confirm boxes, the work progress bar, the world map, the pause menu and
 // touch buttons. Runs alongside the world scene at a fixed zoom.
 
-type PanelTab = 'bike' | 'bag' | 'task';
+type PanelTab = 'bike' | 'bag' | 'task' | 'skills';
 
 export class HudScene extends Phaser.Scene {
   private dialogue: Phaser.GameObjects.Container | null = null;
@@ -28,6 +29,7 @@ export class HudScene extends Phaser.Scene {
   private modal: Phaser.GameObjects.Container | null = null;
   private onModalClose: (() => void) | null = null;
   private career: CareerState | null = null;
+  private flags: Record<string, boolean> = {};
   private uiButtons: Phaser.GameObjects.Container[] = [];
   /** The zoom slider that pops out beside the Zoom button. */
   private zoomPop: Phaser.GameObjects.Container | null = null;
@@ -95,6 +97,7 @@ export class HudScene extends Phaser.Scene {
     kb.on('keydown-TAB', togglePanel);
     kb.on('keydown-I', togglePanel);
     kb.on('keydown-B', togglePanel);
+    kb.on('keydown-K', () => !this.modal && !this.pause && !this.dialogue && this.openPanel('skills'));
   }
 
   private panelOpen = false;
@@ -148,10 +151,11 @@ export class HudScene extends Phaser.Scene {
   }
 
   /** Money and the current task, shown under the map name. */
-  showCareer(career: CareerState): void {
+  showCareer(career: CareerState, flags: Record<string, boolean>): void {
     this.career = career;
+    this.flags = flags;
     this.moneyText.setText(formatMoney(career.money));
-    this.taskText.setText(`Task: ${journal(services.content.story, career)}`);
+    this.taskText.setText(`Task: ${journal(services.content.story, career, flags)}`);
   }
 
   showShift(text: string | null): void {
@@ -278,6 +282,32 @@ export class HudScene extends Phaser.Scene {
     this.openModal(c, () => !answered && onNo());
   }
 
+  /** A box with a few choices, such as the race office's menu. Esc or the last button closes it. */
+  choose(title: string, text: string, options: { label: string; note?: string; enabled?: boolean; onPick: () => void }[], onClose: () => void): void {
+    const { width, height } = this.scale;
+    const w = Math.min(720, width - 32);
+    const textObj = this.add.text(0, 0, text, textStyle(this.ts(18), COLORS.cream, { wordWrap: { width: w - 60 }, lineSpacing: 4 }));
+    const h = 166 + textObj.height + (options.length - 1) * 64;
+    const c = this.add.container(width / 2, height / 2);
+    this.backdrop(c, w, h, false);
+    c.add(this.add.text(0, -h / 2 + 32, title, textStyle(26, COLORS.accent)).setOrigin(0.5));
+    textObj.setPosition(-w / 2 + 30, -h / 2 + 62);
+    c.add(textObj);
+    let picked = false;
+    options.forEach((o, i) => {
+      const y = -h / 2 + 116 + textObj.height + i * 64;
+      const b = button(this, -w / 2 + 150, y, o.label, () => {
+        picked = true;
+        this.closeModal();
+        o.onPick();
+      }, 250, 48);
+      b.setEnabled(o.enabled !== false);
+      c.add(b);
+      if (o.note) c.add(this.add.text(-w / 2 + 290, y, o.note, textStyle(this.ts(15), COLORS.muted, { wordWrap: { width: w - 310 } })).setOrigin(0, 0.5));
+    });
+    this.openModal(c, () => !picked && onClose());
+  }
+
   /** A bar that fills over `ms`, for work at a station. Resolves when it is full. */
   progress(label: string, ms: number): Promise<void> {
     this.progressBox?.destroy();
@@ -340,8 +370,9 @@ export class HudScene extends Phaser.Scene {
     this.backdrop(c, w, h, true);
     const left = -w / 2 + 28;
     const top = -h / 2 + 24;
-    (['bike', 'bag', 'task'] as PanelTab[]).forEach((t, i) => {
-      const b = button(this, left + 60 + i * 130, top + 22, t === 'bike' ? 'Bike' : t === 'bag' ? 'Bag' : 'Task', () => this.openPanel(t), 120, 40);
+    const tabNames: Record<PanelTab, string> = { bike: 'Bike', bag: 'Bag', task: 'Task', skills: 'Skills' };
+    (['bike', 'bag', 'task', 'skills'] as PanelTab[]).forEach((t, i) => {
+      const b = button(this, left + 60 + i * 130, top + 22, tabNames[t], () => this.openPanel(t), 120, 40);
       b.setSelected(t === tab);
       c.add(b);
     });
@@ -380,13 +411,39 @@ export class HudScene extends Phaser.Scene {
         body(left, y0 + 40 + i * 56, def?.name ?? b.id, 18);
         body(left, y0 + 64 + i * 56, def?.desc ?? '', 15, COLORS.muted);
       });
-    } else {
+    } else if (tab === 'task') {
       body(left, y0, 'Task', 22, COLORS.accent);
-      body(left, y0 + 40, journal(story, career), 18);
+      body(left, y0 + 40, journal(story, career, this.flags), 18);
       body(left, y0 + 110, `Money: ${formatMoney(career.money)}`, 18);
       const shifts = Object.entries(career.counters).filter(([k]) => k.startsWith('job.'));
       const names = Object.fromEntries(services.content.world.jobs.map((j) => [j.id, j.name]));
       shifts.forEach(([k, n], i) => body(left, y0 + 146 + i * 28, `${names[k] ?? k}s finished: ${n}`, 16, COLORS.muted));
+      const c0 = career.counters;
+      if (c0['race.days']) {
+        body(left, y0 + 160 + shifts.length * 28, `Race days: ${c0['race.days']}   Moto wins: ${c0['race.wins'] ?? 0}   Podiums: ${c0['race.podiums'] ?? 0}`, 16, COLORS.muted);
+      }
+    } else {
+      // Skills: each lead skill with its child skills, level and progress to the next level (GDD 6.1).
+      const { skills } = services.content;
+      const colW = (w - 56) / skills.leads.length;
+      skills.leads.forEach((lead, i) => {
+        const x = left + i * colW;
+        const lx = leadXp(career.skills, lead);
+        body(x, y0, lead.name, 20, COLORS.accent, colW - 16);
+        body(x, y0 + 28, `Level ${leadLevel(skills, career.skills, lead)} · ${Math.floor(lx).toLocaleString()} XP`, 15, COLORS.cream, colW - 16);
+        const barW = colW - 40;
+        c.add(this.add.rectangle(x, y0 + 58, barW, 8, COLORS.panelLight).setOrigin(0, 0.5));
+        c.add(this.add.rectangle(x, y0 + 58, Math.max(1, barW * levelProgress(lx, lead.multiplier, skills.maxLevel)), 8, COLORS.accent).setOrigin(0, 0.5));
+        lead.children.forEach((ch, j) => {
+          const y = y0 + 76 + j * 48;
+          const xp = childXp(career.skills, ch.id);
+          body(x, y, ch.name, 15, COLORS.cream, colW - 50);
+          c.add(this.add.text(x + barW, y, `${childLevel(skills, career.skills, ch.id)}`, textStyle(this.ts(15), COLORS.accent)).setOrigin(1, 0));
+          c.add(this.add.rectangle(x, y + 26, barW, 6, COLORS.panelLight).setOrigin(0, 0.5));
+          c.add(this.add.rectangle(x, y + 26, Math.max(1, barW * levelProgress(xp, 1, skills.maxLevel)), 6, 0x6fa84a).setOrigin(0, 0.5));
+        });
+      });
+      body(left, h / 2 - 40, 'Racing and practice train Rider Ability. Training minigames for every skill come in later builds.', 14, COLORS.muted);
     }
     this.openModal(c);
     this.panelOpen = true;

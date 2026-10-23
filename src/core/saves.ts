@@ -7,7 +7,7 @@ import type { KeyValueStore } from './storage';
 // - a save from an older build loads through the migration steps below;
 // - a save that cannot be read is kept under a "corrupt" key and the newest good backup is offered.
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 export const BACKUP_COUNT = 5;
 
 export interface SaveData {
@@ -38,6 +38,8 @@ const MIGRATIONS: Record<number, Migration> = {
       counters: {},
     },
   }),
+  // Test build 0.2 had no skills: every skill starts at level 1.
+  2: (old) => ({ ...old, career: { ...(old.career as Record<string, unknown>), skills: { xp: {}, bonus: {} } } }),
 };
 
 export type LoadResult =
@@ -174,6 +176,13 @@ function isCareer(v: unknown): boolean {
     Object.values(bike.parts).every((p) => Number.isInteger(p?.grade) && typeof p?.condition === 'number') &&
     Array.isArray(c.bag) && c.bag.every((b) => typeof b?.id === 'string') &&
     !!story && Number.isInteger(story.step) && Array.isArray(story.used) &&
-    typeof c.counters === 'object' && c.counters !== null
+    typeof c.counters === 'object' && c.counters !== null &&
+    isSkills(c.skills)
   );
+}
+
+function isSkills(v: unknown): boolean {
+  const s = v as Record<string, unknown> | undefined;
+  const numbers = (r: unknown) => typeof r === 'object' && r !== null && Object.values(r).every((x) => typeof x === 'number' && x >= 0);
+  return !!s && typeof s === 'object' && numbers(s.xp) && numbers(s.bonus);
 }

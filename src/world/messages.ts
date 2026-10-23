@@ -52,7 +52,7 @@ export function actionMessage(o: MapObject, flags: Record<string, boolean> = {})
     case 'click':
       return `${o.name}: nobody's in right now.`;
     case 'venue':
-      return `${o.name}: practice and race days arrive in test build 3.`;
+      return `${o.name}: nothing to ride here yet.`;
     case 'gate':
       return `${o.name} is locked.`;
     case 'travel':

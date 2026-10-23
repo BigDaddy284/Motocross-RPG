@@ -9,6 +9,8 @@
     {"id": "npc.engine_rebuilder", "name": "Engine rebuilder", "sprite": "npc-06-engine-rebuilder", "map": "int-iz-engine-rebuilder", "tile": [4, 2], "facing": "down", "dialogue": "engine_rebuilder.hello", "talk": [{"unless": "tutorial_done", "dialogue": "busy.tutorial"}]},
     {"id": "npc.local_racer", "name": "Local racer", "sprite": "npc-07-local-racer", "dialogue": "local_racer.hello", "quietUntil": "tutorial_done", "talk": [{"if": "found.venue-farmland", "dialogue": "local_racer.after"}]},
     {"id": "npc.modifier_owner", "name": "Modifier machine owner", "sprite": "npc-11-modifier-machine-owner", "map": "int-iz-modifier-unit", "tile": [5, 3], "facing": "up", "dialogue": "modifier_owner.hello", "quietUntil": "tutorial_done"},
+    {"id": "npc.track_official", "name": "Track official", "sprite": "npc-10-practice-track-owner", "map": "area1-venue-farmland", "tile": [16, 13], "facing": "down", "dialogue": "track_official.hello", "quietUntil": "tutorial_done"},
+    {"id": "npc.local_champion", "name": "Local Champion", "sprite": "npc-08-local-champion", "map": "area1-venue-farmland", "tile": [19, 13], "facing": "left", "dialogue": "local_champion.hello", "quietUntil": "tutorial_done", "talk": [{"if": "first_race_done", "dialogue": "local_champion.after"}]},
     {"id": "npc.neighbour", "name": "Neighbour", "sprite": "npc-12-neighbour-pc", "map": "int-home-neighbour", "tile": [8, 5], "facing": "down", "dialogue": "neighbour.hello", "quietUntil": "tutorial_done"}
   ]
 }
