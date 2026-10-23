@@ -39,6 +39,8 @@ export class Character {
   tile: Tile;
   facing: Facing;
   moving = false;
+  /** Lowest depth to draw at, so the player can stay on top of an NPC they walk through. */
+  depthFloor: (() => number) | null = null;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -70,7 +72,8 @@ export class Character {
   private setPixel(x: number, y: number): void {
     this.sprite.setPosition(x, y);
     this.shadow.setPosition(x, y - 4);
-    this.sprite.setDepth(y);
+    const d = Math.max(y, this.depthFloor?.() ?? -Infinity);
+    this.sprite.setDepth(d);
     this.shadow.setDepth(y - 0.5);
   }
 

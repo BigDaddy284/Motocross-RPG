@@ -94,12 +94,22 @@ export class WorldScene extends Phaser.Scene {
     this.grid = Grid.fromMap(map);
     applyMapState(map, this.grid, this.save.flags);
     for (const p of npcsOnMap(services.content, map)) {
+      // NPCs don't block the way: walking past (not clicking them) goes straight through.
       const character = new Character(this, p.npc.sprite, p, p.facing);
-      this.grid.setOccupied(p, true);
       this.npcs.push({ placement: p, character });
     }
     const { x, y, facing } = this.save.position;
     this.player = new Character(this, this.save.rider.look, { x, y }, facing);
+    // While overlapping an NPC, the player draws on top of them.
+    this.player.depthFloor = () => {
+      let floor = -Infinity;
+      for (const n of this.npcs) {
+        const s = n.character.sprite;
+        if (Math.abs(s.x - this.player.x) < TILE && Math.abs(s.y - this.player.y) < TILE) floor = Math.max(floor, s.depth + 1);
+      }
+      return floor;
+    };
+    this.player.placeAt({ x, y });
 
     const cam = this.cameras.main;
     cam.startFollow(this.player.sprite, true, 0.2, 0.2, 0, TILE / 2);
