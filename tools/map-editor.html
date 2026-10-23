@@ -1,0 +1,2108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Motocross RPG Map Editor</title>
+<!--
+  Motocross RPG: Map & Tile Editor. One self-contained file, no build step, no network.
+
+  Opens two kinds of map:
+    * Game maps:   public/assets/maps/<id>.json, the baked format the game loads (src/core/mapTypes.ts).
+    * Tiled maps:  art/**/maps/*.tmj, the sources tools/import-art.mjs bakes into game maps.
+  Edits to a game map show up in the game straight away, but `npm run import-art` rebuilds every
+  game map from the Tiled sources, so lasting changes belong in the .tmj files.
+
+  Browsers block a local page from reading sibling files, so maps and tiles are loaded through a
+  folder picker. Pick the repo, its public/assets folder, or the shared art folder.
+-->
+<style>
+:root {
+  --bg: #16181d; --panel: #1f2229; --panel2: #262a33; --line: #343945; --text: #e4e6eb; --dim: #9aa1ad;
+  --accent: #f0a020; --accent2: #3a8fd8; --danger: #e05252; --ok: #4fb36b;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 13px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif; }
+body { display: grid; grid-template-rows: auto 1fr auto; grid-template-columns: 236px 1fr 300px; grid-template-areas: "top top top" "left main right" "foot foot foot"; overflow: hidden; }
+header { grid-area: top; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 8px; background: var(--panel); border-bottom: 1px solid var(--line); }
+header h1 { font-size: 14px; margin: 0 8px 0 2px; white-space: nowrap; }
+header h1 span { color: var(--accent); }
+#left, #right { background: var(--panel); overflow-y: auto; padding: 8px; }
+#left { grid-area: left; border-right: 1px solid var(--line); }
+#right { grid-area: right; border-left: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+main { grid-area: main; position: relative; overflow: hidden; background: #0d0e11; }
+canvas#view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+footer { grid-area: foot; display: flex; gap: 14px; padding: 4px 10px; background: var(--panel); border-top: 1px solid var(--line); color: var(--dim); white-space: nowrap; overflow: hidden; }
+footer #msg { color: var(--text); overflow: hidden; text-overflow: ellipsis; }
+footer #msg.err { color: var(--danger); }
+footer #msg.ok { color: var(--ok); }
+h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); margin: 12px 0 6px; }
+h2:first-child { margin-top: 2px; }
+button, select, input[type=text], input[type=search] { font: inherit; color: var(--text); background: var(--panel2); border: 1px solid var(--line); border-radius: 5px; padding: 4px 8px; }
+button { cursor: pointer; }
+button:hover:not(:disabled) { border-color: #556; background: #2d323c; }
+button:disabled { opacity: .45; cursor: default; }
+button.primary { background: #3b2c10; border-color: #7a5512; }
+button.on { background: #233a52; border-color: var(--accent2); }
+select { max-width: 260px; }
+.sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 2px; }
+.grow { flex: 1; }
+#dirty { color: var(--accent); font-weight: 600; }
+.tools { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.tools button { padding: 6px 2px; font-size: 12px; }
+.tools button small { display: block; color: var(--dim); font-size: 10px; }
+.layer { display: grid; grid-template-columns: 22px 1fr; grid-template-rows: auto auto; gap: 0 6px; padding: 5px 6px; border: 1px solid transparent; border-radius: 6px; cursor: pointer; }
+.layer:hover { background: var(--panel2); }
+.layer.active { border-color: var(--accent); background: #2a2516; }
+.layer .eye { grid-row: span 2; width: 22px; height: 22px; padding: 0; font-size: 13px; }
+.layer .eye.off { opacity: .35; }
+.layer .name { font-weight: 600; }
+.layer .name small { font-weight: 400; color: var(--dim); }
+.layer input[type=range] { width: 100%; height: 14px; margin: 2px 0 0; accent-color: var(--accent); }
+.layer.noedit .name::after { content: " (view)"; font-weight: 400; color: var(--dim); font-size: 11px; }
+.row { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.row > button { flex: 1 1 auto; }
+label.chk { display: flex; gap: 6px; align-items: center; color: var(--dim); }
+.hint { color: var(--dim); font-size: 12px; margin: 4px 0; }
+.slots { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.slot { border: 1px solid var(--line); border-radius: 6px; padding: 4px; text-align: center; font-size: 11px; color: var(--dim); }
+.slot .sw { width: 48px; height: 48px; margin: 2px auto; display: grid; place-items: center; background: #111; border-radius: 4px; overflow: hidden; }
+.slot .sw img { max-width: 48px; max-height: 48px; image-rendering: pixelated; }
+#brushBox { display: flex; gap: 8px; align-items: center; padding: 6px; background: var(--panel2); border-radius: 6px; min-height: 60px; }
+#brushBox .sw { width: 52px; height: 52px; display: grid; place-items: center; background: #111; border-radius: 4px; flex: none; overflow: hidden; }
+#brushBox .sw img, #brushBox canvas { max-width: 52px; max-height: 52px; image-rendering: pixelated; }
+#brushName { overflow: hidden; text-overflow: ellipsis; }
+#palette { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)); gap: 4px; align-content: start; padding: 2px; min-height: 120px; }
+#palette .pt { position: relative; aspect-ratio: 1; background: #111 center/contain no-repeat; border: 2px solid transparent; border-radius: 4px; cursor: pointer; padding: 0; image-rendering: pixelated; }
+#palette .pt:hover { border-color: #666; }
+#palette .pt.sel { border-color: var(--accent); }
+#palette .pt.big::after { content: attr(data-size); position: absolute; right: 1px; bottom: 0; font-size: 9px; color: #ddd; background: #000a; padding: 0 2px; border-radius: 2px; }
+#palEmpty { color: var(--dim); grid-column: 1 / -1; padding: 8px; }
+#welcome { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; }
+#welcome .card { max-width: 620px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 22px 26px; }
+#welcome h3 { margin: 0 0 8px; font-size: 18px; }
+#welcome p, #welcome li { color: var(--dim); }
+#welcome code { color: var(--text); background: #0006; padding: 0 4px; border-radius: 3px; }
+#welcome .row { margin-top: 14px; }
+#checks { font-size: 12px; }
+#checks div { padding: 3px 4px; border-radius: 4px; cursor: pointer; }
+#checks div:hover { background: var(--panel2); }
+#checks .bad { color: #f0a0a0; }
+#checks .good { color: var(--ok); cursor: default; }
+kbd { font: 11px ui-monospace, monospace; background: #0005; border: 1px solid var(--line); border-radius: 3px; padding: 0 3px; }
+dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 10px; max-width: 560px; }
+dialog::backdrop { background: #0008; }
+dialog li { margin: 3px 0; color: var(--dim); }
+input[type=file] { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🏍 <span>Motocross RPG</span> Map Editor</h1>
+  <button id="btnOpen" class="primary" title="Pick the repo, public/assets, or the art folder">Open folder…</button>
+  <input type="file" id="dirInput" webkitdirectory multiple>
+  <select id="mapSelect" disabled><option>No folder open</option></select>
+  <span class="sep"></span>
+  <button id="btnSave" disabled title="Ctrl+S">Save</button>
+  <button id="btnDownload" disabled title="Download the map file">Download</button>
+  <span id="dirty"></span>
+  <span class="sep"></span>
+  <button id="btnUndo" disabled title="Ctrl+Z">↶ Undo</button>
+  <button id="btnRedo" disabled title="Ctrl+Y / Ctrl+Shift+Z">↷ Redo</button>
+  <span class="sep"></span>
+  <button id="btnZoomOut" title="Zoom out (-)">−</button>
+  <span id="zoomLabel" style="min-width:44px;text-align:center">100%</span>
+  <button id="btnZoomIn" title="Zoom in (+)">+</button>
+  <button id="btnFit" title="Fit the whole map (0)">Fit</button>
+  <span class="grow"></span>
+  <button id="btnHelp">Help</button>
+</header>
+
+<aside id="left">
+  <h2>Tools</h2>
+  <div class="tools" id="tools">
+    <button data-tool="brush" title="Paint the selected tile. Shift+drag paints a rectangle.">Brush<small>B</small></button>
+    <button data-tool="eraser" title="Clear tiles or collision. Shift+drag clears a rectangle.">Eraser<small>E</small></button>
+    <button data-tool="picker" title="Pick a tile from the map. Drag to pick a multi-tile stamp.">Picker<small>I</small></button>
+    <button data-tool="fill" title="Flood fill matching tiles (stays inside the selection, if any)">Fill<small>F</small></button>
+    <button data-tool="select" title="Select a region. Drag inside it to move; Alt+drag to copy.">Select<small>M</small></button>
+    <button data-tool="props" title="Select, move, place and delete props and markers">Objects<small>V</small></button>
+    <button data-tool="hand" title="Pan the view (or hold Space, or drag with the right/middle button)">Pan<small>H</small></button>
+  </div>
+
+  <h2>Layers</h2>
+  <div id="layers"><div class="hint">Open a map to see its layers.</div></div>
+
+  <h2>Selection</h2>
+  <div class="row" style="margin-bottom:4px">
+    <label class="chk" title="Region tools change every layer (tiles, collision, props and markers), or only the active layer">
+      <select id="scope"><option value="all">All layers</option><option value="active">Active layer only</option></select>
+    </label>
+  </div>
+  <div class="row">
+    <button id="btnCopy" disabled title="Ctrl+C">Copy</button>
+    <button id="btnCut" disabled title="Ctrl+X">Cut</button>
+    <button id="btnPaste" disabled title="Ctrl+V, then click to place">Paste</button>
+  </div>
+  <div class="row" style="margin-top:4px">
+    <button id="btnClear" disabled title="Delete">Clear</button>
+    <button id="btnFillSel" disabled title="Fill the selection with the brush tile">Fill</button>
+    <button id="btnSwapRegion" disabled title="Swap this region with another region of the same size">Swap with…</button>
+  </div>
+  <div class="hint" id="selInfo">No selection. Use the Select tool (M).</div>
+
+  <h2>Replace tiles</h2>
+  <div class="slots">
+    <div class="slot"><div class="sw" id="slotA"></div><div id="slotAName">Find: —</div><button id="btnSetA" style="margin-top:3px">Use brush</button></div>
+    <div class="slot"><div class="sw" id="slotB"></div><div id="slotBName">With: —</div><button id="btnSetB" style="margin-top:3px">Use brush</button></div>
+  </div>
+  <div class="row" style="margin-top:6px">
+    <button id="btnReplace" title="Replace every Find tile with the With tile">Replace</button>
+    <button id="btnSwapTiles" title="Swap the two tiles everywhere they appear">Swap</button>
+  </div>
+  <div class="hint">Works on the active tile layer, inside the selection if there is one, otherwise the whole layer. Empty slot = empty cell.</div>
+
+  <h2>Checks</h2>
+  <div id="checks" class="hint">Open a map.</div>
+</aside>
+
+<main>
+  <canvas id="view"></canvas>
+  <div id="welcome">
+    <div class="card">
+      <h3>Open your map files</h3>
+      <p>Click <b>Open folder…</b> and pick one of these folders:</p>
+      <ul>
+        <li><code>the-motocross-rpg/public/assets</code> to edit the <b>game maps</b> exactly as the game loads them (fastest to pick).</li>
+        <li>The shared <code>art</code> folder to edit the <b>Tiled source maps</b> (<code>.tmj</code>) that <code>npm run import-art</code> bakes into the game.</li>
+        <li>The whole repo folder also works; <code>node_modules</code> is skipped where the browser allows it.</li>
+      </ul>
+      <p>In Chrome or Edge, <b>Save</b> writes straight back into the folder. In other browsers, Save downloads the file for you to copy into place.</p>
+      <div class="row"><button class="primary" id="btnOpen2">Open folder…</button><button id="btnHelp2">Help and shortcuts</button></div>
+      <p id="serverHint" class="hint"></p>
+    </div>
+  </div>
+</main>
+
+<aside id="right">
+  <h2>Brush</h2>
+  <div id="brushBox"><div class="sw" id="brushSw"></div><div><div id="brushName">Nothing selected</div><div class="hint" id="brushHint">Click a tile below, or use the Picker on the map.</div></div></div>
+  <h2>Palette</h2>
+  <div class="row">
+    <select id="palGroup" style="flex:1"></select>
+  </div>
+  <input type="search" id="palSearch" placeholder="Search tiles by name…">
+  <div id="palette"><div id="palEmpty">Open a map to load its tiles.</div></div>
+</aside>
+
+<footer>
+  <span id="posLabel">—</span>
+  <span id="layerLabel"></span>
+  <span id="msg"></span>
+</footer>
+
+<dialog id="help">
+  <h3 style="margin-top:0">Map editor help</h3>
+  <ul>
+    <li><b>Pan:</b> drag with the right or middle mouse button, hold <kbd>Space</kbd> and drag, or use the Pan tool. <b>Zoom:</b> mouse wheel (zooms where the pointer is), <kbd>+</kbd> <kbd>-</kbd>, <kbd>0</kbd> fits the map.</li>
+    <li><b>Brush</b> <kbd>B</kbd>, <b>Eraser</b> <kbd>E</kbd>: click or drag. <kbd>Shift</kbd>+drag paints or clears a rectangle.</li>
+    <li><b>Picker</b> <kbd>I</kbd>: click a tile to make it the brush, or drag over several to copy a stamp. Holding <kbd>Alt</kbd> with the Brush picks too.</li>
+    <li><b>Fill</b> <kbd>F</kbd>: floods connected matching tiles; stays inside the selection when there is one.</li>
+    <li><b>Select</b> <kbd>M</kbd>: drag a box. Drag inside it to move it, <kbd>Alt</kbd>+drag to move a copy. <kbd>Ctrl+C</kbd>/<kbd>X</kbd>/<kbd>V</kbd> copy, cut and paste (click to place). <kbd>Del</kbd> clears. <b>Swap with…</b> exchanges two regions. <kbd>Esc</kbd> cancels.</li>
+    <li><b>Objects</b> <kbd>V</kbd>: click a prop or marker to select it, drag to move (snaps to the grid; hold <kbd>Alt</kbd> for pixels), <kbd>Del</kbd> deletes a prop. With a prop picked in the palette, click empty ground to place it on the active props layer. Buildings and their doors only move together, with the Select tool.</li>
+    <li><b>Region scope:</b> "All layers" moves tiles, collision, props, markers and partitions together. Copies never duplicate markers (doors, spawns), and Clear never deletes them.</li>
+    <li><b>Collision:</b> make Collision the active layer; Brush blocks a tile, Eraser frees it.</li>
+    <li><b>Layers:</b> click a layer to edit it, the eye hides it, the slider sets its opacity. <kbd>[</kbd> <kbd>]</kbd> step through layers, <kbd>G</kbd> grid, <kbd>C</kbd> collision overlay.</li>
+    <li><b>Save</b> <kbd>Ctrl+S</kbd>. <b>Undo</b> <kbd>Ctrl+Z</kbd>, <b>Redo</b> <kbd>Ctrl+Y</kbd>.</li>
+  </ul>
+  <p class="hint">Game maps (<code>public/assets/maps/*.json</code>) are rebuilt from the Tiled maps whenever someone runs <code>npm run import-art</code>, so edit the <code>.tmj</code> source for changes that should last, then re-import. After saving a game map, run <code>npm test</code> to check doors, spawns and NPCs still work.</p>
+  <div class="row"><button id="btnHelpClose">Close</button></div>
+</dialog>
+
+<script>
+'use strict';
+const TILE = 64;
+const GID_MASK = 0x1fffffff;
+const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', '.vite', 'coverage', '.cache']);
+const MARKER_COLORS = { door: '#4fc3f7', return: '#81c784', exit: '#81c784', spawn: '#ffd54f', travel: '#ba68c8', venue: '#ba68c8', gate: '#ba68c8', npc: '#ff8a65', interact: '#90a4ae', click: '#90a4ae', blocker: '#e57373', building: '#f0a020' };
+// Markers the player stands on: they must sit on a free tile (mirrors tests/maps.test.ts).
+const MUST_BE_FREE = new Set(['spawn', 'exit', 'door', 'return', 'travel', 'venue', 'gate']);
+
+const $ = (s) => document.querySelector(s);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+// ---------------------------------------------------------------------------------------------
+// Paths
+
+function normPath(p) {
+  const out = [];
+  for (const s of p.split('/')) {
+    if (!s || s === '.') continue;
+    if (s === '..') out.pop(); else out.push(s);
+  }
+  return out.join('/');
+}
+const dirOf = (p) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '');
+const joinPath = (dir, rel) => normPath(dir ? `${dir}/${rel}` : rel);
+const baseName = (p) => p.slice(p.lastIndexOf('/') + 1);
+const stem = (p) => baseName(p).replace(/\.[^.]+$/, '');
+
+// ---------------------------------------------------------------------------------------------
+// File sources: a folder opened with the File System Access API (read/write), a folder from
+// <input webkitdirectory> (read only, saves download), or the web server this page came from.
+
+class DirSource {
+  constructor(handle) { this.root = handle; this.name = handle.name; this.files = new Map(); this.canWrite = true; }
+  async scan() {
+    const walk = async (dir, prefix) => {
+      for await (const [name, h] of dir.entries()) {
+        if (h.kind === 'directory') { if (!SKIP_DIRS.has(name)) await walk(h, `${prefix}${name}/`); }
+        else this.files.set(prefix + name, h);
+      }
+    };
+    await walk(this.root, '');
+  }
+  has(p) { return this.files.has(p); }
+  async blob(p) { const h = this.files.get(p); if (!h) throw new Error(`Missing file: ${p}`); return h.getFile(); }
+  async text(p) { return (await this.blob(p)).text(); }
+  async write(p, text) {
+    const h = this.files.get(p);
+    if (h.requestPermission && (await h.requestPermission({ mode: 'readwrite' })) !== 'granted') throw new Error('The browser did not allow saving into the folder.');
+    const w = await h.createWritable();
+    await w.write(text);
+    await w.close();
+  }
+}
+
+class ListSource {
+  constructor(fileList) {
+    this.files = new Map();
+    this.canWrite = false;
+    for (const f of fileList) {
+      const p = f.webkitRelativePath || f.name;
+      if (p.split('/').some((s) => SKIP_DIRS.has(s))) continue;
+      this.files.set(p, f);
+    }
+    this.name = [...this.files.keys()][0]?.split('/')[0] ?? 'folder';
+  }
+  async scan() {}
+  has(p) { return this.files.has(p); }
+  async blob(p) { const f = this.files.get(p); if (!f) throw new Error(`Missing file: ${p}`); return f; }
+  async text(p) { return (await this.blob(p)).text(); }
+}
+
+class HttpSource {
+  constructor(base, mapPaths) { this.base = base; this.name = base; this.files = new Map(mapPaths.map((p) => [p, true])); this.canWrite = false; this.http = true; }
+  async scan() {}
+  has(p) { return this.files.has(p); }
+  async blob(p) { const r = await fetch(this.base + p); if (!r.ok) throw new Error(`Could not load ${p} (${r.status})`); return r.blob(); }
+  async text(p) { return (await this.blob(p)).text(); }
+}
+
+// ---------------------------------------------------------------------------------------------
+// JSON helpers. Tiled maps here were written by Python's json.dumps, which keeps "160.0" style
+// floats and ", " separators. Parsing remembers which integers were written as floats (where the
+// browser exposes the source text) so an unchanged map saves back byte for byte.
+
+const FLOAT_KEYS = new WeakMap();
+function parseKeepFloats(text) {
+  return JSON.parse(text, function (k, v, ctx) {
+    if (typeof v === 'number' && Number.isInteger(v) && ctx && typeof ctx.source === 'string' && /[.eE]/.test(ctx.source)) {
+      let s = FLOAT_KEYS.get(this);
+      if (!s) FLOAT_KEYS.set(this, (s = new Set()));
+      s.add(k);
+    }
+    return v;
+  });
+}
+/** Shallow copy that keeps the float markers of the original. */
+function copyObj(o, changes) {
+  const n = Array.isArray(o) ? [...o] : { ...o, ...changes };
+  if (FLOAT_KEYS.has(o)) FLOAT_KEYS.set(n, new Set(FLOAT_KEYS.get(o)));
+  return n;
+}
+function pyStr(s) { return JSON.stringify(s).replace(/[\u0080-￿]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`); }
+function pyDump(v, holder, key) {
+  if (v === null || v === undefined) return 'null';
+  if (typeof v === 'boolean') return v ? 'true' : 'false';
+  if (typeof v === 'number') {
+    if (Number.isInteger(v)) return FLOAT_KEYS.get(holder)?.has(key) ? `${v}.0` : String(v);
+    return String(v);
+  }
+  if (typeof v === 'string') return pyStr(v);
+  if (Array.isArray(v)) return `[${v.map((x, i) => pyDump(x, v, String(i))).join(', ')}]`;
+  return `{${Object.keys(v).map((k) => `${pyStr(k)}: ${pyDump(v[k], v, k)}`).join(', ')}}`;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Images: one HTMLImageElement per file, loaded on demand.
+
+const images = new Map(); // file path -> { img, ready, failed, url }
+let source = null;
+function imageAt(path) {
+  let e = images.get(path);
+  if (!e) {
+    e = { img: new Image(), ready: false, failed: false, url: null };
+    images.set(path, e);
+    e.img.onload = () => { e.ready = true; requestDraw(); };
+    e.img.onerror = () => { e.failed = true; };
+    const src = source;
+    src.blob(path).then((b) => {
+      if (src !== source) return;
+      e.url = URL.createObjectURL(b);
+      e.img.src = e.url;
+    }).catch(() => { e.failed = true; });
+  }
+  return e;
+}
+function clearImages() {
+  for (const e of images.values()) if (e.url) URL.revokeObjectURL(e.url);
+  images.clear();
+}
+
+// ---------------------------------------------------------------------------------------------
+// Editor state
+
+const app = {
+  catalog: [],      // { label, path, format: 'baked'|'tmj', assets? }
+  bakedImages: null, // every image path used by any game map (palette for game maps)
+  doc: null,        // the open map
+  tool: 'brush',
+  activeLayer: null,
+  layerView: {},    // layer id -> { visible, opacity }
+  brush: null,      // { kind: 'tiles', w, h, cells } | { kind: 'prop', key }
+  sel: null,        // { x, y, w, h } in tiles
+  float: null,      // floating chunk being placed
+  clipboard: null,
+  undo: [], redo: [],
+  dirty: false,
+  slotA: undefined, slotB: undefined,
+  view: { scale: 1, ox: 0, oy: 0 },
+  hover: null,
+  selectedEnt: null, // { kind: 'prop'|'marker', index }
+  showGrid: true,
+};
+
+/*
+  An open map ("doc"):
+    format, path, name, width, height, raw (parsed file, never mutated)
+    tiles: Map key -> { key, path, w, h, name, group, align, frames }
+      game maps:  key = image path relative to public/assets ("art/...png")
+      Tiled maps: key = gid
+    layerDefs: the layer list shown in the Layers panel
+    state (everything undo tracks, plain data):
+      layers:    [{ name, cells: key|null per cell }]
+      collision: 0/1 per cell
+      props:     [{ ref, layer, key, x, y, w, h, crop, depthOff, building, frames, ox, oy }]
+      markers:   [{ ref, name, type, x, y, w, h, point, ox, oy }]
+      walls:     [{ ref, pts: [[x,y],...] in tile-corner units, dx, dy }]
+*/
+
+function stateClone(s) { return structuredClone(s); }
+
+// ---------------------------------------------------------------------------------------------
+// Opening folders and finding maps
+
+async function openFolder() {
+  if (app.dirty && !confirm('You have unsaved changes. Open another folder anyway?')) return;
+  if (window.showDirectoryPicker) {
+    let handle;
+    try { handle = await window.showDirectoryPicker({ id: 'mxrpg-maps', mode: 'readwrite' }); }
+    catch (e) { if (e.name !== 'AbortError') status(e.message, 'err'); return; }
+    const src = new DirSource(handle);
+    status(`Reading ${handle.name}…`);
+    await src.scan();
+    await useSource(src);
+  } else {
+    $('#dirInput').value = '';
+    $('#dirInput').click();
+  }
+}
+
+$('#dirInput').addEventListener('change', async (e) => {
+  if (!e.target.files.length) return;
+  const src = new ListSource(e.target.files);
+  await useSource(src);
+});
+
+async function useSource(src) {
+  const catalog = [];
+  const bakedAssets = new Set();
+  for (const p of src.files.keys()) {
+    if (p.endsWith('.tmj')) catalog.push({ path: p, format: 'tmj' });
+    else if (/(^|\/)maps\/[^/]+\.json$/.test(p)) {
+      const assets = dirOf(dirOf(p));
+      if (src.has(joinPath(assets, 'manifest.json'))) { catalog.push({ path: p, format: 'baked', assets }); bakedAssets.add(assets); }
+    }
+  }
+  if (!catalog.length) {
+    status(`No maps found in "${src.name}". Pick public/assets (game maps) or the art folder (Tiled maps).`, 'err');
+    return;
+  }
+  catalog.sort((a, b) => (a.format === b.format ? a.path.localeCompare(b.path) : a.format === 'baked' ? -1 : 1));
+  source = src;
+  clearImages();
+  app.catalog = catalog;
+  app.bakedImages = null;
+  app.doc = null;
+  const sel = $('#mapSelect');
+  sel.innerHTML = '';
+  const groups = { baked: 'Game maps (what the game loads)', tmj: 'Tiled source maps (.tmj)' };
+  for (const fmt of ['baked', 'tmj']) {
+    const items = catalog.filter((c) => c.format === fmt);
+    if (!items.length) continue;
+    const og = document.createElement('optgroup');
+    og.label = groups[fmt];
+    for (const c of items) {
+      const o = document.createElement('option');
+      o.value = c.path;
+      o.textContent = fmt === 'baked' ? stem(c.path) : c.path.replace(/^.*?maps\//, '');
+      og.appendChild(o);
+    }
+    sel.appendChild(og);
+  }
+  sel.disabled = false;
+  $('#welcome').style.display = 'none';
+  const first = catalog.find((c) => c.format === 'baked' && stem(c.path) === 'area1-home-town') ?? catalog.find((c) => /home-town/.test(c.path)) ?? catalog[0];
+  sel.value = first.path;
+  await openMap(first);
+}
+
+$('#mapSelect').addEventListener('change', async (e) => {
+  const c = app.catalog.find((x) => x.path === e.target.value);
+  if (app.dirty && !confirm('You have unsaved changes to this map. Switch maps and lose them?')) { e.target.value = app.doc.path; return; }
+  await openMap(c);
+});
+
+async function openMap(c) {
+  try {
+    status(`Loading ${c.path}…`);
+    const doc = c.format === 'baked' ? await loadBaked(c) : await loadTmj(c);
+    app.doc = doc;
+    $('#mapSelect').value = c.path;
+    app.undo = []; app.redo = [];
+    app.sel = null; app.float = null; app.selectedEnt = null; app.pendingSwap = false;
+    setDirty(false);
+    buildLayersPanel();
+    const firstTile = doc.layerDefs.find((l) => l.kind === 'tile');
+    setActiveLayer((app.activeLayer && doc.layerDefs.find((l) => l.id === app.activeLayer.id)) || firstTile || doc.layerDefs[0]);
+    buildPalette();
+    fitView();
+    runChecks();
+    updateButtons();
+    const where = c.format === 'baked' ? 'game map' : 'Tiled map';
+    status(`Opened ${where} ${doc.name} (${doc.width}×${doc.height} tiles).${c.format === 'baked' ? ' Note: npm run import-art rebuilds game maps from the Tiled sources.' : ''}`, 'ok');
+  } catch (e) {
+    console.error(e);
+    status(`Could not open ${c.path}: ${e.message}`, 'err');
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Game map format (public/assets/maps/<id>.json, see src/core/mapTypes.ts and tools/import-art.mjs)
+
+async function loadBaked(c) {
+  const raw = JSON.parse(await source.text(c.path));
+  if (raw.tileSize !== TILE) throw new Error(`tile size is ${raw.tileSize}, expected ${TILE}`);
+  const tiles = new Map();
+  const addTile = (p) => {
+    if (!tiles.has(p)) tiles.set(p, { key: p, path: joinPath(c.assets, p), name: stem(p), group: baseName(dirOf(p)), w: 0, h: 0 });
+    return p;
+  };
+  raw.images.forEach(addTile);
+  // Palette: every tile image in the folder, plus images other game maps use.
+  for (const p of source.files.keys()) {
+    if (!p.endsWith('.png') || !p.startsWith(c.assets ? `${c.assets}/art/` : 'art/')) continue;
+    const rel = c.assets ? p.slice(c.assets.length + 1) : p;
+    if (/^art\/(characters|buildings\/sheets)\//.test(rel)) continue;
+    addTile(rel);
+  }
+  if (source.http) for (const p of await allBakedImages(c)) addTile(p);
+
+  const { width, height } = raw;
+  const kindLabel = raw.kind === 'interior' ? 'Furniture' : 'Objects';
+  const state = {
+    layers: raw.ground.map((l) => ({ name: l.name, cells: l.cells.map((i) => (i < 0 ? null : raw.images[i])) })),
+    collision: [],
+    props: raw.sprites.map((s, i) => ({
+      ref: i, layer: s.overhead ? 'Overhead' : kindLabel, key: raw.images[s.img], x: s.x, y: s.y, w: s.w, h: s.h,
+      crop: s.crop ?? null, depthOff: s.depth - s.y, building: !!s.crop,
+      frames: s.frames ? s.frames.map((f) => ({ key: raw.images[f.img], ms: f.ms })) : null,
+    })),
+    markers: raw.objects.map((o, i) => ({ ref: i, name: o.name, type: o.type, x: o.x, y: o.y, w: o.w, h: o.h, point: !!o.point })),
+    walls: raw.edgeWalls.map((w, i) => ({ ref: i, pts: [[w[0], w[1]], [w[2], w[3]]] })),
+  };
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) state.collision.push(raw.blocked[y]?.[x] === '#' ? 1 : 0);
+
+  const propLayers = [kindLabel, 'Overhead'];
+  return {
+    format: 'baked', path: c.path, name: raw.id, width, height, raw, tiles, state,
+    propLayers, layerDefs: makeLayerDefs(state, propLayers),
+  };
+}
+
+async function allBakedImages(c) {
+  if (app.bakedImages) return app.bakedImages;
+  const set = new Set();
+  for (const m of app.catalog.filter((x) => x.format === 'baked')) {
+    try { for (const p of JSON.parse(await source.text(m.path)).images) set.add(p); } catch { /* skip */ }
+  }
+  app.bakedImages = [...set].filter((p) => !/^art\/(characters|buildings\/sheets)\//.test(p));
+  return app.bakedImages;
+}
+
+function exportBaked(doc) {
+  const { raw, state } = doc;
+  const used = [];
+  const usedSet = new Set();
+  const use = (k) => { if (k != null && !usedSet.has(k)) { usedSet.add(k); used.push(k); } };
+  for (const l of state.layers) l.cells.forEach(use);
+  for (const p of state.props) { p.frames?.forEach((f) => use(f.key)); use(p.key); }
+  // Keep the original image order so an unchanged map saves identically; new images go last.
+  const imgs = raw.images.filter((p) => usedSet.has(p));
+  for (const k of used) if (!imgs.includes(k)) imgs.push(k);
+  const idx = new Map(imgs.map((p, i) => [p, i]));
+  const sprites = state.props.map((p) => {
+    const s = { img: idx.get(p.key) };
+    if (p.crop) s.crop = p.crop;
+    Object.assign(s, { x: p.x, y: p.y, w: p.w, h: p.h, depth: p.y + p.depthOff, overhead: p.layer === 'Overhead' });
+    if (p.frames) s.frames = p.frames.map((f) => ({ img: idx.get(f.key), ms: f.ms }));
+    return s;
+  });
+  const blocked = [];
+  for (let y = 0; y < doc.height; y++) {
+    let row = '';
+    for (let x = 0; x < doc.width; x++) row += state.collision[y * doc.width + x] ? '#' : '.';
+    blocked.push(row);
+  }
+  const out = {
+    ...raw,
+    images: imgs,
+    ground: state.layers.map((l) => ({ name: l.name, cells: l.cells.map((k) => (k == null ? -1 : idx.get(k))) })),
+    sprites,
+    blocked,
+    edgeWalls: state.walls.map((w) => [w.pts[0][0], w.pts[0][1], w.pts[1][0], w.pts[1][1]]),
+    objects: state.markers.map((m) => ({ ...raw.objects[m.ref], x: m.x, y: m.y })),
+  };
+  return JSON.stringify(out);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Tiled format (.tmj with external .tsj image-collection tilesets)
+
+async function loadTmj(c) {
+  const raw = parseKeepFloats(await source.text(c.path));
+  if (raw.tilewidth !== TILE || raw.tileheight !== TILE) throw new Error(`tiles are ${raw.tilewidth}×${raw.tileheight}, expected ${TILE}`);
+  if (raw.infinite) throw new Error('infinite maps are not supported');
+  const tiles = new Map();
+  let blockedGid = 0;
+  for (const ts of raw.tilesets) {
+    if (!ts.source) throw new Error('embedded tilesets are not supported (the import tool rejects them too)');
+    const tsPath = joinPath(dirOf(c.path), ts.source);
+    if (!source.has(tsPath)) throw new Error(`tileset ${tsPath} is not in the opened folder`);
+    const tsj = JSON.parse(await source.text(tsPath));
+    if (!tsj.tiles) throw new Error(`${tsPath}: only image-collection tilesets are supported`);
+    for (const t of tsj.tiles) {
+      const props = Object.fromEntries((t.properties ?? []).map((p) => [p.name, p.value]));
+      const gid = ts.firstgid + t.id;
+      tiles.set(gid, {
+        key: gid, path: joinPath(dirOf(tsPath), t.image), w: t.imagewidth, h: t.imageheight,
+        name: props.name ?? stem(t.image), group: `${tsj.name}${props.atlas ? ` / ${props.atlas}` : ` / ${baseName(dirOf(t.image))}`}`,
+        align: tsj.objectalignment ?? 'bottomleft',
+        frames: t.animation ? t.animation.map((f) => ({ key: ts.firstgid + f.tileid, ms: f.duration })) : null,
+        editor: /editor/.test(tsj.name),
+      });
+      if (/editor/.test(tsj.name) && (props.name === 'blocked' || !blockedGid)) blockedGid = gid;
+    }
+  }
+  // Buildings are drawn from the buildings data file, as the import tool does.
+  let buildings = null;
+  const artRoot = c.path.includes('area-map/') ? c.path.slice(0, c.path.indexOf('area-map/')) : c.path.includes('buildings/') ? c.path.slice(0, c.path.indexOf('buildings/')) : '';
+  const bPath = `${artRoot}buildings/data/area1-buildings-v3.json`;
+  if (source.has(bPath)) buildings = new Map(JSON.parse(await source.text(bPath)).buildings.map((b) => [b.id, b]));
+
+  const { width, height } = raw;
+  const state = { layers: [], collision: new Array(width * height).fill(0), props: [], markers: [], walls: [] };
+  const propLayers = [];
+  let hasCollision = false;
+  raw.layers.forEach((L, li) => {
+    if (L.type === 'tilelayer') {
+      if (L.name === 'Collision') {
+        hasCollision = true;
+        L.data.forEach((g, i) => { if (g & GID_MASK) { state.collision[i] = 1; blockedGid ||= g & GID_MASK; } });
+      } else state.layers.push({ name: L.name, ref: li, cells: L.data.map((g) => (g & GID_MASK ? g : null)) });
+      return;
+    }
+    if (L.type !== 'objectgroup') return;
+    const isData = L.name === 'Data';
+    const isPartitions = L.name === 'Partitions';
+    if (!isData && !isPartitions) propLayers.push(L.name);
+    L.objects.forEach((o, oi) => {
+      const ref = [li, oi];
+      if (o.polyline && isPartitions) {
+        state.walls.push({ ref, dx: 0, dy: 0, pts: o.polyline.map((p) => [Math.round((o.x + p.x) / TILE), Math.round((o.y + p.y) / TILE)]) });
+        return;
+      }
+      if (o.type === 'building' && !o.gid) {
+        const b = buildings?.get(Object.fromEntries((o.properties ?? []).map((p) => [p.name, p.value])).blueprint);
+        const sheetKey = b ? `sheet:${b.sprite.sheet}` : null;
+        if (b && !tiles.has(sheetKey)) tiles.set(sheetKey, { key: sheetKey, path: `${artRoot}buildings/${b.sprite.sheet}`, name: 'building sheet', group: '', w: 0, h: 0, hidden: true });
+        state.props.push({
+          ref, layer: L.name, key: sheetKey, x: o.x, y: o.y, ox: o.x, oy: o.y,
+          w: b ? b.sprite.w : o.width, h: b ? b.sprite.h : o.height, crop: b ? [b.sprite.x, b.sprite.y, b.sprite.w, b.sprite.h] : null,
+          depthOff: b ? b.size[1] * TILE : o.height, building: true, label: o.name,
+        });
+        return;
+      }
+      if (o.gid) {
+        const t = tiles.get(o.gid & GID_MASK);
+        if (!t) throw new Error(`object ${o.name} uses unknown gid ${o.gid}`);
+        const w = o.width || t.w;
+        const h = o.height || t.h;
+        const [left, top] = alignToTopLeft(t.align, o.x, o.y, w, h);
+        state.props.push({ ref, layer: L.name, key: o.gid, x: left, y: top, ox: left, oy: top, w, h, crop: null, depthOff: h, building: false, frames: t.frames });
+        return;
+      }
+      state.markers.push({ ref, name: o.name, type: o.type || o.class || '', x: o.x, y: o.y, w: o.width, h: o.height, point: !!o.point, ox: o.x, oy: o.y });
+    });
+  });
+  if (!blockedGid && hasCollision) throw new Error('no "blocked" tile found in an editor tileset for the Collision layer');
+  return {
+    format: 'tmj', path: c.path, name: stem(c.path), width, height, raw, tiles, state, blockedGid, hasCollision,
+    propLayers, layerDefs: makeLayerDefs(state, propLayers, hasCollision),
+  };
+}
+
+function alignToTopLeft(align, x, y, w, h) {
+  switch (align) {
+    case 'bottom': return [x - w / 2, y - h];
+    case 'topleft': return [x, y];
+    case 'top': return [x - w / 2, y];
+    case 'center': return [x - w / 2, y - h / 2];
+    case 'left': return [x, y - h / 2];
+    case 'right': return [x - w, y - h / 2];
+    case 'topright': return [x - w, y];
+    case 'bottomright': return [x - w, y - h];
+    default: return [x, y - h]; // bottomleft, unspecified
+  }
+}
+function topLeftToAlign(align, left, top, w, h) {
+  switch (align) {
+    case 'bottom': return [left + w / 2, top + h];
+    case 'topleft': return [left, top];
+    case 'top': return [left + w / 2, top];
+    case 'center': return [left + w / 2, top + h / 2];
+    case 'left': return [left, top + h / 2];
+    case 'right': return [left + w, top + h / 2];
+    case 'topright': return [left + w, top];
+    case 'bottomright': return [left + w, top + h];
+    default: return [left, top + h];
+  }
+}
+
+function exportTmj(doc) {
+  const { raw, state } = doc;
+  let nextId = raw.nextobjectid;
+  const byRef = new Map();
+  for (const p of state.props) if (p.ref) byRef.set(p.ref.join(','), { p });
+  for (const m of state.markers) if (m.ref) byRef.set(m.ref.join(','), { m });
+  for (const w of state.walls) byRef.set(w.ref.join(','), { w });
+  const layers = raw.layers.map((L, li) => {
+    if (L.type === 'tilelayer') {
+      if (L.name === 'Collision') return copyObj(L, { data: state.collision.map((b, i) => (b ? (L.data[i] & GID_MASK ? L.data[i] : doc.blockedGid) : 0)) });
+      const l = state.layers.find((x) => x.ref === li);
+      return l ? copyObj(L, { data: l.cells.map((k) => k ?? 0) }) : L;
+    }
+    if (L.type !== 'objectgroup') return L;
+    const objects = [];
+    L.objects.forEach((o, oi) => {
+      const e = byRef.get(`${li},${oi}`);
+      if (!e) return; // deleted
+      if (e.p) {
+        const p = e.p;
+        if (p.x === p.ox && p.y === p.oy) return objects.push(o);
+        if (p.building) return objects.push(copyObj(o, { x: p.x, y: p.y }));
+        const t = doc.tiles.get(o.gid & GID_MASK);
+        const [x, y] = topLeftToAlign(t.align, p.x, p.y, p.w, p.h);
+        return objects.push(copyObj(o, { x, y }));
+      }
+      if (e.m) return objects.push(e.m.x === e.m.ox && e.m.y === e.m.oy ? o : copyObj(o, { x: e.m.x, y: e.m.y }));
+      if (e.w) return objects.push(e.w.dx || e.w.dy ? copyObj(o, { x: o.x + e.w.dx * TILE, y: o.y + e.w.dy * TILE }) : o);
+      objects.push(o);
+    });
+    for (const p of state.props) {
+      if (p.ref || p.layer !== L.name) continue;
+      const t = doc.tiles.get(p.key & GID_MASK);
+      const [x, y] = topLeftToAlign(t.align, p.x, p.y, p.w, p.h);
+      objects.push({ id: nextId++, name: t.name, type: 'prop', gid: p.key, x, y, width: p.w, height: p.h, rotation: 0, visible: true });
+    }
+    return copyObj(L, { objects });
+  });
+  return pyDump(copyObj(raw, { nextobjectid: nextId, layers }));
+}
+
+// ---------------------------------------------------------------------------------------------
+// Layers panel
+
+function makeLayerDefs(state, propLayers, hasCollision = true) {
+  const hints = { Ground: 'background', 'Ground detail': 'decor', Room: 'floor and walls', Building: 'building', Objects: 'props, sorted with the rider', Furniture: 'props, sorted with the rider', Overhead: 'foreground, above the rider' };
+  const defs = [];
+  state.layers.forEach((l, i) => defs.push({ id: `tile:${l.name}`, kind: 'tile', index: i, label: l.name, hint: hints[l.name] ?? 'tiles' }));
+  for (const name of propLayers) defs.push({ id: `props:${name}`, kind: 'props', name, label: name, hint: hints[name] ?? 'props' });
+  if (hasCollision) defs.push({ id: 'collision', kind: 'collision', label: 'Collision', hint: 'red = blocked' });
+  if (state.markers.length) defs.push({ id: 'markers', kind: 'markers', label: 'Data', hint: 'doors, spawns, triggers' });
+  if (state.walls.length) defs.push({ id: 'walls', kind: 'walls', label: 'Partitions', hint: 'thin walls', noedit: true });
+  defs.push({ id: 'grid', kind: 'grid', label: 'Grid', hint: '', noedit: true });
+  return defs;
+}
+
+function layerView(id) {
+  if (!app.layerView[id]) app.layerView[id] = { visible: true, opacity: id === 'collision' ? 0.45 : 1 };
+  return app.layerView[id];
+}
+
+function buildLayersPanel() {
+  const box = $('#layers');
+  box.innerHTML = '';
+  for (const def of app.doc.layerDefs) {
+    const v = layerView(def.id);
+    if (def.id === 'grid') v.visible = app.showGrid;
+    const el = document.createElement('div');
+    el.className = `layer${def.noedit ? ' noedit' : ''}`;
+    el.dataset.id = def.id;
+    el.innerHTML = `<button class="eye${v.visible ? '' : ' off'}" title="Show or hide">👁</button><div class="name"></div><input type="range" min="0" max="100" title="Opacity">`;
+    const name = el.querySelector('.name');
+    name.textContent = `${def.label} `;
+    if (def.hint) name.appendChild(Object.assign(document.createElement('small'), { textContent: def.hint }));
+    const range = el.querySelector('input');
+    range.value = Math.round(v.opacity * 100);
+    range.addEventListener('input', () => { v.opacity = range.value / 100; requestDraw(); });
+    range.addEventListener('click', (e) => e.stopPropagation());
+    el.querySelector('.eye').addEventListener('click', (e) => { e.stopPropagation(); toggleLayer(def.id); });
+    el.addEventListener('click', () => { if (!def.noedit) setActiveLayer(def); });
+    box.appendChild(el);
+  }
+}
+
+function toggleLayer(id, force) {
+  const v = layerView(id);
+  v.visible = force ?? !v.visible;
+  if (id === 'grid') app.showGrid = v.visible;
+  const el = document.querySelector(`.layer[data-id="${CSS.escape(id)}"] .eye`);
+  if (el) el.classList.toggle('off', !v.visible);
+  requestDraw();
+}
+
+function setActiveLayer(def) {
+  app.activeLayer = def;
+  for (const el of document.querySelectorAll('.layer')) el.classList.toggle('active', el.dataset.id === def.id);
+  if (!layerView(def.id).visible) toggleLayer(def.id, true);
+  app.selectedEnt = null;
+  if (def.kind === 'markers' && ['brush', 'eraser', 'fill', 'picker'].includes(app.tool)) setTool('props');
+  $('#layerLabel').textContent = `Editing: ${def.label}`;
+  buildPalette();
+  updateBrushBox();
+  requestDraw();
+}
+
+function stepLayer(dir) {
+  const defs = app.doc.layerDefs.filter((d) => !d.noedit);
+  const i = defs.findIndex((d) => d.id === app.activeLayer?.id);
+  setActiveLayer(defs[(i + dir + defs.length) % defs.length]);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Palette
+
+let palObserver = null;
+function paletteEntries() {
+  const doc = app.doc;
+  const kind = app.activeLayer?.kind;
+  const all = [...doc.tiles.values()].filter((t) => !t.hidden && !(doc.format === 'tmj' && t.editor));
+  const usedKeys = new Set();
+  const plain = (k) => (doc.format === 'tmj' ? k & GID_MASK : k);
+  if (kind === 'props') { for (const p of doc.state.props) if (p.layer === app.activeLayer.name && !p.building) usedKeys.add(plain(p.key)); }
+  else for (const l of doc.state.layers) for (const k of l.cells) if (k != null) usedKeys.add(plain(k));
+  return { all, usedKeys };
+}
+
+function buildPalette() {
+  const doc = app.doc;
+  const pal = $('#palette');
+  const groupSel = $('#palGroup');
+  if (!doc) return;
+  const kind = app.activeLayer?.kind;
+  if (kind === 'collision' || kind === 'markers') {
+    pal.innerHTML = `<div id="palEmpty">${kind === 'collision' ? 'Collision layer: the Brush blocks tiles, the Eraser frees them. Fill and Select work too.' : 'Data markers (doors, spawns, triggers) are moved with the Objects tool (V) or with a region move. They are never copied or deleted here.'}</div>`;
+    groupSel.innerHTML = '';
+    return;
+  }
+  const { all, usedKeys } = paletteEntries();
+  const groups = [...new Set(all.map((t) => t.group))].sort();
+  const prev = groupSel.value;
+  groupSel.innerHTML = '';
+  const addOpt = (v, label) => { const o = document.createElement('option'); o.value = v; o.textContent = label; groupSel.appendChild(o); };
+  addOpt('@used', kind === 'props' ? `Used on this layer (${usedKeys.size})` : `Used in this map (${usedKeys.size})`);
+  addOpt('@all', `All tiles (${all.length})`);
+  for (const g of groups) addOpt(g, g);
+  groupSel.value = [...groupSel.options].some((o) => o.value === prev) ? prev : '@used';
+  renderPaletteItems();
+}
+
+function renderPaletteItems() {
+  const doc = app.doc;
+  const pal = $('#palette');
+  if (!doc || !['tile', 'props'].includes(app.activeLayer?.kind)) return;
+  const { all, usedKeys } = paletteEntries();
+  const g = $('#palGroup').value;
+  const q = $('#palSearch').value.trim().toLowerCase();
+  let list = g === '@used' ? all.filter((t) => usedKeys.has(t.key)) : g === '@all' ? all : all.filter((t) => t.group === g);
+  if (q) list = list.filter((t) => t.name.toLowerCase().includes(q) || t.group.toLowerCase().includes(q));
+  list.sort((a, b) => a.group.localeCompare(b.group) || a.name.localeCompare(b.name, undefined, { numeric: true }));
+  pal.innerHTML = '';
+  palObserver?.disconnect();
+  palObserver = new IntersectionObserver((entries) => {
+    for (const en of entries) {
+      if (!en.isIntersecting) continue;
+      const btn = en.target;
+      palObserver.unobserve(btn);
+      const t = doc.tiles.get(btn._key);
+      const e = imageAt(t.path);
+      const show = () => {
+        btn.style.backgroundImage = `url("${e.url}")`;
+        const w = e.img.naturalWidth, h = e.img.naturalHeight;
+        if (w !== TILE || h !== TILE) { btn.classList.add('big'); btn.dataset.size = `${w}×${h}`; }
+      };
+      if (e.ready) show(); else e.img.addEventListener('load', show, { once: true });
+    }
+  }, { root: pal });
+  if (!list.length) { pal.innerHTML = '<div id="palEmpty">No tiles match.</div>'; return; }
+  const cur = currentBrushKey();
+  for (const t of list) {
+    const b = document.createElement('button');
+    b.className = 'pt';
+    b._key = t.key;
+    b.title = `${t.name}\n${t.group}`;
+    if (cur != null && cur === t.key) b.classList.add('sel');
+    b.addEventListener('click', () => {
+      setBrushKey(t.key);
+      if (['eraser', 'picker', 'select', 'hand'].includes(app.tool)) setTool(app.activeLayer.kind === 'props' ? 'props' : 'brush');
+    });
+    pal.appendChild(b);
+    palObserver.observe(b);
+  }
+}
+$('#palGroup').addEventListener('change', renderPaletteItems);
+$('#palSearch').addEventListener('input', renderPaletteItems);
+
+function currentBrushKey() {
+  const b = app.brush;
+  if (!b) return null;
+  if (b.kind === 'prop') return b.key;
+  if (b.w === 1 && b.h === 1) return b.cells[0];
+  return null;
+}
+
+function setBrushKey(key) {
+  if (app.activeLayer?.kind === 'props') app.brush = { kind: 'prop', key };
+  else app.brush = { kind: 'tiles', w: 1, h: 1, cells: [key] };
+  updateBrushBox();
+  for (const el of document.querySelectorAll('#palette .pt')) el.classList.toggle('sel', el._key === key);
+}
+
+function tileThumb(key, size = 52) {
+  const t = app.doc?.tiles.get(app.doc.format === 'tmj' && typeof key === 'number' ? key & GID_MASK : key);
+  if (!t) return null;
+  const img = document.createElement('img');
+  const e = imageAt(t.path);
+  if (e.ready) img.src = e.url; else e.img.addEventListener('load', () => { img.src = e.url; }, { once: true });
+  img.style.maxWidth = img.style.maxHeight = `${size}px`;
+  return img;
+}
+
+function updateBrushBox() {
+  const sw = $('#brushSw');
+  sw.innerHTML = '';
+  const b = app.brush;
+  const kind = app.activeLayer?.kind;
+  let name = 'Nothing selected';
+  let hint = 'Click a tile below, or use the Picker on the map.';
+  if (kind === 'collision') { name = 'Collision'; hint = 'Brush blocks, Eraser frees.'; sw.innerHTML = '<div style="width:40px;height:40px;background:#e0525299;border:2px solid #e05252"></div>'; }
+  else if (kind === 'markers') { name = 'Data markers'; hint = 'Move them with the Objects tool.'; }
+  else if (b && b.kind === 'tiles' && b.w * b.h > 1) {
+    name = `Stamp ${b.w}×${b.h}`; hint = 'Paints the picked block of tiles.';
+    sw.appendChild(stampCanvas(b));
+  } else {
+    const key = currentBrushKey();
+    if (key != null) {
+      const t = tileInfo(key);
+      name = t ? t.name : String(key);
+      hint = t ? t.group : '';
+      const th = tileThumb(key);
+      if (th) sw.appendChild(th);
+    } else if (b && b.kind === 'tiles') { name = 'Empty cell'; hint = 'Paints nothing (same as the Eraser).'; }
+  }
+  $('#brushName').textContent = name;
+  $('#brushHint').textContent = hint;
+}
+
+function stampCanvas(b) {
+  const c = document.createElement('canvas');
+  const s = Math.max(4, Math.floor(52 / Math.max(b.w, b.h)));
+  c.width = b.w * s; c.height = b.h * s;
+  const g = c.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  b.cells.forEach((k, i) => {
+    const t = k != null ? tileInfo(k) : null;
+    if (!t) return;
+    const e = imageAt(t.path);
+    if (e.ready) g.drawImage(e.img, 0, Math.max(0, e.img.naturalHeight - TILE), Math.min(TILE, e.img.naturalWidth), Math.min(TILE, e.img.naturalHeight), (i % b.w) * s, Math.floor(i / b.w) * s, s, s);
+  });
+  return c;
+}
+
+function tileInfo(key) {
+  if (key == null || !app.doc) return null;
+  return app.doc.tiles.get(app.doc.format === 'tmj' && typeof key === 'number' ? key & GID_MASK : key) ?? null;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Rendering
+
+const canvas = $('#view');
+const ctx = canvas.getContext('2d');
+let drawQueued = false;
+function requestDraw() {
+  if (drawQueued) return;
+  drawQueued = true;
+  requestAnimationFrame(() => { drawQueued = false; draw(); });
+}
+
+function resizeCanvas() {
+  const r = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(r.width * dpr);
+  canvas.height = Math.round(r.height * dpr);
+  requestDraw();
+}
+new ResizeObserver(resizeCanvas).observe(canvas);
+
+function tileImage(key) {
+  const t = tileInfo(key);
+  if (!t) return null;
+  const e = imageAt(t.path);
+  return e.ready ? e.img : null;
+}
+
+function draw() {
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.width, H = canvas.height;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#0d0e11';
+  ctx.fillRect(0, 0, W, H);
+  const doc = app.doc;
+  if (!doc) return;
+  const { scale, ox, oy } = app.view;
+  ctx.setTransform(scale * dpr, 0, 0, scale * dpr, ox * dpr, oy * dpr);
+  ctx.imageSmoothingEnabled = scale < 1;
+  const T = TILE;
+  const mw = doc.width * T, mh = doc.height * T;
+  ctx.fillStyle = '#23262c';
+  ctx.fillRect(0, 0, mw, mh);
+
+  // Visible tile range (+ a margin below for tiles taller than one cell).
+  const x0 = clamp(Math.floor(-ox / scale / T) - 1, 0, doc.width), x1 = clamp(Math.ceil((W / dpr - ox) / scale / T) + 1, 0, doc.width);
+  const y0 = clamp(Math.floor(-oy / scale / T) - 1, 0, doc.height), y1 = clamp(Math.ceil((H / dpr - oy) / scale / T) + 4, 0, doc.height);
+  const st = doc.state;
+  const fl = app.float;
+
+  const drawCells = (cells, alpha, offX = 0, offY = 0, w = doc.width, rx0 = x0, rx1 = x1, ry0 = y0, ry1 = y1) => {
+    ctx.globalAlpha = alpha;
+    for (let y = ry0; y < ry1; y++) for (let x = rx0; x < rx1; x++) {
+      const k = cells[y * w + x];
+      if (k == null) continue;
+      const img = tileImage(k);
+      if (!img) continue;
+      ctx.drawImage(img, (x + offX) * T, (y + offY + 1) * T - img.naturalHeight);
+    }
+  };
+
+  st.layers.forEach((l, i) => {
+    const v = layerView(`tile:${l.name}`);
+    if (v.visible && v.opacity > 0) drawCells(l.cells, v.opacity);
+  });
+  // Floating chunk tiles, drawn over the ground they will replace.
+  if (fl && Object.keys(fl.layers).length) {
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = '#23262c';
+    ctx.fillRect(fl.x * T, fl.y * T, fl.w * T, fl.h * T);
+    st.layers.forEach((l) => {
+      const cells = fl.layers[l.name];
+      const v = layerView(`tile:${l.name}`);
+      if (cells && v.visible) drawCells(cells, Math.max(0.6, v.opacity), fl.x, fl.y, fl.w, 0, fl.w, 0, fl.h);
+    });
+  }
+
+  // Props, depth sorted like the game; the Overhead layer goes on top.
+  const props = st.props.map((p, i) => ({ p, i }));
+  if (fl) for (const p of fl.props) props.push({ p: { ...p, x: p.x + fl.x * T, y: p.y + fl.y * T }, i: -1 });
+  const order = (a, b) => (a.p.y + a.p.depthOff) - (b.p.y + b.p.depthOff);
+  const sorted = props.filter((e) => e.p.layer !== 'Overhead').sort(order).concat(props.filter((e) => e.p.layer === 'Overhead').sort(order));
+  for (const { p, i } of sorted) {
+    const v = layerView(`props:${p.layer}`);
+    if (!v.visible || v.opacity <= 0) continue;
+    ctx.globalAlpha = v.opacity;
+    const img = p.key != null ? tileImage(p.key) : null;
+    if (img) {
+      if (p.crop) ctx.drawImage(img, p.crop[0], p.crop[1], p.crop[2], p.crop[3], p.x, p.y, p.w, p.h);
+      else ctx.drawImage(img, p.x, p.y, p.w, p.h);
+    } else {
+      ctx.strokeStyle = '#f0a020'; ctx.lineWidth = 2 / scale;
+      ctx.strokeRect(p.x, p.y, p.w, p.h);
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  // Collision overlay.
+  const cv = layerView('collision');
+  if (doc.layerDefs.some((d) => d.id === 'collision') && cv.visible && cv.opacity > 0) {
+    ctx.globalAlpha = cv.opacity;
+    ctx.fillStyle = '#e02828';
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) if (st.collision[y * doc.width + x]) ctx.fillRect(x * T, y * T, T, T);
+    if (fl?.collision) for (let i = 0; i < fl.collision.length; i++) {
+      ctx.fillStyle = fl.collision[i] ? '#e02828' : '#0000';
+      if (fl.collision[i]) ctx.fillRect((fl.x + (i % fl.w)) * T, (fl.y + Math.floor(i / fl.w)) * T, T, T);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Partitions (thin walls).
+  const wv = layerView('walls');
+  if (wv.visible && st.walls.length) {
+    ctx.globalAlpha = wv.opacity;
+    ctx.strokeStyle = '#ff40ff'; ctx.lineWidth = 6 / Math.max(scale, 0.5);
+    const walls = st.walls.map((w) => w.pts).concat(fl ? fl.walls.map((w) => w.pts.map(([x, y]) => [x + fl.x, y + fl.y])) : []);
+    for (const pts of walls) {
+      ctx.beginPath();
+      pts.forEach(([x, y], i) => (i ? ctx.lineTo(x * T, y * T) : ctx.moveTo(x * T, y * T)));
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Grid.
+  if (app.showGrid && scale >= 0.18) {
+    ctx.globalAlpha = layerView('grid').opacity * (scale < 0.4 ? 0.5 : 1);
+    ctx.strokeStyle = 'rgba(255,255,255,0.13)';
+    ctx.lineWidth = 1 / scale;
+    ctx.beginPath();
+    for (let x = x0; x <= x1; x++) { ctx.moveTo(x * T, y0 * T); ctx.lineTo(x * T, Math.min(y1, doc.height) * T); }
+    for (let y = y0; y <= Math.min(y1, doc.height); y++) { ctx.moveTo(x0 * T, y * T); ctx.lineTo(x1 * T, y * T); }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  ctx.strokeStyle = '#556'; ctx.lineWidth = 2 / scale;
+  ctx.strokeRect(0, 0, mw, mh);
+
+  // Data markers.
+  const mv = layerView('markers');
+  if (mv.visible && st.markers.length) {
+    ctx.globalAlpha = mv.opacity;
+    const all = st.markers.map((m, i) => ({ m, i })).concat(fl ? fl.markers.map((m) => ({ m: { ...m, x: m.x + fl.x * T, y: m.y + fl.y * T }, i: -1 })) : []);
+    ctx.font = `${Math.max(10, 12 / scale)}px system-ui, sans-serif`;
+    for (const { m } of all) {
+      const col = MARKER_COLORS[m.type] ?? '#ccc';
+      ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 2 / scale;
+      if (m.point || !m.w || !m.h) {
+        ctx.beginPath(); ctx.arc(m.x, m.y, 9 / Math.max(scale, 0.4), 0, Math.PI * 2); ctx.fill();
+      } else {
+        ctx.setLineDash([6 / scale, 4 / scale]);
+        ctx.strokeRect(m.x + 1 / scale, m.y + 1 / scale, m.w - 2 / scale, m.h - 2 / scale);
+        ctx.setLineDash([]);
+      }
+      if (scale >= 0.3) {
+        const label = `${m.type}${m.name && m.name !== m.type ? `: ${m.name}` : ''}`;
+        const tw = ctx.measureText(label).width;
+        ctx.globalAlpha = mv.opacity * 0.75;
+        ctx.fillStyle = '#000';
+        ctx.fillRect(m.x, m.y - 15 / scale, tw + 6 / scale, 15 / scale);
+        ctx.globalAlpha = mv.opacity;
+        ctx.fillStyle = col;
+        ctx.fillText(label, m.x + 3 / scale, m.y - 3 / scale);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Selected prop or marker.
+  if (app.selectedEnt) {
+    const e = app.selectedEnt.kind === 'prop' ? st.props[app.selectedEnt.index] : st.markers[app.selectedEnt.index];
+    if (e) {
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2 / scale; ctx.setLineDash([5 / scale, 3 / scale]);
+      const w = e.w || 16, h = e.h || 16;
+      const dx = e.w ? 0 : -8, dy = e.h ? 0 : -8;
+      ctx.strokeRect(e.x + dx, e.y + dy, w, h);
+      ctx.setLineDash([]);
+    }
+  }
+
+  // Selection rectangle.
+  const sel = app.sel;
+  if (sel) {
+    ctx.lineWidth = 2 / scale;
+    ctx.strokeStyle = '#000'; ctx.strokeRect(sel.x * T, sel.y * T, sel.w * T, sel.h * T);
+    ctx.setLineDash([8 / scale, 6 / scale]);
+    ctx.strokeStyle = '#fff'; ctx.strokeRect(sel.x * T, sel.y * T, sel.w * T, sel.h * T);
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(80,160,255,0.10)';
+    ctx.fillRect(sel.x * T, sel.y * T, sel.w * T, sel.h * T);
+  }
+  if (fl) {
+    ctx.strokeStyle = '#f0a020'; ctx.lineWidth = 3 / scale;
+    ctx.strokeRect(fl.x * T, fl.y * T, fl.w * T, fl.h * T);
+  }
+  if (app.pendingSwap && app.hover && sel) {
+    ctx.strokeStyle = '#4fc3f7'; ctx.lineWidth = 3 / scale; ctx.setLineDash([6 / scale, 4 / scale]);
+    ctx.strokeRect(app.hover.x * T, app.hover.y * T, sel.w * T, sel.h * T);
+    ctx.setLineDash([]);
+  }
+
+  // Hover / brush preview.
+  const h = app.hover;
+  if (h && !fl && !app.drag?.panning && inMap(h.x, h.y)) {
+    const kind = app.activeLayer?.kind;
+    if (app.tool === 'brush' && kind === 'tile' && app.brush?.kind === 'tiles' && !app.drag?.rect) {
+      const b = app.brush;
+      ctx.globalAlpha = 0.65;
+      b.cells.forEach((k, i) => {
+        const img = k != null ? tileImage(k) : null;
+        if (img) ctx.drawImage(img, (h.x + (i % b.w)) * T, (h.y + Math.floor(i / b.w) + 1) * T - img.naturalHeight);
+      });
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = '#f0a020'; ctx.lineWidth = 2 / scale;
+      ctx.strokeRect(h.x * T, h.y * T, b.w * T, b.h * T);
+    } else if (app.tool === 'props' && kind === 'props' && app.brush?.kind === 'prop' && !app.drag && !h.overEnt) {
+      const t = tileInfo(app.brush.key);
+      const img = tileImage(app.brush.key);
+      if (t && img) {
+        const [px, py] = propPlacement(h, img.naturalWidth, img.naturalHeight, app.hoverPx, app.altKey);
+        ctx.globalAlpha = 0.6;
+        ctx.drawImage(img, px, py);
+        ctx.globalAlpha = 1;
+      }
+    } else if (!['select', 'hand', 'props'].includes(app.tool)) {
+      ctx.strokeStyle = app.tool === 'eraser' ? '#e05252' : '#fff'; ctx.lineWidth = 2 / scale;
+      ctx.strokeRect(h.x * T, h.y * T, T, T);
+    }
+  }
+  if (app.drag?.rect) {
+    const r = normRect(app.drag.rect.a, app.drag.rect.b);
+    ctx.strokeStyle = app.tool === 'eraser' ? '#e05252' : app.tool === 'picker' ? '#4fc3f7' : '#f0a020';
+    ctx.lineWidth = 2 / scale; ctx.setLineDash([6 / scale, 4 / scale]);
+    ctx.strokeRect(r.x * T, r.y * T, r.w * T, r.h * T);
+    ctx.setLineDash([]);
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// View: pan and zoom
+
+function fitView() {
+  const r = canvas.getBoundingClientRect();
+  const doc = app.doc;
+  const s = Math.min((r.width - 40) / (doc.width * TILE), (r.height - 40) / (doc.height * TILE));
+  app.view.scale = clamp(s, 0.05, 4);
+  app.view.ox = (r.width - doc.width * TILE * app.view.scale) / 2;
+  app.view.oy = (r.height - doc.height * TILE * app.view.scale) / 2;
+  zoomLabel();
+  requestDraw();
+}
+function zoomAt(factor, cx, cy) {
+  const v = app.view;
+  const ns = clamp(v.scale * factor, 0.05, 6);
+  v.ox = cx - (cx - v.ox) * (ns / v.scale);
+  v.oy = cy - (cy - v.oy) * (ns / v.scale);
+  v.scale = ns;
+  zoomLabel();
+  requestDraw();
+}
+function zoomCenter(f) { const r = canvas.getBoundingClientRect(); zoomAt(f, r.width / 2, r.height / 2); }
+function zoomLabel() { $('#zoomLabel').textContent = `${Math.round(app.view.scale * 100)}%`; }
+
+function toWorld(e) {
+  const r = canvas.getBoundingClientRect();
+  const sx = e.clientX - r.left, sy = e.clientY - r.top;
+  const wx = (sx - app.view.ox) / app.view.scale, wy = (sy - app.view.oy) / app.view.scale;
+  return { sx, sy, wx, wy, x: Math.floor(wx / TILE), y: Math.floor(wy / TILE) };
+}
+const inMap = (x, y) => app.doc && x >= 0 && y >= 0 && x < app.doc.width && y < app.doc.height;
+function normRect(a, b) {
+  const x = Math.min(a.x, b.x), y = Math.min(a.y, b.y);
+  return { x, y, w: Math.abs(a.x - b.x) + 1, h: Math.abs(a.y - b.y) + 1 };
+}
+function clipRect(r) {
+  const d = app.doc;
+  const x0 = clamp(r.x, 0, d.width), y0 = clamp(r.y, 0, d.height);
+  const x1 = clamp(r.x + r.w, 0, d.width), y1 = clamp(r.y + r.h, 0, d.height);
+  return x1 > x0 && y1 > y0 ? { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } : null;
+}
+
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const p = toWorld(e);
+  if (e.ctrlKey || !e.shiftKey) zoomAt(Math.exp(-e.deltaY * (e.deltaMode ? 0.05 : 0.0015)), p.sx, p.sy);
+  else { app.view.ox -= e.deltaY; requestDraw(); }
+}, { passive: false });
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+// ---------------------------------------------------------------------------------------------
+// Undo
+
+function snapshot() { return stateClone(app.doc.state); }
+function beginChange() {
+  app.undo.push(snapshot());
+  if (app.undo.length > 200) app.undo.shift();
+  app.redo = [];
+  setDirty(true);
+  updateButtons();
+}
+function undo() {
+  if (app.float) return cancelFloat();
+  if (!app.undo.length) return;
+  app.redo.push(snapshot());
+  app.doc.state = app.undo.pop();
+  afterHistory();
+}
+function redo() {
+  if (!app.redo.length) return;
+  app.undo.push(snapshot());
+  app.doc.state = app.redo.pop();
+  afterHistory();
+}
+function afterHistory() {
+  app.selectedEnt = null;
+  setDirty(true);
+  updateButtons();
+  runChecks();
+  requestDraw();
+}
+function setDirty(d) {
+  app.dirty = d;
+  $('#dirty').textContent = d ? '● unsaved' : '';
+}
+
+// ---------------------------------------------------------------------------------------------
+// Editing primitives
+
+function activeTileLayer() { return app.activeLayer?.kind === 'tile' ? app.doc.state.layers[app.activeLayer.index] : null; }
+
+function setCell(x, y, key) {
+  if (!inMap(x, y)) return false;
+  const i = y * app.doc.width + x;
+  const kind = app.activeLayer.kind;
+  if (kind === 'collision') {
+    const v = key ? 1 : 0;
+    if (app.doc.state.collision[i] === v) return false;
+    app.doc.state.collision[i] = v;
+    return true;
+  }
+  const l = activeTileLayer();
+  if (!l || l.cells[i] === key) return false;
+  l.cells[i] = key;
+  return true;
+}
+
+function paintAt(x, y, erase) {
+  const kind = app.activeLayer.kind;
+  if (kind === 'collision') return setCell(x, y, !erase);
+  if (erase) return setCell(x, y, null);
+  const b = app.brush;
+  if (!b || b.kind !== 'tiles') return false;
+  let changed = false;
+  for (let j = 0; j < b.h; j++) for (let i = 0; i < b.w; i++) changed = setCell(x + i, y + j, b.cells[j * b.w + i]) || changed;
+  return changed;
+}
+
+function line(a, b, fn) {
+  let x = a.x, y = a.y;
+  const dx = Math.abs(b.x - x), dy = -Math.abs(b.y - y), sx = x < b.x ? 1 : -1, sy = y < b.y ? 1 : -1;
+  let err = dx + dy;
+  for (;;) {
+    fn(x, y);
+    if (x === b.x && y === b.y) break;
+    const e2 = 2 * err;
+    if (e2 >= dy) { err += dy; x += sx; }
+    if (e2 <= dx) { err += dx; y += sy; }
+  }
+}
+
+function fillRectWith(r, erase) {
+  const kind = app.activeLayer.kind;
+  const b = app.brush;
+  let n = 0;
+  for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
+    if (kind === 'collision') { if (setCell(x, y, !erase)) n++; continue; }
+    let key = null;
+    if (!erase) {
+      if (!b || b.kind !== 'tiles') return 0;
+      key = b.cells[((y - r.y) % b.h) * b.w + ((x - r.x) % b.w)];
+    }
+    if (setCell(x, y, key)) n++;
+  }
+  return n;
+}
+
+function floodFill(x, y) {
+  const doc = app.doc;
+  const kind = app.activeLayer.kind;
+  const W = doc.width;
+  const arr = kind === 'collision' ? doc.state.collision : activeTileLayer()?.cells;
+  if (!arr || !inMap(x, y)) return 0;
+  let newVal;
+  if (kind === 'collision') newVal = arr[y * W + x] ? 0 : 1;
+  else {
+    const b = app.brush;
+    if (!b || b.kind !== 'tiles') { status('Pick a tile to fill with first.', 'err'); return 0; }
+    newVal = b.cells[0];
+  }
+  const target = arr[y * W + x];
+  const bounds = app.sel ?? { x: 0, y: 0, w: W, h: doc.height };
+  if (x < bounds.x || y < bounds.y || x >= bounds.x + bounds.w || y >= bounds.y + bounds.h) return 0;
+  const stamp = kind !== 'collision' && app.brush.w * app.brush.h > 1 ? app.brush : null;
+  if (!stamp && target === newVal) return 0;
+  const seen = new Uint8Array(W * doc.height);
+  const stack = [[x, y]];
+  let n = 0;
+  while (stack.length) {
+    const [cx, cy] = stack.pop();
+    if (cx < bounds.x || cy < bounds.y || cx >= bounds.x + bounds.w || cy >= bounds.y + bounds.h) continue;
+    const i = cy * W + cx;
+    if (seen[i] || arr[i] !== target) continue;
+    seen[i] = 1;
+    n++;
+    stack.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
+  }
+  for (let i = 0; i < seen.length; i++) {
+    if (!seen[i]) continue;
+    const cx = i % W, cy = Math.floor(i / W);
+    arr[i] = stamp ? stamp.cells[(((cy - y) % stamp.h + stamp.h) % stamp.h) * stamp.w + (((cx - x) % stamp.w + stamp.w) % stamp.w)] : newVal;
+  }
+  return n;
+}
+
+function pickAt(x, y) {
+  const kind = app.activeLayer.kind;
+  if (!inMap(x, y)) return;
+  if (kind === 'tile') {
+    // Picks from the active layer; falls back to the topmost tile layer with something there.
+    const i = y * app.doc.width + x;
+    let key = activeTileLayer().cells[i];
+    if (key == null) for (const l of [...app.doc.state.layers].reverse()) if (l.cells[i] != null) { key = l.cells[i]; break; }
+    app.brush = { kind: 'tiles', w: 1, h: 1, cells: [key] };
+    updateBrushBox();
+    renderPaletteItems();
+    const t = tileInfo(key);
+    status(key == null ? 'Picked an empty cell.' : `Picked ${t?.name ?? key}.`);
+  }
+}
+
+function pickStamp(r) {
+  const l = activeTileLayer();
+  if (!l) return;
+  r = clipRect(r);
+  if (!r) return;
+  const cells = [];
+  for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) cells.push(l.cells[y * app.doc.width + x]);
+  app.brush = { kind: 'tiles', w: r.w, h: r.h, cells };
+  updateBrushBox();
+  renderPaletteItems();
+  status(`Picked a ${r.w}×${r.h} stamp from ${l.name}.`);
+}
+
+// --- Props and markers ---------------------------------------------------------------------------
+
+function propAnchor(p) {
+  // The tile a prop "stands on": its top-left for buildings, otherwise the middle of its bottom edge.
+  if (p.building) return { x: Math.floor(p.x / TILE), y: Math.floor(p.y / TILE) };
+  return { x: Math.floor((p.x + p.w / 2) / TILE), y: Math.floor((p.y + p.h - 1) / TILE) };
+}
+const markerAnchor = (m) => ({ x: Math.floor(m.x / TILE), y: Math.floor(m.y / TILE) });
+const inRect = (t, r) => t.x >= r.x && t.y >= r.y && t.x < r.x + r.w && t.y < r.y + r.h;
+
+function entityAt(wx, wy) {
+  const st = app.doc.state;
+  const kind = app.activeLayer?.kind;
+  // Markers first when the Data layer is active, props otherwise.
+  const markerHit = () => {
+    if (!layerView('markers').visible) return null;
+    for (let i = st.markers.length - 1; i >= 0; i--) {
+      const m = st.markers[i];
+      const hit = m.point || !m.w ? Math.hypot(wx - m.x, wy - m.y) < 14 / Math.min(app.view.scale, 1) : wx >= m.x && wy >= m.y && wx < m.x + m.w && wy < m.y + m.h;
+      if (hit) return { kind: 'marker', index: i };
+    }
+    return null;
+  };
+  const propHit = () => {
+    const cand = st.props.map((p, i) => ({ p, i })).filter(({ p }) => layerView(`props:${p.layer}`).visible && (kind !== 'props' || p.layer === app.activeLayer.name));
+    cand.sort((a, b) => (b.p.layer === 'Overhead') - (a.p.layer === 'Overhead') || (b.p.y + b.p.depthOff) - (a.p.y + a.p.depthOff));
+    for (const { p, i } of cand) if (wx >= p.x && wy >= p.y && wx < p.x + p.w && wy < p.y + p.h) return { kind: 'prop', index: i };
+    return null;
+  };
+  return kind === 'markers' ? markerHit() ?? propHit() : propHit() ?? (kind === 'props' ? null : markerHit());
+}
+
+function propPlacement(h, w, ht, px, free) {
+  if (free && px) return [Math.round(px.wx - w / 2), Math.round(px.wy - ht)];
+  // Snap: centred on its cells, bottom edge on the bottom of the hovered cell.
+  const cellsW = Math.max(1, Math.ceil(w / TILE));
+  return [h.x * TILE + (cellsW * TILE - w) / 2, (h.y + 1) * TILE - ht];
+}
+
+function placeProp(h, px, free) {
+  const key = app.brush?.key;
+  const img = tileImage(key);
+  if (key == null || !img) return;
+  const t = tileInfo(key);
+  const w = t.w || img.naturalWidth, ht = t.h || img.naturalHeight;
+  const [x, y] = propPlacement(h, w, ht, px, free);
+  beginChange();
+  app.doc.state.props.push({ ref: null, layer: app.activeLayer.name, key, x, y, w, h: ht, crop: null, depthOff: ht, building: false, frames: t.frames ?? null });
+  app.selectedEnt = { kind: 'prop', index: app.doc.state.props.length - 1 };
+  status(`Placed ${t.name} on ${app.activeLayer.name}.`);
+  requestDraw();
+}
+
+function deleteSelectedEnt() {
+  const s = app.selectedEnt;
+  if (!s) return;
+  if (s.kind === 'marker') { status('Markers (doors, spawns, triggers) are game data and cannot be deleted here.', 'err'); return; }
+  const p = app.doc.state.props[s.index];
+  if (p.building) { status('Buildings cannot be deleted here: their doors and interiors depend on them.', 'err'); return; }
+  beginChange();
+  app.doc.state.props.splice(s.index, 1);
+  app.selectedEnt = null;
+  status('Deleted the prop.');
+  requestDraw();
+}
+
+// --- Regions -------------------------------------------------------------------------------------
+
+function scopeIncludes(what) {
+  if ($('#scope').value === 'all') return true;
+  const a = app.activeLayer;
+  if (what === 'collision') return a.kind === 'collision';
+  if (what === 'markers' || what === 'walls') return a.kind === 'markers';
+  if (what.startsWith('props:')) return a.kind === 'props' && a.name === what.slice(6);
+  if (what.startsWith('tile:')) return a.kind === 'tile' && a.label === what.slice(5);
+  return false;
+}
+
+/** Copies (or with `lift`, removes) the contents of a region into a floating chunk. */
+function takeChunk(r, { lift, withMarkers }) {
+  const doc = app.doc, st = doc.state, W = doc.width;
+  const ch = { w: r.w, h: r.h, x: r.x, y: r.y, from: { x: r.x, y: r.y }, layers: {}, collision: null, props: [], markers: [], walls: [] };
+  for (const l of st.layers) {
+    if (!scopeIncludes(`tile:${l.name}`)) continue;
+    const cells = [];
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
+      cells.push(l.cells[y * W + x]);
+      if (lift) l.cells[y * W + x] = null;
+    }
+    ch.layers[l.name] = cells;
+  }
+  if (scopeIncludes('collision') && doc.layerDefs.some((d) => d.id === 'collision')) {
+    ch.collision = [];
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
+      ch.collision.push(st.collision[y * W + x]);
+      if (lift) st.collision[y * W + x] = 0;
+    }
+  }
+  const ox = r.x * TILE, oy = r.y * TILE;
+  // Buildings only move with everything else, so their sprite, doors and collision stay together.
+  const all = $('#scope').value === 'all';
+  const keepProps = [];
+  for (const p of st.props) {
+    const take = scopeIncludes(`props:${p.layer}`) && inRect(propAnchor(p), r) && (p.building ? lift && all : true);
+    if (take) ch.props.push({ ...structuredClone(p), x: p.x - ox, y: p.y - oy, ...(lift ? {} : { ref: null }) });
+    if (!(take && lift)) keepProps.push(p);
+  }
+  st.props = keepProps;
+  if (withMarkers && scopeIncludes('markers')) {
+    st.markers = st.markers.filter((m) => {
+      if (!inRect(markerAnchor(m), r) || (m.type === 'building' && !all)) return true;
+      ch.markers.push({ ...m, x: m.x - ox, y: m.y - oy });
+      return false;
+    });
+  }
+  if (withMarkers && scopeIncludes('walls')) {
+    st.walls = st.walls.filter((w) => {
+      if (!w.pts.every(([x, y]) => x >= r.x && y >= r.y && x <= r.x + r.w && y <= r.y + r.h)) return true;
+      ch.walls.push({ ...w, pts: w.pts.map(([x, y]) => [x - r.x, y - r.y]) });
+      return false;
+    });
+  }
+  return ch;
+}
+
+function dropChunk(ch, tx, ty) {
+  const doc = app.doc, st = doc.state, W = doc.width;
+  for (const l of st.layers) {
+    const cells = ch.layers[l.name];
+    if (!cells) continue;
+    cells.forEach((k, i) => {
+      const x = tx + (i % ch.w), y = ty + Math.floor(i / ch.w);
+      if (inMap(x, y)) l.cells[y * W + x] = k;
+    });
+  }
+  if (ch.collision) ch.collision.forEach((v, i) => {
+    const x = tx + (i % ch.w), y = ty + Math.floor(i / ch.w);
+    if (inMap(x, y)) st.collision[y * W + x] = v;
+  });
+  const ox = tx * TILE, oy = ty * TILE;
+  for (const p of ch.props) st.props.push({ ...structuredClone(p), x: p.x + ox, y: p.y + oy });
+  for (const m of ch.markers) st.markers.push({ ...m, x: m.x + ox, y: m.y + oy });
+  for (const w of ch.walls) {
+    const ddx = tx - ch.from.x, ddy = ty - ch.from.y;
+    st.walls.push({ ...w, dx: (w.dx ?? 0) + ddx, dy: (w.dy ?? 0) + ddy, pts: w.pts.map(([x, y]) => [x + tx, y + ty]) });
+  }
+  // Keep the original file order for markers so saved files only change where things moved.
+  st.markers.sort((a, b) => (a.ref == null) - (b.ref == null) || cmpRef(a.ref, b.ref));
+  st.props.sort((a, b) => (a.ref == null) - (b.ref == null) || cmpRef(a.ref, b.ref));
+  st.walls.sort((a, b) => cmpRef(a.ref, b.ref));
+}
+function cmpRef(a, b) {
+  if (a == null || b == null) return 0;
+  if (typeof a === 'number') return a - b;
+  return a[0] - b[0] || a[1] - b[1];
+}
+
+function copySel(cut) {
+  if (!app.sel) return;
+  if (cut) beginChange();
+  app.clipboard = takeChunk(app.sel, { lift: false, withMarkers: false });
+  if (cut) {
+    clearRegion(app.sel, true);
+    status(`Cut ${app.sel.w}×${app.sel.h} tiles.`);
+  } else status(`Copied ${app.sel.w}×${app.sel.h} tiles${app.clipboard.props.length ? ` and ${app.clipboard.props.length} props` : ''}. Markers are never copied.`);
+  updateButtons();
+  requestDraw();
+}
+
+function startPaste() {
+  if (!app.clipboard) return;
+  beginChange();
+  const h = app.hover ?? { x: 0, y: 0 };
+  app.float = { ...structuredClone(app.clipboard), x: h.x, y: h.y, grab: { x: 0, y: 0 }, lifted: false, paste: true };
+  setTool('select', true);
+  status('Click to place the copy. Esc cancels.');
+  requestDraw();
+}
+
+function placeFloat() {
+  const f = app.float;
+  dropChunk(f, f.x, f.y);
+  app.selectedEnt = null;
+  app.sel = clipRect({ x: f.x, y: f.y, w: f.w, h: f.h });
+  app.float = null;
+  status(f.paste ? 'Pasted.' : 'Moved.', 'ok');
+  runChecks();
+  updateButtons();
+  requestDraw();
+}
+
+function cancelFloat() {
+  if (!app.float) return;
+  app.doc.state = app.undo.pop();
+  app.float = null;
+  status('Cancelled.');
+  updateButtons();
+  requestDraw();
+}
+
+function clearRegion(r, noUndo) {
+  if (!noUndo) beginChange();
+  const doc = app.doc, st = doc.state, W = doc.width;
+  for (const l of st.layers) if (scopeIncludes(`tile:${l.name}`)) for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) l.cells[y * W + x] = null;
+  if (scopeIncludes('collision')) for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) st.collision[y * W + x] = 0;
+  st.props = st.props.filter((p) => p.building || !scopeIncludes(`props:${p.layer}`) || !inRect(propAnchor(p), r));
+  app.selectedEnt = null;
+  runChecks();
+  requestDraw();
+}
+
+function fillSelection() {
+  if (!app.sel) return;
+  const kind = app.activeLayer.kind;
+  if (kind !== 'tile' && kind !== 'collision') { status('Fill works on a tile layer or the Collision layer.', 'err'); return; }
+  if (kind === 'tile' && app.brush?.kind !== 'tiles') { status('Pick a tile first.', 'err'); return; }
+  beginChange();
+  const n = fillRectWith(app.sel, false);
+  status(`Filled ${n} cells.`);
+  runChecks();
+  requestDraw();
+}
+
+function swapRegions(a, bxy) {
+  const b = { x: bxy.x, y: bxy.y, w: a.w, h: a.h };
+  if (!clipRect(b) || b.x + b.w > app.doc.width || b.y + b.h > app.doc.height || b.x < 0 || b.y < 0) { status('The other region must fit inside the map.', 'err'); return; }
+  if (a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h) { status('The two regions overlap; pick a spot that does not.', 'err'); return; }
+  beginChange();
+  const ca = takeChunk(a, { lift: true, withMarkers: true });
+  const cb = takeChunk(b, { lift: true, withMarkers: true });
+  dropChunk(ca, b.x, b.y);
+  dropChunk(cb, a.x, a.y);
+  app.sel = b;
+  status(`Swapped two ${a.w}×${a.h} regions.`, 'ok');
+  runChecks();
+  updateButtons();
+  requestDraw();
+}
+
+function replaceTiles(swap) {
+  const l = activeTileLayer();
+  if (!l) { status('Make a tile layer active first (Ground, Ground detail, Room…).', 'err'); return; }
+  if (app.slotA === undefined || app.slotB === undefined) { status('Set both the Find and With tiles first.', 'err'); return; }
+  const A = app.slotA, B = app.slotB;
+  if (A === B) { status('Find and With are the same tile.', 'err'); return; }
+  const r = app.sel ?? { x: 0, y: 0, w: app.doc.width, h: app.doc.height };
+  const W = app.doc.width;
+  let n = 0;
+  const changes = [];
+  for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
+    const i = y * W + x;
+    if (l.cells[i] === A) changes.push([i, B]);
+    else if (swap && l.cells[i] === B) changes.push([i, A]);
+  }
+  if (!changes.length) { status('No matching tiles found.'); return; }
+  beginChange();
+  for (const [i, k] of changes) { l.cells[i] = k; n++; }
+  status(`${swap ? 'Swapped' : 'Replaced'} ${n} tiles on ${l.name}${app.sel ? ' in the selection' : ''}.`, 'ok');
+  requestDraw();
+}
+
+function setSlot(which) {
+  const b = app.brush;
+  if (!b || b.kind !== 'tiles' || b.w * b.h !== 1) { status('Pick a single tile for the brush first (palette or Picker).', 'err'); return; }
+  const key = b.cells[0];
+  app[which === 'A' ? 'slotA' : 'slotB'] = key;
+  const sw = $(`#slot${which}`);
+  sw.innerHTML = '';
+  const th = key != null ? tileThumb(key, 48) : null;
+  if (th) sw.appendChild(th);
+  $(`#slot${which}Name`).textContent = `${which === 'A' ? 'Find' : 'With'}: ${key == null ? 'empty' : tileInfo(key)?.name ?? key}`;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Pointer input
+
+app.drag = null;
+let spaceDown = false;
+
+canvas.addEventListener('pointerdown', (e) => {
+  if (!app.doc) return;
+  canvas.setPointerCapture(e.pointerId);
+  const p = toWorld(e);
+  const panning = e.button === 1 || e.button === 2 || spaceDown || app.tool === 'hand';
+  if (panning) {
+    app.drag = { panning: true, sx: p.sx, sy: p.sy, ox: app.view.ox, oy: app.view.oy };
+    canvas.style.cursor = 'grabbing';
+    return;
+  }
+  if (e.button !== 0) return;
+  const kind = app.activeLayer?.kind;
+
+  if (app.float) {
+    app.float.x = p.x - app.float.grab.x; app.float.y = p.y - app.float.grab.y;
+    placeFloat();
+    return;
+  }
+  if (app.pendingSwap) {
+    app.pendingSwap = false;
+    swapRegions(app.sel, p);
+    return;
+  }
+
+  if (app.tool === 'select') {
+    if (app.sel && inRect(p, app.sel)) {
+      // Drag the selection: move it, or a copy of it with Alt.
+      beginChange();
+      const copy = e.altKey;
+      const ch = takeChunk(app.sel, { lift: !copy, withMarkers: !copy });
+      app.float = { ...ch, grab: { x: p.x - app.sel.x, y: p.y - app.sel.y }, lifted: !copy, paste: copy };
+      app.drag = { float: true };
+      requestDraw();
+      return;
+    }
+    app.sel = null;
+    app.drag = { rect: { a: { x: p.x, y: p.y }, b: { x: p.x, y: p.y } }, select: true };
+    updateButtons();
+    requestDraw();
+    return;
+  }
+
+  if (app.tool === 'props' || kind === 'markers' || (kind === 'props' && ['brush', 'eraser', 'picker'].includes(app.tool))) {
+    const hit = entityAt(p.wx, p.wy);
+    if (kind === 'props' && app.tool === 'eraser') {
+      if (hit?.kind === 'prop') { app.selectedEnt = hit; deleteSelectedEnt(); }
+      return;
+    }
+    if (kind === 'props' && app.tool === 'picker') {
+      if (hit?.kind === 'prop') {
+        const pr = app.doc.state.props[hit.index];
+        if (!pr.building) { setBrushKey(pr.key); setTool('props'); status(`Picked ${tileInfo(pr.key)?.name ?? 'prop'}.`); }
+      }
+      return;
+    }
+    if (hit) {
+      app.selectedEnt = hit;
+      const ent = hit.kind === 'prop' ? app.doc.state.props[hit.index] : app.doc.state.markers[hit.index];
+      describeEnt(hit, ent);
+      if ((hit.kind === 'prop' && ent.building) || (hit.kind === 'marker' && ent.type === 'building')) { status(`${ent.label ?? 'Building'}: move buildings with the Select tool so their doors move too.`); requestDraw(); return; }
+      app.drag = { ent: hit, start: p, orig: { x: ent.x, y: ent.y }, moved: false };
+      requestDraw();
+      return;
+    }
+    app.selectedEnt = null;
+    if (kind === 'props' && app.brush?.kind === 'prop' && inMap(p.x, p.y)) placeProp(p, p, e.altKey);
+    requestDraw();
+    return;
+  }
+
+  if (kind !== 'tile' && kind !== 'collision') return;
+  if (app.tool === 'picker' || (app.tool === 'brush' && e.altKey)) {
+    if (kind === 'collision') return;
+    app.drag = { rect: { a: { x: p.x, y: p.y }, b: { x: p.x, y: p.y } }, pick: true };
+    return;
+  }
+  if (app.tool === 'fill') {
+    beginChange();
+    const n = floodFill(p.x, p.y);
+    if (!n) app.undo.pop();
+    status(n ? `Filled ${n} cells.` : 'Nothing to fill there.');
+    runChecks();
+    requestDraw();
+    return;
+  }
+  if (app.tool === 'brush' || app.tool === 'eraser') {
+    const erase = app.tool === 'eraser';
+    if (!erase && kind === 'tile' && app.brush?.kind !== 'tiles') { status('Pick a tile in the palette first.', 'err'); return; }
+    beginChange();
+    if (e.shiftKey) { app.drag = { rect: { a: { x: p.x, y: p.y }, b: { x: p.x, y: p.y } }, paintRect: true, erase }; requestDraw(); return; }
+    paintAt(p.x, p.y, erase);
+    app.drag = { paint: true, erase, last: { x: p.x, y: p.y } };
+    requestDraw();
+  }
+});
+
+canvas.addEventListener('pointermove', (e) => {
+  if (!app.doc) return;
+  const p = toWorld(e);
+  app.hoverPx = p;
+  app.altKey = e.altKey;
+  const d = app.drag;
+  const newHover = { x: p.x, y: p.y };
+  const moved = !app.hover || app.hover.x !== p.x || app.hover.y !== p.y;
+  app.hover = newHover;
+  if (moved) updatePosLabel(p);
+  if (d?.panning) {
+    app.view.ox = d.ox + (p.sx - d.sx);
+    app.view.oy = d.oy + (p.sy - d.sy);
+    requestDraw();
+    return;
+  }
+  if (app.float) {
+    app.float.x = p.x - app.float.grab.x; app.float.y = p.y - app.float.grab.y;
+    requestDraw();
+    return;
+  }
+  if (d?.rect) { d.rect.b = { x: clamp(p.x, 0, app.doc.width - 1), y: clamp(p.y, 0, app.doc.height - 1) }; if (d.select) app.sel = normRect(d.rect.a, d.rect.b); requestDraw(); return; }
+  if (d?.paint) {
+    if (moved) line(d.last, p, (x, y) => paintAt(x, y, d.erase));
+    d.last = { x: p.x, y: p.y };
+    requestDraw();
+    return;
+  }
+  if (d?.ent) {
+    const st = app.doc.state;
+    const ent = d.ent.kind === 'prop' ? st.props[d.ent.index] : st.markers[d.ent.index];
+    let dx = p.wx - d.start.wx, dy = p.wy - d.start.wy;
+    if (!e.altKey) { dx = Math.round(dx / TILE) * TILE; dy = Math.round(dy / TILE) * TILE; }
+    else { dx = Math.round(dx); dy = Math.round(dy); }
+    if (!d.moved && (dx || dy)) { beginChange(); d.moved = true; }
+    if (d.moved) { ent.x = d.orig.x + dx; ent.y = d.orig.y + dy; }
+    requestDraw();
+    return;
+  }
+  // Hovering a prop/marker with the Objects tool: show a pointer.
+  if (app.tool === 'props') {
+    const hit = entityAt(p.wx, p.wy);
+    app.hover.overEnt = !!hit;
+    canvas.style.cursor = hit ? 'move' : 'crosshair';
+  }
+  requestDraw();
+});
+
+function endDrag(e) {
+  const d = app.drag;
+  app.drag = null;
+  canvas.style.cursor = cursorFor(app.tool);
+  if (!d) return;
+  if (d.float && app.float) { placeFloat(); return; }
+  if (d.rect) {
+    const r = clipRect(normRect(d.rect.a, d.rect.b));
+    if (d.select) { app.sel = r; updateButtons(); requestDraw(); return; }
+    if (d.pick && r) { if (r.w * r.h === 1) pickAt(r.x, r.y); else pickStamp(r); if (app.tool === 'picker') setTool('brush'); requestDraw(); return; }
+    if (d.paintRect && r) {
+      const n = fillRectWith(r, d.erase);
+      if (!n) app.undo.pop();
+      runChecks();
+      requestDraw();
+      return;
+    }
+  }
+  if (d.paint) {
+    // Drop the undo step if the stroke changed nothing.
+    const before = app.undo[app.undo.length - 1];
+    if (before && JSON.stringify(before.layers) === JSON.stringify(app.doc.state.layers) && before.collision.join() === app.doc.state.collision.join()) app.undo.pop();
+    runChecks();
+    updateButtons();
+  }
+  if (d.ent && d.moved) { runChecks(); status('Moved. Hold Alt while dragging to move by pixels.'); }
+}
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', endDrag);
+canvas.addEventListener('pointerleave', () => { if (!app.drag) { app.hover = null; requestDraw(); } });
+
+function describeEnt(hit, ent) {
+  if (hit.kind === 'marker') {
+    const t = markerAnchor(ent);
+    status(`${ent.type}${ent.name ? `: ${ent.name}` : ''} at tile ${t.x},${t.y}. Drag to move (snaps to tiles; Alt for pixels).`);
+  } else if (!ent.building) {
+    status(`${tileInfo(ent.key)?.name ?? 'prop'} on ${ent.layer}. Drag to move, Delete to remove.`);
+  }
+}
+
+function updatePosLabel(p) {
+  const doc = app.doc;
+  if (!inMap(p.x, p.y)) { $('#posLabel').textContent = '—'; return; }
+  const i = p.y * doc.width + p.x;
+  const parts = [`x ${p.x}, y ${p.y}`];
+  for (const l of doc.state.layers) {
+    const k = l.cells[i];
+    if (k != null) parts.push(`${l.name}: ${tileInfo(k)?.name ?? k}`);
+  }
+  if (doc.state.collision[i]) parts.push('blocked');
+  $('#posLabel').textContent = parts.join('  ·  ');
+}
+
+// ---------------------------------------------------------------------------------------------
+// Tools, buttons and keys
+
+function cursorFor(tool) {
+  return { hand: 'grab', select: 'crosshair', props: 'default', picker: 'copy' }[tool] ?? 'crosshair';
+}
+function setTool(t, keepFloat) {
+  if (!keepFloat && app.float) cancelFloat();
+  app.pendingSwap = false;
+  app.tool = t;
+  for (const b of document.querySelectorAll('#tools button')) b.classList.toggle('on', b.dataset.tool === t);
+  canvas.style.cursor = cursorFor(t);
+  requestDraw();
+}
+for (const b of document.querySelectorAll('#tools button')) b.addEventListener('click', () => setTool(b.dataset.tool));
+
+function updateButtons() {
+  const has = !!app.doc;
+  $('#btnSave').disabled = !has;
+  $('#btnDownload').disabled = !has;
+  $('#btnSave').textContent = source?.canWrite ? 'Save' : 'Save (download)';
+  $('#btnUndo').disabled = !app.undo.length;
+  $('#btnRedo').disabled = !app.redo.length;
+  const s = !!app.sel;
+  for (const id of ['#btnCopy', '#btnCut', '#btnClear', '#btnFillSel', '#btnSwapRegion']) $(id).disabled = !s;
+  $('#btnPaste').disabled = !app.clipboard;
+  $('#selInfo').textContent = s ? `Selected ${app.sel.w}×${app.sel.h} at ${app.sel.x},${app.sel.y}. Drag inside to move, Alt+drag to copy.` : 'No selection. Use the Select tool (M).';
+}
+
+$('#btnOpen').addEventListener('click', openFolder);
+$('#btnOpen2').addEventListener('click', openFolder);
+$('#btnUndo').addEventListener('click', undo);
+$('#btnRedo').addEventListener('click', redo);
+$('#btnZoomIn').addEventListener('click', () => zoomCenter(1.25));
+$('#btnZoomOut').addEventListener('click', () => zoomCenter(0.8));
+$('#btnFit').addEventListener('click', () => app.doc && fitView());
+$('#btnCopy').addEventListener('click', () => copySel(false));
+$('#btnCut').addEventListener('click', () => copySel(true));
+$('#btnPaste').addEventListener('click', startPaste);
+$('#btnClear').addEventListener('click', () => app.sel && clearRegion(app.sel));
+$('#btnFillSel').addEventListener('click', fillSelection);
+$('#btnSwapRegion').addEventListener('click', () => { if (app.sel) { app.pendingSwap = true; status('Click the top-left tile of the region to swap with. Esc cancels.'); } });
+$('#btnSetA').addEventListener('click', () => setSlot('A'));
+$('#btnSetB').addEventListener('click', () => setSlot('B'));
+$('#btnReplace').addEventListener('click', () => replaceTiles(false));
+$('#btnSwapTiles').addEventListener('click', () => replaceTiles(true));
+$('#btnSave').addEventListener('click', save);
+$('#btnDownload').addEventListener('click', () => save(true));
+const help = $('#help');
+$('#btnHelp').addEventListener('click', () => help.showModal());
+$('#btnHelp2').addEventListener('click', () => help.showModal());
+$('#btnHelpClose').addEventListener('click', () => help.close());
+
+window.addEventListener('keydown', (e) => {
+  if (e.target.matches('input[type=text], input[type=search], select') && !e.ctrlKey && !e.metaKey) return;
+  const mod = e.ctrlKey || e.metaKey;
+  const k = e.key.toLowerCase();
+  if (e.key === ' ') { spaceDown = true; canvas.style.cursor = 'grab'; if (e.target === document.body) e.preventDefault(); return; }
+  if (mod && k === 's') { e.preventDefault(); if (app.doc) save(); return; }
+  if (mod && k === 'o') { e.preventDefault(); openFolder(); return; }
+  if (!app.doc) return;
+  if (mod && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if (mod && k === 'y') { e.preventDefault(); redo(); return; }
+  if (mod && k === 'c') { e.preventDefault(); copySel(false); return; }
+  if (mod && k === 'x') { e.preventDefault(); copySel(true); return; }
+  if (mod && k === 'v') { e.preventDefault(); startPaste(); return; }
+  if (mod && k === 'a') { e.preventDefault(); app.sel = { x: 0, y: 0, w: app.doc.width, h: app.doc.height }; setTool('select'); updateButtons(); return; }
+  if (mod) return;
+  if (e.key === 'Escape') {
+    if (app.float) cancelFloat();
+    else if (app.pendingSwap) { app.pendingSwap = false; status('Swap cancelled.'); }
+    else { app.sel = null; app.selectedEnt = null; updateButtons(); }
+    requestDraw();
+    return;
+  }
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    e.preventDefault();
+    if (app.selectedEnt) deleteSelectedEnt();
+    else if (app.sel) clearRegion(app.sel);
+    return;
+  }
+  const tools = { b: 'brush', e: 'eraser', i: 'picker', f: 'fill', m: 'select', s: 'select', v: 'props', h: 'hand' };
+  if (tools[k]) { setTool(tools[k]); return; }
+  if (k === '0') return fitView();
+  if (k === '+' || k === '=') return zoomCenter(1.25);
+  if (k === '-' || k === '_') return zoomCenter(0.8);
+  if (k === 'g') return toggleLayer('grid');
+  if (k === 'c') return toggleLayer('collision');
+  if (k === '[') return stepLayer(-1);
+  if (k === ']') return stepLayer(1);
+  if (k.startsWith('arrow')) {
+    const step = 64 * (e.shiftKey ? 4 : 1);
+    if (k === 'arrowleft') app.view.ox += step; if (k === 'arrowright') app.view.ox -= step;
+    if (k === 'arrowup') app.view.oy += step; if (k === 'arrowdown') app.view.oy -= step;
+    e.preventDefault();
+    requestDraw();
+  }
+});
+window.addEventListener('keyup', (e) => { if (e.key === ' ') { spaceDown = false; canvas.style.cursor = cursorFor(app.tool); } });
+window.addEventListener('beforeunload', (e) => { if (app.dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+// ---------------------------------------------------------------------------------------------
+// Checks: markers the player stands on must be on free tiles (as tests/maps.test.ts expects).
+
+function runChecks() {
+  const box = $('#checks');
+  const doc = app.doc;
+  if (!doc || !doc.layerDefs.some((d) => d.id === 'collision')) { box.innerHTML = '<div class="hint">No collision layer on this map.</div>'; return; }
+  const problems = [];
+  for (const m of doc.state.markers) {
+    if (!MUST_BE_FREE.has(m.type)) continue;
+    const t = markerAnchor(m);
+    if (!inMap(t.x, t.y)) problems.push({ m, t, why: 'is outside the map' });
+    else if (doc.state.collision[t.y * doc.width + t.x]) problems.push({ m, t, why: 'is on a blocked tile' });
+  }
+  box.innerHTML = '';
+  if (!problems.length) { box.innerHTML = '<div class="good">✓ Every door, spawn, exit and trigger is on a free tile.</div>'; return; }
+  for (const p of problems) {
+    const el = document.createElement('div');
+    el.className = 'bad';
+    el.textContent = `⚠ ${p.m.type} "${p.m.name}" at ${p.t.x},${p.t.y} ${p.why}`;
+    el.addEventListener('click', () => centreOn(p.t.x, p.t.y));
+    box.appendChild(el);
+  }
+}
+function centreOn(x, y) {
+  const r = canvas.getBoundingClientRect();
+  app.view.scale = Math.max(app.view.scale, 0.75);
+  app.view.ox = r.width / 2 - (x + 0.5) * TILE * app.view.scale;
+  app.view.oy = r.height / 2 - (y + 0.5) * TILE * app.view.scale;
+  zoomLabel();
+  requestDraw();
+}
+
+// ---------------------------------------------------------------------------------------------
+// Saving
+
+function exportText(doc) { return doc.format === 'baked' ? exportBaked(doc) : exportTmj(doc); }
+
+async function save(forceDownload) {
+  const doc = app.doc;
+  if (!doc) return;
+  if (app.float) placeFloat();
+  let text;
+  try { text = exportText(doc); }
+  catch (e) { console.error(e); status(`Could not build the file: ${e.message}`, 'err'); return; }
+  if (source.canWrite && forceDownload !== true) {
+    try {
+      await source.write(doc.path, text);
+      setDirty(false);
+      status(`Saved ${doc.path}.${doc.format === 'baked' ? ' Run npm test to check doors and spawns.' : ' Run npm run import-art to bake it into the game.'}`, 'ok');
+      return;
+    } catch (e) {
+      console.error(e);
+      status(`Saving into the folder failed (${e.message}); downloading instead.`, 'err');
+    }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  a.download = baseName(doc.path);
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  setDirty(false);
+  status(`Downloaded ${baseName(doc.path)}. Copy it over ${doc.path}.`, 'ok');
+}
+
+// ---------------------------------------------------------------------------------------------
+// Status line
+
+let statusTimer = 0;
+function status(text, kind = '') {
+  const el = $('#msg');
+  el.textContent = text;
+  el.className = kind;
+  clearTimeout(statusTimer);
+  if (kind !== 'err') statusTimer = setTimeout(() => { if (el.textContent === text) el.textContent = ''; }, 9000);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Served over http (for example `npm run dev`, then /tools/map-editor.html): load the game maps
+// straight from the server. Saving downloads the file.
+
+async function tryServer() {
+  if (!/^https?:$/.test(location.protocol)) return;
+  for (const base of ['../public/assets/', 'assets/', '/assets/']) {
+    try {
+      const r = await fetch(`${base}manifest.json`);
+      if (!r.ok || !(r.headers.get('content-type') ?? '').includes('json')) continue;
+      const manifest = await r.json();
+      if (!manifest.maps?.length) continue;
+      const hint = $('#serverHint');
+      hint.innerHTML = '';
+      const b = document.createElement('button');
+      b.textContent = `Load the ${manifest.maps.length} game maps from this server`;
+      b.addEventListener('click', () => useSource(new HttpSource(base, manifest.maps.map((m) => `maps/${m.id}.json`).concat('manifest.json'))));
+      hint.append('Or: ', b, ' (saving downloads the file).');
+      return;
+    } catch { /* try the next */ }
+  }
+}
+
+setTool('brush');
+updateButtons();
+tryServer();
+window.mapEditor = { app, exportText, useSource, openMap, HttpSource, ListSource }; // for tests
+</script>
+</body>
+</html>
