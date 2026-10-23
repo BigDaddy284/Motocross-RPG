@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import type { DialogueLine } from '../core/content';
+import { ZOOM_STEP } from '../core/settings';
 import { services } from '../services';
 import { COLORS, textStyle } from '../ui/theme';
 import { button, panel } from '../ui/widgets';
@@ -62,8 +63,8 @@ export class HudScene extends Phaser.Scene {
     for (const b of this.uiButtons) b.destroy();
     this.uiButtons = [
       button(this, width - 34, 34, '☰', () => this.world.openPause(), 48, 48),
-      button(this, width - 34, 92, '+', () => this.world.zoomBy(10), 48, 48),
-      button(this, width - 34, 146, '−', () => this.world.zoomBy(-10), 48, 48),
+      button(this, width - 34, 92, '+', () => this.world.zoomBy(ZOOM_STEP), 48, 48),
+      button(this, width - 34, 146, '−', () => this.world.zoomBy(-ZOOM_STEP), 48, 48),
     ];
     this.saveText.setPosition(width - 70, 18);
     this.toastText.setPosition(width / 2, height - 60);

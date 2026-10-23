@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { ZOOM_MAX, ZOOM_MIN, type Settings } from '../core/settings';
+import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP, type Settings } from '../core/settings';
 import { services } from '../services';
 import { COLORS, textStyle } from '../ui/theme';
 import { button, panel, slider, toggle } from '../ui/widgets';
@@ -73,7 +73,7 @@ export class SettingsScene extends Phaser.Scene {
         this.add.text(left, rowY(5), 'The test build has no sound yet; these are saved for later.', textStyle(15, COLORS.muted)).setOrigin(0, 0.5);
         break;
       case 'Display':
-        label(0, 'Map zoom (%)'); slider(this, sliderX, rowY(0), sliderW, ZOOM_MIN, ZOOM_MAX, s.display.zoom, upd('display', 'zoom'), 10);
+        label(0, 'Map zoom (%)'); slider(this, sliderX, rowY(0), sliderW, ZOOM_MIN, ZOOM_MAX, s.display.zoom, upd('display', 'zoom'), ZOOM_STEP);
         label(1, 'Full screen');
         toggle(this, sliderX + 26, rowY(1), this.scale.isFullscreen, (v) => {
           services.settings.update('display', 'fullscreen', v);

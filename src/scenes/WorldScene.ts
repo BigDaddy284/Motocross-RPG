@@ -4,7 +4,7 @@ import { Grid, STEPS } from '../core/grid';
 import { objectTiles, type BakedMap, type Facing, type MapObject, type Tile } from '../core/mapTypes';
 import { findPathToAny, findPathTowards, standingTiles } from '../core/pathfinding';
 import type { SaveData } from '../core/saves';
-import { ZOOM_MAX, ZOOM_MIN } from '../core/settings';
+import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
 import { stepTriggerAt } from '../core/travel';
 import { CAREER_SLOT, services } from '../services';
 import { Character, TILE } from '../world/Character';
@@ -20,6 +20,8 @@ const AUTOSAVE_MS = 5 * 60 * 1000;
 /** Design viewport: at 100% zoom, 20 × 11 tiles fit in 1280 × 720 (style guide 3). */
 const DESIGN_W = 1280;
 const DESIGN_H = 720;
+/** Zoom on entering a building: all the way out, then six clicks in (Boss). Closer settings are kept. */
+const INTERIOR_ZOOM = ZOOM_MIN + 6 * ZOOM_STEP;
 
 interface WorldData {
   save: SaveData;
@@ -40,6 +42,8 @@ export class WorldScene extends Phaser.Scene {
   private onArrive: (() => void) | null = null;
   private walking = false;
   private busy = false;
+  /** The zoom the player had outside, while a building has raised it to INTERIOR_ZOOM. */
+  private outdoorZoom: number | null = null;
   private keys!: Record<'up' | 'down' | 'left' | 'right' | 'w' | 'a' | 's' | 'd', Phaser.Input.Keyboard.Key>;
   private hud!: HudScene;
 
@@ -120,11 +124,11 @@ export class WorldScene extends Phaser.Scene {
     const K = Phaser.Input.Keyboard.KeyCodes;
     this.keys = kb.addKeys({ up: K.UP, down: K.DOWN, left: K.LEFT, right: K.RIGHT, w: K.W, a: K.A, s: K.S, d: K.D }) as typeof this.keys;
     // E, Space and Esc are handled by the HUD, which knows whether a dialogue or menu is open.
-    kb.on('keydown-PLUS', () => this.zoomBy(10));
-    kb.on('keydown-NUMPAD_ADD', () => this.zoomBy(10));
-    kb.on('keydown-MINUS', () => this.zoomBy(-10));
-    kb.on('keydown-NUMPAD_SUBTRACT', () => this.zoomBy(-10));
-    this.input.on('wheel', (_p: unknown, _o: unknown, _dx: number, dy: number) => this.zoomBy(dy > 0 ? -10 : 10));
+    kb.on('keydown-PLUS', () => this.zoomBy(ZOOM_STEP));
+    kb.on('keydown-NUMPAD_ADD', () => this.zoomBy(ZOOM_STEP));
+    kb.on('keydown-MINUS', () => this.zoomBy(-ZOOM_STEP));
+    kb.on('keydown-NUMPAD_SUBTRACT', () => this.zoomBy(-ZOOM_STEP));
+    this.input.on('wheel', (_p: unknown, _o: unknown, _dx: number, dy: number) => this.zoomBy(dy > 0 ? -ZOOM_STEP : ZOOM_STEP));
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => {
       if (p.getDistance() > 12) return; // a drag, not a click
       if (this.busy || this.hud.isDialogueOpen() || this.hud.pointerOnUi(p)) return;
@@ -145,6 +149,18 @@ export class WorldScene extends Phaser.Scene {
   zoomBy(d: number): void {
     const z = services.settings.get().display.zoom;
     services.settings.update('display', 'zoom', Phaser.Math.Clamp(z + d, ZOOM_MIN, ZOOM_MAX));
+  }
+
+  /** Entering a building zooms in to INTERIOR_ZOOM; leaving puts back the outdoor zoom unless the player changed it inside. */
+  private zoomForMapChange(entering: boolean): void {
+    const z = services.settings.get().display.zoom;
+    if (entering) {
+      this.outdoorZoom = z < INTERIOR_ZOOM ? z : null;
+      if (this.outdoorZoom !== null) services.settings.update('display', 'zoom', INTERIOR_ZOOM);
+    } else if (this.map.kind === 'interior') {
+      if (this.outdoorZoom !== null && z === INTERIOR_ZOOM) services.settings.update('display', 'zoom', this.outdoorZoom);
+      this.outdoorZoom = null;
+    }
   }
 
   private applyZoom(): void {
@@ -308,7 +324,10 @@ export class WorldScene extends Phaser.Scene {
     const entering = this.map.kind === 'area' && via.type === 'door';
     this.save.position = { map: r.to.map, x: r.to.tile.x, y: r.to.tile.y, facing: entering ? 'up' : 'down' };
     this.cameras.main.fadeOut(200, 20, 20, 30);
-    this.cameras.main.once('camerafadeoutcomplete', () => this.scene.restart({ save: this.save }));
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.zoomForMapChange(entering);
+      this.scene.restart({ save: this.save });
+    });
     return true;
   }
 
