@@ -222,7 +222,6 @@ export class RaceScene extends Phaser.Scene {
       const y = 178 + row * 60;
       const who = taken.get(g);
       const bonus = gates[g] ?? 0;
-      this.text(x - gw / 2 + 8, y - 21, `${g + 1}`, 13, COLORS.muted).setOrigin(0, 0);
       if (who) {
         const r = this.add.rectangle(x, y, gw - 8, 46, COLORS.inkLine).setStrokeStyle(2, COLORS.panelLight);
         this.screen.add(r);
@@ -235,6 +234,8 @@ export class RaceScene extends Phaser.Scene {
         b.setSelected(g === chosen);
         gateButtons.push(b);
       }
+      // The gate's number in its top corner, over the button.
+      this.text(x - gw / 2 + 8, y - 21, `${g + 1}`, 12, COLORS.muted).setOrigin(0, 0);
     }
     for (let row = 0; row * ROW_SIZE < count; row++) this.text(gx - gw / 2 - 12, 178 + row * 60, row ? 'Second row' : 'Front row', 15, COLORS.muted).setOrigin(1, 0.5);
     this.text(W / 2, 270, 'Taken gates show who has them. The % is the start bonus.', 15, COLORS.muted).setOrigin(0.5, 0);

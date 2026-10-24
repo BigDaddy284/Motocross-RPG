@@ -3,9 +3,10 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { SceneryItem, TrackDef } from '../core/race';
 import { START_HOLD, type RiderPose } from '../core/riderAI';
-import { nearestOnLap, pointAt, START_PAD, startPointAt } from '../core/trackGeom';
+import { OFFICIAL_SCALE, officialPlan, WALK_FROM, WALK_TO } from '../core/startOfficial';
+import { pointAt, START_PAD, startPointAt } from '../core/trackGeom';
 import { GRID_H, GRID_W, trackKind, type TrackPartsData } from '../core/trackParts';
-import { BIKE_LENGTH, LIP_AT, TrackSurface } from '../core/trackSurface';
+import { BIKE_LENGTH, CAM_AZ, LIP_AT, TrackSurface } from '../core/trackSurface';
 import { COLORS } from '../ui/theme';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
@@ -20,7 +21,6 @@ import { COLORS } from '../ui/theme';
 // your rider (or the leader once you are out), with a map of the whole lap in the corner.
 
 /** Camera direction: degrees round from straight in front, and degrees down from level. */
-const CAM_AZ = 40;
 /** Seconds the official takes to raise or lower the start board. */
 const BOARD_MOVE = 0.4;
 const CAM_EL = 38;
@@ -105,7 +105,7 @@ export class RaceView {
   /** The start gate's pickets, hinged at the bottom so they drop flat when the race starts. */
   private gateDrop: THREE.Group | null = null;
   /** The official holding the start board beside the start straight, and the board itself. */
-  private board: { stand: THREE.Group; panel: THREE.Group; arms: THREE.Group[] } | null = null;
+  private board: { stand: THREE.Group; panel: THREE.Group; arms: THREE.Group[]; legs: THREE.Group[]; a: { x: number; y: number }; b: { x: number; y: number } } | null = null;
   /** False for practice, which has no start procedure: the start board stays down. */
   hasStart = true;
   /** Frame times in ms (whole update, the 3D draw, and handing the picture to Phaser), for the performance check. */
@@ -541,51 +541,31 @@ export class RaceView {
   }
 
   /**
-   * The start board: an official beside the start straight, ahead of the gate on the side where
-   * it joins the lap, there all race. The board's face (START 30) is on one side and the other is
-   * plain white. It is held low with the white side out while the riders line up, raised face out
-   * five seconds before the drop, turned sideways at three, and lowered white side out again as
-   * the gate drops (updateStart).
+   * The start board: an official beside the start straight, there all race (startOfficial). They
+   * wait at A near the gate with the board held low, white side out, while the riders line up;
+   * raise it face out and walk to B as the five-second hold begins, turn it sideways at three, and
+   * lower it white side out at one, as they reach B, where they stay. The board's face (START 30) is
+   * on one side and the other is plain white (updateStart).
    */
   private startBoard(): THREE.Object3D {
-    const s = this.surface;
-    const st = s.start;
-    const side = s.joinSide || 1;
-    const merge = st.total - (s.hw * 2.5 + 1);
-    // Ahead of the gate, as near 8 units out as there is room for, in the grass between the start
-    // straight and the lap (or on the far side if that strip is too narrow), clear of scenery.
-    let best: { x: number; z: number; ang: number; score: number } | null = null;
-    for (let u = 4; u <= Math.max(4, merge); u += 0.5) {
-      for (const sd of [side, -side]) {
-        const edge = s.startHw(u) * LIP_AT;
-        for (const out of [2.2, 1.8, 1.5]) {
-          const p = s.startSpot(u, (sd * (edge + out)) / s.startHw(u));
-          const lapGap = nearestOnLap(s.g, p.x, p.z).d - s.hw * LIP_AT;
-          const clutter = (this.track.scenery ?? []).some((it) => Math.hypot(it.x - p.x, it.y - p.z) < 1.4 + Math.max(it.w ?? 0, it.h ?? 0) / 2);
-          if (lapGap < 1.1 || clutter) continue;
-          const score = Math.abs(u - 8) + (sd === side ? 0 : 3) + (2.2 - out);
-          if (!best || score < best.score) best = { x: p.x, z: p.z, ang: p.ang, score };
-          break;
-        }
-      }
-    }
-    const spot = best ?? { ...s.startSpot(6, (side * (s.startHw(6) * LIP_AT + 1.5)) / s.startHw(6)), score: 0 };
+    const plan = officialPlan(this.track, this.parts)!;
     const stand = new THREE.Group();
-    stand.position.set(spot.x, this.terrainAt(spot.x, spot.z), spot.z);
-    // Face the camera, so the player reads the board, turned just a touch back towards the riders
-    // (the face is printed on both sides, so the riders see it too).
-    const camAz = THREE.MathUtils.degToRad(CAM_AZ);
-    const toRiders = Math.atan2(-Math.cos(spot.ang), -Math.sin(spot.ang));
-    const toCam = camAz;
-    let turn = toCam - toRiders;
-    while (turn > Math.PI) turn -= 2 * Math.PI;
-    while (turn < -Math.PI) turn += 2 * Math.PI;
-    stand.rotation.y = toRiders + turn * 0.85;
+    stand.position.set(plan.a.x, this.terrainAt(plan.a.x, plan.a.y), plan.a.y);
+    stand.rotation.y = plan.facing;
+    // Drawn 10% smaller than first built, board and all: the scale is on this group alone.
+    stand.scale.setScalar(OFFICIAL_SCALE);
     // The official: legs, body, head, and arms that swing at the shoulder, up to hold the board
     // high or down to hold it low.
     const kit = this.mat(0x2a3a5a);
     const skin = this.mat(0xe0b090);
-    stand.add(this.boxMesh(0.12, 0.7, 0.14, kit, -0.1, 0, 0), this.boxMesh(0.12, 0.7, 0.14, kit, 0.1, 0, 0));
+    // Legs swing at the hip as they walk.
+    const legs = [-0.1, 0.1].map((x) => {
+      const leg = new THREE.Group();
+      leg.position.set(x, 0.7, 0);
+      leg.add(this.boxMesh(0.12, 0.7, 0.14, kit, 0, -0.7, 0));
+      stand.add(leg);
+      return leg;
+    });
     stand.add(this.boxMesh(0.42, 0.62, 0.24, this.mat(0xf0a020), 0, 0.7, 0));
     stand.add(this.boxMesh(0.22, 0.22, 0.22, skin, 0, 1.34, 0));
     const arms = [-1, 1].map((sd) => {
@@ -608,7 +588,7 @@ export class RaceView {
     for (const m of [front, back, core]) m.castShadow = true;
     panel.add(core, front, back);
     stand.add(panel);
-    this.board = { stand, panel, arms };
+    this.board = { stand, panel, arms, legs, a: plan.a, b: plan.b };
     this.updateStart(-Infinity);
     return stand;
   }
@@ -643,24 +623,35 @@ export class RaceView {
 
   /**
    * The start procedure as race time runs up to the gate drop at 0 (riderAI START_HOLD): the
-   * board is held low, white side out, while the riders line up; raised face out over the first
-   * moment of the five-second hold; turned sideways at three; and lowered white side out again as
-   * the gate's pickets fall flat at the drop, staying low for the rest of the race. Purely a
-   * function of the clock, so scrubbing or a new race always shows the right state.
+   * official waits at A holding the board low, white side out, while the riders line up; at five
+   * raises it face out and walks to B; turns it sideways at three; reaches B at one and lowers it
+   * white side out, and stays there with it low as the gate's pickets fall flat at the drop and for
+   * the rest of the race. Purely a function of the clock, so scrubbing or a new race always shows
+   * the right state.
    */
   private updateStart(clock: number): void {
     if (this.board) {
-      const { panel, arms } = this.board;
+      const { stand, panel, arms, legs, a, b } = this.board;
       const ease = (x: number) => {
         const t = Math.max(0, Math.min(1, x));
         return t * t * (3 - 2 * t);
       };
       // How far up the board is: 0 held low, 1 held high. Practice has no start, so it stays low.
-      const up = !this.hasStart ? 0 : clock < 0 ? ease((clock + START_HOLD) / BOARD_MOVE) : 1 - ease(clock / BOARD_MOVE);
+      const up = !this.hasStart ? 0 : clock < WALK_TO ? ease((clock + START_HOLD) / BOARD_MOVE) : 1 - ease((clock - WALK_TO) / BOARD_MOVE);
       // Low: in front of the official's legs, turned round so the white back faces out.
       panel.position.set(0, 0.72 + (2.45 - 0.72) * up, 0.42 + (0.12 - 0.42) * up);
       panel.rotation.set(0, Math.PI * (1 - up), clock >= -3 ? (Math.PI / 2) * up : 0);
       for (const arm of arms) arm.rotation.x = 2.7 * (1 - up);
+      // The walk from A to B, setting off and stopping gently, with the legs swinging in step.
+      const k = !this.hasStart ? 0 : Math.max(0, Math.min(1, (clock - WALK_FROM) / (WALK_TO - WALK_FROM)));
+      const w = k - Math.sin(2 * Math.PI * k) / (2 * Math.PI);
+      const x = a.x + (b.x - a.x) * w;
+      const z = a.y + (b.y - a.y) * w;
+      stand.position.set(x, this.terrainAt(x, z), z);
+      const walked = Math.hypot(b.x - a.x, b.y - a.y) * w;
+      const swing = k > 0 && k < 1 ? 0.45 * Math.sin((walked / 0.55) * Math.PI) : 0;
+      legs[0].rotation.x = swing;
+      legs[1].rotation.x = -swing;
     }
     if (this.gateDrop) this.gateDrop.rotation.x = -(Math.PI / 2) * Math.max(0, Math.min(1, clock / 0.3)) ** 2;
   }

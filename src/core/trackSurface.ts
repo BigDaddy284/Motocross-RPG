@@ -22,6 +22,8 @@ export const TRACK_METRES = 8;
 export const LIP_H = 0.22;
 /** How far out the lip peaks, in lanes (1 is the edge of the racing surface). */
 export const LIP_AT = 1.22;
+/** Which way the race camera looks along the ground, in degrees (RaceView). */
+export const CAM_AZ = 40;
 /** Length of a bike, wheel to wheel, in grid units (drawn a little large, for readability). */
 export const BIKE_LENGTH = 1.1;
 
