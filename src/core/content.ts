@@ -5,6 +5,7 @@ import type { RacingData } from './race';
 import { TRACK_PARTS_SCHEMA, checkTrackParts, type TrackPartsData } from './trackParts';
 import { RACING_SCHEMA, RIDERS_SCHEMA, SKILLS_SCHEMA, TRACKS_SCHEMA, checkRaceContent } from './raceContent';
 import type { RidersData, TracksData } from './raceDay';
+import { SHOPS_SCHEMA, checkShopContent, type ShopsData } from './shops';
 import type { SkillsData } from './skills';
 import { validate, type ContentError, type Schema } from './validate';
 
@@ -43,6 +44,7 @@ export interface Content {
   tracks: TracksData;
   riders: RidersData;
   trackParts: TrackPartsData;
+  shops: ShopsData;
 }
 
 export interface Manifest {
@@ -257,6 +259,7 @@ export const CONTENT_FILES = {
   tracks: 'data/tracks.json',
   riders: 'data/riders.json',
   trackParts: 'data/trackParts.json',
+  shops: 'data/shops.json',
 } as const;
 
 export type RawContent = Record<keyof typeof CONTENT_FILES, unknown>;
@@ -273,6 +276,7 @@ const SCHEMAS: Record<keyof typeof CONTENT_FILES, Schema> = {
   tracks: TRACKS_SCHEMA,
   riders: RIDERS_SCHEMA,
   trackParts: TRACK_PARTS_SCHEMA,
+  shops: SHOPS_SCHEMA,
 };
 
 /** Checks raw file contents and returns the typed content, or every problem found. */
@@ -292,6 +296,7 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
     tracks: raw.tracks as TracksData,
     riders: raw.riders as RidersData,
     trackParts: raw.trackParts as TrackPartsData,
+    shops: raw.shops as ShopsData,
   };
   const file = CONTENT_FILES.npcs;
   const seen = new Set<string>();
@@ -315,6 +320,7 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
   errors.push(...checkRaceContent(content, maps));
   // Tile art isn't listed at run time; tests check it exists (tests/tracks.test.ts).
   errors.push(...checkTrackParts(content.trackParts, content.tracks.tracks, () => true));
+  errors.push(...checkShopContent(CONTENT_FILES.shops, content.shops, content.bikes, seen, maps));
   return { content, errors };
 }
 

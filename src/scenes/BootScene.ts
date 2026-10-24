@@ -10,6 +10,7 @@ import { services } from '../services';
 import { COLORS, textStyle } from '../ui/theme';
 import { START_MAP } from './careerFlow';
 import type { RaceSceneData } from './RaceScene';
+import { view } from '../ui/view';
 
 // Loads the manifest, every baked map's data and the content files, checks them all, then loads
 // the character sheets. Map images load later, the first time each map is visited.
@@ -20,7 +21,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload(): void {
-    const { width, height } = this.scale;
+    const { width, height } = view(this);
     const label = this.add.text(width / 2, height / 2, 'Loading…', textStyle(22)).setOrigin(0.5);
     this.load.on('progress', (v: number) => label.setText(`Loading… ${Math.round(v * 100)}%`));
     this.load.json('manifest', 'assets/manifest.json');
@@ -75,7 +76,7 @@ export class BootScene extends Phaser.Scene {
   /** A content problem stops the game with the file and field named, rather than failing later. */
   private showErrors(lines: string[]): void {
     this.children.removeAll();
-    const { width } = this.scale;
+    const { width } = view(this);
     this.add.text(width / 2, 60, 'The game data has problems and cannot start', textStyle(24, COLORS.accent)).setOrigin(0.5);
     this.add.text(40, 110, lines.slice(0, 20).join('\n'), textStyle(16, COLORS.cream, { wordWrap: { width: width - 80 } }));
     for (const l of lines) console.error(l);

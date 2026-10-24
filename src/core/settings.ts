@@ -3,9 +3,13 @@ import type { KeyValueStore } from './storage';
 // Settings apply immediately, save automatically and have Restore Defaults (GDD 20.1).
 // Categories follow the GDD: Controls, Display, Audio, Accessibility and Gameplay.
 
+export type ZoomControl = 'slider' | 'buttons';
+export const ZOOM_CONTROLS: ZoomControl[] = ['slider', 'buttons'];
+
 export interface Settings {
   audio: { master: number; music: number; engines: number; crowd: number; muted: boolean };
-  display: { zoom: number; fullscreen: boolean };
+  /** zoomControl: the on-screen zoom control, a pop-out slider or + and − buttons. */
+  display: { zoom: number; fullscreen: boolean; zoomControl: ZoomControl };
   accessibility: { textScale: number; reducedEffects: boolean; highContrast: boolean };
   gameplay: { tutorialPrompts: boolean; contextHints: boolean; reminders: boolean };
   controls: { up: string; down: string; left: string; right: string; interact: string; menu: string };
@@ -13,7 +17,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   audio: { master: 80, music: 70, engines: 80, crowd: 70, muted: false },
-  display: { zoom: 100, fullscreen: false },
+  display: { zoom: 100, fullscreen: false, zoomControl: 'slider' },
   accessibility: { textScale: 130, reducedEffects: false, highContrast: false },
   gameplay: { tutorialPrompts: true, contextHints: true, reminders: true },
   controls: { up: 'W', down: 'S', left: 'A', right: 'D', interact: 'E', menu: 'ESC' },
@@ -86,6 +90,7 @@ function load(store: KeyValueStore): Settings {
       if (typeof v === typeof target[field]) target[field] = v;
     }
   }
+  if (!ZOOM_CONTROLS.includes(out.display.zoomControl)) out.display.zoomControl = DEFAULT_SETTINGS.display.zoomControl;
   out.display.zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, out.display.zoom));
   out.accessibility.textScale = Math.min(TEXT_MAX, Math.max(TEXT_MIN, out.accessibility.textScale));
   return out;

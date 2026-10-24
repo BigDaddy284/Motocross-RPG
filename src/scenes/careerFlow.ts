@@ -6,6 +6,7 @@ import { CAREER_SLOT, services } from '../services';
 import { COLORS, textStyle } from '../ui/theme';
 import { button, panel } from '../ui/widgets';
 import { when } from './MenuScene';
+import { cssSize } from '../ui/view';
 
 export const START_MAP = 'area1-home-town';
 
@@ -17,7 +18,7 @@ export function startCareer(scene: Phaser.Scene, slot: string): void {
     return;
   }
   if (r.status === 'empty') return;
-  const { width, height } = scene.scale;
+  const { width, height } = cssSize(scene);
   const c = scene.add.container(width / 2, height / 2);
   c.add(scene.add.rectangle(0, 0, width, height, 0, 0.6).setInteractive());
   c.add(panel(scene, 0, 0, 600, 300));
