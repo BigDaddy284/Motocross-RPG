@@ -616,7 +616,7 @@ export class HudScene extends Phaser.Scene {
       text(left + 222, y0 - 26, 'Yours', 14, COLORS.muted);
       shop.sells!.slots.forEach((slot, i) => {
         if (!sellsFor(shop, cls)) return;
-        const y = y0 + i * 50;
+        const y = y0 - 6 + i * 46;
         const name = bikes.slots.find((s) => s.id === slot)?.name ?? slot;
         text(left, y + 8, name, 16, COLORS.cream, 215);
         text(left + 222, y + 8, yours(slot), 15, career.bike.parts[slot]?.condition <= 0 ? COLORS.accent : COLORS.muted);
@@ -628,7 +628,7 @@ export class HudScene extends Phaser.Scene {
           c.add(b);
         }
       });
-      text(left, h / 2 - 34, 'New parts come at 100% with no modifiers. Stock changes after 3 race days or 10 shifts and practice sessions.', 13, COLORS.muted);
+      text(left, h / 2 - 30, 'New parts: 100%, no modifiers. Stock changes after 3 race days or 10 shifts and practice sessions.', 13, COLORS.muted);
     } else if (tab === 'sell') {
       if (!spareRows.length) text(left, y0, 'You have no spare parts to sell. Parts you take off the bike go in your bag.', 16, COLORS.muted);
       const { from, to, pg } = listPage(spareRows.length, 46);
@@ -650,7 +650,7 @@ export class HudScene extends Phaser.Scene {
       });
     } else if (tab === 'repair') {
       bikes.slots.forEach((slot, i) => {
-        const y = y0 - 8 + i * 36;
+        const y = y0 - 12 + i * 34;
         const part = career.bike.parts[slot.id];
         text(left, y + 4, slot.name, 15, COLORS.cream, 200);
         text(left + 210, y + 4, yours(slot.id), 15, part?.condition <= 0 ? COLORS.accent : COLORS.muted);
