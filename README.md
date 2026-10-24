@@ -28,6 +28,23 @@ This is **test build 0.3**: your first race day. After the garage mechanic's tut
 | Skills | K, or the Skills tab in the Bike panel | Bike button, then Skills |
 | Pause menu (save, settings) | Esc | ☰ button |
 
+## Project status: racing and track editor update
+
+Done on branch `claude/project-thread-ch8ujf` (see the sections below for how each works):
+
+- **Starting grid:** the gate you pick is your slot (1 to 8 front row, 9 to 16 second row) and your place in the arrival order; impossible gates are refused, not swapped.
+- **Start official:** waits at A from the start, walks to B with the board through the 5-second hold, lowers it at 1 and stays at B; drawn at 90%; the walk is planned clear of the track and scenery on every track.
+- **Farmland stuck riders:** finishers used to stop in one heap on the track 40 m past the line while others raced through; they now ride a slow cool-down in single file down the track edges.
+- **Scenery checks:** turned colliders, errors (on the track) and warnings (touching its edge, or overlapping), a Check button, click to find, on load and save.
+- **Ground elevation:** the editor's Height mode; heights saved as an optional `elevation` key on a track (no migration needed: tracks without it are unchanged); the race's ground, track, bikes and rider pace follow it.
+- **Race view in the editor:** the game's race camera and 3D scene inside the track editor (V), with every editor tool working on it.
+
+Tests: `npm test` (115 tests) and `npm run build` pass. In-game runs through the real UI with Playwright: full races on Farmland (Race at 8× and 4×, Auto-complete at 8×), Arena and Longmoor with no rider stuck and results in true order; start sequences from gates 1, 5, 8, 9, 11 and 16 in Race and Auto-complete; the editor's Height mode and race view with real mouse and keys at 1280 × 720, 1500 × 900 and 1920 × 1080; and a race over a hill made in the editor.
+
+Known limits: the race view needs `npm run dev`; it rebuilds the 3D scene at most every 0.3 s, so a brush stroke shows in steps; the brush ring follows the ground grid and can sit under a jump face. Tests ran in a software-rendered browser at about 3 to 7 frames a second, so smoothness at full frame rate was not seen.
+
+To resume: `npm install`, `npm test`, `npm run dev`, then open `/tools/track-editor.html`.
+
 ## What's in this build
 
 ### New in test build 0.3: XP, practice and the first race day
