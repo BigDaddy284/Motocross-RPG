@@ -67,9 +67,15 @@ export function officialCircles(x: number, y: number, facing: number): { x: numb
   });
 }
 
-/** Room around a point: from the lip's slope of the nearest track, and from the nearest scenery. */
-export function roomAt(pts: SurfaceIndex, items: Footprint[], x: number, y: number): { track: number; scenery: number } {
-  return { track: pts.offTrack(x, y), scenery: Math.min(Infinity, ...items.map((f) => toFootprint(f, x, y))) };
+/** Room around a point: from the nearest track (lip and its slope included) and the nearest scenery, each up to upTo. */
+export function roomAt(pts: SurfaceIndex, items: Footprint[], x: number, y: number, upTo = 4): { track: number; scenery: number } {
+  let scenery = Infinity;
+  for (const f of items) {
+    // Skip anything plainly further off than upTo before measuring it properly.
+    if (Math.hypot(f.x - x, f.y - y) - (f.w + f.d) / 2 > Math.min(upTo, scenery)) continue;
+    scenery = Math.min(scenery, toFootprint(f, x, y));
+  }
+  return { track: pts.offTrack(x, y, upTo), scenery: Math.min(scenery, upTo) };
 }
 
 /** The least room between the official (every part, board turned any way) and the track's lip slope or scenery, standing at a spot. */
@@ -77,7 +83,7 @@ export function officialRoom(pts: SurfaceIndex, items: Footprint[], x: number, y
   let track = Infinity;
   let scenery = Infinity;
   for (const c of officialCircles(x, y, facing)) {
-    const r = roomAt(pts, items, c.x, c.y);
+    const r = roomAt(pts, items, c.x, c.y, c.r + 1);
     track = Math.min(track, r.track - c.r);
     scenery = Math.min(scenery, r.scenery - c.r);
   }
@@ -134,6 +140,7 @@ export function officialPlan(track: TrackDef, parts: TrackPartsData): OfficialPl
         for (const back of [4.5, 4, 5, 3.5, 5.5, 3, 6]) {
           for (let outA = Math.max(0, out - 1); outA <= out + 1.5 && !found; outA += 0.25) {
             const a = spotAt(Math.max(-1, u - back), sd, outA);
+            if (!ok(officialRoom(pts, items, a.x, a.y, facing))) continue;
             const room = walkRoom(a, b, facing);
             if (!ok(room)) continue;
             const score = Math.abs(u - 8) + (sd === side ? 0 : 3) + out + Math.abs(back - 4.5) * 0.3 + Math.abs(outA - out) * 0.2;

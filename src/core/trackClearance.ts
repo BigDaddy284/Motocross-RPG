@@ -50,6 +50,7 @@ export const FAR = 4;
 export class SurfaceIndex {
   private readonly cells = new Map<number, SurfacePoint[]>();
   private readonly cellsOut: number;
+  private readonly maxSize: number;
   constructor(readonly pts: SurfacePoint[]) {
     for (const p of pts) {
       const k = key(Math.floor(p.x / CELL), Math.floor(p.y / CELL));
@@ -57,28 +58,35 @@ export class SurfaceIndex {
       if (list) list.push(p);
       else this.cells.set(k, [p]);
     }
-    this.cellsOut = Math.ceil((FAR + Math.max(0, ...pts.map((p) => p.reach))) / CELL);
+    this.maxSize = Math.max(0, ...pts.map((p) => p.reach));
+    this.cellsOut = Math.ceil((FAR + this.maxSize) / CELL) + 1;
   }
 
-  /** How far outside the racing surface a point is, in grid units (negative on it), up to FAR. */
-  offSurface(x: number, y: number): number {
-    return this.nearest(x, y, (p) => p.hw);
+  /** How far outside the racing surface a point is, in grid units (negative on it), up to upTo (at most FAR). */
+  offSurface(x: number, y: number, upTo = FAR): number {
+    return this.nearest(x, y, (p) => p.hw, upTo);
   }
 
-  /** How far outside the whole track a point is, raised lip and the slope down from it included, up to FAR (negative inside). */
-  offTrack(x: number, y: number): number {
-    return this.nearest(x, y, (p) => p.reach);
+  /** How far outside the whole track a point is, raised lip and the slope down from it included (negative inside), up to upTo (at most FAR). */
+  offTrack(x: number, y: number, upTo = FAR): number {
+    return this.nearest(x, y, (p) => p.reach, upTo);
   }
 
-  private nearest(x: number, y: number, size: (p: SurfacePoint) => number): number {
-    let best = FAR;
+  /** The nearest distance, or upTo (at most FAR) when nothing is nearer: a caller that only needs to know "at least this far" says so and saves the looking. */
+  private nearest(x: number, y: number, size: (p: SurfacePoint) => number, upTo: number): number {
+    let best = Math.min(upTo, FAR);
     const cx = Math.floor(x / CELL);
     const cy = Math.floor(y / CELL);
-    for (let i = cx - this.cellsOut; i <= cx + this.cellsOut; i++) {
-      for (let j = cy - this.cellsOut; j <= cy + this.cellsOut; j++) {
-        for (const p of this.cells.get(key(i, j)) ?? []) {
-          const d = Math.hypot(p.x - x, p.y - y) - size(p);
-          if (d < best) best = d;
+    // Ring by ring outwards, until no point further out could be nearer.
+    for (let r = 0; r <= this.cellsOut; r++) {
+      if ((r - 1) * CELL - this.maxSize > best) break;
+      for (let i = cx - r; i <= cx + r; i++) {
+        for (let j = cy - r; j <= cy + r; j++) {
+          if (Math.max(Math.abs(i - cx), Math.abs(j - cy)) !== r) continue;
+          for (const p of this.cells.get(key(i, j)) ?? []) {
+            const d = Math.hypot(p.x - x, p.y - y) - size(p);
+            if (d < best) best = d;
+          }
         }
       }
     }
@@ -133,5 +141,111 @@ export function footprintOutline(f: Footprint, step = 0.25): { x: number; y: num
   }
   // The middle too, for an item bigger than the track is wide.
   out.push({ x: f.x, y: f.y });
+  return out;
+}
+
+/** Half a bike's width, in grid units: a rider on the very edge of the racing surface reaches this far past it. */
+export const BIKE_HALF_WIDTH = 0.25;
+
+/** A problem with a scenery item: an error the game refuses, or a warning to look at. */
+export interface SceneryIssue {
+  /** The item's index in the track's scenery. */
+  i: number;
+  level: 'error' | 'warning';
+  message: string;
+}
+
+/** Solid things that look wrong standing inside each other (a crowd in front of a stand, or tape across a post, is fine). */
+const SOLID = new Set(['hay_bale', 'tyre_wall', 'tuff_block', 'van', 'pit_tent', 'stand', 'light_tower', 'skip', 'barrels', 'tyre_stack', 'hedge', 'banner', 'sponsor_board']);
+
+/**
+ * What of an item stands at riding height, as the race view builds it: a tree's trunk (its canopy
+ * is overhead), a floodlight's or marshal post's pole, a banner's or tape's thin line, a finish
+ * arch's two posts, nothing of a start gate (built to be ridden over); everything else, its whole
+ * footprint.
+ */
+export function colliders(f: Footprint): Footprint[] {
+  const along = (off: number, w: number, d: number) => ({ ...f, x: f.x + off * Math.cos(f.a), y: f.y + off * Math.sin(f.a), w, d });
+  switch (f.type) {
+    case 'start_gate':
+      return [];
+    case 'finish_arch':
+      return [along(-(f.w / 2 - 0.25), 0.5, 0.5), along(f.w / 2 - 0.25, 0.5, 0.5)];
+    case 'tree':
+      return [along(0, 0.35, 0.35)];
+    case 'light_tower':
+      return [along(0, 0.25, 0.25)];
+    case 'flag_post':
+      return [along(0, 0.1, 0.1)];
+    case 'banner':
+    case 'sponsor_board':
+      return [{ ...f, d: 0.1 }];
+    case 'tape':
+      return [{ ...f, d: 0.06 }];
+    case 'tuff_block':
+      return [{ ...f, d: f.d * 0.8 }];
+    case 'bush':
+      return [{ ...f, w: Math.min(f.w, f.d) * 0.9, d: Math.min(f.w, f.d) * 0.9 }];
+    case 'hedge':
+      return [{ ...f, d: f.d * 0.6 }];
+    default:
+      return [f];
+  }
+}
+
+/** True when two turned rectangles overlap (separating axis test). */
+export function footprintsOverlap(p: Footprint, q: Footprint): boolean {
+  const corners = (f: Footprint) =>
+    [
+      [-1, -1],
+      [1, -1],
+      [1, 1],
+      [-1, 1],
+    ].map(([u, v]) => ({ x: f.x + (u * f.w * Math.cos(f.a)) / 2 - (v * f.d * Math.sin(f.a)) / 2, y: f.y + (u * f.w * Math.sin(f.a)) / 2 + (v * f.d * Math.cos(f.a)) / 2 }));
+  const a = corners(p);
+  const b = corners(q);
+  for (const ang of [p.a, p.a + Math.PI / 2, q.a, q.a + Math.PI / 2]) {
+    const ax = Math.cos(ang);
+    const ay = Math.sin(ang);
+    const span = (pts: { x: number; y: number }[]) => {
+      const d = pts.map((c) => c.x * ax + c.y * ay);
+      return [Math.min(...d), Math.max(...d)];
+    };
+    const [a0, a1] = span(a);
+    const [b0, b1] = span(b);
+    if (a1 <= b0 + 1e-9 || b1 <= a0 + 1e-9) return false;
+  }
+  return true;
+}
+
+/**
+ * Scenery checks for a track, with each item's rotated collider (what of it stands at riding
+ * height; see colliders):
+ * - error: on the racing surface (lap, start straight or pad), where riders would ride through it.
+ *   Start gates are built to be ridden over, and a finish arch only stands on its two posts.
+ * - warning: within half a bike's width of the racing surface's edge, where a rider right on the
+ *   edge would touch it (tuff blocks lining a supercross track do this on purpose).
+ * - warning: two solid items standing inside each other.
+ * Nothing here changes the track.
+ */
+export function sceneryIssues(parts: TrackPartsData, track: TrackDef, index = new SurfaceIndex(surfacePoints(track))): SceneryIssue[] {
+  const out: SceneryIssue[] = [];
+  const items = footprints(parts, track);
+  const name = (f: Footprint) => `the ${(parts.scenery.find((s) => s.id === f.type)?.name ?? f.type).toLowerCase()} at ${f.x}, ${f.y}`;
+  for (const f of items) {
+    if (!parts.scenery.some((s) => s.id === f.type)) continue;
+    // How far inside the racing surface's edge the item comes, at its deepest (0 or less: clear of it).
+    let into = -Infinity;
+    for (const c of colliders(f)) for (const p of footprintOutline(c)) into = Math.max(into, -index.offSurface(p.x, p.y));
+    if (into > 1e-6) out.push({ i: f.i, level: 'error', message: `${name(f)} is on the racing surface, where riders would ride through it` });
+    else if (into > -BIKE_HALF_WIDTH) out.push({ i: f.i, level: 'warning', message: `${name(f)} is ${(-into).toFixed(2)} from the edge of the racing surface, so a rider right on the edge would touch it` });
+  }
+  for (let a = 0; a < items.length; a++) {
+    for (let b = a + 1; b < items.length; b++) {
+      if (SOLID.has(items[a].type) && SOLID.has(items[b].type) && colliders(items[a]).some((p) => colliders(items[b]).some((q) => footprintsOverlap(p, q)))) {
+        out.push({ i: items[b].i, level: 'warning', message: `${name(items[b])} stands inside ${name(items[a])}` });
+      }
+    }
+  }
   return out;
 }

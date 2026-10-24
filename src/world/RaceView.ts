@@ -548,8 +548,16 @@ export class RaceView {
    * on one side and the other is plain white (updateStart).
    */
   private startBoard(): THREE.Object3D {
-    const plan = officialPlan(this.track, this.parts)!;
     const stand = new THREE.Group();
+    let plan: ReturnType<typeof officialPlan>;
+    try {
+      plan = officialPlan(this.track, this.parts);
+    } catch (e) {
+      // Nowhere clear for them (the track checks say so too): no official, rather than one on the track.
+      console.warn(String(e));
+      return stand;
+    }
+    if (!plan) return stand;
     stand.position.set(plan.a.x, this.terrainAt(plan.a.x, plan.a.y), plan.a.y);
     stand.rotation.y = plan.facing;
     // Drawn 10% smaller than first built, board and all: the scale is on this group alone.
