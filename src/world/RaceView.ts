@@ -7,6 +7,7 @@ import { nearestOnLap, pointAt, START_PAD, startPointAt } from '../core/trackGeo
 import { GRID_H, GRID_W, trackKind, type TrackPartsData } from '../core/trackParts';
 import { BIKE_LENGTH, LIP_AT, TrackSurface } from '../core/trackSurface';
 import { COLORS, TEXT_RES } from '../ui/theme';
+import { raceBikeParts, type RaceLook } from './raceBike';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
 // isometric camera in the spirit of Super Off Road's overhead arcade view. The track is solid
@@ -43,6 +44,8 @@ export interface ViewRider {
   player: boolean;
   /** Start row (0 at the gate, 1 just behind), for the line-up. */
   startRow?: number;
+  /** Brand, class and gear colours for the race-day bike and rider (raceBike.ts). */
+  look?: RaceLook;
 }
 
 interface Bike {
@@ -990,11 +993,15 @@ export class RaceView {
 
   // ---- riders ----
 
-  /** A small motocross bike and rider in the rider's colour, facing +x, wheels on y = 0. */
-  private makeBike(color: number, player: boolean): Bike {
+  /**
+   * A small motocross bike and rider facing +x, wheels on y = 0: the race-day model in the bike's
+   * brand colours and the rider's gear when the look is known, otherwise one shape in the rider's colour.
+   */
+  private makeBike(color: number, player: boolean, look?: RaceLook): Bike {
     const root = new THREE.Group();
     const body = new THREE.Group();
     root.add(body);
+    if (look) return this.finishBike(root, body, raceBikeParts(look, BIKE_LENGTH));
     const L = BIKE_LENGTH;
     const r = 0.22;
     const dark = this.mat(0x1c1c22);
@@ -1033,6 +1040,10 @@ export class RaceView {
     helmet.position.set(0.12, r + 0.98, 0);
     parts.push(helmet);
     piece(0.08, 0.06, 0.18, dark, 0.24, r + 0.97); // visor
+    return this.finishBike(root, body, parts);
+  }
+
+  private finishBike(root: THREE.Group, body: THREE.Group, parts: THREE.Mesh[]): Bike {
     // One mesh per bike, coloured per part, so a field of bikes costs one draw each.
     body.add(this.mergeParts(parts));
     this.scene3.add(root);
@@ -1074,7 +1085,7 @@ export class RaceView {
       const p = r.pose;
       let b = this.bikes.get(p.id);
       if (!b) {
-        b = this.makeBike(r.color, r.player);
+        b = this.makeBike(r.color, r.player, r.look);
         this.bikes.set(p.id, b);
       }
       let dist = p.dist;

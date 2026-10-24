@@ -31,6 +31,15 @@ const INTERIOR_DIR = 'buildings/tiled/maps/interiors';
 const BUILDINGS_DATA = 'buildings/data/area1-buildings-v3.json';
 
 
+/**
+ * Images another thread redraws in place of a map's own art, keyed by the path the maps use.
+ * The in-world bike on its paddock stand is the vehicles thread's (Boss's brief, 24 Oct 2026:
+ * "Update or revert in world bike models.png"), drawn to the same canvas so placements don't move.
+ */
+const OVERRIDES = {
+  'buildings/tiled/tiles/interior-furniture/bike_on_stand+shadow.png': 'vehicles/sheets/furniture/bike_on_stand+shadow.png',
+};
+
 const copied = new Set();
 
 function readJson(file) {
@@ -44,7 +53,7 @@ function useImage(absPath) {
   if (!copied.has(rel)) {
     const dest = path.join(OUT_ART, rel);
     fs.mkdirSync(path.dirname(dest), { recursive: true });
-    fs.copyFileSync(absPath, dest);
+    fs.copyFileSync(OVERRIDES[rel] ? path.join(ART, OVERRIDES[rel]) : absPath, dest);
     copied.add(rel);
   }
   return `art/${rel}`;

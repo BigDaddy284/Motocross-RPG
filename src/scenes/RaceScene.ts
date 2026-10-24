@@ -11,6 +11,7 @@ import { directorFor, type RaceDirector } from '../core/riderAI';
 import { startGeom } from '../core/trackGeom';
 import { RaceView } from '../world/RaceView';
 import { view } from '../ui/view';
+import { CPU_GEAR, GEAR_SETS, gearColour, type RaceLook } from '../world/raceBike';
 
 // Race day and practice: gate pick, the live race screen with its pit board, auto-complete,
 // moto and day results, and practice laps. The simulation does the racing; this screen only
@@ -26,7 +27,6 @@ const DEFAULT_SPEED = 2;
 const BOARD_LAPS = [1, 2, 3, 0];
 /** Width of the pen meter in the race bar and on the pit board. */
 const PEN_W = 116;
-const CPU_COLORS = [0xe8dbb8, 0x7cc0e8, 0xb9e07a, 0xe89aa8, 0xc7a6ff, 0x9fe0cf, 0xf0d28c, 0xd0d0d0];
 
 export interface RaceSceneData {
   mode: 'practice' | 'raceday';
@@ -66,6 +66,8 @@ export class RaceScene extends Phaser.Scene {
   private retiredAt: number | null = null;
   private realStart = 0;
   private colors = new Map<string, number>();
+  /** Each rider's race-day bike and gear (Boss's brief, 24 Oct 2026: Race day bike colours). */
+  private looks = new Map<string, RaceLook>();
   private names = new Map<string, string>();
   private ui: Record<string, Phaser.GameObjects.Text> = {};
   /** The pen in the race bar: its ink is the message changes left. */
@@ -119,7 +121,9 @@ export class RaceScene extends Phaser.Scene {
       this.day = new RaceDay(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name), (Math.random() * 2 ** 32) >>> 0, this.args.fee);
       this.day.field.forEach((e, i) => {
         this.names.set(e.id, e.player ? 'You' : e.name);
-        this.colors.set(e.id, e.player ? COLORS.accent : e.tag === 'Local Champion' ? 0xf2c14e : CPU_COLORS[i % CPU_COLORS.length]);
+        const gear = GEAR_SETS[e.player ? 'player-default' : e.tag === 'Local Champion' ? 'cpu-champion' : CPU_GEAR[i % CPU_GEAR.length]];
+        this.looks.set(e.id, { brand: e.bike.brand, cls: e.bike.class, gear });
+        this.colors.set(e.id, e.player ? COLORS.accent : gearColour(gear));
       });
       this.showGatePick();
     }
@@ -543,6 +547,7 @@ export class RaceScene extends Phaser.Scene {
     this.view?.update(poses.map((p) => ({
       pose: p,
       color: this.colors.get(p.id) ?? COLORS.accent,
+      look: this.looks.get(p.id),
       label: String(order.findIndex((o) => o.id === p.id) + 1),
       player: p.id === PLAYER_ID,
       startRow: this.director!.startRow(p.id),
@@ -951,6 +956,7 @@ export class RaceScene extends Phaser.Scene {
     const career = this.save.career;
     this.names.set(PLAYER_ID, 'You');
     this.colors.set(PLAYER_ID, COLORS.accent);
+    this.looks.set(PLAYER_ID, { brand: career.bike.brand, cls: career.bike.class, gear: GEAR_SETS['player-default'] });
     this.sim = practiceSim(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name), (Math.random() * 2 ** 32) >>> 0);
     this.startLive();
   }
