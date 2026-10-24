@@ -84,6 +84,7 @@ Checked against the first-build checklist in the Systems Specification, section 
 | `public/assets/` | Art and baked maps, written by the import tool. Don't edit by hand. |
 | `tools/import-art.mjs` | Copies the art from the shared art folder and bakes each Tiled map into one game-ready file. |
 | `tools/map-editor.html` | Standalone map and tile editor for the game maps and the Tiled sources. |
+| `tools/track-editor.html` | Standalone editor for the race tracks in `public/data/tracks.json`. |
 | `tests/` | Unit tests, plus checks that every door, exit and NPC on the real maps works. |
 
 ### Technology
@@ -109,6 +110,19 @@ npm test
 It paints tiles on every ground layer, edits collision, moves, copies, clears and swaps regions (buildings move with their doors), places and moves props, and checks that doors, spawns and exits sit on free tiles. In Chrome and Edge, Save writes straight back into the folder; other browsers download the file instead. An unchanged map saves back byte for byte.
 
 `npm run import-art` rebuilds every game map from the Tiled sources, so edits made only to a game map are lost the next time the art is imported. For changes that should last, edit the `.tmj` map, then run the import. After saving, run `npm test`.
+
+### Editing race tracks
+
+`tools/track-editor.html` edits the race tracks in `public/data/tracks.json`. Like the map editor it is one file with no build step: open it in Chrome or Edge, click **Open folder…** and pick the repo, `public` or `public/data`. With `npm run dev` running you can also open `/tools/track-editor.html` and load the tracks from the dev server (saving then downloads the file).
+
+- **The drawing** is the shape the race screen shows: points on the 100 × 60 grid, starting at the start line. Drag points, double-click the track to add one, right-click or Del to remove one, and **Round corner** turns a sharp point into a curve. **Start here**, **Reverse** and **Fit to grid** reshape the whole lap.
+- **Sections** are what the race simulation rides, in order: type (from `racing.json`), length in metres and passing chance. They are coloured on the drawing by kind (start, corners, fast, jumps, rough), placed by their share of the lap the same way the race screen places riders. Drag the white diamonds to move metres between two neighbouring sections.
+- **Track details:** id, name, size, surface, practice only, and the start gate curve. Renaming an id updates the venues that use it.
+- **Checks** run the game's own rules for `tracks.json` (ids, section types, lengths, passing, points) and warn about race tracks without a start section or gate curve, and drawings that cross themselves.
+- **Preview** rides a dot round the lap, slower through the harder sections.
+- **Export / Import** save one track as a `.track.json` file and add one back, a first step towards player-made tracks.
+
+A new track can be ridden in the game once a venue in the `venues` list of `tracks.json` points at it. An unchanged file saves back byte for byte. After saving, run `npm test`.
 
 ### Checks
 
