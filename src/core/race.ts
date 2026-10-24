@@ -1,4 +1,5 @@
 import { bikeStats, type Bike, type BikesData } from './career';
+import type { RiderStyle } from './riderProfile';
 
 // The race simulation (Spec 10, GDD 11). Pure rules with no graphics: the race screen plays a
 // lap's results out section by section, and auto-complete just runs the laps straight through,
@@ -179,6 +180,8 @@ export interface Entrant {
   tactic: Tactic;
   /** Gate number from 0, best first. Lap 1 starts in gate order. */
   gate: number;
+  /** How they ride on the race screen (riderProfile.ts); never changes a result. */
+  style?: RiderStyle;
 }
 
 export type RaceEvent =

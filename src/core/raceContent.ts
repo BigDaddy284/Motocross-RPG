@@ -197,7 +197,7 @@ export const RIDERS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['tag', 'skills'],
+        optional: ['tag', 'skills', 'style'],
         fields: {
           id: IDS,
           name: S,
@@ -206,6 +206,11 @@ export const RIDERS_SCHEMA: Schema = {
           skills: { type: 'record', values: LEVEL },
           bike: { type: 'object', fields: { brand: IDS, grade: { type: 'number', integer: true, min: 1, max: 10 }, condition: SHARE } },
           tactic: { type: 'object', optional: ['push', 'pushGap'], fields: { message: IDS, push: N0, pushGap: N0 } },
+          style: {
+            type: 'object',
+            optional: ['line', 'aggression', 'jumps'],
+            fields: { line: { type: 'string', oneOf: ['inside', 'middle', 'outside'] }, aggression: SHARE, jumps: { type: 'string', oneOf: ['scrub', 'float'] } },
+          },
         },
       },
     },
