@@ -6,7 +6,7 @@ import type { SaveData } from '../core/saves';
 import { services } from '../services';
 import { COLORS, textStyle } from '../ui/theme';
 import { button, panel, penMeter, type Button, type PenMeter } from '../ui/widgets';
-import { directorFor, type RaceDirector } from '../core/riderAI';
+import { directorFor, ROW_SIZE, type RaceDirector } from '../core/riderAI';
 import { startGeom } from '../core/trackGeom';
 import { RaceView } from '../world/RaceView';
 
@@ -209,29 +209,35 @@ export class RaceScene extends Phaser.Scene {
     this.text(W / 2, 110, `${how} You pick ${ordinal(myTurn)}. Inside gates get a better start.`, 18).setOrigin(0.5, 0);
 
     let chosen = free[0];
-    const count = Math.max(day.field.length, gates.length);
+    // One gate per rider, laid out as the start is: gates 1 to 8 are the front row, 9 to 16 the
+    // second row, each straight behind the gate 8 before it.
+    const count = day.field.length;
+    const perRow = Math.min(count, ROW_SIZE);
     const gw = 70;
-    const gx = W / 2 - (count * gw) / 2 + gw / 2;
+    const gx = W / 2 - (perRow * gw) / 2 + gw / 2;
     const gateButtons: Button[] = [];
     for (let g = 0; g < count; g++) {
-      const x = gx + g * gw;
+      const row = Math.floor(g / ROW_SIZE);
+      const x = gx + (g % ROW_SIZE) * gw;
+      const y = 178 + row * 60;
       const who = taken.get(g);
       const bonus = gates[g] ?? 0;
-      this.text(x, 160, `${g + 1}`, 16, COLORS.muted).setOrigin(0.5, 0);
+      this.text(x - gw / 2 + 8, y - 21, `${g + 1}`, 13, COLORS.muted).setOrigin(0, 0);
       if (who) {
-        const r = this.add.rectangle(x, 214, gw - 8, 64, COLORS.inkLine).setStrokeStyle(2, COLORS.panelLight);
+        const r = this.add.rectangle(x, y, gw - 8, 46, COLORS.inkLine).setStrokeStyle(2, COLORS.panelLight);
         this.screen.add(r);
-        this.text(x, 214, initials(this.names.get(who) ?? ''), 15, COLORS.muted).setOrigin(0.5);
+        this.text(x, y + 4, initials(this.names.get(who) ?? ''), 15, COLORS.muted).setOrigin(0.5);
       } else {
-        const b = this.btn(x, 214, bonus > 0 ? `+${bonus}%` : bonus < 0 ? `${bonus}%` : '0%', () => {
+        const b = this.btn(x, y, bonus > 0 ? `+${bonus}%` : bonus < 0 ? `${bonus}%` : '0%', () => {
           chosen = g;
           gateButtons.forEach((o) => o.setSelected(o === b));
-        }, gw - 8, 64);
+        }, gw - 8, 46);
         b.setSelected(g === chosen);
         gateButtons.push(b);
       }
     }
-    this.text(W / 2, 256, 'Taken gates show who has them. The % is the start bonus.', 15, COLORS.muted).setOrigin(0.5, 0);
+    for (let row = 0; row * ROW_SIZE < count; row++) this.text(gx - gw / 2 - 12, 178 + row * 60, row ? 'Second row' : 'Front row', 15, COLORS.muted).setOrigin(1, 0.5);
+    this.text(W / 2, 270, 'Taken gates show who has them. The % is the start bonus.', 15, COLORS.muted).setOrigin(0.5, 0);
 
     // How to race it.
     const { racing } = services.content;

@@ -8,6 +8,7 @@ import { BIKE_LENGTH, TrackSurface } from '../src/core/trackSurface';
 import { loadManifest, loadMaps, rawContent } from './helpers';
 
 const content = checkContent(rawContent(), loadManifest(), loadMaps()).content!;
+const units = (track: { path: Parameters<typeof lapGeom>[0] }) => lapGeom(track.path).total;
 const JUMPY = new Set(['tabletop', 'double', 'step_up', 'rhythm', 'whoops', 'braking_bumps']);
 
 /** The whole CPU field, plus one rider on a worn-out bike with a broken part. */
@@ -18,9 +19,9 @@ function field(cls: string): Entrant[] {
   return [...list, wreck];
 }
 
-function race(trackId: string, seed: number, shuffle = false): { sim: MotoSim; dir: RaceDirector; traces: LapTrace[] } {
+function race(trackId: string, seed: number, shuffle = false, riders = 16): { sim: MotoSim; dir: RaceDirector; traces: LapTrace[] } {
   const track = content.tracks.tracks.find((t) => t.id === trackId)!;
-  const entrants = field('50cc');
+  const entrants = field('50cc').slice(0, riders);
   // A different gate draw for each seed, as race days give.
   if (shuffle) {
     const rnd = seededRng(seed);
@@ -102,80 +103,162 @@ describe('rider AI (GDD 11.1)', () => {
     expect(grid.filter((p) => dir.startRow(p.id) === 1).every((p) => front.has(p.lane.toFixed(3)))).toBe(true);
   });
 
+  /** Each rider's arrival in their slot: the line-up time they stop there for good (the riders already there: the start). */
+  function arrivals(dir: RaceDirector): Map<string, number> {
+    const at = new Map<string, number>();
+    for (let t = -dir.prestart; t <= 0.001; t += 0.02) {
+      for (const p of dir.poses(t)) {
+        const there = p.dist === dir.start.from && p.speed === 0;
+        if (!there) at.delete(p.id);
+        else if (!at.has(p.id)) at.set(p.id, t);
+      }
+    }
+    return at;
+  }
+
   for (const trackId of ['farmland', 'arena-supercross', 'longmoor-endurance']) {
-    it(`runs the start procedure on ${trackId}: a natural six-second line-up, lane by lane, then a five-second hold`, () => {
-      for (const seed of [4, 21, 300, 5151, 77777, 123456]) {
-        const { dir } = race(trackId, seed, true);
-        const track = content.tracks.tracks.find((t) => t.id === trackId)!;
-        const s = new TrackSurface(track);
-        const units = lapGeom(track.path).total;
-        const slots = new Map(dir.poses(0).map((p) => [p.id, p]));
-        const ids = [...slots.keys()];
-        expect(ids.length).toBe(16);
-        // 4 front-row riders already in place; the line-up takes six seconds; then the hold.
-        expect(dir.lined.size).toBe(4);
-        expect([...dir.lined].every((id) => dir.startRow(id) === 0)).toBe(true);
-        expect(dir.prep).toBe(LINE_UP);
-        expect(dir.prestart).toBe(LINE_UP + START_HOLD);
-        expect(dir.linedUp(-START_HOLD)).toBe(true);
-        expect(dir.linedUp(-START_HOLD - 0.05)).toBe(false);
-        // The front-row rider in each lane, for the second row.
-        const frontOf = new Map(ids.filter((id) => dir.startRow(id) === 1).map((id) => [id, ids.find((f) => dir.startRow(f) === 0 && slots.get(f)!.lane === slots.get(id)!.lane)!]));
-        expect([...frontOf.values()].every(Boolean)).toBe(true);
-        const last = new Map<string, number>();
-        const setOff = new Map<string, number>();
-        let mostAtOnce = 0;
-        for (let t = -dir.prestart; t <= 0.001; t += 0.02) {
-          const poses = dir.poses(t);
-          const at = new Map(poses.map((p) => [p.id, p]));
-          // Where each bike stands on the start straight, as the race view places it (second row a bike length and a bit back).
-          const spots = poses.map((p) => {
-            const u = (p.dist - dir.start.from) * units - dir.startRow(p.id) * BIKE_LENGTH * 1.4;
-            return { id: p.id, u, x: p.lane * s.startHw(u) };
-          });
-          mostAtOnce = Math.max(mostAtOnce, poses.filter((p) => p.speed > 0).length);
-          for (const p of poses) {
-            expect(p.state).toBe('grid');
-            // Only ever forwards, never past the slot.
-            expect(p.dist).toBeGreaterThanOrEqual((last.get(p.id) ?? -Infinity) - 1e-12);
-            expect(p.dist).toBeLessThanOrEqual(dir.start.from + 1e-12);
-            if (last.has(p.id) && p.dist > last.get(p.id)! && !setOff.has(p.id)) setOff.set(p.id, t);
-            last.set(p.id, p.dist);
-            // Riding up at a believable pace: under 3 grid units a second, gently.
-            expect((p.speed * units) / lapMetres(track)).toBeLessThan(3);
-            // A second-row rider only moves once the front-row rider of their own lane is in place and still.
-            const f = frontOf.get(p.id);
-            if (f && p.dist < dir.start.from && setOff.has(p.id)) {
-              expect(at.get(f)!.dist, `${p.id} behind ${f} at ${t.toFixed(2)}`).toBe(dir.start.from);
-              expect(at.get(f)!.speed).toBe(0);
+    it(`runs the start procedure on ${trackId}: riders reach their slots in gate order over six seconds, lane by lane, then hold for five`, () => {
+      for (const n of [16, 12, 10, 8]) {
+        for (const seed of [4, 21, 300, 5151, 77777, 123456]) {
+          const { dir } = race(trackId, seed, true, n);
+          const track = content.tracks.tracks.find((t) => t.id === trackId)!;
+          const s = new TrackSurface(track);
+          const units = lapGeom(track.path).total;
+          const slots = new Map(dir.poses(0).map((p) => [p.id, p]));
+          const ids = [...slots.keys()];
+          expect(ids.length).toBe(n);
+          const gate = new Map(ids.map((id) => [id, dir.gateOf(id)]));
+          const byGate = new Map(ids.map((id) => [gate.get(id)!, id]));
+          // Gates 1 to 8 are the front row, 9 to 16 the second, each straight behind the gate 8 before it.
+          for (const id of ids) {
+            const g = gate.get(id)!;
+            expect(dir.startRow(id)).toBe(g < 8 ? 0 : 1);
+            if (g >= 8) expect(slots.get(id)!.lane).toBe(slots.get(byGate.get(g - 8)!)!.lane);
+          }
+          expect(new Set(ids.filter((id) => gate.get(id)! < 8).map((id) => slots.get(id)!.lane)).size).toBe(Math.min(n, 8));
+          // The first gates (4 for a full field) are already in place; the line-up takes six seconds; then the hold.
+          const k = Math.min(n, Math.max(4, Math.min(8, Math.round(n * 0.25))));
+          expect([...dir.lined].map((id) => gate.get(id)).sort((a, b) => a! - b!)).toEqual([...Array(k).keys()]);
+          expect(dir.prep).toBe(LINE_UP);
+          expect(dir.prestart).toBe(LINE_UP + START_HOLD);
+          expect(dir.linedUp(-START_HOLD)).toBe(true);
+          expect(dir.linedUp(-START_HOLD - 0.05)).toBe(false);
+          const last = new Map<string, number>();
+          const setOff = new Map<string, number>();
+          let mostAtOnce = 0;
+          for (let t = -dir.prestart; t <= 0.001; t += 0.02) {
+            const poses = dir.poses(t);
+            const at = new Map(poses.map((p) => [p.id, p]));
+            // Where each bike stands on the start straight, as the race view places it (second row a bike length and a bit back).
+            const spots = poses.map((p) => {
+              const u = (p.dist - dir.start.from) * units - dir.startRow(p.id) * BIKE_LENGTH * 1.4;
+              return { id: p.id, u, x: p.lane * s.startHw(u) };
+            });
+            mostAtOnce = Math.max(mostAtOnce, poses.filter((p) => p.speed > 0).length);
+            for (const p of poses) {
+              expect(p.state).toBe('grid');
+              // Only ever forwards, never past the slot.
+              expect(p.dist).toBeGreaterThanOrEqual((last.get(p.id) ?? -Infinity) - 1e-12);
+              expect(p.dist).toBeLessThanOrEqual(dir.start.from + 1e-12);
+              if (last.has(p.id) && p.dist > last.get(p.id)! && !setOff.has(p.id)) setOff.set(p.id, t);
+              last.set(p.id, p.dist);
+              // Riding up at a believable pace: under 3 grid units a second, gently.
+              expect((p.speed * units) / lapMetres(track)).toBeLessThan(3);
+              // A second-row rider only moves once the front-row rider of their own lane is in place and still.
+              const g = gate.get(p.id)!;
+              const f = g >= 8 ? byGate.get(g - 8)! : undefined;
+              if (f && p.dist < dir.start.from && setOff.has(p.id)) {
+                expect(at.get(f)!.dist, `${p.id} behind ${f} at ${t.toFixed(2)}`).toBe(dir.start.from);
+                expect(at.get(f)!.speed).toBe(0);
+              }
+              // Still, and in the slot, for the whole hold.
+              if (t >= -START_HOLD) {
+                expect(p.dist).toBe(dir.start.from);
+                expect(p.lane).toBe(slots.get(p.id)!.lane);
+                expect(p.speed).toBe(0);
+              }
             }
-            // Still, and in the slot, for the whole hold.
-            if (t >= -START_HOLD) {
-              expect(p.dist).toBe(dir.start.from);
-              expect(p.lane).toBe(slots.get(p.id)!.lane);
-              expect(p.speed).toBe(0);
+            // No two bikes overlap: a bike is BIKE_LENGTH long and under half a grid unit wide.
+            for (let i = 0; i < spots.length; i++) {
+              for (let j = i + 1; j < spots.length; j++) {
+                const touching = Math.abs(spots[i].u - spots[j].u) < BIKE_LENGTH && Math.abs(spots[i].x - spots[j].x) < 0.45;
+                expect(touching, `${spots[i].id} and ${spots[j].id} at ${t.toFixed(2)}`).toBe(false);
+              }
             }
           }
-          // No two bikes overlap: a bike is BIKE_LENGTH long and under half a grid unit wide.
-          for (let i = 0; i < spots.length; i++) {
-            for (let j = i + 1; j < spots.length; j++) {
-              const touching = Math.abs(spots[i].u - spots[j].u) < BIKE_LENGTH && Math.abs(spots[i].x - spots[j].x) < 0.45;
-              expect(touching, `${spots[i].id} and ${spots[j].id} at ${t.toFixed(2)}`).toBe(false);
+          // Everyone else rides up, several at once, and they reach their slots strictly in gate order.
+          expect(setOff.size).toBe(n - k);
+          expect(mostAtOnce).toBeGreaterThanOrEqual(Math.min(3, n - k));
+          const arrived = arrivals(dir);
+          const order = [...arrived.entries()].sort((a, b) => a[1] - b[1] || gate.get(a[0])! - gate.get(b[0])!).map(([id]) => gate.get(id));
+          expect(order, `${trackId} ${n} riders, seed ${seed}`).toEqual([...Array(n).keys()]);
+          for (let g = k + 1; g < n; g++) expect(arrived.get(byGate.get(g)!)!).toBeGreaterThan(arrived.get(byGate.get(g - 1)!)!);
+        }
+      }
+    }, 60000);
+  }
+
+  it('puts the rider at each picked gate in that slot, and that place in the line-up', () => {
+    for (const g of [1, 5, 8, 9, 11, 16]) {
+      for (const seed of [8, 99]) {
+        const { dir } = race('farmland', seed, true);
+        const id = [...dir.profiles.keys()].find((x) => dir.gateOf(x) === g - 1)!;
+        const slot = dir.poses(0).find((p) => p.id === id)!;
+        expect(dir.startRow(id)).toBe(g <= 8 ? 0 : 1);
+        // Its lane is the (g-1) % 8th of eight, from gate 1's on the inside of the first corner across.
+        const inside = dir.poses(0).find((p) => dir.gateOf(p.id) === 0)!.lane;
+        expect(slot.lane).toBeCloseTo(inside * (1 - (2 * ((g - 1) % 8)) / 7), 9);
+        const arrived = arrivals(dir);
+        const order = [...arrived.entries()].sort((a, b) => a[1] - b[1] || dir.gateOf(a[0]) - dir.gateOf(b[0])).map(([x]) => x);
+        expect(order.indexOf(id) + 1).toBe(g);
+      }
+    }
+  });
+
+  it('refuses a start with a gate past the size of the field, or two riders on one gate', () => {
+    const track = content.tracks.tracks.find((t) => t.id === 'farmland')!;
+    const es = field('50cc').slice(0, 10);
+    es.forEach((e, i) => (e.gate = i));
+    const profiles = () => directorFor(new MotoSim(content.racing, content.bikes, track, '50cc', es, { laps: 4, motoIndex: 0, seed: 1 }), content.bikes, content.racing.messages);
+    expect(profiles).not.toThrow();
+    es[3].gate = 12;
+    expect(profiles).toThrow(/gate 13/);
+    es[3].gate = 4;
+    expect(profiles).toThrow(/gate 5/);
+  });
+
+  it('after the flag, finishers ride a slow cool-down in single file instead of stopping on the track', () => {
+    for (const trackId of ['farmland', 'arena-supercross', 'longmoor-endurance']) {
+      for (const seed of [3, 12]) {
+        const { dir, traces } = race(trackId, seed, true);
+        const track = content.tracks.tracks.find((t) => t.id === trackId)!;
+        const s = new TrackSurface(track);
+        const lastT = Math.max(...traces.flatMap((tr) => Object.values(tr.times).map((t) => t[t.length - 1])));
+        const seen = new Map<string, number>();
+        for (let t = lastT - 60; t <= lastT + 20; t += 0.25) {
+          const done = dir.poses(t).filter((p) => p.state === 'finished');
+          for (const p of done) {
+            // Always moving on, at walking pace or more, never back.
+            expect(p.speed).toBeGreaterThan(3);
+            expect(p.dist).toBeGreaterThanOrEqual((seen.get(p.id) ?? -Infinity) - 1e-12);
+            seen.set(p.id, p.dist);
+          }
+          // Once clear of the line, no two finishers are on top of each other: along the track a
+          // bike is BIKE_LENGTH long, and across it under half a grid unit wide. (Measured along
+          // the track, as the inside of a hairpin squeezes any line on it.)
+          const clear = done.filter((p) => (p.dist % 1) * units(track) > 6);
+          for (let i = 0; i < clear.length; i++) {
+            for (let j = i + 1; j < clear.length; j++) {
+              const along = Math.abs(clear[i].dist - clear[j].dist) * units(track);
+              const across = Math.abs(clear[i].lane - clear[j].lane) * s.hw;
+              expect(along < BIKE_LENGTH && across < 0.45, `${trackId} ${seed} ${clear[i].id} ${clear[j].id} at ${t}`).toBe(false);
             }
           }
         }
-        // Several ride up at once, and not in gate order or row by row.
-        expect(mostAtOnce).toBeGreaterThanOrEqual(3);
-        expect(setOff.size).toBe(12);
-        const byStart = [...setOff.entries()].sort((a, b) => a[1] - b[1]).map(([id]) => id);
-        const gateOrder = ids.filter((id) => setOff.has(id));
-        expect(byStart).not.toEqual(gateOrder);
-        const firstSecondRow = Math.min(...byStart.filter((id) => dir.startRow(id) === 1).map((id) => setOff.get(id)!));
-        const lastFrontRow = Math.max(...byStart.filter((id) => dir.startRow(id) === 0).map((id) => setOff.get(id)!));
-        expect(firstSecondRow).toBeLessThan(lastFrontRow);
+        expect(seen.size).toBeGreaterThan(8);
       }
-    }, 30000);
-  }
+    }
+  }, 30000);
 
   it('shows mistakes and crashes where the referee put them', () => {
     let crashes = 0;

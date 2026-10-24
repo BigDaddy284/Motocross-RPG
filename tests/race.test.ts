@@ -17,6 +17,11 @@ function rider(): CareerState {
   return c;
 }
 
+/** The free gate nearest to the one wanted (the CPU riders who pick first may have it). */
+function freeGate(d: RaceDay, want: number): number {
+  return d.gatesForPlayer().free.reduce((a, b) => (Math.abs(b - want) < Math.abs(a - want) ? b : a));
+}
+
 function day(seed: number): RaceDay {
   return new RaceDay(content, farmland, playerEntrant(content, rider(), 'Test'), seed, 2000);
 }
@@ -53,12 +58,12 @@ describe('race simulation (Spec 10)', () => {
   it('gives the same result live with a held message as auto-complete (section 22)', () => {
     for (const seed of [1, 42, 9001]) {
       const a = day(seed);
-      a.assignGates(3);
+      a.assignGates(freeGate(a, 3));
       const auto = a.startMoto('push');
       auto.runToEnd();
 
       const b = day(seed);
-      b.assignGates(3);
+      b.assignGates(freeGate(b, 3));
       const live = b.startMoto('push');
       // Live: lap by lap with the pit board kept each lap, as the race screen does.
       while (!live.finished) {
@@ -73,7 +78,7 @@ describe('race simulation (Spec 10)', () => {
 
   it('changing message uses ink, and the pen runs dry after 3 changes (Spec 11.3)', () => {
     const d = day(7);
-    d.assignGates(0);
+    d.assignGates(freeGate(d, 0));
     const sim = d.startMoto('steady');
     expect(sim.changeMessage('steady')).toBe(true);
     expect(sim.ink).toBe(3);
@@ -89,7 +94,7 @@ describe('race simulation (Spec 10)', () => {
     for (const seed of [3, 18, 404]) {
       for (const change of ['push', 'save_bike', 'retire'] as const) {
         const d = day(seed);
-        d.assignGates(12);
+        d.assignGates(freeGate(d, 12));
         const sim = d.startMoto('steady');
         sim.nextLap();
         sim.nextLap();
@@ -117,7 +122,7 @@ describe('race simulation (Spec 10)', () => {
 
   it('runs a full 50cc moto: 5 laps, 16 riders, everyone placed', () => {
     const d = day(123);
-    d.assignGates(0);
+    d.assignGates(freeGate(d, 0));
     const sim = d.startMoto('steady');
     sim.runToEnd();
     const res = sim.results();
@@ -146,7 +151,7 @@ describe('race simulation (Spec 10)', () => {
     const p = practiceSim(content, farmland, playerEntrant(content, career, 'P'), 5);
     for (let i = 0; i < 5; i++) p.nextLap();
     const d = day(5);
-    d.assignGates(0);
+    d.assignGates(freeGate(d, 0));
     const r = d.startMoto('steady');
     r.runToEnd();
     const total = (x: Record<string, number>) => Object.values(x).reduce((a, b) => a + b, 0);
@@ -205,9 +210,38 @@ describe('race day (Spec 12, 14)', () => {
     expect(res.overall[0].position).toBe(1);
   });
 
+  it('gives the player exactly the gate they pick, one gate per rider, and refuses any other', () => {
+    let picked = 0;
+    for (const gate of [1, 5, 8, 9, 11, 16]) {
+      // The player picks first on this day, so every gate is free.
+      const d = day(31);
+      d.pickOrder = [PLAYER_ID, ...d.pickOrder.filter((id) => id !== PLAYER_ID)];
+      const { free, taken } = d.gatesForPlayer();
+      if (!free.includes(gate - 1)) {
+        expect(() => d.assignGates(gate - 1)).toThrow(/already taken/);
+        continue;
+      }
+      d.assignGates(gate - 1);
+      expect(d.field.find((e) => e.id === PLAYER_ID)!.gate).toBe(gate - 1);
+      expect(new Set(d.field.map((e) => e.gate)).size).toBe(d.field.length);
+      expect(Math.max(...d.field.map((e) => e.gate))).toBe(d.field.length - 1);
+      for (const [g, id] of taken) expect(d.field.find((e) => e.id === id)!.gate).toBe(g);
+      picked++;
+    }
+    expect(picked).toBe(6);
+    // A gate a CPU rider picked first is refused, not swapped.
+    const late = day(31);
+    late.pickOrder = [...late.pickOrder.filter((id) => id !== PLAYER_ID), PLAYER_ID];
+    expect(() => late.assignGates(0)).toThrow(/Gate 1 is already taken/);
+    const d = day(31);
+    expect(() => d.assignGates(d.field.length)).toThrow(/Gate 17 is not on this start/);
+    expect(() => d.assignGates(-1)).toThrow(RangeError);
+    expect(() => d.assignGates(2.5)).toThrow(RangeError);
+  });
+
   it('leaving early counts moto 2 as a DNF', () => {
     const d = day(78);
-    d.assignGates(0);
+    d.assignGates(freeGate(d, 0));
     const sim = d.startMoto('steady');
     sim.runToEnd();
     d.finishMoto(sim);
