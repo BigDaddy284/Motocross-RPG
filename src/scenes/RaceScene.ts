@@ -6,7 +6,8 @@ import type { SaveData } from '../core/saves';
 import { services } from '../services';
 import { COLORS, textStyle } from '../ui/theme';
 import { button, panel, type Button } from '../ui/widgets';
-import { TrackView } from '../world/TrackView';
+import { directorFor, type RaceDirector } from '../core/riderAI';
+import { RaceView } from '../world/RaceView';
 
 // Race day and practice: gate pick, the live race screen with its pit board, auto-complete,
 // moto and day results, and practice laps. The simulation does the racing; this screen only
@@ -41,7 +42,10 @@ export class RaceScene extends Phaser.Scene {
   private screen!: Phaser.GameObjects.Container;
   private day: RaceDay | null = null;
   private sim: MotoSim | null = null;
-  private view: TrackView | null = null;
+  private view: RaceView | null = null;
+  private director: RaceDirector | null = null;
+  /** Real seconds since the last frame, for the view's camera. */
+  private frameDt = 0;
   private cps = new Map<string, Checkpoints>();
   private traces: LapTrace[] = [];
   private raceEvents: RaceEvent[] = [];
@@ -106,6 +110,7 @@ export class RaceScene extends Phaser.Scene {
 
   update(_t: number, dt: number): void {
     if (!this.live || this.paused || this.modal) return;
+    this.frameDt = dt / 1000;
     this.clock += (dt / 1000) * SPEEDS[this.speed];
     this.onTick?.();
   }
@@ -263,7 +268,7 @@ export class RaceScene extends Phaser.Scene {
       c.add(this.add.text(0, -160, 'Your first race', textStyle(26, COLORS.accent)).setOrigin(0.5));
       c.add(this.add.text(0, -20, [
         'The race runs itself: your skills and your bike decide how fast you go.',
-        'Your dot is orange. The tower on the right is the running order.',
+        'You are the orange rider with the arrow over you. The tower on the right is the running order.',
         'Each time the leader crosses the line, the pit board comes out. Pick a message, or keep the one you have.',
         'Goal for today: finish both motos.',
       ].join('\n\n'), textStyle(18, COLORS.cream, { align: 'center', wordWrap: { width: 680 } })).setOrigin(0.5));
@@ -295,7 +300,8 @@ export class RaceScene extends Phaser.Scene {
     this.box(16, 16, 900, 54);
     this.ui.title = this.text(32, 30, '', 20, COLORS.cream);
     this.ui.ink = this.text(900, 30, '', 20, COLORS.accent).setOrigin(1, 0);
-    this.view = new TrackView(this, this.screen, sim.track, 16, 82, 900, 440);
+    this.director = directorFor(sim, services.content.bikes, services.content.racing.messages);
+    this.view = new RaceView(this, this.screen, sim.track, services.content.trackParts, 16, 82, 900, 440);
     this.box(16, 534, 900, 170);
     this.ui.me = this.text(32, 546, '', 18, COLORS.cream, { lineSpacing: 6 });
     this.ui.feed = this.text(400, 546, '', 16, COLORS.cream, { lineSpacing: 7, wordWrap: { width: 500 } });
@@ -344,6 +350,7 @@ export class RaceScene extends Phaser.Scene {
       }
     }
     this.traces.push(trace);
+    this.director?.addLap(trace);
     this.raceEvents.push(...trace.events);
     this.raceEvents.sort((a, b) => a.t - b.t);
     this.renderDetail();
@@ -411,14 +418,13 @@ export class RaceScene extends Phaser.Scene {
     const order = this.runningOrder(pos);
     const leader = order[0];
     const gap = (p: (typeof pos)[0]) => Math.max(0, this.cps.get(p.id)!.t[p.k] - (this.cps.get(leader.id)!.t[p.k] ?? this.cps.get(p.id)!.t[p.k]));
-    this.view?.setDots(pos.map((p) => ({
-      id: p.id,
-      at: p.dist % 1,
+    const poses = this.director?.poses(this.clock) ?? [];
+    this.view?.update(poses.map((p) => ({
+      pose: p,
       color: this.colors.get(p.id) ?? COLORS.accent,
-      label: p.id === PLAYER_ID ? '' : String(order.findIndex((o) => o.id === p.id) + 1),
+      label: String(order.findIndex((o) => o.id === p.id) + 1),
       player: p.id === PLAYER_ID,
-      visible: !p.out,
-    })));
+    })), this.clock, this.frameDt, pos.find((p) => p.id === PLAYER_ID)?.out ? leader.id : PLAYER_ID);
 
     const me = pos.find((p) => p.id === PLAYER_ID)!;
     const myLap = Math.min(Math.floor(me.dist) + 1, sim.totalLaps ?? Infinity);
@@ -590,6 +596,7 @@ export class RaceScene extends Phaser.Scene {
   private retireNow(): void {
     this.sim!.retirePlayer("It's over, bike blown");
     this.retiredAt = this.clock;
+    this.director?.retire(PLAYER_ID, this.clock);
     this.feed.push('You pull off the track.');
   }
 

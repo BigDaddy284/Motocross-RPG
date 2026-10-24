@@ -62,6 +62,7 @@ const frac = (x: number) => x - Math.floor(x);
 export class RaceDirector {
   private readonly segs = new Map<string, Seg[]>();
   private readonly out = new Map<string, number>();
+  private readonly pulled = new Map<string, number>();
   private readonly bounds: number[];
   private readonly turns: number[];
   private readonly metres: number;
@@ -112,9 +113,9 @@ export class RaceDirector {
     }
   }
 
-  /** The player pulled off (the pit board's "It's over, bike blown"). */
+  /** The player pulled off (the pit board's "It's over, bike blown"), at race time t. */
   retire(id: string, t: number): void {
-    if (!this.out.has(id)) this.out.set(id, t);
+    if (!this.pulled.has(id)) this.pulled.set(id, t);
   }
 
   /** Where every rider is, and what they are doing, at race time t (seconds from the gate drop). */
@@ -125,7 +126,11 @@ export class RaceDirector {
     return poses;
   }
 
-  private pose(id: string, list: Seg[], t: number): RiderPose {
+  private pose(id: string, list: Seg[], t: number, pulled = true): RiderPose {
+    if (pulled) {
+      const off = this.pulledOff(id, list, t);
+      if (off) return off;
+    }
     const p = this.profiles.get(id)!;
     const base: RiderPose = { id, dist: 0, lane: this.gateLane.get(id) ?? 0, air: 0, elev: 0, state: 'grid', speed: 0 };
     if (!list.length || t <= list[0].t0) return base;
@@ -268,6 +273,15 @@ export class RaceDirector {
     return { air, elev };
   }
 
+  /** The player pulled off part way round: they stop where they are, not at the end of the lap. */
+  private pulledOff(id: string, list: Seg[], t: number): RiderPose | null {
+    const at = this.pulled.get(id);
+    if (at === undefined || t < at) return null;
+    const where = this.pose(id, list, at, false);
+    const side = where.lane >= 0 ? 1 : -1;
+    return { ...where, lane: side * Math.max(Math.abs(where.lane), 1 + 0.45 * smooth((t - at) / 2)), air: 0, state: 'retired', speed: 0 };
+  }
+
   /** Riders side by side ease apart so they don't ride through each other. */
   private keepApart(poses: RiderPose[]): void {
     const racing = poses.filter((q) => q.state !== 'grid' && q.state !== 'retired' && q.state !== 'finished').sort((a, b) => b.dist - a.dist);
@@ -303,4 +317,15 @@ export function directorFor(sim: MotoSim, bikes: BikesData, messages: MessageDef
 
 function rank(o: MistakeOutcome['id']): number {
   return ['small', 'big', 'minor_crash', 'serious_crash'].indexOf(o);
+}
+
+/** Height of the ground in metres at lap fraction f (hills), for the race view. */
+export function groundElev(track: TrackDef, bounds: number[], f: number): number {
+  const at = f - Math.floor(f);
+  let si = 0;
+  while (si < track.sections.length - 1 && bounds[si + 1] <= at) si++;
+  const sec = track.sections[si];
+  if (sec.type !== 'uphill' && sec.type !== 'downhill') return 0;
+  const u = (at - bounds[si]) / Math.max(1e-9, bounds[si + 1] - bounds[si]);
+  return (sec.height ?? DEFAULT_HEIGHTS[sec.type]) * Math.sin(Math.PI * u);
 }
