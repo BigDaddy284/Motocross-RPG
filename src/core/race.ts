@@ -107,6 +107,38 @@ export interface TrackSection {
   type: string;
   length: number;
   passing: number;
+  /** The line most riders take through it (trackParts.json lines); the race view only. */
+  line?: string;
+  /** Height in metres of the jump face or hill, for the race view. */
+  height?: number;
+}
+
+/** A stretch of the lap with a different surface, in metres from the start line (race view only). */
+export interface SurfacePatch {
+  surface: string;
+  at: number;
+  length: number;
+}
+
+/** A piece of scenery on the 100 × 60 track grid (race view only). */
+export interface SceneryItem {
+  type: string;
+  x: number;
+  y: number;
+  /** Size on the grid; the scenery type's default when left out. */
+  w?: number;
+  h?: number;
+  /** Turned this many degrees clockwise. */
+  rot?: number;
+  text?: string;
+  color?: string;
+}
+
+/** Ground round the track: a base ground and painted cells of cell × cell grid units, by ground id. */
+export interface TrackGround {
+  base: string;
+  cell: number;
+  paint: Record<string, [number, number][]>;
 }
 
 export interface TrackDef {
@@ -120,6 +152,13 @@ export interface TrackDef {
   /** The shape drawn on the race screen, on a 100 × 60 grid, starting at the start line. */
   path: [number, number][];
   sections: TrackSection[];
+  /** stadium, outdoor or endurance (trackParts.json kinds); outdoor when left out. */
+  kind?: string;
+  /** Track width in grid units on the race view; 3.4 when left out. */
+  width?: number;
+  patches?: SurfacePatch[];
+  ground?: TrackGround;
+  scenery?: SceneryItem[];
 }
 
 export interface Tactic {

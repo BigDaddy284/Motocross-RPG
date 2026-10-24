@@ -127,7 +127,7 @@ export const TRACKS_SCHEMA: Schema = {
       minItems: 1,
       items: {
         type: 'object',
-        optional: ['practiceOnly', 'gates'],
+        optional: ['practiceOnly', 'gates', 'kind', 'width', 'patches', 'ground', 'scenery'],
         fields: {
           id: IDS,
           name: S,
@@ -136,7 +136,30 @@ export const TRACKS_SCHEMA: Schema = {
           practiceOnly: { type: 'boolean' },
           gates: { type: 'array', items: N },
           path: { type: 'array', minItems: 3, items: POINT },
-          sections: { type: 'array', minItems: 1, items: { type: 'object', fields: { type: IDS, length: { type: 'number', min: 1 }, passing: SHARE } } },
+          sections: {
+            type: 'array',
+            minItems: 1,
+            items: { type: 'object', optional: ['line', 'height'], fields: { type: IDS, length: { type: 'number', min: 1 }, passing: SHARE, line: IDS, height: N0 } },
+          },
+          kind: IDS,
+          width: { type: 'number', min: 1, max: 12 },
+          patches: { type: 'array', items: { type: 'object', fields: { surface: IDS, at: N0, length: { type: 'number', min: 1 } } } },
+          ground: {
+            type: 'object',
+            fields: {
+              base: IDS,
+              cell: { type: 'number', integer: true, min: 1, max: 10 },
+              paint: { type: 'record', values: { type: 'array', items: { type: 'array', items: { type: 'number', integer: true, min: 0 }, minItems: 2, maxItems: 2 } } },
+            },
+          },
+          scenery: {
+            type: 'array',
+            items: {
+              type: 'object',
+              optional: ['w', 'h', 'rot', 'text', 'color'],
+              fields: { type: IDS, x: N, y: N, w: { type: 'number', min: 0.1 }, h: { type: 'number', min: 0.1 }, rot: N, text: { type: 'string' }, color: { type: 'string', pattern: /^#[0-9a-fA-F]{3,8}$/ } },
+            },
+          },
         },
       },
     },
