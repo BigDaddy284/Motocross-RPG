@@ -1,7 +1,7 @@
 import type { BikesData } from './career';
-import type { LapTrace, MessageDef, MistakeOutcome, MotoSim, TrackDef } from './race';
+import type { LapTrace, MessageDef, MistakeOutcome, MotoSim, TrackDef, TrackSection } from './race';
 import { riderProfile, type RiderProfile } from './riderProfile';
-import { lapGeom, lapMetres, sectionBounds, sectionTurns } from './trackGeom';
+import { lapGeom, lapMetres, sectionTurns, startGeom, type StartGeom } from './trackGeom';
 
 // The rider AI for the race screen (GDD 11.1): every rider rides the lap on their own, the way
 // Super Off Road's CPU drivers follow a racing line, but for motocross. The race simulation
@@ -63,11 +63,12 @@ export class RaceDirector {
   private readonly segs = new Map<string, Seg[]>();
   private readonly out = new Map<string, number>();
   private readonly pulled = new Map<string, number>();
-  private readonly bounds: number[];
   private readonly turns: number[];
   private readonly metres: number;
   private readonly gateLane = new Map<string, number>();
   private readonly gateRow = new Map<string, number>();
+  /** The start straight; riders line up at its gate, at race distance start.from. */
+  readonly start: StartGeom;
 
   constructor(
     readonly track: TrackDef,
@@ -77,9 +78,9 @@ export class RaceDirector {
     /** Laps in the race, or null for practice. */
     readonly laps: number | null,
   ) {
-    this.bounds = sectionBounds(track);
     this.turns = sectionTurns(track, lapGeom(track.path));
     this.metres = lapMetres(track);
+    this.start = startGeom(track);
     // The gate row spreads across the track, gate 0 nearest the inside of the first corner.
     const order = [...gates.entries()].sort((a, b) => a[1] - b[1]).map(([id]) => id);
     const firstTurn = this.turns.find((t) => t !== 0) || 1;
@@ -108,7 +109,7 @@ export class RaceDirector {
       const list = this.segs.get(id);
       if (!list) continue;
       for (let i = 1; i < times.length; i++) {
-        list.push({ lap: trace.lap, si: i - 1, t0: times[i - 1], t1: times[i], d0: trace.lap - 1 + this.bounds[i - 1], d1: trace.lap - 1 + this.bounds[i] });
+        list.push({ lap: trace.lap, si: trace.secs[i - 1], t0: times[i - 1], t1: times[i], d0: trace.marks[i - 1], d1: trace.marks[i] });
       }
     }
     for (const e of trace.events) {
@@ -148,7 +149,7 @@ export class RaceDirector {
       if (off) return off;
     }
     const p = this.profiles.get(id)!;
-    const base: RiderPose = { id, dist: 0, lane: this.gateLane.get(id) ?? 0, air: 0, elev: 0, state: 'grid', speed: 0 };
+    const base: RiderPose = { id, dist: this.start.from, lane: this.gateLane.get(id) ?? 0, air: 0, elev: 0, state: 'grid', speed: 0 };
     if (!list.length || t <= list[0].t0) return base;
     // The section the rider is in now: the first one that ends after t.
     let lo = 0;
@@ -161,7 +162,7 @@ export class RaceDirector {
     if (lo >= list.length) return this.afterLast(id, p, list, t);
     const seg = list[lo];
     const prev = lo > 0 ? list[lo - 1] : null;
-    const sec = this.track.sections[seg.si];
+    const sec = this.section(seg.si);
     const dur = Math.max(1e-6, seg.t1 - seg.t0);
     const s = t - seg.t0;
 
@@ -195,7 +196,7 @@ export class RaceDirector {
       if (crash) {
         state = s - at * ride < lost * 0.6 ? 'crashed' : 'remount';
         // A crashed bike slides towards the outside of the track.
-        lane += (this.turns[seg.si] ? -this.turns[seg.si] : 1) * 0.25 * smooth((s - at * ride) / 0.6);
+        lane += (this.turn(seg.si) ? -this.turn(seg.si) : 1) * 0.25 * smooth((s - at * ride) / 0.6);
       } else state = 'wobble';
     }
 
@@ -238,9 +239,9 @@ export class RaceDirector {
   }
 
   private ownLine(id: string, p: RiderProfile, seg: Seg): number {
-    const sec = this.track.sections[seg.si];
-    if (seg.lap === 1 && seg.si === 0) return this.gateLane.get(id) ?? 0;
-    const turn = this.turns[seg.si];
+    if (seg.si < 0) return this.gateLane.get(id) ?? 0;
+    const sec = this.section(seg.si);
+    const turn = this.turn(seg.si);
     if (CORNERS.has(sec.type) && turn) {
       const lines: Record<string, number> = { inside: 1, middle: 0, outside: -1 };
       const pref = sec.line ? 0.6 * (lines[sec.line] ?? 0) + 0.4 * p.line : p.line;
@@ -262,10 +263,19 @@ export class RaceDirector {
     return 0;
   }
 
+  /** The section ridden in a stretch; -1 is the start straight, ridden as a start. */
+  private section(si: number): Pick<TrackSection, 'type' | 'height' | 'line'> {
+    return si < 0 ? { type: 'start_gate' } : this.track.sections[si];
+  }
+
+  private turn(si: number): number {
+    return si < 0 ? 0 : this.turns[si];
+  }
+
   /** Where in a section a mistake happens: on landing for a jump, otherwise part way through. */
   private mistakeAt(p: RiderProfile, seg: Seg): number {
     if (!seg.mistake) return 1;
-    const type = this.track.sections[seg.si].type;
+    const type = this.section(seg.si).type;
     if (BIG_JUMPS.has(type)) return LANDING;
     return 0.35 + 0.3 * frac(p.seed * 7 + seg.si * 0.37 + seg.lap * 0.13);
   }

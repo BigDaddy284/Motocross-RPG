@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { SceneryItem, TrackDef } from '../core/race';
 import type { RiderPose } from '../core/riderAI';
-import { pointAt } from '../core/trackGeom';
+import { pointAt, START_PAD, startPointAt } from '../core/trackGeom';
 import { GRID_H, GRID_W, trackKind, type TrackPartsData } from '../core/trackParts';
 import { BIKE_LENGTH, LIP_AT, TrackSurface } from '../core/trackSurface';
 import { COLORS } from '../ui/theme';
@@ -177,6 +177,10 @@ export class RaceView {
     this.buildTerrain();
     this.scene3.add(this.terrainMesh());
     this.scene3.add(this.buildTrack());
+    if (this.surface.start.total > 0) {
+      this.scene3.add(this.buildStart());
+      this.scene3.add(this.startGate());
+    }
     this.scene3.add(this.startLine());
     // Low scenery that never needs fading is baked into one mesh; textured parts stay separate.
     const low: THREE.Mesh[] = [];
@@ -232,6 +236,12 @@ export class RaceView {
     mg.beginPath();
     this.surface.g.pts.forEach((p, i) => (i ? mg.lineTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk) : mg.moveTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk)));
     mg.strokePath();
+    if (this.surface.start.total > 0) {
+      mg.lineStyle(3, 0xc98a4b, 1);
+      mg.beginPath();
+      this.surface.start.pts.forEach((p, i) => (i ? mg.lineTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk) : mg.moveTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk)));
+      mg.strokePath();
+    }
     const s0 = pointAt(this.surface.g, 0);
     mg.fillStyle(0xffffff, 1).fillRect(this.mapBox.x + s0.x * mk - 2, this.mapBox.y + s0.y * mk - 2, 4, 4);
     this.mapDots = scene.add.graphics();
@@ -302,6 +312,12 @@ export class RaceView {
       if (s.onHill(f) && e > 0.05) hills.push({ x: p.x, z: p.z, e });
       else flats.push({ x: p.x, z: p.z });
     }
+    // The start straight stays level too, with the ground easing down to it over a few grid units.
+    const level: { x: number; z: number; r: number }[] = [];
+    for (let u = -START_PAD; u < s.start.total; u += 0.5) {
+      const p = startPointAt(s.start, u);
+      level.push({ x: p.x, z: p.y, r: s.startHw(u) * LIP_AT + 0.4 });
+    }
     if (!hills.length) return;
     const r0 = s.hw * 1.3;
     const smooth = (x: number) => {
@@ -322,6 +338,10 @@ export class RaceView {
         for (const q of flats) {
           const d = Math.hypot(x - q.x, z - q.z);
           if (d < r0 + 1.5) h *= smooth((d - r0) / 1.5);
+        }
+        for (const q of level) {
+          const d = Math.hypot(x - q.x, z - q.z);
+          if (d < q.r + 5) h *= smooth((d - q.r) / 5);
         }
         this.terrain[j * tw + i] = h;
       }
@@ -406,7 +426,8 @@ export class RaceView {
         // The dirt texture runs along the lap, one repeat every 4 grid units.
         uv.push((f * s.g.total) / 4, (lane + 2) / 4);
         let color: number;
-        if (Math.abs(lane) <= 1) color = shade(patch ?? base, grain * (0.97 + 0.06 * noise(i * 31 + j)));
+        const open = s.mouth(f, lane < 0 ? -1 : 1);
+        if (Math.abs(lane) <= 1 || open > 0.5) color = shade(patch ?? base, grain * (0.97 + 0.06 * noise(i * 31 + j)));
         else if (Math.abs(lane) <= LIP_AT + 1e-6) color = shade(patch ?? base, 0.82 * grain);
         else color = shade(base, foot ? 0.62 : 0.72);
         c.setHex(color);
@@ -429,6 +450,73 @@ export class RaceView {
     mesh.receiveShadow = true;
     mesh.castShadow = true;
     return mesh;
+  }
+
+  /**
+   * The start straight: its own strip of track from the start pad behind the gate to where it
+   * runs into the lap, with lips that run out as it joins. Where it runs onto the lap it sinks a
+   * few millimetres, under the lap's surface but above the grass, so the two meet without a seam.
+   */
+  private buildStart(): THREE.Mesh {
+    const s = this.surface;
+    const st = s.start;
+    const rows = Math.max(40, Math.ceil((st.total + START_PAD) / 0.2));
+    const inner = [-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1];
+    const cols = 4 + inner.length + 2;
+    const pos: number[] = [];
+    const col: number[] = [];
+    const uv: number[] = [];
+    const base = SURFACES[this.track.surface] ?? 0xb07a45;
+    const c = new THREE.Color();
+    const merge = st.total - (s.hw * 2.5 + 1);
+    for (let i = 0; i <= rows; i++) {
+      const u = -START_PAD + ((st.total + START_PAD) * i) / rows;
+      const dip = 0.006 * Math.max(0, Math.min(1, (u - merge) / 0.5));
+      const lip = s.startHeight(u, LIP_AT);
+      const sk = Math.max(0.35, lip * 0.9) / s.startHw(u);
+      const lanes = [-(LIP_AT + sk), -(LIP_AT + sk * 0.45), -LIP_AT, ...inner, LIP_AT, LIP_AT + sk * 0.45, LIP_AT + sk];
+      const grain = 0.94 + 0.1 * noise(i + 977);
+      // Concrete under the gate and the line-up, dirt from just past the gate.
+      const pad = u < 0.9;
+      lanes.forEach((lane, j) => {
+        const p = s.startSpot(u, lane);
+        const foot = j === 0 || j === cols - 1;
+        pos.push(p.x, foot ? this.terrainAt(p.x, p.z) : Math.max(s.startHeight(u, lane), this.terrainAt(p.x, p.z) + 0.02) - dip, p.z);
+        uv.push(u / 4, (lane + 2) / 4);
+        let color: number;
+        if (Math.abs(lane) <= 1) color = pad ? shade(0xa8a49a, 0.95 + 0.06 * noise(i * 7 + j)) : shade(base, grain * (0.97 + 0.06 * noise(i * 31 + j)));
+        else if (Math.abs(lane) <= LIP_AT + 1e-6) color = shade(base, 0.82 * grain);
+        else color = shade(base, foot ? 0.62 : 0.72);
+        c.setHex(color);
+        col.push(c.r, c.g, c.b);
+      });
+    }
+    const idx: number[] = [];
+    for (let i = 0; i < rows; i++) {
+      const a = i * cols;
+      const b = (i + 1) * cols;
+      for (let j = 0; j < cols - 1; j++) idx.push(a + j, b + j, a + j + 1, a + j + 1, b + j, b + j + 1);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, map: this.dirtTexture(), side: THREE.DoubleSide }));
+    mesh.receiveShadow = true;
+    mesh.castShadow = true;
+    return mesh;
+  }
+
+  /** The start gate across the start straight, just ahead of the line-up. */
+  private startGate(): THREE.Object3D {
+    const s = this.surface;
+    const at = startPointAt(s.start, 0.75);
+    const ang = s.startSpot(0.75, 0).ang;
+    const gate = this.buildItem({ type: 'start_gate', x: at.x, y: at.y, w: 2 * s.startHw(0.75) * LIP_AT + 0.4, h: 1, rot: (ang * 180) / Math.PI + 90 })!;
+    gate.position.y = s.startHeight(0.75, 0);
+    return gate;
   }
 
   /**
@@ -843,10 +931,12 @@ export class RaceView {
         b = this.makeBike(r.color, r.player);
         this.bikes.set(p.id, b);
       }
-      let f = p.dist - Math.floor(p.dist);
+      let dist = p.dist;
       // The second start row waits a bike length behind the gate and closes up as the race starts.
-      if (r.startRow && p.dist < 0.25) f -= (r.startRow * BIKE_LENGTH * 1.4 * Math.max(0, 1 - clock / 2)) / s.g.total;
-      const [back, front] = s.wheels(f, p.lane, p.air);
+      if (r.startRow && p.dist < s.start.join) dist -= (r.startRow * BIKE_LENGTH * 1.4 * Math.max(0, 1 - clock / 2)) / s.g.total;
+      const f = dist - Math.floor(dist);
+      const onStart = s.onStart(dist);
+      const [back, front] = s.wheelsAt(dist, p.lane, p.air);
       // Off the track (a rider who has pulled off) the wheels sit on the ground.
       for (const wh of [back, front]) wh.y = Math.max(wh.y, this.terrainAt(wh.x, wh.z));
       const mx = (back.x + front.x) / 2;
@@ -857,7 +947,7 @@ export class RaceView {
       // A bike tips with the ground under its wheels, but never further than a steep jump face.
       const pitch = Math.max(-0.7, Math.min(0.7, Math.atan2(front.y - back.y, run)));
       // Lean into the corner, more the faster the bike.
-      let lean = Math.max(-0.6, Math.min(0.6, s.curvature(f) * Math.min(p.speed, 20) * 0.9));
+      let lean = Math.max(-0.6, Math.min(0.6, s.curvatureAt(dist) * Math.min(p.speed, 20) * 0.9));
       if (p.state === 'wobble') yaw += 0.35 * Math.sin(clock * 16);
       b.root.position.set(mx, my, mz);
       b.root.rotation.set(0, -yaw, 0);
@@ -879,7 +969,8 @@ export class RaceView {
       // Dust off the back wheel.
       if (dc > 0 && p.speed > 6 && p.air < 0.15 && p.state === 'riding' && Math.abs(p.lane) <= 1) {
         const n = Math.min(2, dc * p.speed * 0.12);
-        for (let k = 0; k < n || (k === 0 && noise(clock * 977 + mx) < n); k++) this.puff(back.x, back.y + 0.1, back.z, this.patchAt(f) === 0x4a86c0 ? 0xdff0ff : 0xcaa478);
+        const water = !onStart && this.patchAt(f) === 0x4a86c0;
+        for (let k = 0; k < n || (k === 0 && noise(clock * 977 + mx) < n); k++) this.puff(back.x, back.y + 0.1, back.z, water ? 0xdff0ff : 0xcaa478);
       }
     }
     this.agePuffs(Math.min(1, dc * 1.4 + dt * 0.3));
@@ -955,7 +1046,7 @@ export class RaceView {
 
   private moveCamera(target: THREE.Vector3 | null, dt: number): void {
     const want = target ?? this.cam ?? (() => {
-      const p = this.surface.spot(0, 0);
+      const p = this.surface.place(this.surface.start.from, 0);
       return new THREE.Vector3(p.x, 0, p.z);
     })();
     if (!this.cam || want.distanceTo(this.cam) > this.viewUnits) this.cam = want.clone();
@@ -1009,22 +1100,11 @@ export class RaceView {
     const g = this.mapDots;
     const box = this.mapBox;
     g.clear();
-    // The patch of ground the camera sees, traced onto the map.
-    const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-    const ray = new THREE.Raycaster();
-    const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([cx, cy]) => {
-      ray.setFromCamera(new THREE.Vector2(cx, cy), this.camera);
-      const hit = new THREE.Vector3();
-      return ray.ray.intersectPlane(ground, hit) ? hit : null;
-    });
-    if (corners.every((c) => c)) {
-      g.lineStyle(1.5, 0xffffff, 0.8);
-      g.strokePoints(corners.map((c) => ({ x: box.x + Math.max(-2, Math.min(GRID_W + 2, c!.x)) * box.k, y: box.y + Math.max(-2, Math.min(GRID_H + 2, c!.z)) * box.k })), true);
-    }
     const order = [...riders].sort((a, b) => Number(a.player) - Number(b.player));
     for (const r of order) {
       if (r.pose.state === 'retired') continue;
-      const p = pointAt(this.surface.g, r.pose.dist - Math.floor(r.pose.dist));
+      const q = this.surface.place(r.pose.dist, 0);
+      const p = { x: q.x, y: q.z };
       g.fillStyle(r.color, 1).fillCircle(box.x + p.x * box.k, box.y + p.y * box.k, r.player ? 4 : 2.6);
       if (r.player) g.lineStyle(1.5, 0xffffff, 1).strokeCircle(box.x + p.x * box.k, box.y + p.y * box.k, 4);
     }

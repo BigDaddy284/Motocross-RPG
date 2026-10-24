@@ -1,6 +1,6 @@
 import type { TrackDef } from './race';
 import { DEFAULT_HEIGHTS } from './riderAI';
-import { headingAt, lapGeom, lapMetres, pointAt, sectionBounds, sectionTurns, type LapGeom } from './trackGeom';
+import { headingAt, lapGeom, lapMetres, pointAt, sectionBounds, sectionTurns, startGeom, startHalfWidth, startHeadingAt, startPointAt, type LapGeom, type StartGeom } from './trackGeom';
 import { DEFAULT_TRACK_WIDTH } from './trackParts';
 
 // The track as a solid surface (no graphics), shared by the 3D race view and its tests. Every
@@ -76,6 +76,10 @@ export class TrackSurface {
   /** Half the track width in grid units. */
   readonly hw: number;
   private readonly heights: number[];
+  /** The start straight from the gate to where it joins the lap. */
+  readonly start: StartGeom;
+  /** Which side of the lap the start straight comes in from (1 the riders' right, -1 left), 0 with none. */
+  readonly joinSide: number;
 
   constructor(readonly track: TrackDef) {
     this.g = lapGeom(track.path);
@@ -87,6 +91,26 @@ export class TrackSurface {
       const metres = s.height ?? (s.type === 'braking_bumps' ? 0.25 : DEFAULT_HEIGHTS[s.type] ?? 0);
       return this.units(metres);
     });
+    this.start = startGeom(track, this.g);
+    this.joinSide = 0;
+    if (this.start.total > 0) {
+      // Which side of the lap the start straight arrives from: look a little way back up it.
+      const back = startPointAt(this.start, Math.max(0, this.start.total - 2 * this.hw));
+      const at = this.spot(this.start.join, 0);
+      this.joinSide = (back.x - at.x) * -Math.sin(at.ang) + (back.y - at.z) * Math.cos(at.ang) >= 0 ? 1 : -1;
+    }
+  }
+
+  /**
+   * How open the lap's edge is where the start straight joins it: 1 in the opening (no lip, no
+   * bank, so the two surfaces run into each other), easing to 0 either side.
+   */
+  mouth(f: number, side: number): number {
+    if (!this.joinSide || side !== this.joinSide) return 0;
+    let d = Math.abs(f - this.start.join) % 1;
+    d = Math.min(d, 1 - d) * this.g.total;
+    const open = this.hw * 2.4;
+    return 1 - smooth((d - open) / 2);
   }
 
   /** Metres of height to grid units, drawn a little taller than life. */
@@ -148,9 +172,78 @@ export class TrackSurface {
     if (e <= 1) return this.centre(f) + this.bank(f, lane);
     const side = lane < 0 ? -1 : 1;
     const top = this.centre(f) + this.bank(f, side);
-    if (e <= LIP_AT) return top + LIP_H * smooth((e - 1) / (LIP_AT - 1));
+    const lip = LIP_H * (1 - this.mouth(f, side));
+    if (e <= LIP_AT) return top + lip * smooth((e - 1) / (LIP_AT - 1));
     const sk = this.skirt(f, lane);
-    return (top + LIP_H) * (1 - smooth((e - LIP_AT) / sk));
+    return (top + lip) * (1 - smooth((e - LIP_AT) / sk));
+  }
+
+  // ---- the start straight ----
+
+  /** True when race distance `dist` (in laps) is on the start straight, before it joins the lap. */
+  onStart(dist: number): boolean {
+    return this.start.total > 0 && dist < this.start.join;
+  }
+
+  /** Grid units from the gate along the start straight, for a race distance on it. */
+  startUnits(dist: number): number {
+    return (dist - this.start.from) * this.g.total;
+  }
+
+  /** Height of the start straight `u` grid units from the gate: flat, with a lip along each side that runs out where it joins the lap. */
+  startHeight(u: number, lane: number): number {
+    const e = Math.abs(lane);
+    const toEnd = this.start.total - u;
+    const merge = this.hw * 1.5 + 1;
+    const join = this.centre(this.start.join) * (1 - smooth(toEnd / merge));
+    const lip = LIP_H * smooth(toEnd / merge);
+    if (e <= 1) return join;
+    if (e <= LIP_AT) return join + lip * smooth((e - 1) / (LIP_AT - 1));
+    const sk = Math.max(0.35, lip * 0.9) / this.startHw(u);
+    return join + lip * (1 - smooth((e - LIP_AT) / sk));
+  }
+
+  /** Half the start straight's width `u` grid units from the gate: wide at the gate, the track's width where it joins. */
+  startHw(u: number): number {
+    return startHalfWidth(this.start, u, this.hw);
+  }
+
+  /** Where `u` grid units from the gate and a lane are on the ground, on the start straight. */
+  startSpot(u: number, lane: number): { x: number; z: number; ang: number } {
+    const p = startPointAt(this.start, u);
+    const ang = startHeadingAt(this.start, u);
+    const hw = this.startHw(u);
+    return { x: p.x - Math.sin(ang) * lane * hw, z: p.y + Math.cos(ang) * lane * hw, ang };
+  }
+
+  /** Where a race distance and lane are, on the start straight or the lap, and the ground's height there. */
+  place(dist: number, lane: number): { x: number; z: number; ang: number; y: number } {
+    if (this.onStart(dist)) {
+      const u = this.startUnits(dist);
+      return { ...this.startSpot(u, lane), y: this.startHeight(u, lane) };
+    }
+    const f = dist - Math.floor(dist);
+    return { ...this.spot(f, lane), y: this.height(f, lane) };
+  }
+
+  /** Both wheels of a bike centred at race distance `dist`, on the start straight or the lap: back wheel first. */
+  wheelsAt(dist: number, lane: number, air: number): [WheelSpot, WheelSpot] {
+    const df = BIKE_LENGTH / 2 / this.g.total;
+    if (!this.onStart(dist - df)) return this.wheels(dist - Math.floor(dist), lane, air);
+    return [dist - df, dist + df].map((d) => {
+      const p = this.place(d, lane);
+      return { x: p.x, z: p.z, y: p.y };
+    }) as [WheelSpot, WheelSpot];
+  }
+
+  /** The turn rate under a bike at race distance `dist`, as curvature(). */
+  curvatureAt(dist: number): number {
+    if (!this.onStart(dist)) return this.curvature(dist - Math.floor(dist));
+    const u = this.startUnits(dist);
+    let dh = startHeadingAt(this.start, u + 1) - startHeadingAt(this.start, u - 1);
+    while (dh > Math.PI) dh -= 2 * Math.PI;
+    while (dh < -Math.PI) dh += 2 * Math.PI;
+    return dh / 2;
   }
 
   /** Where lap fraction f and a lane are on the ground (grid x and y; three.js calls the second z). */

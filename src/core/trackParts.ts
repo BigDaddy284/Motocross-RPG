@@ -1,5 +1,5 @@
 import type { SceneryItem, TrackDef } from './race';
-import { lapGeom, pointAt } from './trackGeom';
+import { lapGeom, pointAt, START_PAD, startGeom, startHalfWidth, startPointAt } from './trackGeom';
 import type { ContentError, Schema } from './validate';
 
 // The parts a track is built from beyond its sections: track kinds, surface patches, ground and
@@ -125,7 +125,7 @@ export function checkTrackParts(parts: TrackPartsData, tracks: TrackDef[], artEx
 }
 
 /**
- * Scenery that sits on the racing surface (the track's width either side of the drawing), by
+ * Scenery that sits on the racing surface (the track's width either side of the drawing, the start straight included), by
  * index. Riders ride anywhere across the track, so anything there would be ridden through. Items
  * built to stand over the track (overTrack) are allowed.
  */
@@ -133,7 +133,10 @@ export function sceneryOnTrack(parts: TrackPartsData, track: TrackDef): number[]
   const g = lapGeom(track.path);
   const hw = (track.width ?? DEFAULT_TRACK_WIDTH) / 2;
   const n = Math.max(200, Math.ceil(g.total / 0.25));
-  const pts = Array.from({ length: n }, (_, i) => pointAt(g, i / n));
+  const pts = Array.from({ length: n }, (_, i) => ({ ...pointAt(g, i / n), hw }));
+  // The start straight and the pad behind its gate are racing surface too, wider at the gate.
+  const start = startGeom(track, g);
+  if (start.total > 0) for (let u = -START_PAD; u <= start.total; u += 0.25) pts.push({ ...startPointAt(start, u), hw: startHalfWidth(start, u, hw) });
   const out: number[] = [];
   (track.scenery ?? []).forEach((it: SceneryItem, i) => {
     const def = parts.scenery.find((d) => d.id === it.type);
@@ -141,14 +144,14 @@ export function sceneryOnTrack(parts: TrackPartsData, track: TrackDef): number[]
     const w = it.w ?? def.w;
     const d = it.h ?? def.h;
     const a = ((it.rot ?? 0) * Math.PI) / 180;
-    const reach = hw + Math.hypot(w, d) / 2;
-    const near = pts.filter((p) => Math.hypot(p.x - it.x, p.y - it.y) < reach);
+    const reach = Math.hypot(w, d) / 2;
+    const near = pts.filter((p) => Math.hypot(p.x - it.x, p.y - it.y) < reach + p.hw);
     if (!near.length) return;
     for (let u = -0.5; u <= 0.5001; u += 0.1) {
       for (let v = -0.5; v <= 0.5001; v += 0.25) {
         const x = it.x + u * w * Math.cos(a) - v * d * Math.sin(a);
         const y = it.y + u * w * Math.sin(a) + v * d * Math.cos(a);
-        if (near.some((p) => Math.hypot(p.x - x, p.y - y) < hw - 1e-6)) {
+        if (near.some((p) => Math.hypot(p.x - x, p.y - y) < p.hw - 1e-6)) {
           out.push(i);
           return;
         }

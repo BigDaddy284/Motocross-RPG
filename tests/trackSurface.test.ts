@@ -3,7 +3,7 @@ import { checkContent } from '../src/core/content';
 import { MotoSim, type Entrant } from '../src/core/race';
 import { cpuEntrant } from '../src/core/raceDay';
 import { directorFor } from '../src/core/riderAI';
-import { BIKE_LENGTH, LIP_AT, TrackSurface } from '../src/core/trackSurface';
+import { BIKE_LENGTH, LIP_AT, LIP_H, TrackSurface } from '../src/core/trackSurface';
 import { loadManifest, loadMaps, rawContent } from './helpers';
 
 // The 3D track surface (acceptance tests 2 and 5): every track is one continuous, closed surface
@@ -28,9 +28,14 @@ describe('track surface', () => {
         const h = s.height(f, 0);
         expect(Math.abs(h - prev)).toBeLessThan(0.2);
         prev = h;
-        // The lip along each edge stands above the racing surface next to it.
-        expect(s.height(f, LIP_AT)).toBeGreaterThan(s.height(f, 1));
-        expect(s.height(f, -LIP_AT)).toBeGreaterThan(s.height(f, -1));
+        // The lip along each edge stands above the racing surface next to it, except in the
+        // opening where the start straight runs onto the lap.
+        for (const side of [-1, 1]) {
+          const m = s.mouth(f, side);
+          const rise = s.height(f, side * LIP_AT) - s.height(f, side);
+          if (m > 0) expect(rise).toBeLessThanOrEqual(LIP_H * (1 - m) + 1e-9);
+          else expect(rise).toBeGreaterThan(0);
+        }
       }
       // The lap closes: the end of the last section meets the start line.
       expect(s.height(1 - 1e-9, 0)).toBeCloseTo(s.height(0, 0), 3);

@@ -32,12 +32,12 @@ describe('rider AI (GDD 11.1)', () => {
       for (const seed of [3, 77]) {
         const { sim, dir, traces } = race(track.id, seed);
         const bounds = sectionBounds(track);
-        // At every checkpoint the referee recorded, the rider is exactly at that point of the lap.
+        // At every checkpoint the referee recorded, the rider is exactly at that point of the race.
         for (const tr of traces) {
           for (const [id, times] of Object.entries(tr.times)) {
             for (let i = 1; i < times.length; i++) {
               const p = dir.poses(times[i]).find((q) => q.id === id)!;
-              expect(p.dist).toBeCloseTo(tr.lap - 1 + bounds[i], 6);
+              expect(p.dist).toBeCloseTo(tr.marks[i], 6);
             }
           }
         }
@@ -47,12 +47,13 @@ describe('rider AI (GDD 11.1)', () => {
         let airborne = 0;
         for (let t = 0; t <= end; t += 0.25) {
           for (const p of dir.poses(t)) {
-            expect(p.dist).toBeGreaterThanOrEqual((last.get(p.id) ?? 0) - 1e-9);
+            expect(p.dist).toBeGreaterThanOrEqual((last.get(p.id) ?? -Infinity) - 1e-9);
             last.set(p.id, p.dist);
             expect(p.air).toBeGreaterThanOrEqual(0);
             expect(Number.isFinite(p.speed)).toBe(true);
             if (p.state !== 'retired') expect(Math.abs(p.lane)).toBeLessThanOrEqual(1);
             if (p.air > 0) {
+              expect(p.dist).toBeGreaterThan(dir.start.join);
               const at = p.dist - Math.floor(p.dist);
               const si = bounds.findIndex((b, k) => k > 0 && at < b + 1e-9) - 1;
               expect(JUMPY.has(track.sections[Math.max(0, si)].type)).toBe(true);
@@ -79,7 +80,8 @@ describe('rider AI (GDD 11.1)', () => {
   it('lines riders up at their gates before the start', () => {
     const { dir } = race('farmland', 9);
     const grid = dir.poses(0);
-    expect(grid.every((p) => p.state === 'grid' && p.dist === 0)).toBe(true);
+    // Everyone lines up at the gate on the start straight, before it joins the lap.
+    expect(grid.every((p) => p.state === 'grid' && p.dist === dir.start.from && p.dist < dir.start.join)).toBe(true);
     expect(new Set(grid.map((p) => p.lane.toFixed(3))).size).toBe(grid.length);
   });
 
@@ -92,8 +94,9 @@ describe('rider AI (GDD 11.1)', () => {
         for (const e of tr.events) {
           if (e.kind !== 'mistake') continue;
           const times = tr.times[e.rider];
-          const t0 = times[e.section];
-          const t1 = times[e.section + 1];
+          const leg = tr.secs.indexOf(e.section);
+          const t0 = times[leg];
+          const t1 = times[leg + 1];
           const states = new Set<string>();
           for (let t = t0; t < t1; t += 0.1) states.add(dir.poses(t).find((p) => p.id === e.rider)!.state);
           if (e.outcome === 'minor_crash' || e.outcome === 'serious_crash') {

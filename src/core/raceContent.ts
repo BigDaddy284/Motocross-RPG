@@ -3,6 +3,7 @@ import type { BakedMap } from './mapTypes';
 import type { RacingData } from './race';
 import type { RidersData, TracksData } from './raceDay';
 import type { SkillsData } from './skills';
+import { layoutProblems } from './trackCheck';
 import type { ContentError, Schema } from './validate';
 
 // Schemas and cross-checks for the skills, racing, tracks and riders files.
@@ -92,7 +93,7 @@ export const RACING_SCHEMA: Schema = {
     ink: { type: 'number', integer: true, min: 0 },
     sections: {
       type: 'record',
-      values: { type: 'object', fields: { name: S, diff: N0, skills: WEIGHTS, stats: { type: 'array', minItems: 1, items: IDS }, riderWeight: SHARE, damage: IDS } },
+      values: { type: 'object', fields: { name: S, diff: N0, skills: WEIGHTS, stats: { type: 'array', minItems: 1, items: IDS }, riderWeight: SHARE, damage: IDS, shapes: { type: 'array', minItems: 1, items: { type: 'string', oneOf: ['straight', 'sweeper', 'corner', 'hairpin'] } } } },
     },
     damageSlots: { type: 'record', values: { type: 'array', minItems: 1, items: IDS } },
     wear: {
@@ -127,7 +128,7 @@ export const TRACKS_SCHEMA: Schema = {
       minItems: 1,
       items: {
         type: 'object',
-        optional: ['practiceOnly', 'gates', 'kind', 'width', 'patches', 'ground', 'scenery'],
+        optional: ['practiceOnly', 'gates', 'kind', 'width', 'patches', 'ground', 'scenery', 'start'],
         fields: {
           id: IDS,
           name: S,
@@ -143,6 +144,7 @@ export const TRACKS_SCHEMA: Schema = {
           },
           kind: IDS,
           width: { type: 'number', min: 1, max: 12 },
+          start: { type: 'object', optional: ['passing'], fields: { path: { type: 'array', minItems: 2, items: POINT }, passing: SHARE } },
           patches: { type: 'array', items: { type: 'object', fields: { surface: IDS, at: N0, length: { type: 'number', min: 1 } } } },
           ground: {
             type: 'object',
@@ -250,6 +252,7 @@ export function checkRaceContent(c: { skills: SkillsData; racing: RacingData; tr
   tracks.tracks.forEach((t, i) => {
     trackIds.add(t.id);
     t.sections.forEach((s, j) => !racing.sections[s.type] && err(F.tracks, `tracks[${i}].sections[${j}].type`, `no section "${s.type}" in ${F.racing}`));
+    for (const p of layoutProblems(t, racing.sections)) err(F.tracks, `tracks[${i}].${p.field}`, `${t.id}: ${p.message}`);
   });
   const fieldIds = new Set(Object.keys(riders.fields));
   tracks.venues.forEach((v, i) => {
