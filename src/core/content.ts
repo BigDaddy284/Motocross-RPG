@@ -2,6 +2,7 @@ import type { BikesData, ItemDef, StoryData, WorldData } from './career';
 import { Grid } from './grid';
 import { objectTile, type BakedMap, type Facing } from './mapTypes';
 import type { RacingData } from './race';
+import { TRACK_PARTS_SCHEMA, checkTrackParts, type TrackPartsData } from './trackParts';
 import { RACING_SCHEMA, RIDERS_SCHEMA, SKILLS_SCHEMA, TRACKS_SCHEMA, checkRaceContent } from './raceContent';
 import type { RidersData, TracksData } from './raceDay';
 import { SHOPS_SCHEMA, checkShopContent, type ShopsData } from './shops';
@@ -42,6 +43,7 @@ export interface Content {
   racing: RacingData;
   tracks: TracksData;
   riders: RidersData;
+  trackParts: TrackPartsData;
   shops: ShopsData;
 }
 
@@ -256,6 +258,7 @@ export const CONTENT_FILES = {
   racing: 'data/racing.json',
   tracks: 'data/tracks.json',
   riders: 'data/riders.json',
+  trackParts: 'data/trackParts.json',
   shops: 'data/shops.json',
 } as const;
 
@@ -272,6 +275,7 @@ const SCHEMAS: Record<keyof typeof CONTENT_FILES, Schema> = {
   racing: RACING_SCHEMA,
   tracks: TRACKS_SCHEMA,
   riders: RIDERS_SCHEMA,
+  trackParts: TRACK_PARTS_SCHEMA,
   shops: SHOPS_SCHEMA,
 };
 
@@ -291,6 +295,7 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
     racing: raw.racing as RacingData,
     tracks: raw.tracks as TracksData,
     riders: raw.riders as RidersData,
+    trackParts: raw.trackParts as TrackPartsData,
     shops: raw.shops as ShopsData,
   };
   const file = CONTENT_FILES.npcs;
@@ -313,6 +318,8 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
   });
   errors.push(...checkCareerContent(content, maps));
   errors.push(...checkRaceContent(content, maps));
+  // Tile art isn't listed at run time; tests check it exists (tests/tracks.test.ts).
+  errors.push(...checkTrackParts(content.trackParts, content.tracks.tracks, () => true));
   errors.push(...checkShopContent(CONTENT_FILES.shops, content.shops, content.bikes, seen, maps));
   return { content, errors };
 }

@@ -2,7 +2,7 @@
 
 A single-player, offline motocross career RPG. Start as an unknown rider with a broken 50cc and work your way up to legend.
 
-This is **test build 0.4**: shops and repairs. After the garage mechanic's tutorial and the van, sign on at Farmland MX and race two motos against the Local Champion and 14 other riders, or put laps in on the backyard loop. Every lap trains your Rider Ability skills and wears your bike, and now you can buy parts, fit spares and pay for repairs in Home Town. All art is placeholder art in the agreed style, imported from the project's art threads.
+This is **test build 0.3**: your first race day, now with shops and repairs. After the garage mechanic's tutorial and the van, sign on at Farmland MX and race two motos against the Local Champion and 14 other riders, or put laps in on the backyard loop. Every lap trains your Rider Ability skills and wears your bike, and now you can buy parts, fit spares and pay for repairs in Home Town. All art is placeholder art in the agreed style, imported from the project's art threads.
 
 ## Play it
 
@@ -30,7 +30,7 @@ This is **test build 0.4**: shops and repairs. After the garage mechanic's tutor
 
 ## What's in this build
 
-### New in test build 0.4: parts shops and repairs
+### Added to test build 0.3: parts shops and repairs
 
 Following GDD 8.3 to 8.5 and Spec 7.4 and 14.4 to 14.6. Shops open once the opening chain is done; talk to the shopkeeper or click their counter.
 
@@ -49,9 +49,13 @@ Checked against the rest of the "Starter career slice" checklist (Systems Specif
 - **Skills and XP.** All three lead skills and their 19 child skills (GDD 6.1) on the OSRS XP table, with the lead skills at 5× (Rider Ability, Mechanical Engineer) and 4× (Fitness). Rider Ability XP gives Mechanical Engineer a 5% cross-skill bonus, and so on round the triangle (GDD 6.2). A Skills tab shows every level and the progress to the next one, and results show level-ups.
 - **The race simulation** (Spec 10). Each lap is worked out section by section from your skills and your bike's stats: start gates with a bonus curve, clean air and traffic after the first corner, noise that Consistency narrows, mistakes and rare crashes that damage the parts the section puts at risk, passing within a second of the rider ahead, and ruts that deepen moto by moto. The same engine runs live and auto-complete, and a test checks that a held message gives exactly the same result both ways.
 - **Wear** by distance on every part (Spec 7.3): youth classes at ×0.8, faster wear below 20%, knock-on from worn and broken parts, and a small chance of a random breakage. A broken engine part ends your moto; 4 broken parts retire you.
-- **Farmland MX race day.** Talk to the track official at the race office. The first race day is free, then entry is £20. 16 riders including the Local Champion, 2 motos of 5 laps. Pick your gate (moto 1 in random order, moto 2 in moto 1 finishing order), pick a starting message, then race live or auto-complete. Leaving before moto 2 counts as a DNF.
-- **The race screen.** The track with every rider as a dot (you are orange), the running order with gaps, your position, the gaps ahead and behind, your broken parts, a feed of passes and mistakes, and the section times of your last lap under Details. Play it at 2×, 8× or 32×, or pause.
-- **The pit board** comes out each time the leader crosses the line: STEADY, PUSH or SAVE BIKE, 3 changes per moto, plus "It's over, bike blown" to retire.
+- **Farmland MX race day.** Talk to the track official at the race office. The first race day is free, then entry is £20. 16 riders including the Local Champion, 2 motos of 5 laps. Pick your gate (moto 1 in random order, moto 2 in moto 1 finishing order), pick a starting message, then Race or Auto-complete (Bike check sits beside them). Leaving before moto 2 counts as a DNF.
+- **The race screen.** The track with every rider on it (you are orange), the running order with gaps, your position, the gaps ahead and behind, your broken parts, and a feed of passes and mistakes. **Details** has two tabs: **Bike**, each part's condition, what its wear costs and LOW or BROKEN warnings, plus the bike's stats against new, updated each time you cross the line; and **Section times** for your last lap. Play it at 1×, 2× (the default), 4× or 8×, or pause.
+- **Auto-complete** plays the same race out on screen at the speed you pick, with no pit board, holding your starting message; wear, laps and results are the same as a Race.
+- **The pit board** comes out as you cross the finish line (your own crossing, not the leader's) when your message runs out: STEADY, PUSH or SAVE BIKE, 3 changes per moto, shown for 1, 2 or 3 laps or to the flag (keeping a message is free), plus "It's over, bike blown" to retire. While a message runs, the race carries on through the line without stopping. The board also shows your bike: each part's condition bar, its loss and LOW or BROKEN warnings, and your stats now against new. A change counts from the lap you are starting: the simulation runs that lap again for you, and riders who crossed the line before you ride it exactly as they already were, because each rider draws their own random numbers each lap.
+- **The pen** in the race bar (and on the pit board) holds your message changes as ink: a marker with a clear barrel split into one section per change, emptying left to right as you use them. The number of sections comes from `ink` in `racing.json`, so the widget (`penMeter` in `src/ui/widgets.ts`) takes 4 or 5 without changes.
+- **Start straights.** Every track starts from a gate on its own start straight, apart from the lap, that runs onto the circuit. Lap 1 is the start straight and then the lap from where it joins to the finish line; every later lap is the full loop.
+- **Official results.** A rider's place is fixed the moment they cross the finish line on the last lap, and the running order shows their gap at the flag; riders still racing show live gaps.
 - **Results.** Each moto shows positions, gaps, best laps, points, prize money (3× entry to the winner, paid to 10th) and XP. The day shows the overall order, the podium bonus, your money, XP by skill and what wore on your bike.
 - **Backyard practice.** Click the dirt loop behind your rented room. Ride laps on your own until you stop: free, practice XP at a tenth of the race rate, and real wear. Farmland MX also has free practice for £5.
 - **Testing only:** shift pay is tripled (`testPayMultiplier: 3` in `world.json`), so a fabrication bracket pays £2.25 and a piston £3.75. Set it back to 1 before Final v1.
@@ -96,6 +100,7 @@ Checked against the first-build checklist in the Systems Specification, section 
 | `public/assets/` | Art and baked maps, written by the import tool. Don't edit by hand. |
 | `tools/import-art.mjs` | Copies the art from the shared art folder and bakes each Tiled map into one game-ready file. |
 | `tools/map-editor.html` | Standalone map and tile editor for the game maps and the Tiled sources. |
+| `tools/track-editor.html` | Standalone editor for the race tracks in `public/data/tracks.json`. |
 | `tests/` | Unit tests, plus checks that every door, exit and NPC on the real maps works. |
 
 ### Technology
@@ -121,6 +126,37 @@ npm test
 It paints tiles on every ground layer, edits collision, moves, copies, clears and swaps regions (buildings move with their doors), places and moves props, and checks that doors, spawns and exits sit on free tiles. In Chrome and Edge, Save writes straight back into the folder; other browsers download the file instead. An unchanged map saves back byte for byte.
 
 `npm run import-art` rebuilds every game map from the Tiled sources, so edits made only to a game map are lost the next time the art is imported. For changes that should last, edit the `.tmj` map, then run the import. After saving, run `npm test`.
+
+### Editing race tracks
+
+`tools/track-editor.html` edits the race tracks in `public/data/tracks.json`, from the racing line to the ground and scenery round it. Like the map editor it is one file with no build step: open it in Chrome or Edge, click **Open folder…** and pick the repo, `public` or `public/data`. With `npm run dev` running you can also open `/tools/track-editor.html` and load the tracks from the dev server (saving then downloads the file).
+
+The editor has four modes (keys 1 to 4):
+
+- **Layout:** the drawing is the shape the race screen shows, as points on the 100 × 60 grid starting at the finish line. Drag points, double-click the track to add one, right-click or Del to remove one, and **Round corner** turns a sharp point into a curve. **Finish here**, **Reverse** and **Fit to grid** reshape the whole lap. **Sections** are what the race simulation rides, in order: type (from `racing.json`), length in metres, passing chance, and for the race view a preferred line through corners and a jump or hill height. Each section type has to suit the shape drawn under it (straight, sweeper, corner or hairpin, from the `shapes` list in `racing.json`): one that doesn't is edged in red and fails the checks, because riders would brake on a straight or take a U-turn flat out. **From drawing** replaces the sections with straights and corners that suit the drawing.
+- **Start straight:** the blue points. The first is the start gate (drawn as a black bar with the yellow line-up behind it), and the white one is where the straight joins the lap; it stays on the lap when dragged. **+ Start straight** adds one beside the first part of the lap, and new tracks get one. It must be at least 12 grid units long, clear of the lap until it joins, join in the first half of the lap, and meet it at 75° or less.
+- **Surface:** mud, sand, water and other patches along the lap, laid by clicking the track.
+- **Ground:** paint the ground tiles round the track (grass, dirt, gravel, concrete, arena floor and so on) with a brush, Shift-drag for a rectangle, or **Fill under track**.
+- **Scenery:** banners and sponsor boards with your own text, tuff blocks, hay bales, tyre walls, tape, start gates, grandstands, crowds, floodlights, pit tents, vans, trees and more. Drag to move, Q and E to rotate, Ctrl+D to copy, Del to remove.
+- **Track details:** id, name, kind (stadium, outdoor or endurance), track width, size, surface, practice only, and the start gate curve. Renaming an id updates the venues that use it.
+- **Checks** run the game's own rules for `tracks.json` and `trackParts.json`, the section shapes and the start straight included, and warn about race tracks without a gate curve and drawings that cross themselves.
+- **Preview** rides a dot round the lap. **Race it in the game** opens a race day on the track in the game (`/?testtrack=<id>`, with `npm run dev` running and the track saved).
+- **Export / Import** save one track as a `.track.json` file and add one back, a first step towards player-made tracks.
+- **Undo / Redo** with Ctrl+Z and Ctrl+Y.
+
+The lists of track kinds, surfaces, ground tiles and scenery are in `public/data/trackParts.json`, with tile art from `public/assets/art/area-map/tiled/tiles`. Its `sectionEditor` switch shows the section editing tools while the game is in development; Final v1 turns it off (preview with `?final=1`), leaving the layout, surface, ground and scenery editing. The section data and the race simulation work the same either way.
+
+A new track can be raced from the world once a venue in the `venues` list of `tracks.json` points at it. An unchanged file saves back byte for byte. After saving, run `npm test`.
+
+### Races on screen
+
+The race simulation (`src/core/race.ts`) decides every result. The rider AI (`src/core/riderAI.ts`) then acts the race out: each rider picks a line, brakes into corners and drives out, swings out to pass or tucks in behind, jumps, skims whoops, crashes and remounts, always reaching the end of each section when the simulation says. How each rider rides comes from their skills, their bike and their race message (`src/core/riderProfile.ts`), plus an optional `style` for CPU riders in `riders.json` (`line`, `aggression`, `jumps`). The race view (`src/world/RaceView.ts`) draws it all as an isometric 3D scene with [three.js](https://threejs.org), in the spirit of Super Off Road. The track is a solid surface (`src/core/trackSurface.ts`): jumps have take-off faces, tables and landings, whoops and braking bumps ripple, berms bank up, hills rise out of the ground, and a raised lip and earth bank mark both edges. Each bike's wheels are put on that same surface, so bikes pitch over jumps, lean into corners and land on the track. The camera follows your rider (the orange one with the arrow), or the leader once you are out, and a map in the corner shows the whole lap, the start straight and every rider. Tall scenery such as stands and trees fades when a rider is behind it.
+
+The race opens on the start straight: the field lines up behind the gate on a concrete pad, wider than the track so a row of 8 fits, in two rows of 8 for a full field, and the straight narrows as it runs onto the lap, where the lap's lip and bank open up so the two surfaces merge.
+
+The start procedure is the same for a Race and for Auto-complete. When the race opens, 4 front-row riders are already in their slots (more for a bigger field) and the rest wait scattered just behind the pad. Over about 6 seconds they ride up to their own slots at different moments and speeds, several at once, easing onto their lane line, without touching. A second-row rider only sets off once the front-row rider in their own lane has stopped in their slot, so second-row riders in lanes that are already filled go early while other lanes are still filling. The line-up is drawn from a seed made of the track and the gate order, so each moto lines up differently but the same race always looks the same. An official beside the straight, ahead of the gate, stands there all race holding the START 30 board: low with its plain white back out while the riders line up, raised face out when everyone is still and the 5-second hold starts, upright at 5 and 4, turned sideways at 3, 2 and 1, and lowered white side out again at 0 as the gate drops and the race starts. There is no countdown on screen; the board and the riders show it. The procedure runs in real time at any playback speed, and Pause stops it. Practice has no line-up or board.
+
+Scenery may not sit on the racing surface, the start straight included; the game's checks and the track editor's **Checks** flag it, and the editor outlines it in red. Start gates and finish arches, marked `overTrack` in `trackParts.json`, are the exception.
 
 ### Checks
 

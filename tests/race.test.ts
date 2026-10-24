@@ -85,6 +85,36 @@ describe('race simulation (Spec 10)', () => {
     expect(sim.playerMessage).toBe('push');
   });
 
+  it('a pit board read at the player\'s line changes nothing for riders already on the next lap', () => {
+    for (const seed of [3, 18, 404]) {
+      for (const change of ['push', 'save_bike', 'retire'] as const) {
+        const d = day(seed);
+        d.assignGates(12);
+        const sim = d.startMoto('steady');
+        sim.nextLap();
+        sim.nextLap();
+        const before = sim.nextLap(); // lap 3, run when the leader crossed the line
+        const myStart = before.times[PLAYER_ID][0];
+        const redo = sim.redoLap(() => (change === 'retire' ? sim.retirePlayer('test') : sim.changeMessage(change)));
+        expect(redo.lap).toBe(3);
+        expect(sim.lap).toBe(3);
+        if (change !== 'retire') expect(sim.ink).toBe(2);
+        // Everything already shown when the player reached the line (any stretch begun before
+        // then) is the same as before.
+        for (const [id, times] of Object.entries(before.times)) {
+          if (id === PLAYER_ID) continue;
+          for (let i = 1; i < times.length; i++) if (times[i - 1] < myStart) expect(redo.times[id][i], `${seed} ${change} ${id}`).toBe(times[i]);
+        }
+        if (change === 'retire') expect(redo.times[PLAYER_ID]).toBeUndefined();
+        // And running the lap again with no change gives the same lap.
+        const again = sim.redoLap(() => undefined);
+        expect(again).toEqual(redo);
+        while (!sim.finished) sim.nextLap();
+        expect(sim.results()).toHaveLength(16);
+      }
+    }
+  });
+
   it('runs a full 50cc moto: 5 laps, 16 riders, everyone placed', () => {
     const d = day(123);
     d.assignGates(0);
