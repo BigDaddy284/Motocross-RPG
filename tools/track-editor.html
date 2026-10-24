@@ -727,7 +727,7 @@ function drawGround(t) {
 }
 
 /** Scenery with no tile art is drawn by type: simple top-down shapes in its colour. */
-function drawItem(it, sel) {
+function drawItem(it, sel, blocked = false) {
   const def = sceneryDef(it.type);
   const { w, h, a } = itemBox(it);
   const s = toScreen(it.x, it.y);
@@ -821,6 +821,12 @@ function drawItem(it, sel) {
       ctx.textBaseline = 'alphabetic';
     }
   }
+  if (blocked) {
+    // On the racing surface: riders would ride through it.
+    ctx.strokeStyle = '#ff3b30';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(-W / 2 - 2, -H / 2 - 2, W + 4, H + 4);
+  }
   if (sel) {
     ctx.strokeStyle = '#f0a020';
     ctx.lineWidth = 2;
@@ -829,6 +835,40 @@ function drawItem(it, sel) {
     ctx.setLineDash([]);
   }
   ctx.restore();
+}
+
+/**
+ * Scenery on the racing surface, by index (as src/core/trackParts.ts sceneryOnTrack). Riders ride
+ * anywhere across the track, so anything there would be ridden through; start gates and finish
+ * arches (overTrack in trackParts.json) are built to stand over it.
+ */
+function sceneryOnTrack(t) {
+  const g = lapGeom(t);
+  const hw = (t.width ?? DEFAULT_WIDTH) / 2;
+  const n = Math.max(200, Math.ceil(g.total / 0.25));
+  const pts = Array.from({ length: n }, (_, i) => pointAt(g, i / n));
+  const out = [];
+  (t.scenery ?? []).forEach((it, i) => {
+    const def = sceneryDef(it.type);
+    if (!def || def.overTrack) return;
+    const w = it.w ?? def.w;
+    const d = it.h ?? def.h;
+    const a = ((it.rot ?? 0) * Math.PI) / 180;
+    const reach = hw + Math.hypot(w, d) / 2;
+    const near = pts.filter((p) => Math.hypot(p.x - it.x, p.y - it.y) < reach);
+    if (!near.length) return;
+    for (let u = -0.5; u <= 0.5001; u += 0.1) {
+      for (let v = -0.5; v <= 0.5001; v += 0.25) {
+        const x = it.x + u * w * Math.cos(a) - v * d * Math.sin(a);
+        const y = it.y + u * w * Math.sin(a) + v * d * Math.cos(a);
+        if (near.some((p) => Math.hypot(p.x - x, p.y - y) < hw - 1e-6)) {
+          out.push(i);
+          return;
+        }
+      }
+    }
+  });
+  return out;
 }
 function contrast(hex) {
   const c = hex.replace('#', '');
@@ -952,7 +992,8 @@ function draw() {
 
   // Scenery.
   ctx.globalAlpha = scene || app.mode === 'scenery' ? 1 : 0.25;
-  (t.scenery ?? []).forEach((it, i) => drawItem(it, app.mode === 'scenery' && i === app.selItem));
+  const blocked = new Set(sceneryOnTrack(t));
+  (t.scenery ?? []).forEach((it, i) => drawItem(it, app.mode === 'scenery' && i === app.selItem, blocked.has(i)));
   ctx.globalAlpha = 1;
 
   if (app.mode === 'layout') {
@@ -1601,6 +1642,7 @@ function checkTrack(t, all) {
     for (const id of Object.keys(t.ground.paint ?? {})) if (!P.ground.some((g) => g.id === id)) bad.push(`No ground "${id}" in trackParts.json.`);
   }
   (t.scenery ?? []).forEach((s, i) => { if (!sceneryDef(s.type)) bad.push(`Scenery item ${i + 1}: no scenery "${s.type}" in trackParts.json.`); });
+  for (const i of sceneryOnTrack(t)) bad.push(`Scenery item ${i + 1} (${sceneryDef(t.scenery[i].type)?.name.toLowerCase() ?? t.scenery[i].type}) is on the racing surface, where riders would ride through it. Move it off the track (it is outlined in red).`);
   if (!t.practiceOnly) {
     if (t.sections[0] && t.sections[0].type !== 'start_gate') warn.push('A race track normally starts with a Start section.');
     if (!t.gates?.length) warn.push('No gate curve: every gate starts the same.');

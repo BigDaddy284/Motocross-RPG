@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { SceneryItem, TrackDef } from '../core/race';
 import type { RiderPose } from '../core/riderAI';
 import { pointAt } from '../core/trackGeom';
@@ -49,9 +50,13 @@ interface Bike {
 }
 
 interface Puff {
-  sprite: THREE.Sprite;
+  x: number;
+  y: number;
+  z: number;
   life: number;
 }
+/** Dust puffs alive at once. */
+const DUST = 200;
 
 const hex = (s: string | undefined, fallback: number) => (s && /^#[0-9a-f]{6}$/i.test(s) ? parseInt(s.slice(1), 16) : fallback);
 function shade(c: number, k: number): number {
@@ -72,13 +77,13 @@ export class RaceView {
   private readonly scene3: THREE.Scene;
   private readonly camera: THREE.OrthographicCamera;
   private readonly sun: THREE.DirectionalLight;
-  private readonly copy: HTMLCanvasElement;
-  private readonly copyCtx: CanvasRenderingContext2D;
-  private readonly texture: Phaser.Textures.CanvasTexture;
+  private readonly texture: Phaser.Textures.Texture;
   private readonly image: Phaser.GameObjects.Image;
   private readonly bikes = new Map<string, Bike>();
   private readonly marker: THREE.Mesh;
   private readonly puffs: Puff[] = [];
+  private puffNext = 0;
+  private dust: THREE.InstancedMesh | null = null;
   private readonly puffMap: THREE.Texture;
   private readonly groundCanvas: HTMLCanvasElement;
   private readonly groundTex: THREE.CanvasTexture;
@@ -95,8 +100,10 @@ export class RaceView {
   private readonly labels: Phaser.GameObjects.Container;
   /** Tall scenery that fades when a rider is behind it, so it never hides the racing. */
   private readonly tall: { corners: THREE.Vector3[]; mats: THREE.Material[]; faded: boolean }[] = [];
-  /** Frame times in ms, for the performance check. */
+  /** Frame times in ms (whole update, the 3D draw, and handing the picture to Phaser), for the performance check. */
   readonly frameMs: number[] = [];
+  readonly renderMs: number[] = [];
+  readonly uploadMs: number[] = [];
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -128,12 +135,9 @@ export class RaceView {
     this.renderer.setSize(rw, rh, false);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.copy = document.createElement('canvas');
-    this.copy.width = rw;
-    this.copy.height = rh;
-    this.copyCtx = this.copy.getContext('2d')!;
+    // Phaser takes the three.js canvas itself as a texture source and re-uploads it each frame.
     this.key = `raceview-${++counter}`;
-    this.texture = scene.textures.addCanvas(this.key, this.copy)!;
+    this.texture = scene.textures.addImage(this.key, canvas as unknown as HTMLImageElement)!;
     this.image = scene.add.image(x, y, this.key).setOrigin(0).setDisplaySize(w, h);
     parent.add(this.image);
 
@@ -174,13 +178,27 @@ export class RaceView {
     this.scene3.add(this.terrainMesh());
     this.scene3.add(this.buildTrack());
     this.scene3.add(this.startLine());
+    // Low scenery that never needs fading is baked into one mesh; textured parts stay separate.
+    const low: THREE.Mesh[] = [];
     for (const it of track.scenery ?? []) {
       const obj = this.buildItem(it);
       if (!obj) continue;
       this.scene3.add(obj);
       obj.updateMatrixWorld(true);
       const box = new THREE.Box3().setFromObject(obj);
-      if (box.max.y < 1.2) continue;
+      if (box.max.y < 1.2) {
+        const plain: THREE.Mesh[] = [];
+        obj.traverse((o) => {
+          const m = o as THREE.Mesh;
+          if (m.isMesh && !(m as THREE.InstancedMesh).isInstancedMesh && !Array.isArray(m.material) && !(m.material as THREE.MeshLambertMaterial).map) plain.push(m);
+        });
+        for (const m of plain) {
+          m.userData.world = m.matrixWorld.clone();
+          m.removeFromParent();
+          low.push(m);
+        }
+        continue;
+      }
       const mats: THREE.Material[] = [];
       obj.traverse((o) => {
         const m = (o as THREE.Mesh).material;
@@ -190,6 +208,11 @@ export class RaceView {
       const corners: THREE.Vector3[] = [];
       for (const cx of [box.min.x, box.max.x]) for (const cy of [box.min.y, box.max.y]) for (const cz of [box.min.z, box.max.z]) corners.push(new THREE.Vector3(cx, cy, cz));
       this.tall.push({ corners, mats, faded: false });
+    }
+
+    if (low.length) {
+      const flat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+      this.scene3.add(this.mergeParts(low, flat));
     }
 
     this.marker = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.55, 4), new THREE.MeshBasicMaterial({ color: COLORS.accent }));
@@ -559,19 +582,9 @@ export class RaceView {
         break;
       }
       case 'tuff_block': {
-        const cv = document.createElement('canvas');
-        cv.width = 12;
-        cv.height = 2;
-        const ctx = cv.getContext('2d')!;
-        for (let i = 0; i < 6; i++) {
-          ctx.fillStyle = i % 2 ? '#d33a2c' : `#${color.toString(16).padStart(6, '0')}`;
-          ctx.fillRect(i * 2, 0, 2, 2);
-        }
-        const tex = new THREE.CanvasTexture(cv);
-        tex.magFilter = THREE.NearestFilter;
-        tex.colorSpace = THREE.SRGBColorSpace;
-        const m = this.mat(0xffffff, { map: tex });
-        add(this.boxMesh(w, 0.5, d * 0.8, [this.mat(color), this.mat(color), m, m, m, m]));
+        // White blocks with red bands, the supercross track marker.
+        add(this.boxMesh(w, 0.5, d * 0.8, this.mat(color)));
+        for (let i = 0; i < 3; i++) add(this.boxMesh(w / 7, 0.52, d * 0.82, this.mat(0xd33a2c), -w / 2 + (w / 3) * (i + 0.5), -0.01, 0));
         break;
       }
       case 'hay_bale':
@@ -786,14 +799,32 @@ export class RaceView {
     helmet.position.set(0.12, r + 0.98, 0);
     parts.push(helmet);
     piece(0.08, 0.06, 0.18, dark, 0.24, r + 0.97); // visor
-    for (const p of parts) {
-      p.castShadow = true;
-      body.add(p);
-    }
+    // One mesh per bike, coloured per part, so a field of bikes costs one draw each.
+    body.add(this.mergeParts(parts));
     this.scene3.add(root);
     const label = this.scene.add.text(0, 0, '', { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '13px', color: '#ffffff', fontStyle: 'bold', stroke: '#14141e', strokeThickness: 3, resolution: 2 }).setOrigin(0.5, 1);
     this.labels.add(label);
     return { root, body, label };
+  }
+
+  /** Bakes meshes (each with a plain coloured material) into one vertex-coloured, shadow-casting mesh. */
+  private mergeParts(parts: THREE.Mesh[], material?: THREE.MeshLambertMaterial): THREE.Mesh {
+    const geos = parts.map((p) => {
+      p.updateMatrix();
+      const g = (p.geometry.index ? p.geometry.toNonIndexed() : p.geometry.clone()).applyMatrix4((p.userData.world as THREE.Matrix4 | undefined) ?? p.matrix);
+      for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k);
+      const c = (p.material as THREE.MeshLambertMaterial).color;
+      const n = g.attributes.position.count;
+      const col = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) col.set([c.r, c.g, c.b], i * 3);
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      return g;
+    });
+    const mesh = new THREE.Mesh(mergeGeometries(geos), material ?? new THREE.MeshLambertMaterial({ vertexColors: true }));
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    for (const g of geos) g.dispose();
+    return mesh;
   }
 
   /** Draws the riders at their poses. clock is race time, dt real seconds since the last frame. */
@@ -856,9 +887,16 @@ export class RaceView {
     else this.marker.visible = true;
     this.moveCamera(target, dt);
     this.fadeBlockers(riders);
+    const r0 = performance.now();
     this.renderer.render(this.scene3, this.camera);
-    this.copyCtx.drawImage(this.renderer.domElement, 0, 0);
-    this.texture.refresh();
+    const r1 = performance.now();
+    this.texture.source[0].update();
+    this.renderMs.push(r1 - r0);
+    this.uploadMs.push(performance.now() - r1);
+    if (this.renderMs.length > 600) {
+      this.renderMs.shift();
+      this.uploadMs.shift();
+    }
     this.placeLabels(riders);
     this.drawMap(riders);
     this.frameMs.push(performance.now() - t0);
@@ -877,31 +915,42 @@ export class RaceView {
     return new THREE.CanvasTexture(cv);
   }
 
+  /** A puff of dust (or spray): one of a pool of camera-facing quads drawn in a single batch. */
   private puff(x: number, y: number, z: number, color: number): void {
-    let p = this.puffs.find((q) => q.life <= 0);
-    if (!p) {
-      if (this.puffs.length >= 240) return;
-      p = { sprite: new THREE.Sprite(new THREE.SpriteMaterial({ map: this.puffMap, color, transparent: true, depthWrite: false })), life: 0 };
-      this.puffs.push(p);
-      this.scene3.add(p.sprite);
+    if (!this.dust) {
+      const mat = new THREE.MeshBasicMaterial({ map: this.puffMap, transparent: true, opacity: 0.5, depthWrite: false });
+      this.dust = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), mat, DUST);
+      this.dust.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      this.dust.frustumCulled = false;
+      const c = new THREE.Color(0xffffff);
+      for (let i = 0; i < DUST; i++) {
+        this.dust.setMatrixAt(i, new THREE.Matrix4().makeScale(0, 0, 0));
+        this.dust.setColorAt(i, c);
+      }
+      this.scene3.add(this.dust);
     }
-    p.life = 1;
-    (p.sprite.material as THREE.SpriteMaterial).color.setHex(color);
-    p.sprite.position.set(x + (noise(x * 91) - 0.5) * 0.2, y, z + (noise(z * 37) - 0.5) * 0.2);
-    p.sprite.visible = true;
+    const i = this.puffNext;
+    this.puffNext = (i + 1) % DUST;
+    this.puffs[i] = { x: x + (noise(x * 91) - 0.5) * 0.2, y, z: z + (noise(z * 37) - 0.5) * 0.2, life: 1 };
+    this.dust.setColorAt(i, new THREE.Color(color));
+    this.dust.instanceColor!.needsUpdate = true;
   }
 
   private agePuffs(k: number): void {
-    for (const p of this.puffs) {
-      if (p.life <= 0) continue;
+    if (!this.dust) return;
+    const face = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), this.dir);
+    const m = new THREE.Matrix4();
+    const v = new THREE.Vector3();
+    const sc = new THREE.Vector3();
+    this.puffs.forEach((p, i) => {
+      if (!p || p.life <= 0) return;
       p.life -= k;
-      const m = p.sprite.material as THREE.SpriteMaterial;
-      m.opacity = Math.max(0, p.life) * 0.55;
-      const size = 0.35 + (1 - p.life) * 0.9;
-      p.sprite.scale.set(size, size, size);
-      p.sprite.position.y += k * 0.3;
-      if (p.life <= 0) p.sprite.visible = false;
-    }
+      p.y += k * 0.3;
+      // Grows as it drifts up, then shrinks away as it fades.
+      const size = p.life > 0 ? (0.35 + (1 - p.life) * 0.9) * Math.min(1, p.life * 3) : 0;
+      this.dust!.setMatrixAt(i, m.compose(v.set(p.x, p.y, p.z), face, sc.set(size, size, size)));
+    });
+    this.dust.instanceMatrix.needsUpdate = true;
   }
 
   private moveCamera(target: THREE.Vector3 | null, dt: number): void {

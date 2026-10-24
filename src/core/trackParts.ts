@@ -1,4 +1,5 @@
-import type { TrackDef } from './race';
+import type { SceneryItem, TrackDef } from './race';
+import { lapGeom, pointAt } from './trackGeom';
 import type { ContentError, Schema } from './validate';
 
 // The parts a track is built from beyond its sections: track kinds, surface patches, ground and
@@ -35,6 +36,8 @@ export interface SceneryDef {
   color: string;
   art?: string;
   text?: string;
+  /** Built to stand over the track (start gates, finish arches); everything else must stay off it. */
+  overTrack?: boolean;
 }
 
 export interface TrackPartsData {
@@ -67,8 +70,8 @@ export const TRACK_PARTS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['art', 'text'],
-        fields: { id: IDS, name: S, w: { type: 'number', min: 0.1 }, h: { type: 'number', min: 0.1 }, color: COLOR, art: ART, text: { type: 'string' } },
+        optional: ['art', 'text', 'overTrack'],
+        fields: { id: IDS, name: S, w: { type: 'number', min: 0.1 }, h: { type: 'number', min: 0.1 }, color: COLOR, art: ART, text: { type: 'string' }, overTrack: { type: 'boolean' } },
       },
     },
   },
@@ -116,6 +119,41 @@ export function checkTrackParts(parts: TrackPartsData, tracks: TrackDef[], artEx
       for (const id of Object.keys(t.ground.paint)) if (!ground.has(id)) err(F.tracks, at(`ground.paint.${id}`), `no ground "${id}" in ${F.parts}`);
     }
     t.scenery?.forEach((s, j) => !scenery.has(s.type) && err(F.tracks, at(`scenery[${j}].type`), `no scenery "${s.type}" in ${F.parts}`));
+    for (const j of sceneryOnTrack(parts, t)) err(F.tracks, at(`scenery[${j}]`), `the ${t.scenery![j].type.replace(/_/g, ' ')} at ${t.scenery![j].x}, ${t.scenery![j].y} is on the racing surface, where riders would ride through it`);
   });
   return errors;
+}
+
+/**
+ * Scenery that sits on the racing surface (the track's width either side of the drawing), by
+ * index. Riders ride anywhere across the track, so anything there would be ridden through. Items
+ * built to stand over the track (overTrack) are allowed.
+ */
+export function sceneryOnTrack(parts: TrackPartsData, track: TrackDef): number[] {
+  const g = lapGeom(track.path);
+  const hw = (track.width ?? DEFAULT_TRACK_WIDTH) / 2;
+  const n = Math.max(200, Math.ceil(g.total / 0.25));
+  const pts = Array.from({ length: n }, (_, i) => pointAt(g, i / n));
+  const out: number[] = [];
+  (track.scenery ?? []).forEach((it: SceneryItem, i) => {
+    const def = parts.scenery.find((d) => d.id === it.type);
+    if (!def || def.overTrack) return;
+    const w = it.w ?? def.w;
+    const d = it.h ?? def.h;
+    const a = ((it.rot ?? 0) * Math.PI) / 180;
+    const reach = hw + Math.hypot(w, d) / 2;
+    const near = pts.filter((p) => Math.hypot(p.x - it.x, p.y - it.y) < reach);
+    if (!near.length) return;
+    for (let u = -0.5; u <= 0.5001; u += 0.1) {
+      for (let v = -0.5; v <= 0.5001; v += 0.25) {
+        const x = it.x + u * w * Math.cos(a) - v * d * Math.sin(a);
+        const y = it.y + u * w * Math.sin(a) + v * d * Math.cos(a);
+        if (near.some((p) => Math.hypot(p.x - x, p.y - y) < hw - 1e-6)) {
+          out.push(i);
+          return;
+        }
+      }
+    }
+  });
+  return out;
 }
