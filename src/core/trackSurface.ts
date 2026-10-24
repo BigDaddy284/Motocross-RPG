@@ -1,4 +1,5 @@
 import type { TrackDef } from './race';
+import { Elevation } from './elevation';
 import { DEFAULT_HEIGHTS } from './riderAI';
 import { headingAt, lapGeom, lapMetres, pointAt, sectionBounds, sectionTurns, startGeom, startHalfWidth, startHeadingAt, startPointAt, type LapGeom, type StartGeom } from './trackGeom';
 import { DEFAULT_TRACK_WIDTH } from './trackParts';
@@ -82,6 +83,8 @@ export class TrackSurface {
   readonly start: StartGeom;
   /** Which side of the lap the start straight comes in from (1 the riders' right, -1 left), 0 with none. */
   readonly joinSide: number;
+  /** The editor's ground elevation under and round the track. */
+  readonly elev: Elevation;
 
   constructor(readonly track: TrackDef) {
     this.g = lapGeom(track.path);
@@ -94,6 +97,7 @@ export class TrackSurface {
       return this.units(metres);
     });
     this.start = startGeom(track, this.g);
+    this.elev = new Elevation(track.elevation);
     this.joinSide = 0;
     if (this.start.total > 0) {
       // Which side of the lap the start straight arrives from: look a little way back up it.
@@ -171,13 +175,30 @@ export class TrackSurface {
   /** Height of the surface at lap fraction f and lane (-1 left edge, 1 right edge, further is off the track). */
   height(f: number, lane: number): number {
     const e = Math.abs(lane);
-    if (e <= 1) return this.centre(f) + this.bank(f, lane);
+    const ground = this.lift(f);
+    if (e <= 1) return ground + this.centre(f) + this.bank(f, lane);
     const side = lane < 0 ? -1 : 1;
     const top = this.centre(f) + this.bank(f, side);
     const lip = LIP_H * (1 - this.mouth(f, side));
-    if (e <= LIP_AT) return top + lip * smooth((e - 1) / (LIP_AT - 1));
+    if (e <= LIP_AT) return ground + top + lip * smooth((e - 1) / (LIP_AT - 1));
     const sk = this.skirt(f, lane);
-    return (top + lip) * (1 - smooth((e - LIP_AT) / sk));
+    return ground + (top + lip) * (1 - smooth((e - LIP_AT) / sk));
+  }
+
+  /**
+   * How far the editor's ground elevation (elevation.ts) lifts the track at lap fraction f, in grid
+   * units: the ground under the middle of the track. The track is graded level across its width,
+   * and the race view's terrain eases from that level out to the ground either side.
+   */
+  lift(f: number): number {
+    if (this.elev.empty) return 0;
+    const p = pointAt(this.g, f);
+    return this.units(this.elev.at(p.x, p.y));
+  }
+
+  /** The editor's ground elevation at a point, in grid units. */
+  groundAt(x: number, z: number): number {
+    return this.elev.empty ? 0 : this.units(this.elev.at(x, z));
   }
 
   // ---- the start straight ----
@@ -197,7 +218,8 @@ export class TrackSurface {
     const e = Math.abs(lane);
     const toEnd = this.start.total - u;
     const merge = this.hw * 1.5 + 1;
-    const join = this.centre(this.start.join) * (1 - smooth(toEnd / merge));
+    const p = startPointAt(this.start, u);
+    const join = this.groundAt(p.x, p.y) + this.centre(this.start.join) * (1 - smooth(toEnd / merge));
     const lip = LIP_H * smooth(toEnd / merge);
     if (e <= 1) return join;
     if (e <= LIP_AT) return join + lip * smooth((e - 1) / (LIP_AT - 1));
@@ -272,8 +294,8 @@ export class TrackSurface {
       return Math.max(ground, line + this.units(apex) * 4 * x * (1 - x));
     }
     // Over rhythm jumps the bike hops from top to top; through whoops it skims along the crests.
-    if (type === 'rhythm' && hop > 0.05) return Math.max(ground, this.heights[si] * 0.85 + this.units(hop) * 0.6);
-    if (type === 'whoops') return Math.max(ground, this.heights[si] * 0.55);
+    if (type === 'rhythm' && hop > 0.05) return Math.max(ground, this.lift(f) + this.heights[si] * 0.85 + this.units(hop) * 0.6);
+    if (type === 'whoops') return Math.max(ground, this.lift(f) + this.heights[si] * 0.55);
     return ground;
   }
 

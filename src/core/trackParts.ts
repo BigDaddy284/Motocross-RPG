@@ -1,3 +1,4 @@
+import { elevationIssues, lapProfile } from './elevation';
 import type { TrackDef } from './race';
 import { officialPlan } from './startOfficial';
 import { sceneryIssues } from './trackClearance';
@@ -122,6 +123,10 @@ export function checkTrackParts(parts: TrackPartsData, tracks: TrackDef[], artEx
     t.scenery?.forEach((s, j) => !scenery.has(s.type) && err(F.tracks, at(`scenery[${j}].type`), `no scenery "${s.type}" in ${F.parts}`));
     // Errors only: warnings (sceneryIssues) are for the track editor to show, and never stop the game.
     for (const p of sceneryIssues(parts, t)) if (p.level === 'error') err(F.tracks, at(`scenery[${p.i}]`), p.message);
+    if (t.elevation) {
+      const { mpu, along } = lapProfile(t);
+      for (const p of elevationIssues(t, mpu, along)) if (p.level === 'error') err(F.tracks, at('elevation'), p.message);
+    }
     if (!t.practiceOnly && t.start) {
       try {
         officialPlan(t, parts);

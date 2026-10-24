@@ -128,7 +128,7 @@ export const TRACKS_SCHEMA: Schema = {
       minItems: 1,
       items: {
         type: 'object',
-        optional: ['practiceOnly', 'gates', 'kind', 'width', 'patches', 'ground', 'scenery', 'start'],
+        optional: ['practiceOnly', 'gates', 'kind', 'width', 'patches', 'ground', 'scenery', 'start', 'elevation'],
         fields: {
           id: IDS,
           name: S,
@@ -152,6 +152,13 @@ export const TRACKS_SCHEMA: Schema = {
               base: IDS,
               cell: { type: 'number', integer: true, min: 1, max: 10 },
               paint: { type: 'record', values: { type: 'array', items: { type: 'array', items: { type: 'number', integer: true, min: 0 }, minItems: 2, maxItems: 2 } } },
+            },
+          },
+          elevation: {
+            type: 'object',
+            fields: {
+              step: { type: 'number', integer: true, min: 1, max: 4 },
+              points: { type: 'array', items: { type: 'array', items: N, minItems: 3, maxItems: 3 } },
             },
           },
           scenery: {

@@ -327,12 +327,58 @@ export class RaceView {
       const p = startPointAt(s.start, u);
       level.push({ x: p.x, z: p.y, r: s.startHw(u) * LIP_AT + 0.4 });
     }
-    if (!hills.length) return;
-    const r0 = s.hw * 1.3;
     const smooth = (x: number) => {
       const t = Math.max(0, Math.min(1, x));
       return t * t * (3 - 2 * t);
     };
+    // The editor's ground elevation: the painted ground, except by the track, which is graded level
+    // across its width at the ground under its middle, so the ground there eases from that level
+    // (right under the track, its lip and slope) out to the painted ground over a few grid units.
+    if (!s.elev.empty) {
+      const mid: { x: number; z: number; r: number; l: number }[] = [];
+      for (let i = 0; i < n; i++) {
+        const f = i / n;
+        const p = s.spot(f, 0);
+        mid.push({ x: p.x, z: p.z, r: s.hw * (LIP_AT + Math.max(s.skirt(f, -1), s.skirt(f, 1))), l: s.lift(f) });
+      }
+      for (let u = -START_PAD; u < s.start.total; u += 0.5) {
+        const p = startPointAt(s.start, u);
+        mid.push({ x: p.x, z: p.y, r: s.startHw(u) * LIP_AT + 0.4, l: s.groundAt(p.x, p.y) });
+      }
+      const BLEND = 3;
+      for (let j = 0; j < th; j++) {
+        for (let i = 0; i < tw; i++) {
+          const x = i - MARGIN;
+          const z = j - MARGIN;
+          // How far off the track this is, and its level: from the nearest bits of track, weighted
+          // softly so the ground has no seam where two stretches at different levels come close.
+          let best = Infinity;
+          let near = Infinity;
+          for (const q of mid) {
+            const dc = Math.hypot(x - q.x, z - q.z);
+            best = Math.min(best, dc - q.r);
+            near = Math.min(near, dc);
+          }
+          if (best >= BLEND) {
+            this.terrain[j * tw + i] = s.groundAt(x, z);
+            continue;
+          }
+          let sum = 0;
+          let wt = 0;
+          for (const q of mid) {
+            const k = Math.exp(-(((Math.hypot(x - q.x, z - q.z) - near) / 0.75) ** 2));
+            if (k < 1e-4) continue;
+            sum += k * q.l;
+            wt += k;
+          }
+          const l = sum / wt;
+          const w = smooth(best / BLEND);
+          this.terrain[j * tw + i] = l * (1 - w) + s.groundAt(x, z) * w;
+        }
+      }
+    }
+    if (!hills.length) return;
+    const r0 = s.hw * 1.3;
     for (let j = 0; j < th; j++) {
       for (let i = 0; i < tw; i++) {
         const x = i - MARGIN;
@@ -352,7 +398,7 @@ export class RaceView {
           const d = Math.hypot(x - q.x, z - q.z);
           if (d < q.r + 5) h *= smooth((d - q.r) / 5);
         }
-        this.terrain[j * tw + i] = h;
+        this.terrain[j * tw + i] += h;
       }
     }
   }
