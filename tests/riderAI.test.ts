@@ -68,7 +68,7 @@ describe('rider AI (GDD 11.1)', () => {
         for (const r of results) expect(finals.find((p) => p.id === r.id)!.state).toBe('finished');
         for (const r of sim.results().filter((x) => x.retired)) expect(finals.find((p) => p.id === r.id)!.state).toBe('retired');
       }
-    });
+    }, 20000); // Longmoor is a long race: 16 riders over every quarter second.
   }
 
   it('shows the same race at any playback speed', () => {

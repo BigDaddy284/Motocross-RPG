@@ -9,7 +9,8 @@
 
   Edits the race tracks in public/data/tracks.json (src/core/race.ts TrackDef):
     * Layout: the shape drawn on the race screen (path, points on a 100 x 60 grid starting at the
-      start line), the track's kind (stadium, outdoor, endurance) and width.
+      finish line), the start straight from the gate onto the lap (start.path), the track's kind
+      (stadium, outdoor, endurance) and width.
     * Sections: what the race simulation rides, in order (type, length in metres, passing chance,
       the line riders take, jump height) and the start gate curve. Section types come from
       public/data/racing.json, read only.
@@ -91,6 +92,8 @@ label.chk { display: flex; gap: 6px; align-items: center; color: var(--dim); }
 .sec.active { border-color: var(--accent); background: #2a2516; }
 .sec .sw { width: 8px; height: 22px; border-radius: 2px; }
 .sec .n { color: var(--dim); font-size: 11px; text-align: right; }
+.sec.off { border-color: #c03030; }
+.sec.off .n { color: #ff7070; font-weight: 700; }
 .sec select, .sec input { width: 100%; }
 .sec select { padding: 3px 2px; }
 .btns { display: flex; gap: 1px; }
@@ -187,7 +190,8 @@ body.final .final-hide { display: none !important; }
     <button id="btnInsert" title="Add a point halfway to the next one (or double-click the track)">+ Point</button>
     <button id="btnDelPt" title="Delete the selected point (Del, or right-click it)">− Point</button>
     <button id="btnRound" title="Round off the corner at the selected point (R)">Round corner</button>
-    <button id="btnStart" title="Make the selected point the start line">Start here</button>
+    <button id="btnStart" title="Make the selected point the finish line, where every lap starts and ends">Finish here</button>
+    <button id="btnAddStart" title="Add the start gate on its own start straight that joins the lap. Drag its blue points to shape it; the white one stays on the lap where it joins.">+ Start straight</button>
     <button id="btnReverse" title="Ride the track the other way round">Reverse</button>
     <button id="btnFit" title="Centre the drawing and scale it to fill the grid">Fit to grid</button>
     <span class="sep"></span>
@@ -229,9 +233,10 @@ body.final .final-hide { display: none !important; }
       <div class="row" style="margin-top:6px">
         <button id="btnAddSec" disabled title="Add a section after the selected one">+ Section</button>
         <button id="btnSplitSec" disabled title="Split the selected section into two halves">Split</button>
+        <button id="btnFitSecs" disabled title="Replace the sections with straights and corners that suit the drawing, to rename and fill with jumps">From drawing</button>
       </div>
       <div class="box" id="secDetail"></div>
-      <div class="hint">Sections run in order from the start line. Drag the white diamonds on the track to move metres between neighbouring sections. Pass is the chance of a pass being on in that section (0 to 1).</div>
+      <div class="hint">Sections run in order from the finish line, and each type has to suit the shape drawn there (red edge if not). Drag the white diamonds on the track to move metres between neighbouring sections. Pass is the chance of a pass being on in that section (0 to 1).</div>
       <h2>Section colours</h2>
       <div id="legend"></div>
     </div>
@@ -271,9 +276,10 @@ body.final .final-hide { display: none !important; }
 <dialog id="help">
   <h3 style="margin-top:0">Track editor help</h3>
   <ul>
-    <li><b>Layout:</b> the drawing is the shape the race screen shows: points on a 100 × 60 grid, joined in order and back to the first point, which is the start line. Drag a point to move it (snaps to whole grid units; untick <b>Snap</b> or hold <kbd>Alt</kbd> for tenths). Double-click the track to add a point, right-click a point or press <kbd>Del</kbd> to delete it, arrow keys nudge it. <b>Round corner</b> <kbd>R</kbd> swaps a sharp point for a curve.</li>
+    <li><b>Layout:</b> the drawing is the shape the race screen shows: points on a 100 × 60 grid, joined in order and back to the first point, which is the finish line. Drag a point to move it (snaps to whole grid units; untick <b>Snap</b> or hold <kbd>Alt</kbd> for tenths). Double-click the track to add a point, right-click a point or press <kbd>Del</kbd> to delete it, arrow keys nudge it. <b>Round corner</b> <kbd>R</kbd> swaps a sharp point for a curve.</li>
+    <li><b>Start straight:</b> every track starts from a gate on its own start straight that joins the lap, as on a real track. Its points are the blue squares: the first is the gate (the black bar, with the yellow line-up behind it), the white one is where it joins the lap and stays on the lap when dragged. <b>+ Start straight</b> adds one beside the first part of the lap. Riders ride it once, then the lap from the join to the finish line, which ends lap 1. Select a blue point for <b>+ Point</b> and <b>− Point</b>. The checks ask for it to be at least 12 grid units long, clear of the lap until it joins, joining in the first half of the lap at 75° or less.</li>
     <li><b>Kind</b> sets how the race screen shows the track: a stadium track fits on one screen; outdoor and endurance tracks use a camera that follows the riders, with a map of the whole lap. <b>Width</b> is the track width on the race screen.</li>
-    <li class="final-hide"><b>Sections</b> are what the race simulation rides, in order. Each is placed on the drawing by its share of the lap length. Click the track to pick the section under the pointer. Drag a white diamond to move metres between two sections. The section box sets the line riders take through it and the height of jumps and hills.</li>
+    <li class="final-hide"><b>Sections</b> are what the race simulation rides, in order. Each is placed on the drawing by its share of the lap length, and its type has to suit the shape drawn there (straight, sweeper, corner or hairpin, as racing.json says): a hairpin on a straight would have riders braking for nothing. A section that doesn't suit its drawing is edged in red and listed in the checks. <b>From drawing</b> replaces the sections with straights and corners that suit the drawing. Click the track to pick the section under the pointer. Drag a white diamond to move metres between two sections. The section box sets the line riders take through it and the height of jumps and hills.</li>
     <li class="final-hide"><b>Gates</b> is the start bonus curve, in percent of start time, best gate first (Spec 10.4).</li>
     <li><b>Surfaces:</b> mud, sand, water and other patches along the lap, laid by clicking the track.</li>
     <li><b>Ground:</b> paint the ground round the track with the game's ground tiles.</li>
@@ -459,6 +465,7 @@ const app = {
   selSec: -1,
   selPatch: -1,
   selItem: -1,
+  selStart: -1,
   surfaceBrush: null,
   groundBrush: null,
   sceneryBrush: null,
@@ -478,8 +485,8 @@ const sceneryDef = (id) => app.parts.scenery.find((s) => s.id === id);
 const groundDef = (id) => app.parts.ground.find((g) => g.id === id);
 const surfaceDef = (id) => app.parts.surfaces.find((s) => s.id === id);
 
-function snapshot() { return { data: clone(app.data), cur: app.cur, selPt: app.selPt, selSec: app.selSec, selPatch: app.selPatch, selItem: app.selItem }; }
-function restore(s) { Object.assign(app, { data: s.data, cur: s.cur, selPt: s.selPt, selSec: s.selSec, selPatch: s.selPatch, selItem: s.selItem }); }
+function snapshot() { return { data: clone(app.data), cur: app.cur, selPt: app.selPt, selSec: app.selSec, selPatch: app.selPatch, selItem: app.selItem, selStart: app.selStart }; }
+function restore(s) { Object.assign(app, { data: s.data, cur: s.cur, selPt: s.selPt, selSec: s.selSec, selPatch: s.selPatch, selItem: s.selItem, selStart: s.selStart ?? -1 }); }
 /** Call before every change. Changes made by one drag share one undo step. */
 function begin() {
   app.undo.push(snapshot());
@@ -493,7 +500,7 @@ function changed() {
 function undo() { if (!app.undo.length) return; app.redo.push(snapshot()); restore(app.undo.pop()); changed(); }
 function redo() { if (!app.redo.length) return; app.undo.push(snapshot()); restore(app.redo.pop()); changed(); }
 function setDirty(d) { app.dirty = d; $('#dirty').textContent = d ? '● Unsaved' : ''; }
-function deselect() { app.selPt = -1; app.selSec = -1; app.selPatch = -1; app.selItem = -1; }
+function deselect() { app.selPt = -1; app.selSec = -1; app.selPatch = -1; app.selItem = -1; app.selStart = -1; }
 
 /** Runs a change as one undo step, and drops it if nothing actually changed. */
 function commit(fn) {
@@ -640,6 +647,189 @@ function sectionAt(t, f) {
   const b = sectionBounds(t);
   for (let i = 0; i < t.sections.length; i++) if (f < b[i + 1]) return i;
   return t.sections.length - 1;
+}
+
+// Drawn shapes (as src/core/trackGeom.ts drawnShape): what a stretch of the drawing looks like,
+// measured from the drawing alone. A section's type has to suit the shape it sits on
+// (racing.json "shapes"), or riders brake on straights and take U-turns flat out.
+const STRAIGHT_UNDER = 30;
+const HAIRPIN_FROM = 135;
+const SWEEPER_WIDTHS = 2;
+const wrapAngle = (a) => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
+function headingAt(g, f, span = 1.5) {
+  const df = span / g.total;
+  const a = pointAt(g, f - df);
+  const b = pointAt(g, f + df);
+  return Math.atan2(b.y - a.y, b.x - a.x);
+}
+function drawnShape(g, f0, f1, width) {
+  const len = (f1 - f0) * g.total;
+  const steps = Math.max(8, Math.ceil(len / 0.25));
+  let turn = 0;
+  let swept = 0;
+  let prev = headingAt(g, f0);
+  const rates = [];
+  for (let k = 1; k <= steps; k++) {
+    const h = headingAt(g, f0 + ((f1 - f0) * k) / steps);
+    const dh = wrapAngle(h - prev);
+    turn += dh;
+    swept += Math.abs(dh);
+    rates.push(Math.abs(dh) / (len / steps));
+    prev = h;
+  }
+  const win = Math.max(1, Math.round(3 / (len / steps)));
+  let best = 0;
+  let run = 0;
+  for (let i = 0; i < rates.length; i++) {
+    run += rates[i];
+    if (i >= win) run -= rates[i - win];
+    best = Math.max(best, run / Math.min(win, i + 1));
+  }
+  const radius = best > 1e-6 ? 1 / best : Infinity;
+  const deg = (swept * 180) / Math.PI;
+  const shape = deg < STRAIGHT_UNDER ? 'straight' : deg >= HAIRPIN_FROM ? 'hairpin' : radius >= SWEEPER_WIDTHS * width ? 'sweeper' : 'corner';
+  return { shape, turn: (turn * 180) / Math.PI, swept: deg, radius };
+}
+function sectionShapes(t) {
+  const g = lapGeom(t);
+  const b = sectionBounds(t);
+  return t.sections.map((_, i) => drawnShape(g, b[i], b[i + 1], t.width ?? DEFAULT_WIDTH));
+}
+const an = (w) => (/^[aeiou]/.test(w) ? 'an' : 'a');
+/** The shapes a section type may be drawn as, from racing.json (any, for an older file without them). */
+const shapesFor = (type) => app.sectionDefs[type]?.shapes ?? ['straight', 'sweeper', 'corner', 'hairpin'];
+function shapeMismatch(t, i, d) {
+  const s = t.sections[i];
+  return app.sectionDefs[s.type] && s.type !== 'start_gate' && !shapesFor(s.type).includes(d.shape);
+}
+
+// The start straight (as trackGeom.ts startGeom): its own stretch from the start gate (its first
+// point) that joins the lap at its last point. Riders line up at the gate, ride it once on lap 1,
+// then the lap from where it joins to the finish line.
+const START_PAD = 3;
+const START_WIDEN = 1.6;
+const START_MIN = 12;
+const JOIN_MAX = 75;
+/** The grid units of the start straight the gate stands at, and where the line-up rows are. */
+const GATE_AT = 0.75;
+function startGeom(t, g = lapGeom(t)) {
+  const path = t.start?.path;
+  if (!path || path.length < 2) return null;
+  const pts = path.map(([x, y]) => ({ x, y }));
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y));
+  const total = cum.at(-1);
+  const end = pts.at(-1);
+  const near = project(g, end.x, end.y);
+  return { pts, cum, total, join: near.f, off: near.dist };
+}
+function startHalfWidth(s, u, hw) {
+  const t = clamp(u / Math.max(1e-9, s.total * 0.7), 0, 1);
+  return hw * (1 + (START_WIDEN - 1) * (1 - t * t * (3 - 2 * t)));
+}
+function startPointAt(s, u) {
+  const { pts, cum } = s;
+  if (s.total <= 0) return { ...pts[0], ang: 0 };
+  let i = 1;
+  while (i < pts.length - 1 && cum[i] < u) i++;
+  const a = pts[i - 1];
+  const b = pts[i];
+  const len = cum[i] - cum[i - 1] || 1e-9;
+  const k = (u - cum[i - 1]) / len;
+  return { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, ang: Math.atan2(b.y - a.y, b.x - a.x) };
+}
+function startHeadingAt(s, u, span = 1.5) {
+  const a = startPointAt(s, u - span);
+  const b = startPointAt(s, u + span);
+  return Math.atan2(b.y - a.y, b.x - a.x);
+}
+/** Problems with the start straight, worded as the game's content check words them (trackCheck.ts). */
+function startProblems(t) {
+  const out = [];
+  const s = startGeom(t);
+  if (!s) return ['No start straight: every track needs a start gate on its own start straight that joins the lap. Click + Start straight.'];
+  const g = lapGeom(t);
+  const width = t.width ?? DEFAULT_WIDTH;
+  if (s.off > 0.3) out.push(`The start straight ends ${s.off.toFixed(1)} grid units off the lap; drag its last point onto the lap where it joins.`);
+  if (s.total < START_MIN) out.push(`The start straight is ${s.total.toFixed(1)} grid units long; it needs at least ${START_MIN} for the gate, the line-up and a run to the lap.`);
+  if (s.join > 0.5) out.push('The start straight joins the lap in its second half, so lap 1 would skip most of the circuit; join it nearer the start of the lap.');
+  const turn = wrapAngle(startHeadingAt(s, s.total - 0.5, 0.5) - headingAt(g, s.join));
+  if (Math.abs(turn) > (JOIN_MAX * Math.PI) / 180) out.push(`The start straight meets the lap at ${Math.round((Math.abs(turn) * 180) / Math.PI)}°; join it at ${JOIN_MAX}° or less, heading the way the lap runs.`);
+  const merge = width * 1.5 + 1;
+  for (let u = -START_PAD; u < s.total - merge; u += 0.25) {
+    const p = startPointAt(s, u);
+    const d = project(g, p.x, p.y).dist;
+    const clear = width / 2 + startHalfWidth(s, u, width / 2) + 0.5;
+    if (d < clear) {
+      out.push(`The start straight runs into the lap at ${p.x.toFixed(0)}, ${p.y.toFixed(0)}; keep it at least ${clear.toFixed(1)} grid units clear until it joins.`);
+      break;
+    }
+  }
+  return out;
+}
+/**
+ * A start straight for a track that has none: alongside the lap just after the finish line, on
+ * whichever side is clear, running onto the lap at about 45 degrees. Tries a few spots and keeps
+ * the first that passes the checks.
+ */
+function autoStart(t) {
+  const g = lapGeom(t);
+  const width = t.width ?? DEFAULT_WIDTH;
+  const off = width / 2 + (width / 2) * START_WIDEN + 1.5;
+  const run = Math.max(START_MIN + 4, width * 1.5 + 14);
+  const r1 = (v) => Math.round(v * 2) / 2;
+  for (const jf of [0.08, 0.12, 0.16, 0.05, 0.2, 0.25, 0.3, 0.35]) {
+    for (const side of [1, -1]) for (const steep of [1, 0.8]) {
+      const j = pointAt(g, jf);
+      const h = headingAt(g, jf);
+      const back = (d, o) => [r1(j.x - Math.cos(h) * d - Math.sin(h) * o * side), r1(j.y - Math.sin(h) * d + Math.cos(h) * o * side)];
+      // It runs onto the lap at about 45 degrees, so it stays clear of the lap until it merges.
+      const merge = off * steep;
+      const path = [back(run + merge, off), back(merge, off), [round1(j.x), round1(j.y)]];
+      if (path.some(([x, y]) => x < 0 || y < 0 || x > GRID_W || y > GRID_H)) continue;
+      if (!startProblems({ ...t, start: { path } }).length) return { path };
+    }
+  }
+  return null;
+}
+/**
+ * Sections that suit the drawing: the lap split into straights and bends, each bend given the
+ * plainest type its shape allows. A starting point for a new track, to rename and fill with jumps.
+ */
+function sectionsFromDrawing(t) {
+  const g = lapGeom(t);
+  const width = t.width ?? DEFAULT_WIDTH;
+  const step = 1;
+  const n = Math.max(12, Math.round(g.total / step));
+  // Bending where the heading turns more than 3 degrees a grid unit.
+  const bend = Array.from({ length: n }, (_, i) => Math.abs(wrapAngle(headingAt(g, (i + 1) / n) - headingAt(g, i / n))) / (g.total / n) > (3 * Math.PI) / 180);
+  const runs = [];
+  for (let i = 0; i < n; i++) {
+    if (runs.length && runs.at(-1).bend === bend[i]) runs.at(-1).b = i + 1;
+    else runs.push({ bend: bend[i], a: i, b: i + 1 });
+  }
+  // A short straight between two bends is part of one bend (an S or a corner of two points).
+  for (let k = runs.length - 2; k > 0; k--) {
+    if (!runs[k].bend && runs[k].b - runs[k].a < 4 && runs[k - 1].bend && runs[k + 1].bend) {
+      runs[k - 1].b = runs[k + 1].b;
+      runs.splice(k, 2);
+    }
+  }
+  const shapeOf = (r) => drawnShape(g, r.a / n, r.b / n, width).shape;
+  // Neighbours that are straights together stay one straight.
+  for (let k = runs.length - 1; k > 0; k--) {
+    const u = { a: runs[k - 1].a, b: runs[k].b };
+    if (shapeOf(runs[k - 1]) === 'straight' && shapeOf(runs[k]) === 'straight' && shapeOf(u) === 'straight') { runs[k - 1].b = u.b; runs.splice(k, 1); }
+  }
+  const typeOf = { straight: 'straight', sweeper: 'fast_sweeper', corner: 'flat_corner', hairpin: 'hairpin' };
+  const pass = { straight: 0.6, sweeper: 0.5, corner: 0.6, hairpin: 0.7 };
+  const out = runs.map((r) => {
+    const shape = shapeOf(r);
+    const type = app.sectionDefs[typeOf[shape]] || !Object.keys(app.sectionDefs).length ? typeOf[shape] : 'straight';
+    return { type, units: ((r.b - r.a) / n) * g.total, passing: pass[shape] };
+  });
+  // About 2.7 m a grid unit, as on the game's tracks.
+  return out.map((x) => ({ type: x.type, length: Math.max(5, Math.round(x.units * 2.7)), passing: x.passing }));
 }
 function patchAt(t, metres) {
   const lap = lapLength(t);
@@ -838,7 +1028,7 @@ function drawItem(it, sel, blocked = false) {
 }
 
 /**
- * Scenery on the racing surface, by index (as src/core/trackParts.ts sceneryOnTrack). Riders ride
+ * Scenery on the racing surface, start straight included, by index (as src/core/trackParts.ts sceneryOnTrack). Riders ride
  * anywhere across the track, so anything there would be ridden through; start gates and finish
  * arches (overTrack in trackParts.json) are built to stand over it.
  */
@@ -846,7 +1036,10 @@ function sceneryOnTrack(t) {
   const g = lapGeom(t);
   const hw = (t.width ?? DEFAULT_WIDTH) / 2;
   const n = Math.max(200, Math.ceil(g.total / 0.25));
-  const pts = Array.from({ length: n }, (_, i) => pointAt(g, i / n));
+  const pts = Array.from({ length: n }, (_, i) => ({ ...pointAt(g, i / n), hw }));
+  // The start straight and the pad behind its gate are racing surface too, wider at the gate.
+  const st = startGeom(t, g);
+  if (st && st.total > 0) for (let u = -START_PAD; u <= st.total; u += 0.25) pts.push({ ...startPointAt(st, u), hw: startHalfWidth(st, u, hw) });
   const out = [];
   (t.scenery ?? []).forEach((it, i) => {
     const def = sceneryDef(it.type);
@@ -854,14 +1047,14 @@ function sceneryOnTrack(t) {
     const w = it.w ?? def.w;
     const d = it.h ?? def.h;
     const a = ((it.rot ?? 0) * Math.PI) / 180;
-    const reach = hw + Math.hypot(w, d) / 2;
-    const near = pts.filter((p) => Math.hypot(p.x - it.x, p.y - it.y) < reach);
+    const reach = Math.hypot(w, d) / 2;
+    const near = pts.filter((p) => Math.hypot(p.x - it.x, p.y - it.y) < reach + p.hw);
     if (!near.length) return;
     for (let u = -0.5; u <= 0.5001; u += 0.1) {
       for (let v = -0.5; v <= 0.5001; v += 0.25) {
         const x = it.x + u * w * Math.cos(a) - v * d * Math.sin(a);
         const y = it.y + u * w * Math.sin(a) + v * d * Math.cos(a);
-        if (near.some((p) => Math.hypot(p.x - x, p.y - y) < hw - 1e-6)) {
+        if (near.some((p) => Math.hypot(p.x - x, p.y - y) < p.hw - 1e-6)) {
           out.push(i);
           return;
         }
@@ -916,7 +1109,27 @@ function draw() {
     g.pts.forEach((p, i) => { const s = toScreen(p.x, p.y); if (i) ctx.lineTo(s.x, s.y); else ctx.moveTo(s.x, s.y); });
     ctx.stroke();
   };
+  const st = startGeom(t, g);
+  // The start straight, wider at the gate, with the concrete pad behind the gate.
+  const startStrip = (from, to, color, extra) => {
+    if (!st) return;
+    for (let u = from; u < to - 1e-6; u += 0.25) {
+      const a = startPointAt(st, u);
+      const b = startPointAt(st, Math.min(to, u + 0.25));
+      const sa = toScreen(a.x, a.y);
+      const sb = toScreen(b.x, b.y);
+      ctx.strokeStyle = color;
+      ctx.lineCap = 'round';
+      ctx.lineWidth = (2 * startHalfWidth(st, u, (t.width ?? DEFAULT_WIDTH) / 2) * k) + extra;
+      ctx.beginPath(); ctx.moveTo(sa.x, sa.y); ctx.lineTo(sb.x, sb.y); ctx.stroke();
+    }
+  };
+  if (st) startStrip(-START_PAD, st.total, DIRT_EDGE, 6);
   pathLine(DIRT_EDGE, width + 6);
+  if (st) {
+    startStrip(-START_PAD, st.total, DIRT, 0);
+    startStrip(-START_PAD, GATE_AT + 0.15, '#a8a49a', 0);
+  }
   pathLine(DIRT, width);
 
   // Surface patches on the track.
@@ -932,10 +1145,13 @@ function draw() {
   });
 
   // Sections as a coloured stripe down the middle, the selected one wider (development only).
+  // A section whose type doesn't suit the shape it's drawn on is edged in red.
   const bounds = sectionBounds(t);
   if (!app.final && app.mode === 'layout') {
+    const shapes = sectionShapes(t);
     t.sections.forEach((s, i) => {
       const sel = i === app.selSec;
+      if (shapeMismatch(t, i, shapes[i])) strokeLap(g, bounds[i], bounds[i + 1], '#ff3030', width * 0.95, 'butt');
       strokeLap(g, bounds[i], bounds[i + 1], colorOf(s.type) + (sel ? 'ff' : 'b0'), sel ? width * 0.6 : Math.max(3, width * 0.22));
     });
   }
@@ -990,6 +1206,35 @@ function draw() {
     }
   }
 
+  // The start gate across the start straight, and the riders' line-up behind it.
+  if (st) {
+    const hw = (t.width ?? DEFAULT_WIDTH) / 2;
+    const p = startPointAt(st, GATE_AT);
+    const a = startHeadingAt(st, GATE_AT) + Math.PI / 2;
+    const half = startHalfWidth(st, GATE_AT, hw) * 1.1;
+    const s1 = toScreen(p.x + Math.cos(a) * half, p.y + Math.sin(a) * half);
+    const s2 = toScreen(p.x - Math.cos(a) * half, p.y - Math.sin(a) * half);
+    ctx.strokeStyle = '#14141e';
+    ctx.lineCap = 'butt';
+    ctx.lineWidth = Math.max(3, k * 0.45);
+    ctx.beginPath(); ctx.moveTo(s1.x, s1.y); ctx.lineTo(s2.x, s2.y); ctx.stroke();
+    const gates = Math.max(1, t.gates?.length || 16);
+    const perRow = Math.ceil(gates / 2);
+    for (let i = 0; i < gates; i++) {
+      const row = Math.floor(i / perRow);
+      const u = GATE_AT - 0.6 - row * 1.4;
+      const q = startPointAt(st, u);
+      const qa = startHeadingAt(st, u) + Math.PI / 2;
+      const w = startHalfWidth(st, u, hw) * 0.9;
+      const o = perRow > 1 ? -w + (2 * w * (i % perRow)) / (perRow - 1) : 0;
+      const sq = toScreen(q.x + Math.cos(qa) * o, q.y + Math.sin(qa) * o);
+      ctx.fillStyle = '#ffd400';
+      ctx.strokeStyle = '#14141e';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(sq.x, sq.y, Math.max(2, k * 0.28), 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
+  }
+
   // Scenery.
   ctx.globalAlpha = scene || app.mode === 'scenery' ? 1 : 0.25;
   const blocked = new Set(sceneryOnTrack(t));
@@ -1016,7 +1261,19 @@ function draw() {
         ctx.fillText(String(i), s.x + 8, s.y - 8);
       }
     });
-    // Section boundary handles (the start line is fixed at point 0).
+    // Start straight points: blue squares, the gate end labelled, the last one on the lap.
+    (t.start?.path ?? []).forEach(([x, y], i, all) => {
+      const s = toScreen(x, y);
+      const sel = i === app.selStart;
+      const r = sel ? 7 : 5;
+      ctx.fillStyle = sel ? '#f0a020' : i === all.length - 1 ? '#ffffff' : '#2f7fe0';
+      ctx.strokeStyle = sel ? '#ffffff' : '#14141e';
+      ctx.lineWidth = 2;
+      ctx.fillRect(s.x - r, s.y - r, r * 2, r * 2);
+      ctx.strokeRect(s.x - r, s.y - r, r * 2, r * 2);
+      if (i === 0) label('Start gate', s.x, s.y - 14);
+    });
+    // Section boundary handles (the finish line is fixed at point 0).
     if (!app.final) {
       for (let i = 1; i < t.sections.length; i++) {
         const p = pointAt(g, bounds[i]);
@@ -1095,6 +1352,9 @@ function refresh() {
     $('#btnSplitSec').disabled = app.selSec < 0;
     for (const id of ['#btnDelPt', '#btnRound', '#btnStart', '#btnInsert']) $(id).disabled = app.selPt < 0;
     if (t.path.length <= 3) $('#btnDelPt').disabled = true;
+    if (app.selStart >= 0) { $('#btnInsert').disabled = false; $('#btnDelPt').disabled = t.start.path.length <= 2 || app.selStart === t.start.path.length - 1; }
+    $('#btnAddStart').disabled = !!t.start;
+    $('#btnFitSecs').disabled = false;
     if (app.selPt === 0) $('#btnStart').disabled = true;
   }
   $('#btnPlay').textContent = app.play ? '■ Stop' : '▶ Preview';
@@ -1211,9 +1471,12 @@ function renderSections() {
   if (!t || app.final) return;
   $('#secCount').textContent = `(${t.sections.length})`;
   const types = sectionTypes();
+  const shapes = sectionShapes(t);
   t.sections.forEach((s, i) => {
     const row = document.createElement('div');
-    row.className = `sec${i === app.selSec ? ' active' : ''}`;
+    const off = shapeMismatch(t, i, shapes[i]);
+    row.className = `sec${i === app.selSec ? ' active' : ''}${off ? ' off' : ''}`;
+    row.title = `Drawn as ${an(shapes[i].shape)} ${shapes[i].shape} (turns ${Math.round(shapes[i].swept)}°)${off ? `: ${app.sectionDefs[s.type].name.toLowerCase()} needs ${shapesFor(s.type).join(' or ')}` : ''}`;
     const sw = document.createElement('div');
     sw.className = 'sw';
     sw.style.background = colorOf(s.type);
@@ -1272,6 +1535,13 @@ function renderSectionDetail() {
   head.querySelector('b').textContent = `Section ${app.selSec + 1}: ${def?.name ?? s.type}`;
   head.querySelector('.hint').textContent = def ? `difficulty ${def.diff}, damages ${def.damage}` : '';
   box.appendChild(head);
+  const d = sectionShapes(t)[app.selSec];
+  const shape = document.createElement('div');
+  const off = shapeMismatch(t, app.selSec, d);
+  shape.className = off ? 'bad' : 'hint';
+  if (off) shape.style.color = '#f0a0a0';
+  shape.textContent = `Drawn as ${an(d.shape)} ${d.shape}: turns ${Math.round(d.swept)}°${Number.isFinite(d.radius) ? `, tightest radius ${d.radius.toFixed(1)}` : ''}. ${def ? `${def.name} suits ${shapesFor(s.type).join(', ')}.` : ''}`;
+  box.appendChild(shape);
   const field = (labelText, el) => { const f = document.createElement('div'); f.className = 'field'; const l = document.createElement('label'); l.textContent = labelText; f.append(l, el); box.appendChild(f); return el; };
   const sel = document.createElement('select');
   fillSelect(sel, [{ id: '', name: 'Any (riders choose)' }, ...app.parts.lines.map((l) => ({ id: l, name: l[0].toUpperCase() + l.slice(1) }))], s.line ?? '');
@@ -1643,10 +1913,19 @@ function checkTrack(t, all) {
   }
   (t.scenery ?? []).forEach((s, i) => { if (!sceneryDef(s.type)) bad.push(`Scenery item ${i + 1}: no scenery "${s.type}" in trackParts.json.`); });
   for (const i of sceneryOnTrack(t)) bad.push(`Scenery item ${i + 1} (${sceneryDef(t.scenery[i].type)?.name.toLowerCase() ?? t.scenery[i].type}) is on the racing surface, where riders would ride through it. Move it off the track (it is outlined in red).`);
-  if (!t.practiceOnly) {
-    if (t.sections[0] && t.sections[0].type !== 'start_gate') warn.push('A race track normally starts with a Start section.');
-    if (!t.gates?.length) warn.push('No gate curve: every gate starts the same.');
+  // Section types against the drawing, and the start straight (as src/core/trackCheck.ts).
+  if (Object.keys(app.sectionDefs).length) {
+    const shapes = sectionShapes(t);
+    t.sections.forEach((s, i) => {
+      const def = app.sectionDefs[s.type];
+      if (!def) return;
+      if (s.type === 'start_gate') { bad.push(`Section ${i + 1} is a start gate on the lap. The start is its own start straight now, so make this a straight.`); return; }
+      const d = shapes[i];
+      if (shapeMismatch(t, i, d)) bad.push(`Section ${i + 1} (${def.name.toLowerCase()}) is drawn as ${an(d.shape)} ${d.shape} (it turns ${Math.round(d.swept)}°); it needs to be drawn as ${shapesFor(s.type).map((x) => `${an(x)} ${x}`).join(' or ')}.${app.final ? ' Reshape the drawing there.' : ' It is edged in red.'}`);
+    });
   }
+  bad.push(...startProblems(t));
+  if (!t.practiceOnly && !t.gates?.length) warn.push('No gate curve: every gate starts the same.');
   // Two segments that cross make a figure of eight on screen, which the race screen can't show as a bridge.
   const g = lapGeom(t);
   const n = g.pts.length - 1;
@@ -1681,8 +1960,36 @@ function hasErrors() {
 // ---------------------------------------------------------------------------------------------
 // Point tools
 
+/** Keeps the start straight's last point on the lap when the drawing moves under it. */
+function keepJoined(t) {
+  const sp = t.start?.path;
+  if (!sp || sp.length < 2) return;
+  const g = lapGeom(t);
+  const [x, y] = sp.at(-1);
+  const p = pointAt(g, project(g, x, y).f);
+  sp[sp.length - 1] = [round1(p.x), round1(p.y)];
+}
+function addStart() {
+  const t = track();
+  if (!t || t.start) return;
+  const st = autoStart(t);
+  if (!st) { status('No clear spot for a start straight next to the lap; make room beside the first part of the lap.', 'err'); return; }
+  commit((t) => { setKeyNear(t, 'start', st, 'sections'); app.selPt = -1; app.selStart = 0; });
+  status('Added a start straight. Drag its blue points to shape it; the white one joins the lap.', 'ok');
+}
 function insertPoint() {
   const t = track();
+  if (t && app.selStart >= 0) {
+    // A start point is added before the joining point, or after the selected one.
+    const i = Math.min(app.selStart, t.start.path.length - 2);
+    commit((t) => {
+      const a = t.start.path[i];
+      const b = t.start.path[i + 1];
+      t.start.path.splice(i + 1, 0, [round1((a[0] + b[0]) / 2), round1((a[1] + b[1]) / 2)]);
+      app.selStart = i + 1;
+    });
+    return;
+  }
   if (!t || app.selPt < 0) return;
   commit(() => {
     const a = t.path[app.selPt];
@@ -1693,11 +2000,18 @@ function insertPoint() {
 }
 function deletePoint(i = app.selPt) {
   const t = track();
+  if (t && app.selStart >= 0 && i === app.selPt) {
+    const j = app.selStart;
+    if (t.start.path.length <= 2) { status('The start straight needs a gate point and a joining point.', 'err'); return; }
+    if (j === t.start.path.length - 1) { status('That point joins the lap. Drag it along the lap to move the join.', 'err'); return; }
+    commit((t) => { t.start.path.splice(j, 1); app.selStart = Math.min(j, t.start.path.length - 1); });
+    return;
+  }
   if (!t || i < 0) return;
   if (t.path.length <= 3) { status('The drawing needs at least 3 points.', 'err'); return; }
   commit((t) => {
     t.path.splice(i, 1);
-    if (i === 0) status('Point 0 was the start line; the next point is now the start.', 'ok');
+    if (i === 0) status('Point 0 was the finish line; the next point is now the finish line.', 'ok');
     app.selPt = Math.min(i, t.path.length - 1);
   });
 }
@@ -1725,7 +2039,7 @@ function roundCorner() {
   }
   commit((t) => {
     t.path.splice(i, 1, ...pts);
-    // Keep the start line where it was if the corner was the start.
+    // Keep the finish line where it was if the corner was the finish.
     if (i === 0) t.path.push(...t.path.splice(0, 2));
     app.selPt = i === 0 ? 0 : i + 2;
   });
@@ -1734,7 +2048,7 @@ function startHere() {
   const i = app.selPt;
   if (i <= 0) return;
   commit((t) => { t.path = [...t.path.slice(i), ...t.path.slice(0, i)]; app.selPt = 0; });
-  status('The start line moved. The sections still start at the start line, so check they line up.', 'ok');
+  status('The finish line moved. The sections still start at the finish line, so check they line up with the drawing.', 'ok');
 }
 function reverse() {
   commit((t) => {
@@ -1747,7 +2061,7 @@ function reverse() {
     for (const p of t.patches ?? []) p.at = (((lap - p.at - p.length) % lap) + lap) % lap;
     deselect();
   });
-  status('Reversed the drawing and the order of the sections.', 'ok');
+  status(track()?.start ? 'Reversed the drawing and the order of the sections. The start straight now joins against the riding direction: redraw it.' : 'Reversed the drawing and the order of the sections.', 'ok');
 }
 function fitToGrid() {
   commit((t) => {
@@ -1760,6 +2074,8 @@ function fitToGrid() {
     const cy = (GRID_H - (y1 - y0) * k) / 2;
     const map = ([x, y]) => [round1(cx + (x - x0) * k), round1(cy + (y - y0) * k)];
     t.path = t.path.map(map);
+    if (t.start) t.start.path = t.start.path.map(map);
+    keepJoined(t);
     // Scenery moves with the track.
     for (const it of t.scenery ?? []) [it.x, it.y] = map([it.x, it.y]);
   });
@@ -1779,17 +2095,13 @@ function newTrack() {
     id: uniqueId('new-track'), name: 'New track', size: 'small', surface: 'hard_pack', kind: 'outdoor',
     gates: [2, 2, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, -1, -1, -1, -2],
     path: [[30, 52], [80, 52], [90, 46], [92, 30], [86, 12], [70, 8], [30, 8], [12, 14], [8, 30], [12, 46]],
-    sections: [
-      { type: 'start_gate', length: 100, passing: 0.7 },
-      { type: 'first_corner', length: 45, passing: 0.8 },
-      { type: 'straight', length: 70, passing: 0.6 },
-      { type: 'tabletop', length: 40, passing: 0.2 },
-      { type: 'berm', length: 45, passing: 0.4 },
-      { type: 'straight', length: 80, passing: 0.6 },
-      { type: 'hairpin', length: 40, passing: 0.7 },
-    ],
+    sections: [],
   });
   app.cur = app.data.tracks.length - 1;
+  const t = track();
+  t.sections = sectionsFromDrawing(t);
+  const st = autoStart(t);
+  if (st) t.start = st;
   deselect();
   changed();
   $('#fName').focus();
@@ -1818,7 +2130,7 @@ function deleteTrack() {
 }
 
 const TRACK_FILE = 'mxrpg-track';
-const TRACK_KEYS = ['id', 'name', 'size', 'surface', 'kind', 'width', 'practiceOnly', 'gates', 'path', 'sections', 'patches', 'ground', 'scenery'];
+const TRACK_KEYS = ['id', 'name', 'size', 'surface', 'kind', 'width', 'practiceOnly', 'gates', 'path', 'sections', 'start', 'patches', 'ground', 'scenery'];
 function exportTrack() {
   const t = track();
   download(`${t.id}.track.json`, `${JSON.stringify({ format: TRACK_FILE, version: 1, track: t }, null, 2)}\n`);
@@ -1925,6 +2237,11 @@ function hit(sx, sy) {
   if (!t) return null;
   const gp = toGrid(sx, sy);
   if (app.mode === 'layout') {
+    const sp = t.start?.path ?? [];
+    for (let i = sp.length - 1; i >= 0; i--) {
+      const s = toScreen(sp[i][0], sp[i][1]);
+      if (Math.abs(sx - s.x) <= 8 && Math.abs(sy - s.y) <= 8) return { kind: 'spt', i };
+    }
     for (let i = t.path.length - 1; i >= 0; i--) {
       const s = toScreen(t.path[i][0], t.path[i][1]);
       if (Math.hypot(sx - s.x, sy - s.y) <= 9) return { kind: 'point', i };
@@ -1973,6 +2290,7 @@ canvas.addEventListener('pointerdown', (e) => {
   const h = hit(p.x, p.y);
   if (e.button === 2) {
     if (h?.kind === 'point') deletePoint(h.i);
+    else if (h?.kind === 'spt') { app.selStart = h.i; app.selPt = -1; deletePoint(); }
     else if (h?.kind === 'item') { app.selItem = h.i; deleteItem(); }
     return;
   }
@@ -2000,7 +2318,12 @@ canvas.addEventListener('pointerdown', (e) => {
   if (!h) { deselect(); refresh(); return; }
   if (h.kind === 'point') {
     app.selPt = h.i;
+    app.selStart = -1;
     drag = { kind: 'point', i: h.i, started: false };
+  } else if (h.kind === 'spt') {
+    app.selStart = h.i;
+    app.selPt = -1;
+    drag = { kind: 'spt', i: h.i, started: false };
   } else if (h.kind === 'bound') {
     app.selSec = h.i;
     drag = { kind: 'bound', i: h.i, started: false };
@@ -2031,7 +2354,7 @@ canvas.addEventListener('pointermove', (e) => {
   if (app.rect) { const c = cellAt(t, gp); app.rect.x1 = c.x; app.rect.y1 = c.y; requestDraw(); return; }
   if (!drag) {
     const h = t && hit(p.x, p.y);
-    canvas.style.cursor = app.mode === 'ground' ? 'crosshair' : ['point', 'bound', 'item'].includes(h?.kind) ? 'grab' : h?.kind === 'track' ? 'pointer' : 'default';
+    canvas.style.cursor = app.mode === 'ground' ? 'crosshair' : ['point', 'spt', 'bound', 'item'].includes(h?.kind) ? 'grab' : h?.kind === 'track' ? 'pointer' : 'default';
     const hb = h?.kind === 'bound' ? h.i : -1;
     if (hb !== app.hoverBound) { app.hoverBound = hb; requestDraw(); }
     return;
@@ -2042,6 +2365,15 @@ canvas.addEventListener('pointermove', (e) => {
     paintCells(t, brushCells(c.x, c.y), drag.id);
   } else if (drag.kind === 'point') {
     t.path[drag.i] = [clamp(snapGrid(gp.x, e), 0, GRID_W), clamp(snapGrid(gp.y, e), 0, GRID_H)];
+    keepJoined(t);
+  } else if (drag.kind === 'spt') {
+    const sp = t.start.path;
+    if (drag.i === sp.length - 1) {
+      // The last point is where the start straight joins the lap, so it stays on the lap.
+      const g = lapGeom(t);
+      const p = pointAt(g, project(g, gp.x, gp.y).f);
+      sp[drag.i] = [round1(p.x), round1(p.y)];
+    } else sp[drag.i] = [clamp(snapGrid(gp.x, e), 0, GRID_W), clamp(snapGrid(gp.y, e), 0, GRID_H)];
   } else if (drag.kind === 'item') {
     const it = t.scenery[drag.i];
     it.x = clamp(snapHalf(gp.x - drag.dx, e), 0, GRID_W);
@@ -2089,7 +2421,9 @@ canvas.addEventListener('dblclick', (e) => {
   const gp = toGrid(p.x, p.y);
   commit((t) => {
     t.path.splice(h.seg + 1, 0, [clamp(snapGrid(gp.x, e), 0, GRID_W), clamp(snapGrid(gp.y, e), 0, GRID_H)]);
+    keepJoined(t);
     app.selPt = h.seg + 1;
+    app.selStart = -1;
   });
 });
 window.addEventListener('resize', requestDraw);
@@ -2115,6 +2449,13 @@ $('#btnDelPt').addEventListener('click', () => deletePoint());
 $('#btnRound').addEventListener('click', roundCorner);
 $('#btnStart').addEventListener('click', startHere);
 $('#btnReverse').addEventListener('click', reverse);
+$('#btnAddStart').addEventListener('click', addStart);
+$('#btnFitSecs').addEventListener('click', () => {
+  const t = track();
+  if (!t || !confirm('Replace all the sections with straights and corners that suit the drawing?')) return;
+  commit((t) => { t.sections = sectionsFromDrawing(t); app.selSec = -1; });
+  status('Sections now follow the drawing. Change straights to jumps, and corners to berms or ruts, as you like.', 'ok');
+});
 $('#btnFit').addEventListener('click', fitToGrid);
 $('#showScene').addEventListener('change', requestDraw);
 $('#btnPlay').addEventListener('click', () => { if (app.play) { stopPlay(); refresh(); } else startPlay(); });
@@ -2161,7 +2502,12 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     const d = e.shiftKey ? 5 : $('#snap').checked ? 1 : 0.1;
     const [dx, dy] = { ArrowLeft: [-d, 0], ArrowRight: [d, 0], ArrowUp: [0, -d], ArrowDown: [0, d] }[e.key];
-    commit((t) => { const p = t.path[app.selPt]; t.path[app.selPt] = [clamp(round1(p[0] + dx), 0, GRID_W), clamp(round1(p[1] + dy), 0, GRID_H)]; });
+    commit((t) => { const p = t.path[app.selPt]; t.path[app.selPt] = [clamp(round1(p[0] + dx), 0, GRID_W), clamp(round1(p[1] + dy), 0, GRID_H)]; keepJoined(t); });
+  } else if (e.key.startsWith('Arrow') && app.selStart >= 0 && app.selStart < (track().start?.path.length ?? 0) - 1) {
+    e.preventDefault();
+    const d = e.shiftKey ? 5 : $('#snap').checked ? 1 : 0.1;
+    const [dx, dy] = { ArrowLeft: [-d, 0], ArrowRight: [d, 0], ArrowUp: [0, -d], ArrowDown: [0, d] }[e.key];
+    commit((t) => { const p = t.start.path[app.selStart]; t.start.path[app.selStart] = [clamp(round1(p[0] + dx), 0, GRID_W), clamp(round1(p[1] + dy), 0, GRID_H)]; });
   }
 });
 window.addEventListener('beforeunload', (e) => { if (app.dirty) { e.preventDefault(); e.returnValue = ''; } });
@@ -2201,7 +2547,7 @@ async function tryServer() {
 
 setMode('layout');
 tryServer();
-window.trackEditor = { app, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack }; // for tests
+window.trackEditor = { app, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart }; // for tests
 </script>
 </body>
 </html>
