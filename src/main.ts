@@ -5,6 +5,7 @@ import { MenuScene } from './scenes/MenuScene';
 import { NewCareerScene } from './scenes/NewCareerScene';
 import { RaceScene } from './scenes/RaceScene';
 import { SettingsScene } from './scenes/SettingsScene';
+import { TrackEditScene } from './scenes/TrackEditScene';
 import { WorldScene } from './scenes/WorldScene';
 
 const game = new Phaser.Game({
@@ -15,7 +16,7 @@ const game = new Phaser.Game({
   roundPixels: true,
   scale: { mode: Phaser.Scale.RESIZE, width: window.innerWidth, height: window.innerHeight },
   input: { activePointers: 2 },
-  scene: [BootScene, MenuScene, NewCareerScene, SettingsScene, WorldScene, HudScene, RaceScene],
+  scene: [BootScene, MenuScene, NewCareerScene, SettingsScene, WorldScene, HudScene, RaceScene, TrackEditScene],
 });
 
 // Exposed for automated playtests and debugging in the browser console.

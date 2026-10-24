@@ -52,6 +52,8 @@ main { grid-area: main; position: relative; overflow: hidden; background: #0d0e1
 canvas#view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 #toolbar { position: absolute; left: 8px; top: 8px; right: 8px; display: flex; flex-wrap: wrap; gap: 4px; pointer-events: none; }
 #toolbar > * { pointer-events: auto; }
+#view3d { position: absolute; left: 0; top: 46px; width: 100%; height: calc(100% - 46px); border: 0; visibility: hidden; pointer-events: none; background: #0d0e11; }
+#view3d.on { visibility: visible; pointer-events: auto; }
 footer { grid-area: foot; display: flex; gap: 14px; padding: 4px 10px; background: var(--panel); border-top: 1px solid var(--line); color: var(--dim); white-space: nowrap; overflow: hidden; }
 footer #msg { color: var(--text); overflow: hidden; text-overflow: ellipsis; }
 footer #msg.err { color: var(--danger); }
@@ -191,6 +193,7 @@ body.final .final-hide { display: none !important; }
 
 <main>
   <canvas id="view"></canvas>
+  <iframe id="view3d" title="Race view"></iframe>
   <div id="toolbar">
     <button id="btnInsert" title="Add a point halfway to the next one (or double-click the track)">+ Point</button>
     <button id="btnDelPt" title="Delete the selected point (Del, or right-click it)">− Point</button>
@@ -203,6 +206,7 @@ body.final .final-hide { display: none !important; }
     <label class="chk" style="background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:3px 8px"><input type="checkbox" id="snap" checked> Snap</label>
     <label class="chk" style="background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:3px 8px" title="Fade the ground and scenery to see the track"><input type="checkbox" id="showScene" checked> Scenery</label>
     <button id="btnPlay" title="Ride a dot round the lap (P). It slows down in the harder sections.">▶ Preview</button>
+    <button id="btnView3d" title="Edit in the race view (V): the game's own race camera and 3D scene, with the same tools, undo, checks and save. Needs npm run dev.">Race view</button>
     <button id="btnRide" title="Open a race day on this track in the game, with npm run dev running. Save first: the game reads the saved tracks.json.">Race it in the game</button>
   </div>
   <div id="welcome">
@@ -300,6 +304,7 @@ body.final .final-hide { display: none !important; }
     <li><b>Ground:</b> paint the ground round the track with the game's ground tiles.</li>
     <li><b>Scenery:</b> banners (with your own words and colour), sponsor boards, start gates, tuff blocks, hay bales, tyre walls, stands, crowds, pits, trees and more. <kbd>Q</kbd> and <kbd>E</kbd> turn the selected item, <kbd>Ctrl+D</kbd> duplicates it.</li>
     <li><b>Height:</b> raise and lower the ground with a soft round brush (radius and strength in metres per dab), smooth it, or flatten it to one height. The track follows the ground under its middle and stays level across its width; riders slow up climbs and run quicker down drops. Ground steeper than 45° is refused as a wall, and a track climbing or dropping more than 35% along its length is a warning. Old tracks without heights stay flat.</li>
+    <li><b>Race view</b> <kbd>V</kbd> shows the track in the game's own race camera and 3D scene (with <code>npm run dev</code> running), with hills, jumps, scenery and ground as a race draws them. Every tool works there as on the map: click, drag and right-click on the 3D ground, and the keys are the same. Mouse wheel or <kbd>+</kbd> <kbd>−</kbd> zoom, <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or a middle-button (or <kbd>Space</kbd>+drag) pan, <kbd>[</kbd> <kbd>]</kbd> turn the view, <kbd>0</kbd> resets it. The selection is orange, problems red or dashed yellow. It edits the same track as the map, so undo, the unsaved marker and Save are the same; no race runs while you edit. <b>Map view</b> or <kbd>V</kbd> goes back.</li>
     <li><b>Modes:</b> <kbd>1</kbd> Layout, <kbd>2</kbd> Surfaces, <kbd>3</kbd> Ground, <kbd>4</kbd> Scenery, <kbd>5</kbd> Height.</li>
     <li><b>Export / Import</b> save one track as a <code>.track.json</code> file and add one back.</li>
     <li><b>Preview</b> <kbd>P</kbd> rides a dot round the lap, slower through the harder sections.</li>
@@ -494,6 +499,7 @@ const app = {
   dirty: false,
   savedText: '',
   play: null,
+  view3d: false,
   images: new Map(), // art path -> HTMLImageElement, or missing while loading
   artBase: null,
 };
@@ -1457,6 +1463,7 @@ function refresh() {
   renderStats();
   renderChecks();
   requestDraw();
+  sendView();
 }
 
 function venuesUsing(id) { return (app.data.venues ?? []).filter((v) => v.track === id); }
@@ -2602,14 +2609,14 @@ function snapHalf(v, e) { return $('#snap').checked && !e.altKey ? Math.round(v 
 function cellAt(t, gp) { const cell = t.ground?.cell ?? 2; return { x: Math.floor(gp.x / cell), y: Math.floor(gp.y / cell) }; }
 
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-canvas.addEventListener('pointerdown', (e) => {
+function onPointerDown(e) {
   const t = track();
   if (!t) return;
   const p = evPos(e);
   const gp = toGrid(p.x, p.y);
   if (app.mode === 'height') {
     if (e.button !== 0 && e.button !== 2) return;
-    canvas.setPointerCapture(e.pointerId);
+    if (!e.synthetic) canvas.setPointerCapture(e.pointerId);
     begin();
     drag = { kind: 'height', back: e.button === 2, level: elevAt(t, gp.x, gp.y), last: gp, started: true };
     heightDab(t, gp.x, gp.y, drag.back, drag.level);
@@ -2618,7 +2625,7 @@ canvas.addEventListener('pointerdown', (e) => {
   }
   if (app.mode === 'ground') {
     if (e.button !== 0 && e.button !== 2) return;
-    canvas.setPointerCapture(e.pointerId);
+    if (!e.synthetic) canvas.setPointerCapture(e.pointerId);
     const c = cellAt(t, gp);
     const id = e.button === 2 ? null : app.groundBrush;
     if (e.shiftKey) { app.rect = { x0: c.x, y0: c.y, x1: c.x, y1: c.y, id }; requestDraw(); return; }
@@ -2636,7 +2643,7 @@ canvas.addEventListener('pointerdown', (e) => {
     return;
   }
   if (e.button !== 0) return;
-  canvas.setPointerCapture(e.pointerId);
+  if (!e.synthetic) canvas.setPointerCapture(e.pointerId);
   if (app.mode === 'surface') {
     const pr = onTrack(t, gp.x, gp.y);
     if (!pr) { app.selPatch = -1; refresh(); return; }
@@ -2673,8 +2680,9 @@ canvas.addEventListener('pointerdown', (e) => {
     app.selPt = -1;
   }
   refresh();
-});
-canvas.addEventListener('pointermove', (e) => {
+}
+canvas.addEventListener('pointerdown', onPointerDown);
+function onPointerMove(e) {
   const t = track();
   const p = evPos(e);
   const gp = toGrid(p.x, p.y);
@@ -2747,8 +2755,9 @@ canvas.addEventListener('pointermove', (e) => {
     b.length = pair - a.length;
   }
   changed();
-});
-canvas.addEventListener('pointerup', () => {
+}
+canvas.addEventListener('pointermove', onPointerMove);
+function onPointerUp() {
   if (app.rect) {
     const t = track();
     const [x0, y0, x1, y1] = rectCells(app.rect);
@@ -2762,9 +2771,10 @@ canvas.addEventListener('pointerup', () => {
   if (drag?.started && exportTracks(app.data) === exportTracks(app.undo.at(-1).data)) app.undo.pop();
   drag = null;
   refresh();
-});
+}
+canvas.addEventListener('pointerup', onPointerUp);
 canvas.addEventListener('pointerleave', () => { if (app.hoverCell || app.hoverPt) { app.hoverCell = null; app.hoverPt = null; requestDraw(); } });
-canvas.addEventListener('dblclick', (e) => {
+function onDblClick(e) {
   const t = track();
   if (!t || app.mode !== 'layout') return;
   const p = evPos(e);
@@ -2777,7 +2787,8 @@ canvas.addEventListener('dblclick', (e) => {
     app.selPt = h.seg + 1;
     app.selStart = -1;
   });
-});
+}
+canvas.addEventListener('dblclick', onDblClick);
 window.addEventListener('resize', requestDraw);
 
 // ---------------------------------------------------------------------------------------------
@@ -2812,7 +2823,66 @@ $('#btnFitSecs').addEventListener('click', () => {
 $('#btnFit').addEventListener('click', fitToGrid);
 $('#showScene').addEventListener('change', requestDraw);
 $('#btnPlay').addEventListener('click', () => { if (app.play) { stopPlay(); refresh(); } else startPlay(); });
-$('#btnRide').addEventListener('click', () => { const t = track(); if (t) window.open(`/?testtrack=${encodeURIComponent(t.id)}`, '_blank'); });
+$('#btnRide').addEventListener('click', () => {
+  const t = track();
+  if (!t) return;
+  if (app.dirty && !confirm('You have unsaved changes. The game races the saved tracks.json, so it won\'t have them. Open the race anyway?')) return;
+  window.open(`/?testtrack=${encodeURIComponent(t.id)}`, '_blank');
+});
+
+// ---------------------------------------------------------------------------------------------
+// Race view: the game's race screen 3D scene and camera (src/scenes/TrackEditScene.ts), in a frame
+// over the map. It shows the track open here, rebuilt after every change, and sends back where
+// you click on it as a grid point; the same tool code as the map then acts on it, so undo, the
+// checks, the unsaved marker and Save all work as before. No race runs in it.
+
+function toggleRaceView(on = !app.view3d) {
+  if (on && !/^https?:$/.test(location.protocol)) {
+    status('The race view runs the game, so it needs npm run dev: open the editor from http://localhost:5173/tools/track-editor.html.', 'err');
+    return;
+  }
+  app.view3d = on;
+  const f = $('#view3d');
+  if (on && !f.getAttribute('src')) f.src = '/?editview=1';
+  // Hidden, not removed: the frame keeps its size, so the game in it never sees a zero-size window.
+  f.classList.toggle('on', on);
+  f.contentWindow?.postMessage({ type: 'visible', on }, '*');
+  $('#btnView3d').classList.toggle('on', on);
+  $('#btnView3d').textContent = on ? 'Map view' : 'Race view';
+  if (on) { sendView(); f.focus(); } else canvas.focus?.();
+  requestDraw();
+}
+/** Sends the open track and what to mark on it to the race view. */
+function sendView() {
+  const f = $('#view3d');
+  const t = track();
+  if (!app.view3d || !t || !f.contentWindow) return;
+  const issues = [...sceneryIssues(t).map((p) => ({ item: p.i, level: p.level })), ...elevationIssues(t).map((p) => ({ x: p.x, y: p.y, level: p.level }))];
+  let brush = null;
+  if (app.mode === 'height') brush = { shape: 'circle', r: Number($('#hRadius').value) };
+  else if (app.mode === 'ground') brush = { shape: 'cells', cell: t.ground?.cell ?? 2, n: Number($('#gBrush').value) };
+  const sel = { item: app.mode === 'scenery' ? app.selItem : -1, sec: app.selSec, pt: app.selPt, start: app.selStart };
+  f.contentWindow.postMessage({ type: 'track', state: { track: t, parts: app.parts === FALLBACK_PARTS ? undefined : app.parts, mode: app.mode, sel, issues, brush } }, '*');
+}
+window.addEventListener('message', (e) => {
+  const f = $('#view3d');
+  const m = e.data;
+  if (!f || e.source !== f.contentWindow || !m) return;
+  if (m.type === 'ready') { sendView(); return; }
+  if (m.type === 'key') {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: m.key, code: m.code, ctrlKey: m.ctrl, metaKey: m.meta, shiftKey: m.shift, altKey: m.alt, cancelable: true }));
+    return;
+  }
+  if (m.type !== 'pointer') return;
+  if (m.phase === 'leave') { canvas.dispatchEvent(new PointerEvent('pointerleave')); return; }
+  // The grid point, as where it is on the map, so the map's own hit tests and tools take it.
+  const r = canvas.getBoundingClientRect();
+  const s = m.x === null ? { x: -1e5, y: -1e5 } : toScreen(m.x, m.y);
+  const ev = { clientX: r.left + s.x, clientY: r.top + s.y, button: m.button ?? 0, shiftKey: !!m.shift, altKey: !!m.alt, ctrlKey: !!m.ctrl, metaKey: false, pointerId: -1, synthetic: true, preventDefault() {} };
+  ({ down: onPointerDown, move: onPointerMove, up: onPointerUp, dblclick: onDblClick })[m.phase]?.(ev);
+});
+$('#btnView3d').addEventListener('click', () => toggleRaceView());
+for (const id of ['#hRadius', '#gBrush']) $(id).addEventListener('change', sendView);
 for (const b of document.querySelectorAll('#modes button')) b.addEventListener('click', () => setMode(b.dataset.mode));
 for (const id of ['#btnHelp', '#btnHelp2']) $(id).addEventListener('click', () => $('#help').showModal());
 $('#btnHelpClose').addEventListener('click', () => $('#help').close());
@@ -2827,6 +2897,7 @@ window.addEventListener('keydown', (e) => {
   if (!track()) return;
   if (mod && e.key.toLowerCase() === 'd' && app.mode === 'scenery') { e.preventDefault(); duplicateItem(); return; }
   if (mod) return;
+  if (e.key.toLowerCase() === 'v') { toggleRaceView(); return; }
   const modes = { 1: 'layout', 2: 'surface', 3: 'ground', 4: 'scenery', 5: 'height' };
   if (modes[e.key]) { setMode(modes[e.key]); return; }
   if (e.key.toLowerCase() === 'p') { $('#btnPlay').click(); return; }
@@ -2900,7 +2971,7 @@ async function tryServer() {
 
 setMode('layout');
 tryServer();
-window.trackEditor = { app, heightDab, elevAt, elevationIssues, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart }; // for tests
+window.trackEditor = { app, toggleRaceView, sendView, heightDab, elevAt, elevationIssues, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart }; // for tests
 </script>
 </body>
 </html>

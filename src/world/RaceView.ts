@@ -90,11 +90,22 @@ export class RaceView {
   private readonly groundCanvas: HTMLCanvasElement;
   private readonly groundTex: THREE.CanvasTexture;
   private readonly mapDots: Phaser.GameObjects.Graphics;
+  private mapFrame: Phaser.GameObjects.Graphics | null = null;
   private readonly mapBox: { x: number; y: number; k: number };
   private readonly viewUnits: number;
   private readonly dir: THREE.Vector3;
   private readonly bg: number;
   private cam: THREE.Vector3 | null = null;
+  /** The ground, the track and the start straight: what a click in the track editor's race view lands on. */
+  private readonly ground: THREE.Mesh[] = [];
+  /**
+   * Set only by the track editor's race view (TrackEditScene): the camera stays where the editor
+   * puts it (centre, zoom, and turned `az` degrees from the race camera) instead of following a
+   * rider. A race never sets it.
+   */
+  editCam: { x: number; z: number; zoom: number; az: number } | null = null;
+  /** The track editor's markers (selection, brush, checks), drawn over everything; empty in a race. */
+  readonly overlay = new THREE.Group();
   private lastClock = 0;
   private dead = false;
   private readonly patchSpans: { from: number; to: number; color: number }[];
@@ -183,10 +194,11 @@ export class RaceView {
     this.groundTex.anisotropy = 4;
     this.drawGround();
     this.buildTerrain();
-    this.scene3.add(this.terrainMesh());
-    this.scene3.add(this.buildTrack());
+    this.ground.push(this.terrainMesh(), this.buildTrack());
+    if (this.surface.start.total > 0) this.ground.push(this.buildStart());
+    this.scene3.add(...this.ground);
+    this.scene3.add(this.overlay);
     if (this.surface.start.total > 0) {
-      this.scene3.add(this.buildStart());
       this.scene3.add(this.startGate());
       this.scene3.add(this.startBoard());
     }
@@ -254,6 +266,7 @@ export class RaceView {
     const s0 = pointAt(this.surface.g, 0);
     mg.fillStyle(0xffffff, 1).fillRect(this.mapBox.x + s0.x * mk - 2, this.mapBox.y + s0.y * mk - 2, 4, 4);
     this.mapDots = scene.add.graphics();
+    this.mapFrame = mg;
     parent.add([mg, this.mapDots]);
 
     this.image.once('destroy', () => this.destroy());
@@ -1237,6 +1250,31 @@ export class RaceView {
   }
 
   private moveCamera(target: THREE.Vector3 | null, dt: number): void {
+    if (this.editCam) {
+      const e = this.editCam;
+      const az = THREE.MathUtils.degToRad(CAM_AZ + e.az);
+      const el = THREE.MathUtils.degToRad(CAM_EL);
+      this.dir.set(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
+      const halfW = this.viewUnits / 2 / e.zoom;
+      const halfH = (halfW * this.h) / this.w;
+      const c = this.camera;
+      if (c.right !== halfW || c.top !== halfH) {
+        Object.assign(c, { left: -halfW, right: halfW, top: halfH, bottom: -halfH });
+        c.updateProjectionMatrix();
+      }
+      this.cam = new THREE.Vector3(e.x, this.terrainAt(e.x, e.z), e.z);
+      this.camera.position.copy(this.cam).addScaledVector(this.dir, 120);
+      this.camera.lookAt(this.cam);
+      this.sun.position.copy(this.cam).add(new THREE.Vector3(-30, 60, -12));
+      this.sun.target.position.copy(this.cam);
+      const sc = this.sun.shadow.camera;
+      const reach = Math.max(this.viewUnits, halfW * 1.6);
+      if (sc.right !== reach) {
+        Object.assign(sc, { left: -reach, right: reach, top: reach, bottom: -reach });
+        sc.updateProjectionMatrix();
+      }
+      return;
+    }
     const want = target ?? this.cam ?? (() => {
       const p = this.surface.place(this.surface.start.from, 0);
       return new THREE.Vector3(p.x, 0, p.z);
@@ -1269,6 +1307,46 @@ export class RaceView {
         m.depthWrite = !hides;
       }
     }
+  }
+
+  /** The grid point under a point on the screen (Phaser's coordinates), on the ground or the track, or null off it. */
+  pick(px: number, py: number): { x: number; z: number } | null {
+    const ndc = new THREE.Vector2(((px - this.x) / this.w) * 2 - 1, 1 - ((py - this.y) / this.h) * 2);
+    if (Math.abs(ndc.x) > 1 || Math.abs(ndc.y) > 1) return null;
+    this.camera.updateMatrixWorld();
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(ndc, this.camera);
+    const hit = ray.intersectObjects(this.ground, false)[0];
+    return hit ? { x: hit.point.x, z: hit.point.z } : null;
+  }
+
+  /** The height of whatever is underfoot at a grid point: the track where there is track, otherwise the ground. */
+  heightAt(x: number, z: number): number {
+    const ray = new THREE.Raycaster(new THREE.Vector3(x, 60, z), new THREE.Vector3(0, -1, 0), 0, 200);
+    const hit = ray.intersectObjects(this.ground, false)[0];
+    return hit ? hit.point.y : this.terrainAt(x, z);
+  }
+
+  /** Grid units across the view at zoom 1. */
+  unitsAcross(): number {
+    return this.viewUnits;
+  }
+
+  /** Which way on the ground the screen's right and up point, as unit vectors (x and z). */
+  groundAxes(): { right: { x: number; z: number }; up: { x: number; z: number } } {
+    this.camera.updateMatrixWorld();
+    const e = this.camera.matrixWorld.elements;
+    const flat = (x: number, z: number) => {
+      const l = Math.hypot(x, z) || 1;
+      return { x: x / l, z: z / l };
+    };
+    return { right: flat(e[0], e[2]), up: flat(e[4], e[6]) };
+  }
+
+  /** Shows or hides the lap map in the corner. */
+  showMap(on: boolean): void {
+    this.mapDots.setVisible(on);
+    this.mapFrame?.setVisible(on);
   }
 
   /** Where a 3D point is on the race screen, or null when it is outside the view. */
