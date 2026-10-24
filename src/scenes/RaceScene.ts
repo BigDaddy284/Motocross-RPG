@@ -123,8 +123,11 @@ export class RaceScene extends Phaser.Scene {
 
   update(_t: number, dt: number): void {
     if (!this.live || this.paused || this.modal) return;
-    this.frameDt = dt / 1000;
-    this.clock += (dt / 1000) * SPEEDS[this.speed];
+    // The real time since the last frame, so 1× is real time even when frames come slowly (the
+    // game loop smooths and trims its own delta), capped so a stalled tab doesn't leap ahead.
+    const real = Math.min(250, this.game.loop.rawDelta || dt);
+    this.frameDt = real / 1000;
+    this.clock += (real / 1000) * SPEEDS[this.speed];
     this.onTick?.();
   }
 
@@ -584,9 +587,10 @@ export class RaceScene extends Phaser.Scene {
     const b = this.bikeNow();
     if (!b) return ['No bike data.'];
     const lowAt = Math.round(services.content.racing.wear.lowAt * 100);
-    const rows = this.partStatus(b.parts).map((p) => `${p.name.replace('Intake and exhaust', 'Intake/exhaust').replace('Bodywork and controls', 'Bodywork').padEnd(16).slice(0, 16)} ${(p.c <= 0 ? '  --' : `${Math.round(p.c * 100)}%`.padStart(4))} ${`-${Math.round(p.loss * 100)}%`.padStart(5)} ${p.warn}`);
+    const short = (n: string) => n.replace('Intake and exhaust', 'Intake/exhaust').replace('Bodywork and controls', 'Bodywork').replace('Wheels and tyres', 'Wheels/tyres');
+    const rows = this.partStatus(b.parts).map((p) => `${short(p.name).padEnd(16).slice(0, 16)} ${(p.c <= 0 ? '  --' : `${Math.round(p.c * 100)}%`.padStart(4))} ${`-${Math.round(p.loss * 100)}%`.padStart(5)} ${p.warn}`);
     const stats = this.statStatus(b.parts).map((x) => `${x.name.padEnd(11).slice(0, 11)} ${String(x.now).padStart(4)}  of ${String(x.fresh).padStart(3)} new`);
-    return [b.lap ? `Your bike after lap ${b.lap}` : 'Your bike at the gate', 'Part              Cond  Loss', ...rows, '', 'Stats', ...stats, '', `Loss: that part's share of its`, `stats. LOW (${lowAt}% or less) wears`, 'faster; BROKEN gives 10%.'];
+    return [b.lap ? `Your bike after lap ${b.lap}` : 'Your bike at the gate', 'Part              Cond  Loss', ...rows, '', 'Stats', ...stats, '', 'Loss: what wear costs.', `LOW: ${lowAt}% or less.`];
   }
 
   private brokenParts(): string[] {
@@ -659,7 +663,7 @@ export class RaceScene extends Phaser.Scene {
     const choices = BOARD_LAPS.filter((n) => n === 0 || n < left);
     if (!choices.includes(this.boardLaps)) this.boardLaps = choices[0];
     const lapButtons = choices.map((n, i) => {
-      const b = button(this, -330 + i * 118, -184, n === 0 ? 'To the flag' : `${n} lap${n > 1 ? 's' : ''}`, () => {
+      const b = button(this, -400 + i * 118, -184, n === 0 ? 'To the flag' : `${n} lap${n > 1 ? 's' : ''}`, () => {
         this.boardLaps = n;
         lapButtons.forEach((o, j) => o.setSelected(j === i));
       }, 112, 40);
