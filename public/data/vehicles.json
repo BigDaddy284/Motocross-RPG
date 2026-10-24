@@ -1,0 +1,14 @@
+{
+  "note": "The player's van (Boss, 24 Oct 2026): one van at a time, part-exchanged when a new one is bought. Seven designs drawn from Boss's reference photos (art/reference/vans). length is the footprint in 64 px tiles along the heading (one tile wide), from the real length at 28 px per metre. drivable lists the ground art a van can use. starter is the van the opening chain sells and where it is parked when bought. name is the in-game name, from Boss's reference file names (the text after \"Van N = \"); van-1 to van-7 are only the model numbers.",
+  "drivable": ["roads/street", "terrain-common/road", "gravel", "concrete"],
+  "starter": { "design": "van-1", "map": "area1-home-town", "x": 39, "y": 31, "heading": "north" },
+  "designs": [
+    { "id": "van-1", "name": "Old Rusty Truck Short", "reference": "Van 1  Old Rusty Truck Short.png", "length": 2, "lengthM": 4.9, "stepMs": 130 },
+    { "id": "van-2", "name": "Old Rusty Van", "reference": "Van 2  Old Rusty Van.png", "length": 2, "lengthM": 4.4, "stepMs": 130 },
+    { "id": "van-3", "name": "MX Van Short", "reference": "Van 3  MX Van Short.png", "length": 2, "lengthM": 5.0, "stepMs": 120 },
+    { "id": "van-4", "name": "MX Van Medium", "reference": "Van 4  MX Van Medium.png", "length": 3, "lengthM": 6.9, "stepMs": 120 },
+    { "id": "van-5", "name": "MX Sports Motorhome Medium", "reference": "Van 5  MX Sports Motorhome Medium .png", "length": 3, "lengthM": 7.0, "stepMs": 130 },
+    { "id": "van-6", "name": "MX Sports Motorhome Long", "reference": "Van 6  MX Sports Motorhome Long.png", "length": 5, "lengthM": 12.0, "stepMs": 140 },
+    { "id": "van-7", "name": "Factory Hauler", "reference": "Van 7  Factory Hauler Extra Long.png", "length": 9, "lengthM": 21.0, "stepMs": 150 }
+  ]
+}

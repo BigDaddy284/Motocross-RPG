@@ -149,6 +149,10 @@ export class HudScene extends Phaser.Scene {
   }
 
   private panelOpen = false;
+  /** Runs when the bike and bag panel closes, such as shutting the van's back doors. */
+  private panelDone: (() => void) | null = null;
+  /** True while the rider is driving the van: shows the Get out button. */
+  private driving = false;
   private bagPage = 0;
   /** Saves and refreshes the money line after a shop, repair or bag change. Set by the world. */
   onShopChange: (() => void) | null = null;
@@ -167,6 +171,7 @@ export class HudScene extends Phaser.Scene {
       button(this, width - 34, 34, '☰', () => this.world.openPause(), 48, 48),
       ...zoom,
       button(this, width - 50, 150, 'Bike', () => !this.modal && !this.dialogue && this.openPanel('bike'), 80, 48),
+      ...(this.driving ? [button(this, width - 60, 208, 'Get out', () => !this.modal && !this.dialogue && this.world.getOut(), 100, 48)] : []),
     ];
     if (this.zoomPop) this.openZoom();
     this.saveText.setPosition(width - 70, 18);
@@ -201,6 +206,12 @@ export class HudScene extends Phaser.Scene {
     this.zoomPop?.destroy();
     this.zoomPop = null;
     return open;
+  }
+
+  setDriving(on: boolean): void {
+    if (this.driving === on) return;
+    this.driving = on;
+    if (this.scene.isActive()) this.layout();
   }
 
   /** True when a pointer is over a HUD button or panel, so the world ignores the click. */
@@ -417,9 +428,15 @@ export class HudScene extends Phaser.Scene {
   }
 
   /** Bike, bag and task in one panel (the task journal lives in the bag until the home PC, Spec 21b). */
-  openPanel(tab: PanelTab): void {
+  openPanel(tab: PanelTab, onClose?: () => void): void {
     const career = this.career;
-    if (!career) return;
+    if (!career) {
+      onClose?.();
+      return;
+    }
+    // Switching tabs reopens the panel: keep its close action for the final close.
+    const done = onClose ?? this.panelDone;
+    this.panelDone = null;
     const { bikes, items, story } = services.content;
     const { width, height, k } = this.page();
     const w = Math.min(900, width - 24);
@@ -530,7 +547,12 @@ export class HudScene extends Phaser.Scene {
       });
       body(left, h / 2 - 40, 'Racing and practice train Rider Ability. Training minigames for every skill come in later builds.', 14, COLORS.muted);
     }
-    this.openModal(c);
+    this.openModal(c, () => {
+      const d = this.panelDone;
+      this.panelDone = null;
+      d?.();
+    });
+    this.panelDone = done;
     this.panelOpen = true;
   }
 

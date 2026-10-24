@@ -7,6 +7,7 @@ import { RACING_SCHEMA, RIDERS_SCHEMA, SKILLS_SCHEMA, TRACKS_SCHEMA, checkRaceCo
 import type { RidersData, TracksData } from './raceDay';
 import { SHOPS_SCHEMA, checkShopContent, type ShopsData } from './shops';
 import type { SkillsData } from './skills';
+import { VEHICLES_SCHEMA, checkVehicles, type VanSheet, type VehiclesData } from './vehicles';
 import { validate, type ContentError, type Schema } from './validate';
 
 // Game content loaded from public/data. Each file is checked against its schema, then the files
@@ -45,6 +46,7 @@ export interface Content {
   riders: RidersData;
   trackParts: TrackPartsData;
   shops: ShopsData;
+  vehicles: VehiclesData;
 }
 
 export interface Manifest {
@@ -57,6 +59,8 @@ export interface Manifest {
     act: { columns: string[]; idle_fps: number };
     sheets: Record<string, { name: string; walk: string; act: string }>;
   };
+  /** Van sheets by design id (tools/import-art.mjs). */
+  vehicles?: Record<string, VanSheet>;
 }
 
 const ID = /^[a-z0-9_.-]+$/;
@@ -260,6 +264,7 @@ export const CONTENT_FILES = {
   riders: 'data/riders.json',
   trackParts: 'data/trackParts.json',
   shops: 'data/shops.json',
+  vehicles: 'data/vehicles.json',
 } as const;
 
 export type RawContent = Record<keyof typeof CONTENT_FILES, unknown>;
@@ -277,6 +282,7 @@ const SCHEMAS: Record<keyof typeof CONTENT_FILES, Schema> = {
   riders: RIDERS_SCHEMA,
   trackParts: TRACK_PARTS_SCHEMA,
   shops: SHOPS_SCHEMA,
+  vehicles: VEHICLES_SCHEMA,
 };
 
 /** Checks raw file contents and returns the typed content, or every problem found. */
@@ -297,6 +303,7 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
     riders: raw.riders as RidersData,
     trackParts: raw.trackParts as TrackPartsData,
     shops: raw.shops as ShopsData,
+    vehicles: raw.vehicles as VehiclesData,
   };
   const file = CONTENT_FILES.npcs;
   const seen = new Set<string>();
@@ -321,6 +328,10 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
   // Tile art isn't listed at run time; tests check it exists (tests/tracks.test.ts).
   errors.push(...checkTrackParts(content.trackParts, content.tracks.tracks, () => true));
   errors.push(...checkShopContent(CONTENT_FILES.shops, content.shops, content.bikes, seen, maps));
+  errors.push(...checkVehicles(CONTENT_FILES.vehicles, raw.vehicles, maps).errors);
+  content.vehicles.designs.forEach((d, i) => {
+    if (!manifest.vehicles?.[d.id]) errors.push({ file: CONTENT_FILES.vehicles, field: `designs[${i}].id`, message: `no van sheet for "${d.id}" in the manifest (run tools/import-art.mjs --vehicles)` });
+  });
   return { content, errors };
 }
 
