@@ -227,6 +227,7 @@ body.final .final-hide { display: none !important; }
     <button data-mode="surface" title="2">Surfaces</button>
     <button data-mode="ground" title="3">Ground</button>
     <button data-mode="scenery" title="4">Scenery</button>
+    <button data-mode="height" title="5">Height</button>
   </div>
 
   <div class="pane" id="pane-layout">
@@ -269,6 +270,15 @@ body.final .final-hide { display: none !important; }
     <div class="box" id="sceneryDetail"></div>
   </div>
 
+  <div class="pane" id="pane-height">
+    <div class="hint">Raise and lower the ground. Left-click or drag uses the tool, right-click does the opposite (Smooth and Flatten work both ways). Each stroke is one undo. The track is graded level across its width at the ground under its middle, and the ground eases out to it either side.</div>
+    <div class="field"><label for="hTool">Tool</label><select id="hTool"><option value="raise" selected>Raise</option><option value="lower">Lower</option><option value="smooth">Smooth</option><option value="flatten">Flatten to the height clicked</option></select></div>
+    <div class="field"><label for="hRadius">Radius</label><select id="hRadius"><option value="3">3 grid units</option><option value="5">5</option><option value="8" selected>8</option><option value="12">12</option><option value="18">18</option></select></div>
+    <div class="field"><label for="hStrength">Strength</label><select id="hStrength"><option value="0.25" selected>0.25 m a dab</option><option value="0.5">0.5 m</option><option value="1">1 m</option></select></div>
+    <div class="row" style="margin-top:6px"><button id="btnClearHeight" title="Put all the ground back flat">Flatten all</button></div>
+    <div class="box" id="heightInfo"></div>
+  </div>
+
   <h2>Lap</h2>
   <div id="stats"></div>
 </aside>
@@ -289,7 +299,8 @@ body.final .final-hide { display: none !important; }
     <li><b>Surfaces:</b> mud, sand, water and other patches along the lap, laid by clicking the track.</li>
     <li><b>Ground:</b> paint the ground round the track with the game's ground tiles.</li>
     <li><b>Scenery:</b> banners (with your own words and colour), sponsor boards, start gates, tuff blocks, hay bales, tyre walls, stands, crowds, pits, trees and more. <kbd>Q</kbd> and <kbd>E</kbd> turn the selected item, <kbd>Ctrl+D</kbd> duplicates it.</li>
-    <li><b>Modes:</b> <kbd>1</kbd> Layout, <kbd>2</kbd> Surfaces, <kbd>3</kbd> Ground, <kbd>4</kbd> Scenery.</li>
+    <li><b>Height:</b> raise and lower the ground with a soft round brush (radius and strength in metres per dab), smooth it, or flatten it to one height. The track follows the ground under its middle and stays level across its width; riders slow up climbs and run quicker down drops. Ground steeper than 45° is refused as a wall, and a track climbing or dropping more than 35% along its length is a warning. Old tracks without heights stay flat.</li>
+    <li><b>Modes:</b> <kbd>1</kbd> Layout, <kbd>2</kbd> Surfaces, <kbd>3</kbd> Ground, <kbd>4</kbd> Scenery, <kbd>5</kbd> Height.</li>
     <li><b>Export / Import</b> save one track as a <code>.track.json</code> file and add one back.</li>
     <li><b>Preview</b> <kbd>P</kbd> rides a dot round the lap, slower through the harder sections.</li>
     <li><b>Race it in the game</b> opens a race day on the track with the full field, with <code>npm run dev</code> running. Save first.</li>
@@ -476,6 +487,7 @@ const app = {
   sceneryBrush: null,
   hoverBound: -1,
   hoverCell: null,
+  hoverPt: null,
   rect: null,
   undo: [],
   redo: [],
@@ -1360,6 +1372,8 @@ function draw() {
     }
   }
 
+  if (app.mode === 'height') drawHeights(t);
+
   // Ground brush outline and rectangle.
   if (app.mode === 'ground' && app.hoverCell && !app.rect) {
     const cell = t.ground?.cell ?? 2;
@@ -1407,6 +1421,7 @@ function setMode(mode) {
   for (const p of document.querySelectorAll('.pane')) p.classList.toggle('show', p.id === `pane-${mode}`);
   for (const id of ['#btnInsert', '#btnDelPt', '#btnRound', '#btnStart', '#btnReverse', '#btnFit']) $(id).style.display = mode === 'layout' ? '' : 'none';
   app.hoverCell = null;
+  app.hoverPt = null;
   refresh();
 }
 
@@ -1438,6 +1453,7 @@ function refresh() {
   if (app.mode === 'surface') renderPatches();
   if (app.mode === 'ground') renderGroundPane();
   if (app.mode === 'scenery') renderSceneryDetail();
+  if (app.mode === 'height') renderHeightPane();
   renderStats();
   renderChecks();
   requestDraw();
@@ -1798,6 +1814,179 @@ function brushCells(cx, cy) {
 }
 function rectCells(r) { return [Math.min(r.x0, r.x1), Math.min(r.y0, r.y1), Math.max(r.x0, r.x1), Math.max(r.y0, r.y1)]; }
 $('#btnClearGround').addEventListener('click', () => commit((t) => { if (t.ground) t.ground.paint = {}; }));
+
+// ---------------------------------------------------------------------------------------------
+// Ground height. Mirrors src/core/elevation.ts: heights in metres at the corners of a lattice
+// `step` grid units apart, only where not 0, smooth (bilinear) between them.
+
+const ELEV_STEP = 2;
+const ELEV_MAX = 8;
+const WALL_SLOPE = 1;
+const STEEP_TRACK = 0.35;
+const elevCache = new WeakMap();
+/** The track's heights by lattice corner "i,j", cached per elevation object (every change makes a new one). */
+function elevMap(t) {
+  const e = t.elevation;
+  if (!e) return new Map();
+  let m = elevCache.get(e);
+  if (!m) {
+    m = new Map();
+    for (const [x, y, h] of e.points) if (h) m.set(`${Math.round(x / e.step)},${Math.round(y / e.step)}`, h);
+    elevCache.set(e, m);
+  }
+  return m;
+}
+function elevAt(t, x, y) {
+  const e = t.elevation;
+  if (!e?.points.length) return 0;
+  const m = elevMap(t);
+  const c = (i, j) => m.get(`${i},${j}`) ?? 0;
+  const gx = x / e.step;
+  const gy = y / e.step;
+  const i = Math.floor(gx);
+  const j = Math.floor(gy);
+  const fx = gx - i;
+  const fy = gy - j;
+  return (c(i, j) * (1 - fx) + c(i + 1, j) * fx) * (1 - fy) + (c(i, j + 1) * (1 - fx) + c(i + 1, j + 1) * fx) * fy;
+}
+/** Stores heights back on the track, sorted, without zeros; no heights at all leaves no elevation key. */
+function setHeights(t, m, step) {
+  const points = [...m].filter(([, h]) => Math.abs(h) >= 0.01).map(([k, h]) => { const [i, j] = k.split(',').map(Number); return [i * step, j * step, h]; });
+  points.sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+  if (points.length) t.elevation = { step, points };
+  else delete t.elevation;
+}
+/** One dab of the height brush at a grid point. `back` is the right button: the opposite of raise or lower. */
+function heightDab(t, gx, gy, back, level) {
+  const step = t.elevation?.step ?? ELEV_STEP;
+  const r = Number($('#hRadius').value);
+  const strength = Number($('#hStrength').value);
+  let tool = $('#hTool').value;
+  if (back && tool === 'raise') tool = 'lower';
+  else if (back && tool === 'lower') tool = 'raise';
+  const old = elevMap(t);
+  const m = new Map(old);
+  const get = (i, j) => old.get(`${i},${j}`) ?? 0;
+  const maxI = Math.floor(GRID_W / step);
+  const maxJ = Math.floor(GRID_H / step);
+  for (let i = Math.max(0, Math.floor((gx - r) / step)); i <= Math.min(maxI, Math.ceil((gx + r) / step)); i++) {
+    for (let j = Math.max(0, Math.floor((gy - r) / step)); j <= Math.min(maxJ, Math.ceil((gy + r) / step)); j++) {
+      const d = Math.hypot(i * step - gx, j * step - gy) / r;
+      if (d >= 1) continue;
+      // A soft round brush: full strength in the middle, nothing at the rim.
+      const w = 0.5 + 0.5 * Math.cos(Math.PI * d);
+      const h = get(i, j);
+      let to = h;
+      if (tool === 'raise') to = h + strength * w;
+      else if (tool === 'lower') to = h - strength * w;
+      else if (tool === 'smooth') to = h + ((get(i - 1, j) + get(i + 1, j) + get(i, j - 1) + get(i, j + 1)) / 4 - h) * w * 0.6;
+      else to = h + (level - h) * w * 0.6;
+      m.set(`${i},${j}`, clamp(Math.round(to * 100) / 100, -ELEV_MAX, ELEV_MAX));
+    }
+  }
+  setHeights(t, m, step);
+}
+/** Elevation checks, as src/core/elevation.ts elevationIssues: errors the game refuses and warnings. */
+function elevationIssues(t) {
+  const out = [];
+  const e = t.elevation;
+  if (!e) return out;
+  for (const [x, y, m] of e.points) {
+    if (!Number.isFinite(m) || Math.abs(m) > ELEV_MAX) out.push({ level: 'error', message: `the ground at ${x}, ${y} is ${m} m; it can be ${ELEV_MAX} m up or down at most`, x, y });
+    if (x % e.step !== 0 || y % e.step !== 0) out.push({ level: 'error', message: `the height at ${x}, ${y} is not on the ${e.step}-unit lattice`, x, y });
+  }
+  const m = elevMap(t);
+  const c = (i, j) => m.get(`${i},${j}`) ?? 0;
+  const run = (e.step * 8) / (t.width ?? DEFAULT_WIDTH);
+  const seen = new Set();
+  for (const [x, y] of e.points) {
+    const i = Math.round(x / e.step);
+    const j = Math.round(y / e.step);
+    for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const rise = Math.abs(c(i, j) - c(i + di, j + dj));
+      const k = `${Math.min(i, i + di)},${Math.min(j, j + dj)},${di !== 0}`;
+      if (rise / run > WALL_SLOPE && !seen.has(k)) {
+        seen.add(k);
+        out.push({ level: 'error', message: `the ground at ${x}, ${y} rises ${rise.toFixed(1)} m in ${run.toFixed(1)} m, a wall; smooth it out`, x, y });
+      }
+    }
+  }
+  const g = lapGeom(t);
+  const mpu = lapLength(t) / g.total;
+  const n = Math.max(40, Math.ceil(g.total / 0.5));
+  let worst = { grade: 0, x: 0, y: 0 };
+  let prev = null;
+  for (let k = 0; k <= n; k++) {
+    const p = pointAt(g, k / n);
+    const here = { x: p.x, y: p.y, m: elevAt(t, p.x, p.y) };
+    if (prev) {
+      const d = Math.hypot(here.x - prev.x, here.y - prev.y) * mpu;
+      const grade = d > 0 ? Math.abs(here.m - prev.m) / d : 0;
+      if (grade > worst.grade) worst = { grade, x: here.x, y: here.y };
+    }
+    prev = here;
+  }
+  if (worst.grade > STEEP_TRACK) out.push({ level: 'warning', message: `the track climbs or drops ${Math.round(worst.grade * 100)}% near ${worst.x.toFixed(0)}, ${worst.y.toFixed(0)}; past ${Math.round(STEEP_TRACK * 100)}% is steep for a 50cc`, x: worst.x, y: worst.y });
+  return out;
+}
+/** The height pane: highest and lowest ground, and what is under the pointer. */
+function renderHeightPane() {
+  const t = track();
+  const box = $('#heightInfo');
+  if (!t || !box) return;
+  const hs = (t.elevation?.points ?? []).map((p) => p[2]);
+  const top = hs.length ? Math.max(0, ...hs) : 0;
+  const low = hs.length ? Math.min(0, ...hs) : 0;
+  const under = app.hoverPt ? elevAt(t, app.hoverPt.x, app.hoverPt.y) : null;
+  box.textContent = hs.length ? `Highest ${top.toFixed(2)} m, lowest ${low.toFixed(2)} m, ${hs.length} heights set.` : 'All flat: no heights set.';
+  if (under !== null) box.textContent += ` Under the pointer: ${under.toFixed(2)} m.`;
+}
+/** The heights drawn over the map: warm for raised ground, blue for lowered, contour lines every metre, walls in red. */
+function drawHeights(t) {
+  const { k } = view;
+  const e = t.elevation;
+  if (e?.points.length) {
+    const step = e.step;
+    const m = elevMap(t);
+    for (const [key, h] of m) {
+      const [i, j] = key.split(',').map(Number);
+      const s = toScreen(i * step - step / 2, j * step - step / 2);
+      const a = Math.min(0.7, 0.12 + (Math.abs(h) / ELEV_MAX) * 0.6);
+      ctx.fillStyle = h > 0 ? `rgba(255, 214, 140, ${a})` : `rgba(70, 130, 255, ${a})`;
+      ctx.fillRect(s.x, s.y, step * k, step * k);
+    }
+    // Contours every metre, sampled every half grid unit.
+    ctx.strokeStyle = '#ffffff70';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    const d = 0.5;
+    for (let x = 0; x < GRID_W; x += d) {
+      for (let y = 0; y < GRID_H; y += d) {
+        const h = Math.floor(elevAt(t, x, y));
+        if (Math.floor(elevAt(t, x + d, y)) !== h) { const a = toScreen(x + d, y); ctx.moveTo(a.x, a.y); ctx.lineTo(a.x, a.y + d * k); }
+        if (Math.floor(elevAt(t, x, y + d)) !== h) { const a = toScreen(x, y + d); ctx.moveTo(a.x, a.y); ctx.lineTo(a.x + d * k, a.y); }
+      }
+    }
+    ctx.stroke();
+    for (const p of elevationIssues(t)) {
+      const s = toScreen(p.x, p.y);
+      ctx.strokeStyle = p.level === 'error' ? '#ff3b30' : '#ffd60a';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(s.x, s.y, Math.max(6, step * k * 0.6), 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+  if (app.hoverPt) {
+    const s = toScreen(app.hoverPt.x, app.hoverPt.y);
+    const r = Number($('#hRadius').value) * k;
+    ctx.strokeStyle = '#ffffffd0';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(s.x, s.y, r / 2, 0, Math.PI * 2); ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]);
+    label(`${elevAt(t, app.hoverPt.x, app.hoverPt.y).toFixed(2)} m`, s.x, s.y - r - 4);
+  }
+}
+$('#btnClearHeight').addEventListener('click', () => commit((t) => { delete t.elevation; }));
+for (const id of ['#hRadius', '#hTool', '#hStrength']) $(id).addEventListener('change', requestDraw);
 /** Paints the chosen ground under the track and a little either side, as a starting point. */
 $('#btnAutoGround').addEventListener('click', () => commit((t) => {
   const g = ensureGround(t);
@@ -1931,6 +2120,10 @@ function renderStats() {
     );
   }
   rows.push(['Surface patches', String(t.patches?.length ?? 0)], ['Scenery items', String(t.scenery?.length ?? 0)]);
+  if (t.elevation?.points.length) {
+    const hs = t.elevation.points.map((p) => p[2]);
+    rows.push(['Ground height', `${Math.min(0, ...hs).toFixed(2)} to ${Math.max(0, ...hs).toFixed(2)} m`]);
+  }
   for (const [a, b] of rows) { const x = document.createElement('span'); x.textContent = a; const y = document.createElement('span'); y.textContent = b; box.append(x, y); }
 }
 
@@ -1991,6 +2184,11 @@ function checkTrack(t, all) {
       : `Scenery item ${p.i + 1}: ${p.message}. The game will race it; check it is meant to be there (dashed yellow; click here to find it).`;
     (p.level === 'error' ? bad : warn).push(text);
     refs.set(text, p.i);
+  }
+  for (const p of elevationIssues(t)) {
+    (p.level === 'error' ? bad : warn).push(p.level === 'error'
+      ? `Height: ${p.message} (red ring in Height mode).`
+      : `Height: ${p.message} (yellow ring in Height mode). The game will race it.`);
   }
   // Section types against the drawing, and the start straight (as src/core/trackCheck.ts).
   if (Object.keys(app.sectionDefs).length) {
@@ -2264,7 +2462,7 @@ function deleteTrack() {
 }
 
 const TRACK_FILE = 'mxrpg-track';
-const TRACK_KEYS = ['id', 'name', 'size', 'surface', 'kind', 'width', 'practiceOnly', 'gates', 'path', 'sections', 'start', 'patches', 'ground', 'scenery'];
+const TRACK_KEYS = ['id', 'name', 'size', 'surface', 'kind', 'width', 'practiceOnly', 'gates', 'path', 'sections', 'start', 'patches', 'ground', 'elevation', 'scenery'];
 function exportTrack() {
   const t = track();
   download(`${t.id}.track.json`, `${JSON.stringify({ format: TRACK_FILE, version: 1, track: t }, null, 2)}\n`);
@@ -2409,6 +2607,15 @@ canvas.addEventListener('pointerdown', (e) => {
   if (!t) return;
   const p = evPos(e);
   const gp = toGrid(p.x, p.y);
+  if (app.mode === 'height') {
+    if (e.button !== 0 && e.button !== 2) return;
+    canvas.setPointerCapture(e.pointerId);
+    begin();
+    drag = { kind: 'height', back: e.button === 2, level: elevAt(t, gp.x, gp.y), last: gp, started: true };
+    heightDab(t, gp.x, gp.y, drag.back, drag.level);
+    changed();
+    return;
+  }
   if (app.mode === 'ground') {
     if (e.button !== 0 && e.button !== 2) return;
     canvas.setPointerCapture(e.pointerId);
@@ -2484,17 +2691,28 @@ canvas.addEventListener('pointermove', (e) => {
       const c = cellAt(t, gp);
       if (!app.hoverCell || c.x !== app.hoverCell.x || c.y !== app.hoverCell.y) { app.hoverCell = c; requestDraw(); }
     }
+    if (app.mode === 'height') {
+      app.hoverPt = gp;
+      $('#posLabel').textContent += ` · ground ${elevAt(t, gp.x, gp.y).toFixed(2)} m`;
+      renderHeightPane();
+      requestDraw();
+    }
   }
   if (app.rect) { const c = cellAt(t, gp); app.rect.x1 = c.x; app.rect.y1 = c.y; requestDraw(); return; }
   if (!drag) {
     const h = t && hit(p.x, p.y);
-    canvas.style.cursor = app.mode === 'ground' ? 'crosshair' : ['point', 'spt', 'bound', 'item'].includes(h?.kind) ? 'grab' : h?.kind === 'track' ? 'pointer' : 'default';
+    canvas.style.cursor = app.mode === 'ground' || app.mode === 'height' ? 'crosshair' : ['point', 'spt', 'bound', 'item'].includes(h?.kind) ? 'grab' : h?.kind === 'track' ? 'pointer' : 'default';
     const hb = h?.kind === 'bound' ? h.i : -1;
     if (hb !== app.hoverBound) { app.hoverBound = hb; requestDraw(); }
     return;
   }
   if (!drag.started) { begin(); drag.started = true; }
-  if (drag.kind === 'paint') {
+  if (drag.kind === 'height') {
+    // A new dab each time the pointer has moved a third of the brush radius, so a stroke lays an even ridge.
+    if (Math.hypot(gp.x - drag.last.x, gp.y - drag.last.y) < Number($('#hRadius').value) / 3) return;
+    drag.last = gp;
+    heightDab(t, gp.x, gp.y, drag.back, drag.level);
+  } else if (drag.kind === 'paint') {
     const c = cellAt(t, gp);
     paintCells(t, brushCells(c.x, c.y), drag.id);
   } else if (drag.kind === 'point') {
@@ -2545,7 +2763,7 @@ canvas.addEventListener('pointerup', () => {
   drag = null;
   refresh();
 });
-canvas.addEventListener('pointerleave', () => { if (app.hoverCell) { app.hoverCell = null; requestDraw(); } });
+canvas.addEventListener('pointerleave', () => { if (app.hoverCell || app.hoverPt) { app.hoverCell = null; app.hoverPt = null; requestDraw(); } });
 canvas.addEventListener('dblclick', (e) => {
   const t = track();
   if (!t || app.mode !== 'layout') return;
@@ -2609,7 +2827,7 @@ window.addEventListener('keydown', (e) => {
   if (!track()) return;
   if (mod && e.key.toLowerCase() === 'd' && app.mode === 'scenery') { e.preventDefault(); duplicateItem(); return; }
   if (mod) return;
-  const modes = { 1: 'layout', 2: 'surface', 3: 'ground', 4: 'scenery' };
+  const modes = { 1: 'layout', 2: 'surface', 3: 'ground', 4: 'scenery', 5: 'height' };
   if (modes[e.key]) { setMode(modes[e.key]); return; }
   if (e.key.toLowerCase() === 'p') { $('#btnPlay').click(); return; }
   if (e.key === 'Escape') { deselect(); refresh(); return; }
@@ -2682,7 +2900,7 @@ async function tryServer() {
 
 setMode('layout');
 tryServer();
-window.trackEditor = { app, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart }; // for tests
+window.trackEditor = { app, heightDab, elevAt, elevationIssues, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart }; // for tests
 </script>
 </body>
 </html>
