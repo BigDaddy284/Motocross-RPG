@@ -23,10 +23,14 @@ This is **test build 0.3**: your first race day. After the garage mechanic's tut
 | Walk | WASD or arrow keys, or click where you want to go | Tap where you want to go |
 | Talk to an NPC or use an object | Click it, or face it and press E or Space | Tap it |
 | Next line of dialogue | Click, E, Space or Enter | Tap the box |
-| Zoom (50% to 200%) | Mouse wheel, + and -, or the Zoom button's slider | Zoom button, then drag the slider |
+| Zoom (50% to 200%) | Mouse wheel, + and -, or the on-screen zoom control | The on-screen zoom control: a Zoom button with a slider, or + and − buttons (Settings > Display > Zoom control) |
 | Bike, bag and current task | Tab, I or B | Bike button |
 | Skills | K, or the Skills tab in the Bike panel | Bike button, then Skills |
 | Pause menu (save, settings) | Esc | ☰ button |
+
+### Playing on a phone
+
+Hold the phone sideways: the game is laid out for landscape, and asks you to turn the phone if it is upright. For the most room, use the browser's Add to Home Screen: the game then opens full screen with no browser bars. The game draws at the phone's full screen resolution, and panels shrink to fit a short screen.
 
 ## What's in this build
 

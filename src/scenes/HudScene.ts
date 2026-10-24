@@ -7,12 +7,17 @@ import { COLORS, hex, textStyle } from '../ui/theme';
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
 import { button, panel, slider, statBar } from '../ui/widgets';
 import type { WorldScene } from './WorldScene';
+import { cssSize, view } from '../ui/view';
 
 // Screen-space layer over the world: map name, money and task, messages, the dialogue box, the
 // bike / bag / task panel, confirm boxes, the work progress bar, the world map, the pause menu and
 // touch buttons. Runs alongside the world scene at a fixed zoom.
 
 type PanelTab = 'bike' | 'bag' | 'task' | 'skills';
+
+/** The smallest page panels are laid out on (see page()). */
+const PAGE_W = 940;
+const PAGE_H = 600;
 
 export class HudScene extends Phaser.Scene {
   private dialogue: Phaser.GameObjects.Container | null = null;
@@ -46,8 +51,23 @@ export class HudScene extends Phaser.Scene {
 
   /** A text size after the player's Text size setting, eased down a little on narrow phone screens. */
   private ts(size: number): number {
-    const narrow = Math.min(1, Math.max(0.72, Math.min(this.scale.width, this.scale.height * 1.6) / 900));
+    const narrow = Math.min(1, Math.max(0.72, Math.min(cssSize(this).width, cssSize(this).height * 1.6) / 900));
     return Math.round((size * services.settings.get().accessibility.textScale * narrow) / 100);
+  }
+
+  /** A text size after the player's Text size setting, for panels laid out on page(). */
+  private pts(size: number): number {
+    return Math.round((size * services.settings.get().accessibility.textScale) / 100);
+  }
+
+  /**
+   * Panels and boxes are laid out on a page at least PAGE_W × PAGE_H and scaled down by k to fit
+   * smaller screens, such as a phone on its side, so nothing spills off the screen.
+   */
+  private page(): { width: number; height: number; k: number } {
+    const { width, height } = view(this);
+    const k = Math.min(1, width / PAGE_W, height / PAGE_H);
+    return { width: width / k, height: height / k, k };
   }
 
   create(): void {
@@ -66,8 +86,17 @@ export class HudScene extends Phaser.Scene {
     this.zoomPop = null;
     this.layout();
     this.scale.on('resize', this.layout, this);
-    // Keep the slider in step when the mouse wheel or + and - change the zoom.
-    const unsub = services.settings.onChange(() => this.zoomPop && !this.zoomDragging && this.openZoom());
+    // Keep the slider in step when the mouse wheel or + and - change the zoom, and swap the
+    // on-screen zoom control when the setting changes.
+    let control = services.settings.get().display.zoomControl;
+    const unsub = services.settings.onChange((s) => {
+      if (s.display.zoomControl !== control) {
+        control = s.display.zoomControl;
+        this.closeZoom();
+        this.layout();
+      }
+      if (this.zoomPop && !this.zoomDragging) this.openZoom();
+    });
     this.events.once('shutdown', () => {
       this.scale.off('resize', this.layout, this);
       unsub();
@@ -103,11 +132,18 @@ export class HudScene extends Phaser.Scene {
   private panelOpen = false;
 
   private layout(): void {
-    const { width, height } = this.scale;
+    const { width, height } = view(this);
     for (const b of this.uiButtons) b.destroy();
+    // The zoom control is a Zoom button with a pop-out slider, or + and − buttons (Settings > Display).
+    const zoom = services.settings.get().display.zoomControl === 'buttons'
+      ? [
+        button(this, width - 86, 92, '−', () => this.world.zoomBy(-ZOOM_STEP), 48, 48),
+        button(this, width - 34, 92, '+', () => this.world.zoomBy(ZOOM_STEP), 48, 48),
+      ]
+      : [button(this, width - 50, 92, 'Zoom', () => (this.zoomPop ? this.closeZoom() : this.openZoom()), 80, 48)];
     this.uiButtons = [
       button(this, width - 34, 34, '☰', () => this.world.openPause(), 48, 48),
-      button(this, width - 50, 92, 'Zoom', () => (this.zoomPop ? this.closeZoom() : this.openZoom()), 80, 48),
+      ...zoom,
       button(this, width - 50, 150, 'Bike', () => !this.modal && !this.dialogue && this.openPanel('bike'), 80, 48),
     ];
     if (this.zoomPop) this.openZoom();
@@ -122,7 +158,7 @@ export class HudScene extends Phaser.Scene {
   /** A draggable zoom slider beside the Zoom button. Mouse wheel and + and - still zoom too. */
   private openZoom(): void {
     this.zoomPop?.destroy();
-    const { width } = this.scale;
+    const { width } = view(this);
     const w = 300;
     const c = this.add.container(width - 100 - w / 2, 92);
     c.add(panel(this, 0, 0, w, 56).setInteractive());
@@ -194,22 +230,22 @@ export class HudScene extends Phaser.Scene {
   /** Shows lines one at a time; click, tap, E, Space or Enter moves on. */
   openDialogue(npcName: string, riderName: string, lines: DialogueLine[], onClose: () => void): void {
     this.dialogue?.destroy();
-    const { width, height } = this.scale;
+    const { width, height, k } = this.page();
     const w = Math.min(960, width - 24);
     const pad = 20;
-    const nameStyle = textStyle(this.ts(18), COLORS.accent, { fontStyle: 'bold' });
-    const bodyStyle = textStyle(this.ts(20), COLORS.cream, { wordWrap: { width: w - 2 * pad - 8 }, lineSpacing: 4 });
+    const nameStyle = textStyle(this.pts(18), COLORS.accent, { fontStyle: 'bold' });
+    const bodyStyle = textStyle(this.pts(20), COLORS.cream, { wordWrap: { width: w - 2 * pad - 8 }, lineSpacing: 4 });
     const name = this.add.text(0, 0, 'M', nameStyle);
     const body = this.add.text(0, 0, '', bodyStyle);
     // Size the box to the longest line at the chosen text size, so big text never spills out.
     const nameH = name.height;
     const tallest = Math.max(...lines.map((l) => body.setText(l.text).height));
-    const hintH = this.ts(14) + 8;
+    const hintH = this.pts(14) + 8;
     const h = Math.max(140, pad + nameH + 8 + tallest + hintH + pad / 2);
-    const c = this.add.container(width / 2, height - h / 2 - 12);
+    const c = this.add.container((width / 2) * k, (height - h / 2 - 12) * k).setScale(k);
     const bg = panel(this, 0, 0, w, h).setInteractive({ useHandCursor: true });
     name.setPosition(-w / 2 + pad, -h / 2 + pad - 4);
-    const hint = this.add.text(w / 2 - 16, h / 2 - 10, '', textStyle(this.ts(14), COLORS.muted)).setOrigin(1, 1);
+    const hint = this.add.text(w / 2 - 16, h / 2 - 10, '', textStyle(this.pts(14), COLORS.muted)).setOrigin(1, 1);
     c.add([bg, name, body, hint]);
     this.dialogue = c;
     let i = 0;
@@ -258,7 +294,7 @@ export class HudScene extends Phaser.Scene {
   }
 
   private backdrop(c: Phaser.GameObjects.Container, w: number, h: number, closeOnClick: boolean): void {
-    const { width, height } = this.scale;
+    const { width, height } = this.page();
     const shade = this.add.rectangle(0, 0, width, height, 0, 0.5).setInteractive();
     if (closeOnClick) shade.on('pointerup', () => this.closeModal());
     c.add(shade);
@@ -267,11 +303,11 @@ export class HudScene extends Phaser.Scene {
 
   /** A yes / no box. Esc or No cancels. */
   confirm(text: string, yes: string, onYes: () => void, onNo: () => void): void {
-    const { width, height } = this.scale;
+    const { width, height, k } = this.page();
     const w = Math.min(560, width - 32);
-    const c = this.add.container(width / 2, height / 2);
+    const c = this.add.container((width / 2) * k, (height / 2) * k).setScale(k);
     this.backdrop(c, w, 220, false);
-    c.add(this.add.text(0, -50, text, textStyle(this.ts(20), COLORS.cream, { align: 'center', wordWrap: { width: w - 60 } })).setOrigin(0.5));
+    c.add(this.add.text(0, -50, text, textStyle(this.pts(20), COLORS.cream, { align: 'center', wordWrap: { width: w - 60 } })).setOrigin(0.5));
     let answered = false;
     c.add(button(this, -120, 55, yes, () => {
       answered = true;
@@ -284,11 +320,11 @@ export class HudScene extends Phaser.Scene {
 
   /** A box with a few choices, such as the race office's menu. Esc or the last button closes it. */
   choose(title: string, text: string, options: { label: string; note?: string; enabled?: boolean; onPick: () => void }[], onClose: () => void): void {
-    const { width, height } = this.scale;
+    const { width, height, k } = this.page();
     const w = Math.min(720, width - 32);
-    const textObj = this.add.text(0, 0, text, textStyle(this.ts(18), COLORS.cream, { wordWrap: { width: w - 60 }, lineSpacing: 4 }));
+    const textObj = this.add.text(0, 0, text, textStyle(this.pts(18), COLORS.cream, { wordWrap: { width: w - 60 }, lineSpacing: 4 }));
     const h = 166 + textObj.height + (options.length - 1) * 64;
-    const c = this.add.container(width / 2, height / 2);
+    const c = this.add.container((width / 2) * k, (height / 2) * k).setScale(k);
     this.backdrop(c, w, h, false);
     c.add(this.add.text(0, -h / 2 + 32, title, textStyle(26, COLORS.accent)).setOrigin(0.5));
     textObj.setPosition(-w / 2 + 30, -h / 2 + 62);
@@ -303,7 +339,7 @@ export class HudScene extends Phaser.Scene {
       }, 250, 48);
       b.setEnabled(o.enabled !== false);
       c.add(b);
-      if (o.note) c.add(this.add.text(-w / 2 + 290, y, o.note, textStyle(this.ts(15), COLORS.muted, { wordWrap: { width: w - 310 } })).setOrigin(0, 0.5));
+      if (o.note) c.add(this.add.text(-w / 2 + 290, y, o.note, textStyle(this.pts(15), COLORS.muted, { wordWrap: { width: w - 310 } })).setOrigin(0, 0.5));
     });
     this.openModal(c, () => !picked && onClose());
   }
@@ -311,11 +347,11 @@ export class HudScene extends Phaser.Scene {
   /** A bar that fills over `ms`, for work at a station. Resolves when it is full. */
   progress(label: string, ms: number): Promise<void> {
     this.progressBox?.destroy();
-    const { width, height } = this.scale;
+    const { width, height, k } = this.page();
     const w = 320;
-    const c = this.add.container(width / 2, height - 140);
+    const c = this.add.container((width / 2) * k, (height - 140) * k).setScale(k);
     c.add(panel(this, 0, 0, w + 40, 70));
-    c.add(this.add.text(0, -14, label, textStyle(this.ts(17))).setOrigin(0.5));
+    c.add(this.add.text(0, -14, label, textStyle(this.pts(17))).setOrigin(0.5));
     c.add(this.add.rectangle(-w / 2, 14, w, 12, COLORS.panelLight).setOrigin(0, 0.5));
     const fill = this.add.rectangle(-w / 2, 14, 1, 12, COLORS.accent).setOrigin(0, 0.5);
     c.add(fill);
@@ -337,10 +373,10 @@ export class HudScene extends Phaser.Scene {
   /** The world map: pick where to drive. Destinations are listed in data/world.json. */
   openWorldMap(current: string, onPick: (map: string, spawn: string) => void): void {
     const dests = services.content.world.worldMap;
-    const { width, height } = this.scale;
+    const { width, height, k } = this.page();
     const w = Math.min(640, width - 32);
     const h = 150 + dests.length * 76;
-    const c = this.add.container(width / 2, height / 2);
+    const c = this.add.container((width / 2) * k, (height / 2) * k).setScale(k);
     this.backdrop(c, w, h, true);
     c.add(this.add.text(0, -h / 2 + 34, 'Where to?', textStyle(28, COLORS.accent)).setOrigin(0.5));
     dests.forEach((d, i) => {
@@ -352,7 +388,7 @@ export class HudScene extends Phaser.Scene {
       }, 240, 46);
       b.setEnabled(!here);
       c.add(b);
-      c.add(this.add.text(-w / 2 + 290, y, d.note, textStyle(this.ts(15), COLORS.muted, { wordWrap: { width: w - 310 } })).setOrigin(0, 0.5));
+      c.add(this.add.text(-w / 2 + 290, y, d.note, textStyle(this.pts(15), COLORS.muted, { wordWrap: { width: w - 310 } })).setOrigin(0, 0.5));
     });
     c.add(button(this, 0, h / 2 - 40, 'Stay here', () => this.closeModal(), 200, 44));
     this.openModal(c);
@@ -363,10 +399,10 @@ export class HudScene extends Phaser.Scene {
     const career = this.career;
     if (!career) return;
     const { bikes, items, story } = services.content;
-    const { width, height } = this.scale;
+    const { width, height, k } = this.page();
     const w = Math.min(900, width - 24);
     const h = Math.min(560, height - 24);
-    const c = this.add.container(width / 2, height / 2);
+    const c = this.add.container((width / 2) * k, (height / 2) * k).setScale(k);
     this.backdrop(c, w, h, true);
     const left = -w / 2 + 28;
     const top = -h / 2 + 24;
@@ -379,7 +415,7 @@ export class HudScene extends Phaser.Scene {
     c.add(button(this, w / 2 - 46, top + 22, '✕', () => this.closeModal(), 44, 40));
     const y0 = top + 70;
     const body = (x: number, y: number, text: string, size = 16, color: number = COLORS.cream, wrap = w - 56) =>
-      c.add(this.add.text(x, y, text, textStyle(this.ts(size), color, { wordWrap: { width: wrap } })));
+      c.add(this.add.text(x, y, text, textStyle(this.pts(size), color, { wordWrap: { width: wrap } })));
 
     if (tab === 'bike') {
       const bike = career.bike;
@@ -438,7 +474,7 @@ export class HudScene extends Phaser.Scene {
           const y = y0 + 76 + j * 48;
           const xp = childXp(career.skills, ch.id);
           body(x, y, ch.name, 15, COLORS.cream, colW - 50);
-          c.add(this.add.text(x + barW, y, `${childLevel(skills, career.skills, ch.id)}`, textStyle(this.ts(15), COLORS.accent)).setOrigin(1, 0));
+          c.add(this.add.text(x + barW, y, `${childLevel(skills, career.skills, ch.id)}`, textStyle(this.pts(15), COLORS.accent)).setOrigin(1, 0));
           c.add(this.add.rectangle(x, y + 26, barW, 6, COLORS.panelLight).setOrigin(0, 0.5));
           c.add(this.add.rectangle(x, y + 26, Math.max(1, barW * levelProgress(xp, 1, skills.maxLevel)), 6, 0x6fa84a).setOrigin(0, 0.5));
         });
@@ -451,9 +487,9 @@ export class HudScene extends Phaser.Scene {
 
   openPause(): void {
     if (this.pause) return;
-    const { width, height } = this.scale;
+    const { width, height, k } = this.page();
     this.scene.pause('world');
-    const c = this.add.container(width / 2, height / 2);
+    const c = this.add.container((width / 2) * k, (height / 2) * k).setScale(k);
     c.add(this.add.rectangle(0, 0, width, height, 0, 0.55).setInteractive());
     c.add(panel(this, 0, 0, 340, 360));
     c.add(this.add.text(0, -140, 'Paused', textStyle(28, COLORS.accent)).setOrigin(0.5));

@@ -9,6 +9,7 @@ import { button, panel, penMeter, type Button, type PenMeter } from '../ui/widge
 import { directorFor, type RaceDirector } from '../core/riderAI';
 import { startGeom } from '../core/trackGeom';
 import { RaceView } from '../world/RaceView';
+import { view } from '../ui/view';
 
 // Race day and practice: gate pick, the live race screen with its pit board, auto-complete,
 // moto and day results, and practice laps. The simulation does the racing; this screen only
@@ -103,7 +104,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   create(): void {
-    const { width, height } = this.scale;
+    const { width, height } = view(this);
     this.add.rectangle(0, 0, width, height, COLORS.ink).setOrigin(0);
     const k = Math.min(width / W, height / H);
     this.root = this.add.container((width - W * k) / 2, (height - H * k) / 2).setScale(k);
@@ -124,7 +125,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private relayout(): void {
-    const { width, height } = this.scale;
+    const { width, height } = view(this);
     const k = Math.min(width / W, height / H);
     this.root.setScale(k).setPosition((width - W * k) / 2, (height - H * k) / 2);
   }
@@ -206,7 +207,7 @@ export class RaceScene extends Phaser.Scene {
     const gates = day.track.gates ?? [];
     const myTurn = day.pickOrder.indexOf(PLAYER_ID) + 1;
     const how = n === 1 ? 'Gate picks for moto 1 are drawn at random.' : 'Gate picks for moto 2 go in moto 1 finishing order.';
-    this.text(W / 2, 110, `${how} You pick ${ordinal(myTurn)}. Inside gates get a better start.`, 18).setOrigin(0.5, 0);
+    this.text(W / 2, 108, `${how} You pick ${ordinal(myTurn)}. Inside gates get a better start.`, 22).setOrigin(0.5, 0);
 
     let chosen = free[0];
     const count = Math.max(day.field.length, gates.length);
@@ -217,13 +218,13 @@ export class RaceScene extends Phaser.Scene {
       const x = gx + g * gw;
       const who = taken.get(g);
       const bonus = gates[g] ?? 0;
-      this.text(x, 160, `${g + 1}`, 16, COLORS.muted).setOrigin(0.5, 0);
+      this.text(x, 150, `${g + 1}`, 18, COLORS.muted).setOrigin(0.5, 0);
       if (who) {
-        const r = this.add.rectangle(x, 214, gw - 8, 64, COLORS.inkLine).setStrokeStyle(2, COLORS.panelLight);
+        const r = this.add.rectangle(x, 208, gw - 8, 64, COLORS.inkLine).setStrokeStyle(2, COLORS.panelLight);
         this.screen.add(r);
-        this.text(x, 214, initials(this.names.get(who) ?? ''), 15, COLORS.muted).setOrigin(0.5);
+        this.text(x, 208, initials(this.names.get(who) ?? ''), 18, COLORS.muted).setOrigin(0.5);
       } else {
-        const b = this.btn(x, 214, bonus > 0 ? `+${bonus}%` : bonus < 0 ? `${bonus}%` : '0%', () => {
+        const b = this.btn(x, 208, bonus > 0 ? `+${bonus}%` : bonus < 0 ? `${bonus}%` : '0%', () => {
           chosen = g;
           gateButtons.forEach((o) => o.setSelected(o === b));
         }, gw - 8, 64);
@@ -231,28 +232,28 @@ export class RaceScene extends Phaser.Scene {
         gateButtons.push(b);
       }
     }
-    this.text(W / 2, 256, 'Taken gates show who has them. The % is the start bonus.', 15, COLORS.muted).setOrigin(0.5, 0);
+    this.text(W / 2, 248, 'Taken gates show who has them. The % is the start bonus.', 18, COLORS.muted).setOrigin(0.5, 0);
 
     // How to race it.
     const { racing } = services.content;
-    this.box(140, 300, 1000, 300);
-    this.text(170, 318, 'Starting message', 22, COLORS.accent);
+    this.box(100, 286, 1080, 356);
+    this.text(130, 300, 'Starting message', 24, COLORS.accent);
     let message = 'steady';
     const msgButtons: Button[] = [];
     racing.messages.forEach((m, i) => {
-      const b = this.btn(260 + i * 240, 380, m.name, () => {
+      const b = this.btn(250 + i * 280, 362, m.name, () => {
         message = m.id;
         msgButtons.forEach((o, j) => o.setSelected(j === i));
-      }, 220, 46);
+      }, 240, 48);
       b.setSelected(m.id === message);
       msgButtons.push(b);
-      this.text(150 + i * 240, 410, m.desc, 15, COLORS.muted, { wordWrap: { width: 220 } });
+      this.text(130 + i * 280, 394, m.desc, 18, COLORS.muted, { wordWrap: { width: 250 } });
     });
-    this.text(170, 470, `In a race, the pit board comes out when your message runs out (every lap, or the laps you set it for) and you can change your message ${racing.ink} times a moto. Auto-complete plays the same race out on screen with no pit board, holding your message all race. Either way, you retire at ${racing.sim.retireAtBroken} broken parts.`, 16, COLORS.cream, { wordWrap: { width: 940 } });
-    this.btn(W / 2 - 300, 560, 'Race', () => this.go(chosen, message, false), 260, 52);
-    this.btn(W / 2, 560, 'Auto-complete', () => this.go(chosen, message, true), 260, 52);
-    this.btn(W / 2 + 300, 560, 'Bike check', () => this.showBike(), 260, 52);
-    if (n > 1) this.btn(W / 2, 650, 'Leave early', () => this.confirmLeave(), 200, 44);
+    this.text(130, 462, `In a race, the pit board comes out when your message runs out (every lap, or the laps you set it for) and you can change your message ${racing.ink} times a moto. Auto-complete plays the same race out on screen with no pit board, holding your message all race. Either way, you retire at ${racing.sim.retireAtBroken} broken parts.`, 19, COLORS.cream, { wordWrap: { width: 1020 }, lineSpacing: 2 });
+    this.btn(W / 2 - 300, 600, 'Race', () => this.go(chosen, message, false), 260, 52);
+    this.btn(W / 2, 600, 'Auto-complete', () => this.go(chosen, message, true), 260, 52);
+    this.btn(W / 2 + 300, 600, 'Bike check', () => this.showBike(), 260, 52);
+    if (n > 1) this.btn(W / 2, 682, 'Leave early', () => this.confirmLeave(), 200, 44);
   }
 
   private confirmLeave(): void {
@@ -916,7 +917,7 @@ export class RaceScene extends Phaser.Scene {
     ];
     if (firstDay) lines.push('', finishedBoth ? 'Goal done: you finished both motos.' : 'Goal: finish both motos. Try again next time.');
     lines.push('', 'Rider XP', ...this.xpLines(payout.xp));
-    this.text(604, 170, lines.join('\n'), 17, COLORS.cream, { lineSpacing: 4 });
+    this.text(604, 170, lines.join('\n'), 17, COLORS.cream, { lineSpacing: 4, wordWrap: { width: 310 } });
     const ups = payout.levelUps.map((u) => `${u.name} → level ${u.level}`);
     const wear = this.wearLines(this.args.save.career.bike.parts, career.bike.parts);
     let y = 170;

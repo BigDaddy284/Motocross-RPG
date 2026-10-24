@@ -4,6 +4,7 @@ import { services } from '../services';
 import { COLORS, textStyle } from '../ui/theme';
 import { button, panel, statBar, textInput, type Button } from '../ui/widgets';
 import { newCareer } from './careerFlow';
+import { view } from '../ui/view';
 
 // Character creation for the test build: one of the sample riders, a rider name that can't be
 // changed later (GDD 4.1), and one of four starter 50cc bikes, one per brand (Spec 18.8).
@@ -26,7 +27,7 @@ export class NewCareerScene extends Phaser.Scene {
     this.brand = 0;
     const { bikes } = services.content;
     const looks = LOOKS.filter((l) => services.manifest.characters.sheets[l]);
-    const { width: sw, height: sh } = this.scale;
+    const { width: sw, height: sh } = view(this);
     this.add.rectangle(0, 0, sw, sh, COLORS.ink).setOrigin(0);
     // Laid out for 1160 × 720 and scaled down to fit smaller screens.
     const width = 1160;
