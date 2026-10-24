@@ -116,6 +116,11 @@ label.chk { display: flex; gap: 6px; align-items: center; color: var(--dim); }
 #checks .bad { color: #f0a0a0; }
 #checks .warn { color: var(--warn); }
 #checks .good { color: var(--ok); }
+#checks .ref { cursor: pointer; text-decoration: underline dotted; }
+#checks .ref:hover { background: #ffffff14; }
+#checks.pulse { animation: pulse 0.6s; }
+@keyframes pulse { from { background: #ffffff22; } to { background: transparent; } }
+h2 #btnCheck { float: right; font-size: 11px; padding: 1px 8px; }
 #legend { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11px; color: var(--dim); }
 #legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
 #welcome { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; background: #0d0e11; }
@@ -180,7 +185,7 @@ body.final .final-hide { display: none !important; }
   <div class="hint" id="kindInfo"></div>
   <div class="hint" id="venueInfo"></div>
 
-  <h2>Checks</h2>
+  <h2>Checks <button id="btnCheck" title="Check every track now: errors the game refuses, warnings to look at. Also runs on loading and saving. Never changes anything.">Check</button></h2>
   <div id="checks" class="hint">Open a folder.</div>
 </aside>
 
@@ -573,7 +578,7 @@ async function useSource(src) {
     $('#srcName').textContent = src.http ? `${src.base}tracks.json` : `${src.name}/${tracksPath}`;
     if (app.dirty) status('Loaded. The file is laid out differently from how the editor saves it, so it shows as changed.', 'err');
     else if (notes.length) status(`Loaded ${data.tracks.length} tracks; ${notes.join('; ')}.`, 'err');
-    else status(`Loaded ${data.tracks.length} tracks from ${tracksPath}.`, 'ok');
+    else status(`Loaded ${data.tracks.length} tracks from ${tracksPath}. ${checkSummary()}`, checkAll().errors ? 'err' : 'ok');
     buildLegend();
     buildPalettes();
     loadArt();
@@ -918,6 +923,7 @@ function drawGround(t) {
 
 /** Scenery with no tile art is drawn by type: simple top-down shapes in its colour. */
 function drawItem(it, sel, blocked = false) {
+  // blocked: true or 'error' (on the racing surface), or 'warning' (one to look at).
   const def = sceneryDef(it.type);
   const { w, h, a } = itemBox(it);
   const s = toScreen(it.x, it.y);
@@ -1012,10 +1018,22 @@ function drawItem(it, sel, blocked = false) {
     }
   }
   if (blocked) {
-    // On the racing surface: riders would ride through it.
-    ctx.strokeStyle = '#ff3b30';
+    // On the racing surface (red): riders would ride through it. A warning (yellow, dashed): look at it.
+    const warning = blocked === 'warning';
+    ctx.strokeStyle = warning ? '#ffd60a' : '#ff3b30';
     ctx.lineWidth = 3;
+    if (warning) ctx.setLineDash([5, 3]);
     ctx.strokeRect(-W / 2 - 2, -H / 2 - 2, W + 4, H + 4);
+    ctx.setLineDash([]);
+  }
+  if (app.flash && app.flash.item === it && performance.now() < app.flash.until) {
+    // Picked from the checks: a ring round it for a moment.
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, Math.hypot(W, H) / 2 + 8 + 4 * Math.sin(performance.now() / 90), 0, Math.PI * 2);
+    ctx.stroke();
+    requestDraw();
   }
   if (sel) {
     ctx.strokeStyle = '#f0a020';
@@ -1028,40 +1046,93 @@ function drawItem(it, sel, blocked = false) {
 }
 
 /**
- * Scenery on the racing surface, start straight included, by index (as src/core/trackParts.ts sceneryOnTrack). Riders ride
- * anywhere across the track, so anything there would be ridden through; start gates and finish
- * arches (overTrack in trackParts.json) are built to stand over it.
+ * Scenery checks, as src/core/trackClearance.ts sceneryIssues: each item's collider (what of it
+ * stands at riding height: a tree's trunk, a floodlight's or marshal post's pole, a banner's board,
+ * a finish arch's two posts, nothing of a start gate) turned as placed, measured against the
+ * racing surface (lap, start straight and the pad behind the gate).
+ * - error: on the racing surface, where riders would ride through it. The game refuses the file.
+ * - warning: within half a bike's width of the edge (a rider right on the edge would touch it), or
+ *   two solid items standing inside each other. Something to look at; the game races it.
+ * Never changes the track. Returns [{ i, level, message }], and is remembered until the track changes.
  */
-function sceneryOnTrack(t) {
+const BIKE_HALF_WIDTH = 0.25;
+const SOLID = new Set(['hay_bale', 'tyre_wall', 'tuff_block', 'van', 'pit_tent', 'stand', 'light_tower', 'skip', 'barrels', 'tyre_stack', 'hedge', 'banner', 'sponsor_board']);
+const issueCache = new WeakMap();
+function colliders(f) {
+  const along = (off, w, d) => ({ ...f, x: f.x + off * Math.cos(f.a), y: f.y + off * Math.sin(f.a), w, d });
+  switch (f.type) {
+    case 'start_gate': return [];
+    case 'finish_arch': return [along(-(f.w / 2 - 0.25), 0.5, 0.5), along(f.w / 2 - 0.25, 0.5, 0.5)];
+    case 'tree': return [along(0, 0.35, 0.35)];
+    case 'light_tower': return [along(0, 0.25, 0.25)];
+    case 'flag_post': return [along(0, 0.1, 0.1)];
+    case 'banner': case 'sponsor_board': return [{ ...f, d: 0.1 }];
+    case 'tape': return [{ ...f, d: 0.06 }];
+    case 'tuff_block': return [{ ...f, d: f.d * 0.8 }];
+    case 'bush': return [{ ...f, w: Math.min(f.w, f.d) * 0.9, d: Math.min(f.w, f.d) * 0.9 }];
+    case 'hedge': return [{ ...f, d: f.d * 0.6 }];
+    default: return [f];
+  }
+}
+function outline(f, step = 0.25) {
+  const out = [];
+  const nu = Math.max(1, Math.ceil(f.w / step));
+  const nv = Math.max(1, Math.ceil(f.d / step));
+  for (let i = 0; i <= nu; i++) for (let j = 0; j <= nv; j++) {
+    if (i > 0 && i < nu && j > 0 && j < nv) continue;
+    const u = (i / nu - 0.5) * f.w;
+    const v = (j / nv - 0.5) * f.d;
+    out.push({ x: f.x + u * Math.cos(f.a) - v * Math.sin(f.a), y: f.y + u * Math.sin(f.a) + v * Math.cos(f.a) });
+  }
+  out.push({ x: f.x, y: f.y });
+  return out;
+}
+function overlap(p, q) {
+  const corners = (f) => [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([u, v]) => ({ x: f.x + (u * f.w * Math.cos(f.a)) / 2 - (v * f.d * Math.sin(f.a)) / 2, y: f.y + (u * f.w * Math.sin(f.a)) / 2 + (v * f.d * Math.cos(f.a)) / 2 }));
+  const a = corners(p);
+  const b = corners(q);
+  for (const ang of [p.a, p.a + Math.PI / 2, q.a, q.a + Math.PI / 2]) {
+    const span = (pts) => { const d = pts.map((c) => c.x * Math.cos(ang) + c.y * Math.sin(ang)); return [Math.min(...d), Math.max(...d)]; };
+    const [a0, a1] = span(a);
+    const [b0, b1] = span(b);
+    if (a1 <= b0 + 1e-9 || b1 <= a0 + 1e-9) return false;
+  }
+  return true;
+}
+function sceneryIssues(t) {
+  const key = JSON.stringify([t.path, t.start, t.width, t.scenery]);
+  const hit = issueCache.get(t);
+  if (hit && hit.key === key) return hit.out;
   const g = lapGeom(t);
   const hw = (t.width ?? DEFAULT_WIDTH) / 2;
   const n = Math.max(200, Math.ceil(g.total / 0.25));
   const pts = Array.from({ length: n }, (_, i) => ({ ...pointAt(g, i / n), hw }));
-  // The start straight and the pad behind its gate are racing surface too, wider at the gate.
   const st = startGeom(t, g);
   if (st && st.total > 0) for (let u = -START_PAD; u <= st.total; u += 0.25) pts.push({ ...startPointAt(st, u), hw: startHalfWidth(st, u, hw) });
+  const off = (x, y) => { let best = Infinity; for (const p of pts) { const d = Math.hypot(p.x - x, p.y - y) - p.hw; if (d < best) best = d; } return best; };
+  const items = (t.scenery ?? []).map((it, i) => { const { w, h, a } = itemBox(it); return { i, type: it.type, x: it.x, y: it.y, w, d: h, a }; });
+  const name = (f) => `the ${(sceneryDef(f.type)?.name ?? f.type).toLowerCase()} at ${f.x}, ${f.y}`;
   const out = [];
-  (t.scenery ?? []).forEach((it, i) => {
-    const def = sceneryDef(it.type);
-    if (!def || def.overTrack) return;
-    const w = it.w ?? def.w;
-    const d = it.h ?? def.h;
-    const a = ((it.rot ?? 0) * Math.PI) / 180;
-    const reach = Math.hypot(w, d) / 2;
-    const near = pts.filter((p) => Math.hypot(p.x - it.x, p.y - it.y) < reach + p.hw);
-    if (!near.length) return;
-    for (let u = -0.5; u <= 0.5001; u += 0.1) {
-      for (let v = -0.5; v <= 0.5001; v += 0.25) {
-        const x = it.x + u * w * Math.cos(a) - v * d * Math.sin(a);
-        const y = it.y + u * w * Math.sin(a) + v * d * Math.cos(a);
-        if (near.some((p) => Math.hypot(p.x - x, p.y - y) < p.hw - 1e-6)) {
-          out.push(i);
-          return;
-        }
-      }
-    }
-  });
+  for (const f of items) {
+    if (!sceneryDef(f.type)) continue;
+    const cs = colliders(f);
+    // Quick skip: nothing of it comes within a bike's width of the track.
+    const reach = Math.hypot(f.w, f.d) / 2;
+    if (!pts.some((p) => Math.hypot(p.x - f.x, p.y - f.y) < reach + p.hw + BIKE_HALF_WIDTH + 0.5)) continue;
+    let into = -Infinity;
+    for (const c of cs) for (const p of outline(c)) into = Math.max(into, -off(p.x, p.y));
+    if (into > 1e-6) out.push({ i: f.i, level: 'error', message: `${name(f)} is on the racing surface, where riders would ride through it` });
+    else if (into > -BIKE_HALF_WIDTH) out.push({ i: f.i, level: 'warning', message: `${name(f)} is ${(-into).toFixed(2)} from the edge of the racing surface, so a rider right on the edge would touch it` });
+  }
+  for (let a = 0; a < items.length; a++) for (let b = a + 1; b < items.length; b++) {
+    if (SOLID.has(items[a].type) && SOLID.has(items[b].type) && colliders(items[a]).some((p) => colliders(items[b]).some((q) => overlap(p, q)))) out.push({ i: items[b].i, level: 'warning', message: `${name(items[b])} stands inside ${name(items[a])}` });
+  }
+  issueCache.set(t, { key, out });
   return out;
+}
+/** Items on the racing surface, by index (the errors of sceneryIssues). */
+function sceneryOnTrack(t) {
+  return [...new Set(sceneryIssues(t).filter((p) => p.level === 'error').map((p) => p.i))];
 }
 function contrast(hex) {
   const c = hex.replace('#', '');
@@ -1237,8 +1308,9 @@ function draw() {
 
   // Scenery.
   ctx.globalAlpha = scene || app.mode === 'scenery' ? 1 : 0.25;
-  const blocked = new Set(sceneryOnTrack(t));
-  (t.scenery ?? []).forEach((it, i) => drawItem(it, app.mode === 'scenery' && i === app.selItem, blocked.has(i)));
+  const level = new Map();
+  for (const p of sceneryIssues(t)) if (level.get(p.i) !== 'error') level.set(p.i, p.level);
+  (t.scenery ?? []).forEach((it, i) => drawItem(it, app.mode === 'scenery' && i === app.selItem, level.get(i) ?? false));
   ctx.globalAlpha = 1;
 
   if (app.mode === 'layout') {
@@ -1912,7 +1984,14 @@ function checkTrack(t, all) {
     for (const id of Object.keys(t.ground.paint ?? {})) if (!P.ground.some((g) => g.id === id)) bad.push(`No ground "${id}" in trackParts.json.`);
   }
   (t.scenery ?? []).forEach((s, i) => { if (!sceneryDef(s.type)) bad.push(`Scenery item ${i + 1}: no scenery "${s.type}" in trackParts.json.`); });
-  for (const i of sceneryOnTrack(t)) bad.push(`Scenery item ${i + 1} (${sceneryDef(t.scenery[i].type)?.name.toLowerCase() ?? t.scenery[i].type}) is on the racing surface, where riders would ride through it. Move it off the track (it is outlined in red).`);
+  const refs = new Map();
+  for (const p of sceneryIssues(t)) {
+    const text = p.level === 'error'
+      ? `Scenery item ${p.i + 1}: ${p.message}. Move it off the track (outlined in red; click here to find it).`
+      : `Scenery item ${p.i + 1}: ${p.message}. The game will race it; check it is meant to be there (dashed yellow; click here to find it).`;
+    (p.level === 'error' ? bad : warn).push(text);
+    refs.set(text, p.i);
+  }
   // Section types against the drawing, and the start straight (as src/core/trackCheck.ts).
   if (Object.keys(app.sectionDefs).length) {
     const shapes = sectionShapes(t);
@@ -1936,7 +2015,7 @@ function checkTrack(t, all) {
   let crossings = 0;
   for (let i = 0; i < n; i++) for (let j = i + 2; j < n; j++) if (!(i === 0 && j === n - 1) && cross(g.pts[i], g.pts[i + 1], g.pts[j], g.pts[j + 1])) crossings++;
   if (crossings) warn.push(`The drawing crosses itself ${crossings === 1 ? 'once' : `${crossings} times`}. That's fine for a crossover, but riders will pass through each other there.`);
-  return { bad, warn };
+  return { bad, warn, refs };
 }
 
 function renderChecks() {
@@ -1944,14 +2023,69 @@ function renderChecks() {
   box.innerHTML = '';
   const t = track();
   if (!t) return;
-  const { bad, warn } = checkTrack(t, app.data.tracks);
+  const { bad, warn, refs } = checkTrack(t, app.data.tracks);
   const others = app.data.tracks.filter((x) => x !== t && checkTrack(x, app.data.tracks).bad.length).map((x) => x.name || x.id);
   for (const v of app.data.venues ?? []) if (v.track && !app.data.tracks.some((x) => x.id === v.track)) bad.push(`Venue "${v.name}" uses track "${v.track}", which doesn't exist.`);
-  const add = (cls, text) => { const d = document.createElement('div'); d.className = cls; d.textContent = text; box.appendChild(d); };
+  const add = (cls, text) => {
+    const d = document.createElement('div');
+    d.className = cls;
+    d.textContent = text;
+    const m = text.match(/^. (.*)$/);
+    const i = m ? refs?.get(m[1]) : undefined;
+    if (i !== undefined) {
+      d.classList.add('ref');
+      d.title = 'Select it';
+      d.onclick = () => findItem(i);
+    }
+    box.appendChild(d);
+  };
   bad.forEach((m) => add('bad', `✕ ${m}`));
   warn.forEach((m) => add('warn', `! ${m}`));
   if (others.length) add('bad', `✕ Other tracks have problems: ${others.join(', ')}.`);
   if (!bad.length && !warn.length && !others.length) add('good', '✓ This track passes the game\'s checks.');
+}
+/** Selects a scenery item from the checks: scenery mode, the item selected, the view on it, a ring round it. */
+function findItem(i) {
+  const t = track();
+  const it = t?.scenery?.[i];
+  if (!it) return;
+  setMode('scenery');
+  app.selItem = i;
+  const r = canvas.getBoundingClientRect();
+  const at = toScreen(it.x, it.y);
+  if (at.x < 40 || at.y < 40 || at.x > r.width - 40 || at.y > r.height - 40) {
+    view.ox += r.width / 2 - at.x;
+    view.oy += r.height / 2 - at.y;
+  }
+  app.flash = { item: it, until: performance.now() + 1600 };
+  refresh();
+}
+/** Every track's errors and warnings, for the Check button, loading and saving. */
+function checkAll() {
+  let errors = 0;
+  let warnings = 0;
+  const bad = [];
+  for (const t of app.data?.tracks ?? []) {
+    const r = checkTrack(t, app.data.tracks);
+    errors += r.bad.length;
+    warnings += r.warn.length;
+    if (r.bad.length) bad.push(t.name || t.id);
+  }
+  return { errors, warnings, bad };
+}
+function checkSummary() {
+  const { errors, warnings, bad } = checkAll();
+  if (!errors && !warnings) return 'Checks: every track passes.';
+  return `Checks: ${errors} error${errors === 1 ? '' : 's'}${bad.length ? ` (${bad.join(', ')})` : ''}, ${warnings} warning${warnings === 1 ? '' : 's'} to look at. See Checks.`;
+}
+function runChecks() {
+  if (!app.data) return;
+  renderChecks();
+  const { errors } = checkAll();
+  status(checkSummary(), errors ? 'err' : 'ok');
+  $('#checks').classList.remove('pulse');
+  void $('#checks').offsetWidth;
+  $('#checks').classList.add('pulse');
 }
 function hasErrors() {
   return app.data.tracks.some((t) => checkTrack(t, app.data.tracks).bad.length) || (app.data.venues ?? []).some((v) => v.track && !app.data.tracks.some((x) => x.id === v.track));
@@ -2187,7 +2321,7 @@ async function save(forceDownload) {
       await source.write(app.tracksPath, text);
       app.savedText = text;
       setDirty(false);
-      status(`Saved ${app.tracksPath}. Run npm test to check it.`, 'ok');
+      status(`Saved ${app.tracksPath}. ${checkSummary()}`, checkAll().errors ? 'err' : 'ok');
       return;
     } catch (e) {
       console.error(e);
@@ -2197,7 +2331,7 @@ async function save(forceDownload) {
   download('tracks.json', text);
   app.savedText = text;
   setDirty(false);
-  status('Downloaded tracks.json. Copy it over public/data/tracks.json.', 'ok');
+  status(`Downloaded tracks.json. Copy it over public/data/tracks.json. ${checkSummary()}`, checkAll().errors ? 'err' : 'ok');
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -2434,6 +2568,7 @@ window.addEventListener('resize', requestDraw);
 $('#btnOpen').addEventListener('click', openFolder);
 $('#btnOpen2').addEventListener('click', openFolder);
 $('#btnSave').addEventListener('click', () => save());
+$('#btnCheck').addEventListener('click', () => runChecks());
 $('#btnDownload').addEventListener('click', () => save(true));
 $('#btnUndo').addEventListener('click', undo);
 $('#btnRedo').addEventListener('click', redo);
@@ -2547,7 +2682,7 @@ async function tryServer() {
 
 setMode('layout');
 tryServer();
-window.trackEditor = { app, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart }; // for tests
+window.trackEditor = { app, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart }; // for tests
 </script>
 </body>
 </html>
