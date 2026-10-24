@@ -176,7 +176,7 @@ export function nearestOnLap(g: LapGeom, x: number, y: number): { f: number; d: 
 
 /** Grid units of start pad drawn behind the gate, where the second row lines up. */
 export const START_PAD = 3;
-/** The start straight is this much wider than the track at the gate, so a full gate fits, narrowing to the track's width where it joins. */
+/** The start straight is this much wider than the track at the gate, so a row of 8 bikes fits, narrowing to the track's width where it joins. */
 export const START_WIDEN = 1.6;
 
 /** Half the start straight's width `u` grid units from the gate, for a track of half-width hw. */

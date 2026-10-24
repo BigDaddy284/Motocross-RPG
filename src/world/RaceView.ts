@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { SceneryItem, TrackDef } from '../core/race';
 import type { RiderPose } from '../core/riderAI';
-import { pointAt, START_PAD, startPointAt } from '../core/trackGeom';
+import { nearestOnLap, pointAt, START_PAD, startPointAt } from '../core/trackGeom';
 import { GRID_H, GRID_W, trackKind, type TrackPartsData } from '../core/trackParts';
 import { BIKE_LENGTH, LIP_AT, TrackSurface } from '../core/trackSurface';
 import { COLORS } from '../ui/theme';
@@ -100,6 +100,10 @@ export class RaceView {
   private readonly labels: Phaser.GameObjects.Container;
   /** Tall scenery that fades when a rider is behind it, so it never hides the racing. */
   private readonly tall: { corners: THREE.Vector3[]; mats: THREE.Material[]; faded: boolean }[] = [];
+  /** The start gate's pickets, hinged at the bottom so they drop flat when the race starts. */
+  private gateDrop: THREE.Group | null = null;
+  /** The official holding the start board beside the start straight, and the board itself. */
+  private board: { stand: THREE.Group; panel: THREE.Group } | null = null;
   /** Frame times in ms (whole update, the 3D draw, and handing the picture to Phaser), for the performance check. */
   readonly frameMs: number[] = [];
   readonly renderMs: number[] = [];
@@ -180,6 +184,7 @@ export class RaceView {
     if (this.surface.start.total > 0) {
       this.scene3.add(this.buildStart());
       this.scene3.add(this.startGate());
+      this.scene3.add(this.startBoard());
     }
     this.scene3.add(this.startLine());
     // Low scenery that never needs fading is baked into one mesh; textured parts stay separate.
@@ -514,9 +519,130 @@ export class RaceView {
     const s = this.surface;
     const at = startPointAt(s.start, 0.75);
     const ang = s.startSpot(0.75, 0).ang;
-    const gate = this.buildItem({ type: 'start_gate', x: at.x, y: at.y, w: 2 * s.startHw(0.75) * LIP_AT + 0.4, h: 1, rot: (ang * 180) / Math.PI + 90 })!;
+    const d = 1;
+    const gate = this.buildItem({ type: 'start_gate', x: at.x, y: at.y, w: 2 * s.startHw(0.75) * LIP_AT + 0.4, h: d, rot: (ang * 180) / Math.PI + 90 })!;
     gate.position.y = s.startHeight(0.75, 0);
+    // Everything above the base (the pickets and their rail) hangs on a hinge along the base's
+    // front edge, so the whole row falls forward onto the track at the drop.
+    const hinge = new THREE.Group();
+    hinge.position.set(0, 0.12, -d * 0.3 - 0.04);
+    for (const part of gate.children.slice(1)) {
+      part.position.y -= 0.12;
+      part.position.z -= hinge.position.z;
+      hinge.add(part);
+    }
+    gate.add(hinge);
+    this.gateDrop = hinge;
     return gate;
+  }
+
+  /**
+   * The start board: an official beside the start straight, ahead of the gate on the side where
+   * it joins the lap, holding the board up to the riders. Shown from five seconds out, turned
+   * sideways at three, gone at the drop (updateStart). Its face is printed both sides so the
+   * camera reads it whichever way it faces the riders.
+   */
+  private startBoard(): THREE.Object3D {
+    const s = this.surface;
+    const st = s.start;
+    const side = s.joinSide || 1;
+    const merge = st.total - (s.hw * 2.5 + 1);
+    // Ahead of the gate, as near 8 units out as there is room for, in the grass between the start
+    // straight and the lap (or on the far side if that strip is too narrow), clear of scenery.
+    let best: { x: number; z: number; ang: number; score: number } | null = null;
+    for (let u = 4; u <= Math.max(4, merge); u += 0.5) {
+      for (const sd of [side, -side]) {
+        const edge = s.startHw(u) * LIP_AT;
+        for (const out of [2.2, 1.8, 1.5]) {
+          const p = s.startSpot(u, (sd * (edge + out)) / s.startHw(u));
+          const lapGap = nearestOnLap(s.g, p.x, p.z).d - s.hw * LIP_AT;
+          const clutter = (this.track.scenery ?? []).some((it) => Math.hypot(it.x - p.x, it.y - p.z) < 1.4 + Math.max(it.w ?? 0, it.h ?? 0) / 2);
+          if (lapGap < 1.1 || clutter) continue;
+          const score = Math.abs(u - 8) + (sd === side ? 0 : 3) + (2.2 - out);
+          if (!best || score < best.score) best = { x: p.x, z: p.z, ang: p.ang, score };
+          break;
+        }
+      }
+    }
+    const spot = best ?? { ...s.startSpot(6, (side * (s.startHw(6) * LIP_AT + 1.5)) / s.startHw(6)), score: 0 };
+    const stand = new THREE.Group();
+    stand.position.set(spot.x, this.terrainAt(spot.x, spot.z), spot.z);
+    // Face the camera, so the player reads the board, turned just a touch back towards the riders
+    // (the face is printed on both sides, so the riders see it too).
+    const camAz = THREE.MathUtils.degToRad(CAM_AZ);
+    const toRiders = Math.atan2(-Math.cos(spot.ang), -Math.sin(spot.ang));
+    const toCam = camAz;
+    let turn = toCam - toRiders;
+    while (turn > Math.PI) turn -= 2 * Math.PI;
+    while (turn < -Math.PI) turn += 2 * Math.PI;
+    stand.rotation.y = toRiders + turn * 0.85;
+    // The official: legs, body, head, arms up to the board.
+    const kit = this.mat(0x2a3a5a);
+    const skin = this.mat(0xe0b090);
+    stand.add(this.boxMesh(0.12, 0.7, 0.14, kit, -0.1, 0, 0), this.boxMesh(0.12, 0.7, 0.14, kit, 0.1, 0, 0));
+    stand.add(this.boxMesh(0.42, 0.62, 0.24, this.mat(0xf0a020), 0, 0.7, 0));
+    stand.add(this.boxMesh(0.22, 0.22, 0.22, skin, 0, 1.34, 0));
+    stand.add(this.boxMesh(0.09, 0.8, 0.09, skin, -0.3, 1.35, 0.04), this.boxMesh(0.09, 0.8, 0.09, skin, 0.3, 1.35, 0.04));
+    // The board, held above the head; it turns in its own plane about its centre.
+    const panel = new THREE.Group();
+    panel.position.set(0, 2.45, 0.12);
+    const face = new THREE.MeshLambertMaterial({ map: this.boardTexture() });
+    const W = 1.8;
+    const H = 1.35;
+    const front = new THREE.Mesh(new THREE.PlaneGeometry(W, H), face);
+    front.position.z = 0.03;
+    const back = new THREE.Mesh(new THREE.PlaneGeometry(W, H), face);
+    back.rotation.y = Math.PI;
+    back.position.z = -0.03;
+    const core = new THREE.Mesh(new THREE.BoxGeometry(W, H, 0.05), this.mat(0xdedede));
+    for (const m of [front, back, core]) m.castShadow = true;
+    panel.add(core, front, back);
+    stand.add(panel);
+    stand.visible = false;
+    this.board = { stand, panel };
+    return stand;
+  }
+
+  /** The start board's face: START over a big red 30, as held up at the gate. */
+  private boardTexture(): THREE.CanvasTexture {
+    const cv = document.createElement('canvas');
+    cv.width = 256;
+    cv.height = 192;
+    const ctx = cv.getContext('2d')!;
+    ctx.fillStyle = '#f4f4f0';
+    ctx.fillRect(0, 0, 256, 192);
+    ctx.fillStyle = '#2f5d73';
+    ctx.fillRect(0, 0, 256, 50);
+    ctx.fillRect(0, 160, 256, 32);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 40px Trebuchet MS, sans-serif';
+    ctx.fillText('START', 128, 27);
+    ctx.fillStyle = '#d42a20';
+    ctx.font = 'bold 116px Trebuchet MS, sans-serif';
+    ctx.fillText('30', 128, 108);
+    // Hand holds.
+    ctx.fillStyle = '#c8c8c0';
+    for (const x of [26, 230]) ctx.fillRect(x - 8, 88, 16, 34);
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+    return tex;
+  }
+
+  /**
+   * The start procedure as race time runs up to the gate drop at 0 (riderAI START_HOLD): the
+   * board is held up square from five seconds out, turned sideways at three, and taken away at
+   * the drop, when the gate's pickets fall flat. Purely a function of the clock, so scrubbing or
+   * a new race always shows the right state.
+   */
+  private updateStart(clock: number): void {
+    if (this.board) {
+      this.board.stand.visible = clock >= -5 && clock < 0;
+      this.board.panel.rotation.z = clock >= -3 ? Math.PI / 2 : 0;
+    }
+    if (this.gateDrop) this.gateDrop.rotation.x = -(Math.PI / 2) * Math.max(0, Math.min(1, clock / 0.3)) ** 2;
   }
 
   /**
@@ -933,7 +1059,7 @@ export class RaceView {
       }
       let dist = p.dist;
       // The second start row waits a bike length behind the gate and closes up as the race starts.
-      if (r.startRow && p.dist < s.start.join) dist -= (r.startRow * BIKE_LENGTH * 1.4 * Math.max(0, 1 - clock / 2)) / s.g.total;
+      if (r.startRow && p.dist < s.start.join) dist -= (r.startRow * BIKE_LENGTH * 1.4 * Math.max(0, Math.min(1, 1 - clock / 2))) / s.g.total;
       const f = dist - Math.floor(dist);
       const onStart = s.onStart(dist);
       const [back, front] = s.wheelsAt(dist, p.lane, p.air);
@@ -974,6 +1100,7 @@ export class RaceView {
       }
     }
     this.agePuffs(Math.min(1, dc * 1.4 + dt * 0.3));
+    this.updateStart(clock);
     if (!riders.some((r) => r.player && r.pose.state !== 'retired')) this.marker.visible = false;
     else this.marker.visible = true;
     this.moveCamera(target, dt);

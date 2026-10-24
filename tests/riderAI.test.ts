@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { checkContent } from '../src/core/content';
 import { MotoSim, type Entrant, type LapTrace } from '../src/core/race';
 import { cpuEntrant } from '../src/core/raceDay';
-import { directorFor, type RaceDirector } from '../src/core/riderAI';
-import { sectionBounds } from '../src/core/trackGeom';
+import { directorFor, START_HOLD, type RaceDirector } from '../src/core/riderAI';
+import { lapGeom, sectionBounds } from '../src/core/trackGeom';
+import { BIKE_LENGTH, TrackSurface } from '../src/core/trackSurface';
 import { loadManifest, loadMaps, rawContent } from './helpers';
 
 const content = checkContent(rawContent(), loadManifest(), loadMaps()).content!;
@@ -80,10 +81,64 @@ describe('rider AI (GDD 11.1)', () => {
   it('lines riders up at their gates before the start', () => {
     const { dir } = race('farmland', 9);
     const grid = dir.poses(0);
-    // Everyone lines up at the gate on the start straight, before it joins the lap.
+    // Everyone lines up at the gate on the start straight, before it joins the lap: two rows of 8,
+    // the second straight behind the first, every slot different.
     expect(grid.every((p) => p.state === 'grid' && p.dist === dir.start.from && p.dist < dir.start.join)).toBe(true);
-    expect(new Set(grid.map((p) => p.lane.toFixed(3))).size).toBe(grid.length);
+    const slots = grid.map((p) => `${dir.startRow(p.id)} ${p.lane.toFixed(3)}`);
+    expect(new Set(slots).size).toBe(grid.length);
+    expect(grid.filter((p) => dir.startRow(p.id) === 0).length).toBe(8);
+    const front = new Set(grid.filter((p) => dir.startRow(p.id) === 0).map((p) => p.lane.toFixed(3)));
+    expect(grid.filter((p) => dir.startRow(p.id) === 1).every((p) => front.has(p.lane.toFixed(3)))).toBe(true);
   });
+
+  for (const trackId of ['farmland', 'arena-supercross', 'longmoor-endurance']) {
+    it(`runs the start procedure on ${trackId}: some lined up, the rest roll in without touching, then a five-second hold`, () => {
+      const { dir } = race(trackId, 4);
+      const track = content.tracks.tracks.find((t) => t.id === trackId)!;
+      const s = new TrackSurface(track);
+      const units = lapGeom(track.path).total;
+      const ids = dir.poses(0).map((p) => p.id);
+      // 4 to 8 already in their slots; the rest take 2 to 4 seconds; then the hold.
+      expect(dir.lined.size).toBeGreaterThanOrEqual(4);
+      expect(dir.lined.size).toBeLessThanOrEqual(8);
+      expect(dir.prep).toBeGreaterThanOrEqual(2);
+      expect(dir.prep).toBeLessThanOrEqual(4);
+      expect(dir.prestart).toBeCloseTo(dir.prep + START_HOLD, 9);
+      expect(dir.linedUp(-START_HOLD)).toBe(true);
+      expect(dir.linedUp(-START_HOLD - 0.1)).toBe(false);
+      const start = dir.poses(-dir.prestart);
+      expect(start.filter((p) => p.dist === dir.start.from).length).toBe(dir.lined.size);
+      const last = new Map<string, number>();
+      for (let t = -dir.prestart; t <= 0; t += 0.02) {
+        const poses = dir.poses(t);
+        // Where each bike stands on the start straight, as the race view places it (second row a bike length and a bit back).
+        const at = poses.map((p) => {
+          const u = (p.dist - dir.start.from) * units - dir.startRow(p.id) * BIKE_LENGTH * 1.4;
+          return { id: p.id, u, x: p.lane * s.startHw(u) };
+        });
+        for (const p of poses) {
+          expect(p.state).toBe('grid');
+          // Only ever forwards, never past the slot.
+          expect(p.dist).toBeGreaterThanOrEqual((last.get(p.id) ?? -Infinity) - 1e-12);
+          expect(p.dist).toBeLessThanOrEqual(dir.start.from + 1e-12);
+          last.set(p.id, p.dist);
+          // Still, and in the slot, for the whole hold.
+          if (t >= -START_HOLD) {
+            expect(p.dist).toBe(dir.start.from);
+            expect(p.speed).toBe(0);
+          }
+        }
+        // No two bikes overlap: a bike is BIKE_LENGTH long and under half a grid unit wide.
+        for (let i = 0; i < at.length; i++) {
+          for (let j = i + 1; j < at.length; j++) {
+            const touching = Math.abs(at[i].u - at[j].u) < BIKE_LENGTH && Math.abs(at[i].x - at[j].x) < 0.45;
+            expect(touching, `${at[i].id} and ${at[j].id} at ${t.toFixed(2)}`).toBe(false);
+          }
+        }
+      }
+      expect(ids.length).toBe(16);
+    });
+  }
 
   it('shows mistakes and crashes where the referee put them', () => {
     let crashes = 0;

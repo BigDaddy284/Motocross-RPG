@@ -1,7 +1,7 @@
 import type { BikesData } from './career';
 import type { LapTrace, MessageDef, MistakeOutcome, MotoSim, TrackDef, TrackSection } from './race';
 import { riderProfile, type RiderProfile } from './riderProfile';
-import { lapGeom, lapMetres, sectionTurns, startGeom, type StartGeom } from './trackGeom';
+import { lapGeom, lapMetres, sectionTurns, START_PAD, startGeom, type StartGeom } from './trackGeom';
 
 // The rider AI for the race screen (GDD 11.1): every rider rides the lap on their own, the way
 // Super Off Road's CPU drivers follow a racing line, but for motocross. The race simulation
@@ -51,6 +51,17 @@ const TAKEOFF = 0.3;
 const LANDING = 0.72;
 /** Riders closer than this many metres, on near lines, ease apart. */
 const ROOM = 5;
+/** Seconds the whole field stands still at the gate, with the start board out, before it drops. */
+export const START_HOLD = 5;
+/** Grid units behind their slot where riders still to line up wait, by start row (beyond the start pad). */
+const WAIT_BACK = [START_PAD + 1.5, START_PAD + 4];
+
+/** One rider rolling up to their slot before the start: race times (negative) and how far back they set off, in grid units. */
+interface LineUpMove {
+  t0: number;
+  t1: number;
+  back: number;
+}
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const smooth = (x: number) => {
@@ -69,6 +80,18 @@ export class RaceDirector {
   private readonly gateRow = new Map<string, number>();
   /** The start straight; riders line up at its gate, at race distance start.from. */
   readonly start: StartGeom;
+  /**
+   * Seconds before the gate drops that the start procedure begins: riders still to line up roll
+   * into their slots (`prep`), then everyone holds still for START_HOLD. Race time runs from
+   * -prestart to 0 at the gate drop. 0 in practice, which has no line-up.
+   */
+  readonly prestart: number;
+  /** Seconds the riders still to line up take to roll into their slots. */
+  readonly prep: number;
+  /** Riders already in their slot when the start procedure begins. */
+  readonly lined = new Set<string>();
+  private readonly moves = new Map<string, LineUpMove>();
+  private readonly lapUnits: number;
 
   constructor(
     readonly track: TrackDef,
@@ -78,24 +101,74 @@ export class RaceDirector {
     /** Laps in the race, or null for practice. */
     readonly laps: number | null,
   ) {
-    this.turns = sectionTurns(track, lapGeom(track.path));
+    const g = lapGeom(track.path);
+    this.turns = sectionTurns(track, g);
     this.metres = lapMetres(track);
-    this.start = startGeom(track);
+    this.lapUnits = g.total;
+    this.start = startGeom(track, g);
     // The gate row spreads across the track, gate 0 nearest the inside of the first corner.
     const order = [...gates.entries()].sort((a, b) => a[1] - b[1]).map(([id]) => id);
     const firstTurn = this.turns.find((t) => t !== 0) || 1;
-    // A big field lines up in two rows, the second row in the gaps of the first, so no two bikes
-    // overlap on a narrow start straight.
+    // A big field lines up in two rows of up to 8, the second row straight behind the first.
     const rows = order.length > 8 ? 2 : 1;
     const perRow = Math.ceil(order.length / rows);
-    const step = perRow > 1 ? 1.8 / (perRow - 1 + (rows - 1) * 0.5) : 0;
+    const step = perRow > 1 ? 1.8 / (perRow - 1) : 0;
     order.forEach((id, i) => {
       const row = i % rows;
       const col = Math.floor(i / rows);
       this.gateRow.set(id, row);
-      this.gateLane.set(id, firstTurn * (order.length > 1 ? 0.9 - step * (col + row * 0.5) : 0));
+      this.gateLane.set(id, firstTurn * (order.length > 1 ? 0.9 - step * col : 0));
     });
     for (const id of profiles.keys()) this.segs.set(id, []);
+
+    // The line-up, for a race: the first riders to the gate (the inside gates of the front row,
+    // 4 to 8 of them, more for a bigger field) are already in their slots. The rest roll up from
+    // behind the start pad, the front row first, each in their own lane so nobody overlaps, and
+    // the bigger the job the longer it takes (2 to 4 seconds). Then the field holds still.
+    if (laps === null || order.length < 2) {
+      this.prep = 0;
+      this.prestart = 0;
+      return;
+    }
+    const k = Math.min(order.length, clamp(Math.round(order.length * 0.4), 4, 8));
+    const front = order.filter((id) => this.startRow(id) === 0);
+    for (const id of front.slice(0, k)) this.lined.add(id);
+    for (const id of order) if (this.lined.size < k && !this.lined.has(id)) this.lined.add(id);
+    const movers = [...front, ...order.filter((id) => this.startRow(id) === 1)].filter((id) => !this.lined.has(id));
+    this.prep = movers.length ? clamp(2 + (2 * movers.length) / 12, 2, 4) : 0;
+    this.prestart = this.prep + START_HOLD;
+    // Front-row riders roll up in the first part of the time, the second row once they are through.
+    const groups = [movers.filter((id) => this.startRow(id) === 0), movers.filter((id) => this.startRow(id) === 1)];
+    const t0 = -this.prestart;
+    groups.forEach((group, gi) => {
+      if (!group.length) return;
+      const from = gi === 1 && groups[0].length ? this.prep * 0.42 : 0;
+      const span = this.prep - from;
+      const ride = Math.min(span, Math.max(1.4, span * 0.75));
+      const gap = group.length > 1 ? (span - ride) / (group.length - 1) : 0;
+      group.forEach((id, i) => this.moves.set(id, { t0: t0 + from + gap * i, t1: t0 + from + gap * i + ride, back: WAIT_BACK[gi] }));
+    });
+  }
+
+  /**
+   * Where a rider is before the gate drops: in their slot, or rolling up to it from behind the
+   * start pad. Slots are at the gate (race distance start.from); the race view sets the second
+   * row back a bike length.
+   */
+  private lineUp(id: string, t: number): RiderPose {
+    const lane = this.gateLane.get(id) ?? 0;
+    const m = this.moves.get(id);
+    if (!m || t >= m.t1) return { id, dist: this.start.from, lane, air: 0, elev: 0, state: 'grid', speed: 0 };
+    const k = clamp((t - m.t0) / (m.t1 - m.t0), 0, 1);
+    const back = m.back * (1 - smooth(k));
+    // Speed from the eased roll, in metres per second.
+    const speed = k > 0 && k < 1 ? ((6 * k * (1 - k) * m.back) / (m.t1 - m.t0)) * (this.metres / this.lapUnits) : 0;
+    return { id, dist: this.start.from - back / this.lapUnits, lane, air: 0, elev: 0, state: 'grid', speed };
+  }
+
+  /** True once every rider is in their slot and still (from START_HOLD seconds before the gate drops). */
+  linedUp(t: number): boolean {
+    return [...this.moves.values()].every((m) => t >= m.t1);
   }
 
   /** Which start row a rider lines up in: 0 at the gate, 1 just behind it. */
@@ -149,8 +222,7 @@ export class RaceDirector {
       if (off) return off;
     }
     const p = this.profiles.get(id)!;
-    const base: RiderPose = { id, dist: this.start.from, lane: this.gateLane.get(id) ?? 0, air: 0, elev: 0, state: 'grid', speed: 0 };
-    if (!list.length || t <= list[0].t0) return base;
+    if (!list.length || t <= list[0].t0) return this.lineUp(id, t);
     // The section the rider is in now: the first one that ends after t.
     let lo = 0;
     let hi = list.length;

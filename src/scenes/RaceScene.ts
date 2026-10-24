@@ -74,6 +74,8 @@ export class RaceScene extends Phaser.Scene {
   /** Laps the next pit board message is set for (BOARD_LAPS), and the leader's lap when the board next comes out. */
   private boardLaps = 1;
   private boardAt = 0;
+  /** What Details last showed (tab, bike snapshot, timing points passed), to redraw it only when that changes. */
+  private detailKey = '';
   /** The player's bike after each lap the simulation has run, by the race time the player finished that lap. */
   private wearAt: { t: number; parts: Bike['parts'] }[] = [];
   private detailTab: 'bike' | 'sections' = 'bike';
@@ -125,9 +127,15 @@ export class RaceScene extends Phaser.Scene {
     if (!this.live || this.paused || this.modal) return;
     // The real time since the last frame, so 1× is real time even when frames come slowly (the
     // game loop smooths and trims its own delta), capped so a stalled tab doesn't leap ahead.
-    const real = Math.min(250, this.game.loop.rawDelta || dt);
-    this.frameDt = real / 1000;
-    this.clock += (real / 1000) * SPEEDS[this.speed];
+    const real = Math.min(250, this.game.loop.rawDelta || dt) / 1000;
+    this.frameDt = real;
+    // Before the gate drops (negative race time) the line-up and the start board run in real
+    // time at any speed, so the five-second hold is always five seconds; Pause still stops it.
+    const speed = SPEEDS[this.speed];
+    if (this.clock < 0 && speed > 0) {
+      const pre = Math.min(real, -this.clock);
+      this.clock = Math.min(0, this.clock + pre) + (real - pre) * speed;
+    } else this.clock += real * speed;
     this.onTick?.();
   }
 
@@ -233,11 +241,11 @@ export class RaceScene extends Phaser.Scene {
       msgButtons.push(b);
       this.text(150 + i * 240, 410, m.desc, 15, COLORS.muted, { wordWrap: { width: 220 } });
     });
-    this.text(170, 470, `Racing live, the pit board comes out when your message runs out (every lap, or the laps you set it for) and you can change your message ${racing.ink} times a moto. Auto-complete plays the same race out on screen with no pit board, holding your message all race. Either way, you retire at ${racing.sim.retireAtBroken} broken parts.`, 16, COLORS.cream, { wordWrap: { width: 940 } });
-    this.btn(W / 2 - 250, 560, 'Race live', () => this.go(chosen, message, false), 260, 52);
-    this.btn(W / 2 + 50, 560, 'Auto-complete', () => this.go(chosen, message, true), 260, 52);
-    if (n > 1) this.btn(W / 2 + 330, 560, 'Leave early', () => this.confirmLeave(), 200, 52);
-    this.btn(W / 2, 650, 'Bike check', () => this.showBike(), 200, 44);
+    this.text(170, 470, `In a race, the pit board comes out when your message runs out (every lap, or the laps you set it for) and you can change your message ${racing.ink} times a moto. Auto-complete plays the same race out on screen with no pit board, holding your message all race. Either way, you retire at ${racing.sim.retireAtBroken} broken parts.`, 16, COLORS.cream, { wordWrap: { width: 940 } });
+    this.btn(W / 2 - 300, 560, 'Race', () => this.go(chosen, message, false), 260, 52);
+    this.btn(W / 2, 560, 'Auto-complete', () => this.go(chosen, message, true), 260, 52);
+    this.btn(W / 2 + 300, 560, 'Bike check', () => this.showBike(), 260, 52);
+    if (n > 1) this.btn(W / 2, 650, 'Leave early', () => this.confirmLeave(), 200, 44);
   }
 
   private confirmLeave(): void {
@@ -356,6 +364,9 @@ export class RaceScene extends Phaser.Scene {
       this.btn(1180, 660, 'Details', () => this.toggleDetail(), 150, 44);
     }
     this.addLap(sim.nextLap());
+    // A race opens with the start procedure: the line-up, then the board and the five-second
+    // hold, all in negative race time up to the gate drop at 0 (riderAI lineUp, RaceView updateStart).
+    this.clock = practice ? 0 : -this.director.prestart;
     this.live = true;
     this.onTick = () => this.tick();
     this.tick();
@@ -400,7 +411,7 @@ export class RaceScene extends Phaser.Scene {
       let k = 0;
       while (k + 1 < cp.t.length && cp.t[k + 1] <= this.clock) k++;
       let dist = cp.d[k];
-      if (k + 1 < cp.t.length) dist += ((this.clock - cp.t[k]) / (cp.t[k + 1] - cp.t[k])) * (cp.d[k + 1] - cp.d[k]);
+      if (k + 1 < cp.t.length && this.clock > cp.t[k]) dist += ((this.clock - cp.t[k]) / (cp.t[k + 1] - cp.t[k])) * (cp.d[k + 1] - cp.d[k]);
       const lastLap = sim.totalLaps;
       const finished = lastLap !== null && cp.d[k] >= lastLap - 1e-9;
       const out = (r.retired && k === cp.t.length - 1 && !finished) || (r.e.player && this.retiredAt !== null);
@@ -473,6 +484,7 @@ export class RaceScene extends Phaser.Scene {
     const leader = order[0];
     // Time behind the leader: at the finish line once both have finished, else at the last timing point the rider passed.
     const gap = (p: (typeof pos)[0]) => this.behind(leader, p);
+    this.refreshDetail();
     const poses = this.director?.poses(this.clock) ?? [];
     this.view?.update(poses.map((p) => ({
       pose: p,
@@ -533,10 +545,20 @@ export class RaceScene extends Phaser.Scene {
     }
   }
 
+  /** Redraws Details when what it shows has moved on: you crossed the line (new wear, a new lap of section times). */
+  private refreshDetail(): void {
+    if (!this.detail) return;
+    const mine = this.cps.get(PLAYER_ID);
+    const key = `${this.detailTab} ${this.bikeNow()?.lap ?? -1} ${mine ? mine.t.filter((t) => t <= this.clock).length : 0}`;
+    if (key !== this.detailKey) this.renderDetail();
+  }
+
   private renderDetail(): void {
     const t = this.ui.detail;
     const sim = this.sim;
     if (!t || !sim || !this.detail) return;
+    const mine = this.cps.get(PLAYER_ID);
+    this.detailKey = `${this.detailTab} ${this.bikeNow()?.lap ?? -1} ${mine ? mine.t.filter((x) => x <= this.clock).length : 0}`;
     t.setFontFamily('Consolas, "Courier New", monospace');
     if (this.detailTab === 'bike') return void t.setText(this.bikeDetail().join('\n'));
     const done = [...this.traces].reverse().find((tr) => (tr.times[PLAYER_ID]?.length ?? 0) === tr.marks.length && tr.times[PLAYER_ID].at(-1)! <= this.clock);
@@ -588,9 +610,9 @@ export class RaceScene extends Phaser.Scene {
     if (!b) return ['No bike data.'];
     const lowAt = Math.round(services.content.racing.wear.lowAt * 100);
     const short = (n: string) => n.replace('Intake and exhaust', 'Intake/exhaust').replace('Bodywork and controls', 'Bodywork').replace('Wheels and tyres', 'Wheels/tyres');
-    const rows = this.partStatus(b.parts).map((p) => `${short(p.name).padEnd(16).slice(0, 16)} ${(p.c <= 0 ? '  --' : `${Math.round(p.c * 100)}%`.padStart(4))} ${`-${Math.round(p.loss * 100)}%`.padStart(5)} ${p.warn}`);
+    const rows = this.partStatus(b.parts).map((p) => `${short(p.name).padEnd(14).slice(0, 14)}${(p.c <= 0 ? '--' : `${(p.c * 100).toFixed(1)}%`).padStart(7)}${`-${(p.loss * 100).toFixed(1)}%`.padStart(7)} ${p.warn}`);
     const stats = this.statStatus(b.parts).map((x) => `${x.name.padEnd(11).slice(0, 11)} ${String(x.now).padStart(4)}  of ${String(x.fresh).padStart(3)} new`);
-    return [b.lap ? `Your bike after lap ${b.lap}` : 'Your bike at the gate', 'Part              Cond  Loss', ...rows, '', 'Stats', ...stats, '', 'Loss: what wear costs.', `LOW: ${lowAt}% or less.`];
+    return [b.lap ? `Your bike after lap ${b.lap}` : 'Your bike at the gate', 'Part             Cond   Loss', ...rows, '', 'Stats', ...stats, '', 'Loss: what wear costs.', `LOW: ${lowAt}% or less.`];
   }
 
   private brokenParts(): string[] {
@@ -693,17 +715,18 @@ export class RaceScene extends Phaser.Scene {
     // The bike, from the same wear the race runs on.
     const bike = this.bikeNow();
     c.add(this.add.text(40, -196, bike?.lap ? `Your bike after lap ${bike.lap}` : 'Your bike', textStyle(20, COLORS.accent)));
-    c.add(this.add.text(392, -192, 'cond   loss', textStyle(14, COLORS.muted)));
+    c.add(this.add.text(392, -192, 'cond', textStyle(14, COLORS.muted)));
+    c.add(this.add.text(462, -192, 'loss', textStyle(14, COLORS.muted)));
     if (bike) {
       this.partStatus(bike.parts).forEach((p, i) => {
         const y = -158 + i * 29;
-        const pct = Math.round(p.c * 100);
+        const pct = p.c * 100;
         const col = p.c <= 0 ? 0xb03030 : p.warn ? COLORS.accent : 0x6fa84a;
         c.add(this.add.text(40, y, p.name, textStyle(15)));
         c.add(this.add.rectangle(236, y + 10, 150, 10, COLORS.panelLight).setOrigin(0, 0.5));
         c.add(this.add.rectangle(236, y + 10, Math.max(1, 1.5 * pct), 10, col).setOrigin(0, 0.5));
-        c.add(this.add.text(392, y, p.c <= 0 ? 'Broken' : `${pct}%`, textStyle(15, p.warn ? COLORS.accent : COLORS.cream)));
-        c.add(this.add.text(452, y, `−${Math.round(p.loss * 100)}%${p.warn === 'LOW' ? '  low' : ''}`, textStyle(15, p.warn ? COLORS.accent : COLORS.muted)));
+        c.add(this.add.text(392, y, p.c <= 0 ? 'Broken' : `${pct.toFixed(1)}%`, textStyle(15, p.warn ? COLORS.accent : COLORS.cream)));
+        c.add(this.add.text(462, y, `−${(p.loss * 100).toFixed(1)}%${p.warn === 'LOW' ? '  low' : ''}`, textStyle(15, p.warn ? COLORS.accent : COLORS.muted)));
       });
       const stats = this.statStatus(bike.parts).map((x) => `${x.name} ${x.now}/${x.fresh}`).join('   ');
       c.add(this.add.text(40, 140, `Stats now / new: ${stats}`, textStyle(14, COLORS.muted, { wordWrap: { width: 520 } })));
@@ -719,7 +742,8 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private confirmRetire(): void {
-    if (this.retiredAt !== null) return;
+    // Nothing to retire from before the gate drops.
+    if (this.retiredAt !== null || this.clock < 0) return;
     const c = this.openModal(560, 220);
     c.add(this.add.text(0, -50, "It's over, bike blown?\nYou pull off and score a DNF for this moto.", textStyle(20, COLORS.cream, { align: 'center' })).setOrigin(0.5));
     c.add(button(this, -120, 55, 'Retire', () => {
