@@ -67,6 +67,7 @@ export class RaceDirector {
   private readonly turns: number[];
   private readonly metres: number;
   private readonly gateLane = new Map<string, number>();
+  private readonly gateRow = new Map<string, number>();
 
   constructor(
     readonly track: TrackDef,
@@ -82,8 +83,23 @@ export class RaceDirector {
     // The gate row spreads across the track, gate 0 nearest the inside of the first corner.
     const order = [...gates.entries()].sort((a, b) => a[1] - b[1]).map(([id]) => id);
     const firstTurn = this.turns.find((t) => t !== 0) || 1;
-    order.forEach((id, i) => this.gateLane.set(id, firstTurn * (order.length > 1 ? 0.9 - (1.8 * i) / (order.length - 1) : 0)));
+    // A big field lines up in two rows, the second row in the gaps of the first, so no two bikes
+    // overlap on a narrow start straight.
+    const rows = order.length > 8 ? 2 : 1;
+    const perRow = Math.ceil(order.length / rows);
+    const step = perRow > 1 ? 1.8 / (perRow - 1 + (rows - 1) * 0.5) : 0;
+    order.forEach((id, i) => {
+      const row = i % rows;
+      const col = Math.floor(i / rows);
+      this.gateRow.set(id, row);
+      this.gateLane.set(id, firstTurn * (order.length > 1 ? 0.9 - step * (col + row * 0.5) : 0));
+    });
     for (const id of profiles.keys()) this.segs.set(id, []);
+  }
+
+  /** Which start row a rider lines up in: 0 at the gate, 1 just behind it. */
+  startRow(id: string): number {
+    return this.gateRow.get(id) ?? 0;
   }
 
   /** Takes in a lap from the simulation. Call it in lap order, as the race screen does. */

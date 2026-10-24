@@ -424,6 +424,7 @@ export class RaceScene extends Phaser.Scene {
       color: this.colors.get(p.id) ?? COLORS.accent,
       label: String(order.findIndex((o) => o.id === p.id) + 1),
       player: p.id === PLAYER_ID,
+      startRow: this.director!.startRow(p.id),
     })), this.clock, this.frameDt, pos.find((p) => p.id === PLAYER_ID)?.out ? leader.id : PLAYER_ID);
 
     const me = pos.find((p) => p.id === PLAYER_ID)!;
