@@ -4,8 +4,10 @@ import type { RiderStyle } from './riderProfile';
 
 // The race simulation (Spec 10, GDD 11). Pure rules with no graphics: the race screen plays a
 // lap's results out section by section, and auto-complete just runs the laps straight through,
-// so both use exactly the same engine (agreed). Everything random comes from one seeded generator
-// drawn in a fixed order, so the same seed and the same held message always give the same race.
+// so both use exactly the same engine (agreed). Everything random comes from the race's seed: each
+// rider draws from their own seeded generator each lap, in a fixed order, so the same seed and the
+// same held message always give the same race, and a change one rider makes only changes the lap
+// for riders who meet them afterwards (redoLap).
 
 export interface SectionDef {
   name: string;
@@ -241,6 +243,15 @@ interface RiderState {
   reason?: string;
 }
 
+/** What a lap changes, kept from before it so it can be run again. */
+interface LapStart {
+  lapNo: number;
+  passes: number;
+  xp: Record<string, number>;
+  parts: Bike['parts'];
+  riders: Pick<RiderState, 'time' | 'laps' | 'lapTimes' | 'message' | 'stats' | 'broken' | 'retired' | 'reason'>[];
+}
+
 export interface MotoOptions {
   laps: number | null;
   /** Motos already run at this venue today, for ruts (Spec 10.3). */
@@ -282,12 +293,15 @@ export class MotoSim {
   passes = 0;
   /** The player's bike, wearing as it goes. The caller copies it back afterwards. */
   readonly playerBike: Bike | null;
-  private readonly rng: () => number;
+  /** The generator of the rider being worked out now (nextLap points it at each rider's own). */
+  private rng: () => number;
   private readonly cls: ClassRules;
   private readonly ceiling: number;
   private lapNo = 0;
   private readonly bounds: number[];
   private readonly start: StartGeom;
+  /** Everything a lap changes, as it was before the latest lap, so it can be run again (redoLap). */
+  private before: LapStart | null = null;
 
   constructor(
     private readonly racing: RacingData,
@@ -354,11 +368,39 @@ export class MotoSim {
     }
   }
 
+  /**
+   * Runs the latest lap again from where it started, after `change` (a new message, or retiring),
+   * for a pit board read as the player crosses the line, after the leader has already started that
+   * lap. Riders who reached the line before the player ride it exactly as before: their draws are
+   * their own, and the player only touches riders who are behind them at some point of the lap.
+   */
+  redoLap(change: () => void): LapTrace {
+    const b = this.before;
+    if (!b) throw new Error('No lap to run again');
+    this.lapNo = b.lapNo;
+    this.passes = b.passes;
+    for (const k of Object.keys(this.xp)) delete this.xp[k];
+    Object.assign(this.xp, b.xp);
+    if (this.playerBike) this.playerBike.parts = structuredClone(b.parts);
+    this.riders.forEach((r, i) => Object.assign(r, { ...b.riders[i], lapTimes: [...b.riders[i].lapTimes] }));
+    change();
+    return this.nextLap();
+  }
+
   /** Simulates the next lap for every rider still racing. */
   nextLap(): LapTrace {
+    this.before = {
+      lapNo: this.lapNo,
+      passes: this.passes,
+      xp: { ...this.xp },
+      parts: this.playerBike ? structuredClone(this.playerBike.parts) : {},
+      riders: this.riders.map((r) => ({ time: r.time, laps: r.laps, lapTimes: [...r.lapTimes], message: r.message, stats: r.stats, broken: r.broken, retired: r.retired, reason: r.reason })),
+    };
     const lap = ++this.lapNo;
     const { sim } = this.racing;
     const active = this.riders.filter((r) => !r.retired);
+    // Each rider's own draws for this lap.
+    const draws = new Map(this.riders.map((r, i) => [r, seededRng(mixSeed(this.opts.seed, lap * 256 + i))]));
     const plan = lapPlan(this.track, lap, this.bounds, this.start);
     const trace: LapTrace = { lap, marks: plan.marks, secs: plan.secs, times: {}, events: [] };
     for (const r of active) {
@@ -383,6 +425,7 @@ export class MotoSim {
       const done: RiderState[] = [];
       for (const r of order) {
         if (out.has(r)) continue;
+        this.rng = draws.get(r)!;
         let t = this.sectionTime(r, sec, def, isStart ? r.e.gate : -1) * (air.get(r) ?? 1);
         const m = this.mistake(r, def, share);
         if (m) {
@@ -437,6 +480,7 @@ export class MotoSim {
       r.laps += 1;
       r.lapTimes.push(r.time - startTimes.get(r)!);
     }
+    if (this.player) this.rng = draws.get(this.player)!;
     if (this.player && !this.player.retired && active.includes(this.player)) this.wearPlayer(trace, plan.metres.reduce((a, m) => a + m, 0) / 1000);
     return trace;
   }

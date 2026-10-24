@@ -5,7 +5,7 @@ import { PLAYER_ID, RaceDay, applyRide, playerEntrant, practiceSim, sumXp, type 
 import type { SaveData } from '../core/saves';
 import { services } from '../services';
 import { COLORS, textStyle } from '../ui/theme';
-import { button, panel, type Button } from '../ui/widgets';
+import { button, panel, penMeter, type Button, type PenMeter } from '../ui/widgets';
 import { directorFor, type RaceDirector } from '../core/riderAI';
 import { startGeom } from '../core/trackGeom';
 import { RaceView } from '../world/RaceView';
@@ -22,6 +22,8 @@ const SPEED_LABELS = ['Pause', '1×', '2×', '4×', '8×'];
 const DEFAULT_SPEED = 2;
 /** How many laps a pit board message can be set for; 0 is to the flag. */
 const BOARD_LAPS = [1, 2, 3, 0];
+/** Width of the pen meter in the race bar and on the pit board. */
+const PEN_W = 116;
 const CPU_COLORS = [0xe8dbb8, 0x7cc0e8, 0xb9e07a, 0xe89aa8, 0xc7a6ff, 0x9fe0cf, 0xf0d28c, 0xd0d0d0];
 
 export interface RaceSceneData {
@@ -64,6 +66,8 @@ export class RaceScene extends Phaser.Scene {
   private colors = new Map<string, number>();
   private names = new Map<string, string>();
   private ui: Record<string, Phaser.GameObjects.Text> = {};
+  /** The pen in the race bar: its ink is the message changes left. */
+  private pen: PenMeter | null = null;
   private modal: Phaser.GameObjects.Container | null = null;
   private skipButton: Button | null = null;
   private detail = false;
@@ -74,6 +78,8 @@ export class RaceScene extends Phaser.Scene {
   /** Laps the next pit board message is set for (BOARD_LAPS), and the leader's lap when the board next comes out. */
   private boardLaps = 1;
   private boardAt = 0;
+  /** Laps you have finished, as far as the clock has got: the pit board comes out as you cross the line. */
+  private myLaps = 0;
   /** What Details last showed (tab, bike snapshot, timing points passed), to redraw it only when that changes. */
   private detailKey = '';
   /** The player's bike after each lap the simulation has run, by the race time the player finished that lap. */
@@ -144,6 +150,7 @@ export class RaceScene extends Phaser.Scene {
   private clear(): void {
     this.screen.removeAll(true);
     this.ui = {};
+    this.pen = null;
     this.view = null;
     this.skipButton = null;
     this.live = false;
@@ -314,6 +321,7 @@ export class RaceScene extends Phaser.Scene {
     this.cps = new Map(sim.riders.map((r) => [r.e.id, { t: [0], d: [from] }]));
     this.boardLaps = 1;
     this.boardAt = 0;
+    this.myLaps = 0;
     this.wearAt = sim.playerBike ? [{ t: 0, parts: structuredClone(sim.playerBike.parts) }] : [];
     this.detailTab = 'bike';
     this.traces = [];
@@ -328,9 +336,14 @@ export class RaceScene extends Phaser.Scene {
     const practice = this.args.mode === 'practice';
     this.box(16, 16, 900, 54);
     this.ui.title = this.text(32, 30, '', 20, COLORS.cream);
-    this.ui.ink = this.text(900, 30, '', 20, COLORS.accent).setOrigin(1, 0);
+    // Your message, then the pen: one section of ink per message change (racing data's ink).
+    this.ui.ink = this.text(900 - PEN_W - 14, 30, '', 20, COLORS.accent).setOrigin(1, 0);
+    this.pen = penMeter(this, 900 - PEN_W, 43, services.content.racing.ink, PEN_W);
+    this.screen.add(this.pen);
+    this.pen.setVisible(!practice);
     this.director = directorFor(sim, services.content.bikes, services.content.racing.messages);
     this.view = new RaceView(this, this.screen, sim.track, services.content.trackParts, 16, 82, 900, 440);
+    this.view.hasStart = !practice;
     this.box(16, 534, 900, 170);
     this.ui.me = this.text(32, 546, '', 18, COLORS.cream, { lineSpacing: 6 });
     this.ui.feed = this.text(400, 546, '', 16, COLORS.cream, { lineSpacing: 7, wordWrap: { width: 500 } });
@@ -447,23 +460,19 @@ export class RaceScene extends Phaser.Scene {
   private tick(): void {
     const sim = this.sim!;
     const practice = this.args.mode === 'practice';
-    // Leader crosses the line at the end of the latest lap we have: pit board, then the next lap.
+    // The leader reaches the end of the latest lap we have: the simulation runs the next one.
     const latest = this.traces.at(-1)!;
     const lapEnds = Object.values(latest.times).filter((t) => t.length === latest.marks.length).map((t) => t.at(-1)!);
     const leaderCross = lapEnds.length ? Math.min(...lapEnds) : Infinity;
     if (!sim.finished && this.clock >= leaderCross) {
-      this.clock = leaderCross;
       if (practice) {
+        this.clock = leaderCross;
         this.addLap(sim.nextLap());
         if (sim.finished) this.stopPractice(true);
-      } else if (!this.auto && sim.player && !sim.player.retired && this.retiredAt === null && sim.lap >= this.boardAt) {
-        this.render();
-        this.pitBoard();
-        return;
-      } else {
-        this.addLap(sim.nextLap());
-      }
+      } else this.addLap(sim.nextLap());
     }
+    // You cross the line: the pit board comes out then, whoever is leading.
+    if (!practice && this.crossLine()) return;
     // Lap traces only exist up to the latest lap, so a non-leader parked at its end just waits.
     const lastT = Math.max(...[...this.cps.values()].map((c) => c.t.at(-1)!));
     if (!practice && sim.finished && this.clock >= lastT) {
@@ -474,6 +483,49 @@ export class RaceScene extends Phaser.Scene {
     }
     while (this.eventIndex < this.raceEvents.length && this.raceEvents[this.eventIndex].t <= this.clock) this.say(this.raceEvents[this.eventIndex++]);
     this.render();
+  }
+
+  /**
+   * Counts your laps off as the clock passes your own line crossings, and brings the pit board out
+   * when one is due: once per crossing, at the moment you cross, on every lap but the last.
+   */
+  private crossLine(): boolean {
+    const sim = this.sim!;
+    const tr = this.traces.find((x) => x.lap === this.myLaps + 1);
+    const mine = tr?.times[PLAYER_ID];
+    if (!tr || !mine || mine.length !== tr.marks.length || this.clock < mine.at(-1)!) return false;
+    this.myLaps = tr.lap;
+    // Only while you are still racing into another lap.
+    const next = this.traces.find((x) => x.lap === tr.lap + 1);
+    if (this.auto || this.retiredAt !== null || tr.lap >= sim.totalLaps! || tr.lap < this.boardAt || (next && !next.times[PLAYER_ID])) return false;
+    this.clock = mine.at(-1)!;
+    this.render();
+    this.pitBoard();
+    return true;
+  }
+
+  /**
+   * Runs the lap you are starting again after a change at the pit board, when the simulation ran
+   * it as the leader crossed the line. Riders who got there before you ride it exactly as before
+   * (MotoSim.redoLap), so nothing already on screen moves. False when it is too late for that (you
+   * were lapped and the lap after is already under way): the change then counts from the next lap.
+   */
+  private redoMyLap(change: () => void): boolean {
+    const sim = this.sim!;
+    if (sim.lap !== this.myLaps + 1) return false;
+    const old = this.traces.pop()!;
+    for (const [id, times] of Object.entries(old.times)) {
+      const cp = this.cps.get(id)!;
+      cp.t.length -= times.length - 1;
+      cp.d.length -= times.length - 1;
+    }
+    if (sim.playerBike && old.times[PLAYER_ID]) this.wearAt.pop();
+    const gone = new Set(old.events);
+    this.raceEvents = this.raceEvents.filter((e) => !gone.has(e));
+    this.director?.dropLap(old);
+    this.addLap(sim.redoLap(change));
+    this.eventIndex = this.raceEvents.filter((e) => e.t <= this.clock).length;
+    return true;
   }
 
   private render(): void {
@@ -511,8 +563,9 @@ export class RaceScene extends Phaser.Scene {
     }
     const total = sim.totalLaps!;
     this.ui.title.setText(`${this.args.venue.name} · Moto ${this.day!.motoNumber} · Lap ${Math.max(1, Math.min(Math.floor(leader.dist) + 1, total))} of ${total}${this.auto ? ' · Auto-complete' : ''}`);
-    const until = this.auto || this.boardAt === Infinity ? ' to the flag' : this.boardAt > sim.lap ? ` to lap ${this.boardAt}` : '';
-    this.ui.ink.setText(`${msg.name}${until}   Ink ${'●'.repeat(sim.ink)}${'○'.repeat(Math.max(0, services.content.racing.ink - sim.ink))}`);
+    const until = this.auto || this.boardAt === Infinity ? ' to the flag' : this.boardAt > this.myLaps ? ` to lap ${this.boardAt}` : '';
+    this.ui.ink.setText(`${msg.name}${until}`);
+    this.pen?.setLevel(sim.ink);
 
     const rank = order.findIndex((o) => o.id === PLAYER_ID);
     const ahead = order[rank - 1];
@@ -676,9 +729,11 @@ export class RaceScene extends Phaser.Scene {
     const order = this.runningOrder(pos);
     const rank = order.findIndex((o) => o.id === PLAYER_ID) + 1;
     const total = sim.totalLaps!;
-    const left = total - sim.lap;
-    c.add(this.add.text(0, -278, `Pit board · lap ${sim.lap} of ${total} done for the leader`, textStyle(24, COLORS.accent)).setOrigin(0.5));
-    c.add(this.add.text(0, -240, `You're ${ordinal(rank)}. Message now: ${racing.messages.find((m) => m.id === sim.playerMessage)!.name}. Ink left: ${sim.ink} of ${racing.ink}.`, textStyle(18)).setOrigin(0.5));
+    const left = total - this.myLaps;
+    c.add(this.add.text(0, -278, `Pit board · you've done lap ${this.myLaps} of ${total}`, textStyle(24, COLORS.accent)).setOrigin(0.5));
+    const line = this.add.text(-PEN_W / 2 - 8, -240, `You're ${ordinal(rank)}. Message now: ${racing.messages.find((m) => m.id === sim.playerMessage)!.name}. Ink left:`, textStyle(18)).setOrigin(0.5);
+    c.add(line);
+    c.add(penMeter(this, line.x + line.width / 2 + 12, -240, racing.ink, PEN_W).setLevel(sim.ink));
 
     // How long the message holds: the board stays away until then, so the race runs on through the line.
     c.add(this.add.text(-560, -196, 'Show it for', textStyle(18, COLORS.cream)));
@@ -694,15 +749,18 @@ export class RaceScene extends Phaser.Scene {
       return b;
     });
     const set = () => {
-      this.boardAt = this.boardLaps === 0 ? Infinity : sim.lap + this.boardLaps;
+      this.boardAt = this.boardLaps === 0 ? Infinity : this.myLaps + this.boardLaps;
       this.closeModal();
-      this.addLap(sim.nextLap());
     };
     racing.messages.forEach((m, i) => {
       const y = -112 + i * 74;
       const current = m.id === sim.playerMessage;
       const b = button(this, -440, y, current ? `Keep ${m.name}` : m.name, () => {
-        if (!current && !sim.changeMessage(m.id)) return;
+        if (!current) {
+          if (sim.ink <= 0) return;
+          // The new message counts from the lap you are starting now.
+          if (!this.redoMyLap(() => sim.changeMessage(m.id))) sim.changeMessage(m.id);
+        }
         set();
       }, 230, 50);
       b.setSelected(current);
@@ -735,8 +793,9 @@ export class RaceScene extends Phaser.Scene {
 
     c.add(button(this, -150, 262, "It's over, bike blown", () => {
       this.closeModal();
+      // You pull off at the line, so the lap you were starting is run without you.
+      this.redoMyLap(() => sim.retirePlayer("It's over, bike blown"));
       this.retireNow();
-      this.addLap(sim.nextLap());
     }, 280, 46));
     c.add(button(this, 170, 262, 'Watch on', set, 200, 46));
   }

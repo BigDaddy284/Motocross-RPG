@@ -1,5 +1,5 @@
 import type { BikesData } from './career';
-import type { LapTrace, MessageDef, MistakeOutcome, MotoSim, TrackDef, TrackSection } from './race';
+import { seededRng, type LapTrace, type MessageDef, type MistakeOutcome, type MotoSim, type TrackDef, type TrackSection } from './race';
 import { riderProfile, type RiderProfile } from './riderProfile';
 import { lapGeom, lapMetres, sectionTurns, START_PAD, startGeom, type StartGeom } from './trackGeom';
 
@@ -10,8 +10,9 @@ import { lapGeom, lapMetres, sectionTurns, START_PAD, startGeom, type StartGeom 
 // a line through each section, swings out to pass and tucks in when blocked, brakes into corners
 // and drives out of them, leaves the ground on jumps, goes down and remounts in a crash, and
 // keeps clear of the rider beside it. It always reaches the end of a section exactly when the
-// referee says, so what you watch is the result the simulation gave. It uses no random numbers:
-// the same race always looks the same, at any playback speed.
+// referee says, so what you watch is the result the simulation gave. Its only random numbers are
+// for the line-up before the start, drawn from a seed made of the track and the gate order: the
+// same race always looks the same, at any playback speed.
 
 export type RiderState = 'grid' | 'riding' | 'air' | 'wobble' | 'crashed' | 'remount' | 'retired' | 'finished' | 'waiting';
 
@@ -53,14 +54,21 @@ const LANDING = 0.72;
 const ROOM = 5;
 /** Seconds the whole field stands still at the gate, with the start board out, before it drops. */
 export const START_HOLD = 5;
-/** Grid units behind their slot where riders still to line up wait, by start row (beyond the start pad). */
-const WAIT_BACK = [START_PAD + 1.5, START_PAD + 4];
+/** Seconds the line-up takes, from the start procedure opening to the last rider stopping in their slot. */
+export const LINE_UP = 6;
+/** How far behind the front row the race view draws the second row, in grid units (RaceView: BIKE_LENGTH × 1.4). */
+const ROW_GAP = 1.1 * 1.4;
 
-/** One rider rolling up to their slot before the start: race times (negative) and how far back they set off, in grid units. */
+/**
+ * One rider riding up to their slot before the start: race times (negative), how far back they
+ * set off (grid units behind their slot, along the start straight) and how far off their lane
+ * line (a share of the half-width) they start, easing onto it.
+ */
 interface LineUpMove {
   t0: number;
   t1: number;
   back: number;
+  side: number;
 }
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -121,33 +129,78 @@ export class RaceDirector {
     });
     for (const id of profiles.keys()) this.segs.set(id, []);
 
-    // The line-up, for a race: the first riders to the gate (the inside gates of the front row,
-    // 4 to 8 of them, more for a bigger field) are already in their slots. The rest roll up from
-    // behind the start pad, the front row first, each in their own lane so nobody overlaps, and
-    // the bigger the job the longer it takes (2 to 4 seconds). Then the field holds still.
+    // The line-up, for a race. A few front-row riders (4 for a full field) are already in their
+    // slots; the rest wait scattered behind the start pad and ride up over about LINE_UP seconds,
+    // each in their own lane, setting off at different moments and different speeds, several at
+    // once. A second-row rider only sets off once the front-row rider in their own lane has
+    // stopped in their slot, so they never ride through it. Then the field holds still.
     if (laps === null || order.length < 2) {
       this.prep = 0;
       this.prestart = 0;
       return;
     }
-    const k = Math.min(order.length, clamp(Math.round(order.length * 0.4), 4, 8));
+    let seed = 2166136261;
+    for (const ch of `${track.id}|${order.join(',')}`) seed = Math.imul(seed ^ ch.charCodeAt(0), 16777619);
+    const rnd = seededRng(seed >>> 0);
     const front = order.filter((id) => this.startRow(id) === 0);
-    for (const id of front.slice(0, k)) this.lined.add(id);
-    for (const id of order) if (this.lined.size < k && !this.lined.has(id)) this.lined.add(id);
-    const movers = [...front, ...order.filter((id) => this.startRow(id) === 1)].filter((id) => !this.lined.has(id));
-    this.prep = movers.length ? clamp(2 + (2 * movers.length) / 12, 2, 4) : 0;
+    const k = Math.min(front.length, clamp(Math.round(order.length * 0.25), 4, 8));
+    const pool = [...front];
+    while (this.lined.size < k) this.lined.add(pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
+    // The front-row rider in each lane, for the second row to wait on.
+    const ahead = new Map<string, string>();
+    for (const id of order) {
+      if (this.startRow(id) !== 1) continue;
+      const lane = this.gateLane.get(id);
+      const f = front.find((x) => this.gateLane.get(x) === lane);
+      if (f) ahead.set(id, f);
+    }
+    const plan = new Map<string, LineUpMove>();
+    // Riders drift onto their lane line from the same side, so neighbours never close up.
+    const drift = rnd() < 0.5 ? -1 : 1;
+    const side = () => drift * (0.01 + rnd() * 0.03);
+    // Just clear of the pad (START_PAD behind the gate, plus room for the bike).
+    const wait = (row: number, spread: number) => START_PAD + 0.6 - row * ROW_GAP + rnd() * spread;
+    const behind = new Map([...ahead].map(([id, f]) => [f, id]));
+    for (const id of front) {
+      if (this.lined.has(id)) continue;
+      const b = behind.get(id);
+      if (!b) {
+        // Nobody waits on this rider: set off any time early on.
+        const back = wait(0, 1.2);
+        const t0 = rnd() * 2.4;
+        plan.set(id, { t0, t1: t0 + back / (1.4 + rnd() * 0.5), back, side: side() });
+        continue;
+      }
+      // A lane where both riders ride up: the front one first, the second-row one once they have
+      // stopped, waiting a bike length and a bit further back. The pair shares the time, finishing
+      // anywhere from a little early to right at the end, so neither has to hurry.
+      const fb = wait(0, 0.6);
+      const sb = fb - ROW_GAP + 1.35 + rnd() * 0.4;
+      const t0 = rnd() * 0.6;
+      const gap = 0.15 + rnd() * 0.35;
+      const end = LINE_UP - rnd() * 0.8;
+      const ride = Math.max(1, end - t0 - gap);
+      const split = (fb / (fb + sb)) * (0.9 + rnd() * 0.2);
+      const t1 = t0 + ride * split;
+      plan.set(id, { t0, t1, back: fb, side: side() });
+      plan.set(b, { t0: t1 + gap, t1: end, back: sb, side: side() });
+    }
+    // Second-row riders whose front-row rider was already in place: off whenever they like, one of
+    // them straight away, so the second row doesn't wait for the front row to fill.
+    const free = order.filter((id) => this.startRow(id) === 1 && !plan.has(id));
+    const first = free[Math.floor(rnd() * free.length)];
+    for (const id of free) {
+      const back = wait(1, 1.2);
+      const t0 = rnd() * (id === first ? 0.4 : 2.6);
+      plan.set(id, { t0, t1: t0 + back / (1.3 + rnd() * 0.5), back, side: side() });
+    }
+    // Stretch or squeeze the whole plan so the last rider stops at LINE_UP: every rider keeps their
+    // order and the second row still waits on the front.
+    const last = Math.max(0, ...[...plan.values()].map((m) => m.t1));
+    this.prep = plan.size ? LINE_UP : 0;
     this.prestart = this.prep + START_HOLD;
-    // Front-row riders roll up in the first part of the time, the second row once they are through.
-    const groups = [movers.filter((id) => this.startRow(id) === 0), movers.filter((id) => this.startRow(id) === 1)];
-    const t0 = -this.prestart;
-    groups.forEach((group, gi) => {
-      if (!group.length) return;
-      const from = gi === 1 && groups[0].length ? this.prep * 0.42 : 0;
-      const span = this.prep - from;
-      const ride = Math.min(span, Math.max(1.4, span * 0.75));
-      const gap = group.length > 1 ? (span - ride) / (group.length - 1) : 0;
-      group.forEach((id, i) => this.moves.set(id, { t0: t0 + from + gap * i, t1: t0 + from + gap * i + ride, back: WAIT_BACK[gi] }));
-    });
+    const scale = last > 0 ? LINE_UP / last : 1;
+    for (const [id, m] of plan) this.moves.set(id, { ...m, t0: -this.prestart + m.t0 * scale, t1: Math.min(-START_HOLD, -this.prestart + m.t1 * scale) });
   }
 
   /**
@@ -160,10 +213,10 @@ export class RaceDirector {
     const m = this.moves.get(id);
     if (!m || t >= m.t1) return { id, dist: this.start.from, lane, air: 0, elev: 0, state: 'grid', speed: 0 };
     const k = clamp((t - m.t0) / (m.t1 - m.t0), 0, 1);
-    const back = m.back * (1 - smooth(k));
-    // Speed from the eased roll, in metres per second.
+    const left = 1 - smooth(k);
+    // Speed from the eased ride, in metres per second.
     const speed = k > 0 && k < 1 ? ((6 * k * (1 - k) * m.back) / (m.t1 - m.t0)) * (this.metres / this.lapUnits) : 0;
-    return { id, dist: this.start.from - back / this.lapUnits, lane, air: 0, elev: 0, state: 'grid', speed };
+    return { id, dist: this.start.from - (m.back * left) / this.lapUnits, lane: lane + m.side * left, air: 0, elev: 0, state: 'grid', speed };
   }
 
   /** True once every rider is in their slot and still (from START_HOLD seconds before the gate drops). */
@@ -201,6 +254,12 @@ export class RaceDirector {
       } else if (e.kind === 'pass') seg.pass = e.other;
       else if (e.kind === 'failedPass') seg.blocked = e.other;
     }
+  }
+
+  /** Takes back the latest lap, to be replaced by the same lap run again (MotoSim.redoLap). */
+  dropLap(trace: LapTrace): void {
+    for (const list of this.segs.values()) while (list.length && list[list.length - 1].lap === trace.lap) list.pop();
+    for (const e of trace.events) if (e.kind === 'retire' && this.out.get(e.rider) === e.t) this.out.delete(e.rider);
   }
 
   /** The player pulled off (the pit board's "It's over, bike blown"), at race time t. */

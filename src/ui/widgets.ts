@@ -177,3 +177,59 @@ export function textInput(scene: Phaser.Scene, root: Phaser.GameObjects.Containe
   });
   return { value: () => el.value, focused: () => document.activeElement === el };
 }
+
+export interface PenMeter extends Phaser.GameObjects.Container {
+  /** How many segments still hold ink, filled from the left. */
+  setLevel(full: number): PenMeter;
+}
+
+/**
+ * The pen that writes pit board messages, drawn as its own meter: a marker lying on its side whose
+ * clear barrel holds the ink in `segments` equal sections, one per message change, with the nib to
+ * the right. x, y is the middle of its left end. The section count comes from the caller (racing
+ * data's ink), so more message abilities later only change that number.
+ */
+export function penMeter(scene: Phaser.Scene, x: number, y: number, segments: number, width = 116, height = 22): PenMeter {
+  const g = scene.add.graphics();
+  const c = scene.add.container(x, y, [g]) as PenMeter;
+  const n = Math.max(1, Math.round(segments));
+  const barrel = width * 0.74;
+  const h = height / 2;
+  const pad = 3;
+  const draw = (full: number) => {
+    g.clear();
+    // Nib: a collar tapering to the tip, behind the barrel's outline.
+    const neck = barrel + width * 0.1;
+    g.fillStyle(0x0d0d12, 1).lineStyle(1.5, COLORS.cream, 1);
+    g.beginPath();
+    g.moveTo(barrel - 2, -h * 0.82);
+    g.lineTo(neck, -h * 0.5);
+    g.lineTo(neck, -h * 0.22);
+    g.lineTo(width, -h * 0.06);
+    g.lineTo(width, h * 0.06);
+    g.lineTo(neck, h * 0.22);
+    g.lineTo(neck, h * 0.5);
+    g.lineTo(barrel - 2, h * 0.82);
+    g.closePath();
+    g.fillPath().strokePath();
+    // Barrel and its clear window.
+    g.fillStyle(0x0d0d12, 1).fillRoundedRect(0, -h, barrel, height, h * 0.7);
+    g.lineStyle(1.5, COLORS.cream, 1).strokeRoundedRect(0, -h, barrel, height, h * 0.7);
+    const wx = pad + 2;
+    const ww = barrel - 2 * pad - 4;
+    const seg = ww / n;
+    for (let i = 0; i < n; i++) {
+      g.fillStyle(i < full ? 0x2e95ff : 0x34363f, 1).fillRect(wx + i * seg + (i ? 1 : 0), -h + pad, seg - (i ? 1 : 0) - (i < n - 1 ? 1 : 0), height - 2 * pad);
+    }
+    // The section marks, drawn like the pen's printed ink lines.
+    g.lineStyle(2, 0x0d0d12, 1);
+    for (let i = 1; i < n; i++) g.lineBetween(wx + i * seg, -h + pad - 1, wx + i * seg, h - pad + 1);
+  };
+  c.setLevel = (full: number) => {
+    draw(full);
+    return c;
+  };
+  draw(n);
+  c.setSize(width, height);
+  return c;
+}

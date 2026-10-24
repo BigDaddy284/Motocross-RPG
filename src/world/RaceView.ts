@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { SceneryItem, TrackDef } from '../core/race';
-import type { RiderPose } from '../core/riderAI';
+import { START_HOLD, type RiderPose } from '../core/riderAI';
 import { nearestOnLap, pointAt, START_PAD, startPointAt } from '../core/trackGeom';
 import { GRID_H, GRID_W, trackKind, type TrackPartsData } from '../core/trackParts';
 import { BIKE_LENGTH, LIP_AT, TrackSurface } from '../core/trackSurface';
@@ -21,6 +21,8 @@ import { COLORS } from '../ui/theme';
 
 /** Camera direction: degrees round from straight in front, and degrees down from level. */
 const CAM_AZ = 40;
+/** Seconds the official takes to raise or lower the start board. */
+const BOARD_MOVE = 0.4;
 const CAM_EL = 38;
 /** Grid units across the view, by track kind. Riders stay big enough to follow at this size. */
 const VIEW_UNITS: Record<string, number> = { stadium: 36, outdoor: 32, endurance: 32 };
@@ -103,7 +105,9 @@ export class RaceView {
   /** The start gate's pickets, hinged at the bottom so they drop flat when the race starts. */
   private gateDrop: THREE.Group | null = null;
   /** The official holding the start board beside the start straight, and the board itself. */
-  private board: { stand: THREE.Group; panel: THREE.Group } | null = null;
+  private board: { stand: THREE.Group; panel: THREE.Group; arms: THREE.Group[] } | null = null;
+  /** False for practice, which has no start procedure: the start board stays down. */
+  hasStart = true;
   /** Frame times in ms (whole update, the 3D draw, and handing the picture to Phaser), for the performance check. */
   readonly frameMs: number[] = [];
   readonly renderMs: number[] = [];
@@ -538,9 +542,10 @@ export class RaceView {
 
   /**
    * The start board: an official beside the start straight, ahead of the gate on the side where
-   * it joins the lap, holding the board up to the riders. Shown from five seconds out, turned
-   * sideways at three, gone at the drop (updateStart). Its face is printed both sides so the
-   * camera reads it whichever way it faces the riders.
+   * it joins the lap, there all race. The board's face (START 30) is on one side and the other is
+   * plain white. It is held low with the white side out while the riders line up, raised face out
+   * five seconds before the drop, turned sideways at three, and lowered white side out again as
+   * the gate drops (updateStart).
    */
   private startBoard(): THREE.Object3D {
     const s = this.surface;
@@ -576,30 +581,35 @@ export class RaceView {
     while (turn > Math.PI) turn -= 2 * Math.PI;
     while (turn < -Math.PI) turn += 2 * Math.PI;
     stand.rotation.y = toRiders + turn * 0.85;
-    // The official: legs, body, head, arms up to the board.
+    // The official: legs, body, head, and arms that swing at the shoulder, up to hold the board
+    // high or down to hold it low.
     const kit = this.mat(0x2a3a5a);
     const skin = this.mat(0xe0b090);
     stand.add(this.boxMesh(0.12, 0.7, 0.14, kit, -0.1, 0, 0), this.boxMesh(0.12, 0.7, 0.14, kit, 0.1, 0, 0));
     stand.add(this.boxMesh(0.42, 0.62, 0.24, this.mat(0xf0a020), 0, 0.7, 0));
     stand.add(this.boxMesh(0.22, 0.22, 0.22, skin, 0, 1.34, 0));
-    stand.add(this.boxMesh(0.09, 0.8, 0.09, skin, -0.3, 1.35, 0.04), this.boxMesh(0.09, 0.8, 0.09, skin, 0.3, 1.35, 0.04));
-    // The board, held above the head; it turns in its own plane about its centre.
+    const arms = [-1, 1].map((sd) => {
+      const arm = new THREE.Group();
+      arm.position.set(sd * 0.27, 1.24, 0.04);
+      arm.add(this.boxMesh(0.09, 0.8, 0.09, skin, 0, 0, 0));
+      stand.add(arm);
+      return arm;
+    });
+    // The board: face on the front, plain white on the back. It turns in its own plane about its centre.
     const panel = new THREE.Group();
-    panel.position.set(0, 2.45, 0.12);
-    const face = new THREE.MeshLambertMaterial({ map: this.boardTexture() });
     const W = 1.8;
     const H = 1.35;
-    const front = new THREE.Mesh(new THREE.PlaneGeometry(W, H), face);
+    const front = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshLambertMaterial({ map: this.boardTexture() }));
     front.position.z = 0.03;
-    const back = new THREE.Mesh(new THREE.PlaneGeometry(W, H), face);
+    const back = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshLambertMaterial({ color: 0xf4f4f0 }));
     back.rotation.y = Math.PI;
     back.position.z = -0.03;
     const core = new THREE.Mesh(new THREE.BoxGeometry(W, H, 0.05), this.mat(0xdedede));
     for (const m of [front, back, core]) m.castShadow = true;
     panel.add(core, front, back);
     stand.add(panel);
-    stand.visible = false;
-    this.board = { stand, panel };
+    this.board = { stand, panel, arms };
+    this.updateStart(-Infinity);
     return stand;
   }
 
@@ -633,14 +643,24 @@ export class RaceView {
 
   /**
    * The start procedure as race time runs up to the gate drop at 0 (riderAI START_HOLD): the
-   * board is held up square from five seconds out, turned sideways at three, and taken away at
-   * the drop, when the gate's pickets fall flat. Purely a function of the clock, so scrubbing or
-   * a new race always shows the right state.
+   * board is held low, white side out, while the riders line up; raised face out over the first
+   * moment of the five-second hold; turned sideways at three; and lowered white side out again as
+   * the gate's pickets fall flat at the drop, staying low for the rest of the race. Purely a
+   * function of the clock, so scrubbing or a new race always shows the right state.
    */
   private updateStart(clock: number): void {
     if (this.board) {
-      this.board.stand.visible = clock >= -5 && clock < 0;
-      this.board.panel.rotation.z = clock >= -3 ? Math.PI / 2 : 0;
+      const { panel, arms } = this.board;
+      const ease = (x: number) => {
+        const t = Math.max(0, Math.min(1, x));
+        return t * t * (3 - 2 * t);
+      };
+      // How far up the board is: 0 held low, 1 held high. Practice has no start, so it stays low.
+      const up = !this.hasStart ? 0 : clock < 0 ? ease((clock + START_HOLD) / BOARD_MOVE) : 1 - ease(clock / BOARD_MOVE);
+      // Low: in front of the official's legs, turned round so the white back faces out.
+      panel.position.set(0, 0.72 + (2.45 - 0.72) * up, 0.42 + (0.12 - 0.42) * up);
+      panel.rotation.set(0, Math.PI * (1 - up), clock >= -3 ? (Math.PI / 2) * up : 0);
+      for (const arm of arms) arm.rotation.x = 2.7 * (1 - up);
     }
     if (this.gateDrop) this.gateDrop.rotation.x = -(Math.PI / 2) * Math.max(0, Math.min(1, clock / 0.3)) ** 2;
   }
