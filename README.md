@@ -113,16 +113,27 @@ It paints tiles on every ground layer, edits collision, moves, copies, clears an
 
 ### Editing race tracks
 
-`tools/track-editor.html` edits the race tracks in `public/data/tracks.json`. Like the map editor it is one file with no build step: open it in Chrome or Edge, click **Open folder…** and pick the repo, `public` or `public/data`. With `npm run dev` running you can also open `/tools/track-editor.html` and load the tracks from the dev server (saving then downloads the file).
+`tools/track-editor.html` edits the race tracks in `public/data/tracks.json`, from the racing line to the ground and scenery round it. Like the map editor it is one file with no build step: open it in Chrome or Edge, click **Open folder…** and pick the repo, `public` or `public/data`. With `npm run dev` running you can also open `/tools/track-editor.html` and load the tracks from the dev server (saving then downloads the file).
 
-- **The drawing** is the shape the race screen shows: points on the 100 × 60 grid, starting at the start line. Drag points, double-click the track to add one, right-click or Del to remove one, and **Round corner** turns a sharp point into a curve. **Start here**, **Reverse** and **Fit to grid** reshape the whole lap.
-- **Sections** are what the race simulation rides, in order: type (from `racing.json`), length in metres and passing chance. They are coloured on the drawing by kind (start, corners, fast, jumps, rough), placed by their share of the lap the same way the race screen places riders. Drag the white diamonds to move metres between two neighbouring sections.
-- **Track details:** id, name, size, surface, practice only, and the start gate curve. Renaming an id updates the venues that use it.
-- **Checks** run the game's own rules for `tracks.json` (ids, section types, lengths, passing, points) and warn about race tracks without a start section or gate curve, and drawings that cross themselves.
-- **Preview** rides a dot round the lap, slower through the harder sections.
+The editor has four modes (keys 1 to 4):
+
+- **Layout:** the drawing is the shape the race screen shows, as points on the 100 × 60 grid starting at the start line. Drag points, double-click the track to add one, right-click or Del to remove one, and **Round corner** turns a sharp point into a curve. **Start here**, **Reverse** and **Fit to grid** reshape the whole lap. **Sections** are what the race simulation rides, in order: type (from `racing.json`), length in metres, passing chance, and for the race view a preferred line through corners and a jump or hill height.
+- **Surface:** mud, sand, water and other patches along the lap, laid by clicking the track.
+- **Ground:** paint the ground tiles round the track (grass, dirt, gravel, concrete, arena floor and so on) with a brush, Shift-drag for a rectangle, or **Fill under track**.
+- **Scenery:** banners and sponsor boards with your own text, tuff blocks, hay bales, tyre walls, tape, start gates, grandstands, crowds, floodlights, pit tents, vans, trees and more. Drag to move, Q and E to rotate, Ctrl+D to copy, Del to remove.
+- **Track details:** id, name, kind (stadium, outdoor or endurance), track width, size, surface, practice only, and the start gate curve. Renaming an id updates the venues that use it.
+- **Checks** run the game's own rules for `tracks.json` and `trackParts.json`, and warn about race tracks without a start section or gate curve, and drawings that cross themselves.
+- **Preview** rides a dot round the lap. **Race it in the game** opens a race day on the track in the game (`/?testtrack=<id>`, with `npm run dev` running and the track saved).
 - **Export / Import** save one track as a `.track.json` file and add one back, a first step towards player-made tracks.
+- **Undo / Redo** with Ctrl+Z and Ctrl+Y.
 
-A new track can be ridden in the game once a venue in the `venues` list of `tracks.json` points at it. An unchanged file saves back byte for byte. After saving, run `npm test`.
+The lists of track kinds, surfaces, ground tiles and scenery are in `public/data/trackParts.json`, with tile art from `public/assets/art/area-map/tiled/tiles`. Its `sectionEditor` switch shows the section editing tools while the game is in development; Final v1 turns it off (preview with `?final=1`), leaving the layout, surface, ground and scenery editing. The section data and the race simulation work the same either way.
+
+A new track can be raced from the world once a venue in the `venues` list of `tracks.json` points at it. An unchanged file saves back byte for byte. After saving, run `npm test`.
+
+### Races on screen
+
+The race simulation (`src/core/race.ts`) decides every result. The rider AI (`src/core/riderAI.ts`) then acts the race out: each rider picks a line, brakes into corners and drives out, swings out to pass or tucks in behind, jumps, skims whoops, crashes and remounts, always reaching the end of each section when the simulation says. How each rider rides comes from their skills, their bike and their race message (`src/core/riderProfile.ts`), plus an optional `style` for CPU riders in `riders.json` (`line`, `aggression`, `jumps`). The race view (`src/world/RaceView.ts`) draws it all from high up and in front, in the spirit of Super Off Road: stadium tracks fit one screen, while outdoor and endurance tracks follow your rider with a map of the whole lap.
 
 ### Checks
 

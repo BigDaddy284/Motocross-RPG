@@ -194,6 +194,7 @@ body.final .final-hide { display: none !important; }
     <label class="chk" style="background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:3px 8px"><input type="checkbox" id="snap" checked> Snap</label>
     <label class="chk" style="background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:3px 8px" title="Fade the ground and scenery to see the track"><input type="checkbox" id="showScene" checked> Scenery</label>
     <button id="btnPlay" title="Ride a dot round the lap (P). It slows down in the harder sections.">▶ Preview</button>
+    <button id="btnRide" title="Open a race day on this track in the game, with npm run dev running. Save first: the game reads the saved tracks.json.">Race it in the game</button>
   </div>
   <div id="welcome">
     <div class="card">
@@ -280,6 +281,7 @@ body.final .final-hide { display: none !important; }
     <li><b>Modes:</b> <kbd>1</kbd> Layout, <kbd>2</kbd> Surfaces, <kbd>3</kbd> Ground, <kbd>4</kbd> Scenery.</li>
     <li><b>Export / Import</b> save one track as a <code>.track.json</code> file and add one back.</li>
     <li><b>Preview</b> <kbd>P</kbd> rides a dot round the lap, slower through the harder sections.</li>
+    <li><b>Race it in the game</b> opens a race day on the track with the full field, with <code>npm run dev</code> running. Save first.</li>
     <li><b>Save</b> <kbd>Ctrl+S</kbd>. <b>Undo</b> <kbd>Ctrl+Z</kbd>, <b>Redo</b> <kbd>Ctrl+Y</kbd>. An unchanged file saves back byte for byte. After saving, run <code>npm test</code>; the game also checks the file when it starts.</li>
     <li><b>Development and Final v1:</b> <code>trackParts.json</code> <code>"sectionEditor"</code> shows the section editing. Final v1 turns it off, leaving the track and surroundings editor; tracks keep their sections and race the same. Add <code>?final=1</code> to the address to try the Final v1 editor.</li>
   </ul>
@@ -403,7 +405,7 @@ function clone(v) {
   if (FLOAT_KEYS.has(v)) FLOAT_KEYS.set(n, new Set(FLOAT_KEYS.get(v)));
   return n;
 }
-function pyStr(s) { return JSON.stringify(s).replace(/[\u0080-￿]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`); }
+function pyStr(s) { return JSON.stringify(s).replace(/[\u0080-\uffff]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`); }
 function dump(v, holder, key) {
   if (v === null || v === undefined) return 'null';
   if (typeof v === 'boolean') return v ? 'true' : 'false';
@@ -2074,6 +2076,7 @@ $('#btnReverse').addEventListener('click', reverse);
 $('#btnFit').addEventListener('click', fitToGrid);
 $('#showScene').addEventListener('change', requestDraw);
 $('#btnPlay').addEventListener('click', () => { if (app.play) { stopPlay(); refresh(); } else startPlay(); });
+$('#btnRide').addEventListener('click', () => { const t = track(); if (t) window.open(`/?testtrack=${encodeURIComponent(t.id)}`, '_blank'); });
 for (const b of document.querySelectorAll('#modes button')) b.addEventListener('click', () => setMode(b.dataset.mode));
 for (const id of ['#btnHelp', '#btnHelp2']) $(id).addEventListener('click', () => $('#help').showModal());
 $('#btnHelpClose').addEventListener('click', () => $('#help').close());
