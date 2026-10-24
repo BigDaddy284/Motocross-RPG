@@ -537,7 +537,7 @@ export class HudScene extends Phaser.Scene {
   /** Prev and Next buttons with the page number between them. */
   private pager(c: Phaser.GameObjects.Container, x: number, y: number, page: number, pages: number, go: (page: number) => void): void {
     c.add(button(this, x - 130, y, '◂ Prev', () => go(page - 1), 110, 36).setEnabled(page > 0));
-    c.add(this.add.text(x, y, `${page + 1} / ${pages}`, textStyle(this.ts(15), COLORS.muted)).setOrigin(0.5));
+    c.add(this.add.text(x, y, `${page + 1} / ${pages}`, textStyle(this.pts(15), COLORS.muted)).setOrigin(0.5));
     c.add(button(this, x + 130, y, 'Next ▸', () => go(page + 1), 110, 36).setEnabled(page < pages - 1));
   }
 
@@ -555,7 +555,7 @@ export class HudScene extends Phaser.Scene {
     if (shop.fitFee !== undefined) tabs.push(['fit', 'Fit a spare']);
     if (!tabs.some(([t]) => t === tab)) tab = tabs[0][0];
     // Laid out at 900 × 600, then scaled down to fit a small screen such as a phone on its side.
-    const { width, height } = this.scale;
+    const { width, height } = view(this);
     const w = 900;
     const h = 600;
     const k = Math.min(1, (width - 16) / w, (height - 16) / h);
@@ -565,8 +565,6 @@ export class HudScene extends Phaser.Scene {
     c.add([shade, panel(this, 0, 0, w, h).setInteractive()]);
     const left = -w / 2 + 28;
     const top = -h / 2 + 22;
-    // The scale above already shrinks the panel, so text only follows the Text size setting.
-    const sized = (n: number) => Math.round((n * services.settings.get().accessibility.textScale) / 100);
     // Moving between tabs and boxes inside the shop isn't closing it, so the world's onClose waits.
     this.onModalClose = null;
     const inner = (fn: () => void) => {
@@ -575,7 +573,7 @@ export class HudScene extends Phaser.Scene {
     };
     const reopen = (t: ShopTab = tab, pg = 0) => this.openShop(shop, t, onClose, pg);
     const text = (x: number, y: number, t: string, size = 16, color: number = COLORS.cream, wrap = w - 56) => {
-      const o = this.add.text(x, y, t, textStyle(sized(size), color, { wordWrap: { width: wrap } }));
+      const o = this.add.text(x, y, t, textStyle(this.pts(size), color, { wordWrap: { width: wrap } }));
       c.add(o);
       return o;
     };
