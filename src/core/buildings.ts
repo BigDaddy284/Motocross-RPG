@@ -81,7 +81,8 @@ export const BUILDINGS_SCHEMA: Schema = {
             },
           },
           footprint: { type: 'array', minItems: 1, items: { type: 'string' } },
-          doors: { type: 'array', items: { type: 'object', optional: ['spawn'], fields: { tile: XY, interior: ID, spawn: { type: 'string', nonEmpty: true } } } },
+          // A draft's door can be waiting for its interior (empty); a ready building's can't.
+          doors: { type: 'array', items: { type: 'object', optional: ['spawn'], fields: { tile: XY, interior: { type: 'string', pattern: /^[a-z0-9_.-]*$/ }, spawn: { type: 'string', nonEmpty: true } } } },
           returns: { type: 'array', items: { type: 'object', optional: ['name'], fields: { tile: XY, name: { type: 'string', nonEmpty: true } } } },
         },
       },
@@ -138,6 +139,10 @@ export function checkBuildings(lib: BuildingsData, maps: Map<string, BakedMap>):
     // Ready to use: every door's interior is there, leads back out here, and is this building's alone.
     if (b.doors.length && !b.returns.length) err(FILE, at('returns'), 'a building with doors needs a return tile to come back out on');
     for (const [j, d] of b.doors.entries()) {
+      if (!d.interior) {
+        err(FILE, at(`doors[${j}].interior`), "doesn't lead anywhere yet; pick the interior it opens into");
+        continue;
+      }
       const owner = interiorOwner.get(d.interior);
       if (owner && owner !== b.id) err(FILE, at(`doors[${j}].interior`), `${d.interior} is already ${owner}'s interior; give this building its own`);
       interiorOwner.set(d.interior, b.id);

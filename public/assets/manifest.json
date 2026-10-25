@@ -86,6 +86,11 @@
    "id": "int-iz-modifier-unit",
    "title": "Modifier machine unit",
    "kind": "interior"
+  },
+  {
+   "id": "int-iz-engine-rebuilder-lockup",
+   "title": "Engine rebuilder with lock-up",
+   "kind": "interior"
   }
  ],
  "characters": {

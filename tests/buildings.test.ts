@@ -64,6 +64,10 @@ describe('building library', () => {
     // An L: the lock-up's corner above it isn't part of the building.
     expect(footprintCells(l).length).toBe(12 * 5 - 3);
     expect(footprintCells(l).some((c) => c.x === 10 && c.y === 0)).toBe(false);
+    // Ready, with an interior of its own (made in the map editor from a copy of the engine rebuilder's).
+    expect(l.draft).toBeUndefined();
+    expect(l.doors.map((d) => d.interior)).toEqual(['int.iz.engine_rebuilder_lockup']);
+    expect(maps.get('int-iz-engine-rebuilder-lockup')?.objects.find((o) => o.type === 'exit')?.props.interior).toBe('int.iz.engine_rebuilder_lockup');
     // The pictures are a tile wider than the footprints (their shadows); the footprint is what's solid.
     const garage = get('bld.home.local_garage');
     expect(garage.parts[0].crop[2] / T).toBe(footprintSize(garage).w + 1);
@@ -89,9 +93,9 @@ describe('building checks', () => {
 
   it('refuses a door that leads to a missing interior, or sits on a solid tile', () => {
     const missing = withLib((b) => {
-      b.find((x) => x.id === 'bld.iz.engine_rebuilder_lockup')!.draft = false;
+      b.find((x) => x.id === 'bld.iz.engine_rebuilder_lockup')!.doors[0].interior = 'int.iz.nowhere';
     });
-    expect(problems(missing).join('\n')).toMatch(/doors\[0\]\.interior: no interior map int-iz-engine-rebuilder-lockup/);
+    expect(problems(missing).join('\n')).toMatch(/doors\[0\]\.interior: no interior map int-iz-nowhere for int\.iz\.nowhere/);
     const solid = withLib((b) => {
       b.find((x) => x.id === 'bld.example.security_hut')!.doors.push({ tile: [0, 1], interior: 'int.iz.lockup' });
     });
@@ -126,12 +130,24 @@ describe('building checks', () => {
   });
 
   it('keeps unfinished buildings off the maps, but lets them be incomplete in the library', () => {
-    // The draft's interior doesn't exist yet: fine while it is a draft.
-    expect(lib.buildings.find((b) => b.id === 'bld.iz.engine_rebuilder_lockup')?.draft).toBe(true);
+    // A draft can point at an interior that doesn't exist yet, but can't stand on a map.
+    const draft = withLib((b) => {
+      const l = b.find((x) => x.id === 'bld.iz.engine_rebuilder_lockup')!;
+      l.draft = true;
+      l.doors[0].interior = 'int.iz.not_made_yet';
+    });
+    expect(problems(draft)).toEqual([]);
     const m = withMap('area1-industrial-zone', (m) => {
       m.objects.push({ type: 'building', name: 'Lock-up', x: 2 * T, y: 26 * T, w: 12 * T, h: 5 * T, props: { blueprint: 'bld.iz.engine_rebuilder_lockup', interior: 'int.iz.engine_rebuilder_lockup', npc: null } });
     });
-    expect(problems(lib, m).join('\n')).toMatch(/Engine rebuilder with lock-up is unfinished \(draft\)/);
+    expect(problems(draft, m).join('\n')).toMatch(/Engine rebuilder with lock-up is unfinished \(draft\)/);
+    // A draft's door can wait for its interior; a ready building's can't.
+    const waiting = withLib((b) => {
+      b.push({ id: 'bld.custom.waiting', name: 'Waiting', draft: true, parts: [], footprint: ['##', '#.'], doors: [{ tile: [1, 1], interior: '' }], returns: [{ tile: [1, 2] }] });
+    });
+    expect(problems(waiting)).toEqual([]);
+    waiting.buildings.at(-1)!.draft = false;
+    expect(problems(waiting)).toEqual([expect.stringMatching(/doors\[0\]\.interior: doesn't lead anywhere yet/)]);
   });
 
   it('refuses a footprint with uneven rows or unknown tiles', () => {

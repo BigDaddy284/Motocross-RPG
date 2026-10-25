@@ -284,7 +284,7 @@
       "returns": []
     },
     {
-      "id": "bld.iz.engine_rebuilder_lockup", "name": "Engine rebuilder with lock-up", "zone": "Industrial Zone", "npc": "Engine rebuilder", "draft": true,
+      "id": "bld.iz.engine_rebuilder_lockup", "name": "Engine rebuilder with lock-up", "zone": "Industrial Zone", "npc": "Engine rebuilder",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [704,640,640,320], "at": [0,0]},{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [1600,960,256,256], "at": [9,1]}],
       "footprint": [
         "#########   ",
