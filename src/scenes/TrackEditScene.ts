@@ -50,6 +50,9 @@ export class TrackEditScene extends Phaser.Scene {
   /** False while the editor shows its map instead: nothing is drawn then. */
   private shown = true;
   private readonly keys = new Set<string>();
+  /** What the picture last drawn showed (the camera, and the view's own changes); the view draws again only when something changes. */
+  private drawn = '';
+  private dirty = true;
   private readonly off: (() => void)[] = [];
 
   constructor() {
@@ -68,7 +71,11 @@ export class TrackEditScene extends Phaser.Scene {
     };
     on(window, 'message', (e) => {
       if (e.source !== window.parent || !e.data) return;
-      if (e.data.type === 'visible') return void (this.shown = !!e.data.on);
+      if (e.data.type === 'visible') {
+        this.shown = !!e.data.on;
+        this.dirty = true;
+        return;
+      }
       if (e.data.type !== 'track') return;
       this.shown = true;
       this.state = e.data.state as EditViewState;
@@ -110,7 +117,7 @@ export class TrackEditScene extends Phaser.Scene {
           this.cam.x += a.x - b.x;
           this.cam.z += a.z - b.z;
           this.view.editCam = this.cam;
-          this.view.update([], -60, 0, null);
+          this.view.aim();
         }
         this.pan = { ...this.pan, x: p.x, y: p.y };
         return;
@@ -202,9 +209,12 @@ export class TrackEditScene extends Phaser.Scene {
     if (key !== this.built) {
       const first = !this.built;
       this.built = key;
-      this.view?.destroy();
-      this.holder.removeAll(true);
-      this.view = new RaceView(this, this.holder, structuredClone(st.track), parts, 0, 0, this.scale.width, this.scale.height);
+      // The new view takes over the old one's renderer (its WebGL context and shaders), then the old one goes.
+      const old = this.view;
+      const was = [...this.holder.list];
+      this.view = new RaceView(this, this.holder, structuredClone(st.track), parts, 0, 0, this.scale.width, this.scale.height, old?.gl);
+      old?.destroy(true);
+      for (const o of was) o.destroy();
       this.view.editCam = this.cam;
       this.view.showMap(true);
       if (first) this.resetCam();
@@ -232,6 +242,10 @@ export class TrackEditScene extends Phaser.Scene {
     this.cam.z = Math.max(-10, Math.min(70, this.cam.z));
     v.editCam = this.cam;
     this.markBrush();
+    const shot = `${this.cam.x},${this.cam.z},${this.cam.zoom},${this.cam.az},${v.version}`;
+    if (!this.dirty && shot === this.drawn) return;
+    this.dirty = false;
+    this.drawn = shot;
     v.update([], -60, dtMs / 1000, null);
   }
 
@@ -244,6 +258,7 @@ export class TrackEditScene extends Phaser.Scene {
     const v = this.view;
     const st = this.state;
     if (!v || !st) return;
+    this.dirty = true;
     for (const c of [...v.overlay.children]) if (c !== this.brushGroup) dispose(v.overlay, c);
     const t = st.track;
     const line = (pts: { x: number; z: number }[], color: number, closed = false, dashed = false) => v.overlay.add(ribbon(v, closed ? [...pts, pts[0]] : pts, color, dashed));
@@ -310,8 +325,9 @@ export class TrackEditScene extends Phaser.Scene {
     const b = this.state?.brush;
     if (!v) return;
     const key = JSON.stringify([b, this.hover]);
-    if (key === this.brushKey && this.brushGroup?.parent === v.overlay) return;
+    if (key === this.brushKey && (this.brushGroup ? this.brushGroup.parent === v.overlay : !b || !this.hover)) return;
     this.brushKey = key;
+    this.dirty = true;
     if (this.brushGroup) dispose(v.overlay, this.brushGroup);
     this.brushGroup = null;
     if (!b || !this.hover) return;

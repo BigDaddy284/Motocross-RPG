@@ -106,6 +106,8 @@ export class RaceView {
   editCam: { x: number; z: number; zoom: number; az: number } | null = null;
   /** The track editor's markers (selection, brush, checks), drawn over everything; empty in a race. */
   readonly overlay = new THREE.Group();
+  /** Goes up when the picture changes by itself (the ground's art arriving), for a view that only draws on a change. */
+  version = 0;
   private lastClock = 0;
   private dead = false;
   private readonly patchSpans: { from: number; to: number; color: number }[];
@@ -133,6 +135,8 @@ export class RaceView {
     private readonly y: number,
     private readonly w: number,
     private readonly h: number,
+    /** The track editor's race view passes the last view's renderer on, so a rebuild reuses its WebGL context and compiled shaders. */
+    renderer?: THREE.WebGLRenderer,
   ) {
     this.surface = new TrackSurface(track);
     const kind = trackKind(parts, track);
@@ -148,8 +152,8 @@ export class RaceView {
     const res = Math.max(1, Math.min(2, k));
     const rw = Math.round(w * res);
     const rh = Math.round(h * res);
-    const canvas = document.createElement('canvas');
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+    this.renderer = renderer ?? new THREE.WebGLRenderer({ canvas: document.createElement('canvas'), antialias: true, preserveDrawingBuffer: true });
+    const canvas = this.renderer.domElement;
     this.renderer.setPixelRatio(1);
     this.renderer.setSize(rw, rh, false);
     this.renderer.shadowMap.enabled = true;
@@ -271,6 +275,8 @@ export class RaceView {
 
     this.image.once('destroy', () => this.destroy());
     this.loadArt();
+    // Handed a renderer: take up the shaders it already has before the last view lets them go.
+    if (renderer) this.renderer.compile(this.scene3, this.camera);
   }
 
   // ---- ground ----
@@ -284,6 +290,7 @@ export class RaceView {
       if (this.dead) return;
       this.drawGround();
       this.groundTex.needsUpdate = true;
+      this.version++;
     });
     this.scene.load.start();
   }
@@ -1354,6 +1361,17 @@ export class RaceView {
     return (this.groundGrid ??= new GroundIndex(this.ground));
   }
 
+  /** Points the camera at the editor's camera without drawing, so a pick right after a pan uses the new view. */
+  aim(): void {
+    this.moveCamera(null, 0);
+    this.camera.updateMatrixWorld();
+  }
+
+  /** The renderer, for the next view to reuse (the track editor's race view). */
+  get gl(): THREE.WebGLRenderer {
+    return this.renderer;
+  }
+
   /** Grid units across the view at zoom 1. */
   unitsAcross(): number {
     return this.viewUnits;
@@ -1407,7 +1425,8 @@ export class RaceView {
     }
   }
 
-  destroy(): void {
+  /** Lets the view go; `keepRenderer` leaves its renderer for the next view to reuse. */
+  destroy(keepRenderer = false): void {
     if (this.dead) return;
     this.dead = true;
     this.scene3.traverse((o) => {
@@ -1419,8 +1438,10 @@ export class RaceView {
         mat.dispose();
       }
     });
-    this.renderer.dispose();
-    this.renderer.forceContextLoss();
+    if (!keepRenderer) {
+      this.renderer.dispose();
+      this.renderer.forceContextLoss();
+    }
     if (this.scene.textures.exists(this.key)) this.scene.textures.remove(this.key);
   }
 }
