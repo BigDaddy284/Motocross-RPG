@@ -87,14 +87,13 @@ export function guidesOn(npcs: NpcDef[], map: BakedMap): NpcDef[] {
 }
 
 /**
- * Where a route exit takes you: the place picked with the marshal, or the only place it goes.
- * A string is why it can't take you anywhere (ask the marshal which way first).
+ * Where a route exit takes you: the place picked with the marshal, or otherwise the first place it
+ * goes (the marshal is there to ask, never in the way). A string is why it can't take you anywhere.
  */
-export function routeArrival(map: BakedMap, exit: MapObject, world: WorldData, maps: Map<string, BakedMap>, pick: string | null, guide: string | null): Arrival | string {
+export function routeArrival(map: BakedMap, exit: MapObject, world: WorldData, maps: Map<string, BakedMap>, pick: string | null): (Arrival & { place: PlaceDef; others: PlaceDef[] }) | string {
   const route = routeFor(world, map, exit);
   const places = route ? routePlaces(world, maps, route) : [];
   if (!places.length) return "This road doesn't go anywhere yet.";
-  const place = places.find((p) => p.map === pick) ?? (places.length === 1 ? places[0] : null);
-  if (!place) return `${guide ?? 'The route marshal'}: which way are you heading? Have a word with me first, I'll point you right.`;
-  return { map: place.map, tile: spawnTile(maps.get(place.map)!, place.spawn)! };
+  const place = places.find((p) => p.map === pick) ?? places[0];
+  return { map: place.map, tile: spawnTile(maps.get(place.map)!, place.spawn)!, place, others: places.filter((p) => p !== place) };
 }

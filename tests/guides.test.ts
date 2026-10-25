@@ -82,21 +82,27 @@ describe('leaving by a route', () => {
 
   it('goes to the place picked with the marshal, through the exit', () => {
     for (const id of ['area1-venue-farmland', 'area1-venue-quarry', 'area1-venue-woodland']) {
-      const to = routeArrival(home, road, world, maps, id, 'Route marshal');
-      expect(to).toEqual({ map: id, tile: spawnTile(map(id), 'from_world_map') });
+      const to = routeArrival(home, road, world, maps, id);
+      expect(typeof to).not.toBe('string');
+      if (typeof to === 'string') continue;
+      expect({ map: to.map, tile: to.tile }).toEqual({ map: id, tile: spawnTile(map(id), 'from_world_map') });
     }
   });
 
-  it("won't go anywhere until a place is picked, when there's a choice", () => {
-    expect(routeArrival(home, road, world, maps, null, 'Route marshal')).toMatch(/^Route marshal: which way are you heading\?/);
-    // A pick for somewhere this road doesn't go counts for nothing.
-    expect(typeof routeArrival(home, road, world, maps, 'area1-industrial-zone', 'Route marshal')).toBe('string');
+  it("doesn't need the marshal: without a pick it takes the road's first place, and says where else it goes", () => {
+    for (const pick of [null, 'area1-industrial-zone']) {
+      const to = routeArrival(home, road, world, maps, pick);
+      expect(typeof to).not.toBe('string');
+      if (typeof to === 'string') continue;
+      expect(to.map).toBe('area1-venue-farmland');
+      expect(to.others.map((p) => p.map)).toEqual(['area1-venue-quarry', 'area1-venue-woodland']);
+    }
   });
 
   it('goes straight there when a route has only one place', () => {
     const w = structuredClone(world);
     w.routes[0].to = ['area1-venue-farmland'];
-    expect(routeArrival(home, road, w, maps, null, null)).toEqual({ map: 'area1-venue-farmland', tile: spawnTile(map('area1-venue-farmland'), 'from_world_map') });
+    expect(routeArrival(home, road, w, maps, null)).toMatchObject({ map: 'area1-venue-farmland', tile: spawnTile(map('area1-venue-farmland'), 'from_world_map') });
   });
 
   it('every way out of every area leads somewhere real', () => {

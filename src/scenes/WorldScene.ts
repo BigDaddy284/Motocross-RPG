@@ -119,7 +119,8 @@ export class WorldScene extends Phaser.Scene {
       this.npcs.push({ placement: p, character });
     }
     this.drive = new DriveMap(map, this.grid, services.content.vehicles.drivable);
-    this.drive.setNpcTiles(this.npcs.map((n) => ({ x: n.placement.x, y: n.placement.y })));
+    // Route marshals stand by the road to be asked, not in the way: the van drives past them too.
+    this.drive.setNpcTiles(this.npcs.filter((n) => !n.placement.npc.guide).map((n) => ({ x: n.placement.x, y: n.placement.y })));
     this.setupVan();
     let { x, y } = this.save.position;
     const { facing } = this.save.position;
@@ -906,7 +907,8 @@ export class WorldScene extends Phaser.Scene {
     const grid = Grid.fromMap(map);
     applyMapState(map, grid, this.save.flags);
     const dm = new DriveMap(map, grid, services.content.vehicles.drivable);
-    dm.setNpcTiles(npcsOnMap(services.content, map).map((p) => ({ x: p.x, y: p.y })));
+    // Route marshals stand by the road to be asked, not in the way: the van drives past them.
+    dm.setNpcTiles(npcsOnMap(services.content, map).filter((p) => !p.npc.guide).map((p) => ({ x: p.x, y: p.y })));
     return dm;
   }
 
@@ -915,14 +917,18 @@ export class WorldScene extends Phaser.Scene {
   /** Where a route exit takes the rider: the place picked with the marshal, or its only place. Says why not, otherwise. */
   private routeTo(via: MapObject): Arrival | null {
     const pick = services.routePick?.map === this.map.id && services.routePick.exit === via.name ? services.routePick.to : null;
-    const guide = guidesOn(services.content.npcs, this.map)[0]?.name ?? null;
-    const to = routeArrival(this.map, via, services.content.world, services.maps, pick, guide);
+    const to = routeArrival(this.map, via, services.content.world, services.maps, pick);
     if (typeof to === 'string') {
       this.hud.toast(to);
       return null;
     }
+    // Not asked: on to the road's first place, and where else it goes, for next time.
+    if (!pick && to.others.length) {
+      const guide = guidesOn(services.content.npcs, this.map)[0];
+      this.hud.toast(`Heading for ${to.place.name}. This road also goes to ${to.others.map((p) => p.name).join(' and ')}${guide ? `: ask the ${guide.name.toLowerCase()} by the road to go there` : ''}.`);
+    }
     services.routePick = null;
-    return to;
+    return { map: to.map, tile: to.tile };
   }
 
   /** A route marshal: where each way out goes, then which route to take when there's a choice. */
