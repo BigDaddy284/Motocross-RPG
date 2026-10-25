@@ -2680,6 +2680,146 @@ function deleteRoutePoint(k) {
     app.selRoute = -1;
   });
 }
+// Where the official stands along the start straight, and their walk from there.
+//
+// The panel places where they wait by how far up the start straight it is from the gate and which
+// side, trackside: clear of the start straight's lip slope with the board turned any way. Plan the
+// walk finds a destination further up the same side (or back, or the other side, if that's all
+// there is) within the walk's limit, clear of the track all the way, as the editor can judge it;
+// the race view's checks of the real thing (startOfficial.ts) come back under the panel as ever.
+// Moving or turning the start straight takes the official and their route with it.
+
+/** How far any part of the official or their raised board reaches from where they stand (startOfficial.ts SHAPE at OFFICIAL_SCALE: 0.81 board circle, held up to 0.38 in front), plus the room kept clear (OFFICIAL_MARGIN). */
+const OFFICIAL_REACH = 0.81 + 0.38 + 0.15;
+/** How far the track's surface reaches past its half-width: the lip and its slope (trackSurface.ts LIP_AT, and the slope's foot). */
+const LIP_AT = 1.22;
+const LIP_FOOT = 0.35;
+/** The walk's timing as the race view runs it (startOfficial.ts walkTiming): sets off five seconds before the drop, arrives at one, easing in and out, fastest halfway at twice the average pace. */
+const WALK_SECONDS = 4;
+const walkTop = (len) => (2 * len) / WALK_SECONDS;
+/** Where on the start straight a point is: u grid units from the gate, the side (1 right of the riding direction, -1 left), and how far off its centre line. */
+function alongStart(t, x, y) {
+  const s = startGeom(t);
+  if (!s) return null;
+  let best = { u: 0, off: Infinity, side: 1 };
+  for (let i = 1; i < s.pts.length; i++) {
+    const a = s.pts[i - 1];
+    const b = s.pts[i];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const l2 = dx * dx + dy * dy || 1e-9;
+    const k = clamp(((x - a.x) * dx + (y - a.y) * dy) / l2, 0, 1);
+    const off = Math.hypot(a.x + dx * k - x, a.y + dy * k - y);
+    if (off < best.off) best = { u: s.cum[i - 1] + Math.sqrt(l2) * k, off, side: dx * (y - a.y) - dy * (x - a.x) >= 0 ? 1 : -1 };
+  }
+  return { ...best, total: s.total, s };
+}
+/** The trackside spot at u up the start straight on a side: the official's reach clear of its lip slope. */
+function startSideSpot(t, s, u, side, extra = 0) {
+  const hw = (t.width ?? DEFAULT_WIDTH) / 2;
+  const p = startPointAt(s, u);
+  const h = startHeadingAt(s, u);
+  const out = startHalfWidth(s, u, hw) * LIP_AT + LIP_FOOT + OFFICIAL_REACH + 0.1 + extra;
+  return { x: round2(p.x - Math.sin(h) * out * side), y: round2(p.y + Math.cos(h) * out * side) };
+}
+/**
+ * How far a circle of radius r at (x, y) is clear of the track's surface (lap and start straight,
+ * lips included), as the editor judges it: negative inside. Leaves out the line-up at the gate,
+ * which only the walk's own check minds.
+ */
+function trackRoom(t, x, y, r) {
+  const hw = (t.width ?? DEFAULT_WIDTH) / 2;
+  let room = Infinity;
+  if (t.path.length >= 2) {
+    room = project(lapGeom(t), x, y).dist - hw * LIP_AT - LIP_FOOT - r;
+  }
+  const a = alongStart(t, x, y);
+  if (a) room = Math.min(room, a.off - startHalfWidth(a.s, a.u, hw) * LIP_AT - LIP_FOOT - r);
+  return room;
+}
+/** The least room along a walk (the official's whole reach, board up), sampled every 0.1. */
+function walkRoom(t, pts) {
+  let room = Infinity;
+  for (let i = 1; i < pts.length; i++) {
+    const [ax, ay] = pts[i - 1];
+    const [bx, by] = pts[i];
+    const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / 0.1));
+    for (let k = 0; k <= n; k++) room = Math.min(room, trackRoom(t, ax + ((bx - ax) * k) / n, ay + ((by - ay) * k) / n, OFFICIAL_REACH - 0.15));
+  }
+  return room;
+}
+/**
+ * A walk from where the official stands to a destination trackside: the same side further up the
+ * straight first (about 4.5 grid units on, as the game plans one), then back towards the gate but
+ * clear of the line-up, then the other side, each within the walk's limit and clear of the track
+ * all the way as the editor judges it. Null, with why, when there's none.
+ */
+function planWalk(t, it) {
+  const a = alongStart(t, it.x, it.y);
+  if (!a) return { route: null, why: 'Give the track a start straight first: the walk is planned along it.' };
+  const max = maxWalk();
+  const tries = [];
+  for (const side of [a.side, -a.side]) {
+    for (const d of [4.5, 4, 5, 3.5, 5.5, 3, 6, 2.5, 6.5, 2, 7]) {
+      tries.push({ side, u: a.u + d, cost: Math.abs(d - 4.5) + (side === a.side ? 0 : 6) });
+      tries.push({ side, u: a.u - d, cost: Math.abs(d - 4.5) + 3 + (side === a.side ? 0 : 6) });
+    }
+  }
+  tries.sort((p, q) => p.cost - q.cost);
+  let why = '';
+  for (const tr of tries) {
+    if (tr.u < GATE_AT + 1.5 || tr.u > a.total - 0.5) continue;
+    const b = startSideSpot(t, a.s, tr.u, tr.side);
+    if (b.x < 0 || b.y < 0 || b.x > GRID_W || b.y > GRID_H) continue;
+    if (trackRoom(t, b.x, b.y, OFFICIAL_REACH - 0.15) < 0) { why ||= 'the spots further up the straight are too near the lap'; continue; }
+    // Along the straight on the same side, or straight across it ahead of the gate (allowed: no one rides there before the drop).
+    const route = [[it.x, it.y], [b.x, b.y]];
+    const len = Math.hypot(b.x - it.x, b.y - it.y);
+    if (len > max) { why ||= `every clear spot is more than the ${max} grid units they can walk`; continue; }
+    if (tr.side === a.side && walkRoom(t, route) < 0) { why ||= 'the walk would cut across the track'; continue; }
+    return { route: [[b.x, b.y]], why: '', len };
+  }
+  return { route: null, why: why || 'there is no clear spot beside the start straight within reach' };
+}
+/** Plan walk: replaces the route with a planned one, or says why there's none. */
+function planWalkHere() {
+  const t = track();
+  const i = officialIndex(t);
+  if (i < 0) return;
+  const pl = planWalk(t, t.scenery[i]);
+  if (!pl.route) { status(`No walk planned: ${pl.why}. Move where they wait (Start position, or the other side), or Draw route by hand.`, 'err'); return; }
+  commit((t) => { t.scenery[i].route = pl.route; app.selRoute = -1; });
+  status(`Planned a ${pl.len.toFixed(1)}-unit walk to a clear spot trackside (the red point). The race view checks it against the track and scenery.`, 'ok');
+}
+/** Stands the official trackside at u up the start straight, on a side, keeping their route (or walking it with them, when `withRoute`). */
+function setOfficialAlong(u, side, withRoute = false) {
+  const t = track();
+  const i = officialIndex(t);
+  const a = i >= 0 ? alongStart(t, t.scenery[i].x, t.scenery[i].y) : null;
+  if (!a) return;
+  commit((t) => {
+    const it = t.scenery[i];
+    const p = startSideSpot(t, a.s, clamp(u, 0, a.total), side);
+    if (withRoute && it.route?.length) { const dx = p.x - it.x; const dy = p.y - it.y; it.route = it.route.map(([x, y]) => [round2(x + dx), round2(y + dy)]); }
+    it.x = p.x;
+    it.y = p.y;
+  });
+}
+/** Turns and moves the official and their route as the start straight moved: by its gate and the way it sets off from there. */
+function followStart(t, oldPath, newPath) {
+  const i = officialIndex(t);
+  if (i < 0 || !oldPath || !newPath || oldPath.length < 2 || newPath.length < 2) return;
+  const [ox, oy] = oldPath[0];
+  const [nx, ny] = newPath[0];
+  const oh = Math.atan2(oldPath[1][1] - oy, oldPath[1][0] - ox);
+  const nh = Math.atan2(newPath[1][1] - ny, newPath[1][0] - nx);
+  const c = Math.cos(nh - oh);
+  const sn = Math.sin(nh - oh);
+  const map = ([x, y]) => [round2(nx + (x - ox) * c - (y - oy) * sn), round2(ny + (x - ox) * sn + (y - oy) * c)];
+  const it = t.scenery[i];
+  [it.x, it.y] = map([it.x, it.y]);
+  if (it.route) it.route = it.route.map(map);
+}
 /** The official's part of the scenery box: the route, its length against the limit, and its problems. */
 function renderOfficialDetail(box, t, it) {
   const len = routeLength(it);
@@ -2691,6 +2831,57 @@ function renderOfficialDetail(box, t, it) {
     ? `Route: ${n} point${n === 1 ? '' : 's'} after where they stand, ${len.toFixed(1)} of the ${max} grid units they can walk in the four seconds (${(len / 4).toFixed(1)} a second).`
     : 'No route: they hold the board where they stand. Draw route to give them a walk in the countdown.';
   box.appendChild(info);
+  // Where along the start straight they wait, and on which side.
+  const at = alongStart(t, it.x, it.y);
+  if (at) {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.style.marginTop = '4px';
+    const lab = document.createElement('label');
+    lab.textContent = 'Start position';
+    lab.title = 'Where they wait: how far up the start straight from the gate, trackside';
+    const range = document.createElement('input');
+    range.type = 'range';
+    range.id = 'offAlong';
+    range.min = '0';
+    range.max = String(Math.floor(at.total * 2) / 2);
+    range.step = '0.5';
+    range.value = String(Math.round(at.u * 2) / 2);
+    range.style.flex = '1';
+    const side = document.createElement('select');
+    side.id = 'offSide';
+    for (const [v, txt] of [['-1', 'Left'], ['1', 'Right']]) { const o = document.createElement('option'); o.value = v; o.textContent = txt; side.appendChild(o); }
+    side.value = String(at.side);
+    side.title = 'Which side of the start straight, as the riders see it';
+    const move = () => setOfficialAlong(Number(range.value), Number(side.value), $('#offWithRoute')?.checked);
+    range.addEventListener('change', move);
+    side.addEventListener('change', move);
+    row.append(lab, range, side);
+    box.appendChild(row);
+    const row2 = document.createElement('label');
+    row2.className = 'hint';
+    row2.style.display = 'block';
+    const keep = document.createElement('input');
+    keep.type = 'checkbox';
+    keep.id = 'offWithRoute';
+    keep.checked = true;
+    row2.append(keep, ' Route moves with them');
+    box.appendChild(row2);
+    const where = document.createElement('div');
+    where.className = 'hint';
+    where.id = 'offWhere';
+    const off = at.off - startHalfWidth(at.s, at.u, (t.width ?? DEFAULT_WIDTH) / 2);
+    where.textContent = `Waits ${at.u.toFixed(1)} of the start straight's ${at.total.toFixed(1)} grid units up from the gate, on the ${at.side > 0 ? 'right' : 'left'}, ${off >= 0 ? `${off.toFixed(1)} out from its edge` : `${(-off).toFixed(1)} in from its edge (on the start straight)`}.`;
+    box.appendChild(where);
+  }
+  if (n) {
+    // The walk's timing, as the race view runs it.
+    const tm = document.createElement('div');
+    tm.className = 'hint';
+    tm.id = 'offTiming';
+    tm.textContent = `Timing: board up and sets off at 5 s, board sideways at 3 s, arrives and lowers the board at 1 s, a ${len.toFixed(1)}-unit walk in ${WALK_SECONDS} s (average ${(len / WALK_SECONDS).toFixed(1)}, top ${walkTop(len).toFixed(1)} grid units a second, easing in and out).`;
+    box.appendChild(tm);
+  }
   const btns = document.createElement('div');
   btns.className = 'row';
   btns.style.marginTop = '4px';
@@ -2700,6 +2891,7 @@ function renderOfficialDetail(box, t, it) {
     mk('Cancel', 'Put the route back as it was', cancelRoute);
   } else {
     mk('Draw route', 'Click points on the ground, in order, from where they stand to where they end up', () => routeDrawing(true));
+    mk('Plan walk', 'Give them a walk from where they stand to a clear spot trackside further up the start straight', planWalkHere).disabled = !at;
     mk('Reset route', 'Clear the route: they hold the board where they stand', resetRoute).disabled = !n;
   }
   box.appendChild(btns);
@@ -2985,7 +3177,8 @@ function placeStart() {
   const gh = startGhost(t, pl);
   if (gh.level === 'error') { status(gh.msg, 'err'); return; }
   const had = !!t.start;
-  commit((t) => { setKeyNear(t, 'start', { path: gh.pts }, 'sections'); app.selPt = -1; app.selStart = -1; });
+  // The official, placed by the old one, goes with it.
+  commit((t) => { const old = t.start?.path; setKeyNear(t, 'start', { path: gh.pts }, 'sections'); followStart(t, old, gh.pts); app.selPt = -1; app.selStart = -1; });
   if (t.draft && t.open && t.path.length < 2) {
     // Placed first: the lap goes on from its end.
     app.placing = { ...pieceFor('straight'), at: null };
@@ -3173,19 +3366,19 @@ function dubins(a, b, r) {
   // Angle-growing bends are L here, shrinking R, as in the usual formulas (y running down only mirrors them on screen).
   {
     const p2 = 2 + d * d - 2 * cab + 2 * d * (sa - sb);
-    if (p2 >= 0) { const tmp = Math.atan2(cb - ca, d + sa - sb); words.push([[1, mod2pi(-al + tmp)], [0, Math.sqrt(p2)], [1, mod2pi(be - tmp)]]); }
+    if (p2 >= -1e-9) { const tmp = Math.atan2(cb - ca, d + sa - sb); words.push([[1, mod2pi(-al + tmp)], [0, Math.sqrt(Math.max(0, p2))], [1, mod2pi(be - tmp)]]); }
   }
   {
     const p2 = 2 + d * d - 2 * cab + 2 * d * (sb - sa);
-    if (p2 >= 0) { const tmp = Math.atan2(ca - cb, d - sa + sb); words.push([[-1, mod2pi(al - tmp)], [0, Math.sqrt(p2)], [-1, mod2pi(-be + tmp)]]); }
+    if (p2 >= -1e-9) { const tmp = Math.atan2(ca - cb, d - sa + sb); words.push([[-1, mod2pi(al - tmp)], [0, Math.sqrt(Math.max(0, p2))], [-1, mod2pi(-be + tmp)]]); }
   }
   {
     const p2 = -2 + d * d + 2 * cab + 2 * d * (sa + sb);
-    if (p2 >= 0) { const p = Math.sqrt(p2); const tmp = Math.atan2(-ca - cb, d + sa + sb) - Math.atan2(-2, p); words.push([[1, mod2pi(-al + tmp)], [0, p], [-1, mod2pi(-mod2pi(be) + tmp)]]); }
+    if (p2 >= -1e-9) { const p = Math.sqrt(Math.max(0, p2)); const tmp = Math.atan2(-ca - cb, d + sa + sb) - Math.atan2(-2, p); words.push([[1, mod2pi(-al + tmp)], [0, p], [-1, mod2pi(-mod2pi(be) + tmp)]]); }
   }
   {
     const p2 = -2 + d * d + 2 * cab - 2 * d * (sa + sb);
-    if (p2 >= 0) { const p = Math.sqrt(p2); const tmp = Math.atan2(ca + cb, d - sa - sb) - Math.atan2(2, p); words.push([[-1, mod2pi(al - tmp)], [0, p], [1, mod2pi(be - tmp)]]); }
+    if (p2 >= -1e-9) { const p = Math.sqrt(Math.max(0, p2)); const tmp = Math.atan2(ca + cb, d - sa - sb) - Math.atan2(2, p); words.push([[-1, mod2pi(al - tmp)], [0, p], [1, mod2pi(be - tmp)]]); }
   }
   {
     const tmp = (6 - d * d + 2 * cab + 2 * d * (sa - sb)) / 8;
@@ -3246,6 +3439,24 @@ function connectPieces(a, way, width) {
   }
   return { pts: pts.map(([px, py]) => [round2(px), round2(py)]), secs: secs.map(({ carry, ...sec }) => ({ ...sec, length: Math.max(1, Math.round(sec.length)) })) };
 }
+/**
+ * The radius of the one bend that joins pose a to pose b with only straights either side, or NaN:
+ * where the two headings' lines cross, ahead of a and behind b, the bend fits the nearer of the
+ * two distances to the crossing.
+ */
+function fitRadius(a, b) {
+  const turn = wrapAngle(b.h - a.h);
+  if (Math.abs(turn) < (5 * Math.PI) / 180 || Math.abs(turn) > Math.PI - 1e-3) return NaN;
+  const [ax, ay, bx, by] = [Math.cos(a.h), Math.sin(a.h), Math.cos(b.h), Math.sin(b.h)];
+  // a + s·da = b - t·db
+  const det = ax * by - ay * bx;
+  if (Math.abs(det) < 1e-9) return NaN;
+  const ex = b.x - a.x, ey = b.y - a.y;
+  const sv = (ex * by - ey * bx) / det;
+  const tv = (ax * ey - ay * ex) / det;
+  if (sv <= 0 || tv <= 0) return NaN;
+  return Math.min(sv, tv) / Math.tan(Math.abs(turn) / 2);
+}
 /** Close the lap (or a gap) being placed: from the open end nearest the pointer to its target. */
 function connectGhost(t, pl) {
   const ends = openEnds(t).filter((e) => e.target);
@@ -3259,8 +3470,18 @@ function connectGhost(t, pl) {
   const g = t.path.length >= 2 ? lapGeom(t) : null;
   // Every way at every radius, judged: on the grid, and clear of the track already built (away from its own two ends).
   let best = null;
-  for (const r of CONNECT_RADII) {
+  let loops = 0;
+  // Turning the target needs, and the single bend that joins the two straight on, when there is one (a 90° gap left by a deleted corner is one corner again, not two).
+  const net = Math.abs(wrapAngle(end.target.h - end.h));
+  const radii = [...CONNECT_RADII];
+  const fit = fitRadius(end, end.target);
+  // Just under it too, leaving a short straight either side, for ends a rounding off a single bend.
+  for (const r of [fit, fit * 0.97]) if (r >= CONNECT_RADII.at(-1) * 0.95 && r <= 30 && !radii.some((q) => Math.abs(q - r) < 0.05)) radii.push(r);
+  for (const r of radii) {
     for (const way of dubins(end, end.target, r)) {
+      // Turning round on itself (a loop) is never a way to close: the riders would cross their own line.
+      const swept = way.segs.reduce((a, sg) => a + (sg.turn ? sg.ang : 0), 0);
+      if (swept > net + Math.PI + 1e-6) { loops++; continue; }
       const pc = connectPieces(end, way, width);
       const off = pc.pts.some(([x, y]) => x < 0 || y < 0 || x > GRID_W || y > GRID_H);
       let over = null;
@@ -3280,19 +3501,20 @@ function connectGhost(t, pl) {
           }
         }
       }
-      // Clear beats crossing, crossing beats off the grid, then the shortest.
-      const score = (off ? 1e6 : 0) + (over ? 1e4 : 0) + way.len;
+      // Clear beats crossing, crossing beats off the grid; then the shortest, with fewer and wider bends counting for it.
+      const bends = way.segs.filter((sg) => sg.turn && sg.len >= 0.05).length;
+      const score = (off ? 1e6 : 0) + (over ? 1e4 : 0) + way.len + 2.5 * bends + 8 / r;
       if (!best || score < best.score) best = { score, way, pc, off, over };
     }
   }
-  if (!best) return Object.assign(out, { msg: `No way found to close ${what} from here.` });
+  if (!best) return Object.assign(out, { msg: loops ? `No smooth way to close ${what} from here: the ends are too close together for the turn between them at a radius of ${CONNECT_RADII.at(-1)} or wider, so only a loop would join them. Delete the piece either side as well to make room, then Close ${what} again.` : `No way found to close ${what} from here.` });
   out.pts = best.pc.pts;
   out.secs = best.pc.secs;
   // Ends exactly on the target.
   out.pts[0] = [end.x, end.y];
   out.pts[out.pts.length - 1] = [end.target.x, end.target.y];
   const bends = best.pc.secs.filter((x) => x.type !== 'straight').length;
-  const desc = `${best.pc.secs.length} piece${best.pc.secs.length === 1 ? '' : 's'} (${bends} bend${bends === 1 ? '' : 's'} at radius ${best.way.r}), about ${Math.round(best.way.len * PIECE_MPU)} m`;
+  const desc = `${best.pc.secs.length} piece${best.pc.secs.length === 1 ? '' : 's'}${bends ? ` (${bends} bend${bends === 1 ? '' : 's'} at radius ${+best.way.r.toFixed(1)})` : ''}, about ${Math.round(best.way.len * PIECE_MPU)} m`;
   if (best.off) return Object.assign(out, { msg: `Closing ${what} from here would run off the 100 × 60 grid. Lay a piece or two towards the blue ring first, then Close ${what} again.` });
   if (best.over) return Object.assign(out, { level: 'warning', msg: `Closes ${what} with ${desc}, but it runs over the track already built at ${best.over[0].toFixed(0)}, ${best.over[1].toFixed(0)} (a crossover: riders pass through each other). Lay a piece or two another way first to avoid it, or click to place it anyway.` });
   return Object.assign(out, { level: 'ok', msg: `Closes ${what} with ${desc}, arriving at the ${end.kind === 'gap' ? 'far side of the gap' : 'finish line'} heading the way the track goes on. Click or Enter to place it.` });
@@ -3639,7 +3861,7 @@ function fitToGrid() {
     if (t.start) t.start.path = t.start.path.map(map);
     keepJoined(t);
     // Scenery moves with the track.
-    for (const it of t.scenery ?? []) [it.x, it.y] = map([it.x, it.y]);
+    for (const it of t.scenery ?? []) { [it.x, it.y] = map([it.x, it.y]); if (it.route) it.route = it.route.map(map); }
   });
 }
 
@@ -3925,7 +4147,7 @@ function onPointerDown(e) {
   } else if (h.kind === 'spt') {
     app.selStart = h.i;
     app.selPt = -1;
-    drag = { kind: 'spt', i: h.i, started: false };
+    drag = { kind: 'spt', i: h.i, started: false, before: clone(t.start.path) };
   } else if (h.kind === 'bound') {
     app.selSec = h.i;
     drag = { kind: 'bound', i: h.i, started: false };
@@ -3996,6 +4218,15 @@ function onPointerMove(e) {
       const p = pointAt(g, project(g, gp.x, gp.y).f);
       sp[drag.i] = [round1(p.x), round1(p.y)];
     } else sp[drag.i] = [clamp(snapGrid(gp.x, e), 0, GRID_W), clamp(snapGrid(gp.y, e), 0, GRID_H)];
+    // The official keeps their place by the gate as it moves or turns (from where they were when the drag began).
+    if (drag.i <= 1) {
+      const oi = officialIndex(t);
+      if (oi >= 0) {
+        drag.base ??= { path: clone(drag.before ?? sp), it: clone(t.scenery[oi]) };
+        Object.assign(t.scenery[oi], clone(drag.base.it));
+        followStart(t, drag.base.path, sp);
+      }
+    }
   } else if (drag.kind === 'rpt') {
     const it = t.scenery[app.selItem];
     it.route[drag.i - 1] = [clamp(snapHalf(gp.x, e), 0, GRID_W), clamp(snapHalf(gp.y, e), 0, GRID_H)];
@@ -4313,7 +4544,7 @@ async function tryServer() {
 setMode('layout');
 tryServer();
 openRaceView();
-window.trackEditor = { app, openRaceView, sendView, heightDab, elevAt, elevationIssues, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart }; // for tests
+window.trackEditor = { app, openRaceView, sendView, heightDab, elevAt, elevationIssues, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart, openEnds, building, stillOpen, deleteSection, planWalk, alongStart, followStart, setOfficialAlong, trackRoom, walkRoom, undo, redo, trackForView, officialProblems, connectGhost, dubins, fitRadius, placeConnect, startPiece }; // for tests
 </script>
 </body>
 </html>
