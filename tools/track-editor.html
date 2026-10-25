@@ -304,7 +304,7 @@ body.final .final-hide { display: none !important; }
     <li><b>Ground:</b> paint the ground round the track with the game's ground tiles.</li>
     <li><b>Scenery:</b> banners (with your own words and colour), sponsor boards, start gates, tuff blocks, hay bales, tyre walls, stands, crowds, pits, trees and more. <kbd>Q</kbd> and <kbd>E</kbd> turn the selected item, <kbd>Ctrl+D</kbd> duplicates it.</li>
     <li><b>Height:</b> raise and lower the ground with a soft round brush (radius and strength in metres per dab), smooth it, or flatten it to one height. The track follows the ground under its middle and stays level across its width; riders slow up climbs and run quicker down drops. Ground steeper than 45° is refused as a wall, and a track climbing or dropping more than 35% along its length is a warning. Old tracks without heights stay flat.</li>
-    <li><b>Race view:</b> you edit in the game's own race camera and 3D scene (with <code>npm run dev</code> running), with hills, jumps, scenery and ground as a race draws them, and the lap map in its corner. Click, drag and right-click on the 3D ground; the keys are the same in every mode. Mouse wheel or <kbd>+</kbd> <kbd>−</kbd> zoom, <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or a middle-button (or <kbd>Space</kbd>+drag) pan, <kbd>[</kbd> <kbd>]</kbd> turn the view, <kbd>0</kbd> resets it. The selection is orange, problems red or dashed yellow. In Layout each section shows as a stripe in its kind's colour, with a cream line across the track where one section ends and the next begins. No race runs while you edit. Opened straight from disk (no <code>npm run dev</code>), the editor shows a plain map instead, since the game can't run there.</li>
+    <li><b>Race view:</b> you edit in the game's own race camera and 3D scene with hills, jumps, scenery and ground as a race draws them, and the lap map in its corner. Click, drag and right-click on the 3D ground; the keys are the same in every mode. Mouse wheel or <kbd>+</kbd> <kbd>−</kbd> zoom, <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or a middle-button (or <kbd>Space</kbd>+drag) pan, <kbd>[</kbd> <kbd>]</kbd> turn the view, <kbd>0</kbd> resets it. The selection is orange, problems red or dashed yellow. In Layout each section shows as a stripe in its kind's colour, with a cream line across the track where one section ends and the next begins. No race runs while you edit. Opened straight from disk, the race view runs the game from the published site (<code>bigdaddy284.github.io/The-Motocross-RPG</code>), so it needs an internet connection; with neither that nor <code>npm run dev</code>, the editor shows a plain map instead.</li>
     <li><b>Modes:</b> <kbd>1</kbd> Layout, <kbd>2</kbd> Surfaces, <kbd>3</kbd> Ground, <kbd>4</kbd> Scenery, <kbd>5</kbd> Height.</li>
     <li><b>Export / Import</b> save one track as a <code>.track.json</code> file and add one back.</li>
     <li><b>Preview</b> <kbd>P</kbd> rides a dot round the lap, slower through the harder sections.</li>
@@ -2844,21 +2844,32 @@ $('#btnRide').addEventListener('click', () => {
 // you click on it as a grid point; the same tool code as the map then acts on it, so undo, the
 // checks, the unsaved marker and Save all work as before. No race runs in it.
 
+/** The published game, for an editor opened straight from disk (it can't run the game itself). */
+const PUBLISHED_GAME = 'https://bigdaddy284.github.io/The-Motocross-RPG/';
+let raceViewReady = false;
 function openRaceView() {
-  if (!/^https?:$/.test(location.protocol)) {
-    // Opened from disk: the game can't run here, so the map stands in until the editor is served.
-    const note = document.createElement('div');
-    note.id = 'noRaceView';
-    note.textContent = 'Plain map: the editor edits in the race view, which runs the game. Start npm run dev and open http://localhost:5173/tools/track-editor.html.';
-    $('#view3d').after(note);
-    return;
-  }
+  // Served (npm run dev, or the published site), the game is one folder up; opened from disk, the
+  // published game runs in the frame instead. Either way the editor sends it the track to show.
+  const served = /^https?:$/.test(location.protocol);
   app.view3d = true;
   const f = $('#view3d');
-  if (!f.getAttribute('src')) f.src = '/?editview=1';
+  if (!f.getAttribute('src')) f.src = served ? new URL('../?editview=1', location.href).href : `${PUBLISHED_GAME}?editview=1`;
   f.classList.add('on');
   sendView();
   requestDraw();
+  // No game answering (offline, or nothing serving it): the plain map stands in, with a note why.
+  setTimeout(() => {
+    if (raceViewReady) return;
+    app.view3d = false;
+    f.classList.remove('on');
+    const note = document.createElement('div');
+    note.id = 'noRaceView';
+    note.textContent = served
+      ? 'Plain map: the race view could not start the game. Reload the page to try again.'
+      : 'Plain map: the race view runs the game from the published site, which could not be reached. Go online and reload, or run npm run dev and open http://localhost:5173/tools/track-editor.html.';
+    f.after(note);
+    requestDraw();
+  }, 30000);
 }
 /** Passes a camera key (W A S D, [ ], + −, 0) on to the race view; true if it was one. */
 function camKeyToView(e, down) {
@@ -2883,7 +2894,13 @@ window.addEventListener('message', (e) => {
   const f = $('#view3d');
   const m = e.data;
   if (!f || e.source !== f.contentWindow || !m) return;
-  if (m.type === 'ready') { sendView(); return; }
+  if (m.type === 'ready') {
+    raceViewReady = true;
+    document.querySelector('#noRaceView')?.remove();
+    if (!app.view3d) { app.view3d = true; f.classList.add('on'); requestDraw(); }
+    sendView();
+    return;
+  }
   if (m.type === 'key') {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: m.key, code: m.code, ctrlKey: m.ctrl, metaKey: m.meta, shiftKey: m.shift, altKey: m.alt, cancelable: true }));
     return;
@@ -2969,7 +2986,7 @@ function status(text, kind = '') {
 
 async function tryServer() {
   if (!/^https?:$/.test(location.protocol)) return;
-  for (const base of ['../public/data/', '/data/', 'data/']) {
+  for (const base of ['../public/data/', '../data/', '/data/', 'data/']) {
     try {
       const r = await fetch(`${base}tracks.json`, { cache: 'no-store' });
       if (!r.ok || !(r.headers.get('content-type') ?? '').includes('json')) continue;

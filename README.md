@@ -47,7 +47,7 @@ Done on branch `claude/project-thread-ch8ujf` (see the sections below for how ea
 
 Tests: `npm test` (129 tests, the slow start procedure tests now one file a track) and `npm run build` pass. In-game runs through the real UI with Playwright: full races on Farmland (Race 8×), Arena (Auto-complete 8×) and Longmoor (Race 8×) with results in true order and no editor markers in the race; the editor's tools (scenery place, drag, turn; height dabs; layout drag and undo; ground paint; section pick; Preview; save; switching tracks) at 1280 × 720, 1500 × 900 and 1920 × 1080; section lines on all four tracks; save and reload with the lines unchanged; the minimap following edits.
 
-Known limits: the race view needs `npm run dev` (opened from disk the editor shows a plain map). A rebuild still remakes the whole 3D scene (about 0.15–0.25 s on Farmland) at most every 0.3 s, so a brush stroke shows in steps. The tests ran in a software-rendered browser, where any frame that does draw takes about 0.3 s at 1500 × 900, so hovering, panning and zooming ran at 3 to 10 frames a second there; on a real GPU those draws are far cheaper, but that was not measured.
+Known limits: opened from disk, the race view runs the published game, so it needs a connection and shows the published version of the game (offline, the editor falls back to a plain map). A rebuild still remakes the whole 3D scene (about 0.15–0.25 s on Farmland) at most every 0.3 s, so a brush stroke shows in steps. The tests ran in a software-rendered browser, where any frame that does draw takes about 0.3 s at 1500 × 900, so hovering, panning and zooming ran at 3 to 10 frames a second there; on a real GPU those draws are far cheaper, but that was not measured.
 
 To resume: `npm install`, `npm test`, `npm run dev`, then open `/tools/track-editor.html`.
 
@@ -165,7 +165,7 @@ It paints tiles on every ground layer, edits collision, moves, copies, clears an
 
 ### Editing race tracks
 
-`tools/track-editor.html` edits the race tracks in `public/data/tracks.json`, from the racing line to the ground and scenery round it. It is one file with no build step. Run `npm run dev`, open `http://localhost:5173/tools/track-editor.html` in Chrome or Edge, then click **Open folder…** and pick the repo, `public` or `public/data` (or load the tracks from the dev server, and saving downloads the file). You edit in the game's own race camera and 3D scene, the **race view** (below). Opened straight from disk, where the game can't run, the editor shows a plain 2D map instead, with a note saying how to get the race view.
+`tools/track-editor.html` edits the race tracks in `public/data/tracks.json`, from the racing line to the ground and scenery round it. It is one file with no build step: open it in Chrome or Edge, click **Open folder…** and pick the repo, `public` or `public/data`. You edit in the game's own race camera and 3D scene, the **race view** (below). The race view runs the game in a frame: opened straight from disk, that is the published game (`https://bigdaddy284.github.io/The-Motocross-RPG/`, so you need to be online); with `npm run dev` running, open `http://localhost:5173/tools/track-editor.html` instead and it runs your local game (and can load the tracks from the dev server; saving then downloads the file). The editor is also published at `…/The-Motocross-RPG/tools/track-editor.html`. With no game reachable, it shows a plain 2D map, with a note saying why.
 
 The editor has five modes (keys 1 to 5):
 
