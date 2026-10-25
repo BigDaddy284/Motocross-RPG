@@ -14,6 +14,8 @@ const DRIVER_FACE: [number, number] = [32, 24];
 
 export const vanTexture = (id: string) => `veh:${id}`;
 
+const cabPixel = (p: VanPose) => ({ x: (p.x + 0.5) * TILE, y: (p.y + 0.5) * TILE });
+
 /** Adds the sheet's named frames (east:closed, east:open, ...) once. */
 function ensureFrames(scene: Phaser.Scene, id: string, sheet: VanSheet): void {
   const tex = scene.textures.get(vanTexture(id));
@@ -67,14 +69,20 @@ export class VanView {
     this.setPixel(this.sprite.x, this.sprite.y, this.heading);
   }
 
-  /** Animates one drive move. A turn swings the body round halfway through. */
+  /**
+   * Animates one drive move. The cab glides from tile to tile, and on a short turn the body swings
+   * round behind it halfway through. A long van whose turn carries the cab further than a tile
+   * can't be shown sliding there with only four views without the body sweeping over buildings, so
+   * it fades from where it was to where it ends up, both places it really fits.
+   */
   move(m: Move): Promise<void> {
-    const from = { x: this.sprite.x, y: this.sprite.y };
-    const c = centre(m.to, this.design.length);
-    const to = { x: c.x * TILE, y: c.y * TILE };
+    const from = cabPixel(this.pose);
+    const to = cabPixel(m.to);
     const fromHeading = this.pose.heading;
     this.pose = { ...m.to };
+    const tiles = Math.hypot(to.x - from.x, to.y - from.y) / TILE;
     const steps = m.kind === 'turn' ? 2 : m.kind === 'uturn' ? 3 : 1;
+    if (m.kind !== 'forward' && m.kind !== 'reverse' && tiles > 1.5) return this.fadeTo(m.to, steps);
     return new Promise((resolve) => {
       this.scene.tweens.addCounter({
         from: 0,
@@ -83,8 +91,9 @@ export class VanView {
         onUpdate: (tw) => {
           const v = tw.getValue() ?? 0;
           const h = v < 0.5 ? fromHeading : m.to.heading;
+          const off = this.cabToCentre(h);
           this.setFrame(h);
-          this.setPixel(from.x + (to.x - from.x) * v, from.y + (to.y - from.y) * v, h);
+          this.setPixel(from.x + (to.x - from.x) * v + off.x, from.y + (to.y - from.y) * v + off.y, h);
         },
         onComplete: () => {
           this.place(m.to);
@@ -94,6 +103,50 @@ export class VanView {
     });
   }
 
+  /** A picture of the van left at its old place while it fades out (see move). */
+  ghost: Phaser.GameObjects.Image | null = null;
+
+  private fadeTo(to: VanPose, steps: number): Promise<void> {
+    const ghost = this.scene.add.image(this.sprite.x, this.sprite.y, this.sprite.texture.key, this.sprite.frame.name);
+    ghost.setOrigin(this.sprite.originX, this.sprite.originY).setDepth(this.sprite.depth);
+    this.ghost = ghost;
+    this.place(to);
+    this.sprite.setAlpha(0);
+    this.driver?.setAlpha(0);
+    return new Promise((resolve) => {
+      this.scene.tweens.addCounter({
+        from: 0,
+        to: 1,
+        duration: this.design.stepMs * Math.max(steps, 3),
+        onUpdate: (tw) => {
+          const v = tw.getValue() ?? 0;
+          ghost.setAlpha(1 - v);
+          this.sprite.setAlpha(v);
+          this.driver?.setAlpha(v);
+        },
+        onComplete: () => {
+          ghost.destroy();
+          this.ghost = null;
+          this.sprite.setAlpha(1);
+          this.driver?.setAlpha(1);
+          resolve();
+        },
+      });
+    });
+  }
+
+  /** Where the cab is drawn now: the middle of the front tile, in world pixels. */
+  get cab(): { x: number; y: number } {
+    const off = this.cabToCentre(this.heading);
+    return { x: this.sprite.x - off.x, y: this.sprite.y - off.y };
+  }
+
+  /** From the middle of the front tile to the footprint centre, in pixels, on a heading. */
+  private cabToCentre(h: Heading): { x: number; y: number } {
+    const c = centre({ x: 0, y: 0, heading: h }, this.design.length);
+    return { x: (c.x - 0.5) * TILE, y: (c.y - 0.5) * TILE };
+  }
+
   /** True when a world point is on the van's picture. */
   contains(wx: number, wy: number): boolean {
     return this.sprite.getBounds().contains(wx, wy) && this.scene.textures.getPixelAlpha(wx - this.sprite.getTopLeft().x, wy - this.sprite.getTopLeft().y, vanTexture(this.design.id), this.sprite.frame.name) > 0;
@@ -101,6 +154,7 @@ export class VanView {
 
   destroy(): void {
     this.sprite.destroy();
+    this.ghost?.destroy();
     this.shadow.destroy();
     this.driver?.destroy();
   }
