@@ -198,6 +198,8 @@ The start procedure is the same for a Race and for Auto-complete. When the race 
 
 After the flag each finisher rides a slow cool-down lap down the nearer edge of the track, in single file behind the finisher ahead on that edge, giving way to riders still racing (before, every finisher stopped in one heap on the track about 40 m past the line at Farmland, where riders still racing rode through them).
 
+Riders sit on the race-day bike model from the vehicles thread (Boss, 25 Oct 2026: "use the model from the coloured race day rides"): a youth bike for the 50 to 85 classes and an adult bike above, in the bike's brand colours, with the rider in their gear colours (`src/world/raceBike.ts`). It only changes how a rider looks. The tyres touch the ground exactly where the old bike's wheels did, so every rider takes the same line round every track as before.
+
 Scenery may not stand on the racing surface, the start straight included; the game's checks and the track editor's **Checks** refuse it (see Editing race tracks).
 
 ### Checks
