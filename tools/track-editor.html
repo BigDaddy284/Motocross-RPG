@@ -649,6 +649,8 @@ async function useSource(src) {
     const artBase = `${assets ? `${assets}/` : ''}${ART_DIR}/`;
     const final = parts.sectionEditor === false || new URLSearchParams(location.search).has('final');
     Object.assign(app, { tracksPath, data, sectionDefs, parts, final, artBase, cur: 0, undo: [], redo: [], savedText: text, play: null, images: new Map() });
+    // A track with a section past the build boundary can't be raced: it is a draft until it is back inside.
+    for (const t of data.tracks) if (!t.draft && boundaryCrossings(t).length) { t.draft = true; notes.push(`"${t.name}" has a section past the build boundary, so it is a draft again`); }
     deselect();
     app.surfaceBrush = parts.surfaces[0]?.id ?? null;
     app.groundBrush = (parts.ground.find((g) => g.id === 'dirt') ?? parts.ground[0])?.id ?? null;
@@ -659,7 +661,7 @@ async function useSource(src) {
     setDirty(exportTracks(data) !== text);
     $('#welcome').style.display = 'none';
     $('#srcName').textContent = src.http ? `${src.base}tracks.json` : `${src.name}/${tracksPath}`;
-    if (app.dirty) status('Loaded. The file is laid out differently from how the editor saves it, so it shows as changed.', 'err');
+    if (app.dirty) status(`Loaded. The file is laid out differently from how the editor saves it, so it shows as changed.${notes.length ? ` Also: ${notes.join('; ')}.` : ''}`, 'err');
     else if (notes.length) status(`Loaded ${data.tracks.length} tracks; ${notes.join('; ')}.`, 'err');
     else status(`Loaded ${data.tracks.length} tracks from ${tracksPath}. ${checkSummary()}`, checkAll().errors ? 'err' : 'ok');
     buildLegend();
@@ -1239,10 +1241,22 @@ function draw() {
   const { k, ox, oy, width } = view;
   const scene = $('#showScene').checked;
 
+  // The ground the race view lays round the grid (scenery may stand there), then the build boundary.
   ctx.fillStyle = '#4f7a32';
-  ctx.fillRect(ox - 10, oy - 10, GRID_W * k + 20, GRID_H * k + 20);
+  ctx.fillRect(ox - SCENE_OUT * k, oy - SCENE_OUT * k, (GRID_W + 2 * SCENE_OUT) * k, (GRID_H + 2 * SCENE_OUT) * k);
   if (scene || app.mode === 'ground') drawGround(t);
   else { ctx.fillStyle = '#5f8f3c'; ctx.fillRect(ox, oy, GRID_W * k, GRID_H * k); }
+  ctx.fillStyle = '#ffffff14';
+  ctx.fillRect(ox, oy, GRID_W * k, GRID_H * k);
+  ctx.save();
+  ctx.setLineDash([6, 4]);
+  ctx.strokeStyle = '#ffffff99';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(ox + 0.5, oy + 0.5, GRID_W * k, GRID_H * k);
+  ctx.restore();
+  ctx.fillStyle = '#ffffff88';
+  ctx.font = '10px system-ui, sans-serif';
+  ctx.fillText('Build boundary (the race ground, 100 × 60)', ox + 4, oy - 5);
 
   ctx.lineWidth = 1;
   for (let x = 0; x <= GRID_W; x += 5) {
@@ -2252,7 +2266,7 @@ function placeItem(x, y, e) {
   }
   commit((t) => {
     if (!t.scenery) setKeyNear(t, 'scenery', [], 'ground' in t ? 'ground' : 'patches' in t ? 'patches' : 'sections');
-    t.scenery.push({ type: def.id, x: snapHalf(x, e), y: snapHalf(y, e) });
+    t.scenery.push({ type: def.id, x: clamp(snapHalf(x, e), -SCENE_OUT, GRID_W + SCENE_OUT), y: clamp(snapHalf(y, e), -SCENE_OUT, GRID_H + SCENE_OUT) });
     app.selItem = t.scenery.length - 1;
   });
 }
@@ -2351,6 +2365,7 @@ function checkTrack(t, all, strict = false) {
           : `Open lap: the last piece ends at ${e.x.toFixed(0)}, ${e.y.toFixed(0)}, ${Math.round(Math.hypot(e.target.x - e.x, e.target.y - e.y) * PIECE_MPU)} m from the lap's first point (${e.target.x.toFixed(0)}, ${e.target.y.toFixed(0)}): keep placing pieces until one ends on it, or click Close the lap.`);
       }
       if (!t.name?.trim()) warn.push('The track needs a name.');
+      for (const c of boundaryCrossings(t)) warn.push(`Geometry: ${c.k >= 0 ? `section ${c.k + 1}` : 'the drawing'} crosses the build boundary at ${c.x.toFixed(0)}, ${c.y.toFixed(0)}: the race ground ends at the 100 × 60 grid, so bring it back inside (its points are red) before the track can be ready to race.`);
       // What else it will need to race, so nothing comes as a surprise at Ready to race.
       if (!t.start) warn.push('No start straight yet: pick Start straight under Start and finish (Build the lap). Place it first and build the lap on from its end, or join it onto the lap.');
       else if (t.path.length >= 2) for (const m of startProblems(t)) warn.push(`Race start: ${m}`);
@@ -2443,6 +2458,7 @@ function checkTrack(t, all, strict = false) {
   }
   for (const m of officialNotes(t)) { warn.push(m.text); if (m.i >= 0) refs.set(m.text, m.i); }
   if (!t.practiceOnly && !t.gates?.length) warn.push('No gate curve: every gate starts the same.');
+  for (const c of boundaryCrossings(t)) bad.push(`Geometry: ${c.k >= 0 ? `section ${c.k + 1}` : 'the drawing'} crosses the build boundary at ${c.x.toFixed(0)}, ${c.y.toFixed(0)}: the race ground ends at the 100 × 60 grid, so drag it back inside (its points are red) before the track is ready to race.`);
   // Two segments that cross make a figure of eight on screen, which the race screen can't show as a bridge.
   const g = lapGeom(t);
   const n = g.pts.length - 1;
@@ -2733,7 +2749,7 @@ function addRoutePoint(x, y, e) {
   if (i < 0) return;
   commit((t) => {
     const it = t.scenery[i];
-    (it.route ??= []).push([clamp(snapHalf(x, e), 0, GRID_W), clamp(snapHalf(y, e), 0, GRID_H)]);
+    (it.route ??= []).push([clamp(snapHalf(x, e), -SCENE_OUT, GRID_W + SCENE_OUT), clamp(snapHalf(y, e), -SCENE_OUT, GRID_H + SCENE_OUT)]);
     app.selRoute = it.route.length;
   });
 }
@@ -3299,7 +3315,13 @@ function ghostPiece(t, pl) {
   }
   const shape = pieceShape(pl, width);
   const def = app.sectionDefs[pl.type];
-  if (pts.some(([x, y]) => x < 0 || y < 0 || x > GRID_W || y > GRID_H)) return fail('It runs off the 100 × 60 grid: move or turn it.');
+  const over = pts.find(outside);
+  if (over) {
+    const already = boundaryCrossings(t);
+    if (already.length) return fail(`Section ${already[0].k + 1} already crosses the build boundary at ${already[0].x.toFixed(0)}, ${already[0].y.toFixed(0)}: bring it back inside before another piece goes out.`);
+    if (pts.some(farOut)) return fail(`It runs more than ${BOUND_OUT} grid units past the build boundary (the 100 × 60 ground): move or turn it.`);
+    Object.assign(out, { level: 'warning', msg: `It crosses the build boundary at ${over[0].toFixed(0)}, ${over[1].toFixed(0)} (the race ground ends there). It can go there while you build, but the track isn't race-ready until every section is back inside; Checks says which.` });
+  }
   if (ends.length && !joined) return fail(ends[0].fromStart ? 'It isn\'t joined to the start straight: move it onto the start straight\'s end (the green ring), where the lap begins.' : `It isn't joined to the track: move it onto an open end (a green ring${ends.length > 1 ? `; there are ${ends.length}` : ''}), where it snaps on.`);
   if (joined && Math.abs(pl.turn) > PIECE_KINK) return fail(`It kinks ${Math.abs(pl.turn)}° where it joins the last piece; turn it back (Q / E) to ${PIECE_KINK}° or less.`);
   if (def && !shapesFor(pl.type).includes(shape)) return fail(`${def.name} has to be ${shapesFor(pl.type).map((x) => `${an(x)} ${x}`).join(' or ')}, and this is ${an(shape)} ${shape}: make it ${shape === 'straight' ? 'a bend (B)' : 'longer or shorter (, .)'}.`);
@@ -3331,7 +3353,7 @@ function ghostPiece(t, pl) {
       if (joined && end.target && run - p.d < skip * 2 && along(pr.f, end.target.vi) < skip) return false;
       return true;
     });
-    if (hit) Object.assign(out, { level: 'warning', msg: `It runs over the track already built at ${hit.x.toFixed(0)}, ${hit.y.toFixed(0)}. It can go there (a crossover), but riders pass through each other.` });
+    if (hit && !out.msg) Object.assign(out, { level: 'warning', msg: `It runs over the track already built at ${hit.x.toFixed(0)}, ${hit.y.toFixed(0)}. It can go there (a crossover), but riders pass through each other.` });
   }
   if (!out.msg) out.msg = (out.closes ? (end.kind === 'gap' ? 'This piece closes the gap. Click to place it.' : 'This piece closes the lap. Click to place it.') : end?.fromStart ? 'Joined to the start straight: the lap starts here. Click to place it.' : end ? `Joined on${end.kind === 'gap' ? ' at a gap' : ''}. Click to place it.` : 'Click to place the first piece.') + nearly;
   return out;
@@ -3814,6 +3836,32 @@ function trackForView(t) {
 // ---------------------------------------------------------------------------------------------
 // Point tools
 
+/**
+ * The build boundary is the 100 × 60 grid: the race ground. A section being shaped may cross it
+ * by up to BOUND_OUT grid units while the track is built (one at a time), and the track isn't
+ * race-ready until it is back inside. Scenery may stand up to SCENE_OUT outside, on the ground
+ * the race view lays round the grid.
+ */
+const BOUND_OUT = 12;
+const SCENE_OUT = 20;
+const outside = ([x, y]) => x < 0 || y < 0 || x > GRID_W || y > GRID_H;
+const farOut = ([x, y]) => x < -BOUND_OUT || y < -BOUND_OUT || x > GRID_W + BOUND_OUT || y > GRID_H + BOUND_OUT;
+/** The sections with a point past the build boundary: which (k), and where it first leaves (x, y). */
+function boundaryCrossings(t) {
+  const out = [];
+  if (!t?.path?.length) return out;
+  const spans = t.sections.length && t.path.length >= 2 ? pieceSpans(t) : null;
+  const seen = new Set();
+  t.path.forEach((p, i) => {
+    if (!outside(p)) return;
+    let k = -1;
+    if (spans) k = spans.findIndex(([i0, i1]) => i >= i0 && i <= i1);
+    if (seen.has(k)) return;
+    seen.add(k);
+    out.push({ k, x: p[0], y: p[1] });
+  });
+  return out;
+}
 /**
  * True when every section's metres are its own stretch of the drawing (as pieces are placed, PIECE_MPU
  * a grid unit): the sections then sit on their own points, and a point dragged changes only the
@@ -4469,7 +4517,7 @@ function onPointerMove(e) {
     const c = cellAt(t, gp);
     paintCells(t, brushCells(c.x, c.y), drag.id);
   } else if (drag.kind === 'point') {
-    t.path[drag.i] = [clamp(snapGrid(gp.x, e), 0, GRID_W), clamp(snapGrid(gp.y, e), 0, GRID_H)];
+    t.path[drag.i] = [clamp(snapGrid(gp.x, e), -BOUND_OUT, GRID_W + BOUND_OUT), clamp(snapGrid(gp.y, e), -BOUND_OUT, GRID_H + BOUND_OUT)];
     followDrawing(t, drag);
     keepJoined(t);
   } else if (drag.kind === 'spt') {
@@ -4492,11 +4540,11 @@ function onPointerMove(e) {
     }
   } else if (drag.kind === 'rpt') {
     const it = t.scenery[app.selItem];
-    it.route[drag.i - 1] = [clamp(snapHalf(gp.x, e), 0, GRID_W), clamp(snapHalf(gp.y, e), 0, GRID_H)];
+    it.route[drag.i - 1] = [clamp(snapHalf(gp.x, e), -SCENE_OUT, GRID_W + SCENE_OUT), clamp(snapHalf(gp.y, e), -SCENE_OUT, GRID_H + SCENE_OUT)];
   } else if (drag.kind === 'item') {
     const it = t.scenery[drag.i];
-    it.x = clamp(snapHalf(gp.x - drag.dx, e), 0, GRID_W);
-    it.y = clamp(snapHalf(gp.y - drag.dy, e), 0, GRID_H);
+    it.x = clamp(snapHalf(gp.x - drag.dx, e), -SCENE_OUT, GRID_W + SCENE_OUT);
+    it.y = clamp(snapHalf(gp.y - drag.dy, e), -SCENE_OUT, GRID_H + SCENE_OUT);
   } else if (drag.kind === 'patch') {
     const lap = lapLength(t);
     const m = project(lapGeom(t), gp.x, gp.y).f * lap;
@@ -4667,7 +4715,7 @@ function sendView() {
   const f = $('#view3d');
   const t = track();
   if (!app.view3d || !t || !f.contentWindow) return;
-  const issues = [...sceneryIssues(t).map((p) => ({ item: p.i, level: p.level })), ...elevationIssues(t).map((p) => ({ x: p.x, y: p.y, level: p.level }))];
+  const issues = [...sceneryIssues(t).map((p) => ({ item: p.i, level: p.level })), ...elevationIssues(t).map((p) => ({ x: p.x, y: p.y, level: p.level })), ...boundaryCrossings(t).map((c) => ({ x: c.x, y: c.y, level: 'error' }))];
   let brush = null;
   if (app.mode === 'height') brush = { shape: 'circle', r: Number($('#hRadius').value) };
   else if (app.mode === 'ground') brush = { shape: 'cells', cell: t.ground?.cell ?? 2, n: Number($('#gBrush').value) };
@@ -4751,7 +4799,7 @@ window.addEventListener('keydown', (e) => {
       e.preventDefault();
       const d = e.shiftKey ? 2 : 0.5;
       const [dx, dy] = { ArrowLeft: [-d, 0], ArrowRight: [d, 0], ArrowUp: [0, -d], ArrowDown: [0, d] }[e.key];
-      commit((t) => { const it = t.scenery[app.selItem]; it.x = clamp(round1(it.x + dx), 0, GRID_W); it.y = clamp(round1(it.y + dy), 0, GRID_H); });
+      commit((t) => { const it = t.scenery[app.selItem]; it.x = clamp(round1(it.x + dx), -SCENE_OUT, GRID_W + SCENE_OUT); it.y = clamp(round1(it.y + dy), -SCENE_OUT, GRID_H + SCENE_OUT); });
     }
     return;
   }
@@ -4766,7 +4814,7 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     const d = e.shiftKey ? 5 : $('#snap').checked ? 1 : 0.1;
     const [dx, dy] = { ArrowLeft: [-d, 0], ArrowRight: [d, 0], ArrowUp: [0, -d], ArrowDown: [0, d] }[e.key];
-    commit((t) => { const p = t.path[app.selPt]; t.path[app.selPt] = [clamp(round1(p[0] + dx), 0, GRID_W), clamp(round1(p[1] + dy), 0, GRID_H)]; keepJoined(t); });
+    commit((t) => { const p = t.path[app.selPt]; t.path[app.selPt] = [clamp(round1(p[0] + dx), -BOUND_OUT, GRID_W + BOUND_OUT), clamp(round1(p[1] + dy), -BOUND_OUT, GRID_H + BOUND_OUT)]; keepJoined(t); });
   } else if (e.key.startsWith('Arrow') && app.selStart >= 0 && app.selStart < (track().start?.path.length ?? 0) - 1) {
     e.preventDefault();
     const d = e.shiftKey ? 5 : $('#snap').checked ? 1 : 0.1;
@@ -4812,7 +4860,7 @@ async function tryServer() {
 setMode('layout');
 tryServer();
 openRaceView();
-window.trackEditor = { app, openRaceView, sendView, heightDab, elevAt, elevationIssues, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart, openEnds, building, stillOpen, deleteSection, planWalk, alongStart, followStart, setOfficialAlong, trackRoom, walkRoom, undo, redo, trackForView, officialProblems, connectGhost, dubins, fitRadius, placeConnect, startPiece, setFinish, finishGhost, addFinish, placeFinish, removeFinish, addStart, placeStart, placePiece, readyToRace, tightCorners, keepJoined, startHere, lapLength, refresh, pieceSpans, pieceBuilt, sectionBounds }; // for tests
+window.trackEditor = { app, openRaceView, sendView, heightDab, elevAt, elevationIssues, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart, openEnds, building, stillOpen, deleteSection, planWalk, alongStart, followStart, setOfficialAlong, trackRoom, walkRoom, undo, redo, trackForView, officialProblems, connectGhost, dubins, fitRadius, placeConnect, startPiece, setFinish, finishGhost, addFinish, placeFinish, removeFinish, addStart, placeStart, placePiece, readyToRace, tightCorners, keepJoined, startHere, lapLength, refresh, pieceSpans, pieceBuilt, sectionBounds, boundaryCrossings, BOUND_OUT, SCENE_OUT }; // for tests
 </script>
 </body>
 </html>

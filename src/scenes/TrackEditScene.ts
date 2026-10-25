@@ -4,6 +4,7 @@ import type { TrackDef } from '../core/race';
 import { OFFICIAL_ITEM, placedOfficial } from '../core/startOfficial';
 import { sectionBounds } from '../core/trackGeom';
 import type { TrackPartsData } from '../core/trackParts';
+import { GRID_H, GRID_W } from '../core/trackParts';
 import { services } from '../services';
 import { COLORS, textStyle } from '../ui/theme';
 import { RaceView } from '../world/RaceView';
@@ -390,6 +391,24 @@ export class TrackEditScene extends Phaser.Scene {
       const sel = st.sel.item === oi;
       if (route.length > 1) line(route, 0xffffff, false, !sel, 0.07, 10.5);
       if (sel) route.forEach((p, i) => i && line(ring(p.x, p.z, 0.35), i === st.sel.route ? SELECT : i === route.length - 1 ? RED : 0xffffff, true, false, 0.09, 10.6));
+    }
+    // The build boundary: the race ground's edge, a translucent dashed line on the ground, so what
+    // is placed can be seen against it (a section may cross it while the track is built).
+    {
+      const edge: { x: number; z: number }[] = [];
+      const corners = [
+        [0, 0],
+        [GRID_W, 0],
+        [GRID_W, GRID_H],
+        [0, GRID_H],
+      ];
+      for (let i = 0; i < 4; i++) {
+        const [ax, az] = corners[i];
+        const [bx, bz] = corners[(i + 1) % 4];
+        const n = Math.ceil(Math.hypot(bx - ax, bz - az) / 2);
+        for (let k = 0; k < n; k++) edge.push({ x: ax + ((bx - ax) * k) / n, z: az + ((bz - az) * k) / n });
+      }
+      line(edge, 0xffffff, true, true, 0.12, 8.5);
     }
     if (st.mode === 'layout') {
       // The sections, from the track's own section lengths: a stripe down the middle of each in its
