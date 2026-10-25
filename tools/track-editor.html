@@ -874,7 +874,7 @@ function autoStart(t) {
       const back = (d, o) => [r1(j.x - Math.cos(h) * d - Math.sin(h) * o * side), r1(j.y - Math.sin(h) * d + Math.cos(h) * o * side)];
       // It runs onto the lap at about 45 degrees, so it stays clear of the lap until it merges.
       const merge = off * steep;
-      const path = [back(run + merge, off), back(merge, off), [round1(j.x), round1(j.y)]];
+      const path = [back(run + merge, off), back(run / 2 + merge, off), back(merge, off), back(merge / 2, off / 2), [round1(j.x), round1(j.y)]];
       if (path.some(([x, y]) => x < 0 || y < 0 || x > GRID_W || y > GRID_H)) continue;
       if (!startProblems({ ...t, start: { path } }).length) return { path };
     }
@@ -3161,8 +3161,10 @@ function pieceShape(pl, width) {
   return pl.r >= SWEEPER_WIDTHS * width ? 'sweeper' : 'corner';
 }
 /** A piece's points from where it starts (x, y) heading h (radians): a straight, or a bend every 15 degrees or less. */
+/** Moulding points along a straight piece (its two ends included): each is a point of the drawing, to drag on its own. */
+const STRAIGHT_POINTS = 5;
 function piecePoints(pl, x, y, h) {
-  if (!pl.bend) return [[x, y], [x + Math.cos(h) * pl.len, y + Math.sin(h) * pl.len]];
+  if (!pl.bend) return Array.from({ length: STRAIGHT_POINTS }, (_, k) => [x + (Math.cos(h) * pl.len * k) / (STRAIGHT_POINTS - 1), y + (Math.sin(h) * pl.len * k) / (STRAIGHT_POINTS - 1)]);
   // Turning right on the map (clockwise, y down) unless mirrored.
   const s = pl.mirror ? -1 : 1;
   const cx = x - s * pl.r * Math.sin(h);
@@ -3220,7 +3222,8 @@ function startGhost(t, pl) {
   }
   h += (pl.turn * Math.PI) / 180;
   const back = (d, o) => [round1(j.x - Math.cos(h) * d - Math.sin(h) * o * pl.side), round1(j.y - Math.sin(h) * d + Math.cos(h) * o * pl.side)];
-  const pts = [back(pl.run + off, off), back(off, off), [j.x, j.y]];
+  // Five moulding points: the gate, the middle of the run, the turn onto the lap, the middle of the merge, the join.
+  const pts = [back(pl.run + off, off), back(pl.run / 2 + off, off), back(off, off), back(off / 2, off / 2), [j.x, j.y]];
   let total = 0;
   for (let i = 1; i < pts.length; i++) total += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
   const out = { pts, level: 'ok', msg: '', joined, total, ring: lap ? [j.x, j.y, START_SNAP] : null };
@@ -3811,6 +3814,40 @@ function trackForView(t) {
 // ---------------------------------------------------------------------------------------------
 // Point tools
 
+/**
+ * True when every section's metres are its own stretch of the drawing (as pieces are placed, PIECE_MPU
+ * a grid unit): the sections then sit on their own points, and a point dragged changes only the
+ * pieces it belongs to.
+ */
+function pieceBuilt(t) {
+  if (t.path.length < 2 || !t.sections.length) return false;
+  const g = lapGeom(t);
+  const spans = pieceSpans(t);
+  return t.sections.every((s, k) => {
+    const [i0, i1] = spans[k];
+    const units = isGap(s) ? Math.hypot(vertex(t, i1)[0] - vertex(t, i0)[0], vertex(t, i1)[1] - vertex(t, i0)[1]) : g.cum[Math.min(i1, g.cum.length - 1)] - g.cum[Math.min(i0, g.cum.length - 1)];
+    return Math.abs(s.length - units * PIECE_MPU) <= 1.5;
+  });
+}
+/**
+ * A point of a piece-built lap being dragged: the pieces that point belongs to keep their metres
+ * true to their drawing, so every other section stays exactly on its own points. A section's
+ * metres are the race's distance through it, so a piece pulled longer is ridden longer.
+ */
+function followDrawing(t, drag) {
+  if (!drag.pieces) return;
+  const g = lapGeom(t);
+  const n = t.path.length;
+  drag.pieces.forEach(([i0, i1], k) => {
+    const s = t.sections[k];
+    if (!s) return;
+    const has = i1 >= n ? drag.i >= i0 || drag.i === 0 : drag.i >= i0 && drag.i <= i1;
+    if (!has) return;
+    if (isGap(s)) { s.length = gapMetres(t, i0, i1); return; }
+    const units = g.cum[Math.min(i1, g.cum.length - 1)] - g.cum[Math.min(i0, g.cum.length - 1)];
+    s.length = Math.max(1, Math.round(units * PIECE_MPU));
+  });
+}
 /** Keeps the start straight's last point on the lap when the drawing moves under it. */
 function keepJoined(t) {
   const sp = t.start?.path;
@@ -4367,7 +4404,7 @@ function onPointerDown(e) {
   if (h.kind === 'point') {
     app.selPt = h.i;
     app.selStart = -1;
-    drag = { kind: 'point', i: h.i, started: false };
+    drag = { kind: 'point', i: h.i, started: false, pieces: pieceBuilt(t) ? pieceSpans(t) : null };
   } else if (h.kind === 'spt') {
     app.selStart = h.i;
     app.selPt = -1;
@@ -4433,6 +4470,7 @@ function onPointerMove(e) {
     paintCells(t, brushCells(c.x, c.y), drag.id);
   } else if (drag.kind === 'point') {
     t.path[drag.i] = [clamp(snapGrid(gp.x, e), 0, GRID_W), clamp(snapGrid(gp.y, e), 0, GRID_H)];
+    followDrawing(t, drag);
     keepJoined(t);
   } else if (drag.kind === 'spt') {
     const sp = t.start.path;
@@ -4774,7 +4812,7 @@ async function tryServer() {
 setMode('layout');
 tryServer();
 openRaceView();
-window.trackEditor = { app, openRaceView, sendView, heightDab, elevAt, elevationIssues, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart, openEnds, building, stillOpen, deleteSection, planWalk, alongStart, followStart, setOfficialAlong, trackRoom, walkRoom, undo, redo, trackForView, officialProblems, connectGhost, dubins, fitRadius, placeConnect, startPiece, setFinish, finishGhost, addFinish, placeFinish, removeFinish, addStart, placeStart, placePiece, readyToRace, tightCorners, keepJoined, startHere, lapLength, refresh }; // for tests
+window.trackEditor = { app, openRaceView, sendView, heightDab, elevAt, elevationIssues, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart, openEnds, building, stillOpen, deleteSection, planWalk, alongStart, followStart, setOfficialAlong, trackRoom, walkRoom, undo, redo, trackForView, officialProblems, connectGhost, dubins, fitRadius, placeConnect, startPiece, setFinish, finishGhost, addFinish, placeFinish, removeFinish, addStart, placeStart, placePiece, readyToRace, tightCorners, keepJoined, startHere, lapLength, refresh, pieceSpans, pieceBuilt, sectionBounds }; // for tests
 </script>
 </body>
 </html>
