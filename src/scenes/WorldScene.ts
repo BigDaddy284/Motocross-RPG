@@ -8,14 +8,14 @@ import type { SaveData } from '../core/saves';
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
 import { applyMapState, clearedPatches, hiddenSprites } from '../core/mapState';
 import { WORLD_MAP, spawnTile, stepTriggerAt, type Arrival } from '../core/travel';
-import { DriveMap, FACING_OF, ensureVan, exitTile, footprint, inwardHeading, nearestFree, placeNear, planDrive, steer, HEADING_OF, type Move, type VanDesign, type VanPose } from '../core/vehicles';
+import { DriveMap, FACING_OF, ensureVan, exitTile, footprint, inwardHeading, nearestFree, placeNear, planDrive, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { entryFee, practiceFee, venueProblem, type VenueDef } from '../core/raceDay';
 import { noteActivity, shopForAction, type ShopDef } from '../core/shops';
 import { CAREER_SLOT, services } from '../services';
 import { Character, TILE } from '../world/Character';
 import { MapView, OVERHEAD_DEPTH, isMapCached, loadMapImages } from '../world/MapView';
 import { actionMessage } from '../world/messages';
-import { VanView } from '../world/VanView';
+import { VanView, type Driver } from '../world/VanView';
 import type { HudScene } from './HudScene';
 import type { RaceSceneData } from './RaceScene';
 
@@ -74,6 +74,8 @@ export class WorldScene extends Phaser.Scene {
   private van: VanView | null = null;
   private drive!: DriveMap;
   private moves: Move[] = [];
+  /** E was pressed on the move: get out once the van has pulled up. */
+  private outWhenStopped = false;
   private lastBumpToast = 0;
 
   constructor() {
@@ -177,10 +179,13 @@ export class WorldScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     if (!this.player) return;
     if (!this.busy && !this.hud.isDialogueOpen()) this.save.stats.playSeconds += delta / 1000;
+    // The van drives every frame, whatever else is going on, on real time (Phaser's smoothed
+    // delta runs slow when frames are long, which would make the van crawl on a slow device).
+    this.van?.update(Math.min(this.game.loop.rawDelta, 100));
     if (this.busy || this.walking || this.hud.isDialogueOpen()) return;
     const dir = this.heldDirection();
     if (this.driving) {
-      if (dir) this.steerVan(dir);
+      if (dir) this.startDrive();
       return;
     }
     if (dir) {
@@ -327,6 +332,13 @@ export class WorldScene extends Phaser.Scene {
   }
 
   interactFacing(): void {
+    if (this.driving && this.van?.moving) {
+      // Pull up, then get out.
+      this.moves = [];
+      this.outWhenStopped = true;
+      this.van.endTrip();
+      return;
+    }
     if (this.busy || this.walking) return;
     if (this.hud.isDialogueOpen()) return;
     if (this.driving) {
@@ -752,16 +764,60 @@ export class WorldScene extends Phaser.Scene {
     this.quickSave();
   }
 
-  /** A held key: ahead drives on, a side turns, back turns round (or reverses where there's no room). */
-  private steerVan(dir: Tile): void {
+  /** Starts driving if the van is standing: it then asks for moves as it goes (see vanTrip). */
+  private startDrive(): void {
+    const van = this.van;
+    if (!van || !this.driving) return;
+    this.walking = true;
+    van.drive(this.vanTrip);
+  }
+
+  /**
+   * The scene's side of a drive. The next move comes from a clicked route, else from a held key
+   * (ahead drives on, a side turns, back turns round or reverses where there's no room). Each move
+   * is checked and booked on the grid when it is handed over; exits are checked as each one ends.
+   */
+  private readonly vanTrip: Driver = {
+    next: () => {
+      const van = this.van;
+      if (!van || !this.driving || this.busy) return null;
+      const len = van.design.length;
+      let m = this.moves.shift() ?? null;
+      if (!m) {
+        const dir = this.heldDirection();
+        if (!dir || this.outWhenStopped) return null;
+        const want = HEADING_OF[['down', 'left', 'right', 'up'][STEPS.indexOf(dir)] as Facing];
+        m = steer(this.drive, van.pose, len, want);
+        if (!m) {
+          this.bumpToast(dir, want);
+          return null;
+        }
+      }
+      this.occupyVan(false);
+      if (!this.drive.fits(m.to, len)) {
+        this.occupyVan(true);
+        this.moves = [];
+        return null;
+      }
+      for (const t of footprint(m.to, len)) this.grid.setOccupied(t, true);
+      Object.assign(this.save.van!, m.to);
+      this.player.placeAt(m.to);
+      return m;
+    },
+    arrived: (m, from) => this.checkVanTrigger(footprint(from, this.van!.design.length), m.to),
+    stopped: () => {
+      this.walking = false;
+      this.quickSave();
+      if (this.outWhenStopped) {
+        this.outWhenStopped = false;
+        this.getOut();
+      }
+    },
+  };
+
+  /** Says why a held key didn't move the van, at most every 1.5 seconds. */
+  private bumpToast(dir: Tile, want: Heading): void {
     const van = this.van!;
-    this.moves = [];
-    const want = HEADING_OF[['down', 'left', 'right', 'up'][STEPS.indexOf(dir)] as Facing];
-    const m = steer(this.drive, van.pose, van.design.length, want);
-    if (m) {
-      void this.driveMoves([m]);
-      return;
-    }
     const now = this.time.now;
     if (now - this.lastBumpToast < 1500) return;
     this.lastBumpToast = now;
@@ -777,56 +833,22 @@ export class WorldScene extends Phaser.Scene {
       if (!this.walking) this.getOut();
       return;
     }
-    const plan = planDrive(this.drive, van.pose, van.design.length, tile);
+    // A way out counts as reached on any of its tiles.
+    const via = stepTriggerAt(this.map, tile);
+    const plan = planDrive(this.drive, van.pose, van.design.length, via?.type === 'exit' ? objectTiles(via, this.map.tileSize) : tile);
     if (!plan) {
       this.hud.toast(`The ${van.design.name} can't get there.`);
       return;
     }
     this.markTarget(tile.x * TILE + TILE / 2, tile.y * TILE + TILE / 2);
     this.moves = plan;
-    if (!this.walking) void this.driveMoves([]);
-  }
-
-  /** Drives the queued moves, checking exits under every tile the van moves onto. */
-  private async driveMoves(moves: Move[]): Promise<void> {
-    const van = this.van!;
-    const len = van.design.length;
-    if (moves.length) this.moves = moves;
-    this.walking = true;
-    while (this.moves.length && this.driving) {
-      const m = this.moves.shift()!;
-      this.occupyVan(false);
-      if (!this.drive.fits(m.to, len)) {
-        this.occupyVan(true);
-        this.moves = [];
-        break;
-      }
-      const before = footprint(van.pose, len);
-      const view = van.move(m);
-      Object.assign(this.save.van!, van.pose);
-      this.occupyVan(true);
-      this.player.placeAt(van.pose);
-      await view;
-      if (this.checkVanTrigger(before)) {
-        this.walking = false;
-        return;
-      }
-      // Keep driving while a key is held at the end of a keyboard move.
-      if (!this.moves.length) {
-        const dir = this.heldDirection();
-        const want = dir && HEADING_OF[['down', 'left', 'right', 'up'][STEPS.indexOf(dir)] as Facing];
-        const next = want && steer(this.drive, van.pose, len, want);
-        if (next) this.moves.push(next);
-      }
-    }
-    this.walking = false;
-    this.quickSave();
+    this.startDrive();
   }
 
   /** Handles an exit under a tile the van has just moved onto. Returns true when it is leaving the map. */
-  private checkVanTrigger(before: Tile[]): boolean {
+  private checkVanTrigger(before: Tile[], to: VanPose): boolean {
     const van = this.van!;
-    const fresh = footprint(van.pose, van.design.length).filter((t) => !before.some((b) => b.x === t.x && b.y === t.y));
+    const fresh = footprint(to, van.design.length).filter((t) => !before.some((b) => b.x === t.x && b.y === t.y));
     for (const t of fresh) {
       const via = stepTriggerAt(this.map, t);
       if (!via || via.type !== 'exit') continue;

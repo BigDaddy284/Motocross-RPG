@@ -1,5 +1,6 @@
 import { Grid } from './grid';
 import { objectTiles, type BakedMap, type Facing, type Tile } from './mapTypes';
+import { FOLD, flipPose, sweep } from './vanPath';
 import { validate, type ContentError, type Schema } from './validate';
 
 // The player's van on the area maps (Boss, 24 Oct 2026): one van at a time, driven on the same
@@ -68,6 +69,8 @@ export interface VanSheetView {
 export interface VanSheet {
   image: string;
   views: Record<Heading, VanSheetView>;
+  /** The closed van at evenly spaced headings for turning (frame i faces i × 360 / frames.length degrees anticlockwise from east). */
+  turn?: { image: string; frames: { cell: [number, number, number, number]; anchor: [number, number]; driver: [number, number, number, number] | null }[] };
 }
 
 export interface VehiclesData {
@@ -120,10 +123,9 @@ export function footprint(p: VanPose, length: number): Tile[] {
 
 /** Centre of a footprint in tile units (tile corners are whole numbers). */
 export function centre(p: VanPose, length: number): { x: number; y: number } {
-  const t = footprint(p, length);
-  const xs = t.map((c) => c.x);
-  const ys = t.map((c) => c.y);
-  return { x: (Math.min(...xs) + Math.max(...xs) + 1) / 2, y: (Math.min(...ys) + Math.max(...ys) + 1) / 2 };
+  // Halfway from the cab tile to the back tile, (length - 1) tiles behind it.
+  const d = STEP[p.heading];
+  return { x: p.x + 0.5 - (d.x * (length - 1)) / 2, y: p.y + 0.5 - (d.y * (length - 1)) / 2 };
 }
 
 const key = (x: number, y: number) => `${x},${y}`;
@@ -173,6 +175,25 @@ export class DriveMap {
     return x >= 0 && y >= 0 && x < this.width && y < this.height && this.ok[y * this.width + x];
   }
 
+  /** Somewhere no part of a van may pass over, even cutting a corner: buildings, walls, solid objects, people, off the map. */
+  isSolid(x: number, y: number): boolean {
+    return x < 0 || y < 0 || x >= this.width || y >= this.height || this.grid.isBlocked(x, y) || (this.npcs.size > 0 && this.npcs.has(key(x, y)));
+  }
+
+  private readonly sweeps = new Map<string, boolean>();
+
+  /** True when the van's body can swing through a turn without passing over anything solid (remembered per map). */
+  sweepClear(from: VanPose, m: Move, length: number): boolean {
+    if (m.kind === 'forward' || m.kind === 'reverse') return true;
+    const k = `${length}:${from.x},${from.y},${from.heading}>${m.to.x},${m.to.y},${m.to.heading}:${[...this.npcs].join(';')}`;
+    let ok = this.sweeps.get(k);
+    if (ok === undefined) {
+      ok = sweep(from, m.kind, m.to, length, (t) => this.isSolid(t.x, t.y)).clear;
+      this.sweeps.set(k, ok);
+    }
+    return ok;
+  }
+
   /** Free for the van right now: drivable and no NPC standing there. */
   isFree(x: number, y: number): boolean {
     return this.isDrivable(x, y) && !this.npcs.has(key(x, y));
@@ -187,7 +208,7 @@ export class DriveMap {
   }
 }
 
-export type Move = { kind: 'forward' | 'reverse' | 'turn' | 'uturn'; to: VanPose };
+export type Move = { kind: 'forward' | 'reverse' | 'turn' | 'uturn' | 'backturn'; to: VanPose };
 
 /** One tile ahead along the heading. */
 export function forward(dm: DriveMap, p: VanPose): Move | null {
@@ -211,44 +232,93 @@ export function reverse(dm: DriveMap, p: VanPose, length: number): Move | null {
  * heading that take in the tile beside the cab (or the cab tile itself, or the tile diagonally
  * ahead), so the van pulls round into the side road, lane or bay it is turning into.
  */
-export function turnOptions(dm: DriveMap, p: VanPose, length: number, to: Heading): Move[] {
+export function turnOptions(dm: DriveMap, p: VanPose, length: number, to: Heading, limit = Infinity): Move[] {
+  // Only swings the whole body can make without passing over anything solid.
+  const out: Move[] = [];
+  for (const m of turnCandidates(dm, p, length, to)) {
+    if (out.length >= limit) break;
+    if (dm.sweepClear(p, m, length)) out.push(m);
+  }
+  return out;
+}
+
+/** The places turnOptions tries, best first, before checking the swing clears everything solid. */
+function turnCandidates(dm: DriveMap, p: VanPose, length: number, to: Heading): Move[] {
   if (to === p.heading) return [];
   const d = STEP[p.heading];
   const kind: Move['kind'] = to === OPPOSITE[p.heading] ? 'uturn' : 'turn';
-  const seeds: Tile[] = [];
+  const nd = STEP[to];
+  const found: { m: Move; pull: number; shift: number }[] = [];
+  const seen = new Set<string>();
+  const c0 = centre(p, length);
+  const add = (pose: VanPose, pull: number) => {
+    const k = key(pose.x, pose.y);
+    if (seen.has(k) || !dm.fits(pose, length)) return;
+    seen.add(k);
+    const c = centre(pose, length);
+    found.push({ m: { kind, to: pose }, pull, shift: Math.hypot(c.x - c0.x, c.y - c0.y) });
+  };
   if (kind === 'turn') {
     const s = STEP[to];
-    seeds.push({ x: p.x + s.x, y: p.y + s.y }, { x: p.x + d.x + s.x, y: p.y + d.y + s.y }, { x: p.x, y: p.y });
+    for (const seed of [{ x: p.x + s.x, y: p.y + s.y }, { x: p.x + d.x + s.x, y: p.y + d.y + s.y }, { x: p.x, y: p.y }]) {
+      if (!dm.isFree(seed.x, seed.y) || !dm.grid.edgeOpen(p, seed)) continue;
+      // How far short the van stops of pulling its whole length round: the back follows the cab
+      // (vanPath.ts), so a swing that ends with the tail at the corner comes to rest straight.
+      for (let i = 0; i < length; i++) add({ x: seed.x + nd.x * i, y: seed.y + nd.y * i, heading: to }, length - 1 - i);
+    }
   } else {
+    // Round into a lane far enough over for the van not to fold up (vanPath.ts), or the one after,
+    // the cab coming back past the turn by up to a van's length: a whole length back, and the van
+    // comes out of the turn straight. A long van needs a wide road; otherwise it backs up.
+    const lane0 = uturnLanes(length);
     for (const side of [RIGHT_OF[p.heading], OPPOSITE[RIGHT_OF[p.heading]]]) {
       const s = STEP[side];
-      seeds.push({ x: p.x + s.x, y: p.y + s.y });
+      if (!dm.isFree(p.x + s.x, p.y + s.y) || !dm.grid.edgeOpen(p, { x: p.x + s.x, y: p.y + s.y })) continue;
+      for (const lane of [lane0, lane0 + 1]) {
+        for (let j = 1 - length; j <= 1; j++) add({ x: p.x + s.x * lane + d.x * j, y: p.y + s.y * lane + d.y * j, heading: to }, Math.abs(j + length - 1) + (lane - lane0) * 0.5);
+      }
     }
   }
-  const nd = STEP[to];
-  const out: Move[] = [];
-  const seen = new Set<string>();
-  for (const seed of seeds) {
-    if (!dm.isFree(seed.x, seed.y)) continue;
-    for (let i = 0; i < length; i++) {
-      const pose = { x: seed.x + nd.x * i, y: seed.y + nd.y * i, heading: to };
-      const k = key(pose.x, pose.y);
-      if (seen.has(k)) continue;
-      seen.add(k);
-      if (dm.fits(pose, length) && dm.grid.edgeOpen(p, seed)) out.push({ kind, to: pose });
-    }
+  found.sort((a, b) => a.pull - b.pull || a.shift - b.shift);
+  return found.map((f) => f.m);
+}
+
+/**
+ * The fewest lanes over a van can turn round in. The cab drives half a circle as wide as the
+ * lanes; the back follows it, and the two ends mustn't come closer than FOLD of the van's length.
+ */
+export function uturnLanes(length: number): number {
+  for (let lane = 1; ; lane++) {
+    const r = lane / 2;
+    const closest = length - 1 > Math.PI * r ? lane : 2 * r * Math.sin((length - 1) / (2 * r));
+    if (closest >= (length - 1) * FOLD) return lane;
   }
-  const c0 = centre(p, length);
-  const cost = (m: Move) => {
-    const c = centre(m.to, length);
-    return Math.hypot(c.x - c0.x, c.y - c0.y);
-  };
-  return out.sort((a, b) => cost(a) - cost(b));
+}
+
+/**
+ * Backing round a corner onto the side `to` (the first half of a three-point turn): the back
+ * leads into the side road, so the van ends up facing out of it. It is the flipped van
+ * (vanPath.ts) turning forward, so it has the same swings and the same checks.
+ */
+export function backTurnOptions(dm: DriveMap, p: VanPose, length: number, to: Heading, limit = Infinity): Move[] {
+  if (to === p.heading || to === OPPOSITE[p.heading]) return [];
+  return turnOptions(dm, flipPose(p, length), length, to, limit).map((m) => ({ kind: 'backturn', to: flipPose(m.to, length) }));
+}
+
+function backTurnCandidates(dm: DriveMap, p: VanPose, length: number, to: Heading): Move[] {
+  if (to === p.heading || to === OPPOSITE[p.heading]) return [];
+  return turnCandidates(dm, flipPose(p, length), length, to).map((m) => ({ kind: 'backturn', to: flipPose(m.to, length) }));
+}
+
+/** Whether a move's swing clears everything solid (straight moves always do). */
+function swingClear(dm: DriveMap, from: VanPose, m: Move, length: number): boolean {
+  if (m.kind === 'backturn') return dm.sweepClear(flipPose(from, length), { kind: 'turn', to: flipPose(m.to, length) }, length);
+  return dm.sweepClear(from, m, length);
 }
 
 /** The smoothest turn: the swing that moves the van least. */
 export function turn(dm: DriveMap, p: VanPose, length: number, to: Heading): Move | null {
-  return turnOptions(dm, p, length, to)[0] ?? null;
+  return turnOptions(dm, p, length, to, 1)[0] ?? null;
 }
 
 /**
@@ -262,39 +332,70 @@ export function steer(dm: DriveMap, p: VanPose, length: number, want: Heading): 
 }
 
 /**
- * Drives to a clicked or tapped tile: the cheapest sequence of moves that brings the footprint
- * onto the tile, or next to it when the tile is not drivable. Null when there is no way.
+ * Drives to a clicked or tapped tile (or any of several, such as the tiles of an exit): the
+ * cheapest sequence of moves that brings the footprint onto one, or next to it when it is not
+ * drivable. Null when there is no way.
  */
-export function planDrive(dm: DriveMap, start: VanPose, length: number, goal: Tile, maxNodes = 60000): Move[] | null {
-  const touches = (p: VanPose) => footprint(p, length).some((t) => Math.abs(t.x - goal.x) + Math.abs(t.y - goal.y) <= (dm.isDrivable(goal.x, goal.y) ? 0 : 1));
+export function planDrive(dm: DriveMap, start: VanPose, length: number, goal: Tile | Tile[], maxNodes = 60000): Move[] | null {
+  const goals = (Array.isArray(goal) ? goal : [goal]).map((g) => ({ ...g, reach: dm.isDrivable(g.x, g.y) ? 0 : 1 }));
+  const near = (p: VanPose) => {
+    // The footprint is a line of tiles back from the cab: the nearest of them to each goal.
+    const d = STEP[p.heading];
+    let n = Infinity;
+    for (const g of goals) {
+      const i = Math.max(0, Math.min(length - 1, -((g.x - p.x) * d.x + (g.y - p.y) * d.y)));
+      n = Math.min(n, Math.max(0, Math.abs(p.x - d.x * i - g.x) + Math.abs(p.y - d.y * i - g.y) - g.reach));
+    }
+    return n;
+  };
+  const touches = (p: VanPose) => near(p) === 0;
   if (touches(start)) return [];
   const id = (p: VanPose) => `${p.x},${p.y},${p.heading}`;
+  // Searched nearest-first (A*): cost so far plus the footprint's distance from the goal (a tile
+  // nearer costs about a tile's drive). Small whole costs, so a bucket queue keeps it fast. A
+  // turn's swing is only checked when the search gets to it, as most are never needed.
+  interface Step {
+    p: VanPose;
+    cost: number;
+    from: Step | null;
+    move: Move | null;
+  }
+  const done = new Set<string>();
+  /** The cheapest straight drive found to each pose: a turn costing more can't help. */
   const best = new Map<string, number>([[id(start), 0]]);
-  const prev = new Map<string, { from: string; move: Move }>();
-  // Small costs, so a bucket queue keeps the search fast.
-  const buckets: VanPose[][] = [[start]];
+  const buckets: Step[][] = [];
+  buckets[near(start)] = [{ p: start, cost: 0, from: null, move: null }];
   let nodes = 0;
-  for (let c = 0; c < buckets.length; c++) {
-    const list = buckets[c];
+  for (let f = 0; f < buckets.length; f++) {
+    const list = buckets[f];
     if (!list) continue;
-    for (const p of list) {
-      if ((best.get(id(p)) ?? Infinity) < c) continue;
+    for (let li = 0; li < list.length; li++) {
+      const st = list[li];
+      const { p, cost: c } = st;
+      const k0 = id(p);
+      if (done.has(k0)) continue;
+      if (st.move && st.from && !swingClear(dm, st.from.p, st.move, length)) continue;
+      done.add(k0);
       if (touches(p)) {
         const moves: Move[] = [];
-        for (let k = id(p); prev.has(k); k = prev.get(k)!.from) moves.push(prev.get(k)!.move);
+        for (let s: Step | null = st; s?.move; s = s.from) moves.push(s.move);
         return moves.reverse();
       }
       if (++nodes > maxNodes) return null;
-      const next: [Move | null, number][] = [[forward(dm, p), 1], [reverse(dm, p, length), 3]];
-      for (const h of HEADINGS) for (const m of turnOptions(dm, p, length, h).slice(0, 3)) next.push([m, 2 + Math.round(Math.hypot(centre(m.to, length).x - centre(p, length).x, centre(m.to, length).y - centre(p, length).y))]);
-      for (const [m, cost] of next) {
+      const straight: [Move | null, number][] = [[forward(dm, p), 1], [reverse(dm, p, length), 3]];
+      const swings: [Move, number][] = [];
+      // Turns cost well over a tile's drive, so a route lines up early and doesn't wiggle at the end.
+      const swing = (m: Move) => Math.round(Math.hypot(centre(m.to, length).x - centre(p, length).x, centre(m.to, length).y - centre(p, length).y));
+      for (const h of HEADINGS) for (const m of turnCandidates(dm, p, length, h)) swings.push([m, 6 + swing(m)]);
+      // Backing round a corner costs a little more, so it's for turning round where a U-turn won't fit.
+      for (const h of HEADINGS) for (const m of backTurnCandidates(dm, p, length, h)) swings.push([m, 8 + swing(m)]);
+      for (const [m, cost] of [...straight, ...swings]) {
         if (!m) continue;
         const k = id(m.to);
         const nc = c + cost;
-        if (nc >= (best.get(k) ?? Infinity)) continue;
-        best.set(k, nc);
-        prev.set(k, { from: id(p), move: m });
-        (buckets[nc] ??= []).push(m.to);
+        if (done.has(k) || nc >= (best.get(k) ?? Infinity)) continue;
+        if (m.kind === 'forward' || m.kind === 'reverse') best.set(k, nc);
+        (buckets[Math.max(f, nc + near(m.to))] ??= []).push({ p: m.to, cost: nc, from: st, move: m });
       }
     }
   }
