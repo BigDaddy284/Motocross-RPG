@@ -1,7 +1,7 @@
 import type { TrackDef } from './race';
 import { Elevation } from './elevation';
 import { DEFAULT_HEIGHTS } from './riderAI';
-import { headingAt, lapGeom, lapMetres, pointAt, sectionBounds, sectionTurns, startGeom, startHalfWidth, startHeadingAt, startPointAt, type LapGeom, type StartGeom } from './trackGeom';
+import { headingAt, lapGeom, lapMetres, nearestOnLap, pointAt, sectionBounds, sectionTurns, startGeom, startHalfWidth, startHeadingAt, startPointAt, type LapGeom, type StartGeom } from './trackGeom';
 import { DEFAULT_TRACK_WIDTH } from './trackParts';
 
 // The track as a solid surface (no graphics), shared by the 3D race view and its tests. Every
@@ -29,6 +29,9 @@ export const CAM_AZ = 40;
 export const BIKE_LENGTH = 1.1;
 
 const BIG_JUMPS = new Set(['tabletop', 'double', 'step_up']);
+/** Grid units between the start straight's graded levels, and over how far it eases from the lap's level back to its own ground. */
+const START_STEP = 0.25;
+const START_BLEND = 4;
 /** Where the take-off lip and the landing are on a big jump, as a share of the section (as in riderAI). */
 export const TAKEOFF = 0.3;
 export const LANDING = 0.72;
@@ -218,13 +221,46 @@ export class TrackSurface {
     const e = Math.abs(lane);
     const toEnd = this.start.total - u;
     const merge = this.hw * 1.5 + 1;
-    const p = startPointAt(this.start, u);
-    const join = this.groundAt(p.x, p.y) + this.centre(this.start.join) * (1 - smooth(toEnd / merge));
+    const at = e > 0 ? this.startSpot(u, lane) : null;
+    const join = this.startGround(u, at?.x, at?.z) + this.centre(this.start.join) * (1 - smooth(toEnd / merge));
     const lip = LIP_H * smooth(toEnd / merge);
     if (e <= 1) return join;
     if (e <= LIP_AT) return join + lip * smooth((e - 1) / (LIP_AT - 1));
     const sk = Math.max(0.35, lip * 0.9) / this.startHw(u);
     return join + lip * (1 - smooth((e - LIP_AT) / sk));
+  }
+
+  private startNear: number[] | null = null;
+
+  /**
+   * The ground the start straight is graded to at a spot `u` grid units from the gate, in grid
+   * units: the ground under its middle, level across, except where it runs beside or into the lap.
+   * There it eases to the lap's level at that spot, so on sloping ground the two surfaces meet
+   * instead of one burying the other.
+   */
+  startGround(u: number, x?: number, z?: number): number {
+    if (this.elev.empty || this.start.total <= 0) return 0;
+    const c = startPointAt(this.start, Math.max(0, Math.min(this.start.total, u)));
+    const own = this.groundAt(c.x, c.y);
+    // Skip the lap search where this stretch of the start straight is nowhere near the lap.
+    const nd = (this.startNear ??= this.startClearance());
+    const k = Math.max(0, Math.min(nd.length - 1, Math.round(u / START_STEP)));
+    if (nd[k] > START_BLEND + START_STEP) return own;
+    const near = nearestOnLap(this.g, x ?? c.x, z ?? c.y);
+    const w = 1 - smooth((near.d - this.hw) / START_BLEND);
+    return own + (this.lift(near.f) - own) * w;
+  }
+
+  /** How far the start straight's every lane is from the lap's edge, along it in START_STEPs (grid units, 0 where they touch). */
+  private startClearance(): number[] {
+    const n = Math.ceil(this.start.total / START_STEP);
+    const out: number[] = [];
+    for (let k = 0; k <= n; k++) {
+      const u = Math.min(this.start.total, k * START_STEP);
+      const p = startPointAt(this.start, u);
+      out.push(Math.max(0, nearestOnLap(this.g, p.x, p.y).d - this.hw - this.startHw(u) * LIP_AT));
+    }
+    return out;
   }
 
   /** Half the start straight's width `u` grid units from the gate: wide at the gate, the track's width where it joins. */

@@ -382,7 +382,7 @@ export class RaceView {
       }
       for (let u = -START_PAD; u < s.start.total; u += 0.5) {
         const p = startPointAt(s.start, u);
-        mid.push({ x: p.x, z: p.y, r: s.startHw(u) * LIP_AT + 0.4, l: s.groundAt(p.x, p.y) });
+        mid.push({ x: p.x, z: p.y, r: s.startHw(u) * LIP_AT + 0.4, l: s.startGround(u) });
       }
       const BLEND = 3;
       // Only bits of track within reach can matter: nearer than BLEND past their own reach for the
