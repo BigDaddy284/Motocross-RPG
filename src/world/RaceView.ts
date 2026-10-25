@@ -359,15 +359,37 @@ export class RaceView {
         mid.push({ x: p.x, z: p.y, r: s.startHw(u) * LIP_AT + 0.4, l: s.groundAt(p.x, p.y) });
       }
       const BLEND = 3;
+      // Only bits of track within reach can matter: nearer than BLEND past their own reach for the
+      // blend, and the soft weights below drop out (under 1e-4) past 2.28 beyond the nearest. So each
+      // point looks at the bits in its own and the neighbouring cells, in their original order.
+      const reach = BLEND + Math.max(0, ...mid.map((q) => q.r)) + 2.3;
+      const cw = Math.ceil(tw / reach);
+      const ch = Math.ceil(th / reach);
+      const cellOf = (x: number, z: number) => [Math.floor((x + MARGIN) / reach), Math.floor((z + MARGIN) / reach)];
+      const inCell: number[][] = Array.from({ length: cw * ch }, () => []);
+      mid.forEach((q, k) => {
+        const [ci, cj] = cellOf(q.x, q.z);
+        inCell[Math.max(0, Math.min(ch - 1, cj)) * cw + Math.max(0, Math.min(cw - 1, ci))].push(k);
+      });
+      const nearby: (typeof mid)[] = [];
+      for (let cj = 0; cj < ch; cj++) {
+        for (let ci = 0; ci < cw; ci++) {
+          const ks: number[] = [];
+          for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) if (ci + di >= 0 && ci + di < cw && cj + dj >= 0 && cj + dj < ch) ks.push(...inCell[(cj + dj) * cw + ci + di]);
+          nearby.push(ks.sort((a, b) => a - b).map((k) => mid[k]));
+        }
+      }
       for (let j = 0; j < th; j++) {
         for (let i = 0; i < tw; i++) {
           const x = i - MARGIN;
           const z = j - MARGIN;
+          const [ci, cj] = cellOf(x, z);
+          const local = nearby[cj * cw + ci];
           // How far off the track this is, and its level: from the nearest bits of track, weighted
           // softly so the ground has no seam where two stretches at different levels come close.
           let best = Infinity;
           let near = Infinity;
-          for (const q of mid) {
+          for (const q of local) {
             const dc = Math.hypot(x - q.x, z - q.z);
             best = Math.min(best, dc - q.r);
             near = Math.min(near, dc);
@@ -378,7 +400,7 @@ export class RaceView {
           }
           let sum = 0;
           let wt = 0;
-          for (const q of mid) {
+          for (const q of local) {
             const k = Math.exp(-(((Math.hypot(x - q.x, z - q.z) - near) / 0.75) ** 2));
             if (k < 1e-4) continue;
             sum += k * q.l;
