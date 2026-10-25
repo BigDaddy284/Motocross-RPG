@@ -199,9 +199,16 @@ export class Track {
     const r = s - this.base;
     const n = this.pts.length;
     let i = 1;
-    if (r <= 0) i = 1;
-    else if (r >= this.cum[n - 1]) i = n - 1;
-    else while (this.cum[i] < r) i++;
+    if (r >= this.cum[n - 1]) i = n - 1;
+    else if (r > 0) {
+      // The first point at or past r.
+      let hi = n - 1;
+      while (i < hi) {
+        const m = (i + hi) >> 1;
+        if (this.cum[m] < r) i = m + 1;
+        else hi = m;
+      }
+    }
     const p = this.pts[i - 1];
     const q = this.pts[i];
     const f = (r - this.cum[i - 1]) / (this.cum[i] - this.cum[i - 1] || 1);
@@ -271,7 +278,7 @@ export function sweep(from: Pose, kind: MoveKind, to: Pose, length: number, soli
   for (let s = s0; s <= s1 + 0.1 && clear; s += 0.1) {
     const b = track.body(Math.min(s, s1));
     if (length > 1 && b.chord < (length - 1) * FOLD) clear = false;
-    else if (bodyTiles(b, length).some(solid)) clear = false;
+    else if (bodyHits(b, length, solid)) clear = false;
   }
   const end = track.body(s1);
   const rest = restPlace(to, length);
@@ -279,21 +286,21 @@ export function sweep(from: Pose, kind: MoveKind, to: Pose, length: number, soli
   return { clear: clear && settle <= MAX_SETTLE, settle };
 }
 
-/** Tiles under a drawn body: points along and across it, just inside its edges (3 px at 64 px a tile). */
-export function bodyTiles(b: Place, length: number): Tile[] {
+/** True when any tile under a drawn body is solid: points along and across it, just inside its edges (3 px at 64 px a tile). */
+export function bodyHits(b: Place, length: number, solid: (t: Tile) => boolean): boolean {
   const a = (b.angle * Math.PI) / 180;
   const ux = Math.cos(a);
   const uy = -Math.sin(a);
   const hl = length / 2 - 0.05;
   const hw = 0.36 - 0.05;
   const n = Math.max(2, length);
-  const out: Tile[] = [];
+  const t: Tile = { x: 0, y: 0 };
   for (let i = -n; i <= n; i++) {
-    for (const j of [-1, 0, 1]) {
-      const x = b.x + ux * hl * (i / n) - uy * hw * j;
-      const y = b.y + uy * hl * (i / n) + ux * hw * j;
-      out.push({ x: Math.floor(x), y: Math.floor(y) });
+    for (let j = -1; j <= 1; j++) {
+      t.x = Math.floor(b.x + ux * hl * (i / n) - uy * hw * j);
+      t.y = Math.floor(b.y + uy * hl * (i / n) + ux * hw * j);
+      if (solid(t)) return true;
     }
   }
-  return out;
+  return false;
 }
