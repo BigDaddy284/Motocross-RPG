@@ -8,13 +8,16 @@
 // sprites, collision, edge walls and data objects once instead of on every load.
 //
 //   node tools/import-art.mjs [/path/to/art]
+//   node tools/import-art.mjs --vehicles [/path/to/art]   only the van sheets, leaving the maps as they are
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const ART = path.resolve(process.argv[2] ?? process.env.ART_SRC ?? '/mnt/project-files/art');
+const ARGS = process.argv.slice(2);
+const VEHICLES_ONLY = ARGS.includes('--vehicles');
+const ART = path.resolve(ARGS.find((a) => !a.startsWith('--')) ?? process.env.ART_SRC ?? '/mnt/project-files/art');
 const OUT_ART = path.join(ROOT, 'public/assets/art');
 const OUT_MAPS = path.join(ROOT, 'public/assets/maps');
 const TILE = 64;
@@ -31,6 +34,15 @@ const INTERIOR_DIR = 'buildings/tiled/maps/interiors';
 const BUILDINGS_DATA = 'buildings/data/area1-buildings-v3.json';
 
 
+/**
+ * Images another thread redraws in place of a map's own art, keyed by the path the maps use.
+ * The in-world bike on its paddock stand is the vehicles thread's (Boss's brief, 24 Oct 2026:
+ * "Update or revert in world bike models.png"), drawn to the same canvas so placements don't move.
+ */
+const OVERRIDES = {
+  'buildings/tiled/tiles/interior-furniture/bike_on_stand+shadow.png': 'vehicles/sheets/furniture/bike_on_stand+shadow.png',
+};
+
 const copied = new Set();
 
 function readJson(file) {
@@ -44,7 +56,7 @@ function useImage(absPath) {
   if (!copied.has(rel)) {
     const dest = path.join(OUT_ART, rel);
     fs.mkdirSync(path.dirname(dest), { recursive: true });
-    fs.copyFileSync(absPath, dest);
+    fs.copyFileSync(OVERRIDES[rel] ? path.join(ART, OVERRIDES[rel]) : absPath, dest);
     copied.add(rel);
   }
   return `art/${rel}`;
@@ -234,7 +246,32 @@ function copyCharacters() {
   return out;
 }
 
+/**
+ * The player's van sheets (vehicles thread, Boss's brief of 24 Oct 2026): one sheet per design in
+ * public/data/vehicles.json, with each heading's closed and rear-open cells, the anchor (ground
+ * under the footprint centre) and the driver window.
+ */
+function copyVehicles() {
+  const data = readJson(path.join(ROOT, 'public/data/vehicles.json'));
+  const out = {};
+  for (const d of data.designs) {
+    const dir = path.join(ART, 'vehicles/sheets/map');
+    const sheet = readJson(path.join(dir, `map-${d.id}.json`));
+    if (sheet.footprintTiles[0] !== d.length) throw new Error(`map-${d.id}.json: footprint ${sheet.footprintTiles[0]} tiles, but vehicles.json says ${d.length}`);
+    out[d.id] = { image: useImage(path.join(dir, `map-${d.id}.png`)), views: sheet.views };
+  }
+  return out;
+}
+
 function main() {
+  if (VEHICLES_ONLY) {
+    const file = path.join(ROOT, 'public/assets/manifest.json');
+    const manifest = readJson(file);
+    manifest.vehicles = copyVehicles();
+    fs.writeFileSync(file, JSON.stringify(manifest, null, 1));
+    console.log(`copied ${copied.size} van sheets`);
+    return;
+  }
   if (!fs.existsSync(ART)) throw new Error(`Art folder not found: ${ART}`);
   fs.rmSync(OUT_ART, { recursive: true, force: true });
   fs.rmSync(OUT_MAPS, { recursive: true, force: true });
@@ -260,6 +297,7 @@ function main() {
     console.log(`baked ${baked.id} (${baked.width}x${baked.height}, ${baked.sprites.length} sprites, ${baked.objects.length} objects)`);
   }
   manifest.characters = copyCharacters();
+  manifest.vehicles = copyVehicles();
   fs.writeFileSync(path.join(ROOT, 'public/assets/manifest.json'), JSON.stringify(manifest, null, 1));
   console.log(`copied ${copied.size} images`);
 }

@@ -15,6 +15,8 @@ const sample = (x: number) => ({
     counters: {},
     skills: { xp: { starts: 120 }, bonus: {} },
   },
+  van: null,
+  driving: false,
 });
 
 describe('SaveManager', () => {

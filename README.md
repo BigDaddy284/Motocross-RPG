@@ -53,6 +53,17 @@ To resume: `npm install`, `npm test`, `npm run dev`, then open `/tools/track-edi
 
 ## What's in this build
 
+### Added to test build 0.3: your van on the map
+
+Following Boss's brief "Seven Vans, Vehicle Gameplay Integration and Bike Model Updates" (24 Oct 2026). Art and the full audit are in the shared art folder under `art/vehicles/`.
+
+- **The van you buy is on the map.** The £600 used van from the opening chain is the Old Rusty Truck Short, parked in the car park behind the van seller's office. You own one van at a time; a new one will always be a part exchange, so the save keeps one van and one parked spot.
+- **Get in:** click the van, or face it and press E or Space, then pick **Drive**. **Open the back** opens the rear and shows your bag; **Not now** leaves it.
+- **Drive** with WASD or the arrow keys: ahead drives on, a side turns at the next gap, and back turns round into the other lane (or reverses where there is no room). Or click or tap the road and the van drives there, round corners and through junctions. Vans stay on roads, pavements, car parks, gravel and concrete, never grass, buildings or doors. **Get out** with E, Space, the **Get out** button or a click on the van: you step out on the driver's side, and the van stays exactly where it is.
+- **Collision:** a van is a solid footprint one tile wide and as long as the real vehicle (2 to 9 tiles). It can't drive into NPCs, though on foot you still walk through them, and you can't walk through a parked van.
+- **Map changes:** drive through an exit (Home Town to the Industrial Zone and back) or onto the venue route, and the van comes with you, parked at the arrival point facing into the map. Walk out instead and it stays where you left it; nothing brings it to you. It is saved with its map, tile and facing, so it is still there after a reload. Saves go to version 4; an older save with a bought van gets it at the starter spot.
+- **Seven designs** (`public/data/vehicles.json`), drawn from Boss's reference photos and named after them: Old Rusty Truck Short, Old Rusty Van, MX Van Short, MX Van Medium, MX Sports Motorhome Medium, MX Sports Motorhome Long and Factory Hauler. For playtesting, add `?van=van-7` (any of `van-1` to `van-7`) to the address to swap your van's design.
+
 ### Added to test build 0.3: parts shops and repairs
 
 Following GDD 8.3 to 8.5 and Spec 7.4 and 14.4 to 14.6. Shops open once the opening chain is done; talk to the shopkeeper or click their counter.
@@ -118,8 +129,8 @@ Checked against the first-build checklist in the Systems Specification, section 
 | --- | --- |
 | `src/core/` | Game rules with no graphics: pathfinding, saves, settings, content checks, doors and exits, money, bikes and the opening chain (`career.ts`), story changes to maps (`mapState.ts`), skills and XP (`skills.ts`), the race simulation (`race.ts`), race days, practice and venues (`raceDay.ts`), and shops, repairs and spares (`shops.ts`). Covered by tests. |
 | `src/scenes/` | Phaser screens: boot, menus, settings, the world, the on-screen HUD, and the race and practice screen. |
-| `src/world/` | Drawing maps and characters. |
-| `public/data/` | Game content as JSON: NPCs, dialogue, bikes, items, the opening chain (`story.json`), the world map, locks and shift jobs (`world.json`), and shops and repairs (`shops.json`). Every file is checked when the game starts. |
+| `src/world/` | Drawing maps, characters and the van (`VanView.ts`). |
+| `public/data/` | Game content as JSON: NPCs, dialogue, bikes, items, the opening chain (`story.json`), the world map, locks and shift jobs (`world.json`), shops and repairs (`shops.json`), and the vans (`vehicles.json`). Every file is checked when the game starts. |
 | `public/assets/` | Art and baked maps, written by the import tool. Don't edit by hand. |
 | `tools/import-art.mjs` | Copies the art from the shared art folder and bakes each Tiled map into one game-ready file. |
 | `tools/map-editor.html` | Standalone map and tile editor for the game maps and the Tiled sources. |
@@ -138,6 +149,8 @@ When the art threads change a map or sprite, run the import tool against the sha
 npm run import-art -- /path/to/art
 npm test
 ```
+
+To update only the van sheets (from `art/vehicles/sheets/map/`) without re-baking the maps: `npm run import-art -- --vehicles /path/to/art`.
 
 ### Editing maps
 
