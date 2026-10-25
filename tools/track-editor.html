@@ -54,6 +54,8 @@ canvas#view { position: absolute; inset: 0; width: 100%; height: 100%; display: 
 #toolbar > * { pointer-events: auto; }
 #view3d { position: absolute; left: 0; top: 46px; width: 100%; height: calc(100% - 46px); border: 0; visibility: hidden; pointer-events: none; background: #0d0e11; }
 #view3d.on { visibility: visible; pointer-events: auto; }
+#camBar { position: absolute; left: 8px; bottom: 8px; display: none; gap: 4px; z-index: 2; }
+#camBar.on { display: flex; }
 #noRaceView { position: absolute; left: 10px; bottom: 10px; max-width: 60%; padding: 6px 10px; border-radius: 6px; background: #000000b0; color: #f0c040; font-size: 12px; pointer-events: none; }
 footer { grid-area: foot; display: flex; gap: 14px; padding: 4px 10px; background: var(--panel); border-top: 1px solid var(--line); color: var(--dim); white-space: nowrap; overflow: hidden; }
 footer #msg { color: var(--text); overflow: hidden; text-overflow: ellipsis; }
@@ -195,6 +197,11 @@ body.final .final-hide { display: none !important; }
 <main>
   <canvas id="view"></canvas>
   <iframe id="view3d" title="Race view"></iframe>
+  <div id="camBar" title="Turn the race view to look at the track from another side. The race itself always uses the fixed race camera.">
+    <button id="btnTurnL" title="Turn the view 45° to the left ([ key, or Shift + middle-drag)">⟲ Turn left</button>
+    <button id="btnTurnR" title="Turn the view 45° to the right (] key, or Shift + middle-drag)">⟳ Turn right</button>
+    <button id="btnViewReset" title="Back to the race camera's angle, centred on the track (0 key)">Reset view</button>
+  </div>
   <div id="toolbar">
     <button id="btnInsert" title="Add a point halfway to the next one (or double-click the track)">+ Point</button>
     <button id="btnDelPt" title="Delete the selected point (Del, or right-click it)">− Point</button>
@@ -304,7 +311,7 @@ body.final .final-hide { display: none !important; }
     <li><b>Ground:</b> paint the ground round the track with the game's ground tiles.</li>
     <li><b>Scenery:</b> banners (with your own words and colour), sponsor boards, start gates, tuff blocks, hay bales, tyre walls, stands, crowds, pits, trees and more. <kbd>Q</kbd> and <kbd>E</kbd> turn the selected item, <kbd>Ctrl+D</kbd> duplicates it.</li>
     <li><b>Height:</b> raise and lower the ground with a soft round brush (radius and strength in metres per dab), smooth it, or flatten it to one height. The track follows the ground under its middle and stays level across its width; riders slow up climbs and run quicker down drops. Ground steeper than 45° is refused as a wall, and a track climbing or dropping more than 35% along its length is a warning. Old tracks without heights stay flat.</li>
-    <li><b>Race view:</b> you edit in the game's own race camera and 3D scene with hills, jumps, scenery and ground as a race draws them, and the lap map in its corner. Click, drag and right-click on the 3D ground; the keys are the same in every mode. Mouse wheel or <kbd>+</kbd> <kbd>−</kbd> zoom, <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or a middle-button (or <kbd>Space</kbd>+drag) pan, <kbd>[</kbd> <kbd>]</kbd> turn the view, <kbd>0</kbd> resets it. The selection is orange, problems red or dashed yellow. In Layout each section shows as a stripe in its kind's colour, with a cream line across the track where one section ends and the next begins. No race runs while you edit. Opened straight from disk, the race view runs the game from the published site (<code>bigdaddy284.github.io/The-Motocross-RPG</code>), so it needs an internet connection; with neither that nor <code>npm run dev</code>, the editor shows a plain map instead.</li>
+    <li><b>Race view:</b> you edit in the game's own race camera and 3D scene with hills, jumps, scenery and ground as a race draws them, and the lap map in its corner. Click, drag and right-click on the 3D ground; the keys are the same in every mode. Mouse wheel or <kbd>+</kbd> <kbd>−</kbd> zoom, <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or a middle-button (or <kbd>Space</kbd>+drag) pan, <kbd>[</kbd> <kbd>]</kbd>, the <b>⟲ Turn left</b> and <b>⟳ Turn right</b> buttons (bottom left) or a <kbd>Shift</kbd>+middle-button drag turn the view round the track, to see it from any side; <kbd>0</kbd> or <b>Reset view</b> goes back to the race camera's angle. Turning only changes the editor's view: clicks still land where the pointer is, and races always use the fixed race camera. The selection is orange, problems red or dashed yellow. In Layout each section shows as a stripe in its kind's colour, with a cream line across the track where one section ends and the next begins. No race runs while you edit. Opened straight from disk, the race view runs the game from the published site (<code>bigdaddy284.github.io/Motocross-RPG</code>), so it needs an internet connection; with neither that nor <code>npm run dev</code>, the editor shows a plain map instead.</li>
     <li><b>Modes:</b> <kbd>1</kbd> Layout, <kbd>2</kbd> Surfaces, <kbd>3</kbd> Ground, <kbd>4</kbd> Scenery, <kbd>5</kbd> Height.</li>
     <li><b>Export / Import</b> save one track as a <code>.track.json</code> file and add one back.</li>
     <li><b>Preview</b> <kbd>P</kbd> rides a dot round the lap, slower through the harder sections.</li>
@@ -2849,7 +2856,7 @@ $('#btnRide').addEventListener('click', () => {
 // checks, the unsaved marker and Save all work as before. No race runs in it.
 
 /** The published game, for an editor opened straight from disk (it can't run the game itself). */
-const PUBLISHED_GAME = 'https://bigdaddy284.github.io/The-Motocross-RPG/';
+const PUBLISHED_GAME = 'https://bigdaddy284.github.io/Motocross-RPG/';
 let raceViewReady = false;
 function openRaceView() {
   // Served (npm run dev, or the published site), the game is one folder up; opened from disk, the
@@ -2859,6 +2866,7 @@ function openRaceView() {
   const f = $('#view3d');
   if (!f.getAttribute('src')) f.src = served ? new URL('../?editview=1', location.href).href : `${PUBLISHED_GAME}?editview=1`;
   f.classList.add('on');
+  $('#camBar').classList.add('on');
   sendView();
   requestDraw();
   // No game answering (offline, or nothing serving it): the plain map stands in, with a note why.
@@ -2866,6 +2874,7 @@ function openRaceView() {
     if (raceViewReady) return;
     app.view3d = false;
     f.classList.remove('on');
+    $('#camBar').classList.remove('on');
     const note = document.createElement('div');
     note.id = 'noRaceView';
     note.textContent = served
@@ -2901,7 +2910,7 @@ window.addEventListener('message', (e) => {
   if (m.type === 'ready') {
     raceViewReady = true;
     document.querySelector('#noRaceView')?.remove();
-    if (!app.view3d) { app.view3d = true; f.classList.add('on'); requestDraw(); }
+    if (!app.view3d) { app.view3d = true; f.classList.add('on'); $('#camBar').classList.add('on'); requestDraw(); }
     sendView();
     return;
   }
@@ -2921,6 +2930,10 @@ for (const id of ['#hRadius', '#gBrush']) $(id).addEventListener('change', sendV
 for (const b of document.querySelectorAll('#modes button')) b.addEventListener('click', () => setMode(b.dataset.mode));
 for (const id of ['#btnHelp', '#btnHelp2']) $(id).addEventListener('click', () => $('#help').showModal());
 $('#btnHelpClose').addEventListener('click', () => $('#help').close());
+// The race view's turn buttons send the same camera keys as [ ] and 0.
+for (const [id, key] of [['#btnTurnL', '['], ['#btnTurnR', ']'], ['#btnViewReset', '0']]) {
+  $(id).addEventListener('click', () => $('#view3d').contentWindow?.postMessage({ type: 'camkey', key, down: true }, '*'));
+}
 
 window.addEventListener('keydown', (e) => {
   const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName ?? '');

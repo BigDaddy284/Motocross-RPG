@@ -41,11 +41,15 @@ const BOUND_EDGE = COLORS.ink;
 /** A section colour sent as '#rrggbb'; the map's "other" orange when missing. */
 const hexColor = (c: string | undefined) => (c && /^#[0-9a-f]{6}$/i.test(c) ? parseInt(c.slice(1), 16) : 0xf0a020);
 /** Rebuilding the 3D scene takes a moment, so a stream of changes (a brush stroke) rebuilds at most this often, in ms. */
+/** An angle in degrees, from 0 up to 360. */
+const wrapDeg = (a: number) => ((a % 360) + 360) % 360;
+
 const REBUILD_EVERY = 300;
 
 export class TrackEditScene extends Phaser.Scene {
   private view: RaceView | null = null;
   private holder!: Phaser.GameObjects.Container;
+  private turnLabel!: Phaser.GameObjects.Text;
   private state: EditViewState | null = null;
   private built = '';
   private pending = false;
@@ -53,6 +57,10 @@ export class TrackEditScene extends Phaser.Scene {
   private cam = { x: 50, z: 30, zoom: 1, az: 0 };
   private hover: { x: number; z: number } | null = null;
   private pan: { x: number; y: number; cx: number; cz: number } | null = null;
+  /** A Shift + middle-button drag turning the view: where it started and the turn then. */
+  private turn: { x: number; az: number } | null = null;
+  /** The turn the view is easing to, in degrees: [ ] and the editor's turn buttons move it 45° at a time. */
+  private azTo = 0;
   private space = false;
   private readonly keys = new Set<string>();
   /** What the picture last drawn showed (the camera, and the view's own changes); the view draws again only when something changes. */
@@ -67,8 +75,9 @@ export class TrackEditScene extends Phaser.Scene {
   create(): void {
     this.holder = this.add.container(0, 0);
     this.add
-      .text(10, 8, 'Race view · wheel or + − zoom · W A S D or middle-drag pan · [ ] turn · 0 reset', textStyle(13, COLORS.cream, { backgroundColor: '#000000a0', padding: { x: 6, y: 4 } }))
+      .text(10, 8, 'Race view · wheel or + − zoom · W A S D or middle-drag pan · [ ] or Shift + middle-drag turn · 0 reset', textStyle(13, COLORS.cream, { backgroundColor: '#000000a0', padding: { x: 6, y: 4 } }))
       .setDepth(10);
+    this.turnLabel = this.add.text(10, 36, '', textStyle(13, COLORS.cream, { backgroundColor: '#000000a0', padding: { x: 6, y: 4 } })).setDepth(10).setVisible(false);
     const status = this.add.text(10, 36, 'Waiting for the track editor…', textStyle(13, COLORS.cream, { backgroundColor: '#000000a0', padding: { x: 6, y: 4 } })).setDepth(10);
     const on = <K extends keyof WindowEventMap>(target: Window | HTMLElement, type: K, fn: (e: WindowEventMap[K]) => void, opts?: AddEventListenerOptions) => {
       target.addEventListener(type, fn as EventListener, opts);
@@ -100,6 +109,11 @@ export class TrackEditScene extends Phaser.Scene {
     on(canvas, 'contextmenu', (e) => e.preventDefault());
     on(canvas, 'pointerdown', (e) => {
       canvas.focus();
+      if (e.button === 1 && e.shiftKey) {
+        this.turn = { x: at(e).x, az: this.cam.az };
+        e.preventDefault();
+        return;
+      }
       if (e.button === 1 || (e.button === 0 && this.space)) {
         const p = at(e);
         this.pan = { x: p.x, y: p.y, cx: this.cam.x, cz: this.cam.z };
@@ -110,6 +124,12 @@ export class TrackEditScene extends Phaser.Scene {
       pointer('down', e);
     });
     on(canvas, 'pointermove', (e) => {
+      if (this.turn) {
+        // A quarter turn for every 225 pixels dragged, following the pointer at once.
+        this.azTo = wrapDeg(this.turn.az + ((at(e).x - this.turn.x) * 90) / 225);
+        this.cam.az = this.azTo;
+        return;
+      }
       if (this.pan && this.view) {
         // Drag the ground: the grid point under the pointer stays under it.
         const p = at(e);
@@ -127,6 +147,10 @@ export class TrackEditScene extends Phaser.Scene {
       pointer('move', e);
     });
     on(canvas, 'pointerup', (e) => {
+      if (this.turn) {
+        this.turn = null;
+        return;
+      }
       if (this.pan) {
         this.pan = null;
         return;
@@ -178,7 +202,7 @@ export class TrackEditScene extends Phaser.Scene {
     send({ type: 'ready' });
   }
 
-  /** The camera's keys: W A S D pan while held, [ ] turn, + − zoom, 0 resets. True if the key is one. */
+  /** The camera's keys: W A S D pan while held, [ ] turn 45° (smoothly), + − zoom, 0 resets. True if the key is one. */
   private camKey(key: string, down: boolean): boolean {
     const k = key.toLowerCase();
     if (key.length === 1 && 'wasd'.includes(k)) {
@@ -187,7 +211,7 @@ export class TrackEditScene extends Phaser.Scene {
       return true;
     }
     if (!down) return false;
-    if (key === '[' || key === ']') this.cam.az = (this.cam.az + (key === '[' ? -45 : 45) + 360) % 360;
+    if (key === '[' || key === ']') this.azTo = wrapDeg(this.azTo + (key === '[' ? -45 : 45));
     else if (key === '+' || key === '=') this.zoom(1.25);
     else if (key === '-' || key === '_') this.zoom(1 / 1.25);
     else if (key === '0') this.resetCam();
@@ -204,7 +228,8 @@ export class TrackEditScene extends Phaser.Scene {
     if (!t) return;
     const xs = t.path.map((p) => p[0]);
     const ys = t.path.map((p) => p[1]);
-    this.cam = { x: (Math.min(...xs) + Math.max(...xs)) / 2, z: (Math.min(...ys) + Math.max(...ys)) / 2, zoom: 0.45, az: 0 };
+    this.cam = { x: (Math.min(...xs) + Math.max(...xs)) / 2, z: (Math.min(...ys) + Math.max(...ys)) / 2, zoom: 0.45, az: this.cam.az };
+    this.azTo = 0;
   }
 
   /** Rebuilds the 3D scene for a changed track, at most every REBUILD_EVERY ms. */
@@ -250,6 +275,11 @@ export class TrackEditScene extends Phaser.Scene {
     this.cam.z += step * (mx * right.z + my * up.z);
     this.cam.x = Math.max(-10, Math.min(110, this.cam.x));
     this.cam.z = Math.max(-10, Math.min(70, this.cam.z));
+    // Turning eases to the angle asked for, the short way round, at up to 240° a second.
+    const dAz = ((this.azTo - this.cam.az + 540) % 360) - 180;
+    if (dAz !== 0) this.cam.az = Math.abs(dAz) < 0.5 ? this.azTo : wrapDeg(this.cam.az + Math.sign(dAz) * Math.min(Math.abs(dAz), Math.max(Math.abs(dAz) * 0.25, (240 * dtMs) / 1000)));
+    const turned = Math.round(this.cam.az) % 360;
+    this.turnLabel.setText(`View turned ${turned > 180 ? `${360 - turned}° left` : `${turned}° right`} · 0 or Reset view goes back`).setVisible(turned !== 0);
     v.editCam = this.cam;
     this.markBrush();
     if (this.state?.mode === 'layout' && Math.abs(Math.log(this.cam.zoom / this.markedZoom)) > 0.18) this.mark();
