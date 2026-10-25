@@ -51,7 +51,10 @@ export const RACING_SCHEMA: Schema = {
     note: { type: 'string' },
     sim: {
       type: 'object',
+      optional: ['firstCorner', 'pileup'],
       fields: {
+        firstCorner: { type: 'object', fields: { chance: SHARE, riders: RANGE } },
+        pileup: { type: 'object', fields: { chance: SHARE, window: N0, most: { type: 'number', integer: true, min: 1 } } },
         spread: N0,
         noise: N0,
         consistencyNoiseCut: SHARE,

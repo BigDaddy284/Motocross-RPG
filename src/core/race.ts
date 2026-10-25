@@ -70,6 +70,14 @@ export interface RacingData {
     rutSections: string[];
     cleanAir: { top: number; bonusPct: number; trafficAfter: number; penaltyPct: number };
     retireAtBroken: number;
+    /**
+     * First-corner incidents: on lap 1, in the lap's first corner, this chance that a crash takes
+     * riders down, how many at least and at most. Who goes down is drawn at random from the whole
+     * field, so it is never every race and never always the same rider.
+     */
+    firstCorner?: { chance: number; riders: [number, number] };
+    /** A crash collecting riders close behind: each rider arriving within `window` seconds has this chance of going down too, up to `most` of them. */
+    pileup?: { chance: number; window: number; most: number };
   };
   xp: {
     sectionFactor: number;
@@ -209,7 +217,7 @@ export interface Entrant {
 export type RaceEvent =
   | { kind: 'pass'; t: number; rider: string; other: string; section: number }
   | { kind: 'failedPass'; t: number; rider: string; other: string; section: number }
-  | { kind: 'mistake'; t: number; rider: string; section: number; outcome: MistakeOutcome['id']; lost: number; damaged: string[] }
+  | { kind: 'mistake'; t: number; rider: string; section: number; outcome: MistakeOutcome['id']; lost: number; damaged: string[]; /** The rider whose crash this one went down in, or 'first_corner' for a first-corner incident. */ with?: string }
   | { kind: 'breakdown'; t: number; rider: string; section: number; slot: string }
   | { kind: 'retire'; t: number; rider: string; reason: string };
 
@@ -423,6 +431,16 @@ export class MotoSim {
     const startTimes = new Map(active.map((r) => [r, r.time]));
     const cur = new Map(active.map((r) => [r, r.time]));
     const out = new Set<RiderState>();
+    // A first-corner incident on lap 1: the lap's own draw picks whether, how many and who.
+    const lapRng = seededRng(mixSeed(this.opts.seed, lap * 256 + 255));
+    const incident = new Set<RiderState>();
+    const fc = sim.firstCorner;
+    const firstCornerLeg = lap === 1 && fc && !this.opts.practice ? plan.secs.findIndex((si) => si >= 0 && this.racing.sections[this.track.sections[si].type]?.damage === 'corner') : -1;
+    if (firstCornerLeg >= 0 && fc && lapRng() < fc.chance) {
+      const pool = [...active];
+      const n = Math.min(pool.length, fc.riders[0] + Math.floor(lapRng() * (fc.riders[1] - fc.riders[0] + 1)));
+      for (let i = 0; i < n; i++) incident.add(pool.splice(Math.floor(lapRng() * pool.length), 1)[0]);
+    }
 
     plan.secs.forEach((si, leg) => {
       // The start straight rides as a start (gate bonus, start skills) in a race; in practice it's a straight.
@@ -433,16 +451,33 @@ export class MotoSim {
       // A section joined part way through on lap 1 is only partly ridden, with fewer chances to slip.
       const share = Math.min(1, sec.length / Math.max(1e-9, full.length));
       const done: RiderState[] = [];
+      // Crashes in this stretch so far: who went down and when, for riders close behind to be caught up in.
+      const crashes: { r: RiderState; at: number; took: number }[] = [];
       for (const r of order) {
         if (out.has(r)) continue;
         this.rng = draws.get(r)!;
         let t = this.sectionTime(r, sec, def, isStart ? r.e.gate : -1) * (air.get(r) ?? 1) * (si >= 0 ? this.grades[si] : 1);
-        const m = this.mistake(r, def, share);
+        let m = this.mistake(r, def, share);
+        let withWhom: string | undefined;
+        if (!m?.crash && leg === firstCornerLeg && incident.has(r)) {
+          m = this.crashOutcome();
+          withWhom = 'first_corner';
+        } else if (!m?.crash && sim.pileup && si >= 0) {
+          const here = cur.get(r)! + t;
+          const c = crashes.find((c) => c.took < sim.pileup!.most && Math.abs(here - c.at) <= sim.pileup!.window);
+          if (c && this.rng() < sim.pileup.chance) {
+            c.took++;
+            m = this.crashOutcome();
+            withWhom = c.r.e.id;
+          }
+        }
         if (m) {
+          const at = cur.get(r)! + t;
           const lost = m.timePct ? t * (m.timePct[0] + this.rng() * (m.timePct[1] - m.timePct[0])) / 100 : this.crashSeconds(r, m);
           t += lost;
           const damaged = m.crash ? this.crashDamage(r, def, !!m.serious) : [];
-          trace.events.push({ kind: 'mistake', t: cur.get(r)! + t, rider: r.e.id, section: si, outcome: m.id, lost, damaged });
+          if (m.crash) crashes.push({ r, at, took: 0 });
+          trace.events.push({ kind: 'mistake', t: cur.get(r)! + t, rider: r.e.id, section: si, outcome: m.id, lost, damaged, ...(withWhom ? { with: withWhom } : {}) });
         }
         let arrival = cur.get(r)! + t;
         // Passing: anyone ahead who would now arrive later has to be passed (Spec 10.3).
@@ -579,6 +614,15 @@ export class MotoSim {
       if (roll < 0) return sim.outcomes[i];
     }
     return sim.outcomes[0];
+  }
+
+  /** A crash outcome for a rider taken down by an incident: serious as often as serious crashes are among crashes. */
+  private crashOutcome(): MistakeOutcome {
+    const crashes = this.racing.sim.outcomes.filter((o) => o.crash);
+    const total = crashes.reduce((a, o) => a + o.share, 0);
+    let roll = this.rng() * total;
+    for (const o of crashes) { roll -= o.share; if (roll < 0) return o; }
+    return crashes[0] ?? this.racing.sim.outcomes[0];
   }
 
   private crashSeconds(r: RiderState, m: MistakeOutcome): number {
