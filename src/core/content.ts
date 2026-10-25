@@ -287,6 +287,15 @@ const SCHEMAS: Record<keyof typeof CONTENT_FILES, Schema> = {
 
 /** Checks raw file contents and returns the typed content, or every problem found. */
 export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<string, BakedMap>): { content: Content | null; errors: ContentError[] } {
+  // Unfinished tracks (draft: true, still being built in the track editor) stay in tracks.json but
+  // the game leaves them out: they aren't checked, raced or offered. A venue can't use one.
+  const drafts = new Map<string, string>();
+  const rawTracks = raw.tracks as { tracks?: unknown } | null;
+  if (rawTracks && Array.isArray(rawTracks.tracks)) {
+    const all = rawTracks.tracks as { draft?: unknown; id?: unknown; name?: unknown }[];
+    for (const t of all) if (t?.draft === true) drafts.set(String(t.id), String(t.name ?? t.id));
+    if (drafts.size) raw = { ...raw, tracks: { ...rawTracks, tracks: all.filter((t) => t?.draft !== true) } };
+  }
   const errors = (Object.keys(CONTENT_FILES) as (keyof typeof CONTENT_FILES)[]).flatMap((k) => validate(CONTENT_FILES[k], raw[k], SCHEMAS[k]));
   if (errors.length) return { content: null, errors };
 
@@ -324,6 +333,9 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
     }
   });
   errors.push(...checkCareerContent(content, maps));
+  content.tracks.venues.forEach((v, i) => {
+    if (v.track && drafts.has(v.track)) errors.push({ file: CONTENT_FILES.tracks, field: `venues[${i}].track`, message: `"${v.track}" (${drafts.get(v.track)}) is unfinished; mark it Ready to race in the track editor first` });
+  });
   errors.push(...checkRaceContent(content, maps));
   // Tile art isn't listed at run time; tests check it exists (tests/tracks.test.ts).
   errors.push(...checkTrackParts(content.trackParts, content.tracks.tracks, () => true));

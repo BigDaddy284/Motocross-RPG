@@ -30,7 +30,16 @@ export interface EditViewState {
   brush: { shape: 'circle'; r: number } | { shape: 'cells'; cell: number; n: number } | null;
   /** Each section's colour on the editor's map (by its kind, as '#rrggbb'), for the section lines in Layout. */
   sectionColors?: string[];
+  /**
+   * An unfinished track with its lap still open: the drawing past this fraction is the gap from its
+   * end back to its start (the last section), not drawn. 0 for an empty track, drawn as nothing.
+   */
+  gapFrom?: number;
+  /** The section piece being placed: its points, whether it can go there, and the ring it snaps on at (x, y, radius). */
+  ghost?: { pts: [number, number][]; level: 'ok' | 'warning' | 'error'; ring: [number, number, number] | null };
 }
+
+const GREEN = 0x34c759;
 
 const RED = 0xff3b30;
 const YELLOW = 0xffd60a;
@@ -226,6 +235,12 @@ export class TrackEditScene extends Phaser.Scene {
   private resetCam(): void {
     const t = this.state?.track;
     if (!t) return;
+    if (this.state?.gapFrom === 0) {
+      // Nothing built yet: the middle of the grid.
+      this.cam = { x: 50, z: 30, zoom: 0.45, az: this.cam.az };
+      this.azTo = 0;
+      return;
+    }
     const xs = t.path.map((p) => p[0]);
     const ys = t.path.map((p) => p[1]);
     this.cam = { x: (Math.min(...xs) + Math.max(...xs)) / 2, z: (Math.min(...ys) + Math.max(...ys)) / 2, zoom: 0.45, az: this.cam.az };
@@ -241,14 +256,14 @@ export class TrackEditScene extends Phaser.Scene {
     const st = this.state;
     if (!st || this.scale.width < 50 || this.scale.height < 50) return;
     const parts = st.parts ?? services.content.trackParts;
-    const key = JSON.stringify([st.track, parts === services.content.trackParts ? null : parts, this.scale.width, this.scale.height]);
+    const key = JSON.stringify([st.track, st.gapFrom, parts === services.content.trackParts ? null : parts, this.scale.width, this.scale.height]);
     if (key !== this.built) {
       const first = !this.built;
       this.built = key;
       // The new view takes over the old one's renderer (its WebGL context and shaders), then the old one goes.
       const old = this.view;
       const was = [...this.holder.list];
-      this.view = new RaceView(this, this.holder, structuredClone(st.track), parts, 0, 0, this.scale.width, this.scale.height, old?.gl);
+      this.view = new RaceView(this, this.holder, structuredClone(st.track), parts, 0, 0, this.scale.width, this.scale.height, old?.gl, { gapFrom: st.gapFrom });
       old?.destroy(true);
       for (const o of was) o.destroy();
       this.view.editCam = this.cam;
@@ -348,7 +363,9 @@ export class TrackEditScene extends Phaser.Scene {
       // kind's colour (as on the map), following the bends, and a line across the track where one
       // section ends and the next begins. The lap's start (the finish line) already has its own line.
       const b = sectionBounds(t);
-      const n = t.sections.length;
+      // An open lap's last section is the gap back to the start, which isn't drawn.
+      const open = st.gapFrom !== undefined;
+      const n = t.sections.length - (open ? 1 : 0);
       // A few pixels wide at any zoom: wider in grid units zoomed out, narrower zoomed in.
       this.markedZoom = this.cam.zoom;
       const k = Math.max(0.5, Math.min(2, 0.8 / this.cam.zoom));
@@ -362,13 +379,20 @@ export class TrackEditScene extends Phaser.Scene {
         line(along(b[i], b[i + 1]), sel ? SELECT : hexColor(st.sectionColors?.[i]), false, false, (sel ? 0.2 : 0.11) * k, 9);
       }
       for (let i = 1; i < n; i++) {
-        if (b[i] <= b[i - 1] || b[i] >= 1) continue;
+        if (b[i] <= b[i - 1] || b[i] >= 1 || (open && b[i] >= b[n])) continue;
         const across = Array.from({ length: 9 }, (_, j) => v.surface.spot(b[i], -1.05 + (2.1 * j) / 8));
         line(across, BOUND_EDGE, false, false, 0.14 * k, 9.5);
         line(across, BOUND, false, false, 0.07 * k, 9.6);
       }
       // The lap's points (white, the finish line's bigger) and the start straight's (blue).
-      t.path.forEach(([x, y], i) => line(ring(x, y, i === st.sel.pt ? 0.6 : i === 0 ? 0.5 : 0.35), i === st.sel.pt ? SELECT : 0xffffff, true));
+      if (st.gapFrom !== 0) t.path.forEach(([x, y], i) => line(ring(x, y, i === st.sel.pt ? 0.6 : i === 0 ? 0.5 : 0.35), i === st.sel.pt ? SELECT : 0xffffff, true));
+      // The piece being placed, as wide as the track, and the ring at the end of the track it snaps on at.
+      const g = st.ghost;
+      if (g) {
+        if (g.ring) line(ring(g.ring[0], g.ring[1], g.ring[2]), 0xffffff, true, true, 0.08 * k, 11);
+        const w = (t.width ?? 3.4) / 2;
+        line(g.pts.map(([x, y]) => ({ x, z: y })), g.level === 'error' ? RED : g.level === 'warning' ? YELLOW : GREEN, false, false, w, 11);
+      }
       (t.start?.path ?? []).forEach(([x, y], i) => line(rect(x, y, 0.6, 0.6, 0), i === st.sel.start ? SELECT : 0x4aa0ff, true));
     }
   }

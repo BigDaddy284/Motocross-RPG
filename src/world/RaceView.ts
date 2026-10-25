@@ -107,6 +107,12 @@ export class RaceView {
    * rider. A race never sets it.
    */
   editCam: { x: number; z: number; zoom: number; az: number } | null = null;
+  /**
+   * Set only by the track editor's race view, for an unfinished track whose lap isn't closed yet:
+   * the drawing past this fraction is the gap back to the start, which isn't drawn (no track, no
+   * grading of the ground, no line on the lap map). 1 (all of it drawn) otherwise.
+   */
+  private readonly gapFrom: number;
   /** The track editor's markers (selection, brush, checks), drawn over everything; empty in a race. */
   readonly overlay = new THREE.Group();
   /** Goes up when the picture changes by itself (the ground's art arriving), for a view that only draws on a change. */
@@ -140,7 +146,10 @@ export class RaceView {
     private readonly h: number,
     /** The track editor's race view passes the last view's renderer on, so a rebuild reuses its WebGL context and compiled shaders. */
     renderer?: THREE.WebGLRenderer,
+    /** The track editor's race view, for an unfinished track: see gapFrom. */
+    opts: { gapFrom?: number } = {},
   ) {
+    this.gapFrom = opts.gapFrom ?? 1;
     this.surface = new TrackSurface(track);
     const kind = trackKind(parts, track);
     this.follow = true;
@@ -262,7 +271,9 @@ export class RaceView {
     mg.fillStyle(COLORS.ink, 0.85).fillRoundedRect(this.mapBox.x - 6, this.mapBox.y - 6, mw + 12, GRID_H * mk + 12, 6);
     mg.lineStyle(4, 0xc98a4b, 1);
     mg.beginPath();
-    this.surface.g.pts.forEach((p, i) => (i ? mg.lineTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk) : mg.moveTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk)));
+    const steps = Math.max(1, Math.ceil(this.gapFrom * 200));
+    const lapPts = this.gapFrom < 1 ? Array.from({ length: steps + 1 }, (_, i) => pointAt(this.surface.g, (this.gapFrom * i) / steps)) : this.surface.g.pts;
+    if (this.gapFrom > 0) lapPts.forEach((p, i) => (i ? mg.lineTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk) : mg.moveTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk)));
     mg.strokePath();
     if (this.surface.start.total > 0) {
       mg.lineStyle(3, 0xc98a4b, 1);
@@ -271,7 +282,7 @@ export class RaceView {
       mg.strokePath();
     }
     const s0 = pointAt(this.surface.g, 0);
-    mg.fillStyle(0xffffff, 1).fillRect(this.mapBox.x + s0.x * mk - 2, this.mapBox.y + s0.y * mk - 2, 4, 4);
+    if (this.gapFrom > 0) mg.fillStyle(0xffffff, 1).fillRect(this.mapBox.x + s0.x * mk - 2, this.mapBox.y + s0.y * mk - 2, 4, 4);
     this.mapDots = scene.add.graphics();
     this.mapFrame = mg;
     parent.add([mg, this.mapDots]);
@@ -339,6 +350,7 @@ export class RaceView {
     const n = Math.ceil(s.g.total / 0.5);
     for (let i = 0; i < n; i++) {
       const f = i / n;
+      if (f > this.gapFrom) break;
       const p = s.spot(f, 0);
       const e = s.centre(f);
       if (s.onHill(f) && e > 0.05) hills.push({ x: p.x, z: p.z, e });
@@ -361,6 +373,7 @@ export class RaceView {
       const mid: { x: number; z: number; r: number; l: number }[] = [];
       for (let i = 0; i < n; i++) {
         const f = i / n;
+        if (f > this.gapFrom) break;
         const p = s.spot(f, 0);
         mid.push({ x: p.x, z: p.z, r: s.hw * (LIP_AT + Math.max(s.skirt(f, -1), s.skirt(f, 1))), l: s.lift(f) });
       }
@@ -536,6 +549,7 @@ export class RaceView {
     }
     const idx: number[] = [];
     for (let i = 0; i < rows; i++) {
+      if ((i + 1) / rows > this.gapFrom + 1e-9) break;
       const a = i * cols;
       const b = ((i + 1) % rows) * cols;
       for (let j = 0; j < cols - 1; j++) idx.push(a + j, b + j, a + j + 1, a + j + 1, b + j, b + j + 1);
