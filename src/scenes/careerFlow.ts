@@ -48,6 +48,8 @@ export function newCareer(scene: Phaser.Scene, pick: { look: string; name: strin
     flags: {},
     stats: { playSeconds: 0 },
     career: newCareerState(bikes, story, pick.brand),
+    van: null,
+    driving: false,
   };
   const saved = services.saves.write(CAREER_SLOT, data);
   scene.scene.start('world', { save: saved, intro: true });

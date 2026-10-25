@@ -11,9 +11,10 @@ import { COLORS, textStyle } from '../ui/theme';
 import { START_MAP } from './careerFlow';
 import type { RaceSceneData } from './RaceScene';
 import { view } from '../ui/view';
+import { vanTexture } from '../world/VanView';
 
 // Loads the manifest, every baked map's data and the content files, checks them all, then loads
-// the character sheets. Map images load later, the first time each map is visited.
+// the character and van sheets. Map images load later, the first time each map is visited.
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -36,6 +37,7 @@ export class BootScene extends Phaser.Scene {
       this.load.spritesheet(`chr:${id}:walk`, `assets/${sheet.walk}`, { frameWidth: fw, frameHeight: fh });
       this.load.spritesheet(`chr:${id}:act`, `assets/${sheet.act}`, { frameWidth: fw, frameHeight: fh });
     }
+    for (const [id, sheet] of Object.entries(manifest.vehicles ?? {})) this.load.image(vanTexture(id), `assets/${sheet.image}`);
     this.load.once('complete', () => this.finish(manifest));
     this.load.start();
   }
@@ -67,7 +69,7 @@ export class BootScene extends Phaser.Scene {
     const track = tracks.tracks.find((t) => t.id === trackId)!;
     const career = newCareerState(bikes, story, bikes.brands[0].id);
     for (const part of Object.values(career.bike.parts)) part.condition = 1;
-    const save: SaveData = { version: SAVE_VERSION, savedAt: new Date().toISOString(), rider: { name: 'Tester', look: '' }, position: { map: START_MAP, x: 0, y: 0, facing: 'down' }, flags: { first_race_done: true }, stats: { playSeconds: 0 }, career };
+    const save: SaveData = { version: SAVE_VERSION, savedAt: new Date().toISOString(), rider: { name: 'Tester', look: '' }, position: { map: START_MAP, x: 0, y: 0, facing: 'down' }, flags: { first_race_done: true }, stats: { playSeconds: 0 }, career, van: null, driving: false };
     const venue: VenueDef = { id: `test-${trackId}`, name: track.name, map: START_MAP, track: trackId, class: '50cc', field: 'area1.local' };
     const data: RaceSceneData = { mode: track.practiceOnly ? 'practice' : 'raceday', venue, save, fee: 0, onDone: () => this.scene.start('menu') };
     this.scene.start('race', data);

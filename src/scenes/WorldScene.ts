@@ -7,18 +7,23 @@ import { findPathToAny, findPathTowards, standingTiles } from '../core/pathfindi
 import type { SaveData } from '../core/saves';
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
 import { applyMapState, clearedPatches, hiddenSprites } from '../core/mapState';
-import { WORLD_MAP, spawnTile, stepTriggerAt } from '../core/travel';
+import { WORLD_MAP, spawnTile, stepTriggerAt, type Arrival } from '../core/travel';
+import { DriveMap, FACING_OF, ensureVan, exitTile, footprint, inwardHeading, nearestFree, placeNear, planDrive, steer, HEADING_OF, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { entryFee, practiceFee, venueProblem, type VenueDef } from '../core/raceDay';
 import { noteActivity, shopForAction, type ShopDef } from '../core/shops';
 import { CAREER_SLOT, services } from '../services';
 import { Character, TILE } from '../world/Character';
 import { MapView, OVERHEAD_DEPTH, isMapCached, loadMapImages } from '../world/MapView';
 import { actionMessage } from '../world/messages';
+import { VanView } from '../world/VanView';
 import type { HudScene } from './HudScene';
 import type { RaceSceneData } from './RaceScene';
 
-// The walkable world: one map at a time, the player, NPCs, doors and exits.
+// The walkable world: one map at a time, the player, NPCs, doors and exits, and the player's van.
 // Changing map restarts this scene with the arrival tile, so nothing from the old map lingers.
+// The van is a solid footprint on the grid. Getting in hides the rider, who then drives it with
+// the same keys and clicks; driving through an exit takes the van to the next map, and getting
+// out leaves it parked where it stands (the save's van record).
 
 /** Autosave every 5 minutes outside menus, plus on every map change (Spec 21b, Boss: 3 to 5 minutes). */
 const AUTOSAVE_MS = 5 * 60 * 1000;
@@ -45,7 +50,8 @@ interface Shift {
 type Target =
   | { kind: 'npc'; placement: NpcPlacement; character: Character }
   | { kind: 'object'; object: MapObject; tiles: Tile[] }
-  | { kind: 'venue'; venue: VenueDef; tiles: Tile[] };
+  | { kind: 'venue'; venue: VenueDef; tiles: Tile[] }
+  | { kind: 'van'; tiles: Tile[] };
 
 export class WorldScene extends Phaser.Scene {
   private save!: SaveData;
@@ -64,6 +70,11 @@ export class WorldScene extends Phaser.Scene {
   private intro = false;
   private shift: Shift | null = null;
   private stationMarks: Phaser.GameObjects.GameObject[] = [];
+  /** The player's van, when it is parked (or being driven) on this map. */
+  private van: VanView | null = null;
+  private drive!: DriveMap;
+  private moves: Move[] = [];
+  private lastBumpToast = 0;
 
   constructor() {
     super('world');
@@ -79,6 +90,8 @@ export class WorldScene extends Phaser.Scene {
     this.onArrive = null;
     this.walking = false;
     this.busy = true;
+    this.van = null;
+    this.moves = [];
   }
 
   async create(): Promise<void> {
@@ -102,7 +115,13 @@ export class WorldScene extends Phaser.Scene {
       const character = new Character(this, p.npc.sprite, p, p.facing);
       this.npcs.push({ placement: p, character });
     }
-    const { x, y, facing } = this.save.position;
+    this.drive = new DriveMap(map, this.grid, services.content.vehicles.drivable);
+    this.drive.setNpcTiles(this.npcs.map((n) => ({ x: n.placement.x, y: n.placement.y })));
+    this.setupVan();
+    let { x, y } = this.save.position;
+    const { facing } = this.save.position;
+    // Arriving on foot where the van is parked: step off to the nearest clear tile.
+    if (!this.driving && !this.grid.isFree(x, y)) ({ x, y } = nearestFree(this.grid, { x, y }) ?? { x, y });
     this.player = new Character(this, this.save.rider.look, { x, y }, facing);
     // While overlapping an NPC, the player draws on top of them.
     this.player.depthFloor = () => {
@@ -116,7 +135,9 @@ export class WorldScene extends Phaser.Scene {
     this.player.placeAt({ x, y });
 
     const cam = this.cameras.main;
-    cam.startFollow(this.player.sprite, true, 0.2, 0.2, 0, TILE / 2);
+    this.hud.setDriving(false);
+    if (this.driving) this.sitInVan();
+    else cam.startFollow(this.player.sprite, true, 0.2, 0.2, 0, TILE / 2);
     cam.setRoundPixels(true);
     this.applyZoom();
     const unsub = services.settings.onChange(() => this.applyZoom());
@@ -158,6 +179,10 @@ export class WorldScene extends Phaser.Scene {
     if (!this.busy && !this.hud.isDialogueOpen()) this.save.stats.playSeconds += delta / 1000;
     if (this.busy || this.walking || this.hud.isDialogueOpen()) return;
     const dir = this.heldDirection();
+    if (this.driving) {
+      if (dir) this.steerVan(dir);
+      return;
+    }
     if (dir) {
       this.path = [];
       this.onArrive = null;
@@ -235,6 +260,10 @@ export class WorldScene extends Phaser.Scene {
 
   private clickAt(wx: number, wy: number): void {
     const tile = { x: Math.floor(wx / TILE), y: Math.floor(wy / TILE) };
+    if (this.driving) {
+      this.clickDriving(tile, wx, wy);
+      return;
+    }
     const target = this.targetAt(tile, wx, wy);
     if (target) {
       this.approach(target);
@@ -250,6 +279,10 @@ export class WorldScene extends Phaser.Scene {
     for (const n of this.npcs) {
       const b = n.character.sprite.getBounds();
       if (b.contains(wx, wy) || (n.placement.x === tile.x && n.placement.y === tile.y)) return { kind: 'npc', placement: n.placement, character: n.character };
+    }
+    if (this.van) {
+      const tiles = footprint(this.van.pose, this.van.design.length);
+      if (tiles.some((t) => t.x === tile.x && t.y === tile.y) || this.van.contains(wx, wy)) return { kind: 'van', tiles };
     }
     for (const o of this.map.objects) {
       if (!actionMessage(o)) continue;
@@ -296,6 +329,10 @@ export class WorldScene extends Phaser.Scene {
   interactFacing(): void {
     if (this.busy || this.walking) return;
     if (this.hud.isDialogueOpen()) return;
+    if (this.driving) {
+      this.getOut();
+      return;
+    }
     const d = STEPS[['down', 'left', 'right', 'up'].indexOf(this.player.facing)];
     const t = { x: this.player.tile.x + d.x, y: this.player.tile.y + d.y };
     const target = this.targetAt(t, -1, -1);
@@ -309,6 +346,10 @@ export class WorldScene extends Phaser.Scene {
     }
     if (target.kind === 'venue') {
       this.openVenue(target.venue);
+      return;
+    }
+    if (target.kind === 'van') {
+      this.offerVan();
       return;
     }
     const o = target.object;
@@ -442,7 +483,7 @@ export class WorldScene extends Phaser.Scene {
     const hidden = hiddenSprites(this.map, this.save.flags);
     if (!hidden.size) return;
     this.time.delayedCall(300, () => {
-      this.save.position = { map: this.map.id, x: this.player.tile.x, y: this.player.tile.y, facing: this.player.facing };
+      this.save.position = this.snapshot().position;
       this.scene.restart({ save: this.save });
     });
   }
@@ -602,6 +643,230 @@ export class WorldScene extends Phaser.Scene {
     });
   }
 
+  // ---- the van (Boss's brief, 24 Oct 2026: one van, driven on the area maps, parked where it is left) ----
+
+  private get driving(): boolean {
+    return this.save.driving;
+  }
+
+  private designOf(id: string): VanDesign {
+    const { designs, starter } = services.content.vehicles;
+    return designs.find((d) => d.id === id) ?? designs.find((d) => d.id === starter.design)!;
+  }
+
+  /** Draws the van if it is parked on this map and makes its tiles solid to walkers. */
+  private setupVan(): void {
+    const dev = new URLSearchParams(window.location.search).get('van');
+    const state = ensureVan(this.save, services.content.vehicles, dev);
+    if (!state || state.map !== this.map.id) {
+      this.save.driving = false;
+      return;
+    }
+    const design = this.designOf(state.design);
+    state.design = design.id;
+    let pose: VanPose = { x: state.x, y: state.y, heading: state.heading };
+    // A design swap or a map change can leave the van where it no longer fits: move it to the nearest spot that does.
+    if (!this.drive.fits(pose, design.length)) {
+      const moved = placeNear(this.drive, pose, design.length, pose.heading, 12, (t) => !!stepTriggerAt(this.map, t));
+      if (moved) pose = moved;
+    }
+    Object.assign(state, pose);
+    const sheet = services.manifest.vehicles?.[design.id];
+    if (!sheet) {
+      this.save.driving = false;
+      return;
+    }
+    this.van = new VanView(this, design, sheet, pose);
+    this.occupyVan(true);
+  }
+
+  private occupyVan(on: boolean): void {
+    if (!this.van) return;
+    for (const t of footprint(this.van.pose, this.van.design.length)) this.grid.setOccupied(t, on);
+  }
+
+  /** The rider is in the cab: hide them, follow the van and show the Get out button. */
+  private sitInVan(): void {
+    if (!this.van) return;
+    this.player.sprite.setVisible(false);
+    this.player.shadow.setVisible(false);
+    this.player.placeAt(this.van.pose);
+    this.van.setDriver(this.save.rider.look);
+    this.cameras.main.startFollow(this.van.sprite, true, 0.2, 0.2);
+    this.hud.setDriving(true);
+  }
+
+  /** Clicked or used while parked: drive it, open the back for the bag, or leave it. */
+  private offerVan(): void {
+    const van = this.van;
+    if (!van) return;
+    this.player.reach();
+    this.hud.choose(van.design.name, 'Get in and drive, or open the back to get at your bag and spares.', [
+      { label: 'Drive', note: 'Arrow keys or WASD to drive, or click the road to drive there. E or Get out to stop.', onPick: () => this.getIn() },
+      { label: 'Open the back', note: 'Your bag and spares.', onPick: () => this.openBack() },
+      { label: 'Not now', onPick: () => this.player.idle() },
+    ], () => this.player.idle());
+  }
+
+  private openBack(): void {
+    const van = this.van;
+    if (!van) return;
+    van.setOpen(true);
+    this.hud.openPanel('bag', () => {
+      van.setOpen(false);
+      this.player.idle();
+    });
+  }
+
+  private getIn(): void {
+    if (!this.van) return;
+    this.path = [];
+    this.onArrive = null;
+    this.save.driving = true;
+    this.player.stopWalking();
+    this.sitInVan();
+    this.quickSave();
+  }
+
+  /** Steps out on the driver's side if it is clear, otherwise wherever there is room. The van stays put. */
+  getOut(): void {
+    const van = this.van;
+    if (!van || !this.driving || this.walking || this.busy) return;
+    const len = van.design.length;
+    const t = exitTile(this.grid, van.pose, len, (c) => this.drive.isNpc(c.x, c.y) || !!stepTriggerAt(this.map, c));
+    if (!t) {
+      this.hud.toast("There's no room to get out here.");
+      return;
+    }
+    this.moves = [];
+    this.save.driving = false;
+    van.setDriver(null);
+    this.player.placeAt(t);
+    const near = footprint(van.pose, len).reduce((a, c) => (dist(c, t) < dist(a, t) ? c : a));
+    this.player.faceTowards({ x: 2 * t.x - near.x, y: 2 * t.y - near.y });
+    this.player.sprite.setVisible(true);
+    this.player.shadow.setVisible(true);
+    this.player.idle();
+    this.cameras.main.startFollow(this.player.sprite, true, 0.2, 0.2, 0, TILE / 2);
+    this.hud.setDriving(false);
+    this.quickSave();
+  }
+
+  /** A held key: ahead drives on, a side turns, back turns round (or reverses where there's no room). */
+  private steerVan(dir: Tile): void {
+    const van = this.van!;
+    this.moves = [];
+    const want = HEADING_OF[['down', 'left', 'right', 'up'][STEPS.indexOf(dir)] as Facing];
+    const m = steer(this.drive, van.pose, van.design.length, want);
+    if (m) {
+      void this.driveMoves([m]);
+      return;
+    }
+    const now = this.time.now;
+    if (now - this.lastBumpToast < 1500) return;
+    this.lastBumpToast = now;
+    const ahead = footprint({ ...van.pose, x: van.pose.x + dir.x, y: van.pose.y + dir.y }, 1)[0];
+    if (want === van.pose.heading && this.drive.isNpc(ahead.x, ahead.y)) this.hud.toast("Someone's in the way.");
+    else if (want !== van.pose.heading) this.hud.toast(`No room to turn the ${van.design.name} here.`);
+  }
+
+  /** Clicks while driving: the van drives to the spot, or the rider gets out when the van itself is clicked. */
+  private clickDriving(tile: Tile, wx: number, wy: number): void {
+    const van = this.van!;
+    if (footprint(van.pose, van.design.length).some((t) => t.x === tile.x && t.y === tile.y) || van.contains(wx, wy)) {
+      if (!this.walking) this.getOut();
+      return;
+    }
+    const plan = planDrive(this.drive, van.pose, van.design.length, tile);
+    if (!plan) {
+      this.hud.toast(`The ${van.design.name} can't get there.`);
+      return;
+    }
+    this.markTarget(tile.x * TILE + TILE / 2, tile.y * TILE + TILE / 2);
+    this.moves = plan;
+    if (!this.walking) void this.driveMoves([]);
+  }
+
+  /** Drives the queued moves, checking exits under every tile the van moves onto. */
+  private async driveMoves(moves: Move[]): Promise<void> {
+    const van = this.van!;
+    const len = van.design.length;
+    if (moves.length) this.moves = moves;
+    this.walking = true;
+    while (this.moves.length && this.driving) {
+      const m = this.moves.shift()!;
+      this.occupyVan(false);
+      if (!this.drive.fits(m.to, len)) {
+        this.occupyVan(true);
+        this.moves = [];
+        break;
+      }
+      const before = footprint(van.pose, len);
+      const view = van.move(m);
+      Object.assign(this.save.van!, van.pose);
+      this.occupyVan(true);
+      this.player.placeAt(van.pose);
+      await view;
+      if (this.checkVanTrigger(before)) {
+        this.walking = false;
+        return;
+      }
+      // Keep driving while a key is held at the end of a keyboard move.
+      if (!this.moves.length) {
+        const dir = this.heldDirection();
+        const want = dir && HEADING_OF[['down', 'left', 'right', 'up'][STEPS.indexOf(dir)] as Facing];
+        const next = want && steer(this.drive, van.pose, len, want);
+        if (next) this.moves.push(next);
+      }
+    }
+    this.walking = false;
+    this.quickSave();
+  }
+
+  /** Handles an exit under a tile the van has just moved onto. Returns true when it is leaving the map. */
+  private checkVanTrigger(before: Tile[]): boolean {
+    const van = this.van!;
+    const fresh = footprint(van.pose, van.design.length).filter((t) => !before.some((b) => b.x === t.x && b.y === t.y));
+    for (const t of fresh) {
+      const via = stepTriggerAt(this.map, t);
+      if (!via || via.type !== 'exit') continue;
+      const r = services.travel.resolve(this.map, via, this.save.flags);
+      if (!r) continue;
+      this.moves = [];
+      if (r.kind === 'blocked') this.hud.toast(r.message);
+      else if (r.kind === 'worldMap') this.openWorldMap();
+      else return this.driveTo(r.to);
+      return false;
+    }
+    return false;
+  }
+
+  /**
+   * Takes the van to another map's arrival point: parked on the nearest free spot there, pointing
+   * into the map. Returns false (and stays) when the van has nowhere to fit.
+   */
+  private driveTo(to: Arrival): boolean {
+    const van = this.van!;
+    const target = services.maps.get(to.map);
+    const pose = target && placeNear(this.driveMapFor(target), to.tile, van.design.length, inwardHeading(target, to.tile), 12, (t) => !!stepTriggerAt(target, t));
+    if (!target || !pose) {
+      this.hud.toast(`There's no room for the ${van.design.name} over there.`);
+      return false;
+    }
+    this.save.van = { design: van.design.id, map: target.id, ...pose };
+    this.leaveTo({ map: target.id, x: pose.x, y: pose.y, facing: FACING_OF[pose.heading] });
+    return true;
+  }
+
+  /** Where a van can go on another map, with its story changes and NPCs, as the scene would build it. */
+  private driveMapFor(map: BakedMap): DriveMap {
+    const grid = Grid.fromMap(map);
+    applyMapState(map, grid, this.save.flags);
+    const dm = new DriveMap(map, grid, services.content.vehicles.drivable);
+    dm.setNpcTiles(npcsOnMap(services.content, map).map((p) => ({ x: p.x, y: p.y })));
+    return dm;
+  }
+
   // ---- the world map ----
 
   private openWorldMap(): void {
@@ -609,7 +874,8 @@ export class WorldScene extends Phaser.Scene {
       const target = services.maps.get(mapId);
       const tile = target && spawnTile(target, spawn);
       if (!target || !tile) return;
-      this.leaveTo({ map: mapId, x: tile.x, y: tile.y, facing: 'up' });
+      if (this.driving) this.driveTo({ map: mapId, tile });
+      else this.leaveTo({ map: mapId, x: tile.x, y: tile.y, facing: 'up' });
     });
   }
 
@@ -689,6 +955,7 @@ export class WorldScene extends Phaser.Scene {
     if (this.shift) this.endShift(`Shift ended: ${this.shift.made} ${this.shift.job.product}s made.`);
     this.busy = true;
     this.path = [];
+    this.moves = [];
     this.player.stopWalking();
     this.save.position = position;
     this.cameras.main.fadeOut(200, 20, 20, 30);
@@ -701,6 +968,10 @@ export class WorldScene extends Phaser.Scene {
   // ---- saving ----
 
   private snapshot(): SaveData {
+    if (this.driving && this.van) {
+      const v = this.van.pose;
+      return { ...this.save, position: { map: this.map.id, x: v.x, y: v.y, facing: FACING_OF[v.heading] } };
+    }
     const p = this.player?.tile ?? this.save.position;
     return { ...this.save, position: { map: this.map.id, x: p.x, y: p.y, facing: this.player?.facing ?? 'down' } };
   }

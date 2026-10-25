@@ -1,13 +1,14 @@
 import type { CareerState } from './career';
 import type { Facing } from './mapTypes';
 import type { KeyValueStore } from './storage';
+import { HEADINGS, type VanState } from './vehicles';
 
 // Versioned career saves with rotating backups (Spec 21b, section 22 Foundation):
 // - every write moves the current save into backup 1, backup 1 into 2, and so on up to 5;
 // - a save from an older build loads through the migration steps below;
 // - a save that cannot be read is kept under a "corrupt" key and the newest good backup is offered.
 
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 export const BACKUP_COUNT = 5;
 
 export interface SaveData {
@@ -19,6 +20,13 @@ export interface SaveData {
   flags: Record<string, boolean>;
   stats: { playSeconds: number };
   career: CareerState;
+  /**
+   * The player's van: one at a time (Boss, 24 Oct 2026), parked where it was left. Null until
+   * the opening chain sells it; the world places it at the starter spot on the next map load.
+   */
+  van: VanState | null;
+  /** True while the rider is driving the van; the position is then the van's front tile. */
+  driving: boolean;
 }
 
 const V1_SLOTS = ['frame', 'top_end', 'bottom_end', 'intake_exhaust', 'drivetrain', 'forks', 'shock', 'wheels_tyres', 'brakes', 'bodywork'];
@@ -40,6 +48,8 @@ const MIGRATIONS: Record<number, Migration> = {
   }),
   // Test build 0.2 had no skills: every skill starts at level 1.
   2: (old) => ({ ...old, career: { ...(old.career as Record<string, unknown>), skills: { xp: {}, bonus: {} } } }),
+  // Test build 3 had no van on the map: a bought van turns up at the starter spot on loading.
+  3: (old) => ({ ...old, van: null, driving: false }),
 };
 
 export type LoadResult =
@@ -161,8 +171,15 @@ function isSaveData(o: Record<string, unknown>): o is SaveData & Record<string, 
     ['down', 'left', 'right', 'up'].includes(p.facing as string) &&
     typeof o.flags === 'object' && o.flags !== null &&
     typeof (o.stats as Record<string, unknown> | undefined)?.playSeconds === 'number' &&
-    isCareer(o.career)
+    isCareer(o.career) &&
+    (o.van === null || isVan(o.van)) &&
+    typeof o.driving === 'boolean'
   );
+}
+
+function isVan(v: unknown): boolean {
+  const s = v as Record<string, unknown>;
+  return typeof s === 'object' && s !== null && typeof s.design === 'string' && typeof s.map === 'string' && Number.isInteger(s.x) && Number.isInteger(s.y) && HEADINGS.includes(s.heading as never);
 }
 
 function isCareer(v: unknown): boolean {
