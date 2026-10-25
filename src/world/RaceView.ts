@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { SceneryItem, TrackDef } from '../core/race';
 import { START_HOLD, type RiderPose } from '../core/riderAI';
+import { CHEER_ITEM, CHEER_RANGE, CHEER_WALK, cheerAction, cheerColour, cheerRoute, cheerTiming, cheerVariant, REACT_SECONDS, VARIANT_SCALE, type CheerAction } from '../core/cheer';
 import { alongRoute, OFFICIAL_ITEM, OFFICIAL_SCALE, officialPlan, placedOfficial, routeLength, walkProgress, BOARD_MOVE, BOARD_SIDEWAYS, WALK_FROM, WALK_TO, type OfficialSpot } from '../core/startOfficial';
 import { pointAt, START_PAD, startPointAt } from '../core/trackGeom';
 import { GRID_H, GRID_W, trackKind, type TrackPartsData } from '../core/trackParts';
@@ -46,6 +47,26 @@ export interface ViewRider {
   look?: RaceLook;
 }
 
+/** A cheering fan in the scene (cheerFigure, updateCheers). */
+export interface Cheer {
+  i: number;
+  group: THREE.Group;
+  figure: THREE.Group;
+  legs: THREE.Group[];
+  arms: THREE.Group[];
+  body: THREE.Mesh;
+  action: CheerAction;
+  route: { x: number; y: number }[];
+  length: number;
+  walked: number;
+  facing: number;
+  /** When they may next react (view seconds), when the current reaction began, and their own rest and delay. */
+  restUntil: number;
+  reactAt: number;
+  rest: number;
+  delay: number;
+  phase: number;
+}
 interface Bike {
   root: THREE.Group;
   body: THREE.Group;
@@ -127,6 +148,9 @@ export class RaceView {
   /** The start gate's pickets, hinged at the bottom so they drop flat when the race starts. */
   private gateDrop: THREE.Group | null = null;
   /** The official holding the start board beside the start straight, and the board itself. */
+  /** The cheering fans (scenery type cheer): walk in on load, then react to bikes passing (updateCheers). */
+  readonly cheers: Cheer[] = [];
+  private cheerClock = 0;
   private board: { stand: THREE.Group; panel: THREE.Group; arms: THREE.Group[]; legs: THREE.Group[]; route: OfficialSpot[]; length: number } | null = null;
   /** False for practice, which has no start procedure: the start board stays down. */
   hasStart = true;
@@ -232,7 +256,8 @@ export class RaceView {
       this.scene3.add(obj);
       obj.updateMatrixWorld(true);
       const box = new THREE.Box3().setFromObject(obj);
-      if (box.max.y < 1.2) {
+      // Fans move, so they are never baked into the still scenery.
+      if (box.max.y < 1.2 && it.type !== CHEER_ITEM) {
         const plain: THREE.Mesh[] = [];
         obj.traverse((o) => {
           const m = o as THREE.Mesh;
@@ -992,6 +1017,9 @@ export class RaceView {
       case 'crowd':
         this.fans(g, w, d, 0, 0, 0, Math.round(w * d * 1.4), 7);
         break;
+      case CHEER_ITEM:
+        this.cheerFigure(g, it);
+        break;
       case 'pit_tent': {
         for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) add(this.boxMesh(0.08, 1.9, 0.08, this.mat(0xcccccc), (sx * w) / 2.1, 0, (sz * d) / 2.1));
         const roof = new THREE.Mesh(new THREE.ConeGeometry(Math.hypot(w, d) / 2, 0.9, 4), this.mat(color));
@@ -1093,6 +1121,138 @@ export class RaceView {
   }
 
   /** Spectators: small figures in many colours, standing on a patch of ground or a stand step. */
+  /**
+   * A cheering fan: the same box figure as the official (legs, body, head, arms that swing at the
+   * shoulder), sized by its variant and dressed in its colour. Placed where the item is; if it
+   * has a route it walks in along it when the view starts (updateCheers), and stands at the end
+   * facing the track.
+   */
+  private cheerFigure(g: THREE.Group, it: SceneryItem): void {
+    const i = (this.track.scenery ?? []).indexOf(it);
+    const variant = cheerVariant(it, i);
+    const sc = VARIANT_SCALE[variant];
+    const figure = new THREE.Group();
+    figure.scale.set(OFFICIAL_SCALE * sc.w, OFFICIAL_SCALE * sc.h, OFFICIAL_SCALE * sc.w);
+    const kit = this.mat(hex(cheerColour(it, i), 0xe04040));
+    const trousers = this.mat([0x2a3a5a, 0x4a4a50, 0x6a5040, 0x3a5a3a][Math.floor(noise(i * 17 + 9) * 4)]);
+    const skin = this.mat([0xe0b090, 0xc08860, 0x8a5a3a, 0xf0d0b0][Math.floor(noise(i * 19 + 11) * 4)]);
+    const legs = [-0.1, 0.1].map((x) => {
+      const leg = new THREE.Group();
+      leg.position.set(x, 0.7, 0);
+      leg.add(this.boxMesh(0.12, 0.7, 0.14, trousers, 0, -0.7, 0));
+      figure.add(leg);
+      return leg;
+    });
+    const body = this.boxMesh(0.42, 0.62, 0.24, kit, 0, 0.7, 0);
+    figure.add(body);
+    figure.add(this.boxMesh(0.22, 0.22, 0.22, skin, 0, 1.34, 0));
+    const arms = [-1, 1].map((sd) => {
+      const arm = new THREE.Group();
+      arm.position.set(sd * 0.27, 1.24, 0.04);
+      arm.add(this.boxMesh(0.09, 0.8, 0.09, skin, 0, -0.3, 0));
+      figure.add(arm);
+      return arm;
+    });
+    g.add(figure);
+    const route = cheerRoute(it);
+    // Where they end up they face the track (the nearest point of it), unless turned by hand.
+    const end = route[route.length - 1];
+    let facing = -(((it.rot ?? 0) * Math.PI) / 180);
+    if (it.rot === undefined) {
+      let best = Infinity;
+      let fx = end.x + 1;
+      let fy = end.y;
+      for (let f = 0; f < 1; f += 0.005) {
+        const p = this.surface.spot(f, 0);
+        const d = Math.hypot(p.x - end.x, p.z - end.y);
+        if (d < best) { best = d; fx = p.x; fy = p.z; }
+      }
+      facing = -Math.atan2(fy - end.y, fx - end.x) + Math.PI / 2;
+    }
+    const tm = cheerTiming(i);
+    this.cheers.push({ i, group: g, figure, legs, arms, body, action: cheerAction(it, i), route, length: routeLength(route), walked: 0, facing, restUntil: tm.delay, reactAt: -Infinity, rest: tm.rest, delay: tm.delay, phase: noise(i * 23 + 13) * Math.PI * 2 });
+    g.rotation.y = route.length > 1 ? -Math.atan2(route[1].y - route[0].y, route[1].x - route[0].x) + Math.PI / 2 : facing;
+  }
+
+  /**
+   * Moves the fans on by dt seconds: walking in along their route when the view starts (a steady
+   * walking pace, never a jump), and, standing, reacting to a bike within CHEER_RANGE with their
+   * own action, each after their own delay and with their own rest between, so a crowd never moves
+   * as one. Cheap: one distance a fan a bike.
+   */
+  updateCheers(dt: number, bikes: { x: number; z: number }[]): void {
+    if (!this.cheers.length) return;
+    this.cheerClock += dt;
+    const now = this.cheerClock;
+    const r2 = CHEER_RANGE * CHEER_RANGE;
+    for (const c of this.cheers) {
+      const walking = c.walked < c.length;
+      if (walking) {
+        const before = alongRoute(c.route, c.walked);
+        c.walked = Math.min(c.length, c.walked + CHEER_WALK * dt);
+        const at = alongRoute(c.route, c.walked);
+        c.group.position.set(at.x, this.heightAt(at.x, at.y), at.y);
+        if (Math.hypot(at.x - before.x, at.y - before.y) > 1e-6) c.group.rotation.y = -Math.atan2(at.y - before.y, at.x - before.x) + Math.PI / 2;
+        if (c.walked >= c.length) c.group.rotation.y = c.facing;
+        const swing = 0.45 * Math.sin((c.walked / 0.55) * Math.PI);
+        c.legs[0].rotation.x = swing;
+        c.legs[1].rotation.x = -swing;
+        for (const a of c.arms) a.rotation.set(-swing * 0.6, 0, 0);
+        continue;
+      }
+      c.legs[0].rotation.x = c.legs[1].rotation.x = 0;
+      const p = c.group.position;
+      // A bike passing sets them off, once rested; the reaction then plays out on its own.
+      if (now >= c.restUntil && now - c.reactAt >= REACT_SECONDS && bikes.some((b) => (b.x - p.x) ** 2 + (b.z - p.z) ** 2 <= r2)) {
+        c.reactAt = now;
+        c.restUntil = now + REACT_SECONDS + c.rest;
+      }
+      const k = (now - c.reactAt) / REACT_SECONDS;
+      if (k >= 0 && k < 1) this.poseCheer(c, k);
+      else {
+        // Resting: a slight sway, each to their own beat.
+        const sway = 0.06 * Math.sin(now * 1.7 + c.phase);
+        c.arms[0].rotation.set(sway, 0, 0.05);
+        c.arms[1].rotation.set(-sway, 0, -0.05);
+        c.figure.position.y = 0;
+      }
+    }
+  }
+
+  /** One frame of a fan's reaction, k from 0 (start) to 1 (over): arms, and for a celebration a hop. */
+  private poseCheer(c: Cheer, k: number): void {
+    // In quickly, hold, out gently.
+    const env = k < 0.2 ? k / 0.2 : k > 0.75 ? (1 - k) / 0.25 : 1;
+    const up = -Math.PI * env;
+    const [left, right] = c.arms;
+    c.figure.position.y = 0;
+    switch (c.action) {
+      case 'arms_up':
+        left.rotation.set(up, 0, 0.25 * env);
+        right.rotation.set(up, 0, -0.25 * env);
+        break;
+      case 'wave':
+        left.rotation.set(0.1 * env, 0, 0.05);
+        right.rotation.set(up, 0, -0.45 * env * Math.sin(k * Math.PI * 6));
+        break;
+      case 'clap': {
+        const meet = 0.32 * env * (0.5 + 0.5 * Math.sin(k * Math.PI * 8));
+        left.rotation.set(-Math.PI / 2 * env, 0, -meet);
+        right.rotation.set(-Math.PI / 2 * env, 0, meet);
+        break;
+      }
+      case 'fist_pump':
+        left.rotation.set(0.1 * env, 0, 0.05);
+        right.rotation.set((-Math.PI / 2 - (Math.PI / 2) * (0.5 + 0.5 * Math.sin(k * Math.PI * 6))) * env, 0, -0.15 * env);
+        break;
+      case 'celebrate':
+        left.rotation.set(up, 0, 0.35 * env * Math.sin(k * Math.PI * 4));
+        right.rotation.set(up, 0, -0.35 * env * Math.sin(k * Math.PI * 4));
+        c.figure.position.y = 0.22 * Math.abs(Math.sin(k * Math.PI * 3)) * env;
+        break;
+    }
+  }
+
   private fans(g: THREE.Group, w: number, d: number, x: number, y: number, z: number, n: number, seed: number): void {
     const body = new THREE.BoxGeometry(0.22, 0.42, 0.18);
     const head = new THREE.BoxGeometry(0.16, 0.16, 0.16);
@@ -1256,6 +1416,11 @@ export class RaceView {
     }
     this.agePuffs(Math.min(1, dc * 1.4 + dt * 0.3));
     this.updateStart(clock);
+    if (this.cheers.length) {
+      const spots: { x: number; z: number }[] = [];
+      for (const r of riders) { const b = this.bikes.get(r.pose.id); if (b && r.pose.state !== 'retired') spots.push({ x: b.root.position.x, z: b.root.position.z }); }
+      this.updateCheers(Math.min(0.1, dt), spots);
+    }
     if (!riders.some((r) => r.player && r.pose.state !== 'retired')) this.marker.visible = false;
     else this.marker.visible = true;
     this.moveCamera(target, dt);

@@ -71,6 +71,8 @@ button:hover:not(:disabled) { border-color: #556; background: #2d323c; }
 button:disabled { opacity: .45; cursor: default; }
 button.primary { background: #3b2c10; border-color: #7a5512; }
 button.on { background: #233a52; border-color: var(--accent2); }
+button.swatch { width: 20px; height: 20px; padding: 0; border-radius: 50%; border: 2px solid #0000; }
+button.swatch.on { border-color: #fff; }
 .sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 2px; }
 .grow { flex: 1; }
 #dirty { color: var(--accent); font-weight: 600; }
@@ -358,7 +360,7 @@ body.final .final-hide { display: none !important; }
     <li class="final-hide"><b>Gates</b> is the start bonus curve, in percent of start time, best gate first (Spec 10.4).</li>
     <li><b>Surfaces:</b> mud, sand, water and other patches along the lap, laid by clicking the track.</li>
     <li><b>Ground:</b> paint the ground round the track with the game's ground tiles.</li>
-    <li><b>Scenery:</b> banners (with your own words and colour), sponsor boards, start gates, tuff blocks, hay bales, tyre walls, stands, crowds, pits, trees and more. <kbd>Q</kbd> and <kbd>E</kbd> turn the selected item, <kbd>Ctrl+D</kbd> duplicates it.</li>
+    <li><b>Scenery:</b> banners (with your own words and colour), sponsor boards, start gates, tuff blocks, hay bales, tyre walls, stands, crowds, pits, trees and more. <kbd>Q</kbd> and <kbd>E</kbd> turn the selected item, <kbd>Ctrl+D</kbd> duplicates it. <b>Cheering fans</b> are people who stand trackside and react as bikes pass: pick a variant (body shape), an action (arms up, wave, clap, fist pump, celebrate) and a shirt colour, or leave them to be picked. <b>Draw route</b> gives a fan a walk in: when the track loads they walk from where placed along it, at walking pace, and cheer from its end, so a crowd can file in. A fan must never be on the track, where placed or where the walk ends (an error the game refuses); a walk that crosses the track is only a warning. Each fan reacts in their own time, with a rest between, so a crowd never moves as one.</li>
     <li><b>Start board official:</b> pick <b>Start board official</b> under Start and finish in Build the lap, or the last item in Scenery, and click where they wait with the board while the riders line up (one a track; without one the game picks their spot beside the start straight). Select them and click <b>Draw route</b>, then click the ground in order to where they end up (the red point), and <b>Done</b> or <kbd>Esc</kbd>; <b>Cancel</b> puts the old route back, <b>Reset route</b> clears it. Drag a route point to move it, right-click it or press <kbd>Del</kbd> to remove it; dragging the official moves only where they start. In the countdown they raise the board and set off at five, turn it sideways at three and lower it white side out at one as they arrive. The route can be at most <code>official.maxWalk</code> grid units (trackParts.json, 8), may cross the track ahead of the gate but not the riders lined up at the gate or solid scenery, and must end clear of the track; the race view runs the game's checks and they show under the official and in Checks. On a new track they stand where placed until there's a start straight; Checks says when a track has no official or an official has no route.</li>
     <li><b>Height:</b> raise and lower the ground with a soft round brush (radius and strength in metres per dab), smooth it, or flatten it to one height. The ground can go from 36 m down to 36 m up; a stroke that reaches either stops there and says so. The track follows the ground under its middle and stays level across its width; riders slow up climbs and run quicker down drops. Ground steeper than 45° is refused as a wall, and a track climbing or dropping more than 35% along its length is a warning. Old tracks without heights stay flat.</li>
     <li><b>Race view:</b> you edit in the game's own race camera and 3D scene with hills, jumps, scenery and ground as a race draws them, and the lap map in its corner. Click, drag and right-click on the 3D ground; the keys are the same in every mode. Mouse wheel or <kbd>+</kbd> <kbd>−</kbd> zoom, <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or a middle-button (or <kbd>Space</kbd>+drag) pan, <kbd>[</kbd> <kbd>]</kbd>, the <b>⟲ Turn left</b> and <b>⟳ Turn right</b> buttons (bottom left) or a <kbd>Shift</kbd>+middle-button drag turn the view round the track, to see it from any side; <kbd>0</kbd> or <b>Reset view</b> goes back to the race camera's angle. Turning only changes the editor's view: clicks still land where the pointer is, and races always use the fixed race camera. The selection is orange, problems red or dashed yellow. In Layout each section shows as a stripe in its kind's colour, with a cream line across the track where one section ends and the next begins. No race runs while you edit. Opened straight from disk, the race view runs the game from the published site (<code>bigdaddy284.github.io/Motocross-RPG</code>), so it needs an internet connection; with neither that nor <code>npm run dev</code>, the editor shows a plain map instead.</li>
@@ -1895,6 +1897,7 @@ function buildPalettes() {
   }, (id) => { app.groundBrush = id; });
   mk($('#sceneryPal'), app.parts.scenery, app.sceneryBrush, (g, it) => {
     if (it.id === OFFICIAL) { drawOfficialIcon(g); return; }
+    if (it.id === CHEER) { drawCheerIcon(g); return; }
     const img = artImage(it.art);
     g.imageSmoothingEnabled = false;
     if (img) { const r = Math.min(40 / img.width, 40 / img.height); g.drawImage(img, 22 - (img.width * r) / 2, 22 - (img.height * r) / 2, img.width * r, img.height * r); return; }
@@ -2219,6 +2222,7 @@ function renderSceneryDetail() {
   const field = (labelText, el) => { const f = document.createElement('div'); f.className = 'field'; const l = document.createElement('label'); l.textContent = labelText; f.append(l, el); box.appendChild(f); return el; };
   const editItem = (fn) => commit((t) => fn(t.scenery[app.selItem]));
   if (it.type === OFFICIAL) { renderOfficialDetail(box, t, it); return; }
+  if (it.type === CHEER) { renderCheerDetail(box, t, it, field, editItem); return; }
   if (def?.text !== undefined || it.text !== undefined) {
     const txt = document.createElement('input');
     txt.type = 'text';
@@ -2249,6 +2253,75 @@ function renderSceneryDetail() {
   mk('Duplicate', duplicateItem);
   mk('Delete', deleteItem);
   box.appendChild(btns);
+}
+/** A cheering fan: body shape, what they do, shirt colour, and the walk in. */
+function renderCheerDetail(box, t, it, field, editItem) {
+  const i = app.selItem;
+  const sel = (opts, value, onChange, auto) => {
+    const el = document.createElement('select');
+    if (auto) { const o = document.createElement('option'); o.value = ''; o.textContent = auto; el.appendChild(o); }
+    for (const [v, txt] of opts) { const o = document.createElement('option'); o.value = v; o.textContent = txt; el.appendChild(o); }
+    el.value = value ?? '';
+    el.addEventListener('change', () => onChange(el.value));
+    return el;
+  };
+  field('Variant', sel(CHEER_VARIANTS, it.variant, (v) => editItem((x) => { if (v) x.variant = v; else delete x.variant; }), 'Picked for them'));
+  field('Action', sel(CHEER_ACTIONS, it.action, (v) => editItem((x) => { if (v) x.action = v; else delete x.action; }), 'Picked for them'));
+  const colours = document.createElement('div');
+  colours.className = 'row';
+  for (const c of CHEER_COLOURS) {
+    const b = document.createElement('button');
+    b.className = 'swatch';
+    b.style.background = c;
+    b.title = c;
+    b.classList.toggle('on', (it.color ?? '').toLowerCase() === c);
+    b.addEventListener('click', () => editItem((x) => { x.color = c; }));
+    colours.appendChild(b);
+  }
+  const own = document.createElement('input');
+  own.type = 'color';
+  own.value = normHex(it.color ?? '#e04040');
+  own.title = 'Any other colour';
+  own.addEventListener('change', () => editItem((x) => { x.color = own.value; }));
+  colours.appendChild(own);
+  field('Shirt', colours);
+  const rot = field('Turn', (() => { const n = document.createElement('input'); n.type = 'number'; n.step = '15'; n.value = String(it.rot ?? ''); n.placeholder = 'faces the track'; return n; })());
+  rot.addEventListener('change', () => editItem((x) => { if (rot.value === '') delete x.rot; else x.rot = ((Math.round(Number(rot.value)) % 360) + 360) % 360; }));
+  const n = (it.route ?? []).length;
+  const len = routeLength(it);
+  const info = document.createElement('div');
+  info.className = 'hint';
+  info.textContent = n
+    ? `Walk in: ${n} point${n === 1 ? '' : 's'}, ${len.toFixed(1)} grid units; they walk it at 1.6 a second when the track loads (${(len / 1.6).toFixed(1)} s) and cheer from the end of it (the red point). Drag a point to move it, right-click or Del removes it.`
+    : 'No walk in: they stand and cheer where placed. Draw route to have them walk in from here when the track loads.';
+  box.appendChild(info);
+  const btns = document.createElement('div');
+  btns.className = 'row';
+  btns.style.marginTop = '4px';
+  const mk = (txt, title, fn, on = false) => { const b = document.createElement('button'); b.textContent = txt; b.title = title; b.classList.toggle('on', on); b.addEventListener('click', fn); btns.appendChild(b); return b; };
+  if (app.routeDraw) {
+    mk('Done', 'Keep the route drawn (Esc)', () => routeDrawing(false), true);
+    mk('Cancel', 'Put the route back as it was', cancelRoute);
+  } else {
+    mk('Draw route', 'Click points on the ground, in order, from where they are placed to where they stand and cheer', () => routeDrawing(true));
+    mk('Reset route', 'Clear the route: they stand where placed', resetRoute).disabled = !n;
+  }
+  box.appendChild(btns);
+  const btns2 = document.createElement('div');
+  btns2.className = 'row';
+  btns2.style.marginTop = '4px';
+  for (const [txt, fn] of [['Turn ↺', () => turnItem(-15)], ['Turn ↻', () => turnItem(15)], ['Duplicate', duplicateItem], ['Delete', deleteItem]]) {
+    const b = document.createElement('button'); b.textContent = txt; b.addEventListener('click', fn); btns2.appendChild(b);
+  }
+  box.appendChild(btns2);
+  const probs = [...sceneryIssues(t).filter((p) => p.i === i), ...cheerProblems(t).filter((p) => p.i === i)];
+  if (probs.length) {
+    const msg = document.createElement('div');
+    msg.className = 'hint';
+    msg.style.color = probs.some((p) => p.level === 'error') ? '#ff6b60' : '#ffd60a';
+    msg.textContent = probs.map((p) => p.message.replace(/^Scenery item \d+: /, '').replace(/ \(click here to find them\)\./, '.')).join(' ');
+    box.appendChild(msg);
+  }
 }
 function normHex(c) {
   if (/^#[0-9a-f]{3}$/i.test(c)) return `#${c.slice(1).split('').map((x) => x + x).join('')}`;
@@ -2457,6 +2530,7 @@ function checkTrack(t, all, strict = false) {
     }
   }
   for (const m of officialNotes(t)) { warn.push(m.text); if (m.i >= 0) refs.set(m.text, m.i); }
+  for (const p of cheerProblems(t)) { (p.level === 'error' ? bad : warn).push(p.message); refs.set(p.message, p.i); }
   if (!t.practiceOnly && !t.gates?.length) warn.push('No gate curve: every gate starts the same.');
   for (const c of boundaryCrossings(t)) bad.push(`Geometry: ${c.k >= 0 ? `section ${c.k + 1}` : 'the drawing'} crosses the build boundary at ${c.x.toFixed(0)}, ${c.y.toFixed(0)}: the race ground ends at the 100 × 60 grid, so drag it back inside (its points are red) before the track is ready to race.`);
   // Two segments that cross make a figure of eight on screen, which the race screen can't show as a bridge.
@@ -2596,6 +2670,50 @@ function hasErrors() {
 // the track. Without a start official on a track, the game picks their spot as before.
 
 const OFFICIAL = 'start_official';
+// Cheering fans (src/core/cheer.ts): scenery that walks in by a route on load, stands trackside and reacts to bikes passing.
+const CHEER = 'cheer';
+const CHEER_VARIANTS = [['adult', 'Adult'], ['kid', 'Kid'], ['tall', 'Tall'], ['broad', 'Broad']];
+const CHEER_ACTIONS = [['arms_up', 'Arms up'], ['wave', 'Wave'], ['clap', 'Clap'], ['fist_pump', 'Fist pump'], ['celebrate', 'Celebrate']];
+const CHEER_COLOURS = ['#e04040', '#4080e0', '#f0c030', '#40b060', '#f0f0f0', '#e07030', '#9060c0', '#30b0c0'];
+const CHEER_RADIUS = 0.4;
+const hasRoute = (it) => !!it && (it.type === OFFICIAL || it.type === CHEER);
+/** The item whose route is drawn or edited: the selected fan, otherwise the start official. */
+const routeIndex = (t) => (t?.scenery?.[app.selItem]?.type === CHEER ? app.selItem : officialIndex(t));
+/**
+ * Fans must never be on the track: where they are placed (sceneryIssues) and where their walk
+ * ends (here); a route that crosses the track on the way is only odd to look at (a warning).
+ */
+function cheerProblems(t) {
+  const out = [];
+  (t.scenery ?? []).forEach((it, i) => {
+    if (it.type !== CHEER || !it.route?.length) return;
+    const r = routeOf(it);
+    const [ex, ey] = r.at(-1);
+    const room = trackRoom(t, ex, ey, CHEER_RADIUS);
+    if (room < 0) out.push({ i, level: 'error', message: `Scenery item ${i + 1}: the cheering fan at ${it.x}, ${it.y} walks to ${ex}, ${ey}, ${room + CHEER_RADIUS < 0 ? 'on' : 'too near'} the track; end their route trackside, clear of the track (click here to find them).` });
+    else for (let k = 1; k < r.length; k++) {
+      const [ax, ay] = r[k - 1];
+      const [bx, by] = r[k];
+      const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / 0.25));
+      let crossed = false;
+      for (let q = 1; q < n && !crossed; q++) if (trackRoom(t, ax + ((bx - ax) * q) / n, ay + ((by - ay) * q) / n, 0) < -LIP_FOOT) crossed = true;
+      if (crossed) { out.push({ i, level: 'warning', message: `Scenery item ${i + 1}: the cheering fan at ${it.x}, ${it.y} crosses the track on their way in; they walk in before the race, so it only looks odd (click here to find them).` }); break; }
+    }
+  });
+  return out;
+}
+function drawCheerIcon(g) {
+  g.clearRect(0, 0, 44, 44);
+  g.fillStyle = '#4a4a50';
+  g.fillRect(17, 27, 4, 14); g.fillRect(23, 27, 4, 14);
+  g.fillStyle = '#e04040';
+  g.fillRect(16, 15, 12, 13);
+  g.fillStyle = '#e0b090';
+  g.beginPath(); g.arc(22, 10, 4.5, 0, Math.PI * 2); g.fill();
+  // Arms up.
+  g.fillRect(11, 4, 3, 13); g.fillRect(30, 4, 3, 13);
+  g.fillRect(13, 15, 4, 3); g.fillRect(27, 15, 4, 3);
+}
 /** The longest walk, in grid units, when trackParts.json gives none (startOfficial.ts MAX_WALK). */
 const OFFICIAL_MAX_WALK = 8;
 const maxWalk = () => app.parts.official?.maxWalk ?? OFFICIAL_MAX_WALK;
@@ -2697,8 +2815,9 @@ const officialKey = (t) => JSON.stringify([t.path, t.start, t.width, t.elevation
 
 /** The official's route on the map: dashed, or with its points (the last red) when they are selected. */
 function drawRoute(t) {
-  const i = officialIndex(t);
-  if (i < 0) return;
+  (t.scenery ?? []).forEach((it, i) => { if (hasRoute(it) && (it.route?.length || i === app.selItem)) drawRouteOf(t, i); });
+}
+function drawRouteOf(t, i) {
   const it = t.scenery[i];
   const sel = i === app.selItem;
   const r = routeOf(it);
@@ -2721,31 +2840,34 @@ function drawRoute(t) {
 /** Starts drawing the official's route afresh, or stops (keeping what's drawn). */
 function routeDrawing(on) {
   const t = track();
-  const i = officialIndex(t);
+  const i = routeIndex(t);
   if (!on || i < 0) { app.routeDraw = null; refresh(); return; }
   app.selItem = i;
   // What it was, for Cancel.
-  app.routeDraw = { before: clone(t.scenery[i].route ?? null) };
+  app.routeDraw = { before: clone(t.scenery[i].route ?? null), i };
   commit((t) => { delete t.scenery[i].route; });
-  status('Drawing the route: click where the official walks, in order, ending where they stand for the start. Done or Esc when finished.', 'ok');
+  status(t.scenery[i].type === CHEER
+    ? 'Drawing the walk in: click where the fan walks, in order, ending trackside where they stand and cheer (never on the track). Done or Esc when finished.'
+    : 'Drawing the route: click where the official walks, in order, ending where they stand for the start. Done or Esc when finished.', 'ok');
   refresh();
 }
 function cancelRoute() {
   const d = app.routeDraw;
-  const i = officialIndex(track());
+  const i = d?.i ?? routeIndex(track());
   app.routeDraw = null;
   if (!d || i < 0) return refresh();
   commit((t) => { if (d.before) t.scenery[i].route = d.before; else delete t.scenery[i].route; });
 }
 function resetRoute() {
-  const i = officialIndex(track());
+  const t = track();
+  const i = routeIndex(t);
   app.routeDraw = null;
   app.selRoute = -1;
   if (i >= 0) commit((t) => { delete t.scenery[i].route; });
-  status('Route cleared: the official holds the board where they stand. Draw route to give them a walk.', 'ok');
+  status(t?.scenery?.[i]?.type === CHEER ? 'Route cleared: the fan stands where placed. Draw route to have them walk in.' : 'Route cleared: the official holds the board where they stand. Draw route to give them a walk.', 'ok');
 }
 function addRoutePoint(x, y, e) {
-  const i = officialIndex(track());
+  const i = app.routeDraw?.i ?? routeIndex(track());
   if (i < 0) return;
   commit((t) => {
     const it = t.scenery[i];
@@ -2754,7 +2876,7 @@ function addRoutePoint(x, y, e) {
   });
 }
 function deleteRoutePoint(k) {
-  const i = officialIndex(track());
+  const i = routeIndex(track());
   if (i < 0 || k < 1) return;
   commit((t) => {
     const it = t.scenery[i];
@@ -4355,7 +4477,7 @@ function hit(sx, sy) {
   if (app.mode === 'scenery') {
     const list = t.scenery ?? [];
     const off = list[app.selItem];
-    if (off?.type === OFFICIAL) {
+    if (hasRoute(off)) {
       const r = routeOf(off);
       for (let k = r.length - 1; k >= 1; k--) { const s = toScreen(r[k][0], r[k][1]); if (Math.hypot(sx - s.x, sy - s.y) <= 9) return { kind: 'rpt', i: k }; }
     }
@@ -4715,7 +4837,7 @@ function sendView() {
   const f = $('#view3d');
   const t = track();
   if (!app.view3d || !t || !f.contentWindow) return;
-  const issues = [...sceneryIssues(t).map((p) => ({ item: p.i, level: p.level })), ...elevationIssues(t).map((p) => ({ x: p.x, y: p.y, level: p.level })), ...boundaryCrossings(t).map((c) => ({ x: c.x, y: c.y, level: 'error' }))];
+  const issues = [...sceneryIssues(t).map((p) => ({ item: p.i, level: p.level })), ...cheerProblems(t).map((p) => ({ item: p.i, level: p.level })), ...elevationIssues(t).map((p) => ({ x: p.x, y: p.y, level: p.level })), ...boundaryCrossings(t).map((c) => ({ x: c.x, y: c.y, level: 'error' }))];
   let brush = null;
   if (app.mode === 'height') brush = { shape: 'circle', r: Number($('#hRadius').value) };
   else if (app.mode === 'ground') brush = { shape: 'cells', cell: t.ground?.cell ?? 2, n: Number($('#gBrush').value) };
@@ -4860,7 +4982,7 @@ async function tryServer() {
 setMode('layout');
 tryServer();
 openRaceView();
-window.trackEditor = { app, openRaceView, sendView, heightDab, elevAt, elevationIssues, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart, openEnds, building, stillOpen, deleteSection, planWalk, alongStart, followStart, setOfficialAlong, trackRoom, walkRoom, undo, redo, trackForView, officialProblems, connectGhost, dubins, fitRadius, placeConnect, startPiece, setFinish, finishGhost, addFinish, placeFinish, removeFinish, addStart, placeStart, placePiece, readyToRace, tightCorners, keepJoined, startHere, lapLength, refresh, pieceSpans, pieceBuilt, sectionBounds, boundaryCrossings, BOUND_OUT, SCENE_OUT }; // for tests
+window.trackEditor = { app, openRaceView, sendView, heightDab, elevAt, elevationIssues, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart, openEnds, building, stillOpen, deleteSection, planWalk, alongStart, followStart, setOfficialAlong, trackRoom, walkRoom, undo, redo, trackForView, officialProblems, connectGhost, dubins, fitRadius, placeConnect, startPiece, setFinish, finishGhost, addFinish, placeFinish, removeFinish, addStart, placeStart, placePiece, readyToRace, tightCorners, keepJoined, startHere, lapLength, refresh, pieceSpans, pieceBuilt, sectionBounds, boundaryCrossings, BOUND_OUT, SCENE_OUT, cheerProblems, routeDrawing, addRoutePoint }; // for tests
 </script>
 </body>
 </html>

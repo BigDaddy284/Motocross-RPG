@@ -140,6 +140,9 @@ export interface SceneryItem {
   type: string;
   x: number;
   y: number;
+  /** A cheering fan's body shape and what they do when a bike passes (cheer.ts); picked for them when left out. */
+  variant?: string;
+  action?: string;
   /** Size on the grid; the scenery type's default when left out. */
   w?: number;
   h?: number;

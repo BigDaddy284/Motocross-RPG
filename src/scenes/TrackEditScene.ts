@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import * as THREE from 'three';
 import type { TrackDef } from '../core/race';
+import { CHEER_ITEM } from '../core/cheer';
 import { OFFICIAL_ITEM, placedOfficial } from '../core/startOfficial';
 import { sectionBounds } from '../core/trackGeom';
 import type { TrackPartsData } from '../core/trackParts';
@@ -384,14 +385,14 @@ export class TrackEditScene extends Phaser.Scene {
       if (f) line(rect(f.x, f.z, f.w + 0.45, f.d + 0.45, f.a), SELECT, true);
     }
     // The start official's route in Scenery: dashed, or with its points when they're selected (the last, where they end up, red).
-    const oi = t.scenery?.findIndex((it) => it.type === OFFICIAL_ITEM) ?? -1;
-    if (st.mode === 'scenery' && oi >= 0) {
-      const it = t.scenery![oi];
+    // Cheering fans' walks in too, each its own.
+    if (st.mode === 'scenery') t.scenery?.forEach((it, oi) => {
+      if (it.type !== OFFICIAL_ITEM && it.type !== CHEER_ITEM) return;
       const route = [{ x: it.x, z: it.y }, ...(it.route ?? []).map(([x, y]) => ({ x, z: y }))];
       const sel = st.sel.item === oi;
       if (route.length > 1) line(route, 0xffffff, false, !sel, 0.07, 10.5);
       if (sel) route.forEach((p, i) => i && line(ring(p.x, p.z, 0.35), i === st.sel.route ? SELECT : i === route.length - 1 ? RED : 0xffffff, true, false, 0.09, 10.6));
-    }
+    });
     // The build boundary: the race ground's edge, a translucent dashed line on the ground, so what
     // is placed can be seen against it (a section may cross it while the track is built).
     {
