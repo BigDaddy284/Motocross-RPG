@@ -18,8 +18,8 @@ export interface TrackElevation {
 /** The track grid (trackParts GRID_W × GRID_H): past its edges the ground keeps the height at the edge. */
 const EDGE_W = 100;
 const EDGE_H = 60;
-/** Highest and lowest the editor lets ground go, in metres. */
-export const ELEV_MAX = 24;
+/** Highest and lowest the editor lets ground go, in metres: ±36 (1.5 times the ±24 it was). */
+export const ELEV_MAX = 36;
 /** Steepest the ground may be anywhere before it's an error (a wall), as a rise over run: 45°. */
 export const WALL_SLOPE = 1;
 /** Steepest the track may climb or drop along its length before it's a warning, as a rise over run (35%). */

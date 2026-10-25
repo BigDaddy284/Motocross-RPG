@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { checkContent } from '../src/core/content';
-import { Elevation, elevationIssues, lapProfile, sectionGrades, type TrackElevation } from '../src/core/elevation';
+import { ELEV_MAX, Elevation, elevationIssues, lapProfile, sectionGrades, type TrackElevation } from '../src/core/elevation';
 import { MotoSim, mixSeed, type TrackDef } from '../src/core/race';
 import { cpuEntrant } from '../src/core/raceDay';
 import { checkTrackParts } from '../src/core/trackParts';
@@ -90,13 +90,39 @@ describe('ground elevation', () => {
     expect(time(t)).toBeGreaterThan(time(farm()));
   });
 
+  it('lets the ground go 36 m up and 36 m down (1.5 times the old 24 m), and no further', () => {
+    expect(ELEV_MAX).toBe(36);
+    // A wide hill and a wide valley, eased so no step is a wall.
+    const cone = (cx: number, cy: number, top: number, r: number) => {
+      const pts: [number, number, number][] = [];
+      for (let x = 0; x <= 100; x += 2) for (let y = 0; y <= 60; y += 2) {
+        const d = Math.hypot(x - cx, y - cy) / r;
+        if (d < 1) pts.push([x, y, Math.round(top * (0.5 + 0.5 * Math.cos(Math.PI * d)) * 100) / 100]);
+      }
+      return pts;
+    };
+    for (const top of [24, -24, 36, -36]) {
+      const t = farm();
+      t.elevation = { step: 2, points: cone(50, 30, top, 26) };
+      const { mpu, along } = lapProfile(t);
+      const errors = elevationIssues(t, mpu, along).filter((p) => p.level === 'error');
+      expect(errors, String(top)).toEqual([]);
+      expect(Math.max(...t.elevation.points.map((p) => Math.abs(p[2])))).toBe(Math.abs(top));
+    }
+    for (const past of [36.01, -36.01]) {
+      const t = farm();
+      t.elevation = { step: 2, points: [[50, 30, past]] };
+      expect(elevationIssues(t, 1, []).some((p) => p.level === 'error' && /36 m up or down/.test(p.message)), String(past)).toBe(true);
+    }
+  });
+
   it('refuses a height past the limit, a point off the lattice and a wall, and warns of a steep track', () => {
     const t = farm();
-    t.elevation = { step: 2, points: [[10, 10, 25], [11, 10, 1], [40, 40, 7]] };
+    t.elevation = { step: 2, points: [[10, 10, 37], [11, 10, 1], [40, 40, 7]] };
     const { mpu, along } = lapProfile(t);
     const issues = elevationIssues(t, mpu, along);
     const errors = issues.filter((p) => p.level === 'error').map((p) => p.message);
-    expect(errors.some((m) => /24 m up or down/.test(m))).toBe(true);
+    expect(errors.some((m) => /36 m up or down/.test(m))).toBe(true);
     expect(errors.some((m) => /not on the 2-unit lattice/.test(m))).toBe(true);
     expect(errors.some((m) => /a wall/.test(m))).toBe(true);
     const problems = checkTrackParts(content.trackParts, [t], () => true).map((e) => e.message);

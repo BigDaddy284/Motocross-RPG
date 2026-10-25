@@ -225,8 +225,14 @@ export function placedOfficial(track: TrackDef, parts: TrackPartsData): { plan: 
   if (placed.length > 1) problems.push(`there are ${placed.length} start officials; a track has one`);
   const s = new TrackSurface(track);
   const st = s.start;
-  if (st.total <= 0) return { plan: null, problems: ['the start official needs a start straight to stand by'], length: 0 };
   const route = [{ x: it.x, y: it.y }, ...(it.route ?? []).map(([x, y]) => ({ x, y }))];
+  if (st.total <= 0) {
+    // Not yet: on a new track they're drawn where they were put, facing as turned, until there's a start straight to plan by.
+    const a = route[0];
+    const facing = officialFacing(0) - ((it.rot ?? 0) * Math.PI) / 180;
+    problems.push('the start official needs a start straight to stand by');
+    return { plan: { a, b: route[route.length - 1], route, facing, room: { track: Infinity, scenery: Infinity } }, problems, length: routeLength(route) };
+  }
   const a = route[0];
   const b = route[route.length - 1];
   // Facing as the start straight runs where the walk ends, turned by the item's own turn.

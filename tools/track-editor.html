@@ -121,6 +121,9 @@ label.chk { display: flex; gap: 6px; align-items: center; color: var(--dim); }
 #checks .bad, #pieceMsg.bad { color: #f0a0a0; }
 #checks .warn, #pieceMsg.warn { color: var(--warn); }
 #checks .good, #pieceMsg.good { color: var(--ok); }
+#startPal { grid-template-columns: repeat(3, 1fr); margin-bottom: 4px; }
+#startPal button { font-size: 11px; }
+h3.sub { margin: 8px 0 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); }
 #piecePal { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
 #piecePal button { flex-direction: row; justify-content: flex-start; padding: 5px 6px; font-size: 12px; text-align: left; }
 #pieceMsg { font-size: 12px; margin: 6px 0; }
@@ -210,7 +213,7 @@ body.final .final-hide { display: none !important; }
     <button id="btnDelPt" title="Delete the selected point (Del, or right-click it)">− Point</button>
     <button id="btnRound" title="Round off the corner at the selected point (R)">Round corner</button>
     <button id="btnStart" title="Make the selected point the finish line, where every lap starts and ends">Finish here</button>
-    <button id="btnAddStart" title="Add the start gate on its own start straight that joins the lap. Drag its blue points to shape it; the white one stays on the lap where it joins.">+ Start straight</button>
+    <button id="btnAddStart" title="Place the start gate on its own start straight that joins the lap: it follows the pointer like a piece (Q / E turn, F other side, , . length). Drag its blue points afterwards to shape it; the white one stays on the lap where it joins.">+ Start straight</button>
     <button id="btnReverse" title="Ride the track the other way round">Reverse</button>
     <button id="btnFit" title="Centre the drawing and scale it to fill the grid">Fit to grid</button>
     <span class="sep"></span>
@@ -248,8 +251,16 @@ body.final .final-hide { display: none !important; }
     <div class="box" id="buildBox" hidden>
       <h2>Build the lap</h2>
       <div class="hint" id="buildHint"></div>
+      <h3 class="sub">Start and finish</h3>
+      <div class="pal" id="startPal">
+        <button id="btnStartPiece" title="Place the start straight: the gate, the riders' line-up and the run onto the lap. Its end (the ring) snaps onto the lap; place it first and the lap is built on from its end."><canvas width="44" height="44"></canvas><span>Start straight</span></button>
+        <button id="btnStartOfficial" title="Place the start board official (Scenery): where they wait with the board, then Draw route for their walk in the countdown"><canvas width="44" height="44"></canvas><span>Start board official</span></button>
+        <button id="btnStartRemove" title="Take the start straight off this track (Undo puts it back)"><canvas width="44" height="44"></canvas><span>Remove start straight</span></button>
+      </div>
       <div id="buildOpen">
+        <h3 class="sub">Lap pieces</h3>
         <div class="pal" id="piecePal"></div>
+      </div>
         <div id="pieceCtl">
           <div class="row" style="margin-top:6px">
             <button id="btnPieceL" title="Turn it left (Q)">⟲ Q</button>
@@ -268,8 +279,7 @@ body.final .final-hide { display: none !important; }
           </div>
         </div>
         <div id="pieceMsg" class="hint"></div>
-      </div>
-      <div class="row"><button id="btnReady" title="Run the game's checks and, if it passes, let the game use this track">Ready to race</button></div>
+      <div class="row" id="readyRow"><button id="btnReady" title="Run the game's checks and, if it passes, let the game use this track">Ready to race</button></div>
     </div>
     <div class="hint">Drag the points to shape the lap. Double-click the track to add a point, right-click a point to remove it.</div>
     <div class="final-hide">
@@ -314,7 +324,7 @@ body.final .final-hide { display: none !important; }
     <div class="hint">Raise and lower the ground. Left-click or drag uses the tool, right-click does the opposite (Smooth and Flatten work both ways). Each stroke is one undo. The track is graded level across its width at the ground under its middle, and the ground eases out to it either side.</div>
     <div class="field"><label for="hTool">Tool</label><select id="hTool"><option value="raise" selected>Raise</option><option value="lower">Lower</option><option value="smooth">Smooth</option><option value="flatten">Flatten to the height clicked</option></select></div>
     <div class="field"><label for="hRadius">Radius</label><select id="hRadius"><option value="3">3 grid units</option><option value="5">5</option><option value="8" selected>8</option><option value="12">12</option><option value="18">18</option><option value="24">24</option></select></div>
-    <div class="field"><label for="hStrength">Strength</label><select id="hStrength"><option value="0.25" selected>0.25 m a dab</option><option value="0.5">0.5 m</option><option value="1">1 m</option><option value="2">2 m</option></select></div>
+    <div class="field"><label for="hStrength">Strength</label><select id="hStrength"><option value="0.25" selected>0.25 m a dab</option><option value="0.5">0.5 m</option><option value="1">1 m</option><option value="2">2 m</option><option value="3">3 m</option></select></div>
     <div class="row" style="margin-top:6px"><button id="btnClearHeight" title="Put all the ground back flat">Flatten all</button></div>
     <div class="box" id="heightInfo"></div>
   </div>
@@ -332,16 +342,16 @@ body.final .final-hide { display: none !important; }
   <h3 style="margin-top:0">Track editor help</h3>
   <ul>
     <li><b>Layout:</b> the drawing is the shape the race screen shows: points on a 100 × 60 grid, joined in order and back to the first point, which is the finish line. Drag a point to move it (snaps to whole grid units; untick <b>Snap</b> or hold <kbd>Alt</kbd> for tenths). Double-click the track to add a point, right-click a point or press <kbd>Del</kbd> to delete it, arrow keys nudge it. <b>Round corner</b> <kbd>R</kbd> swaps a sharp point for a curve.</li>
-    <li><b>New tracks</b> start empty and unfinished. <b>Build the lap</b> (Layout) lists the section types: pick one and a piece of it follows the pointer, green where it can go, yellow if it runs over the track already built, red with the reason where it can't. <kbd>Q</kbd> <kbd>E</kbd> turn it 15°, <kbd>F</kbd> bends it the other way, <kbd>B</kbd> makes it a straight or a bend (where the type can be either), <kbd>,</kbd> <kbd>.</kbd> make it shorter or longer (a bend turns less or more), a click or <kbd>Enter</kbd> places it, <kbd>Esc</kbd> or a right-click stops placing. The first piece goes anywhere; each after it snaps on to the end of the last (the white ring) and may turn at most 20° there. A piece is never moved to fit, and Undo takes one off. The piece that ends at the first piece's start closes the lap, and a start straight is laid beside it where there's room. An unfinished track saves as it is, but the game leaves it out and won't race it until <b>Ready to race</b> passes the game's checks.</li>
-    <li><b>Start straight:</b> every track starts from a gate on its own start straight that joins the lap, as on a real track. Its points are the blue squares: the first is the gate (the black bar, with the yellow line-up behind it), the white one is where it joins the lap and stays on the lap when dragged. <b>+ Start straight</b> adds one beside the first part of the lap. Riders ride it once, then the lap from the join to the finish line, which ends lap 1. Select a blue point for <b>+ Point</b> and <b>− Point</b>. The checks ask for it to be at least 12 grid units long, clear of the lap until it joins, joining in the first half of the lap at 75° or less.</li>
+    <li><b>New tracks</b> start empty and unfinished. <b>Build the lap</b> (Layout) lists the section types: pick one and a piece of it follows the pointer, green where it can go, yellow if it runs over the track already built, red with the reason where it can't. <kbd>Q</kbd> <kbd>E</kbd> turn it 15°, <kbd>F</kbd> bends it the other way, <kbd>B</kbd> makes it a straight or a bend (where the type can be either), <kbd>,</kbd> <kbd>.</kbd> make it shorter or longer (a bend turns less or more), a click or <kbd>Enter</kbd> places it, <kbd>Esc</kbd> or a right-click stops placing. The first piece goes anywhere; each after it snaps on to the end of the last (the white ring) and may turn at most 20° there. A piece is never moved to fit, and Undo takes one off. The piece that ends at the first piece's start closes the lap, and if no start straight was placed, one is laid beside it where there's room. An unfinished track saves as it is, but the game leaves it out and won't race it until <b>Ready to race</b> passes the game's checks.</li>
+    <li><b>Start straight:</b> every track starts from a gate on its own start straight that joins the lap, as on a real track. Its points are the blue squares: the first is the gate (the black bar, with the yellow line-up behind it), the white one is where it joins the lap and stays on the lap when dragged. To add one, pick <b>Start straight</b> under <b>Start and finish</b> in Build the lap (or <b>+ Start straight</b> above the view): it follows the pointer like a piece, its end (the ring) snapping onto the lap where the pointer is near it, green where it can go and red with the reason where it can't; <kbd>Q</kbd> <kbd>E</kbd> turn it, <kbd>F</kbd> brings it in from the other side, <kbd>,</kbd> <kbd>.</kbd> make it shorter or longer, a click or <kbd>Enter</kbd> places it and <kbd>Esc</kbd> cancels. On an empty track it can go first, anywhere: the lap is then built on from its end. <b>Move start straight</b> places it again, and <b>Remove start straight</b> takes it off. Riders ride it once, then the lap from the join to the finish line, which ends lap 1. Select a blue point for <b>+ Point</b> and <b>− Point</b>. The checks ask for it to be at least 12 grid units long, clear of the lap until it joins, joining in the first half of the lap at 75° or less.</li>
     <li><b>Kind</b> sets how the race screen shows the track: a stadium track fits on one screen; outdoor and endurance tracks use a camera that follows the riders, with a map of the whole lap. <b>Width</b> is the track width on the race screen.</li>
     <li class="final-hide"><b>Sections</b> are what the race simulation rides, in order. Each is placed on the drawing by its share of the lap length, and its type has to suit the shape drawn there (straight, sweeper, corner or hairpin, as racing.json says): a hairpin on a straight would have riders braking for nothing. A section that doesn't suit its drawing is edged in red and listed in the checks. <b>From drawing</b> replaces the sections with straights and corners that suit the drawing. Click the track to pick the section under the pointer. Drag a white diamond to move metres between two sections. The section box sets the line riders take through it and the height of jumps and hills.</li>
     <li class="final-hide"><b>Gates</b> is the start bonus curve, in percent of start time, best gate first (Spec 10.4).</li>
     <li><b>Surfaces:</b> mud, sand, water and other patches along the lap, laid by clicking the track.</li>
     <li><b>Ground:</b> paint the ground round the track with the game's ground tiles.</li>
     <li><b>Scenery:</b> banners (with your own words and colour), sponsor boards, start gates, tuff blocks, hay bales, tyre walls, stands, crowds, pits, trees and more. <kbd>Q</kbd> and <kbd>E</kbd> turn the selected item, <kbd>Ctrl+D</kbd> duplicates it.</li>
-    <li><b>Start board official:</b> place one from Scenery where they wait with the board while the riders line up (one a track; without one the game picks their spot beside the start straight). Select them and click <b>Draw route</b>, then click the ground in order to where they end up (the red point), and <b>Done</b> or <kbd>Esc</kbd>; <b>Cancel</b> puts the old route back, <b>Reset route</b> clears it. Drag a route point to move it, right-click it or press <kbd>Del</kbd> to remove it; dragging the official moves only where they start. In the countdown they raise the board and set off at five, turn it sideways at three and lower it white side out at one as they arrive. The route can be at most <code>official.maxWalk</code> grid units (trackParts.json, 8), may cross the track ahead of the gate but not the riders lined up at the gate or solid scenery, and must end clear of the track; the race view runs the game's checks and they show under the official and in Checks.</li>
-    <li><b>Height:</b> raise and lower the ground with a soft round brush (radius and strength in metres per dab), smooth it, or flatten it to one height. The track follows the ground under its middle and stays level across its width; riders slow up climbs and run quicker down drops. Ground steeper than 45° is refused as a wall, and a track climbing or dropping more than 35% along its length is a warning. Old tracks without heights stay flat.</li>
+    <li><b>Start board official:</b> pick <b>Start board official</b> under Start and finish in Build the lap, or the last item in Scenery, and click where they wait with the board while the riders line up (one a track; without one the game picks their spot beside the start straight). Select them and click <b>Draw route</b>, then click the ground in order to where they end up (the red point), and <b>Done</b> or <kbd>Esc</kbd>; <b>Cancel</b> puts the old route back, <b>Reset route</b> clears it. Drag a route point to move it, right-click it or press <kbd>Del</kbd> to remove it; dragging the official moves only where they start. In the countdown they raise the board and set off at five, turn it sideways at three and lower it white side out at one as they arrive. The route can be at most <code>official.maxWalk</code> grid units (trackParts.json, 8), may cross the track ahead of the gate but not the riders lined up at the gate or solid scenery, and must end clear of the track; the race view runs the game's checks and they show under the official and in Checks. On a new track they stand where placed until there's a start straight; Checks says when a track has no official or an official has no route.</li>
+    <li><b>Height:</b> raise and lower the ground with a soft round brush (radius and strength in metres per dab), smooth it, or flatten it to one height. The ground can go from 36 m down to 36 m up; a stroke that reaches either stops there and says so. The track follows the ground under its middle and stays level across its width; riders slow up climbs and run quicker down drops. Ground steeper than 45° is refused as a wall, and a track climbing or dropping more than 35% along its length is a warning. Old tracks without heights stay flat.</li>
     <li><b>Race view:</b> you edit in the game's own race camera and 3D scene with hills, jumps, scenery and ground as a race draws them, and the lap map in its corner. Click, drag and right-click on the 3D ground; the keys are the same in every mode. Mouse wheel or <kbd>+</kbd> <kbd>−</kbd> zoom, <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or a middle-button (or <kbd>Space</kbd>+drag) pan, <kbd>[</kbd> <kbd>]</kbd>, the <b>⟲ Turn left</b> and <b>⟳ Turn right</b> buttons (bottom left) or a <kbd>Shift</kbd>+middle-button drag turn the view round the track, to see it from any side; <kbd>0</kbd> or <b>Reset view</b> goes back to the race camera's angle. Turning only changes the editor's view: clicks still land where the pointer is, and races always use the fixed race camera. The selection is orange, problems red or dashed yellow. In Layout each section shows as a stripe in its kind's colour, with a cream line across the track where one section ends and the next begins. No race runs while you edit. Opened straight from disk, the race view runs the game from the published site (<code>bigdaddy284.github.io/Motocross-RPG</code>), so it needs an internet connection; with neither that nor <code>npm run dev</code>, the editor shows a plain map instead.</li>
     <li><b>Modes:</b> <kbd>1</kbd> Layout, <kbd>2</kbd> Surfaces, <kbd>3</kbd> Ground, <kbd>4</kbd> Scenery, <kbd>5</kbd> Height.</li>
     <li><b>Export / Import</b> save one track as a <code>.track.json</code> file and add one back.</li>
@@ -1503,7 +1513,7 @@ function refresh() {
     $('#btnFitSecs').disabled = false;
     if (app.selPt === 0) $('#btnStart').disabled = true;
     // An unfinished lap (still being built from pieces) has no lap to fit, ride, reverse or start on yet.
-    if (t.open) for (const id of ['#btnFitSecs', '#btnPlay', '#btnReverse', '#btnAddStart', '#btnStart', '#btnRound']) $(id).disabled = true;
+    if (t.open) for (const id of ['#btnFitSecs', '#btnPlay', '#btnReverse', '#btnStart', '#btnRound']) $(id).disabled = true;
   }
   $('#btnPlay').textContent = app.play ? '■ Stop' : '▶ Preview';
   $('#btnPlay').classList.toggle('on', !!app.play);
@@ -1773,6 +1783,7 @@ function buildPalettes() {
     if (img) g.drawImage(img, 0, 0, 44, 44); else { g.fillStyle = it.color; g.fillRect(0, 0, 44, 44); }
   }, (id) => { app.groundBrush = id; });
   mk($('#sceneryPal'), app.parts.scenery, app.sceneryBrush, (g, it) => {
+    if (it.id === OFFICIAL) { drawOfficialIcon(g); return; }
     const img = artImage(it.art);
     g.imageSmoothingEnabled = false;
     if (img) { const r = Math.min(40 / img.width, 40 / img.height); g.drawImage(img, 22 - (img.width * r) / 2, 22 - (img.height * r) / 2, img.width * r, img.height * r); return; }
@@ -1884,7 +1895,7 @@ $('#btnClearGround').addEventListener('click', () => commit((t) => { if (t.groun
 // the ground keeps the height at the edge.
 
 const ELEV_STEP = 2;
-const ELEV_MAX = 24;
+const ELEV_MAX = 36;
 const WALL_SLOPE = 1;
 const STEEP_TRACK = 0.35;
 const elevCache = new WeakMap();
@@ -1931,6 +1942,7 @@ function heightDab(t, gx, gy, back, level) {
   const old = elevMap(t);
   const m = new Map(old);
   const get = (i, j) => old.get(`${i},${j}`) ?? 0;
+  app.elevCapped = 0;
   const maxI = Math.floor(GRID_W / step);
   const maxJ = Math.floor(GRID_H / step);
   for (let i = Math.max(0, Math.floor((gx - r) / step)); i <= Math.min(maxI, Math.ceil((gx + r) / step)); i++) {
@@ -1945,10 +1957,14 @@ function heightDab(t, gx, gy, back, level) {
       else if (tool === 'lower') to = h - strength * w;
       else if (tool === 'smooth') to = h + ((get(i - 1, j) + get(i + 1, j) + get(i, j - 1) + get(i, j + 1)) / 4 - h) * w * 0.6;
       else to = h + (level - h) * w * 0.6;
-      m.set(`${i},${j}`, clamp(Math.round(to * 100) / 100, -ELEV_MAX, ELEV_MAX));
+      const v = Math.round(to * 100) / 100;
+      if (Math.abs(v) > ELEV_MAX) app.elevCapped = Math.sign(v);
+      m.set(`${i},${j}`, clamp(v, -ELEV_MAX, ELEV_MAX));
     }
   }
   setHeights(t, m, step);
+  // Held at the limit rather than past it: said, not done quietly.
+  if (app.elevCapped) status(`The ground here is at the ${app.elevCapped > 0 ? 'highest' : 'lowest'} it can go, ${app.elevCapped > 0 ? '+' : '−'}${ELEV_MAX} m; it stops there.`, 'err');
 }
 /** Elevation checks, as src/core/elevation.ts elevationIssues: errors the game refuses and warnings. */
 function elevationIssues(t) {
@@ -2005,7 +2021,7 @@ function renderHeightPane() {
   const top = hs.length ? Math.max(0, ...hs) : 0;
   const low = hs.length ? Math.min(0, ...hs) : 0;
   const under = app.hoverPt ? elevAt(t, app.hoverPt.x, app.hoverPt.y) : null;
-  box.textContent = hs.length ? `Highest ${top.toFixed(2)} m, lowest ${low.toFixed(2)} m, ${hs.length} heights set.` : 'All flat: no heights set.';
+  box.textContent = `${hs.length ? `Highest ${top.toFixed(2)} m, lowest ${low.toFixed(2)} m, ${hs.length} heights set.` : 'All flat: no heights set.'} The ground can go from −${ELEV_MAX} m to +${ELEV_MAX} m.`;
   if (under !== null) box.textContent += ` Under the pointer: ${under.toFixed(2)} m.`;
 }
 /** The heights drawn over the map: warm for raised ground, blue for lowered, contour lines every metre, walls in red. */
@@ -2229,7 +2245,13 @@ function checkTrack(t, all, strict = false) {
     if (t.open) {
       const warn = [`Unfinished: the lap isn't closed yet (${t.sections.length} piece${t.sections.length === 1 ? '' : 's'}). The game leaves this track out; keep placing pieces until the last one meets the first.`];
       if (!t.name?.trim()) warn.push('The track needs a name.');
-      return { bad: [], warn, refs: new Map() };
+      // What else it will need to race, so nothing comes as a surprise at Ready to race.
+      if (!t.start) warn.push('No start straight yet: pick Start straight under Start and finish (Build the lap). Place it first and build the lap on from its end, or join it onto the lap.');
+      else if (t.path.length >= 2) for (const m of startProblems(t).filter((m) => !/second half/.test(m))) warn.push(m);
+      const refs = new Map();
+      for (const m of officialNotes(t)) { warn.push(m.text); if (m.i >= 0) refs.set(m.text, m.i); }
+      for (const p of elevationIssues(t)) warn.push(`Height: ${p.message} (${p.level === 'error' ? 'red' : 'yellow'} ring in Height mode).`);
+      return { bad: [], warn, refs };
     }
     const r = checkTrack(t, all, true);
     const warn = [r.bad.length
@@ -2303,6 +2325,7 @@ function checkTrack(t, all, strict = false) {
       refs.set(text, oi);
     }
   }
+  for (const m of officialNotes(t)) { warn.push(m.text); if (m.i >= 0) refs.set(m.text, m.i); }
   if (!t.practiceOnly && !t.gates?.length) warn.push('No gate curve: every gate starts the same.');
   // Two segments that cross make a figure of eight on screen, which the race screen can't show as a bridge.
   const g = lapGeom(t);
@@ -2413,6 +2436,65 @@ function routeLength(it) {
   let d = 0;
   for (let i = 1; i < r.length; i++) d += Math.hypot(r[i][0] - r[i - 1][0], r[i][1] - r[i - 1][1]);
   return d;
+}
+/** The start official's icon: a figure in the official's kit holding up the START 30 board. */
+function drawOfficialIcon(g) {
+  g.clearRect(0, 0, 44, 44);
+  g.fillStyle = '#2a3a5a';
+  g.fillRect(17, 26, 4, 14); g.fillRect(23, 26, 4, 14);
+  g.fillRect(16, 15, 12, 13);
+  g.fillStyle = '#e0b090';
+  g.beginPath(); g.arc(22, 10, 4.5, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#2a3a5a';
+  g.fillRect(27, 8, 3, 10);
+  g.fillStyle = '#f0a020';
+  g.fillRect(25, 1, 17, 11);
+  g.fillStyle = '#14141e';
+  g.font = 'bold 8px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText('30', 33.5, 7);
+}
+/** The start straight's icon: the straight, the gate across it and the arrow onto the lap (crossed out for Remove). */
+function drawStartIcon(g, crossed = false) {
+  g.clearRect(0, 0, 44, 44);
+  g.fillStyle = '#8a6a44';
+  g.fillRect(6, 4, 14, 36);
+  g.fillStyle = '#c9c9c9';
+  g.fillRect(4, 31, 18, 3);
+  g.fillStyle = '#14141e';
+  for (let x = 6; x < 20; x += 3) g.fillRect(x, 29, 1.5, 2);
+  g.strokeStyle = '#f2f2f2'; g.lineWidth = 2;
+  g.beginPath(); g.moveTo(13, 26); g.lineTo(13, 10); g.lineTo(30, 4); g.stroke();
+  g.beginPath(); g.moveTo(25, 2); g.lineTo(31, 4); g.lineTo(27, 9); g.stroke();
+  if (crossed) { g.strokeStyle = '#ff3b30'; g.lineWidth = 3; g.beginPath(); g.moveTo(6, 6); g.lineTo(38, 38); g.stroke(); }
+}
+/** Start and finish's Start board official: picks them in Scenery to place, or selects the one placed. */
+function pickOfficial() {
+  const t = track();
+  if (!t) return;
+  app.placing = null;
+  setMode('scenery');
+  const i = officialIndex(t);
+  if (i >= 0) {
+    deselect();
+    app.selItem = i;
+    refresh();
+    status('Selected the start official. Drag them to where they wait, Q / E turn them, and Draw route gives them their walk in the countdown.', 'ok');
+    return;
+  }
+  app.sceneryBrush = OFFICIAL;
+  deselect();
+  refresh();
+  status(t.start
+    ? 'Placing the start official: click the ground beside the start straight, just ahead of the gate and clear of the track, where they wait with the board. Then Draw route for their walk.'
+    : 'Placing the start official: click the ground where they wait with the board. Give the track a start straight too: the game plans their walk by it.', 'ok');
+}
+/** Warnings about the start official for Checks: none placed yet, or placed with no walk. */
+function officialNotes(t) {
+  if (t.practiceOnly) return [];
+  const i = officialIndex(t);
+  if (i < 0) return [{ i: -1, text: 'No start board official placed: the game stands one beside the start straight by itself. To choose where they wait and walk, pick Start board official (Start and finish, or Scenery).' }];
+  if (!t.scenery[i].route?.length) return [{ i, text: `Scenery item ${i + 1}: the start official has no route, so they hold the board where they stand all through the countdown. Select them and Draw route to give them their walk (click here to find them).` }];
+  return [];
 }
 /** Problems the editor can see itself: too many officials, or too long a walk. The rest come from the race view. */
 function officialLocalProblems(t) {
@@ -2577,13 +2659,19 @@ function pieceFor(type) {
 }
 /** Starts placing a piece of a section type (or stops, with null). */
 function startPiece(type) {
-  app.placing = type ? { ...pieceFor(type), at: app.placing?.at ?? null } : null;
+  app.placing = type === 'start' ? { ...startPieceFor(), at: app.placing?.at ?? null } : type ? { ...pieceFor(type), at: app.placing?.at ?? null } : null;
   refresh();
 }
 /** The open end of the track being built: its last point and heading, or null when nothing is placed. */
 function chainEnd(t) {
   const n = t.path.length;
-  if (n < 2) return null;
+  if (n < 2) {
+    // A start straight placed first: the lap goes on from its end, heading the way its gate run points.
+    const sp = n ? null : t.start?.path;
+    if (!sp || sp.length < 2) return null;
+    const [jx, jy] = sp.at(-1);
+    return { x: jx, y: jy, h: Math.atan2(sp[1][1] - sp[0][1], sp[1][0] - sp[0][0]), fromStart: true };
+  }
   const [ax, ay] = t.path[n - 2];
   const [bx, by] = t.path[n - 1];
   let h = Math.atan2(by - ay, bx - ax);
@@ -2621,11 +2709,91 @@ function piecePoints(pl, x, y, h) {
 }
 const pieceUnits = (pl) => (pl.bend ? (pl.r * pl.deg * Math.PI) / 180 : pl.len);
 
+// The start straight as a piece (Start and finish in Build the lap, or + Start straight): the
+// shape the automatic one has (autoStart), a run alongside the lap from the gate that turns onto
+// it at about 45°, so it stays clear of the lap until it merges. Its end (the ring) snaps onto the
+// lap where the pointer is near it, heading the way the lap runs there; Q / E turn it about that
+// end, F brings it in from the other side, , and . make the run shorter or longer. On an empty
+// track it can be placed first, anywhere: the lap is then built on from its end (chainEnd). It is
+// checked as the game checks a start straight (startProblems), and nothing else is moved for it.
+
+/** Grid units of the run from the gate before it turns onto the lap: by default, and the least and most. */
+const START_RUN = 16;
+const START_RUN_MIN = 6;
+const START_RUN_MAX = 40;
+/** Grid units from the lap within which the start straight's end snaps onto it. */
+const START_SNAP = 6;
+function startPieceFor() {
+  return { kind: 'start', type: 'start', side: 1, run: START_RUN, turn: 0, at: null };
+}
+/** Where the start straight being placed would go: its points (gate first), level and why, and the ring at its end. */
+function startGhost(t, pl) {
+  const width = t.width ?? DEFAULT_WIDTH;
+  const off = width / 2 + (width / 2) * START_WIDEN + 1.5;
+  const lap = t.path.length >= 2 ? lapGeom(t) : null;
+  let at = pl.at;
+  if (!at) {
+    // Before the pointer moves: where the automatic one would go, else the middle.
+    const auto = lap && !t.open ? autoStart(t) : null;
+    const [jx, jy] = auto ? auto.path.at(-1) : [GRID_W / 2, GRID_H / 2];
+    at = { x: jx, y: jy };
+  }
+  let j = { x: round1(at.x), y: round1(at.y) };
+  let h = 0;
+  let joined = false;
+  if (lap) {
+    const pr = project(lap, at.x, at.y);
+    if (pr.dist <= START_SNAP) {
+      const p = pointAt(lap, pr.f);
+      j = { x: round1(p.x), y: round1(p.y) };
+      h = headingAt(lap, pr.f);
+      joined = true;
+    }
+  }
+  h += (pl.turn * Math.PI) / 180;
+  const back = (d, o) => [round1(j.x - Math.cos(h) * d - Math.sin(h) * o * pl.side), round1(j.y - Math.sin(h) * d + Math.cos(h) * o * pl.side)];
+  const pts = [back(pl.run + off, off), back(off, off), [j.x, j.y]];
+  let total = 0;
+  for (let i = 1; i < pts.length; i++) total += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+  const out = { pts, level: 'ok', msg: '', joined, total, ring: lap ? [j.x, j.y, START_SNAP] : null };
+  const fail = (msg) => Object.assign(out, { level: 'error', msg });
+  const instead = t.start ? ' It replaces the start straight there now.' : '';
+  if (pts.some(([x, y]) => x < 0 || y < 0 || x > GRID_W || y > GRID_H)) return fail('It runs off the 100 × 60 grid: move or turn it.');
+  if (lap && !joined) return fail('Its end isn\'t on the lap: bring the ring onto the lap where riders join it, and it snaps on.');
+  if (lap) {
+    // As the game checks it; on a lap still being built, how far round it joins can't be judged yet.
+    const probs = startProblems({ ...t, start: { path: pts } }).filter((m) => !(t.open && /second half/.test(m)));
+    if (probs.length) return fail(probs[0]);
+    out.msg = `Joins the lap here, heading the way it runs. Click to place it.${instead}`;
+  } else out.msg = `Click to place it. The lap is then built on from its end (the ring): the first piece joins there.${instead}`;
+  return out;
+}
+/** Places the start straight being placed, as one undo step. */
+function placeStart() {
+  const t = track();
+  const pl = app.placing;
+  if (!t || !pl) return;
+  const gh = startGhost(t, pl);
+  if (gh.level === 'error') { status(gh.msg, 'err'); return; }
+  const had = !!t.start;
+  commit((t) => { setKeyNear(t, 'start', { path: gh.pts }, 'sections'); app.selPt = -1; app.selStart = -1; });
+  if (t.draft && t.open && t.path.length < 2) {
+    // Placed first: the lap goes on from its end.
+    app.placing = { ...pieceFor('straight'), at: null };
+    status(`${had ? 'Moved' : 'Placed'} the start straight. A straight now follows the pointer: put it on the ring at the start straight's end, where the lap begins, or pick another section type.`, 'ok');
+  } else {
+    app.placing = null;
+    status(`${had ? 'Moved' : 'Placed'} the start straight. Riders ride it once from the gate, then the lap from where it joins round to the finish line, which ends lap 1. Drag its blue points to reshape it.`, 'ok');
+  }
+  refresh();
+}
+
 /**
  * Where the piece being placed would go and whether it can: its points (as they would be added),
  * level ok, warning or error with why, and whether it closes the lap.
  */
 function ghostPiece(t, pl) {
+  if (pl.kind === 'start') return startGhost(t, pl);
   const end = chainEnd(t);
   const width = t.width ?? DEFAULT_WIDTH;
   const at = pl.at ?? (end ? { x: end.x, y: end.y } : { x: GRID_W / 2 - pieceUnits(pl) / 2, y: GRID_H / 2 });
@@ -2652,7 +2820,7 @@ function ghostPiece(t, pl) {
   const shape = pieceShape(pl, width);
   const def = app.sectionDefs[pl.type];
   if (pts.some(([x, y]) => x < 0 || y < 0 || x > GRID_W || y > GRID_H)) return fail('It runs off the 100 × 60 grid: move or turn it.');
-  if (end && !joined) return fail('It isn\'t joined to the track: move it onto the end of the last piece (the ring), where it snaps on.');
+  if (end && !joined) return fail(end.fromStart ? 'It isn\'t joined to the start straight: move it onto the start straight\'s end (the ring), where the lap begins.' : 'It isn\'t joined to the track: move it onto the end of the last piece (the ring), where it snaps on.');
   if (joined && Math.abs(pl.turn) > PIECE_KINK) return fail(`It kinks ${Math.abs(pl.turn)}° where it joins the last piece; turn it back (Q / E) to ${PIECE_KINK}° or less.`);
   if (def && !shapesFor(pl.type).includes(shape)) return fail(`${def.name} has to be ${shapesFor(pl.type).map((x) => `${an(x)} ${x}`).join(' or ')}, and this is ${an(shape)} ${shape}: make it ${shape === 'straight' ? 'a bend (B)' : 'longer or shorter (, .)'}.`);
   // Too near the track already built (other than where it joins, or closes), riders would ride through each other.
@@ -2677,7 +2845,7 @@ function ghostPiece(t, pl) {
     });
     if (hit) Object.assign(out, { level: 'warning', msg: `It runs over the track already built at ${hit.x.toFixed(0)}, ${hit.y.toFixed(0)}. It can go there (a crossover), but riders pass through each other.` });
   }
-  if (!out.msg) out.msg = out.closes ? 'This piece closes the lap. Click to place it.' : end ? 'Joined on. Click to place it.' : 'Click to place the first piece.';
+  if (!out.msg) out.msg = out.closes ? 'This piece closes the lap. Click to place it.' : end?.fromStart ? 'Joined to the start straight: the lap starts here. Click to place it.' : end ? 'Joined on. Click to place it.' : 'Click to place the first piece.';
   return out;
 }
 
@@ -2685,6 +2853,7 @@ function ghostPiece(t, pl) {
 function placePiece() {
   const t = track();
   const pl = app.placing;
+  if (pl?.kind === 'start') { placeStart(); return; }
   if (!t || !pl || !t.open) return;
   const gh = ghostPiece(t, pl);
   if (gh.level === 'error') { status(gh.msg, 'err'); return; }
@@ -2700,8 +2869,9 @@ function placePiece() {
     app.selPt = -1;
     if (gh.closes) {
       delete t.open;
-      // A closed lap needs a start straight to race; one is laid beside the start when there's room.
-      const st = autoStart(t);
+      // A closed lap needs a start straight to race; one is laid beside the start when there's room
+      // and none was placed (one placed is never moved).
+      const st = t.start ? null : autoStart(t);
       if (st) setKeyNear(t, 'start', st, 'sections');
     }
   });
@@ -2709,7 +2879,7 @@ function placePiece() {
   pl.at = null;
   if (gh.closes) {
     app.placing = null;
-    status(track().start ? 'The lap is closed, with a start straight beside its start. Check it, then click Ready to race.' : 'The lap is closed. Add a start straight (+ Start straight), then click Ready to race.', 'ok');
+    status(track().start ? 'The lap is closed, with its start straight. Check it, then click Ready to race.' : 'The lap is closed. Place a start straight (Start and finish), then click Ready to race.', 'ok');
     refresh();
   } else status(`Placed ${app.sectionDefs[pl.type]?.name ?? pl.type}. Pick the next piece, or keep placing this one.`, 'ok');
 }
@@ -2717,6 +2887,15 @@ function placePiece() {
 function adjustPiece(what, d = 0) {
   const pl = app.placing;
   if (!pl) return;
+  if (pl.kind === 'start') {
+    if (what === 'turn') pl.turn = clamp(pl.turn + d, -180, 180);
+    else if (what === 'mirror') pl.side = -pl.side;
+    else if (what === 'size') pl.run = clamp(pl.run + d * 2, START_RUN_MIN, START_RUN_MAX);
+    renderBuild();
+    requestDraw();
+    sendView();
+    return;
+  }
   if (what === 'turn') pl.turn = clamp(pl.turn + d, -180, 180);
   else if (what === 'mirror') pl.mirror = !pl.mirror;
   else if (what === 'size') {
@@ -2734,13 +2913,23 @@ function adjustPiece(what, d = 0) {
 function renderBuild() {
   const t = track();
   const box = $('#buildBox');
-  box.hidden = !t?.draft;
-  if (!t?.draft) { app.placing = null; return; }
-  $('#buildOpen').hidden = !t.open;
+  // Shown on an unfinished track, and on any track while its start straight is being placed.
+  const placingStart = app.placing?.kind === 'start';
+  box.hidden = !t?.draft && !placingStart;
+  if (!t || box.hidden) { app.placing = null; return; }
+  $('#buildOpen').hidden = !t.open || !t.draft;
+  $('#readyRow').hidden = !t.draft;
   $('#btnReady').disabled = !!t.open;
-  $('#buildHint').textContent = t.open
-    ? t.path.length ? `${t.sections.length} piece${t.sections.length === 1 ? '' : 's'} placed. The next joins the end of the last (the ring); bring the last back round to the first to close the lap.` : 'An empty track: pick a section type and click on the ground to place the first piece.'
-    : 'The lap is closed. Shape it as any track, then Ready to race runs the game\'s checks and lets the game use it.';
+  $('#btnStartPiece').querySelector('span').textContent = t.start ? 'Move start straight' : 'Start straight';
+  $('#btnStartPiece').classList.toggle('sel', placingStart);
+  $('#btnStartRemove').disabled = !t.start;
+  $('#btnStartOfficial').querySelector('span').textContent = officialIndex(t) >= 0 ? 'Start board official ✓' : 'Start board official';
+  const startNote = t.start ? '' : ' No start straight yet: place one from Start and finish (first, or onto the lap).';
+  $('#buildHint').textContent = !t.draft
+    ? 'Placing the start straight on a finished track.'
+    : t.open
+      ? (t.path.length ? `${t.sections.length} piece${t.sections.length === 1 ? '' : 's'} placed. The next joins the end of the last (the ring); bring the last back round to the first to close the lap.` : t.start ? 'The start straight is placed: the first lap piece joins its end (the ring), where the lap begins.' : 'An empty track: place the start straight first and build the lap on from its end, or start with any section type and join the start straight on later.') + startNote
+      : `The lap is closed. Shape it as any track, then Ready to race runs the game\'s checks and lets the game use it.${startNote}`;
   const pal = $('#piecePal');
   if (!pal.dataset.built || pal.dataset.built !== String(Object.keys(app.sectionDefs).length)) {
     pal.innerHTML = '';
@@ -2757,10 +2946,17 @@ function renderBuild() {
   for (const b of pal.children) b.classList.toggle('sel', b.dataset.type === app.placing?.type);
   const pl = app.placing;
   $('#pieceCtl').hidden = !pl;
+  $('#btnPieceBend').disabled = pl?.kind === 'start';
+  $('#btnPieceMirror').textContent = pl?.kind === 'start' ? 'Side F' : 'Mirror F';
   if (!pl) { $('#pieceMsg').textContent = t.open ? 'Pick a section type to place.' : ''; $('#pieceMsg').className = 'hint'; return; }
-  $('#pieceSize').textContent = pl.bend ? `${pl.deg}° bend, radius ${pl.r}` : `${pl.len} long`;
   const gh = ghostPiece(t, pl);
-  $('#pieceMsg').textContent = `${app.sectionDefs[pl.type]?.name ?? pl.type}, ${pl.bend ? `${pl.deg}° ${pl.mirror ? 'left' : 'right'}` : 'straight'}, about ${Math.round(pieceUnits(pl) * PIECE_MPU)} m${pl.turn ? `, turned ${pl.turn}°` : ''}. ${gh.msg}`;
+  if (pl.kind === 'start') {
+    $('#pieceSize').textContent = `${Math.round(gh.total)} long`;
+    $('#pieceMsg').textContent = `Start straight, about ${Math.round(gh.total * PIECE_MPU)} m from the gate to where it joins, coming in from the ${pl.side > 0 ? 'right' : 'left'}${pl.turn ? `, turned ${pl.turn}°` : ''}. Q / E turn it, F the other side, , . shorter or longer. ${gh.msg}`;
+  } else {
+    $('#pieceSize').textContent = pl.bend ? `${pl.deg}° bend, radius ${pl.r}` : `${pl.len} long`;
+    $('#pieceMsg').textContent = `${app.sectionDefs[pl.type]?.name ?? pl.type}, ${pl.bend ? `${pl.deg}° ${pl.mirror ? 'left' : 'right'}` : 'straight'}, about ${Math.round(pieceUnits(pl) * PIECE_MPU)} m${pl.turn ? `, turned ${pl.turn}°` : ''}. ${gh.msg}`;
+  }
   $('#pieceMsg').className = gh.level === 'error' ? 'bad' : gh.level === 'warning' ? 'warn' : 'good';
 }
 /** Marks Ready to race: the game's checks first, then it stops being unfinished. */
@@ -2776,9 +2972,9 @@ function readyToRace() {
 /** The ghost piece and the ring at the end of the track, on the map. */
 function drawGhost() {
   const t = track();
-  if (!t?.open || !app.placing || app.view3d) return;
+  if ((!t?.open && app.placing?.kind !== 'start') || !app.placing || app.view3d) return;
   const { k } = view;
-  const end = chainEnd(t);
+  const end = app.placing.kind === 'start' ? null : chainEnd(t);
   if (end) {
     const s = toScreen(end.x, end.y);
     ctx.strokeStyle = '#ffffff';
@@ -2796,8 +2992,9 @@ function drawGhost() {
 }
 /** What the race view draws for the piece being placed. */
 function ghostForView(t) {
-  if (!t.open || !app.placing) return undefined;
+  if (!app.placing || (!t.open && app.placing.kind !== 'start')) return undefined;
   const gh = ghostPiece(t, app.placing);
+  if (app.placing.kind === 'start') return { pts: gh.pts, level: gh.level, ring: gh.ring };
   const end = chainEnd(t);
   return { pts: gh.pts, level: gh.level, ring: end ? [end.x, end.y, PIECE_SNAP] : null };
 }
@@ -2808,7 +3005,7 @@ function ghostForView(t) {
  */
 function trackForView(t) {
   if (!t.open) return { track: t };
-  if (t.path.length < 2) return { track: { ...t, path: [[-40, -40], [-30, -40], [-35, -32]], sections: [{ type: 'straight', length: 30, passing: 0.5 }], start: undefined }, gapFrom: 0 };
+  if (t.path.length < 2) return { track: { ...t, path: [[-40, -40], [-30, -40], [-35, -32]], sections: [{ type: 'straight', length: 30, passing: 0.5 }] }, gapFrom: 0 };
   const g = lapGeom(t);
   const [ax, ay] = t.path.at(-1);
   const [bx, by] = t.path[0];
@@ -2828,13 +3025,23 @@ function keepJoined(t) {
   const p = pointAt(g, project(g, x, y).f);
   sp[sp.length - 1] = [round1(p.x), round1(p.y)];
 }
+/** + Start straight and Start and finish: the start straight follows the pointer to be placed, like a piece. */
 function addStart() {
   const t = track();
-  if (!t || t.start) return;
-  const st = autoStart(t);
-  if (!st) { status('No clear spot for a start straight next to the lap; make room beside the first part of the lap.', 'err'); return; }
-  commit((t) => { setKeyNear(t, 'start', st, 'sections'); app.selPt = -1; app.selStart = 0; });
-  status('Added a start straight. Drag its blue points to shape it; the white one joins the lap.', 'ok');
+  if (!t) return;
+  if (app.mode !== 'layout') setMode('layout');
+  app.placing = { ...startPieceFor(), at: null };
+  deselect();
+  refresh();
+  status(t.path.length >= 2
+    ? 'Placing the start straight: bring its end (the ring) onto the lap where riders join it, Q / E turn it, F brings it in from the other side, , . shorter or longer. Click or Enter places it, Esc cancels.'
+    : 'Placing the start straight first: click where it should go, Q / E turn it, , . shorter or longer. The first lap piece then joins its end. Esc cancels.', 'ok');
+}
+function removeStart() {
+  const t = track();
+  if (!t?.start) return;
+  commit((t) => { delete t.start; app.selStart = -1; });
+  status('Removed the start straight. Undo puts it back; place a new one from Start and finish.', 'ok');
 }
 function insertPoint() {
   const t = track();
@@ -3168,7 +3375,7 @@ function onPointerDown(e) {
     changed();
     return;
   }
-  if (app.placing && app.mode === 'layout' && t.open) {
+  if (app.placing && app.mode === 'layout' && (t.open || app.placing.kind === 'start')) {
     if (e.button === 2) startPiece(null);
     else if (e.button === 0) { app.placing.at = gp; placePiece(); }
     return;
@@ -3258,7 +3465,7 @@ function onPointerMove(e) {
     }
   }
   if (app.rect) { const c = cellAt(t, gp); app.rect.x1 = c.x; app.rect.y1 = c.y; requestDraw(); return; }
-  if (app.placing && app.mode === 'layout' && t?.open && !drag) {
+  if (app.placing && app.mode === 'layout' && (t?.open || app.placing.kind === 'start') && !drag) {
     app.placing.at = gp;
     canvas.style.cursor = 'crosshair';
     renderBuild();
@@ -3392,6 +3599,12 @@ $('#btnPieceLong').addEventListener('click', () => adjustPiece('size', 1));
 $('#btnPiecePlace').addEventListener('click', placePiece);
 $('#btnPieceCancel').addEventListener('click', () => startPiece(null));
 $('#btnReady').addEventListener('click', readyToRace);
+$('#btnStartPiece').addEventListener('click', addStart);
+$('#btnStartOfficial').addEventListener('click', pickOfficial);
+$('#btnStartRemove').addEventListener('click', removeStart);
+drawStartIcon($('#btnStartPiece canvas').getContext('2d'));
+drawOfficialIcon($('#btnStartOfficial canvas').getContext('2d'));
+drawStartIcon($('#btnStartRemove canvas').getContext('2d'), true);
 $('#showScene').addEventListener('change', requestDraw);
 $('#btnPlay').addEventListener('click', () => { if (app.play) { stopPlay(); refresh(); } else startPlay(); });
 $('#btnRide').addEventListener('click', () => {

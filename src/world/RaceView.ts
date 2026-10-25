@@ -217,6 +217,9 @@ export class RaceView {
     if (this.surface.start.total > 0) {
       this.scene3.add(this.startGate());
       this.scene3.add(this.startBoard());
+    } else if (this.track.scenery?.some((it) => it.type === OFFICIAL_ITEM)) {
+      // An official placed on a new track before its start straight: drawn standing where placed (the track editor).
+      this.scene3.add(this.startBoard());
     }
     this.scene3.add(this.startLine());
     // Low scenery that never needs fading is baked into one mesh; textured parts stay separate.

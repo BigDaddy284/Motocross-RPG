@@ -85,4 +85,16 @@ describe('start official', () => {
     // Ending on the start straight.
     expect(set(46.4, 49.5, [[46.4, 46]])).toMatch(/ends on the track/);
   });
+
+  it('stands where placed on a new track with no start straight yet, and says it needs one', () => {
+    const farm = structuredClone(content.tracks.tracks.find((t) => t.id === 'farmland')!) as TrackDef;
+    delete farm.start;
+    farm.scenery = [{ type: OFFICIAL_ITEM, x: 50, y: 30, rot: 30, route: [[52, 30]] }];
+    const { plan, problems } = placedOfficial(farm, parts);
+    expect(problems).toEqual(['the start official needs a start straight to stand by']);
+    expect(plan!.a).toEqual({ x: 50, y: 30 });
+    expect(plan!.b).toEqual({ x: 52, y: 30 });
+    // The game itself still has no official without a start straight.
+    expect(officialPlan(farm, parts)).toBeNull();
+  });
 });
