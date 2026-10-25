@@ -7,7 +7,8 @@ import { findPathToAny, findPathTowards, standingTiles } from '../core/pathfindi
 import type { SaveData } from '../core/saves';
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
 import { applyMapState, clearedPatches, hiddenSprites } from '../core/mapState';
-import { WORLD_MAP, spawnTile, stepTriggerAt, type Arrival } from '../core/travel';
+import { directions, guidesOn, routeArrival, waysOut } from '../core/guides';
+import { ROUTE, stepTriggerAt, type Arrival, type StepResult } from '../core/travel';
 import { DriveMap, FACING_OF, ensureVan, exitTile, footprint, inwardHeading, nearestFree, placeNear, planDrive, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { entryFee, practiceFee, venueProblem, type VenueDef } from '../core/raceDay';
 import { noteActivity, shopForAction, type ShopDef } from '../core/shops';
@@ -274,6 +275,11 @@ export class WorldScene extends Phaser.Scene {
       this.approach(target);
       return;
     }
+    if (tile.x === this.player.tile.x && tile.y === this.player.tile.y && stepTriggerAt(this.map, tile) && !this.walking) {
+      // Standing on a way out that turned the rider back: try it again.
+      this.checkTrigger();
+      return;
+    }
     const path = findPathTowards(this.grid, this.player.tile, tile);
     this.markTarget(tile.x * TILE + TILE / 2, tile.y * TILE + TILE / 2);
     this.setPath(path, null);
@@ -379,10 +385,11 @@ export class WorldScene extends Phaser.Scene {
       } else this.openVenue(venue);
       return;
     }
-    if (o.type === 'travel' && o.props.to === WORLD_MAP) {
+    if (o.type === 'travel' && o.props.to === ROUTE) {
+      // Signs and stops for the roads out: the route marshal by the road says where it goes.
       const lock = services.travel.lockFor(this.map, o, this.save.flags);
-      if (lock) this.hud.toast(lock.message);
-      else this.openWorldMap();
+      const guide = guidesOn(services.content.npcs, this.map)[0];
+      this.hud.toast(lock ? lock.message : `${o.name}: ${guide ? `the ${guide.name.toLowerCase()} by the road out knows where it goes.` : 'the roads out are marked at the edge of town.'}`);
       return;
     }
     const msg = actionMessage(o, this.save.flags);
@@ -403,6 +410,7 @@ export class WorldScene extends Phaser.Scene {
       this.openVenue(office, () => this.faceBack(placement, character));
       return;
     }
+    if (npc.guide && !this.talkRule(npc)) return this.guideTalk(npc, () => this.faceBack(placement, character));
     const shop = services.content.shops.shops.find((s) => s.npc === npc.id);
     if (shop && !this.talkRule(npc) && this.openShop(shop, 'buy', () => this.faceBack(placement, character))) return;
     this.say(npc.name, this.dialogueFor(npc), () => this.faceBack(placement, character));
@@ -835,6 +843,12 @@ export class WorldScene extends Phaser.Scene {
     }
     // A way out counts as reached on any of its tiles.
     const via = stepTriggerAt(this.map, tile);
+    if (via?.type === 'exit' && footprint(van.pose, van.design.length).some((t) => stepTriggerAt(this.map, t) === via)) {
+      // Already at it (turned back before, say to ask which way): try it again.
+      const r = services.travel.resolve(this.map, via, this.save.flags);
+      if (r) this.vanThrough(r);
+      return;
+    }
     const plan = planDrive(this.drive, van.pose, van.design.length, via?.type === 'exit' ? objectTiles(via, this.map.tileSize) : tile);
     if (!plan) {
       this.hud.toast(`The ${van.design.name} can't get there.`);
@@ -855,11 +869,18 @@ export class WorldScene extends Phaser.Scene {
       const r = services.travel.resolve(this.map, via, this.save.flags);
       if (!r) continue;
       this.moves = [];
-      if (r.kind === 'blocked') this.hud.toast(r.message);
-      else if (r.kind === 'worldMap') this.openWorldMap();
-      else return this.driveTo(r.to);
-      return false;
+      return this.vanThrough(r);
     }
+    return false;
+  }
+
+  /** Takes the van out by an exit it has reached, or says why it can't go. Returns true when leaving. */
+  private vanThrough(r: NonNullable<StepResult>): boolean {
+    if (r.kind === 'blocked') this.hud.toast(r.message);
+    else if (r.kind === 'route') {
+      const to = this.routeTo(r.via);
+      if (to) return this.driveTo(to);
+    } else return this.driveTo(r.to);
     return false;
   }
 
@@ -889,15 +910,42 @@ export class WorldScene extends Phaser.Scene {
     return dm;
   }
 
-  // ---- the world map ----
+  // ---- routes and route marshals ----
 
-  private openWorldMap(): void {
-    this.hud.openWorldMap(this.map.id, (mapId, spawn) => {
-      const target = services.maps.get(mapId);
-      const tile = target && spawnTile(target, spawn);
-      if (!target || !tile) return;
-      if (this.driving) this.driveTo({ map: mapId, tile });
-      else this.leaveTo({ map: mapId, x: tile.x, y: tile.y, facing: 'up' });
+  /** Where a route exit takes the rider: the place picked with the marshal, or its only place. Says why not, otherwise. */
+  private routeTo(via: MapObject): Arrival | null {
+    const pick = services.routePick?.map === this.map.id && services.routePick.exit === via.name ? services.routePick.to : null;
+    const guide = guidesOn(services.content.npcs, this.map)[0]?.name ?? null;
+    const to = routeArrival(this.map, via, services.content.world, services.maps, pick, guide);
+    if (typeof to === 'string') {
+      this.hud.toast(to);
+      return null;
+    }
+    services.routePick = null;
+    return to;
+  }
+
+  /** A route marshal: where each way out goes, then which route to take when there's a choice. */
+  private guideTalk(npc: NpcDef, done: () => void): void {
+    const ways = waysOut(this.map, services.content.world, services.maps, services.travel, this.save.flags);
+    const greeting = (services.content.dialogue[npc.dialogue]?.lines ?? []).map((l) => ({ ...l, text: fillText(l.text, { rider: this.save.rider.name }) }));
+    const lines: DialogueLine[] = [...greeting, ...directions(ways).map((text) => ({ speaker: 'npc' as const, text }))];
+    this.hud.openDialogue(npc.name, this.save.rider.name, lines, () => {
+      const choices = ways.filter((w) => w.route && !w.shut && w.places.length > 1);
+      if (!choices.length) return done();
+      const options = choices.flatMap((w) =>
+        w.places.map((p) => ({
+          label: p.name,
+          note: `${w.route!.road[0].toUpperCase()}${w.route!.road.slice(1)}, out to the ${w.side}. ${p.note}`,
+          onPick: () => {
+            services.routePick = { map: this.map.id, exit: w.exit.name, to: p.map };
+            this.hud.toast(`Heading for ${p.name}: take ${w.route!.road} out to the ${w.side}.`);
+            done();
+          },
+        })),
+      );
+      options.push({ label: 'Just asking', note: '', onPick: done });
+      this.hud.choose('Which way?', `Where are you heading, ${this.save.rider.name}?`, options, done);
     });
   }
 
@@ -932,8 +980,10 @@ export class WorldScene extends Phaser.Scene {
         if (!this.path.length) break;
         continue;
       }
+      // Moving along an exit (say, off it after being turned back) doesn't set it off again.
+      const from = stepTriggerAt(this.map, this.player.tile);
       await this.player.step(next);
-      if (this.checkTrigger()) {
+      if (from !== stepTriggerAt(this.map, this.player.tile) && this.checkTrigger()) {
         this.walking = false;
         return;
       }
@@ -957,15 +1007,21 @@ export class WorldScene extends Phaser.Scene {
     if (!via) return false;
     const r = services.travel.resolve(this.map, via, this.save.flags);
     if (!r) return false;
-    if (r.kind === 'blocked' || r.kind === 'worldMap') {
+    if (r.kind === 'blocked') {
       this.path = [];
       this.onArrive = null;
-      if (r.kind === 'blocked') this.hud.toast(r.message);
-      else {
-        this.player.stopWalking();
-        this.openWorldMap();
-      }
+      this.hud.toast(r.message);
       return false;
+    }
+    if (r.kind === 'route') {
+      const to = this.routeTo(via);
+      if (!to) {
+        this.path = [];
+        this.onArrive = null;
+        return false;
+      }
+      this.leaveTo({ map: to.map, x: to.tile.x, y: to.tile.y, facing: 'up' });
+      return true;
     }
     const entering = this.map.kind === 'area' && via.type === 'door';
     this.leaveTo({ map: r.to.map, x: r.to.tile.x, y: r.to.tile.y, facing: entering ? 'up' : 'down' }, entering);

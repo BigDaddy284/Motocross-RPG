@@ -121,7 +121,8 @@ describe('the opening chain', () => {
   it('only the opening chain NPCs talk before it is done (GDD 4.2)', () => {
     const inChain = new Set(story.steps.slice(0, story.steps.findIndex((s) => s.id === 'tutorial_end') + 1).flatMap((s) => (s.on.talk ? [s.on.talk] : [])));
     for (const n of content.npcs) {
-      if (inChain.has(n.id)) expect(n.quietUntil, n.id).toBeUndefined();
+      // Route marshals only give directions (they replace the world map screen), so they always answer.
+      if (inChain.has(n.id) || n.guide) expect(n.quietUntil, n.id).toBeUndefined();
       else expect(n.quietUntil, n.id).toBe('tutorial_done');
     }
   });
@@ -163,17 +164,17 @@ describe('roadworks and the venue route', () => {
     expect(clearedPatches(home, flags).length).toBeGreaterThan(0);
   });
 
-  it('opens to the world map only once the van is loaded', () => {
+  it('opens the venue road only once the van is loaded', () => {
     expect(travel.resolve(home, exit, { roadworks_done: true, van_owned: true })?.kind).toBe('blocked');
-    expect(travel.resolve(home, exit, { roadworks_done: true, van_owned: true, van_loaded: true })?.kind).toBe('worldMap');
+    expect(travel.resolve(home, exit, { roadworks_done: true, van_owned: true, van_loaded: true })?.kind).toBe('route');
   });
 
-  it('every venue map leads back to the world map', () => {
-    for (const d of world.worldMap) {
+  it('every venue map has a road back out', () => {
+    for (const d of world.places) {
       const m = maps.get(d.map)!;
       if (m.id === 'area1-home-town') continue;
       const out = m.objects.find((o) => o.type === 'exit')!;
-      expect(travel.resolve(m, out, {})?.kind, m.id).toBe('worldMap');
+      expect(travel.resolve(m, out, {})?.kind, m.id).toBe('route');
     }
   });
 });

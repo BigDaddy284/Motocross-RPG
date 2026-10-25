@@ -27,7 +27,7 @@ import type { WorldScene } from './WorldScene';
 import { cssSize, view } from '../ui/view';
 
 // Screen-space layer over the world: map name, money and task, messages, the dialogue box, the
-// bike / bag / task panel, confirm boxes, the work progress bar, the world map, the pause menu and
+// bike / bag / task panel, confirm boxes, the work progress bar, the pause menu and
 // touch buttons. Runs alongside the world scene at a fixed zoom.
 
 type PanelTab = 'bike' | 'bag' | 'task' | 'skills';
@@ -48,7 +48,7 @@ export class HudScene extends Phaser.Scene {
   private taskText!: Phaser.GameObjects.Text;
   private shiftText!: Phaser.GameObjects.Text;
   private progressBox: Phaser.GameObjects.Container | null = null;
-  /** The bike panel, a confirm box or the world map: anything that takes over input until closed. */
+  /** The bike panel, a confirm box or a choice: anything that takes over input until closed. */
   private modal: Phaser.GameObjects.Container | null = null;
   private onModalClose: (() => void) | null = null;
   private career: CareerState | null = null;
@@ -412,30 +412,6 @@ export class HudScene extends Phaser.Scene {
         },
       });
     });
-  }
-
-  /** The world map: pick where to drive. Destinations are listed in data/world.json. */
-  openWorldMap(current: string, onPick: (map: string, spawn: string) => void): void {
-    const dests = services.content.world.worldMap;
-    const { width, height, k } = this.page();
-    const w = Math.min(640, width - 32);
-    const h = 150 + dests.length * 76;
-    const c = this.add.container((width / 2) * k, (height / 2) * k).setScale(k);
-    this.backdrop(c, w, h, true);
-    c.add(this.add.text(0, -h / 2 + 34, 'Where to?', textStyle(28, COLORS.accent)).setOrigin(0.5));
-    dests.forEach((d, i) => {
-      const y = -h / 2 + 100 + i * 76;
-      const here = d.map === current;
-      const b = button(this, -w / 2 + 150, y, here ? `${d.name} (here)` : d.name, () => {
-        this.closeModal();
-        onPick(d.map, d.spawn);
-      }, 240, 46);
-      b.setEnabled(!here);
-      c.add(b);
-      c.add(this.add.text(-w / 2 + 290, y, d.note, textStyle(this.pts(15), COLORS.muted, { wordWrap: { width: w - 310 } })).setOrigin(0, 0.5));
-    });
-    c.add(button(this, 0, h / 2 - 40, 'Stay here', () => this.closeModal(), 200, 44));
-    this.openModal(c);
   }
 
   /** Bike, bag and task in one panel (the task journal lives in the bag until the home PC, Spec 21b). */

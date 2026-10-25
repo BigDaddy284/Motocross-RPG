@@ -2,6 +2,7 @@ import { BUILDINGS_SCHEMA, checkBuildings, type BuildingsData } from './building
 import type { BikesData, ItemDef, StoryData, WorldData } from './career';
 import { Grid } from './grid';
 import { objectTile, type BakedMap, type Facing } from './mapTypes';
+import { ROUTE, stepTriggerAt } from './travel';
 import type { RacingData } from './race';
 import { TRACK_PARTS_SCHEMA, checkTrackParts, type TrackPartsData } from './trackParts';
 import { RACING_SCHEMA, RIDERS_SCHEMA, SKILLS_SCHEMA, TRACKS_SCHEMA, checkRaceContent } from './raceContent';
@@ -27,6 +28,8 @@ export interface NpcDef {
   talk?: { if?: string; unless?: string; dialogue: string }[];
   /** The NPC ignores the rider until this flag is set (GDD 4.2: only the opening chain's NPCs talk at first). */
   quietUntil?: string;
+  /** A route marshal: gives directions from the map's exits and helps pick a route (core/guides.ts). */
+  guide?: boolean;
 }
 
 export interface DialogueLine {
@@ -77,7 +80,7 @@ export const NPCS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['map', 'tile', 'facing', 'talk', 'quietUntil'],
+        optional: ['map', 'tile', 'facing', 'talk', 'quietUntil', 'guide'],
         fields: {
           id: { type: 'string', pattern: ID },
           name: { type: 'string', nonEmpty: true },
@@ -91,6 +94,7 @@ export const NPCS_SCHEMA: Schema = {
             items: { type: 'object', optional: ['if', 'unless'], fields: { if: { type: 'string', pattern: ID }, unless: { type: 'string', pattern: ID }, dialogue: { type: 'string', pattern: ID } } },
           },
           quietUntil: { type: 'string', pattern: ID },
+          guide: { type: 'boolean' },
         },
       },
     },
@@ -223,10 +227,13 @@ export const WORLD_SCHEMA: Schema = {
       type: 'array',
       items: { type: 'object', fields: { map: { type: 'string', pattern: ID }, object: { type: 'string', nonEmpty: true }, flag: { type: 'string', pattern: ID }, message: { type: 'string', nonEmpty: true } } },
     },
-    worldMap: {
+    places: {
       type: 'array',
-      minItems: 1,
       items: { type: 'object', fields: { map: { type: 'string', pattern: ID }, spawn: { type: 'string', pattern: ID }, name: { type: 'string', nonEmpty: true }, note: { type: 'string' } } },
+    },
+    routes: {
+      type: 'array',
+      items: { type: 'object', fields: { map: { type: 'string', pattern: ID }, exit: { type: 'string', nonEmpty: true }, road: { type: 'string', nonEmpty: true }, to: { type: 'array', minItems: 1, items: { type: 'string', pattern: ID } } } },
     },
     jobs: {
       type: 'array',
@@ -410,10 +417,36 @@ function checkCareerContent(c: Content, maps: Map<string, BakedMap>): ContentErr
     else if (!m.objects.some((o) => o.name === name)) err(CONTENT_FILES.world, field, `no object "${name}" on ${mapId}`);
   };
   world.locks.forEach((l, i) => objectOn(`locks[${i}].object`, l.map, l.object));
-  world.worldMap.forEach((d, i) => {
+  world.places.forEach((d, i) => {
     const m = maps.get(d.map);
-    if (!m) err(CONTENT_FILES.world, `worldMap[${i}].map`, `no map "${d.map}"`);
-    else if (!m.objects.some((o) => o.type === 'spawn' && o.name === d.spawn)) err(CONTENT_FILES.world, `worldMap[${i}].spawn`, `no spawn "${d.spawn}" on ${d.map}`);
+    if (!m) err(CONTENT_FILES.world, `places[${i}].map`, `no map "${d.map}"`);
+    else if (!m.objects.some((o) => o.type === 'spawn' && o.name === d.spawn)) err(CONTENT_FILES.world, `places[${i}].spawn`, `no spawn "${d.spawn}" on ${d.map}`);
+  });
+  // Routes: an exit to "world_map" leads to a choice of places, so it needs its list here.
+  world.routes.forEach((r, i) => {
+    const m = maps.get(r.map);
+    const exit = m?.objects.find((o) => o.type === 'exit' && o.name === r.exit);
+    if (!m) err(CONTENT_FILES.world, `routes[${i}].map`, `no map "${r.map}"`);
+    else if (!exit) err(CONTENT_FILES.world, `routes[${i}].exit`, `no exit "${r.exit}" on ${r.map}`);
+    else if (exit.props.to !== ROUTE) err(CONTENT_FILES.world, `routes[${i}].exit`, `"${r.exit}" on ${r.map} goes straight to ${String(exit.props.to)}, not to a choice of places (to "${ROUTE}")`);
+    r.to.forEach((id, j) => {
+      if (!world.places.some((p) => p.map === id)) err(CONTENT_FILES.world, `routes[${i}].to[${j}]`, `"${id}" isn't one of the places`);
+      if (id === r.map) err(CONTENT_FILES.world, `routes[${i}].to[${j}]`, `leads back to ${id}, where it starts`);
+    });
+  });
+  for (const m of maps.values()) {
+    if (m.kind !== 'area') continue;
+    for (const o of m.objects) {
+      if (o.type === 'exit' && o.props.to === ROUTE && !world.routes.some((r) => r.map === m.id && r.exit === o.name)) err(CONTENT_FILES.world, 'routes', `the exit "${o.name}" on ${m.id} leads to a choice of places, but no route lists them`);
+    }
+  }
+  // Route marshals stand on a map with a way out, off the exits and doors.
+  c.npcs.forEach((n, i) => {
+    if (!n.guide) return;
+    const m = n.map ? maps.get(n.map) : undefined;
+    if (!m || !n.tile) return void err(CONTENT_FILES.npcs, `npcs[${i}].guide`, 'a route marshal needs a map and a tile to stand on');
+    if (!m.objects.some((o) => o.type === 'exit')) err(CONTENT_FILES.npcs, `npcs[${i}].guide`, `${m.id} has no exits to give directions to`);
+    if (stepTriggerAt(m, { x: n.tile[0], y: n.tile[1] })) err(CONTENT_FILES.npcs, `npcs[${i}].tile`, `${n.tile.join(',')} is on a door or exit; stand the marshal beside it`);
   });
   world.jobs.forEach((j, i) => {
     objectOn(`jobs[${i}].start`, j.map, j.start);
