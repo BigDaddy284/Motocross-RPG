@@ -1,28 +1,13 @@
-import Phaser from "phaser";
-import * as THREE from "three";
-import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import type { SceneryItem, TrackDef } from "../core/race";
-import { START_HOLD, type RiderPose } from "../core/riderAI";
-import {
-  OFFICIAL_SCALE,
-  officialPlan,
-  WALK_FROM,
-  WALK_TO,
-} from "../core/startOfficial";
-import { pointAt, START_PAD, startPointAt } from "../core/trackGeom";
-import {
-  GRID_H,
-  GRID_W,
-  trackKind,
-  type TrackPartsData,
-} from "../core/trackParts";
-import {
-  BIKE_LENGTH,
-  CAM_AZ,
-  LIP_AT,
-  TrackSurface,
-} from "../core/trackSurface";
-import { COLORS, TEXT_RES } from "../ui/theme";
+import Phaser from 'phaser';
+import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import type { SceneryItem, TrackDef } from '../core/race';
+import { START_HOLD, type RiderPose } from '../core/riderAI';
+import { OFFICIAL_SCALE, officialPlan, WALK_FROM, WALK_TO } from '../core/startOfficial';
+import { pointAt, START_PAD, startPointAt } from '../core/trackGeom';
+import { GRID_H, GRID_W, trackKind, type TrackPartsData } from '../core/trackParts';
+import { BIKE_LENGTH, CAM_AZ, LIP_AT, TrackSurface } from '../core/trackSurface';
+import { COLORS, TEXT_RES } from '../ui/theme';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
 // isometric camera in the spirit of Super Off Road's overhead arcade view. The track is solid
@@ -40,24 +25,13 @@ import { COLORS, TEXT_RES } from "../ui/theme";
 const BOARD_MOVE = 0.4;
 const CAM_EL = 38;
 /** Grid units across the view, by track kind. Riders stay big enough to follow at this size. */
-const VIEW_UNITS: Record<string, number> = {
-  stadium: 36,
-  outdoor: 32,
-  endurance: 32,
-};
+const VIEW_UNITS: Record<string, number> = { stadium: 36, outdoor: 32, endurance: 32 };
 /** Ground drawn round the 100 × 60 grid, in grid units. */
 const MARGIN = 24;
 const TILE_PX = 32;
-const ART_DIR = "assets/art/area-map/tiled/tiles";
-const SURFACES: Record<string, number> = {
-  hard_pack: 0xb07a45,
-  loam: 0x8a5a33,
-  sand: 0xd8c07a,
-  mud: 0x6b4a2b,
-};
-const CROWD = [
-  0xc0607a, 0xe0c060, 0x60a0e0, 0xf0f0f0, 0x80c080, 0xe08040, 0x9070c0,
-];
+const ART_DIR = 'assets/art/area-map/tiled/tiles';
+const SURFACES: Record<string, number> = { hard_pack: 0xb07a45, loam: 0x8a5a33, sand: 0xd8c07a, mud: 0x6b4a2b };
+const CROWD = [0xc0607a, 0xe0c060, 0x60a0e0, 0xf0f0f0, 0x80c080, 0xe08040, 0x9070c0];
 
 let counter = 0;
 
@@ -86,8 +60,7 @@ interface Puff {
 /** Dust puffs alive at once. */
 const DUST = 200;
 
-const hex = (s: string | undefined, fallback: number) =>
-  s && /^#[0-9a-f]{6}$/i.test(s) ? parseInt(s.slice(1), 16) : fallback;
+const hex = (s: string | undefined, fallback: number) => (s && /^#[0-9a-f]{6}$/i.test(s) ? parseInt(s.slice(1), 16) : fallback);
 function shade(c: number, k: number): number {
   const ch = (v: number) => Math.max(0, Math.min(255, Math.round(v * k)));
   return (ch((c >> 16) & 255) << 16) | (ch((c >> 8) & 255) << 8) | ch(c & 255);
@@ -139,22 +112,11 @@ export class RaceView {
   private terrain = new Float32Array(0);
   private readonly labels: Phaser.GameObjects.Container;
   /** Tall scenery that fades when a rider is behind it, so it never hides the racing. */
-  private readonly tall: {
-    corners: THREE.Vector3[];
-    mats: THREE.Material[];
-    faded: boolean;
-  }[] = [];
+  private readonly tall: { corners: THREE.Vector3[]; mats: THREE.Material[]; faded: boolean }[] = [];
   /** The start gate's pickets, hinged at the bottom so they drop flat when the race starts. */
   private gateDrop: THREE.Group | null = null;
   /** The official holding the start board beside the start straight, and the board itself. */
-  private board: {
-    stand: THREE.Group;
-    panel: THREE.Group;
-    arms: THREE.Group[];
-    legs: THREE.Group[];
-    a: { x: number; y: number };
-    b: { x: number; y: number };
-  } | null = null;
+  private board: { stand: THREE.Group; panel: THREE.Group; arms: THREE.Group[]; legs: THREE.Group[]; a: { x: number; y: number }; b: { x: number; y: number } } | null = null;
   /** False for practice, which has no start procedure: the start board stays down. */
   hasStart = true;
   /** Frame times in ms (whole update, the 3D draw, and handing the picture to Phaser), for the performance check. */
@@ -177,49 +139,25 @@ export class RaceView {
     this.follow = true;
     this.viewUnits = VIEW_UNITS[kind.id] ?? 32;
     const lap = this.surface.mpu * this.surface.g.total;
-    this.patchSpans = (track.patches ?? []).map((p) => ({
-      from: p.at / lap,
-      to: (p.at + p.length) / lap,
-      color: hex(
-        parts.surfaces.find((s) => s.id === p.surface)?.color,
-        0x888888,
-      ),
-    }));
-    const ground = track.ground ?? {
-      base: parts.ground[0]?.id ?? "grass",
-      cell: 2,
-      paint: {},
-    };
-    this.bg = hex(
-      parts.ground.find((g) => g.id === ground.base)?.color,
-      0x5f8f3c,
-    );
+    this.patchSpans = (track.patches ?? []).map((p) => ({ from: p.at / lap, to: (p.at + p.length) / lap, color: hex(parts.surfaces.find((s) => s.id === p.surface)?.color, 0x888888) }));
+    const ground = track.ground ?? { base: parts.ground[0]?.id ?? 'grass', cell: 2, paint: {} };
+    this.bg = hex(parts.ground.find((g) => g.id === ground.base)?.color, 0x5f8f3c);
 
     // Draw at the screen's real resolution, so the picture stays sharp when the window is big.
     const k = Math.min(scene.scale.width / 1280, scene.scale.height / 720);
     const res = Math.max(1, Math.min(2, k));
     const rw = Math.round(w * res);
     const rh = Math.round(h * res);
-    const canvas = document.createElement("canvas");
-    this.renderer = new THREE.WebGLRenderer({
-      canvas,
-      antialias: true,
-      preserveDrawingBuffer: true,
-    });
+    const canvas = document.createElement('canvas');
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
     this.renderer.setPixelRatio(1);
     this.renderer.setSize(rw, rh, false);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     // Phaser takes the three.js canvas itself as a texture source and re-uploads it each frame.
     this.key = `raceview-${++counter}`;
-    this.texture = scene.textures.addImage(
-      this.key,
-      canvas as unknown as HTMLImageElement,
-    )!;
-    this.image = scene.add
-      .image(x, y, this.key)
-      .setOrigin(0)
-      .setDisplaySize(w, h);
+    this.texture = scene.textures.addImage(this.key, canvas as unknown as HTMLImageElement)!;
+    this.image = scene.add.image(x, y, this.key).setOrigin(0).setDisplaySize(w, h);
     parent.add(this.image);
 
     this.scene3 = new THREE.Scene();
@@ -241,24 +179,13 @@ export class RaceView {
 
     const az = THREE.MathUtils.degToRad(CAM_AZ);
     const el = THREE.MathUtils.degToRad(CAM_EL);
-    this.dir = new THREE.Vector3(
-      Math.sin(az) * Math.cos(el),
-      Math.sin(el),
-      Math.cos(az) * Math.cos(el),
-    );
+    this.dir = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
     const halfW = this.viewUnits / 2;
     const halfH = (halfW * h) / w;
-    this.camera = new THREE.OrthographicCamera(
-      -halfW,
-      halfW,
-      halfH,
-      -halfH,
-      1,
-      400,
-    );
+    this.camera = new THREE.OrthographicCamera(-halfW, halfW, halfH, -halfH, 1, 400);
 
     // Ground, track and scenery.
-    this.groundCanvas = document.createElement("canvas");
+    this.groundCanvas = document.createElement('canvas');
     this.groundCanvas.width = ((GRID_W + 2 * MARGIN) / 2) * TILE_PX;
     this.groundCanvas.height = ((GRID_H + 2 * MARGIN) / 2) * TILE_PX;
     this.groundTex = new THREE.CanvasTexture(this.groundCanvas);
@@ -288,13 +215,7 @@ export class RaceView {
         const plain: THREE.Mesh[] = [];
         obj.traverse((o) => {
           const m = o as THREE.Mesh;
-          if (
-            m.isMesh &&
-            !(m as THREE.InstancedMesh).isInstancedMesh &&
-            !Array.isArray(m.material) &&
-            !(m.material as THREE.MeshLambertMaterial).map
-          )
-            plain.push(m);
+          if (m.isMesh && !(m as THREE.InstancedMesh).isInstancedMesh && !Array.isArray(m.material) && !(m.material as THREE.MeshLambertMaterial).map) plain.push(m);
         });
         for (const m of plain) {
           m.userData.world = m.matrixWorld.clone();
@@ -310,25 +231,16 @@ export class RaceView {
       });
       for (const m of mats) m.transparent = true;
       const corners: THREE.Vector3[] = [];
-      for (const cx of [box.min.x, box.max.x])
-        for (const cy of [box.min.y, box.max.y])
-          for (const cz of [box.min.z, box.max.z])
-            corners.push(new THREE.Vector3(cx, cy, cz));
+      for (const cx of [box.min.x, box.max.x]) for (const cy of [box.min.y, box.max.y]) for (const cz of [box.min.z, box.max.z]) corners.push(new THREE.Vector3(cx, cy, cz));
       this.tall.push({ corners, mats, faded: false });
     }
 
     if (low.length) {
-      const flat = new THREE.MeshLambertMaterial({
-        vertexColors: true,
-        flatShading: true,
-      });
+      const flat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
       this.scene3.add(this.mergeParts(low, flat));
     }
 
-    this.marker = new THREE.Mesh(
-      new THREE.ConeGeometry(0.28, 0.55, 4),
-      new THREE.MeshBasicMaterial({ color: COLORS.accent }),
-    );
+    this.marker = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.55, 4), new THREE.MeshBasicMaterial({ color: COLORS.accent }));
     this.marker.rotation.x = Math.PI;
     this.scene3.add(this.marker);
     this.puffMap = this.softDot();
@@ -340,61 +252,35 @@ export class RaceView {
     const mk = mw / GRID_W;
     this.mapBox = { x: x + w - mw - 12, y: y + 12, k: mk };
     const mg = scene.add.graphics();
-    mg.fillStyle(COLORS.ink, 0.85).fillRoundedRect(
-      this.mapBox.x - 6,
-      this.mapBox.y - 6,
-      mw + 12,
-      GRID_H * mk + 12,
-      6,
-    );
+    mg.fillStyle(COLORS.ink, 0.85).fillRoundedRect(this.mapBox.x - 6, this.mapBox.y - 6, mw + 12, GRID_H * mk + 12, 6);
     mg.lineStyle(4, 0xc98a4b, 1);
     mg.beginPath();
-    this.surface.g.pts.forEach((p, i) =>
-      i
-        ? mg.lineTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk)
-        : mg.moveTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk),
-    );
+    this.surface.g.pts.forEach((p, i) => (i ? mg.lineTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk) : mg.moveTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk)));
     mg.strokePath();
     if (this.surface.start.total > 0) {
       mg.lineStyle(3, 0xc98a4b, 1);
       mg.beginPath();
-      this.surface.start.pts.forEach((p, i) =>
-        i
-          ? mg.lineTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk)
-          : mg.moveTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk),
-      );
+      this.surface.start.pts.forEach((p, i) => (i ? mg.lineTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk) : mg.moveTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk)));
       mg.strokePath();
     }
     const s0 = pointAt(this.surface.g, 0);
-    mg.fillStyle(0xffffff, 1).fillRect(
-      this.mapBox.x + s0.x * mk - 2,
-      this.mapBox.y + s0.y * mk - 2,
-      4,
-      4,
-    );
+    mg.fillStyle(0xffffff, 1).fillRect(this.mapBox.x + s0.x * mk - 2, this.mapBox.y + s0.y * mk - 2, 4, 4);
     this.mapDots = scene.add.graphics();
     this.mapFrame = mg;
     parent.add([mg, this.mapDots]);
 
-    this.image.once("destroy", () => this.destroy());
+    this.image.once('destroy', () => this.destroy());
     this.loadArt();
   }
 
   // ---- ground ----
 
   private loadArt(): void {
-    const arts = [
-      ...new Set(
-        this.parts.ground.map((p) => p.art).filter((a): a is string => !!a),
-      ),
-    ];
-    const missing = arts.filter(
-      (a) => !this.scene.textures.exists(`trackart:${a}`),
-    );
+    const arts = [...new Set(this.parts.ground.map((p) => p.art).filter((a): a is string => !!a))];
+    const missing = arts.filter((a) => !this.scene.textures.exists(`trackart:${a}`));
     if (!missing.length) return;
-    for (const a of missing)
-      this.scene.load.image(`trackart:${a}`, `${ART_DIR}/${a}.png`);
-    this.scene.load.once("complete", () => {
+    for (const a of missing) this.scene.load.image(`trackart:${a}`, `${ART_DIR}/${a}.png`);
+    this.scene.load.once('complete', () => {
       if (this.dead) return;
       this.drawGround();
       this.groundTex.needsUpdate = true;
@@ -404,40 +290,23 @@ export class RaceView {
 
   /** The ground tiles painted in the editor, onto one big texture under the whole scene. */
   private drawGround(): void {
-    const ctx = this.groundCanvas.getContext("2d")!;
+    const ctx = this.groundCanvas.getContext('2d')!;
     ctx.imageSmoothingEnabled = false;
-    const ground = this.track.ground ?? {
-      base: this.parts.ground[0]?.id ?? "grass",
-      cell: 2,
-      paint: {},
-    };
+    const ground = this.track.ground ?? { base: this.parts.ground[0]?.id ?? 'grass', cell: 2, paint: {} };
     const cell = ground.cell || 2;
     const painted = new Map<string, string>();
-    for (const [id, cells] of Object.entries(ground.paint ?? {}))
-      for (const [cx, cy] of cells) painted.set(`${cx},${cy}`, id);
+    for (const [id, cells] of Object.entries(ground.paint ?? {})) for (const [cx, cy] of cells) painted.set(`${cx},${cy}`, id);
     const px = TILE_PX / 2;
     for (let gy = -MARGIN; gy < GRID_H + MARGIN; gy += cell) {
       for (let gx = -MARGIN; gx < GRID_W + MARGIN; gx += cell) {
-        const id =
-          painted.get(`${Math.floor(gx / cell)},${Math.floor(gy / cell)}`) ??
-          ground.base;
+        const id = painted.get(`${Math.floor(gx / cell)},${Math.floor(gy / cell)}`) ?? ground.base;
         const def = this.parts.ground.find((g) => g.id === id);
-        const key =
-          def?.art && this.scene.textures.exists(`trackart:${def.art}`)
-            ? `trackart:${def.art}`
-            : null;
+        const key = def?.art && this.scene.textures.exists(`trackart:${def.art}`) ? `trackart:${def.art}` : null;
         const sx = (gx + MARGIN) * px;
         const sy = (gy + MARGIN) * px;
-        if (key)
-          ctx.drawImage(
-            this.scene.textures.get(key).getSourceImage() as CanvasImageSource,
-            sx,
-            sy,
-            cell * px,
-            cell * px,
-          );
+        if (key) ctx.drawImage(this.scene.textures.get(key).getSourceImage() as CanvasImageSource, sx, sy, cell * px, cell * px);
         else {
-          ctx.fillStyle = def?.color ?? "#5f8f3c";
+          ctx.fillStyle = def?.color ?? '#5f8f3c';
           ctx.fillRect(sx, sy, cell * px, cell * px);
         }
       }
@@ -483,21 +352,11 @@ export class RaceView {
       for (let i = 0; i < n; i++) {
         const f = i / n;
         const p = s.spot(f, 0);
-        mid.push({
-          x: p.x,
-          z: p.z,
-          r: s.hw * (LIP_AT + Math.max(s.skirt(f, -1), s.skirt(f, 1))),
-          l: s.lift(f),
-        });
+        mid.push({ x: p.x, z: p.z, r: s.hw * (LIP_AT + Math.max(s.skirt(f, -1), s.skirt(f, 1))), l: s.lift(f) });
       }
       for (let u = -START_PAD; u < s.start.total; u += 0.5) {
         const p = startPointAt(s.start, u);
-        mid.push({
-          x: p.x,
-          z: p.y,
-          r: s.startHw(u) * LIP_AT + 0.4,
-          l: s.groundAt(p.x, p.y),
-        });
+        mid.push({ x: p.x, z: p.y, r: s.startHw(u) * LIP_AT + 0.4, l: s.groundAt(p.x, p.y) });
       }
       const BLEND = 3;
       for (let j = 0; j < th; j++) {
@@ -520,9 +379,7 @@ export class RaceView {
           let sum = 0;
           let wt = 0;
           for (const q of mid) {
-            const k = Math.exp(
-              -(((Math.hypot(x - q.x, z - q.z) - near) / 0.75) ** 2),
-            );
+            const k = Math.exp(-(((Math.hypot(x - q.x, z - q.z) - near) / 0.75) ** 2));
             if (k < 1e-4) continue;
             sum += k * q.l;
             wt += k;
@@ -543,8 +400,7 @@ export class RaceView {
         for (const q of hills) {
           const r1 = r0 + q.e * 3;
           const d = Math.hypot(x - q.x, z - q.z);
-          if (d < r1)
-            h = Math.max(h, (q.e - 0.06) * (1 - smooth((d - r0) / (r1 - r0))));
+          if (d < r1) h = Math.max(h, (q.e - 0.06) * (1 - smooth((d - r0) / (r1 - r0))));
         }
         if (h <= 0) continue;
         for (const q of flats) {
@@ -596,14 +452,11 @@ export class RaceView {
       }
     }
     const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-    geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
     geo.setIndex(idx);
     geo.computeVertexNormals();
-    const mesh = new THREE.Mesh(
-      geo,
-      new THREE.MeshLambertMaterial({ map: this.groundTex }),
-    );
+    const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: this.groundTex }));
     mesh.receiveShadow = true;
     return mesh;
   }
@@ -611,9 +464,7 @@ export class RaceView {
   // ---- the track ----
 
   private patchAt(f: number): number | null {
-    for (const p of this.patchSpans)
-      if ((f >= p.from && f <= p.to) || (p.to > 1 && f <= p.to - 1))
-        return p.color;
+    for (const p of this.patchSpans) if ((f >= p.from && f <= p.to) || (p.to > 1 && f <= p.to - 1)) return p.color;
     return null;
   }
 
@@ -633,38 +484,19 @@ export class RaceView {
       const f = i / rows;
       const skL = s.skirt(f, -1);
       const skR = s.skirt(f, 1);
-      const lanes = [
-        -(LIP_AT + skL),
-        -(LIP_AT + skL * 0.45),
-        -LIP_AT,
-        ...inner,
-        LIP_AT,
-        LIP_AT + skR * 0.45,
-        LIP_AT + skR,
-      ];
+      const lanes = [-(LIP_AT + skL), -(LIP_AT + skL * 0.45), -LIP_AT, ...inner, LIP_AT, LIP_AT + skR * 0.45, LIP_AT + skR];
       const patch = this.patchAt(f);
       const grain = 0.94 + 0.1 * noise(i);
       lanes.forEach((lane, j) => {
         const p = s.spot(f, lane);
         const foot = j === 0 || j === cols - 1;
-        pos.push(
-          p.x,
-          foot
-            ? this.terrainAt(p.x, p.z)
-            : Math.max(s.height(f, lane), this.terrainAt(p.x, p.z) + 0.02),
-          p.z,
-        );
+        pos.push(p.x, foot ? this.terrainAt(p.x, p.z) : Math.max(s.height(f, lane), this.terrainAt(p.x, p.z) + 0.02), p.z);
         // The dirt texture runs along the lap, one repeat every 4 grid units.
         uv.push((f * s.g.total) / 4, (lane + 2) / 4);
         let color: number;
         const open = s.mouth(f, lane < 0 ? -1 : 1);
-        if (Math.abs(lane) <= 1 || open > 0.5)
-          color = shade(
-            patch ?? base,
-            grain * (0.97 + 0.06 * noise(i * 31 + j)),
-          );
-        else if (Math.abs(lane) <= LIP_AT + 1e-6)
-          color = shade(patch ?? base, 0.82 * grain);
+        if (Math.abs(lane) <= 1 || open > 0.5) color = shade(patch ?? base, grain * (0.97 + 0.06 * noise(i * 31 + j)));
+        else if (Math.abs(lane) <= LIP_AT + 1e-6) color = shade(patch ?? base, 0.82 * grain);
         else color = shade(base, foot ? 0.62 : 0.72);
         c.setHex(color);
         col.push(c.r, c.g, c.b);
@@ -674,23 +506,15 @@ export class RaceView {
     for (let i = 0; i < rows; i++) {
       const a = i * cols;
       const b = ((i + 1) % rows) * cols;
-      for (let j = 0; j < cols - 1; j++)
-        idx.push(a + j, b + j, a + j + 1, a + j + 1, b + j, b + j + 1);
+      for (let j = 0; j < cols - 1; j++) idx.push(a + j, b + j, a + j + 1, a + j + 1, b + j, b + j + 1);
     }
     const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-    geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
-    geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
     geo.setIndex(idx);
     geo.computeVertexNormals();
-    const mesh = new THREE.Mesh(
-      geo,
-      new THREE.MeshLambertMaterial({
-        vertexColors: true,
-        map: this.dirtTexture(),
-        side: THREE.DoubleSide,
-      }),
-    );
+    const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, map: this.dirtTexture(), side: THREE.DoubleSide }));
     mesh.receiveShadow = true;
     mesh.castShadow = true;
     return mesh;
@@ -718,39 +542,18 @@ export class RaceView {
       const dip = 0.006 * Math.max(0, Math.min(1, (u - merge) / 0.5));
       const lip = s.startHeight(u, LIP_AT);
       const sk = Math.max(0.35, lip * 0.9) / s.startHw(u);
-      const lanes = [
-        -(LIP_AT + sk),
-        -(LIP_AT + sk * 0.45),
-        -LIP_AT,
-        ...inner,
-        LIP_AT,
-        LIP_AT + sk * 0.45,
-        LIP_AT + sk,
-      ];
+      const lanes = [-(LIP_AT + sk), -(LIP_AT + sk * 0.45), -LIP_AT, ...inner, LIP_AT, LIP_AT + sk * 0.45, LIP_AT + sk];
       const grain = 0.94 + 0.1 * noise(i + 977);
       // Concrete under the gate and the line-up, dirt from just past the gate.
       const pad = u < 0.9;
       lanes.forEach((lane, j) => {
         const p = s.startSpot(u, lane);
         const foot = j === 0 || j === cols - 1;
-        pos.push(
-          p.x,
-          foot
-            ? this.terrainAt(p.x, p.z)
-            : Math.max(
-                s.startHeight(u, lane),
-                this.terrainAt(p.x, p.z) + 0.02,
-              ) - dip,
-          p.z,
-        );
+        pos.push(p.x, foot ? this.terrainAt(p.x, p.z) : Math.max(s.startHeight(u, lane), this.terrainAt(p.x, p.z) + 0.02) - dip, p.z);
         uv.push(u / 4, (lane + 2) / 4);
         let color: number;
-        if (Math.abs(lane) <= 1)
-          color = pad
-            ? shade(0xa8a49a, 0.95 + 0.06 * noise(i * 7 + j))
-            : shade(base, grain * (0.97 + 0.06 * noise(i * 31 + j)));
-        else if (Math.abs(lane) <= LIP_AT + 1e-6)
-          color = shade(base, 0.82 * grain);
+        if (Math.abs(lane) <= 1) color = pad ? shade(0xa8a49a, 0.95 + 0.06 * noise(i * 7 + j)) : shade(base, grain * (0.97 + 0.06 * noise(i * 31 + j)));
+        else if (Math.abs(lane) <= LIP_AT + 1e-6) color = shade(base, 0.82 * grain);
         else color = shade(base, foot ? 0.62 : 0.72);
         c.setHex(color);
         col.push(c.r, c.g, c.b);
@@ -760,23 +563,15 @@ export class RaceView {
     for (let i = 0; i < rows; i++) {
       const a = i * cols;
       const b = (i + 1) * cols;
-      for (let j = 0; j < cols - 1; j++)
-        idx.push(a + j, b + j, a + j + 1, a + j + 1, b + j, b + j + 1);
+      for (let j = 0; j < cols - 1; j++) idx.push(a + j, b + j, a + j + 1, a + j + 1, b + j, b + j + 1);
     }
     const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-    geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
-    geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
     geo.setIndex(idx);
     geo.computeVertexNormals();
-    const mesh = new THREE.Mesh(
-      geo,
-      new THREE.MeshLambertMaterial({
-        vertexColors: true,
-        map: this.dirtTexture(),
-        side: THREE.DoubleSide,
-      }),
-    );
+    const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, map: this.dirtTexture(), side: THREE.DoubleSide }));
     mesh.receiveShadow = true;
     mesh.castShadow = true;
     return mesh;
@@ -788,14 +583,7 @@ export class RaceView {
     const at = startPointAt(s.start, 0.75);
     const ang = s.startSpot(0.75, 0).ang;
     const d = 1;
-    const gate = this.buildItem({
-      type: "start_gate",
-      x: at.x,
-      y: at.y,
-      w: 2 * s.startHw(0.75) * LIP_AT + 0.4,
-      h: d,
-      rot: (ang * 180) / Math.PI + 90,
-    })!;
+    const gate = this.buildItem({ type: 'start_gate', x: at.x, y: at.y, w: 2 * s.startHw(0.75) * LIP_AT + 0.4, h: d, rot: (ang * 180) / Math.PI + 90 })!;
     gate.position.y = s.startHeight(0.75, 0);
     // Everything above the base (the pickets and their rail) hangs on a hinge along the base's
     // front edge, so the whole row falls forward onto the track at the drop.
@@ -858,21 +646,12 @@ export class RaceView {
     const panel = new THREE.Group();
     const W = 1.8;
     const H = 1.35;
-    const front = new THREE.Mesh(
-      new THREE.PlaneGeometry(W, H),
-      new THREE.MeshLambertMaterial({ map: this.boardTexture() }),
-    );
+    const front = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshLambertMaterial({ map: this.boardTexture() }));
     front.position.z = 0.03;
-    const back = new THREE.Mesh(
-      new THREE.PlaneGeometry(W, H),
-      new THREE.MeshLambertMaterial({ color: 0xf4f4f0 }),
-    );
+    const back = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshLambertMaterial({ color: 0xf4f4f0 }));
     back.rotation.y = Math.PI;
     back.position.z = -0.03;
-    const core = new THREE.Mesh(
-      new THREE.BoxGeometry(W, H, 0.05),
-      this.mat(0xdedede),
-    );
+    const core = new THREE.Mesh(new THREE.BoxGeometry(W, H, 0.05), this.mat(0xdedede));
     for (const m of [front, back, core]) m.castShadow = true;
     panel.add(core, front, back);
     stand.add(panel);
@@ -883,25 +662,25 @@ export class RaceView {
 
   /** The start board's face: START over a big red 30, as held up at the gate. */
   private boardTexture(): THREE.CanvasTexture {
-    const cv = document.createElement("canvas");
+    const cv = document.createElement('canvas');
     cv.width = 256;
     cv.height = 192;
-    const ctx = cv.getContext("2d")!;
-    ctx.fillStyle = "#f4f4f0";
+    const ctx = cv.getContext('2d')!;
+    ctx.fillStyle = '#f4f4f0';
     ctx.fillRect(0, 0, 256, 192);
-    ctx.fillStyle = "#2f5d73";
+    ctx.fillStyle = '#2f5d73';
     ctx.fillRect(0, 0, 256, 50);
     ctx.fillRect(0, 160, 256, 32);
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 40px Trebuchet MS, sans-serif";
-    ctx.fillText("START", 128, 27);
-    ctx.fillStyle = "#d42a20";
-    ctx.font = "bold 116px Trebuchet MS, sans-serif";
-    ctx.fillText("30", 128, 108);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 40px Trebuchet MS, sans-serif';
+    ctx.fillText('START', 128, 27);
+    ctx.fillStyle = '#d42a20';
+    ctx.font = 'bold 116px Trebuchet MS, sans-serif';
+    ctx.fillText('30', 128, 108);
     // Hand holds.
-    ctx.fillStyle = "#c8c8c0";
+    ctx.fillStyle = '#c8c8c0';
     for (const x of [26, 230]) ctx.fillRect(x - 8, 88, 16, 34);
     const tex = new THREE.CanvasTexture(cv);
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -925,40 +704,23 @@ export class RaceView {
         return t * t * (3 - 2 * t);
       };
       // How far up the board is: 0 held low, 1 held high. Practice has no start, so it stays low.
-      const up = !this.hasStart
-        ? 0
-        : clock < WALK_TO
-          ? ease((clock + START_HOLD) / BOARD_MOVE)
-          : 1 - ease((clock - WALK_TO) / BOARD_MOVE);
+      const up = !this.hasStart ? 0 : clock < WALK_TO ? ease((clock + START_HOLD) / BOARD_MOVE) : 1 - ease((clock - WALK_TO) / BOARD_MOVE);
       // Low: in front of the official's legs, turned round so the white back faces out.
-      panel.position.set(
-        0,
-        0.72 + (2.45 - 0.72) * up,
-        0.42 + (0.12 - 0.42) * up,
-      );
-      panel.rotation.set(
-        0,
-        Math.PI * (1 - up),
-        clock >= -3 ? (Math.PI / 2) * up : 0,
-      );
+      panel.position.set(0, 0.72 + (2.45 - 0.72) * up, 0.42 + (0.12 - 0.42) * up);
+      panel.rotation.set(0, Math.PI * (1 - up), clock >= -3 ? (Math.PI / 2) * up : 0);
       for (const arm of arms) arm.rotation.x = 2.7 * (1 - up);
       // The walk from A to B, setting off and stopping gently, with the legs swinging in step.
-      const k = !this.hasStart
-        ? 0
-        : Math.max(0, Math.min(1, (clock - WALK_FROM) / (WALK_TO - WALK_FROM)));
+      const k = !this.hasStart ? 0 : Math.max(0, Math.min(1, (clock - WALK_FROM) / (WALK_TO - WALK_FROM)));
       const w = k - Math.sin(2 * Math.PI * k) / (2 * Math.PI);
       const x = a.x + (b.x - a.x) * w;
       const z = a.y + (b.y - a.y) * w;
       stand.position.set(x, this.terrainAt(x, z), z);
       const walked = Math.hypot(b.x - a.x, b.y - a.y) * w;
-      const swing =
-        k > 0 && k < 1 ? 0.45 * Math.sin((walked / 0.55) * Math.PI) : 0;
+      const swing = k > 0 && k < 1 ? 0.45 * Math.sin((walked / 0.55) * Math.PI) : 0;
       legs[0].rotation.x = swing;
       legs[1].rotation.x = -swing;
     }
-    if (this.gateDrop)
-      this.gateDrop.rotation.x =
-        -(Math.PI / 2) * Math.max(0, Math.min(1, clock / 0.3)) ** 2;
+    if (this.gateDrop) this.gateDrop.rotation.x = -(Math.PI / 2) * Math.max(0, Math.min(1, clock / 0.3)) ** 2;
   }
 
   /**
@@ -967,24 +729,16 @@ export class RaceView {
    */
   private dirtTexture(): THREE.CanvasTexture {
     const size = 128;
-    const cv = document.createElement("canvas");
+    const cv = document.createElement('canvas');
     cv.width = cv.height = size;
-    const ctx = cv.getContext("2d")!;
+    const ctx = cv.getContext('2d')!;
     const img = ctx.createImageData(size, size);
     for (let y = 0; y < size; y++) {
       for (let x = 0; x < size; x++) {
         // v (y) runs across the track: the racing surface is the middle half of the texture.
         const across = y / size;
-        const groove =
-          Math.abs(Math.sin(across * Math.PI * 9)) < 0.18 &&
-          across > 0.27 &&
-          across < 0.73
-            ? 0.86
-            : 1;
-        const grain =
-          0.86 +
-          0.14 * noise(x * 131 + y * 17) +
-          0.06 * Math.sin(x * 0.4 + noise(y) * 6);
+        const groove = Math.abs(Math.sin(across * Math.PI * 9)) < 0.18 && across > 0.27 && across < 0.73 ? 0.86 : 1;
+        const grain = 0.86 + 0.14 * noise(x * 131 + y * 17) + 0.06 * Math.sin(x * 0.4 + noise(y) * 6);
         const v = Math.max(0, Math.min(255, Math.round(255 * grain * groove)));
         const i = (y * size + x) * 4;
         img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
@@ -996,12 +750,7 @@ export class RaceView {
       const x = Math.floor(noise(k * 3.1) * size);
       const y = Math.floor(noise(k * 7.7) * size);
       const v = noise(k * 1.3) > 0.5 ? 255 : 150;
-      for (const [dx, dy] of [
-        [0, 0],
-        [1, 0],
-        [0, 1],
-        [1, 1],
-      ]) {
+      for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
         const i = (((y + dy) % size) * size + ((x + dx) % size)) * 4;
         img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
       }
@@ -1018,25 +767,21 @@ export class RaceView {
   /** The chequered start and finish line, laid on the surface. */
   private startLine(): THREE.Mesh {
     const s = this.surface;
-    const cv = document.createElement("canvas");
+    const cv = document.createElement('canvas');
     cv.width = 16;
     cv.height = 4;
-    const ctx = cv.getContext("2d")!;
-    for (let i = 0; i < 8; i++)
-      for (let j = 0; j < 2; j++) {
-        ctx.fillStyle = (i + j) % 2 ? "#ffffff" : "#14141e";
-        ctx.fillRect(i * 2, j * 2, 2, 2);
-      }
+    const ctx = cv.getContext('2d')!;
+    for (let i = 0; i < 8; i++) for (let j = 0; j < 2; j++) {
+      ctx.fillStyle = (i + j) % 2 ? '#ffffff' : '#14141e';
+      ctx.fillRect(i * 2, j * 2, 2, 2);
+    }
     const tex = new THREE.CanvasTexture(cv);
     tex.magFilter = THREE.NearestFilter;
     tex.colorSpace = THREE.SRGBColorSpace;
     const pos: number[] = [];
     const uv: number[] = [];
     const df = 0.7 / s.g.total;
-    for (const [r, f] of [
-      [0, 0],
-      [1, df],
-    ]) {
+    for (const [r, f] of [[0, 0], [1, df]]) {
       for (let j = 0; j <= 8; j++) {
         const lane = -1 + j / 4;
         const p = s.spot(f, lane);
@@ -1047,36 +792,22 @@ export class RaceView {
     const idx: number[] = [];
     for (let j = 0; j < 8; j++) idx.push(j, j + 9, j + 1, j + 1, j + 9, j + 10);
     const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-    geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
     geo.setIndex(idx);
     geo.computeVertexNormals();
-    const mesh = new THREE.Mesh(
-      geo,
-      new THREE.MeshLambertMaterial({ map: tex, side: THREE.DoubleSide }),
-    );
+    const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: tex, side: THREE.DoubleSide }));
     mesh.receiveShadow = true;
     return mesh;
   }
 
   // ---- scenery ----
 
-  private mat(
-    color: number,
-    extra: THREE.MeshLambertMaterialParameters = {},
-  ): THREE.MeshLambertMaterial {
+  private mat(color: number, extra: THREE.MeshLambertMaterialParameters = {}): THREE.MeshLambertMaterial {
     return new THREE.MeshLambertMaterial({ color, ...extra });
   }
 
-  private boxMesh(
-    w: number,
-    h: number,
-    d: number,
-    m: THREE.Material | THREE.Material[],
-    x = 0,
-    y = 0,
-    z = 0,
-  ): THREE.Mesh {
+  private boxMesh(w: number, h: number, d: number, m: THREE.Material | THREE.Material[], x = 0, y = 0, z = 0): THREE.Mesh {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
     mesh.position.set(x, y + h / 2, z);
     mesh.castShadow = true;
@@ -1084,27 +815,18 @@ export class RaceView {
     return mesh;
   }
 
-  private textTexture(
-    text: string,
-    bg: number,
-    fg = "#ffffff",
-    w = 256,
-    h = 48,
-  ): THREE.CanvasTexture {
-    const cv = document.createElement("canvas");
+  private textTexture(text: string, bg: number, fg = '#ffffff', w = 256, h = 48): THREE.CanvasTexture {
+    const cv = document.createElement('canvas');
     cv.width = w;
     cv.height = h;
-    const ctx = cv.getContext("2d")!;
-    ctx.fillStyle = `#${bg.toString(16).padStart(6, "0")}`;
+    const ctx = cv.getContext('2d')!;
+    ctx.fillStyle = `#${bg.toString(16).padStart(6, '0')}`;
     ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = fg;
     ctx.font = `bold ${Math.round(h * 0.62)}px Trebuchet MS, sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    const fit = Math.min(
-      1,
-      (w * 0.92) / Math.max(1, ctx.measureText(text).width),
-    );
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const fit = Math.min(1, (w * 0.92) / Math.max(1, ctx.measureText(text).width));
     ctx.save();
     ctx.translate(w / 2, h / 2);
     ctx.scale(fit, 1);
@@ -1122,261 +844,103 @@ export class RaceView {
     const w = it.w ?? def?.w ?? 2;
     const d = it.h ?? def?.h ?? 2;
     const color = hex(it.color ?? def?.color, 0x888888);
-    const text = it.text ?? def?.text ?? "";
+    const text = it.text ?? def?.text ?? '';
     const g = new THREE.Group();
     g.position.set(it.x, this.terrainAt(it.x, it.y), it.y);
     g.rotation.y = -(((it.rot ?? 0) * Math.PI) / 180);
     const add = (o: THREE.Object3D) => g.add(o);
     switch (it.type) {
-      case "banner":
-      case "sponsor_board": {
-        const H = it.type === "banner" ? 1 : 1.3;
+      case 'banner':
+      case 'sponsor_board': {
+        const H = it.type === 'banner' ? 1 : 1.3;
         const face = this.mat(0xffffff, { map: this.textTexture(text, color) });
         const side = this.mat(shade(color, 0.7));
-        add(
-          this.boxMesh(
-            w,
-            H,
-            0.1,
-            [side, side, side, side, face, face],
-            0,
-            0.35,
-            0,
-          ),
-        );
-        for (const sx of [-0.45, 0.45])
-          add(this.boxMesh(0.08, 0.35, 0.08, this.mat(0x5a5a60), sx * w, 0, 0));
+        add(this.boxMesh(w, H, 0.1, [side, side, side, side, face, face], 0, 0.35, 0));
+        for (const sx of [-0.45, 0.45]) add(this.boxMesh(0.08, 0.35, 0.08, this.mat(0x5a5a60), sx * w, 0, 0));
         break;
       }
-      case "finish_arch": {
-        for (const sx of [-1, 1])
-          add(
-            this.boxMesh(
-              0.5,
-              4.2,
-              0.5,
-              this.mat(0xd8d8d8),
-              sx * (w / 2 - 0.25),
-              0,
-              0,
-            ),
-          );
-        const face = this.mat(0xffffff, {
-          map: this.textTexture(text || "FINISH", color),
-        });
+      case 'finish_arch': {
+        for (const sx of [-1, 1]) add(this.boxMesh(0.5, 4.2, 0.5, this.mat(0xd8d8d8), sx * (w / 2 - 0.25), 0, 0));
+        const face = this.mat(0xffffff, { map: this.textTexture(text || 'FINISH', color) });
         const side = this.mat(shade(color, 0.8));
-        add(
-          this.boxMesh(
-            w,
-            0.9,
-            0.35,
-            [side, side, side, side, face, face],
-            0,
-            4.2,
-            0,
-          ),
-        );
+        add(this.boxMesh(w, 0.9, 0.35, [side, side, side, side, face, face], 0, 4.2, 0));
         break;
       }
-      case "start_gate": {
+      case 'start_gate': {
         add(this.boxMesh(w, 0.12, d, this.mat(0x8a8a8a)));
         const n = Math.max(2, Math.round(w / 1.6));
-        for (let i = 0; i < n; i++)
-          add(
-            this.boxMesh(
-              (w / n) * 0.82,
-              0.55,
-              0.08,
-              this.mat(0x5a5a60),
-              -w / 2 + (w / n) * (i + 0.5),
-              0.12,
-              -d * 0.3,
-            ),
-          );
+        for (let i = 0; i < n; i++) add(this.boxMesh((w / n) * 0.82, 0.55, 0.08, this.mat(0x5a5a60), -w / 2 + (w / n) * (i + 0.5), 0.12, -d * 0.3));
         add(this.boxMesh(w, 0.18, 0.18, this.mat(color), 0, 0.67, -d * 0.4));
         break;
       }
-      case "tuff_block": {
+      case 'tuff_block': {
         // White blocks with red bands, the supercross track marker.
         add(this.boxMesh(w, 0.5, d * 0.8, this.mat(color)));
-        for (let i = 0; i < 3; i++)
-          add(
-            this.boxMesh(
-              w / 7,
-              0.52,
-              d * 0.82,
-              this.mat(0xd33a2c),
-              -w / 2 + (w / 3) * (i + 0.5),
-              -0.01,
-              0,
-            ),
-          );
+        for (let i = 0; i < 3; i++) add(this.boxMesh(w / 7, 0.52, d * 0.82, this.mat(0xd33a2c), -w / 2 + (w / 3) * (i + 0.5), -0.01, 0));
         break;
       }
-      case "hay_bale":
+      case 'hay_bale':
         add(this.boxMesh(w, 0.6, d, this.mat(color)));
         break;
-      case "tyre_wall": {
+      case 'tyre_wall': {
         const n = Math.max(1, Math.round(w / Math.max(0.5, d)));
         const r = Math.min(w / n, d) / 2;
         const geo = new THREE.CylinderGeometry(r, r, 0.3, 12);
-        for (let i = 0; i < n; i++)
-          for (let k = 0; k < 2; k++) {
-            const t = new THREE.Mesh(geo, this.mat(color));
-            t.position.set(-w / 2 + (w / n) * (i + 0.5), 0.15 + k * 0.3, 0);
-            t.castShadow = true;
-            add(t);
-          }
+        for (let i = 0; i < n; i++) for (let k = 0; k < 2; k++) {
+          const t = new THREE.Mesh(geo, this.mat(color));
+          t.position.set(-w / 2 + (w / n) * (i + 0.5), 0.15 + k * 0.3, 0);
+          t.castShadow = true;
+          add(t);
+        }
         break;
       }
-      case "tape": {
+      case 'tape': {
         const posts = Math.max(1, Math.round(w / 2));
-        for (let i = 0; i <= posts; i++)
-          add(
-            this.boxMesh(
-              0.06,
-              0.65,
-              0.06,
-              this.mat(0x5a5a60),
-              -w / 2 + (w * i) / posts,
-              0,
-              0,
-            ),
-          );
+        for (let i = 0; i <= posts; i++) add(this.boxMesh(0.06, 0.65, 0.06, this.mat(0x5a5a60), -w / 2 + (w * i) / posts, 0, 0));
         add(this.boxMesh(w, 0.05, 0.02, this.mat(color), 0, 0.55, 0));
         break;
       }
-      case "flag_post": {
+      case 'flag_post': {
         add(this.boxMesh(0.08, 2.4, 0.08, this.mat(0xdddddd)));
-        const flag = new THREE.Mesh(
-          new THREE.PlaneGeometry(0.8, 0.5),
-          this.mat(color, { side: THREE.DoubleSide }),
-        );
+        const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.5), this.mat(color, { side: THREE.DoubleSide }));
         flag.position.set(0.4, 2.15, 0);
         flag.castShadow = true;
         add(flag);
         break;
       }
-      case "stand": {
+      case 'stand': {
         // Seating steps rising away from the track, with a row of fans on each.
         const away = this.awayFromTrack(it);
         const tiers = 4;
         for (let i = 0; i < tiers; i++) {
           const z = (-d / 2 + (d / tiers) * (i + 0.5)) * away;
           const hh = 0.7 + i * 0.75;
-          add(
-            this.boxMesh(
-              w,
-              hh,
-              d / tiers,
-              this.mat(i % 2 ? shade(color, 1.12) : color),
-              0,
-              0,
-              z,
-            ),
-          );
-          this.fans(
-            g,
-            w * 0.96,
-            (d / tiers) * 0.5,
-            0,
-            hh,
-            z,
-            Math.round(w * 1.3),
-            i,
-          );
+          add(this.boxMesh(w, hh, d / tiers, this.mat(i % 2 ? shade(color, 1.12) : color), 0, 0, z));
+          this.fans(g, w * 0.96, d / tiers * 0.5, 0, hh, z, Math.round(w * 1.3), i);
         }
-        add(
-          this.boxMesh(
-            w,
-            0.3,
-            0.2,
-            this.mat(0x4a4a50),
-            0,
-            0.7 + tiers * 0.75,
-            (d / 2) * away,
-          ),
-        );
+        add(this.boxMesh(w, 0.3, 0.2, this.mat(0x4a4a50), 0, 0.7 + tiers * 0.75, (d / 2) * away));
         break;
       }
-      case "crowd":
+      case 'crowd':
         this.fans(g, w, d, 0, 0, 0, Math.round(w * d * 1.4), 7);
         break;
-      case "pit_tent": {
-        for (const [sx, sz] of [
-          [-1, -1],
-          [1, -1],
-          [1, 1],
-          [-1, 1],
-        ])
-          add(
-            this.boxMesh(
-              0.08,
-              1.9,
-              0.08,
-              this.mat(0xcccccc),
-              (sx * w) / 2.1,
-              0,
-              (sz * d) / 2.1,
-            ),
-          );
-        const roof = new THREE.Mesh(
-          new THREE.ConeGeometry(Math.hypot(w, d) / 2, 0.9, 4),
-          this.mat(color),
-        );
+      case 'pit_tent': {
+        for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) add(this.boxMesh(0.08, 1.9, 0.08, this.mat(0xcccccc), (sx * w) / 2.1, 0, (sz * d) / 2.1));
+        const roof = new THREE.Mesh(new THREE.ConeGeometry(Math.hypot(w, d) / 2, 0.9, 4), this.mat(color));
         roof.rotation.y = Math.PI / 4;
-        roof.scale.set(
-          (w / Math.hypot(w, d)) * 1.414,
-          1,
-          (d / Math.hypot(w, d)) * 1.414,
-        );
+        roof.scale.set(w / Math.hypot(w, d) * 1.414, 1, d / Math.hypot(w, d) * 1.414);
         roof.position.set(0, 2.35, 0);
         roof.castShadow = true;
         add(roof);
         add(this.boxMesh(w, 0.25, d, this.mat(shade(color, 0.9)), 0, 1.65, 0));
         break;
       }
-      case "van": {
-        add(
-          this.boxMesh(
-            w * 0.72,
-            1.7,
-            d * 0.9,
-            this.mat(color),
-            -w * 0.14,
-            0.3,
-            0,
-          ),
-        );
-        add(
-          this.boxMesh(
-            w * 0.26,
-            1.2,
-            d * 0.9,
-            this.mat(shade(color, 0.95)),
-            w * 0.36,
-            0.3,
-            0,
-          ),
-        );
-        add(
-          this.boxMesh(
-            0.05,
-            0.5,
-            d * 0.7,
-            this.mat(0x223344),
-            w * 0.495,
-            0.85,
-            0,
-          ),
-        );
+      case 'van': {
+        add(this.boxMesh(w * 0.72, 1.7, d * 0.9, this.mat(color), -w * 0.14, 0.3, 0));
+        add(this.boxMesh(w * 0.26, 1.2, d * 0.9, this.mat(shade(color, 0.95)), w * 0.36, 0.3, 0));
+        add(this.boxMesh(0.05, 0.5, d * 0.7, this.mat(0x223344), w * 0.495, 0.85, 0));
         const wheel = new THREE.CylinderGeometry(0.32, 0.32, 0.2, 12);
-        for (const [sx, sz] of [
-          [-0.3, -1],
-          [-0.3, 1],
-          [0.32, -1],
-          [0.32, 1],
-        ]) {
+        for (const [sx, sz] of [[-0.3, -1], [-0.3, 1], [0.32, -1], [0.32, 1]]) {
           const t = new THREE.Mesh(wheel, this.mat(0x1c1c22));
           t.rotation.x = Math.PI / 2;
           t.position.set(sx * w, 0.32, (sz * d * 0.9) / 2);
@@ -1384,34 +948,17 @@ export class RaceView {
         }
         break;
       }
-      case "light_tower": {
+      case 'light_tower': {
         add(this.boxMesh(0.25, 7.5, 0.25, this.mat(0x6a6a70)));
         add(this.boxMesh(w * 0.9, 0.7, 0.35, this.mat(0x3a3a40), 0, 7.5, 0));
-        add(
-          this.boxMesh(
-            w * 0.8,
-            0.5,
-            0.05,
-            new THREE.MeshBasicMaterial({ color: 0xfff6c0 }),
-            0,
-            7.6,
-            0.2,
-          ),
-        );
+        add(this.boxMesh(w * 0.8, 0.5, 0.05, new THREE.MeshBasicMaterial({ color: 0xfff6c0 }), 0, 7.6, 0.2));
         break;
       }
-      case "tree": {
+      case 'tree': {
         add(this.boxMesh(0.35, 1.6, 0.35, this.mat(0x6a4a2a)));
         const leaf = this.mat(color, { flatShading: true });
-        for (const [r, y, ox] of [
-          [w * 0.42, 2.3, 0],
-          [w * 0.32, 3.2, 0.2],
-          [w * 0.28, 2.5, -0.5],
-        ]) {
-          const ball = new THREE.Mesh(
-            new THREE.IcosahedronGeometry(r, 0),
-            leaf,
-          );
+        for (const [r, y, ox] of [[w * 0.42, 2.3, 0], [w * 0.32, 3.2, 0.2], [w * 0.28, 2.5, -0.5]]) {
+          const ball = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 0), leaf);
           ball.position.set(ox, y, ox * 0.5);
           ball.castShadow = true;
           ball.receiveShadow = true;
@@ -1419,39 +966,28 @@ export class RaceView {
         }
         break;
       }
-      case "bush": {
-        const ball = new THREE.Mesh(
-          new THREE.IcosahedronGeometry(Math.min(w, d) * 0.45, 0),
-          this.mat(color, { flatShading: true }),
-        );
+      case 'bush': {
+        const ball = new THREE.Mesh(new THREE.IcosahedronGeometry(Math.min(w, d) * 0.45, 0), this.mat(color, { flatShading: true }));
         ball.position.y = Math.min(w, d) * 0.3;
         ball.scale.y = 0.75;
         ball.castShadow = true;
         add(ball);
         break;
       }
-      case "hedge":
-        add(
-          this.boxMesh(w, 1.1, d * 0.6, this.mat(color, { flatShading: true })),
-        );
+      case 'hedge':
+        add(this.boxMesh(w, 1.1, d * 0.6, this.mat(color, { flatShading: true })));
         break;
-      case "fence":
-        for (const sx of [-0.45, 0, 0.45])
-          add(this.boxMesh(0.1, 0.9, 0.1, this.mat(color), sx * w, 0, 0));
-        for (const y of [0.35, 0.7])
-          add(this.boxMesh(w, 0.08, 0.06, this.mat(color), 0, y, 0));
+      case 'fence':
+        for (const sx of [-0.45, 0, 0.45]) add(this.boxMesh(0.1, 0.9, 0.1, this.mat(color), sx * w, 0, 0));
+        for (const y of [0.35, 0.7]) add(this.boxMesh(w, 0.08, 0.06, this.mat(color), 0, y, 0));
         break;
-      case "barrels":
-      case "tyre_stack": {
-        const geo =
-          it.type === "barrels"
-            ? new THREE.CylinderGeometry(0.32, 0.32, 0.9, 12)
-            : new THREE.TorusGeometry(0.3, 0.13, 8, 14);
+      case 'barrels':
+      case 'tyre_stack': {
+        const geo = it.type === 'barrels' ? new THREE.CylinderGeometry(0.32, 0.32, 0.9, 12) : new THREE.TorusGeometry(0.3, 0.13, 8, 14);
         const n = 3;
         for (let i = 0; i < n; i++) {
           const m = new THREE.Mesh(geo, this.mat(color));
-          if (it.type === "barrels")
-            m.position.set((i - 1) * 0.7 * (w / 2), 0.45, 0);
+          if (it.type === 'barrels') m.position.set((i - 1) * 0.7 * (w / 2), 0.45, 0);
           else {
             m.rotation.x = Math.PI / 2;
             m.position.set((i - 1) * 0.15, 0.13 + i * 0.26, 0);
@@ -1461,7 +997,7 @@ export class RaceView {
         }
         break;
       }
-      case "skip":
+      case 'skip':
         add(this.boxMesh(w, 1, d, this.mat(color)));
         break;
       default:
@@ -1489,16 +1025,7 @@ export class RaceView {
   }
 
   /** Spectators: small figures in many colours, standing on a patch of ground or a stand step. */
-  private fans(
-    g: THREE.Group,
-    w: number,
-    d: number,
-    x: number,
-    y: number,
-    z: number,
-    n: number,
-    seed: number,
-  ): void {
+  private fans(g: THREE.Group, w: number, d: number, x: number, y: number, z: number, n: number, seed: number): void {
     const body = new THREE.BoxGeometry(0.22, 0.42, 0.18);
     const head = new THREE.BoxGeometry(0.16, 0.16, 0.16);
     const bodies = new THREE.InstancedMesh(body, this.mat(0xffffff), n);
@@ -1539,16 +1066,7 @@ export class RaceView {
       wheel.position.set((sx * L) / 2, r, 0);
       parts.push(wheel);
     }
-    const piece = (
-      w: number,
-      h: number,
-      d: number,
-      m: THREE.Material,
-      x: number,
-      y: number,
-      z = 0,
-      rz = 0,
-    ) => {
+    const piece = (w: number, h: number, d: number, m: THREE.Material, x: number, y: number, z = 0, rz = 0) => {
       const p = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
       p.position.set(x, y, z);
       p.rotation.z = rz;
@@ -1558,26 +1076,8 @@ export class RaceView {
     piece(L * 0.62, 0.1, 0.1, this.mat(0x9a9aa0), 0, r + 0.12, 0, 0.05); // frame
     piece(0.42, 0.14, 0.2, paint, 0.08, r + 0.3); // tank and seat
     piece(0.36, 0.08, 0.18, dark, -0.22, r + 0.32); // seat
-    piece(
-      0.07,
-      0.52,
-      0.06,
-      this.mat(0xc0c0c8),
-      L / 2 - 0.08,
-      r + 0.22,
-      0.07,
-      0.35,
-    ); // forks
-    piece(
-      0.07,
-      0.52,
-      0.06,
-      this.mat(0xc0c0c8),
-      L / 2 - 0.08,
-      r + 0.22,
-      -0.07,
-      0.35,
-    );
+    piece(0.07, 0.52, 0.06, this.mat(0xc0c0c8), L / 2 - 0.08, r + 0.22, 0.07, 0.35); // forks
+    piece(0.07, 0.52, 0.06, this.mat(0xc0c0c8), L / 2 - 0.08, r + 0.22, -0.07, 0.35);
     piece(0.1, 0.2, 0.22, this.mat(0xf4f4f4), L / 2 - 0.02, r + 0.5, 0, 0.3); // number plate
     piece(0.42, 0.04, 0.14, paint, L / 2 - 0.12, r + 0.27, 0, -0.1); // front guard
     piece(0.3, 0.04, 0.14, paint, -L / 2 + 0.05, r + 0.3, 0, 0.25); // rear guard
@@ -1587,56 +1087,32 @@ export class RaceView {
     piece(0.2, 0.4, 0.28, paint, -0.02, r + 0.68, 0, -0.45);
     piece(0.36, 0.07, 0.07, kit, 0.2, r + 0.74, 0.15, 0.25);
     piece(0.36, 0.07, 0.07, kit, 0.2, r + 0.74, -0.15, 0.25);
-    const helmet = new THREE.Mesh(
-      new THREE.SphereGeometry(0.14, 12, 10),
-      this.mat(player ? 0xffffff : shade(color, 1.15)),
-    );
+    const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 10), this.mat(player ? 0xffffff : shade(color, 1.15)));
     helmet.position.set(0.12, r + 0.98, 0);
     parts.push(helmet);
     piece(0.08, 0.06, 0.18, dark, 0.24, r + 0.97); // visor
     // One mesh per bike, coloured per part, so a field of bikes costs one draw each.
     body.add(this.mergeParts(parts));
     this.scene3.add(root);
-    const label = this.scene.add
-      .text(0, 0, "", {
-        fontFamily: "Trebuchet MS, sans-serif",
-        fontSize: "13px",
-        color: "#ffffff",
-        fontStyle: "bold",
-        stroke: "#14141e",
-        strokeThickness: 3,
-        resolution: TEXT_RES,
-      })
-      .setOrigin(0.5, 1);
+    const label = this.scene.add.text(0, 0, '', { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '13px', color: '#ffffff', fontStyle: 'bold', stroke: '#14141e', strokeThickness: 3, resolution: TEXT_RES }).setOrigin(0.5, 1);
     this.labels.add(label);
     return { root, body, label };
   }
 
   /** Bakes meshes (each with a plain coloured material) into one vertex-coloured, shadow-casting mesh. */
-  private mergeParts(
-    parts: THREE.Mesh[],
-    material?: THREE.MeshLambertMaterial,
-  ): THREE.Mesh {
+  private mergeParts(parts: THREE.Mesh[], material?: THREE.MeshLambertMaterial): THREE.Mesh {
     const geos = parts.map((p) => {
       p.updateMatrix();
-      const g = (
-        p.geometry.index ? p.geometry.toNonIndexed() : p.geometry.clone()
-      ).applyMatrix4(
-        (p.userData.world as THREE.Matrix4 | undefined) ?? p.matrix,
-      );
-      for (const k of Object.keys(g.attributes))
-        if (k !== "position" && k !== "normal") g.deleteAttribute(k);
+      const g = (p.geometry.index ? p.geometry.toNonIndexed() : p.geometry.clone()).applyMatrix4((p.userData.world as THREE.Matrix4 | undefined) ?? p.matrix);
+      for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k);
       const c = (p.material as THREE.MeshLambertMaterial).color;
       const n = g.attributes.position.count;
       const col = new Float32Array(n * 3);
       for (let i = 0; i < n; i++) col.set([c.r, c.g, c.b], i * 3);
-      g.setAttribute("color", new THREE.BufferAttribute(col, 3));
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
       return g;
     });
-    const mesh = new THREE.Mesh(
-      mergeGeometries(geos),
-      material ?? new THREE.MeshLambertMaterial({ vertexColors: true }),
-    );
+    const mesh = new THREE.Mesh(mergeGeometries(geos), material ?? new THREE.MeshLambertMaterial({ vertexColors: true }));
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     for (const g of geos) g.dispose();
@@ -1644,12 +1120,7 @@ export class RaceView {
   }
 
   /** Draws the riders at their poses. clock is race time, dt real seconds since the last frame. */
-  update(
-    riders: ViewRider[],
-    clock: number,
-    dt: number,
-    focus: string | null,
-  ): void {
+  update(riders: ViewRider[], clock: number, dt: number, focus: string | null): void {
     if (this.dead) return;
     const t0 = performance.now();
     const dc = Math.max(0, Math.min(1, clock - this.lastClock));
@@ -1666,40 +1137,27 @@ export class RaceView {
       }
       let dist = p.dist;
       // The second start row waits a bike length behind the gate and closes up as the race starts.
-      if (r.startRow && p.dist < s.start.join)
-        dist -=
-          (r.startRow *
-            BIKE_LENGTH *
-            1.4 *
-            Math.max(0, Math.min(1, 1 - clock / 2))) /
-          s.g.total;
+      if (r.startRow && p.dist < s.start.join) dist -= (r.startRow * BIKE_LENGTH * 1.4 * Math.max(0, Math.min(1, 1 - clock / 2))) / s.g.total;
       const f = dist - Math.floor(dist);
       const onStart = s.onStart(dist);
       const [back, front] = s.wheelsAt(dist, p.lane, p.air);
       // Off the track (a rider who has pulled off) the wheels sit on the ground.
-      for (const wh of [back, front])
-        wh.y = Math.max(wh.y, this.terrainAt(wh.x, wh.z));
+      for (const wh of [back, front]) wh.y = Math.max(wh.y, this.terrainAt(wh.x, wh.z));
       const mx = (back.x + front.x) / 2;
       const mz = (back.z + front.z) / 2;
       const my = (back.y + front.y) / 2;
       let yaw = Math.atan2(front.z - back.z, front.x - back.x);
       const run = Math.hypot(front.x - back.x, front.z - back.z);
       // A bike tips with the ground under its wheels, but never further than a steep jump face.
-      const pitch = Math.max(
-        -0.7,
-        Math.min(0.7, Math.atan2(front.y - back.y, run)),
-      );
+      const pitch = Math.max(-0.7, Math.min(0.7, Math.atan2(front.y - back.y, run)));
       // Lean into the corner, more the faster the bike.
-      let lean = Math.max(
-        -0.6,
-        Math.min(0.6, s.curvatureAt(dist) * Math.min(p.speed, 20) * 0.9),
-      );
-      if (p.state === "wobble") yaw += 0.35 * Math.sin(clock * 16);
+      let lean = Math.max(-0.6, Math.min(0.6, s.curvatureAt(dist) * Math.min(p.speed, 20) * 0.9));
+      if (p.state === 'wobble') yaw += 0.35 * Math.sin(clock * 16);
       b.root.position.set(mx, my, mz);
       b.root.rotation.set(0, -yaw, 0);
       b.body.rotation.set(0, 0, 0);
       b.body.position.set(0, 0, 0);
-      if (p.state === "crashed") {
+      if (p.state === 'crashed') {
         // Down on its side, sliding.
         b.body.rotation.set(Math.PI / 2.2, 0, 0);
         b.body.position.set(0, 0.12, 0);
@@ -1708,35 +1166,20 @@ export class RaceView {
         b.body.rotation.z = pitch;
         b.body.rotation.x = lean;
       }
-      b.root.visible = !(p.state === "remount" && !blink);
+      b.root.visible = !(p.state === 'remount' && !blink);
       if (p.id === focus) target = new THREE.Vector3(mx, my, mz);
-      if (r.player)
-        this.marker.position.set(
-          mx,
-          my + 1.75 + 0.08 * Math.sin(clock * 4),
-          mz,
-        );
-      b.label
-        .setText(r.player ? "" : r.label)
-        .setVisible(!r.player && p.state !== "retired");
+      if (r.player) this.marker.position.set(mx, my + 1.75 + 0.08 * Math.sin(clock * 4), mz);
+      b.label.setText(r.player ? '' : r.label).setVisible(!r.player && p.state !== 'retired');
       // Dust off the back wheel.
-      if (
-        dc > 0 &&
-        p.speed > 6 &&
-        p.air < 0.15 &&
-        p.state === "riding" &&
-        Math.abs(p.lane) <= 1
-      ) {
+      if (dc > 0 && p.speed > 6 && p.air < 0.15 && p.state === 'riding' && Math.abs(p.lane) <= 1) {
         const n = Math.min(2, dc * p.speed * 0.12);
         const water = !onStart && this.patchAt(f) === 0x4a86c0;
-        for (let k = 0; k < n || (k === 0 && noise(clock * 977 + mx) < n); k++)
-          this.puff(back.x, back.y + 0.1, back.z, water ? 0xdff0ff : 0xcaa478);
+        for (let k = 0; k < n || (k === 0 && noise(clock * 977 + mx) < n); k++) this.puff(back.x, back.y + 0.1, back.z, water ? 0xdff0ff : 0xcaa478);
       }
     }
     this.agePuffs(Math.min(1, dc * 1.4 + dt * 0.3));
     this.updateStart(clock);
-    if (!riders.some((r) => r.player && r.pose.state !== "retired"))
-      this.marker.visible = false;
+    if (!riders.some((r) => r.player && r.pose.state !== 'retired')) this.marker.visible = false;
     else this.marker.visible = true;
     this.moveCamera(target, dt);
     this.fadeBlockers(riders);
@@ -1757,12 +1200,12 @@ export class RaceView {
   }
 
   private softDot(): THREE.Texture {
-    const cv = document.createElement("canvas");
+    const cv = document.createElement('canvas');
     cv.width = cv.height = 32;
-    const ctx = cv.getContext("2d")!;
+    const ctx = cv.getContext('2d')!;
     const grad = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
-    grad.addColorStop(0, "rgba(255,255,255,1)");
-    grad.addColorStop(1, "rgba(255,255,255,0)");
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 32, 32);
     return new THREE.CanvasTexture(cv);
@@ -1771,17 +1214,8 @@ export class RaceView {
   /** A puff of dust (or spray): one of a pool of camera-facing quads drawn in a single batch. */
   private puff(x: number, y: number, z: number, color: number): void {
     if (!this.dust) {
-      const mat = new THREE.MeshBasicMaterial({
-        map: this.puffMap,
-        transparent: true,
-        opacity: 0.5,
-        depthWrite: false,
-      });
-      this.dust = new THREE.InstancedMesh(
-        new THREE.PlaneGeometry(1, 1),
-        mat,
-        DUST,
-      );
+      const mat = new THREE.MeshBasicMaterial({ map: this.puffMap, transparent: true, opacity: 0.5, depthWrite: false });
+      this.dust = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), mat, DUST);
       this.dust.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       this.dust.frustumCulled = false;
       const c = new THREE.Color(0xffffff);
@@ -1793,22 +1227,14 @@ export class RaceView {
     }
     const i = this.puffNext;
     this.puffNext = (i + 1) % DUST;
-    this.puffs[i] = {
-      x: x + (noise(x * 91) - 0.5) * 0.2,
-      y,
-      z: z + (noise(z * 37) - 0.5) * 0.2,
-      life: 1,
-    };
+    this.puffs[i] = { x: x + (noise(x * 91) - 0.5) * 0.2, y, z: z + (noise(z * 37) - 0.5) * 0.2, life: 1 };
     this.dust.setColorAt(i, new THREE.Color(color));
     this.dust.instanceColor!.needsUpdate = true;
   }
 
   private agePuffs(k: number): void {
     if (!this.dust) return;
-    const face = new THREE.Quaternion().setFromUnitVectors(
-      new THREE.Vector3(0, 0, 1),
-      this.dir,
-    );
+    const face = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), this.dir);
     const m = new THREE.Matrix4();
     const v = new THREE.Vector3();
     const sc = new THREE.Vector3();
@@ -1817,12 +1243,8 @@ export class RaceView {
       p.life -= k;
       p.y += k * 0.3;
       // Grows as it drifts up, then shrinks away as it fades.
-      const size =
-        p.life > 0 ? (0.35 + (1 - p.life) * 0.9) * Math.min(1, p.life * 3) : 0;
-      this.dust!.setMatrixAt(
-        i,
-        m.compose(v.set(p.x, p.y, p.z), face, sc.set(size, size, size)),
-      );
+      const size = p.life > 0 ? (0.35 + (1 - p.life) * 0.9) * Math.min(1, p.life * 3) : 0;
+      this.dust!.setMatrixAt(i, m.compose(v.set(p.x, p.y, p.z), face, sc.set(size, size, size)));
     });
     this.dust.instanceMatrix.needsUpdate = true;
   }
@@ -1832,21 +1254,12 @@ export class RaceView {
       const e = this.editCam;
       const az = THREE.MathUtils.degToRad(CAM_AZ + e.az);
       const el = THREE.MathUtils.degToRad(CAM_EL);
-      this.dir.set(
-        Math.sin(az) * Math.cos(el),
-        Math.sin(el),
-        Math.cos(az) * Math.cos(el),
-      );
+      this.dir.set(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
       const halfW = this.viewUnits / 2 / e.zoom;
       const halfH = (halfW * this.h) / this.w;
       const c = this.camera;
       if (c.right !== halfW || c.top !== halfH) {
-        Object.assign(c, {
-          left: -halfW,
-          right: halfW,
-          top: halfH,
-          bottom: -halfH,
-        });
+        Object.assign(c, { left: -halfW, right: halfW, top: halfH, bottom: -halfH });
         c.updateProjectionMatrix();
       }
       this.cam = new THREE.Vector3(e.x, this.terrainAt(e.x, e.z), e.z);
@@ -1857,25 +1270,16 @@ export class RaceView {
       const sc = this.sun.shadow.camera;
       const reach = Math.max(this.viewUnits, halfW * 1.6);
       if (sc.right !== reach) {
-        Object.assign(sc, {
-          left: -reach,
-          right: reach,
-          top: reach,
-          bottom: -reach,
-        });
+        Object.assign(sc, { left: -reach, right: reach, top: reach, bottom: -reach });
         sc.updateProjectionMatrix();
       }
       return;
     }
-    const want =
-      target ??
-      this.cam ??
-      (() => {
-        const p = this.surface.place(this.surface.start.from, 0);
-        return new THREE.Vector3(p.x, 0, p.z);
-      })();
-    if (!this.cam || want.distanceTo(this.cam) > this.viewUnits)
-      this.cam = want.clone();
+    const want = target ?? this.cam ?? (() => {
+      const p = this.surface.place(this.surface.start.from, 0);
+      return new THREE.Vector3(p.x, 0, p.z);
+    })();
+    if (!this.cam || want.distanceTo(this.cam) > this.viewUnits) this.cam = want.clone();
     else this.cam.lerp(want, 1 - Math.exp(-dt * 9));
     this.camera.position.copy(this.cam).addScaledVector(this.dir, 120);
     this.camera.lookAt(this.cam);
@@ -1887,15 +1291,7 @@ export class RaceView {
   /** Fades tall scenery standing between the camera and any rider. */
   private fadeBlockers(riders: ViewRider[]): void {
     this.camera.updateMatrixWorld();
-    const spots = riders
-      .map((r) => this.bikes.get(r.pose.id))
-      .filter((b): b is Bike => !!b)
-      .map((b) =>
-        b.root.position
-          .clone()
-          .add(new THREE.Vector3(0, 0.5, 0))
-          .project(this.camera),
-      );
+    const spots = riders.map((r) => this.bikes.get(r.pose.id)).filter((b): b is Bike => !!b).map((b) => b.root.position.clone().add(new THREE.Vector3(0, 0.5, 0)).project(this.camera));
     for (const t of this.tall) {
       const ps = t.corners.map((c) => c.clone().project(this.camera));
       const x0 = Math.min(...ps.map((p) => p.x));
@@ -1903,14 +1299,7 @@ export class RaceView {
       const y0 = Math.min(...ps.map((p) => p.y));
       const y1 = Math.max(...ps.map((p) => p.y));
       const near = Math.min(...ps.map((p) => p.z));
-      const hides =
-        x1 > -1 &&
-        x0 < 1 &&
-        y1 > -1 &&
-        y0 < 1 &&
-        spots.some(
-          (p) => p.x > x0 && p.x < x1 && p.y > y0 && p.y < y1 && p.z > near,
-        );
+      const hides = x1 > -1 && x0 < 1 && y1 > -1 && y0 < 1 && spots.some((p) => p.x > x0 && p.x < x1 && p.y > y0 && p.y < y1 && p.z > near);
       if (hides === t.faded) continue;
       t.faded = hides;
       for (const m of t.mats) {
@@ -1922,10 +1311,7 @@ export class RaceView {
 
   /** The grid point under a point on the screen (Phaser's coordinates), on the ground or the track, or null off it. */
   pick(px: number, py: number): { x: number; z: number } | null {
-    const ndc = new THREE.Vector2(
-      ((px - this.x) / this.w) * 2 - 1,
-      1 - ((py - this.y) / this.h) * 2,
-    );
+    const ndc = new THREE.Vector2(((px - this.x) / this.w) * 2 - 1, 1 - ((py - this.y) / this.h) * 2);
     if (Math.abs(ndc.x) > 1 || Math.abs(ndc.y) > 1) return null;
     this.camera.updateMatrixWorld();
     const ray = new THREE.Raycaster();
@@ -1952,10 +1338,7 @@ export class RaceView {
   }
 
   /** Which way on the ground the screen's right and up point, as unit vectors (x and z). */
-  groundAxes(): {
-    right: { x: number; z: number };
-    up: { x: number; z: number };
-  } {
+  groundAxes(): { right: { x: number; z: number }; up: { x: number; z: number } } {
     this.camera.updateMatrixWorld();
     const e = this.camera.matrixWorld.elements;
     const flat = (x: number, z: number) => {
@@ -1975,19 +1358,14 @@ export class RaceView {
   private toScreen(v: THREE.Vector3): { x: number; y: number } | null {
     const p = v.clone().project(this.camera);
     if (p.x < -1 || p.x > 1 || p.y < -1 || p.y > 1) return null;
-    return {
-      x: this.x + ((p.x + 1) / 2) * this.w,
-      y: this.y + ((1 - p.y) / 2) * this.h,
-    };
+    return { x: this.x + ((p.x + 1) / 2) * this.w, y: this.y + ((1 - p.y) / 2) * this.h };
   }
 
   private placeLabels(riders: ViewRider[]): void {
     for (const r of riders) {
       const b = this.bikes.get(r.pose.id);
       if (!b || !b.label.visible) continue;
-      const at = this.toScreen(
-        b.root.position.clone().add(new THREE.Vector3(0, 1.45, 0)),
-      );
+      const at = this.toScreen(b.root.position.clone().add(new THREE.Vector3(0, 1.45, 0)));
       if (at) b.label.setPosition(at.x, at.y);
       else b.label.setVisible(false);
     }
@@ -1997,24 +1375,13 @@ export class RaceView {
     const g = this.mapDots;
     const box = this.mapBox;
     g.clear();
-    const order = [...riders].sort(
-      (a, b) => Number(a.player) - Number(b.player),
-    );
+    const order = [...riders].sort((a, b) => Number(a.player) - Number(b.player));
     for (const r of order) {
-      if (r.pose.state === "retired") continue;
+      if (r.pose.state === 'retired') continue;
       const q = this.surface.place(r.pose.dist, 0);
       const p = { x: q.x, y: q.z };
-      g.fillStyle(r.color, 1).fillCircle(
-        box.x + p.x * box.k,
-        box.y + p.y * box.k,
-        r.player ? 4 : 2.6,
-      );
-      if (r.player)
-        g.lineStyle(1.5, 0xffffff, 1).strokeCircle(
-          box.x + p.x * box.k,
-          box.y + p.y * box.k,
-          4,
-        );
+      g.fillStyle(r.color, 1).fillCircle(box.x + p.x * box.k, box.y + p.y * box.k, r.player ? 4 : 2.6);
+      if (r.player) g.lineStyle(1.5, 0xffffff, 1).strokeCircle(box.x + p.x * box.k, box.y + p.y * box.k, 4);
     }
   }
 
@@ -2024,11 +1391,7 @@ export class RaceView {
     this.scene3.traverse((o) => {
       const m = o as THREE.Mesh;
       m.geometry?.dispose();
-      const mats = Array.isArray(m.material)
-        ? m.material
-        : m.material
-          ? [m.material]
-          : [];
+      const mats = Array.isArray(m.material) ? m.material : m.material ? [m.material] : [];
       for (const mat of mats) {
         (mat as THREE.MeshLambertMaterial).map?.dispose();
         mat.dispose();
@@ -2036,8 +1399,7 @@ export class RaceView {
     });
     this.renderer.dispose();
     this.renderer.forceContextLoss();
-    if (this.scene.textures.exists(this.key))
-      this.scene.textures.remove(this.key);
+    if (this.scene.textures.exists(this.key)) this.scene.textures.remove(this.key);
   }
 }
 
@@ -2064,18 +1426,14 @@ class GroundIndex {
     const v = new THREE.Vector3();
     for (const m of meshes) {
       m.updateMatrixWorld();
-      const pos = m.geometry.getAttribute("position");
+      const pos = m.geometry.getAttribute('position');
       const idx = m.geometry.getIndex();
       const mat = m.material as THREE.Material;
-      const c =
-        mat.side === THREE.DoubleSide ? 0 : mat.side === THREE.BackSide ? 2 : 1;
+      const c = mat.side === THREE.DoubleSide ? 0 : mat.side === THREE.BackSide ? 2 : 1;
       const n = idx ? idx.count : pos.count;
       for (let i = 0; i + 2 < n; i += 3) {
         for (let k = 0; k < 3; k++) {
-          v.fromBufferAttribute(
-            pos,
-            idx ? idx.getX(i + k) : i + k,
-          ).applyMatrix4(m.matrixWorld);
+          v.fromBufferAttribute(pos, idx ? idx.getX(i + k) : i + k).applyMatrix4(m.matrixWorld);
           tris.push(v.x, v.y, v.z);
         }
         cull.push(c);
@@ -2104,10 +1462,7 @@ class GroundIndex {
     this.nz = Number.isFinite(z0) ? Math.floor((z1 - z0) / C) + 1 : 1;
     this.yMin = Number.isFinite(y0) ? y0 : 0;
     this.yMax = Number.isFinite(y1) ? y1 : 0;
-    const lists: number[][] = Array.from(
-      { length: this.nx * this.nz },
-      () => [],
-    );
+    const lists: number[][] = Array.from({ length: this.nx * this.nz }, () => []);
     const t = this.tris;
     for (let k = 0; k < this.cull.length; k++) {
       const o = k * 9;
@@ -2115,24 +1470,17 @@ class GroundIndex {
       const ib = this.cx(Math.max(t[o], t[o + 3], t[o + 6]));
       const ja = this.cz(Math.min(t[o + 2], t[o + 5], t[o + 8]));
       const jb = this.cz(Math.max(t[o + 2], t[o + 5], t[o + 8]));
-      for (let j = ja; j <= jb; j++)
-        for (let i = ia; i <= ib; i++) lists[j * this.nx + i].push(k);
+      for (let j = ja; j <= jb; j++) for (let i = ia; i <= ib; i++) lists[j * this.nx + i].push(k);
     }
     this.cells = lists.map((l) => Int32Array.from(l));
   }
 
   private cx(x: number): number {
-    return Math.max(
-      0,
-      Math.min(this.nx - 1, Math.floor((x - this.x0) / GroundIndex.CELL)),
-    );
+    return Math.max(0, Math.min(this.nx - 1, Math.floor((x - this.x0) / GroundIndex.CELL)));
   }
 
   private cz(z: number): number {
-    return Math.max(
-      0,
-      Math.min(this.nz - 1, Math.floor((z - this.z0) / GroundIndex.CELL)),
-    );
+    return Math.max(0, Math.min(this.nz - 1, Math.floor((z - this.z0) / GroundIndex.CELL)));
   }
 
   /** The highest surface straight below a point, as a ray from 60 up looking down would find it (to 140 down), or null. */
@@ -2159,8 +1507,7 @@ class GroundIndex {
       const w1 = ((x - ax) * (cz - az) - (z - az) * (cx - ax)) / -ny;
       const w2 = ((z - az) * (bx - ax) - (x - ax) * (bz - az)) / -ny;
       if (w1 < 0 || w2 < 0 || w1 + w2 > 1) continue;
-      const y =
-        t[o + 1] + w1 * (t[o + 4] - t[o + 1]) + w2 * (t[o + 7] - t[o + 1]);
+      const y = t[o + 1] + w1 * (t[o + 4] - t[o + 1]) + w2 * (t[o + 7] - t[o + 1]);
       if (y > 60 || y < -140) continue;
       if (best === null || y > best) best = y;
     }
@@ -2199,14 +1546,8 @@ class GroundIndex {
     const stepJ = d.z > 0 ? 1 : -1;
     const dtX = d.x !== 0 ? Math.abs(C / d.x) : Infinity;
     const dtZ = d.z !== 0 ? Math.abs(C / d.z) : Infinity;
-    let nextX =
-      d.x !== 0
-        ? t0 + (this.x0 + (i + (d.x > 0 ? 1 : 0)) * C - sx) / d.x
-        : Infinity;
-    let nextZ =
-      d.z !== 0
-        ? t0 + (this.z0 + (j + (d.z > 0 ? 1 : 0)) * C - sz) / d.z
-        : Infinity;
+    let nextX = d.x !== 0 ? t0 + (this.x0 + (i + (d.x > 0 ? 1 : 0)) * C - sx) / d.x : Infinity;
+    let nextZ = d.z !== 0 ? t0 + (this.z0 + (j + (d.z > 0 ? 1 : 0)) * C - sz) / d.z : Infinity;
     for (let guard = 0; guard < 100000; guard++) {
       if (i >= 0 && j >= 0 && i < this.nx && j < this.nz) {
         for (const k of this.cells[j * this.nx + i]) {
@@ -2216,10 +1557,7 @@ class GroundIndex {
           a.set(t[q], t[q + 1], t[q + 2]);
           b.set(t[q + 3], t[q + 4], t[q + 5]);
           c.set(t[q + 6], t[q + 7], t[q + 8]);
-          const p =
-            this.cull[k] === 2
-              ? ray.intersectTriangle(c, b, a, true, hit)
-              : ray.intersectTriangle(a, b, c, this.cull[k] === 1, hit);
+          const p = this.cull[k] === 2 ? ray.intersectTriangle(c, b, a, true, hit) : ray.intersectTriangle(a, b, c, this.cull[k] === 1, hit);
           if (!p) continue;
           const dist = p.distanceTo(o);
           if (dist < bestT) {
@@ -2238,13 +1576,7 @@ class GroundIndex {
         nextZ += dtZ;
       }
       // Off the grid and heading further away: nothing more to find.
-      if (
-        (i < 0 && stepI < 0) ||
-        (i >= this.nx && stepI > 0) ||
-        (j < 0 && stepJ < 0) ||
-        (j >= this.nz && stepJ > 0)
-      )
-        break;
+      if ((i < 0 && stepI < 0) || (i >= this.nx && stepI > 0) || (j < 0 && stepJ < 0) || (j >= this.nz && stepJ > 0)) break;
     }
     return best;
   }
