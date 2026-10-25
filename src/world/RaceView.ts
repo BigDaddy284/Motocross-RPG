@@ -8,7 +8,7 @@ import { pointAt, START_PAD, startPointAt } from '../core/trackGeom';
 import { GRID_H, GRID_W, trackKind, type TrackPartsData } from '../core/trackParts';
 import { BIKE_LENGTH, CAM_AZ, LIP_AT, TrackSurface } from '../core/trackSurface';
 import { COLORS, TEXT_RES } from '../ui/theme';
-import { bikeColours, type RaceLook } from './raceBike';
+import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
 // isometric camera in the spirit of Super Off Road's overhead arcade view. The track is solid
@@ -1081,13 +1081,15 @@ export class RaceView {
   // ---- riders ----
 
   /**
-   * A small motocross bike and rider facing +x, wheels on y = 0, in the bike's brand colours and the
-   * rider's gear when the look is known, otherwise in the rider's colour. Same shape either way.
+   * A small motocross bike and rider facing +x, wheels on y = 0: the race-day model in the bike's
+   * brand colours and the rider's gear when the look is known, otherwise a plain bike in the
+   * rider's colour. Either way the wheels are BIKE_LENGTH apart, centred on the root.
    */
   private makeBike(color: number, player: boolean, look?: RaceLook): Bike {
     const root = new THREE.Group();
     const body = new THREE.Group();
     root.add(body);
+    if (look) return this.finishBike(root, body, raceBikeParts(look, BIKE_LENGTH));
     const L = BIKE_LENGTH;
     const r = 0.22;
     const c = bikeColours(color, player, look);
@@ -1126,6 +1128,10 @@ export class RaceView {
     helmet.position.set(0.12, r + 0.98, 0);
     parts.push(helmet);
     piece(0.08, 0.06, 0.18, this.mat(c.visor), 0.24, r + 0.97); // visor
+    return this.finishBike(root, body, parts);
+  }
+
+  private finishBike(root: THREE.Group, body: THREE.Group, parts: THREE.Mesh[]): Bike {
     // One mesh per bike, coloured per part, so a field of bikes costs one draw each.
     body.add(this.mergeParts(parts));
     this.scene3.add(root);

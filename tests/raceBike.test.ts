@@ -1,25 +1,70 @@
+import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { BRAND_COLOURS, bikeColours, CPU_GEAR, GEAR_SETS, type RaceLook } from '../src/world/raceBike';
+import { BIKE_LENGTH } from '../src/core/trackSurface';
+import { BRAND_COLOURS, bikeColours, CPU_GEAR, GEAR_SETS, modelFor, raceBikeParts, type RaceLook } from '../src/world/raceBike';
 import { readPublic } from './helpers';
 
-describe('race-day bike colours (Race day bike colours.png)', () => {
-  const look = (brand: string, gear = 'player-default'): RaceLook => ({ brand, gear: GEAR_SETS[gear] });
+const colours = (parts: THREE.Mesh[]) => new Set(parts.map((p) => (p.material as THREE.MeshLambertMaterial).color.getHex()));
+const bounds = (parts: THREE.Mesh[]) => {
+  const box = new THREE.Box3();
+  for (const p of parts) {
+    p.updateMatrixWorld(true);
+    box.expandByObject(p);
+  }
+  return box;
+};
+/** Where one wheel's tyre meets the ground: the middle of the lowest points near that end of the bike. */
+const tyreBottom = (parts: THREE.Mesh[], x: number) => {
+  const pts: THREE.Vector3[] = [];
+  for (const p of parts) {
+    p.updateMatrixWorld(true);
+    const pos = p.geometry.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const v = new THREE.Vector3().fromBufferAttribute(pos, i).applyMatrix4(p.matrixWorld);
+      if (Math.abs(v.x - x) < 0.25) pts.push(v);
+    }
+  }
+  const low = Math.min(...pts.map((v) => v.y));
+  const bottom = pts.filter((v) => v.y < low + 0.003);
+  return bottom.reduce((a, v) => a.add(v), new THREE.Vector3()).divideScalar(bottom.length);
+};
 
-  it('every brand in bikes.json has its colours, and the plastics, frame and plate wear them', () => {
+describe('race-day bikes (Race day bike colours.png)', () => {
+  const look = (brand: string, cls = '50cc', gear = 'player-default'): RaceLook => ({ brand, cls, gear: GEAR_SETS[gear] });
+
+  it('every brand in bikes.json has its colours, and its plastics wear them', () => {
     const { brands } = readPublic<{ brands: { id: string }[] }>('data/bikes.json');
     for (const b of brands) {
-      const brand = BRAND_COLOURS[b.id];
-      expect(brand, b.id).toBeDefined();
-      const c = bikeColours(0, false, look(b.id));
-      expect([c.plastics, c.frame, c.plate]).toEqual([brand.body, brand.frame, brand.plate]);
+      expect(BRAND_COLOURS[b.id], b.id).toBeDefined();
+      expect(colours(raceBikeParts(look(b.id), BIKE_LENGTH)).has(BRAND_COLOURS[b.id].body)).toBe(true);
     }
   });
 
   it('the rider wears their own gear colours', () => {
+    const parts = raceBikeParts(look('yamamoto', '50cc', 'cpu-pink'), BIKE_LENGTH);
     const g = GEAR_SETS['cpu-pink'];
-    const c = bikeColours(0, false, look('yamamoto', 'cpu-pink'));
-    expect([c.helmet, c.visor, c.torso, c.arms, c.legs]).toEqual([g.helmet, g.visor, g.jersey, g.jersey, g.pants]);
+    for (const c of [g.helmet, g.jersey, g.pants, g.boot]) expect(colours(parts).has(c)).toBe(true);
     for (const id of CPU_GEAR) expect(GEAR_SETS[id], id).toBeDefined();
+  });
+
+  it('youth classes ride the youth model, bigger classes the adult model', () => {
+    expect(['50cc', '65cc', '85cc', '125cc', '250cc', 'open'].map(modelFor)).toEqual(['youth', 'youth', 'youth', 'adult', 'adult', 'adult']);
+  });
+
+  it('the tyres touch the ground exactly where the old bike\'s wheels did, so riders go round the track the same', () => {
+    for (const cls of ['50cc', '250cc']) {
+      const parts = raceBikeParts(look('hondmoto', cls), BIKE_LENGTH);
+      for (const x of [-BIKE_LENGTH / 2, BIKE_LENGTH / 2]) {
+        const t = tyreBottom(parts, x);
+        expect(t.y).toBeCloseTo(0, 2);
+        expect(t.x).toBeCloseTo(x, 2);
+        expect(t.z).toBeCloseTo(0, 2);
+      }
+      const b = bounds(parts);
+      expect(b.min.y).toBeGreaterThan(-0.005);
+      // Under the player marker, which floats 1.75 above the bike.
+      expect(b.max.y).toBeLessThan(1.7);
+    }
   });
 
   it('without a look the old single-colour scheme is unchanged', () => {
