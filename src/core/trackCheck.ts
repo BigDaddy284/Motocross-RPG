@@ -56,7 +56,6 @@ export function startProblems(track: TrackDef): LayoutProblem[] {
   const near = nearestOnLap(g, end.x, end.y);
   if (near.d > 0.3) add(`the start straight ends ${near.d.toFixed(1)} grid units off the lap; its last point must be on the lap where it joins`);
   if (s.total < START_MIN) add(`the start straight is ${s.total.toFixed(1)} grid units long; it needs at least ${START_MIN} for the gate, the line-up and a run to the lap`);
-  if (s.join > 0.5) add('the start straight joins the lap in its second half, so lap 1 would skip most of the circuit; join it nearer the start of the lap');
   let turn = startHeadingAt(s, s.total - 0.5, 0.5) - headingAt(g, s.join);
   while (turn > Math.PI) turn -= 2 * Math.PI;
   while (turn < -Math.PI) turn += 2 * Math.PI;

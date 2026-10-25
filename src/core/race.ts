@@ -165,8 +165,10 @@ export interface TrackDef {
   practiceOnly?: boolean;
   /** Gate bonus in percent of start time, best gate first. */
   gates?: number[];
-  /** The shape drawn on the race screen, on a 100 × 60 grid, starting at the start line. */
+  /** The shape drawn on the race screen, on a 100 × 60 grid, starting at the finish line (the first point), where every lap starts and ends. */
   path: [number, number][];
+  /** False only on an unfinished track in the track editor whose finish line hasn't been placed yet (the game leaves drafts out); a finished track's finish line is always its first point. */
+  finish?: false;
   sections: TrackSection[];
   /** stadium, outdoor or endurance (trackParts.json kinds); outdoor when left out. */
   kind?: string;

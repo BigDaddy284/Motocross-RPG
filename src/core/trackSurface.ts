@@ -32,6 +32,19 @@ const BIG_JUMPS = new Set(['tabletop', 'double', 'step_up']);
 /** Grid units between the start straight's graded levels, and over how far it eases from the lap's level back to its own ground. */
 const START_STEP = 0.25;
 const START_BLEND = 4;
+/** Grid units between samples of the lap's turn rate when looking for folded corners. */
+const KAPPA_STEP = 0.05;
+/** A folded lane's mitre is cut from its edges where the lane's turn rate has eased to this share of folding. */
+const FOLD_EASE = 0.1;
+/** Grid units beyond a folded corner where the lap's heading has settled enough to cut the mitre from. */
+const MITRE_SETTLE = 2.5;
+
+interface Lobe {
+  fa: number;
+  fb: number;
+  x: number;
+  y: number;
+}
 /** Where the take-off lip and the landing are on a big jump, as a share of the section (as in riderAI). */
 export const TAKEOFF = 0.3;
 export const LANDING = 0.72;
@@ -208,7 +221,7 @@ export class TrackSurface {
 
   /** True when race distance `dist` (in laps) is on the start straight, before it joins the lap. */
   onStart(dist: number): boolean {
-    return this.start.total > 0 && dist < this.start.join;
+    return this.start.total > 0 && dist < this.start.joinAt;
   }
 
   /** Grid units from the gate along the start straight, for a race distance on it. */
@@ -283,7 +296,7 @@ export class TrackSurface {
       return { ...this.startSpot(u, lane), y: this.startHeight(u, lane) };
     }
     const f = dist - Math.floor(dist);
-    return { ...this.spot(f, lane), y: this.height(f, lane) };
+    return { ...this.spot(f, this.rideLane(f, lane)), y: this.height(f, lane) };
   }
 
   /** Both wheels of a bike centred at race distance `dist`, on the start straight or the lap: back wheel first. */
@@ -308,9 +321,138 @@ export class TrackSurface {
 
   /** Where lap fraction f and a lane are on the ground (grid x and y; three.js calls the second z). */
   spot(f: number, lane: number): { x: number; z: number; ang: number } {
-    const p = pointAt(this.g, f);
     const ang = headingAt(this.g, f);
+    const m = this.miter(f, lane);
+    if (m) return { x: m.x, z: m.y, ang };
+    const p = pointAt(this.g, f);
     return { x: p.x - Math.sin(ang) * lane * this.hw, z: p.y + Math.cos(ang) * lane * this.hw, ang };
+  }
+
+  /**
+   * The lane a bike is drawn in: through a corner tighter than the bike's lane is far from the
+   * middle of the track, no further in than the corner's centre of curvature. The surface there is
+   * mitred to a point (miter()); a bike held at that point would stand still while its race
+   * distance went on, so it swings round the inside of the corner at the tightest arc instead,
+   * on the surface all the way.
+   */
+  rideLane(f: number, lane: number): number {
+    if (Math.abs(lane) <= 0.5 || Math.abs(lane) * this.hw * this.sharpest() <= 1) return lane;
+    const c = this.curvature(f);
+    if (lane * c <= 0) return lane;
+    const most = Math.max(0, 1 / Math.abs(c) - 0.02) / this.hw;
+    return Math.abs(lane) <= most ? lane : Math.sign(lane) * most;
+  }
+
+  /**
+   * The inside of a corner tighter than a lane is far from the middle of the track. Offsetting the
+   * lane from the lap there folds it back over itself (the inner lip of a sharp corner used to
+   * sweep across its apex as a raised wedge), so through such a corner every point of the lane is
+   * the one point where the lane's straight edges into and out of the corner meet: the corner is
+   * mitred, like the inside of any road's kerb at a sharp bend. Null where the lane does not fold.
+   */
+  miter(f: number, lane: number): { x: number; y: number } | null {
+    const d = Math.abs(lane) * this.hw;
+    if (d * this.sharpest() <= 1) return null;
+    const fr = f - Math.floor(f);
+    for (const l of this.lobesFor(lane)) {
+      if ((fr >= l.fa && fr <= l.fb) || (fr + 1 >= l.fa && fr + 1 <= l.fb)) return l;
+    }
+    return null;
+  }
+
+  /** Lap fractions where a lane folds, with the lane's mitre point there. */
+  private lobesFor(lane: number): Lobe[] {
+    const key = Math.round(lane * 1e4);
+    const hit = this.lobeCache.get(key);
+    if (hit) return hit;
+    const k = this.kappa();
+    const n = k.length;
+    const d = Math.abs(lane) * this.hw;
+    const turning = (i: number, by: number) => {
+      const c = k[((i % n) + n) % n];
+      return lane * c > 0 && Math.abs(c) * d > by;
+    };
+    const folded = (i: number) => turning(i, 1);
+    const out: Lobe[] = [];
+    // Scan the lap from somewhere the lane is not turning in, so a corner at the line is seen whole.
+    let s0 = 0;
+    while (s0 < n && turning(s0, FOLD_EASE)) s0++;
+    if (s0 < n) {
+      let i = s0;
+      let last = -Infinity;
+      while (i < s0 + n) {
+        if (!folded(i)) { i++; continue; }
+        let i0 = i;
+        while (i0 > s0 && turning(i0 - 1, FOLD_EASE)) i0--;
+        while (folded(i)) i++;
+        while (i < s0 + n && turning(i, FOLD_EASE)) i++;
+        const lobe = this.mitre(i0 / n, i / n, lane, last);
+        out.push(lobe);
+        last = lobe.fb;
+      }
+    }
+    this.lobeCache.set(key, out);
+    return out;
+  }
+
+  /** The lane's offset point at f, as spot() places it when it does not fold. */
+  private edge(f: number, lane: number): { x: number; y: number; tx: number; ty: number } {
+    const p = pointAt(this.g, f);
+    const a = headingAt(this.g, f);
+    return { x: p.x - Math.sin(a) * lane * this.hw, y: p.y + Math.cos(a) * lane * this.hw, tx: Math.cos(a), ty: Math.sin(a) };
+  }
+
+  /**
+   * The mitre of a lane through a corner it folds in between lap fractions fa and fb: where the
+   * lane's straight edge into the corner meets its straight edge out, taken where the lap has
+   * settled either side (the smoothed heading needs a few grid units to straighten). The folded
+   * stretch grows to take in every point of the lane already past the mitre, since the inside of
+   * a sharp corner crosses itself before the turn rate alone says so, but never back past `lo`.
+   */
+  private mitre(fa: number, fb: number, lane: number, lo: number): Lobe {
+    const df = MITRE_SETTLE / this.g.total;
+    const A = this.edge(fa - df, lane);
+    const B = this.edge(fb + df, lane);
+    const cross = A.tx * B.ty - A.ty * B.tx;
+    let m = { x: (A.x + B.x) / 2, y: (A.y + B.y) / 2 };
+    if (Math.abs(cross) >= 1e-6) {
+      const t = ((B.x - A.x) * B.ty - (B.y - A.y) * B.tx) / cross;
+      if (t >= 0) m = { x: A.x + A.tx * t, y: A.y + A.ty * t };
+    }
+    const step = KAPPA_STEP / this.g.total;
+    const reach = (3 * Math.abs(lane) * this.hw) / this.g.total;
+    const past = (f: number, T: { tx: number; ty: number }) => {
+      const q = this.edge(f, lane);
+      return (q.x - m.x) * T.tx + (q.y - m.y) * T.ty;
+    };
+    let f0 = fa;
+    while (f0 - step > lo && f0 - step > fa - reach && past(f0 - step, A) > 0) f0 -= step;
+    let f1 = fb;
+    while (f1 + step < fb + reach && past(f1 + step, B) < 0) f1 += step;
+    return { fa: f0, fb: f1, x: m.x, y: m.y };
+  }
+
+  private kappaCache: Float64Array | null = null;
+  private kappaMax = 0;
+  private lobeCache = new Map<number, Lobe[]>();
+
+  /** The lap's turn rate sampled every KAPPA_STEP grid units round the lap. */
+  private kappa(): Float64Array {
+    if (this.kappaCache) return this.kappaCache;
+    const n = Math.max(64, Math.ceil(this.g.total / KAPPA_STEP));
+    const k = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      k[i] = this.curvature(i / n);
+      this.kappaMax = Math.max(this.kappaMax, Math.abs(k[i]));
+    }
+    this.kappaCache = k;
+    return k;
+  }
+
+  /** The tightest turn rate anywhere on the lap, in radians per grid unit. */
+  sharpest(): number {
+    this.kappa();
+    return this.kappaMax;
   }
 
   /**
@@ -351,7 +493,7 @@ export class TrackSurface {
     const apex = this.apexFor(f, air);
     const df = BIKE_LENGTH / 2 / this.g.total;
     return [f - df, f + df].map((ff) => {
-      const s = this.spot(ff, lane);
+      const s = this.spot(ff, this.rideLane(ff, lane));
       return { x: s.x, z: s.z, y: this.wheel(ff, lane, apex, air) };
     }) as [WheelSpot, WheelSpot];
   }

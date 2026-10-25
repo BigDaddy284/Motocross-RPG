@@ -222,7 +222,8 @@ export class RaceView {
       // An official placed on a new track before its start straight: drawn standing where placed (the track editor).
       this.scene3.add(this.startBoard());
     }
-    this.scene3.add(this.startLine());
+    // The chequered finish line at the lap's first point; an unfinished track in the editor may not have placed one yet.
+    if (this.track.finish !== false) this.scene3.add(this.startLine());
     // Low scenery that never needs fading is baked into one mesh; textured parts stay separate.
     const low: THREE.Mesh[] = [];
     for (const it of track.scenery ?? []) {
@@ -1213,7 +1214,7 @@ export class RaceView {
       }
       let dist = p.dist;
       // The second start row waits a bike length behind the gate and closes up as the race starts.
-      if (r.startRow && p.dist < s.start.join) dist -= (r.startRow * BIKE_LENGTH * 1.4 * Math.max(0, Math.min(1, 1 - clock / 2))) / s.g.total;
+      if (r.startRow && s.onStart(p.dist)) dist -= (r.startRow * BIKE_LENGTH * 1.4 * Math.max(0, Math.min(1, 1 - clock / 2))) / s.g.total;
       const f = dist - Math.floor(dist);
       const onStart = s.onStart(dist);
       const [back, front] = s.wheelsAt(dist, p.lane, p.air);
