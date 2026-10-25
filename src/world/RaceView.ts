@@ -7,7 +7,7 @@ import { OFFICIAL_SCALE, officialPlan, WALK_FROM, WALK_TO } from '../core/startO
 import { pointAt, START_PAD, startPointAt } from '../core/trackGeom';
 import { GRID_H, GRID_W, trackKind, type TrackPartsData } from '../core/trackParts';
 import { BIKE_LENGTH, CAM_AZ, LIP_AT, TrackSurface } from '../core/trackSurface';
-import { COLORS } from '../ui/theme';
+import { COLORS, TEXT_RES } from '../ui/theme';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
 // isometric camera in the spirit of Super Off Road's overhead arcade view. The track is solid
@@ -145,7 +145,7 @@ export class RaceView {
 
     // Draw at the screen's real resolution, so the picture stays sharp when the window is big.
     const k = Math.min(scene.scale.width / 1280, scene.scale.height / 720);
-    const res = Math.max(1, Math.min(2, k * (window.devicePixelRatio || 1)));
+    const res = Math.max(1, Math.min(2, k));
     const rw = Math.round(w * res);
     const rh = Math.round(h * res);
     const canvas = document.createElement('canvas');
@@ -1094,7 +1094,7 @@ export class RaceView {
     // One mesh per bike, coloured per part, so a field of bikes costs one draw each.
     body.add(this.mergeParts(parts));
     this.scene3.add(root);
-    const label = this.scene.add.text(0, 0, '', { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '13px', color: '#ffffff', fontStyle: 'bold', stroke: '#14141e', strokeThickness: 3, resolution: 2 }).setOrigin(0.5, 1);
+    const label = this.scene.add.text(0, 0, '', { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '13px', color: '#ffffff', fontStyle: 'bold', stroke: '#14141e', strokeThickness: 3, resolution: TEXT_RES }).setOrigin(0.5, 1);
     this.labels.add(label);
     return { root, body, label };
   }

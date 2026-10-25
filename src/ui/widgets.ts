@@ -157,7 +157,7 @@ export function textInput(scene: Phaser.Scene, root: Phaser.GameObjects.Containe
   document.body.appendChild(el);
   const place = () => {
     const canvas = scene.game.canvas.getBoundingClientRect();
-    const css = canvas.width / scene.scale.width;
+    const css = (canvas.width / scene.scale.width) * scene.cameras.main.zoom;
     const k = root.scale;
     el.style.left = `${canvas.left + (root.x + (box.x - box.width / 2) * k) * css}px`;
     el.style.top = `${canvas.top + (root.y + (box.y - box.height / 2) * k) * css}px`;

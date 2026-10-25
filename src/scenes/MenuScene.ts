@@ -3,6 +3,7 @@ import { BUILD_LABEL, CAREER_SLOT, services } from '../services';
 import { COLORS, textStyle } from '../ui/theme';
 import { button, panel } from '../ui/widgets';
 import { startCareer } from './careerFlow';
+import { cssSize, view } from '../ui/view';
 
 // Main menu: opens directly with no intro (Spec 22). New, Continue, Load, Settings, Archive,
 // Info and Exit.
@@ -24,7 +25,7 @@ export class MenuScene extends Phaser.Scene {
 
   private layout(): void {
     this.children.removeAll(true);
-    const { width, height } = this.scale;
+    const { width, height } = view(this);
     this.add.rectangle(0, 0, width, height, COLORS.ink).setOrigin(0);
     // Laid out for 640 px of height, then scaled down to fit short screens such as a phone on its side.
     const k = Math.min(1, height / 640, width / 420);
@@ -39,7 +40,7 @@ export class MenuScene extends Phaser.Scene {
       ['Load', () => this.showLoad(), hasSave],
       ['Settings', () => this.scene.start('settings', { back: 'menu' }), true],
       ['Archive', () => this.showInfo('Archive', 'Finished and abandoned careers will be kept here. Nothing to show in the test build.'), true],
-      ['Info', () => this.showInfo('Info', `${BUILD_LABEL}\n\nWalk with WASD or the arrow keys, or click or tap where you want to go.\nClick an NPC to talk. E or Space talks to whoever you are facing.\nTab, I or B opens your bike, bag and task.\nMouse wheel, + and -, or the Zoom button to zoom. Esc for the pause menu.\n\nAll art is placeholder art in the agreed style.`), true],
+      ['Info', () => this.showInfo('Info', `${BUILD_LABEL}\n\nWalk with WASD or the arrow keys, or click or tap where you want to go.\nClick an NPC to talk. E or Space talks to whoever you are facing.\nTab, I or B opens your bike, bag and task.\nMouse wheel, + and -, or the on-screen zoom control to zoom (a slider or + and − buttons, see Settings > Display). Esc for the pause menu.\n\nAll art is placeholder art in the agreed style.`), true],
       ['Exit', () => this.exit(), true],
     ];
     items.forEach(([label, fn, on], i) => menu.add(button(this, 0, 180 + i * 56, label, fn).setEnabled(on)));
@@ -48,7 +49,7 @@ export class MenuScene extends Phaser.Scene {
 
   private modal(title: string, h = 300): Phaser.GameObjects.Container {
     this.overlay?.destroy();
-    const { width, height } = this.scale;
+    const { width, height } = cssSize(this);
     const k = Math.min(1, height / (h + 40), width / 600);
     const c = this.add.container(width / 2, height / 2);
     c.add(this.add.rectangle(0, 0, width / k, height / k, 0, 0.6).setInteractive());

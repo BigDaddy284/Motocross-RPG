@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { bikeStats, conditionFactor, formatMoney, type Bike } from '../core/career';
 import { formatTime, type LapTrace, type MotoSim, type RaceEvent, type RiderResult } from '../core/race';
 import { PLAYER_ID, RaceDay, applyRide, playerEntrant, practiceSim, sumXp, type MotoRecord, type VenueDef } from '../core/raceDay';
+import { noteActivity } from '../core/shops';
 import type { SaveData } from '../core/saves';
 import { services } from '../services';
 import { COLORS, textStyle } from '../ui/theme';
@@ -9,6 +10,7 @@ import { button, panel, penMeter, type Button, type PenMeter } from '../ui/widge
 import { directorFor, ROW_SIZE, type RaceDirector } from '../core/riderAI';
 import { startGeom } from '../core/trackGeom';
 import { RaceView } from '../world/RaceView';
+import { view } from '../ui/view';
 
 // Race day and practice: gate pick, the live race screen with its pit board, auto-complete,
 // moto and day results, and practice laps. The simulation does the racing; this screen only
@@ -103,7 +105,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   create(): void {
-    const { width, height } = this.scale;
+    const { width, height } = view(this);
     this.add.rectangle(0, 0, width, height, COLORS.ink).setOrigin(0);
     const k = Math.min(width / W, height / H);
     this.root = this.add.container((width - W * k) / 2, (height - H * k) / 2).setScale(k);
@@ -124,7 +126,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private relayout(): void {
-    const { width, height } = this.scale;
+    const { width, height } = view(this);
     const k = Math.min(width / W, height / H);
     this.root.setScale(k).setPosition((width - W * k) / 2, (height - H * k) / 2);
   }
@@ -206,7 +208,7 @@ export class RaceScene extends Phaser.Scene {
     const gates = day.track.gates ?? [];
     const myTurn = day.pickOrder.indexOf(PLAYER_ID) + 1;
     const how = n === 1 ? 'Gate picks for moto 1 are drawn at random.' : 'Gate picks for moto 2 go in moto 1 finishing order.';
-    this.text(W / 2, 110, `${how} You pick ${ordinal(myTurn)}. Inside gates get a better start.`, 18).setOrigin(0.5, 0);
+    this.text(W / 2, 108, `${how} You pick ${ordinal(myTurn)}. Inside gates get a better start.`, 22).setOrigin(0.5, 0);
 
     let chosen = free[0];
     // One gate per rider, laid out as the start is: gates 1 to 8 are the front row, 9 to 16 the
@@ -225,7 +227,7 @@ export class RaceScene extends Phaser.Scene {
       if (who) {
         const r = this.add.rectangle(x, y, gw - 8, 46, COLORS.inkLine).setStrokeStyle(2, COLORS.panelLight);
         this.screen.add(r);
-        this.text(x, y + 4, initials(this.names.get(who) ?? ''), 15, COLORS.muted).setOrigin(0.5);
+        this.text(x, y + 4, initials(this.names.get(who) ?? ''), 18, COLORS.muted).setOrigin(0.5);
       } else {
         const b = this.btn(x, y, bonus > 0 ? `+${bonus}%` : bonus < 0 ? `${bonus}%` : '0%', () => {
           chosen = g;
@@ -235,31 +237,31 @@ export class RaceScene extends Phaser.Scene {
         gateButtons.push(b);
       }
       // The gate's number in its top corner, over the button.
-      this.text(x - gw / 2 + 8, y - 21, `${g + 1}`, 12, COLORS.muted).setOrigin(0, 0);
+      this.text(x - gw / 2 + 7, y - 22, `${g + 1}`, 14, COLORS.muted).setOrigin(0, 0);
     }
-    for (let row = 0; row * ROW_SIZE < count; row++) this.text(gx - gw / 2 - 12, 178 + row * 60, row ? 'Second row' : 'Front row', 15, COLORS.muted).setOrigin(1, 0.5);
-    this.text(W / 2, 270, 'Taken gates show who has them. The % is the start bonus.', 15, COLORS.muted).setOrigin(0.5, 0);
+    for (let row = 0; row * ROW_SIZE < count; row++) this.text(gx - gw / 2 - 12, 178 + row * 60, row ? 'Second row' : 'Front row', 18, COLORS.muted).setOrigin(1, 0.5);
+    this.text(W / 2, 266, 'Taken gates show who has them. The % is the start bonus.', 18, COLORS.muted).setOrigin(0.5, 0);
 
     // How to race it.
     const { racing } = services.content;
-    this.box(140, 300, 1000, 300);
-    this.text(170, 318, 'Starting message', 22, COLORS.accent);
+    this.box(100, 286, 1080, 356);
+    this.text(130, 300, 'Starting message', 24, COLORS.accent);
     let message = 'steady';
     const msgButtons: Button[] = [];
     racing.messages.forEach((m, i) => {
-      const b = this.btn(260 + i * 240, 380, m.name, () => {
+      const b = this.btn(250 + i * 280, 362, m.name, () => {
         message = m.id;
         msgButtons.forEach((o, j) => o.setSelected(j === i));
-      }, 220, 46);
+      }, 240, 48);
       b.setSelected(m.id === message);
       msgButtons.push(b);
-      this.text(150 + i * 240, 410, m.desc, 15, COLORS.muted, { wordWrap: { width: 220 } });
+      this.text(130 + i * 280, 394, m.desc, 18, COLORS.muted, { wordWrap: { width: 250 } });
     });
-    this.text(170, 470, `In a race, the pit board comes out when your message runs out (every lap, or the laps you set it for) and you can change your message ${racing.ink} times a moto. Auto-complete plays the same race out on screen with no pit board, holding your message all race. Either way, you retire at ${racing.sim.retireAtBroken} broken parts.`, 16, COLORS.cream, { wordWrap: { width: 940 } });
-    this.btn(W / 2 - 300, 560, 'Race', () => this.go(chosen, message, false), 260, 52);
-    this.btn(W / 2, 560, 'Auto-complete', () => this.go(chosen, message, true), 260, 52);
-    this.btn(W / 2 + 300, 560, 'Bike check', () => this.showBike(), 260, 52);
-    if (n > 1) this.btn(W / 2, 650, 'Leave early', () => this.confirmLeave(), 200, 44);
+    this.text(130, 462, `In a race, the pit board comes out when your message runs out (every lap, or the laps you set it for) and you can change your message ${racing.ink} times a moto. Auto-complete plays the same race out on screen with no pit board, holding your message all race. Either way, you retire at ${racing.sim.retireAtBroken} broken parts.`, 19, COLORS.cream, { wordWrap: { width: 1020 }, lineSpacing: 2 });
+    this.btn(W / 2 - 300, 600, 'Race', () => this.go(chosen, message, false), 260, 52);
+    this.btn(W / 2, 600, 'Auto-complete', () => this.go(chosen, message, true), 260, 52);
+    this.btn(W / 2 + 300, 600, 'Bike check', () => this.showBike(), 260, 52);
+    if (n > 1) this.btn(W / 2, 682, 'Leave early', () => this.confirmLeave(), 200, 44);
   }
 
   private confirmLeave(): void {
@@ -903,6 +905,7 @@ export class RaceScene extends Phaser.Scene {
     const c = career.counters;
     const myRows = day.motos.map((m) => m.results.find((r) => r.player)!);
     c['race.days'] = (c['race.days'] ?? 0) + 1;
+    noteActivity(services.content.shops, career, 'raceDay');
     c['race.motos'] = (c['race.motos'] ?? 0) + myRows.filter((r) => !r.retired).length;
     c['race.wins'] = (c['race.wins'] ?? 0) + myRows.filter((r) => !r.retired && r.position === 1).length;
     const me = res.overall.find((r) => r.player)!;
@@ -923,7 +926,7 @@ export class RaceScene extends Phaser.Scene {
     ];
     if (firstDay) lines.push('', finishedBoth ? 'Goal done: you finished both motos.' : 'Goal: finish both motos. Try again next time.');
     lines.push('', 'Rider XP', ...this.xpLines(payout.xp));
-    this.text(604, 170, lines.join('\n'), 17, COLORS.cream, { lineSpacing: 4 });
+    this.text(604, 170, lines.join('\n'), 17, COLORS.cream, { lineSpacing: 4, wordWrap: { width: 310 } });
     const ups = payout.levelUps.map((u) => `${u.name} → level ${u.level}`);
     const wear = this.wearLines(this.args.save.career.bike.parts, career.bike.parts);
     let y = 170;
@@ -971,6 +974,7 @@ export class RaceScene extends Phaser.Scene {
     const career = this.save.career;
     const before = structuredClone(career.bike.parts);
     const payout = applyRide(services.content, career, sim.playerBike, -this.args.fee, sim.xp);
+    if (p.lapTimes.length) noteActivity(services.content.shops, career, 'activity');
     const c = this.openModal(760, 520);
     c.add(this.add.text(0, -220, forced ? 'Practice over: your bike is broken' : 'Practice done', textStyle(26, COLORS.accent)).setOrigin(0.5));
     const best = p.lapTimes.length ? formatTime(Math.min(...p.lapTimes)) : '—';

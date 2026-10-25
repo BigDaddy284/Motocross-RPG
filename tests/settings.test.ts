@@ -29,4 +29,13 @@ describe('SettingsStore', () => {
     expect(s.display.zoom).toBe(200);
     expect(s.gameplay).toEqual(DEFAULT_SETTINGS.gameplay);
   });
+
+  it('keeps the zoom control choice, defaulting to the slider and ignoring unknown values', () => {
+    const store = new MemoryStore();
+    expect(new SettingsStore(store).get().display.zoomControl).toBe('slider');
+    new SettingsStore(store).update('display', 'zoomControl', 'buttons');
+    expect(new SettingsStore(store).get().display.zoomControl).toBe('buttons');
+    store.set('settings', JSON.stringify({ display: { zoomControl: 'joystick' } }));
+    expect(new SettingsStore(store).get().display.zoomControl).toBe('slider');
+  });
 });

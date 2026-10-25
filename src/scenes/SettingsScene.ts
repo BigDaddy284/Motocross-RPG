@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
-import { TEXT_MAX, TEXT_MIN, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP, type Settings } from '../core/settings';
+import { TEXT_MAX, TEXT_MIN, ZOOM_CONTROLS, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP, type Settings } from '../core/settings';
 import { services } from '../services';
 import { COLORS, textStyle } from '../ui/theme';
 import { button, panel, slider, toggle } from '../ui/widgets';
+import { cssSize, DPR } from '../ui/view';
 
 // Settings apply as soon as they change and save automatically (GDD 20.1).
 
@@ -35,8 +36,9 @@ export class SettingsScene extends Phaser.Scene {
     // Laid out on an 800 × 600 page; the camera zooms it to fit the screen.
     const width = 800;
     const height = 600;
-    const k = Math.min(1, this.scale.width / width, this.scale.height / height);
-    this.cameras.main.setZoom(k).centerOn(width / 2, height / 2);
+    const css = cssSize(this);
+    const k = Math.min(1, css.width / width, css.height / height);
+    this.cameras.main.setZoom(k * DPR).centerOn(width / 2, height / 2);
     const cx = width / 2;
     if (this.back === 'menu') this.add.rectangle(-4000, -4000, 8000 + width, 8000 + height, COLORS.ink).setOrigin(0);
     else this.add.rectangle(-4000, -4000, 8000 + width, 8000 + height, 0, 0.55).setOrigin(0).setInteractive();
@@ -80,6 +82,14 @@ export class SettingsScene extends Phaser.Scene {
           if (v) this.scale.startFullscreen();
           else this.scale.stopFullscreen();
         });
+        label(2, 'Zoom control');
+        ZOOM_CONTROLS.forEach((z, i) => {
+          button(this, sliderX + 80 + i * 170, rowY(2), z === 'slider' ? 'Slider' : '+ and −', () => {
+            services.settings.update('display', 'zoomControl', z);
+            this.draw();
+          }, 160, 38).setSelected(s.display.zoomControl === z);
+        });
+        this.add.text(left, rowY(3), 'The on-screen zoom: a Zoom button that opens a slider, or + and − buttons.', textStyle(15, COLORS.muted)).setOrigin(0, 0.5);
         break;
       case 'Accessibility':
         label(0, 'Text size (%)'); slider(this, sliderX, rowY(0), sliderW, TEXT_MIN, TEXT_MAX, s.accessibility.textScale, upd('accessibility', 'textScale'), 10);
@@ -97,7 +107,7 @@ export class SettingsScene extends Phaser.Scene {
           ['Move', `${c.up} ${c.left} ${c.down} ${c.right}  or arrow keys`],
           ['Click or tap', 'Walk there, talk to an NPC, use an object'],
           ['Talk / use', `${c.interact} or Space`],
-          ['Zoom', 'Mouse wheel, or + and -'],
+          ['Zoom', 'Mouse wheel, + and - keys, or the zoom buttons'],
           ['Pause menu', c.menu],
         ];
         rows.forEach(([a, b], i) => {

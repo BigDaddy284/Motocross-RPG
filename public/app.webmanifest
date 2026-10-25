@@ -1,0 +1,10 @@
+{
+  "name": "Motocross RPG: The Road to Legend",
+  "short_name": "Motocross RPG",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#14141e",
+  "theme_color": "#14141e"
+}
