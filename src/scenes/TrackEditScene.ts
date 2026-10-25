@@ -76,6 +76,8 @@ export class TrackEditScene extends Phaser.Scene {
     };
     on(window, 'message', (e) => {
       if (e.source !== window.parent || !e.data) return;
+      // Camera keys pressed while the editor around the view has the keyboard.
+      if (e.data.type === 'camkey') return void this.camKey(String(e.data.key), !!e.data.down);
       if (e.data.type === 'play') return void this.markPlay(typeof e.data.f === 'number' ? e.data.f : null);
       if (e.data.type !== 'track') return;
       this.state = e.data.state as EditViewState;
@@ -153,15 +155,7 @@ export class TrackEditScene extends Phaser.Scene {
         e.preventDefault();
         return;
       }
-      if (!mod && 'wasd'.includes(key.toLowerCase()) && key.length === 1) {
-        this.keys.add(key.toLowerCase());
-        e.preventDefault();
-        return;
-      }
-      if (!mod && (key === '[' || key === ']')) return void (this.cam.az = (this.cam.az + (key === '[' ? -45 : 45) + 360) % 360);
-      if (!mod && (key === '+' || key === '=')) return void this.zoom(1.25);
-      if (!mod && (key === '-' || key === '_')) return void this.zoom(1 / 1.25);
-      if (!mod && key === '0') return void this.resetCam();
+      if (!mod && this.camKey(key, true)) return void e.preventDefault();
       // Everything else is the editor's: its tools, undo, save and mode keys.
       if (mod && 'szyd'.includes(key.toLowerCase())) e.preventDefault();
       if (key === 'Delete' || key === 'Backspace' || key.startsWith('Arrow')) e.preventDefault();
@@ -169,7 +163,7 @@ export class TrackEditScene extends Phaser.Scene {
     });
     on(window, 'keyup', (e) => {
       if (e.key === ' ') this.space = false;
-      this.keys.delete(e.key.toLowerCase());
+      this.camKey(e.key, false);
     });
     this.scale.on('resize', () => {
       // Too small to draw (a window being resized from nothing): build once it has a size.
@@ -182,6 +176,23 @@ export class TrackEditScene extends Phaser.Scene {
       this.view?.destroy();
     });
     send({ type: 'ready' });
+  }
+
+  /** The camera's keys: W A S D pan while held, [ ] turn, + − zoom, 0 resets. True if the key is one. */
+  private camKey(key: string, down: boolean): boolean {
+    const k = key.toLowerCase();
+    if (key.length === 1 && 'wasd'.includes(k)) {
+      if (down) this.keys.add(k);
+      else this.keys.delete(k);
+      return true;
+    }
+    if (!down) return false;
+    if (key === '[' || key === ']') this.cam.az = (this.cam.az + (key === '[' ? -45 : 45) + 360) % 360;
+    else if (key === '+' || key === '=') this.zoom(1.25);
+    else if (key === '-' || key === '_') this.zoom(1 / 1.25);
+    else if (key === '0') this.resetCam();
+    else return false;
+    return true;
   }
 
   private zoom(k: number): void {

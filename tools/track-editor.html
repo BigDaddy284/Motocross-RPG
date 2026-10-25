@@ -2860,6 +2860,13 @@ function openRaceView() {
   sendView();
   requestDraw();
 }
+/** Passes a camera key (W A S D, [ ], + −, 0) on to the race view; true if it was one. */
+function camKeyToView(e, down) {
+  if (!app.view3d || !/^[wasd[\]+=_0-]$/i.test(e.key)) return false;
+  $('#view3d').contentWindow?.postMessage({ type: 'camkey', key: e.key, down }, '*');
+  return true;
+}
+window.addEventListener('keyup', (e) => { if (!/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName ?? '')) camKeyToView(e, false); });
 /** Sends the open track and what to mark on it to the race view. */
 function sendView() {
   const f = $('#view3d');
@@ -2902,6 +2909,8 @@ window.addEventListener('keydown', (e) => {
   if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
   if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); return; }
   if (!track()) return;
+  // The race view's camera keys work wherever the keyboard is: the view moves its own camera.
+  if (!mod && camKeyToView(e, true)) return;
   if (mod && e.key.toLowerCase() === 'd' && app.mode === 'scenery') { e.preventDefault(); duplicateItem(); return; }
   if (mod) return;
   const modes = { 1: 'layout', 2: 'surface', 3: 'ground', 4: 'scenery', 5: 'height' };
