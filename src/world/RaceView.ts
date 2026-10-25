@@ -7,7 +7,7 @@ import { nearestOnLap, pointAt, START_PAD, startPointAt } from '../core/trackGeo
 import { GRID_H, GRID_W, trackKind, type TrackPartsData } from '../core/trackParts';
 import { BIKE_LENGTH, LIP_AT, TrackSurface } from '../core/trackSurface';
 import { COLORS, TEXT_RES } from '../ui/theme';
-import { raceBikeParts, type RaceLook } from './raceBike';
+import { bikeColours, type RaceLook } from './raceBike';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
 // isometric camera in the spirit of Super Off Road's overhead arcade view. The track is solid
@@ -44,7 +44,7 @@ export interface ViewRider {
   player: boolean;
   /** Start row (0 at the gate, 1 just behind), for the line-up. */
   startRow?: number;
-  /** Brand, class and gear colours for the race-day bike and rider (raceBike.ts). */
+  /** Brand and gear colours for the race-day bike and rider (raceBike.ts). */
   look?: RaceLook;
 }
 
@@ -994,19 +994,18 @@ export class RaceView {
   // ---- riders ----
 
   /**
-   * A small motocross bike and rider facing +x, wheels on y = 0: the race-day model in the bike's
-   * brand colours and the rider's gear when the look is known, otherwise one shape in the rider's colour.
+   * A small motocross bike and rider facing +x, wheels on y = 0, in the bike's brand colours and the
+   * rider's gear when the look is known, otherwise in the rider's colour. Same shape either way.
    */
   private makeBike(color: number, player: boolean, look?: RaceLook): Bike {
     const root = new THREE.Group();
     const body = new THREE.Group();
     root.add(body);
-    if (look) return this.finishBike(root, body, raceBikeParts(look, BIKE_LENGTH));
     const L = BIKE_LENGTH;
     const r = 0.22;
+    const c = bikeColours(color, player, look);
     const dark = this.mat(0x1c1c22);
-    const paint = this.mat(color);
-    const kit = this.mat(shade(color, 0.75));
+    const paint = this.mat(c.plastics);
     const parts: THREE.Mesh[] = [];
     const wheelGeo = new THREE.CylinderGeometry(r, r, 0.12, 14);
     for (const sx of [-1, 1]) {
@@ -1022,28 +1021,24 @@ export class RaceView {
       parts.push(p);
       return p;
     };
-    piece(L * 0.62, 0.1, 0.1, this.mat(0x9a9aa0), 0, r + 0.12, 0, 0.05); // frame
+    piece(L * 0.62, 0.1, 0.1, this.mat(c.frame), 0, r + 0.12, 0, 0.05); // frame
     piece(0.42, 0.14, 0.2, paint, 0.08, r + 0.3); // tank and seat
     piece(0.36, 0.08, 0.18, dark, -0.22, r + 0.32); // seat
     piece(0.07, 0.52, 0.06, this.mat(0xc0c0c8), L / 2 - 0.08, r + 0.22, 0.07, 0.35); // forks
     piece(0.07, 0.52, 0.06, this.mat(0xc0c0c8), L / 2 - 0.08, r + 0.22, -0.07, 0.35);
-    piece(0.1, 0.2, 0.22, this.mat(0xf4f4f4), L / 2 - 0.02, r + 0.5, 0, 0.3); // number plate
+    piece(0.1, 0.2, 0.22, this.mat(c.plate), L / 2 - 0.02, r + 0.5, 0, 0.3); // number plate
     piece(0.42, 0.04, 0.14, paint, L / 2 - 0.12, r + 0.27, 0, -0.1); // front guard
     piece(0.3, 0.04, 0.14, paint, -L / 2 + 0.05, r + 0.3, 0, 0.25); // rear guard
     // Rider: legs, body leaning over the bars, arms and helmet.
-    piece(0.34, 0.1, 0.1, kit, -0.04, r + 0.42, 0.13, -0.6);
-    piece(0.34, 0.1, 0.1, kit, -0.04, r + 0.42, -0.13, -0.6);
-    piece(0.2, 0.4, 0.28, paint, -0.02, r + 0.68, 0, -0.45);
-    piece(0.36, 0.07, 0.07, kit, 0.2, r + 0.74, 0.15, 0.25);
-    piece(0.36, 0.07, 0.07, kit, 0.2, r + 0.74, -0.15, 0.25);
-    const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 10), this.mat(player ? 0xffffff : shade(color, 1.15)));
+    piece(0.34, 0.1, 0.1, this.mat(c.legs), -0.04, r + 0.42, 0.13, -0.6);
+    piece(0.34, 0.1, 0.1, this.mat(c.legs), -0.04, r + 0.42, -0.13, -0.6);
+    piece(0.2, 0.4, 0.28, this.mat(c.torso), -0.02, r + 0.68, 0, -0.45);
+    piece(0.36, 0.07, 0.07, this.mat(c.arms), 0.2, r + 0.74, 0.15, 0.25);
+    piece(0.36, 0.07, 0.07, this.mat(c.arms), 0.2, r + 0.74, -0.15, 0.25);
+    const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 10), this.mat(c.helmet));
     helmet.position.set(0.12, r + 0.98, 0);
     parts.push(helmet);
-    piece(0.08, 0.06, 0.18, dark, 0.24, r + 0.97); // visor
-    return this.finishBike(root, body, parts);
-  }
-
-  private finishBike(root: THREE.Group, body: THREE.Group, parts: THREE.Mesh[]): Bike {
+    piece(0.08, 0.06, 0.18, this.mat(c.visor), 0.24, r + 0.97); // visor
     // One mesh per bike, coloured per part, so a field of bikes costs one draw each.
     body.add(this.mergeParts(parts));
     this.scene3.add(root);

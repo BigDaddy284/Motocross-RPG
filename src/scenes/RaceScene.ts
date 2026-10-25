@@ -122,7 +122,7 @@ export class RaceScene extends Phaser.Scene {
       this.day.field.forEach((e, i) => {
         this.names.set(e.id, e.player ? 'You' : e.name);
         const gear = GEAR_SETS[e.player ? 'player-default' : e.tag === 'Local Champion' ? 'cpu-champion' : CPU_GEAR[i % CPU_GEAR.length]];
-        this.looks.set(e.id, { brand: e.bike.brand, cls: e.bike.class, gear });
+        this.looks.set(e.id, { brand: e.bike.brand, gear });
         this.colors.set(e.id, e.player ? COLORS.accent : gearColour(gear));
       });
       this.showGatePick();
@@ -956,7 +956,7 @@ export class RaceScene extends Phaser.Scene {
     const career = this.save.career;
     this.names.set(PLAYER_ID, 'You');
     this.colors.set(PLAYER_ID, COLORS.accent);
-    this.looks.set(PLAYER_ID, { brand: career.bike.brand, cls: career.bike.class, gear: GEAR_SETS['player-default'] });
+    this.looks.set(PLAYER_ID, { brand: career.bike.brand, gear: GEAR_SETS['player-default'] });
     this.sim = practiceSim(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name), (Math.random() * 2 ** 32) >>> 0);
     this.startLive();
   }
