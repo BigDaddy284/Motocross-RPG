@@ -139,6 +139,8 @@ export interface SceneryItem {
   rot?: number;
   text?: string;
   color?: string;
+  /** A start official (start_official) only: the walk from where they stand to where they end up, as grid points after their own. */
+  route?: [number, number][];
 }
 
 /** The start straight from the gate to the lap, on the 100 × 60 track grid. */

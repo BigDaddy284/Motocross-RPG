@@ -127,7 +127,8 @@
         { "type": "hay_bale", "x": 30.5, "y": 50.5 },
         { "type": "flag_post", "x": 13.5, "y": 46 },
         { "type": "flag_post", "x": 72, "y": 25 },
-        { "type": "flag_post", "x": 90, "y": 26 }
+        { "type": "flag_post", "x": 90, "y": 26 },
+        { "type": "start_official", "x": 46.4, "y": 48.2, "route": [[46.2, 45.2], [45.5, 41.6]] }
       ]
     },
     {

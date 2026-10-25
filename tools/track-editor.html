@@ -340,6 +340,7 @@ body.final .final-hide { display: none !important; }
     <li><b>Surfaces:</b> mud, sand, water and other patches along the lap, laid by clicking the track.</li>
     <li><b>Ground:</b> paint the ground round the track with the game's ground tiles.</li>
     <li><b>Scenery:</b> banners (with your own words and colour), sponsor boards, start gates, tuff blocks, hay bales, tyre walls, stands, crowds, pits, trees and more. <kbd>Q</kbd> and <kbd>E</kbd> turn the selected item, <kbd>Ctrl+D</kbd> duplicates it.</li>
+    <li><b>Start board official:</b> place one from Scenery where they wait with the board while the riders line up (one a track; without one the game picks their spot beside the start straight). Select them and click <b>Draw route</b>, then click the ground in order to where they end up (the red point), and <b>Done</b> or <kbd>Esc</kbd>; <b>Cancel</b> puts the old route back, <b>Reset route</b> clears it. Drag a route point to move it, right-click it or press <kbd>Del</kbd> to remove it; dragging the official moves only where they start. In the countdown they raise the board and set off at five, turn it sideways at three and lower it white side out at one as they arrive. The route can be at most <code>official.maxWalk</code> grid units (trackParts.json, 8), may cross the track ahead of the gate but not the riders lined up at the gate or solid scenery, and must end clear of the track; the race view runs the game's checks and they show under the official and in Checks.</li>
     <li><b>Height:</b> raise and lower the ground with a soft round brush (radius and strength in metres per dab), smooth it, or flatten it to one height. The track follows the ground under its middle and stays level across its width; riders slow up climbs and run quicker down drops. Ground steeper than 45° is refused as a wall, and a track climbing or dropping more than 35% along its length is a warning. Old tracks without heights stay flat.</li>
     <li><b>Race view:</b> you edit in the game's own race camera and 3D scene with hills, jumps, scenery and ground as a race draws them, and the lap map in its corner. Click, drag and right-click on the 3D ground; the keys are the same in every mode. Mouse wheel or <kbd>+</kbd> <kbd>−</kbd> zoom, <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or a middle-button (or <kbd>Space</kbd>+drag) pan, <kbd>[</kbd> <kbd>]</kbd>, the <b>⟲ Turn left</b> and <b>⟳ Turn right</b> buttons (bottom left) or a <kbd>Shift</kbd>+middle-button drag turn the view round the track, to see it from any side; <kbd>0</kbd> or <b>Reset view</b> goes back to the race camera's angle. Turning only changes the editor's view: clicks still land where the pointer is, and races always use the fixed race camera. The selection is orange, problems red or dashed yellow. In Layout each section shows as a stripe in its kind's colour, with a cream line across the track where one section ends and the next begins. No race runs while you edit. Opened straight from disk, the race view runs the game from the published site (<code>bigdaddy284.github.io/Motocross-RPG</code>), so it needs an internet connection; with neither that nor <code>npm run dev</code>, the editor shows a plain map instead.</li>
     <li><b>Modes:</b> <kbd>1</kbd> Layout, <kbd>2</kbd> Surfaces, <kbd>3</kbd> Ground, <kbd>4</kbd> Scenery, <kbd>5</kbd> Height.</li>
@@ -524,6 +525,12 @@ const app = {
   selPatch: -1,
   selItem: -1,
   selStart: -1,
+  /** The selected point of the start official's route (1 is its first after where they stand), or -1. */
+  selRoute: -1,
+  /** Drawing the official's route: what it was before, for Cancel. */
+  routeDraw: null,
+  /** The race view's checks of the official (officialProblems): for which track state, and the problems. */
+  viewOfficial: null,
   surfaceBrush: null,
   groundBrush: null,
   sceneryBrush: null,
@@ -560,7 +567,7 @@ function changed() {
 function undo() { if (!app.undo.length) return; app.redo.push(snapshot()); restore(app.undo.pop()); changed(); }
 function redo() { if (!app.redo.length) return; app.undo.push(snapshot()); restore(app.redo.pop()); changed(); }
 function setDirty(d) { app.dirty = d; $('#dirty').textContent = d ? '● Unsaved' : ''; }
-function deselect() { app.selPt = -1; app.selSec = -1; app.selPatch = -1; app.selItem = -1; app.selStart = -1; }
+function deselect() { app.selPt = -1; app.selSec = -1; app.selPatch = -1; app.selItem = -1; app.selStart = -1; app.selRoute = -1; app.routeDraw = null; }
 
 /** Runs a change as one undo step, and drops it if nothing actually changed. */
 function commit(fn) {
@@ -1119,6 +1126,7 @@ function colliders(f) {
   const along = (off, w, d) => ({ ...f, x: f.x + off * Math.cos(f.a), y: f.y + off * Math.sin(f.a), w, d });
   switch (f.type) {
     case 'start_gate': return [];
+    case OFFICIAL: return [];
     case 'finish_arch': return [along(-(f.w / 2 - 0.25), 0.5, 0.5), along(f.w / 2 - 0.25, 0.5, 0.5)];
     case 'tree': return [along(0, 0.35, 0.35)];
     case 'light_tower': return [along(0, 0.25, 0.25)];
@@ -1172,7 +1180,8 @@ function sceneryIssues(t) {
   const name = (f) => `the ${(sceneryDef(f.type)?.name ?? f.type).toLowerCase()} at ${f.x}, ${f.y}`;
   const out = [];
   for (const f of items) {
-    if (!sceneryDef(f.type)) continue;
+    // The start official has checks of its own (officialProblems).
+    if (!sceneryDef(f.type) || f.type === OFFICIAL) continue;
     const cs = colliders(f);
     // Quick skip: nothing of it comes within a bike's width of the track.
     const reach = Math.hypot(f.w, f.d) / 2;
@@ -1372,6 +1381,7 @@ function draw() {
   for (const p of sceneryIssues(t)) if (level.get(p.i) !== 'error') level.set(p.i, p.level);
   (t.scenery ?? []).forEach((it, i) => drawItem(it, app.mode === 'scenery' && i === app.selItem, level.get(i) ?? false));
   ctx.globalAlpha = 1;
+  if (app.mode === 'scenery') drawRoute(t);
 
   if (app.mode === 'layout') {
     if (!app.final && app.selSec >= 0 && t.sections[app.selSec]) {
@@ -2081,6 +2091,7 @@ function renderSceneryDetail() {
   box.appendChild(head);
   const field = (labelText, el) => { const f = document.createElement('div'); f.className = 'field'; const l = document.createElement('label'); l.textContent = labelText; f.append(l, el); box.appendChild(f); return el; };
   const editItem = (fn) => commit((t) => fn(t.scenery[app.selItem]));
+  if (it.type === OFFICIAL) { renderOfficialDetail(box, t, it); return; }
   if (def?.text !== undefined || it.text !== undefined) {
     const txt = document.createElement('input');
     txt.type = 'text';
@@ -2119,6 +2130,13 @@ function normHex(c) {
 function placeItem(x, y, e) {
   const def = sceneryDef(app.sceneryBrush);
   if (!def) { status('Pick a scenery item first.', 'err'); return; }
+  // One start official a track: placing another moves the one there (its route stays).
+  const had = (track().scenery ?? []).findIndex((it) => it.type === OFFICIAL);
+  if (def.id === OFFICIAL && had >= 0) {
+    commit((t) => { Object.assign(t.scenery[had], { x: snapHalf(x, e), y: snapHalf(y, e) }); app.selItem = had; });
+    status('A track has one start official: moved it here. Its route stays where it was; draw it again if it should start from here.', 'ok');
+    return;
+  }
   commit((t) => {
     if (!t.scenery) setKeyNear(t, 'scenery', [], 'ground' in t ? 'ground' : 'patches' in t ? 'patches' : 'sections');
     t.scenery.push({ type: def.id, x: snapHalf(x, e), y: snapHalf(y, e) });
@@ -2136,12 +2154,13 @@ function turnItem(d) {
 function duplicateItem() {
   commit((t) => {
     const it = t.scenery?.[app.selItem];
-    if (!it) return;
+    if (!it || it.type === OFFICIAL) return;
     t.scenery.push({ ...it, x: Math.min(GRID_W, it.x + 2), y: Math.min(GRID_H, it.y + 2) });
     app.selItem = t.scenery.length - 1;
   });
 }
 function deleteItem() {
+  app.routeDraw = null;
   commit((t) => {
     if (!t.scenery?.[app.selItem]) return;
     t.scenery.splice(app.selItem, 1);
@@ -2275,6 +2294,15 @@ function checkTrack(t, all, strict = false) {
     });
   }
   bad.push(...startProblems(t));
+  const oi = officialIndex(t);
+  if (oi >= 0) {
+    const probs = [...officialLocalProblems(t), ...(t === track() ? officialProblems(t) ?? [] : [])].filter((m, k, a) => a.indexOf(m) === k);
+    for (const m of probs) {
+      const text = `Scenery item ${oi + 1}: ${m[0].toUpperCase()}${m.slice(1)} (click here to find it).`;
+      bad.push(text);
+      refs.set(text, oi);
+    }
+  }
   if (!t.practiceOnly && !t.gates?.length) warn.push('No gate curve: every gate starts the same.');
   // Two segments that cross make a figure of eight on screen, which the race screen can't show as a bridge.
   const g = lapGeom(t);
@@ -2360,6 +2388,157 @@ function runChecks() {
 }
 function hasErrors() {
   return app.data.tracks.some((t) => checkTrack(t, app.data.tracks).bad.length) || (app.data.venues ?? []).some((v) => v.track && !app.data.tracks.some((x) => x.id === v.track));
+}
+
+// ---------------------------------------------------------------------------------------------
+// The start official's route
+
+// The start official is a scenery item (start_official) standing where they wait with the board,
+// and its route is the walk they make in the countdown (src/core/startOfficial.ts): from where they
+// stand through any points between to where they end up, the last point. With them selected, Draw
+// route adds a point at each click; drag a point to move it, right-click it to remove it. The
+// game's own checks run in the race view and come back here (officialProblems): the walk fits the
+// four seconds, keeps out of solid scenery and the riders lined up at the gate, and ends clear of
+// the track. Without a start official on a track, the game picks their spot as before.
+
+const OFFICIAL = 'start_official';
+/** The longest walk, in grid units, when trackParts.json gives none (startOfficial.ts MAX_WALK). */
+const OFFICIAL_MAX_WALK = 8;
+const maxWalk = () => app.parts.official?.maxWalk ?? OFFICIAL_MAX_WALK;
+const officialIndex = (t) => (t.scenery ?? []).findIndex((it) => it.type === OFFICIAL);
+/** The walk: where they stand, then the route's points. */
+const routeOf = (it) => [[it.x, it.y], ...(it.route ?? [])];
+function routeLength(it) {
+  const r = routeOf(it);
+  let d = 0;
+  for (let i = 1; i < r.length; i++) d += Math.hypot(r[i][0] - r[i - 1][0], r[i][1] - r[i - 1][1]);
+  return d;
+}
+/** Problems the editor can see itself: too many officials, or too long a walk. The rest come from the race view. */
+function officialLocalProblems(t) {
+  const all = (t.scenery ?? []).filter((it) => it.type === OFFICIAL);
+  if (!all.length) return [];
+  const out = [];
+  if (all.length > 1) out.push(`there are ${all.length} start officials; a track has one`);
+  const len = routeLength(all[0]);
+  if (len > maxWalk() + 1e-6) out.push(`the start official's route is ${len.toFixed(1)} grid units, longer than the ${maxWalk()} they can walk in the four seconds before the drop; shorten it`);
+  return out;
+}
+/** The problems the race view found with the open track's official (the game's checks), when they are for the track as it is now. */
+function officialProblems(t) {
+  const v = app.viewOfficial;
+  return v && v.key === officialKey(t) ? v.problems : null;
+}
+const officialKey = (t) => JSON.stringify([t.path, t.start, t.width, t.elevation, t.scenery, t.sections.map((s) => s.length)]);
+
+/** The official's route on the map: dashed, or with its points (the last red) when they are selected. */
+function drawRoute(t) {
+  const i = officialIndex(t);
+  if (i < 0) return;
+  const it = t.scenery[i];
+  const sel = i === app.selItem;
+  const r = routeOf(it);
+  ctx.save();
+  ctx.strokeStyle = sel ? '#ffffff' : '#ffffff90';
+  ctx.lineWidth = 2;
+  if (!sel) ctx.setLineDash([5, 4]);
+  ctx.beginPath();
+  r.forEach(([x, y], k) => { const s = toScreen(x, y); if (k) ctx.lineTo(s.x, s.y); else ctx.moveTo(s.x, s.y); });
+  ctx.stroke();
+  ctx.setLineDash([]);
+  if (sel) r.forEach(([x, y], k) => {
+    if (!k) return;
+    const s = toScreen(x, y);
+    ctx.fillStyle = k === app.selRoute ? '#ff8a1e' : k === r.length - 1 ? '#ff3b30' : '#ffffff';
+    ctx.beginPath(); ctx.arc(s.x, s.y, 6, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.restore();
+}
+/** Starts drawing the official's route afresh, or stops (keeping what's drawn). */
+function routeDrawing(on) {
+  const t = track();
+  const i = officialIndex(t);
+  if (!on || i < 0) { app.routeDraw = null; refresh(); return; }
+  app.selItem = i;
+  // What it was, for Cancel.
+  app.routeDraw = { before: clone(t.scenery[i].route ?? null) };
+  commit((t) => { delete t.scenery[i].route; });
+  status('Drawing the route: click where the official walks, in order, ending where they stand for the start. Done or Esc when finished.', 'ok');
+  refresh();
+}
+function cancelRoute() {
+  const d = app.routeDraw;
+  const i = officialIndex(track());
+  app.routeDraw = null;
+  if (!d || i < 0) return refresh();
+  commit((t) => { if (d.before) t.scenery[i].route = d.before; else delete t.scenery[i].route; });
+}
+function resetRoute() {
+  const i = officialIndex(track());
+  app.routeDraw = null;
+  app.selRoute = -1;
+  if (i >= 0) commit((t) => { delete t.scenery[i].route; });
+  status('Route cleared: the official holds the board where they stand. Draw route to give them a walk.', 'ok');
+}
+function addRoutePoint(x, y, e) {
+  const i = officialIndex(track());
+  if (i < 0) return;
+  commit((t) => {
+    const it = t.scenery[i];
+    (it.route ??= []).push([clamp(snapHalf(x, e), 0, GRID_W), clamp(snapHalf(y, e), 0, GRID_H)]);
+    app.selRoute = it.route.length;
+  });
+}
+function deleteRoutePoint(k) {
+  const i = officialIndex(track());
+  if (i < 0 || k < 1) return;
+  commit((t) => {
+    const it = t.scenery[i];
+    it.route.splice(k - 1, 1);
+    if (!it.route.length) delete it.route;
+    app.selRoute = -1;
+  });
+}
+/** The official's part of the scenery box: the route, its length against the limit, and its problems. */
+function renderOfficialDetail(box, t, it) {
+  const len = routeLength(it);
+  const max = maxWalk();
+  const info = document.createElement('div');
+  info.className = 'hint';
+  const n = (it.route ?? []).length;
+  info.textContent = n
+    ? `Route: ${n} point${n === 1 ? '' : 's'} after where they stand, ${len.toFixed(1)} of the ${max} grid units they can walk in the four seconds (${(len / 4).toFixed(1)} a second).`
+    : 'No route: they hold the board where they stand. Draw route to give them a walk in the countdown.';
+  box.appendChild(info);
+  const btns = document.createElement('div');
+  btns.className = 'row';
+  btns.style.marginTop = '4px';
+  const mk = (txt, title, fn, on = false) => { const b = document.createElement('button'); b.textContent = txt; b.title = title; b.classList.toggle('on', on); b.addEventListener('click', fn); btns.appendChild(b); return b; };
+  if (app.routeDraw) {
+    mk('Done', 'Keep the route drawn (Esc)', () => routeDrawing(false), true);
+    mk('Cancel', 'Put the route back as it was', cancelRoute);
+  } else {
+    mk('Draw route', 'Click points on the ground, in order, from where they stand to where they end up', () => routeDrawing(true));
+    mk('Reset route', 'Clear the route: they hold the board where they stand', resetRoute).disabled = !n;
+  }
+  box.appendChild(btns);
+  const btns2 = document.createElement('div');
+  btns2.className = 'row';
+  btns2.style.marginTop = '4px';
+  for (const [txt, fn] of [['Turn ↺', () => turnItem(-15)], ['Turn ↻', () => turnItem(15)], ['Delete', deleteItem]]) {
+    const b = document.createElement('button'); b.textContent = txt; b.addEventListener('click', fn); btns2.appendChild(b);
+  }
+  box.appendChild(btns2);
+  const probs = [...officialLocalProblems(t), ...(officialProblems(t) ?? [])].filter((m, k, a) => a.indexOf(m) === k);
+  const msg = document.createElement('div');
+  msg.className = 'hint';
+  msg.style.color = probs.length ? '#f0a0a0' : 'var(--ok)';
+  msg.textContent = probs.length ? probs.map((m) => `✕ ${m[0].toUpperCase()}${m.slice(1)}.`).join(' ') : officialProblems(t) ? '✓ The route passes the game\'s checks.' : app.view3d ? 'Checking the route…' : 'The race view checks the route against the track and scenery.';
+  box.appendChild(msg);
+  const help = document.createElement('div');
+  help.className = 'hint';
+  help.textContent = 'They wait where they stand while the riders line up, raise the board and set off at five, turn it sideways at three, and lower it white side out at one as they arrive at the last point (red), where they stay. Drag the official to move where they start; drag a route point to move it, right-click it to remove it. The walk may cross the track ahead of the gate, but not the riders lined up at the gate or solid scenery, and must end clear of the track.';
+  box.appendChild(help);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -2946,6 +3125,11 @@ function hit(sx, sy) {
   }
   if (app.mode === 'scenery') {
     const list = t.scenery ?? [];
+    const off = list[app.selItem];
+    if (off?.type === OFFICIAL) {
+      const r = routeOf(off);
+      for (let k = r.length - 1; k >= 1; k--) { const s = toScreen(r[k][0], r[k][1]); if (Math.hypot(sx - s.x, sy - s.y) <= 9) return { kind: 'rpt', i: k }; }
+    }
     for (let i = list.length - 1; i >= 0; i--) if (itemHit(list[i], gp.x, gp.y)) return { kind: 'item', i };
     return null;
   }
@@ -2990,6 +3174,12 @@ function onPointerDown(e) {
     return;
   }
   const h = hit(p.x, p.y);
+  if (app.mode === 'scenery' && app.routeDraw) {
+    if (e.button === 2) routeDrawing(false);
+    else if (e.button === 0) addRoutePoint(gp.x, gp.y, e);
+    return;
+  }
+  if (e.button === 2 && h?.kind === 'rpt') { deleteRoutePoint(h.i); return; }
   if (e.button === 2) {
     if (h?.kind === 'point') deletePoint(h.i);
     else if (h?.kind === 'spt') { app.selStart = h.i; app.selPt = -1; deletePoint(); }
@@ -3008,6 +3198,13 @@ function onPointerDown(e) {
     return;
   }
   if (app.mode === 'scenery') {
+    if (h?.kind === 'rpt') {
+      app.selRoute = h.i;
+      drag = { kind: 'rpt', i: h.i, started: false };
+      refresh();
+      return;
+    }
+    app.selRoute = -1;
     if (h?.kind === 'item') {
       app.selItem = h.i;
       const it = t.scenery[h.i];
@@ -3071,7 +3268,7 @@ function onPointerMove(e) {
   }
   if (!drag) {
     const h = t && hit(p.x, p.y);
-    canvas.style.cursor = app.mode === 'ground' || app.mode === 'height' ? 'crosshair' : ['point', 'spt', 'bound', 'item'].includes(h?.kind) ? 'grab' : h?.kind === 'track' ? 'pointer' : 'default';
+    canvas.style.cursor = app.mode === 'ground' || app.mode === 'height' || (app.mode === 'scenery' && app.routeDraw) ? 'crosshair' : ['point', 'spt', 'bound', 'item', 'rpt'].includes(h?.kind) ? 'grab' : h?.kind === 'track' ? 'pointer' : 'default';
     const hb = h?.kind === 'bound' ? h.i : -1;
     if (hb !== app.hoverBound) { app.hoverBound = hb; requestDraw(); }
     return;
@@ -3096,6 +3293,9 @@ function onPointerMove(e) {
       const p = pointAt(g, project(g, gp.x, gp.y).f);
       sp[drag.i] = [round1(p.x), round1(p.y)];
     } else sp[drag.i] = [clamp(snapGrid(gp.x, e), 0, GRID_W), clamp(snapGrid(gp.y, e), 0, GRID_H)];
+  } else if (drag.kind === 'rpt') {
+    const it = t.scenery[app.selItem];
+    it.route[drag.i - 1] = [clamp(snapHalf(gp.x, e), 0, GRID_W), clamp(snapHalf(gp.y, e), 0, GRID_H)];
   } else if (drag.kind === 'item') {
     const it = t.scenery[drag.i];
     it.x = clamp(snapHalf(gp.x - drag.dx, e), 0, GRID_W);
@@ -3258,10 +3458,10 @@ function sendView() {
   let brush = null;
   if (app.mode === 'height') brush = { shape: 'circle', r: Number($('#hRadius').value) };
   else if (app.mode === 'ground') brush = { shape: 'cells', cell: t.ground?.cell ?? 2, n: Number($('#gBrush').value) };
-  const sel = { item: app.mode === 'scenery' ? app.selItem : -1, sec: app.selSec, pt: app.selPt, start: app.selStart };
+  const sel = { item: app.mode === 'scenery' ? app.selItem : -1, sec: app.selSec, pt: app.selPt, start: app.selStart, route: app.selRoute };
   const shown = trackForView(t);
   const ghost = app.mode === 'layout' ? ghostForView(t) : undefined;
-  f.contentWindow.postMessage({ type: 'track', state: { track: shown.track, gapFrom: shown.gapFrom, ghost, parts: app.parts === FALLBACK_PARTS ? undefined : app.parts, mode: app.mode, sel, issues, brush, sectionColors: shown.track.sections.map((s) => colorOf(s.type)) } }, '*');
+  f.contentWindow.postMessage({ type: 'track', officialKey: officialKey(t), state: { track: shown.track, gapFrom: shown.gapFrom, ghost, parts: app.parts === FALLBACK_PARTS ? undefined : app.parts, mode: app.mode, sel, issues, brush, sectionColors: shown.track.sections.map((s) => colorOf(s.type)) } }, '*');
 }
 window.addEventListener('message', (e) => {
   const f = $('#view3d');
@@ -3272,6 +3472,13 @@ window.addEventListener('message', (e) => {
     document.querySelector('#noRaceView')?.remove();
     if (!app.view3d) { app.view3d = true; f.classList.add('on'); $('#camBar').classList.add('on'); requestDraw(); }
     sendView();
+    return;
+  }
+  if (m.type === 'official') {
+    // The game's checks of the start official, for the track as sent.
+    app.viewOfficial = { key: m.key, problems: m.problems };
+    renderChecks();
+    if (app.mode === 'scenery') renderSceneryDetail();
     return;
   }
   if (m.type === 'key') {
@@ -3317,10 +3524,12 @@ window.addEventListener('keydown', (e) => {
     const act = { q: ['turn', -15], e: ['turn', 15], f: ['mirror'], b: ['bend'], ',': ['size', -1], '.': ['size', 1] }[k];
     if (act) { e.preventDefault(); adjustPiece(...act); return; }
   }
+  if (e.key === 'Escape' && app.routeDraw) { routeDrawing(false); return; }
   if (e.key === 'Escape') { deselect(); refresh(); return; }
   const del = e.key === 'Delete' || e.key === 'Backspace';
   if (app.mode === 'scenery') {
-    if (del) { e.preventDefault(); deleteItem(); }
+    if (del && app.selRoute > 0) { e.preventDefault(); deleteRoutePoint(app.selRoute); }
+    else if (del) { e.preventDefault(); deleteItem(); }
     else if (e.key.toLowerCase() === 'q') turnItem(-15);
     else if (e.key.toLowerCase() === 'e') turnItem(15);
     else if (e.key.startsWith('Arrow') && app.selItem >= 0) {

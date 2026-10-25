@@ -165,8 +165,8 @@ export const TRACKS_SCHEMA: Schema = {
             type: 'array',
             items: {
               type: 'object',
-              optional: ['w', 'h', 'rot', 'text', 'color'],
-              fields: { type: IDS, x: N, y: N, w: { type: 'number', min: 0.1 }, h: { type: 'number', min: 0.1 }, rot: N, text: { type: 'string' }, color: { type: 'string', pattern: /^#[0-9a-fA-F]{3,8}$/ } },
+              optional: ['w', 'h', 'rot', 'text', 'color', 'route'],
+              fields: { type: IDS, x: N, y: N, w: { type: 'number', min: 0.1 }, h: { type: 'number', min: 0.1 }, rot: N, text: { type: 'string' }, color: { type: 'string', pattern: /^#[0-9a-fA-F]{3,8}$/ }, route: { type: 'array', items: { type: 'array', items: N, minItems: 2, maxItems: 2 } } },
             },
           },
         },

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import * as THREE from 'three';
 import type { TrackDef } from '../core/race';
+import { OFFICIAL_ITEM, placedOfficial } from '../core/startOfficial';
 import { sectionBounds } from '../core/trackGeom';
 import type { TrackPartsData } from '../core/trackParts';
 import { services } from '../services';
@@ -23,7 +24,8 @@ export interface EditViewState {
   track: TrackDef;
   parts?: TrackPartsData;
   mode: string;
-  sel: { item: number; sec: number; pt: number; start: number };
+  /** route: the selected point of the start official's route (1 is its first after where they stand), or -1. */
+  sel: { item: number; sec: number; pt: number; start: number; route?: number };
   /** Scenery items with a problem (by index) and problem spots (height), each an error or a warning. */
   issues: { item?: number; x?: number; y?: number; level: 'error' | 'warning' }[];
   /** The brush under the pointer: a circle of radius r grid units, or a square of n ground cells. */
@@ -101,6 +103,7 @@ export class TrackEditScene extends Phaser.Scene {
       this.state = e.data.state as EditViewState;
       status.setVisible(false);
       this.queue();
+      this.checkOfficial(String(e.data.officialKey ?? ''));
     });
     const canvas = this.game.canvas;
     const at = (e: MouseEvent) => {
@@ -226,6 +229,21 @@ export class TrackEditScene extends Phaser.Scene {
     else if (key === '0') this.resetCam();
     else return false;
     return true;
+  }
+
+  /** The key of the track state the start official was last checked for. */
+  private officialChecked = '';
+
+  /**
+   * The game's checks of a start official placed on the track (startOfficial placedOfficial), sent
+   * back to the editor, which can't run them itself. Once for each state of the track.
+   */
+  private checkOfficial(key: string): void {
+    const st = this.state;
+    if (!st || !key || key === this.officialChecked) return;
+    this.officialChecked = key;
+    const problems = st.track.scenery?.some((it) => it.type === OFFICIAL_ITEM) ? placedOfficial(st.track, st.parts ?? services.content.trackParts).problems : [];
+    window.parent.postMessage({ type: 'official', key, problems }, '*');
   }
 
   private zoom(k: number): void {
@@ -357,6 +375,15 @@ export class TrackEditScene extends Phaser.Scene {
     if (st.sel.item >= 0) {
       const f = size(st.sel.item);
       if (f) line(rect(f.x, f.z, f.w + 0.45, f.d + 0.45, f.a), SELECT, true);
+    }
+    // The start official's route in Scenery: dashed, or with its points when they're selected (the last, where they end up, red).
+    const oi = t.scenery?.findIndex((it) => it.type === OFFICIAL_ITEM) ?? -1;
+    if (st.mode === 'scenery' && oi >= 0) {
+      const it = t.scenery![oi];
+      const route = [{ x: it.x, z: it.y }, ...(it.route ?? []).map(([x, y]) => ({ x, z: y }))];
+      const sel = st.sel.item === oi;
+      if (route.length > 1) line(route, 0xffffff, false, !sel, 0.07, 10.5);
+      if (sel) route.forEach((p, i) => i && line(ring(p.x, p.z, 0.35), i === st.sel.route ? SELECT : i === route.length - 1 ? RED : 0xffffff, true, false, 0.09, 10.6));
     }
     if (st.mode === 'layout') {
       // The sections, from the track's own section lengths: a stripe down the middle of each in its

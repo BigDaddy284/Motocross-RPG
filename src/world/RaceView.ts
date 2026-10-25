@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { SceneryItem, TrackDef } from '../core/race';
 import { START_HOLD, type RiderPose } from '../core/riderAI';
-import { OFFICIAL_SCALE, officialPlan, WALK_FROM, WALK_TO } from '../core/startOfficial';
+import { alongRoute, OFFICIAL_ITEM, OFFICIAL_SCALE, officialPlan, placedOfficial, routeLength, WALK_FROM, WALK_TO, type OfficialSpot } from '../core/startOfficial';
 import { pointAt, START_PAD, startPointAt } from '../core/trackGeom';
 import { GRID_H, GRID_W, trackKind, type TrackPartsData } from '../core/trackParts';
 import { BIKE_LENGTH, CAM_AZ, LIP_AT, TrackSurface } from '../core/trackSurface';
@@ -127,7 +127,7 @@ export class RaceView {
   /** The start gate's pickets, hinged at the bottom so they drop flat when the race starts. */
   private gateDrop: THREE.Group | null = null;
   /** The official holding the start board beside the start straight, and the board itself. */
-  private board: { stand: THREE.Group; panel: THREE.Group; arms: THREE.Group[]; legs: THREE.Group[]; a: { x: number; y: number }; b: { x: number; y: number } } | null = null;
+  private board: { stand: THREE.Group; panel: THREE.Group; arms: THREE.Group[]; legs: THREE.Group[]; route: OfficialSpot[]; length: number } | null = null;
   /** False for practice, which has no start procedure: the start board stays down. */
   hasStart = true;
   /** Frame times in ms (whole update, the 3D draw, and handing the picture to Phaser), for the performance check. */
@@ -656,14 +656,15 @@ export class RaceView {
     const stand = new THREE.Group();
     let plan: ReturnType<typeof officialPlan>;
     try {
-      plan = officialPlan(this.track, this.parts);
+      // Placed by the track, they're drawn where placed even with a problem (the track editor shows it; the game refuses such a track).
+      plan = this.track.scenery?.some((it) => it.type === OFFICIAL_ITEM) ? placedOfficial(this.track, this.parts).plan : officialPlan(this.track, this.parts);
     } catch (e) {
       // Nowhere clear for them (the track checks say so too): no official, rather than one on the track.
       console.warn(String(e));
       return stand;
     }
     if (!plan) return stand;
-    stand.position.set(plan.a.x, this.terrainAt(plan.a.x, plan.a.y), plan.a.y);
+    stand.position.set(plan.a.x, this.heightAt(plan.a.x, plan.a.y), plan.a.y);
     stand.rotation.y = plan.facing;
     // Drawn 10% smaller than first built, board and all: the scale is on this group alone.
     stand.scale.setScalar(OFFICIAL_SCALE);
@@ -701,7 +702,7 @@ export class RaceView {
     for (const m of [front, back, core]) m.castShadow = true;
     panel.add(core, front, back);
     stand.add(panel);
-    this.board = { stand, panel, arms, legs, a: plan.a, b: plan.b };
+    this.board = { stand, panel, arms, legs, route: plan.route, length: routeLength(plan.route) };
     this.updateStart(-Infinity);
     return stand;
   }
@@ -744,7 +745,7 @@ export class RaceView {
    */
   private updateStart(clock: number): void {
     if (this.board) {
-      const { stand, panel, arms, legs, a, b } = this.board;
+      const { stand, panel, arms, legs, route, length } = this.board;
       const ease = (x: number) => {
         const t = Math.max(0, Math.min(1, x));
         return t * t * (3 - 2 * t);
@@ -755,13 +756,13 @@ export class RaceView {
       panel.position.set(0, 0.72 + (2.45 - 0.72) * up, 0.42 + (0.12 - 0.42) * up);
       panel.rotation.set(0, Math.PI * (1 - up), clock >= -3 ? (Math.PI / 2) * up : 0);
       for (const arm of arms) arm.rotation.x = 2.7 * (1 - up);
-      // The walk from A to B, setting off and stopping gently, with the legs swinging in step.
+      // The walk from A along the route to B, setting off and stopping gently, with the legs swinging in step.
       const k = !this.hasStart ? 0 : Math.max(0, Math.min(1, (clock - WALK_FROM) / (WALK_TO - WALK_FROM)));
       const w = k - Math.sin(2 * Math.PI * k) / (2 * Math.PI);
-      const x = a.x + (b.x - a.x) * w;
-      const z = a.y + (b.y - a.y) * w;
-      stand.position.set(x, this.terrainAt(x, z), z);
-      const walked = Math.hypot(b.x - a.x, b.y - a.y) * w;
+      const walked = length * w;
+      const at = alongRoute(route, walked);
+      // On the ground, or on the track where a placed route crosses it.
+      stand.position.set(at.x, this.heightAt(at.x, at.y), at.y);
       const swing = k > 0 && k < 1 ? 0.45 * Math.sin((walked / 0.55) * Math.PI) : 0;
       legs[0].rotation.x = swing;
       legs[1].rotation.x = -swing;
@@ -886,6 +887,8 @@ export class RaceView {
 
   /** Builds one scenery item as 3D shapes standing on the ground. */
   private buildItem(it: SceneryItem): THREE.Object3D | null {
+    // The start official placed as scenery is built with the start (startBoard).
+    if (it.type === OFFICIAL_ITEM) return null;
     const def = this.parts.scenery.find((s) => s.id === it.type);
     const w = it.w ?? def?.w ?? 2;
     const d = it.h ?? def?.h ?? 2;
