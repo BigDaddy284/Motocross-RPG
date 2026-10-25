@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { checkContent } from '../src/core/content';
 import { MotoSim, mixSeed, type TrackDef } from '../src/core/race';
@@ -171,10 +172,58 @@ describe('tight corners', () => {
     }
   });
 
+  it('mitres the same corners on sloping ground and with the lap turned round, with finite heights everywhere', () => {
+    const points: [number, number, number][] = [];
+    for (let x = 20; x <= 60; x += 2) for (let y = 10; y <= 50; y += 2) points.push([x, y, +(((x - 20) / 40) * 20).toFixed(2)]);
+    const hilly: TrackDef = { ...sharp, elevation: { step: 2, points } } as TrackDef;
+    const turned: TrackDef = { ...sharp, path: [sharp.path[0], ...sharp.path.slice(1).reverse()] as [number, number][] };
+    for (const t of [hilly, turned]) {
+      const s = new TrackSurface(t);
+      expect(s.sharpest() * s.hw * LIP_AT).toBeGreaterThan(1);
+      let mitred = 0;
+      for (let f = 0; f < 1; f += 0.002) {
+        for (const lane of [-1.5, -LIP_AT, -1, 0, 1, LIP_AT, 1.5]) {
+          expect(Number.isFinite(s.height(f, lane))).toBe(true);
+          if (s.miter(f, lane)) mitred++;
+        }
+      }
+      // Four corners, on the inside only (the turned lap's inside is the other side).
+      expect(mitred).toBeGreaterThan(0);
+      const inner = turned === t ? -1.5 : 1.5;
+      expect(s.miter(0.25, inner)).not.toBeNull();
+      expect(s.miter(0.25, -inner)).toBeNull();
+    }
+  });
+
   it('rides AI riders through the sharp corners', () => {
     const field = content.riders.riders.slice(0, 6).map((r, gate) => ({ ...cpuEntrant(content, r, '50cc'), gate }));
     const sim = new MotoSim(content.racing, content.bikes, sharp, '50cc', field, { laps: 3, motoIndex: 0, seed: 7 });
     sim.runToEnd();
     for (const r of sim.riders) expect(r.laps).toBe(3);
+  });
+});
+
+describe('a track built in the editor with the finish line and start straight placed by hand', () => {
+  // Built in the editor's browser suite: a circuit closed with no start straight, a finish line
+  // placed on it, then a start straight joined part way round, then Ready to race.
+  const built = JSON.parse(readFileSync(new URL('./fixtures/editor-built-track.json', import.meta.url), 'utf8')) as TrackDef;
+
+  it('passes the game\'s checks and races five laps, the run from the gate counted in lap 1', () => {
+    expect(startProblems(built)).toEqual([]);
+    expect(built.sections[0].type).not.toBe('start_gate');
+    expect((built as { finish?: false }).finish).toBeUndefined();
+    const s = startGeom(built);
+    expect(s.join).toBeGreaterThan(0.2);
+    const one = lapPlan(built, 1);
+    expect(one.secs[0]).toBe(-1);
+    expect(one.marks.at(-1)).toBeCloseTo(1, 9);
+    const field = content.riders.riders.slice(0, 8).map((r, gate) => ({ ...cpuEntrant(content, r, '50cc'), gate }));
+    const sim = new MotoSim(content.racing, content.bikes, built, '50cc', field, { laps: 5, motoIndex: 0, seed: 21 });
+    const traces = sim.runToEnd();
+    expect(traces.map((x) => x.lap)).toEqual([1, 2, 3, 4, 5]);
+    for (const r of sim.riders.filter((x) => !x.retired)) {
+      expect(r.laps).toBe(5);
+      expect(r.lapTimes).toHaveLength(5);
+    }
   });
 });

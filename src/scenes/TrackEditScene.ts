@@ -418,8 +418,9 @@ export class TrackEditScene extends Phaser.Scene {
         line(across, BOUND_EDGE, false, false, 0.14 * k, 9.5);
         line(across, BOUND, false, false, 0.07 * k, 9.6);
       }
-      // The lap's points (white, the finish line's bigger) and the start straight's (blue).
-      if (st.gapFrom !== 0) (st.points ?? t.path).forEach(([x, y], i) => line(ring(x, y, i === st.sel.pt ? 0.6 : i === 0 ? 0.5 : 0.35), i === st.sel.pt ? SELECT : 0xffffff, true));
+      // The lap's points (white; the finish line's bigger, once one is placed) and the start straight's (blue).
+      const finish = (t as { finish?: false }).finish !== false;
+      if (st.gapFrom !== 0) (st.points ?? t.path).forEach(([x, y], i) => line(ring(x, y, i === st.sel.pt ? 0.6 : i === 0 && finish ? 0.5 : 0.35), i === st.sel.pt ? SELECT : 0xffffff, true));
       // An unfinished track's open ends: green where the next piece joins on, an arrow the way it
       // heads; blue where a gap or the lap closes into, the arrow the way the track has to arrive.
       for (const [x, y, h, kind] of st.ends ?? []) {
