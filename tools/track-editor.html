@@ -52,6 +52,9 @@ main { grid-area: main; position: relative; overflow: hidden; background: #0d0e1
 canvas#view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 #toolbar { position: absolute; left: 8px; top: 8px; right: 8px; display: flex; flex-wrap: wrap; gap: 4px; pointer-events: none; }
 #toolbar > * { pointer-events: auto; }
+#view3d { position: absolute; left: 0; top: 46px; width: 100%; height: calc(100% - 46px); border: 0; visibility: hidden; pointer-events: none; background: #0d0e11; }
+#view3d.on { visibility: visible; pointer-events: auto; }
+#noRaceView { position: absolute; left: 10px; bottom: 10px; max-width: 60%; padding: 6px 10px; border-radius: 6px; background: #000000b0; color: #f0c040; font-size: 12px; pointer-events: none; }
 footer { grid-area: foot; display: flex; gap: 14px; padding: 4px 10px; background: var(--panel); border-top: 1px solid var(--line); color: var(--dim); white-space: nowrap; overflow: hidden; }
 footer #msg { color: var(--text); overflow: hidden; text-overflow: ellipsis; }
 footer #msg.err { color: var(--danger); }
@@ -116,6 +119,11 @@ label.chk { display: flex; gap: 6px; align-items: center; color: var(--dim); }
 #checks .bad { color: #f0a0a0; }
 #checks .warn { color: var(--warn); }
 #checks .good { color: var(--ok); }
+#checks .ref { cursor: pointer; text-decoration: underline dotted; }
+#checks .ref:hover { background: #ffffff14; }
+#checks.pulse { animation: pulse 0.6s; }
+@keyframes pulse { from { background: #ffffff22; } to { background: transparent; } }
+h2 #btnCheck { float: right; font-size: 11px; padding: 1px 8px; }
 #legend { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11px; color: var(--dim); }
 #legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
 #welcome { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; background: #0d0e11; }
@@ -180,12 +188,13 @@ body.final .final-hide { display: none !important; }
   <div class="hint" id="kindInfo"></div>
   <div class="hint" id="venueInfo"></div>
 
-  <h2>Checks</h2>
+  <h2>Checks <button id="btnCheck" title="Check every track now: errors the game refuses, warnings to look at. Also runs on loading and saving. Never changes anything.">Check</button></h2>
   <div id="checks" class="hint">Open a folder.</div>
 </aside>
 
 <main>
   <canvas id="view"></canvas>
+  <iframe id="view3d" title="Race view"></iframe>
   <div id="toolbar">
     <button id="btnInsert" title="Add a point halfway to the next one (or double-click the track)">+ Point</button>
     <button id="btnDelPt" title="Delete the selected point (Del, or right-click it)">− Point</button>
@@ -222,6 +231,7 @@ body.final .final-hide { display: none !important; }
     <button data-mode="surface" title="2">Surfaces</button>
     <button data-mode="ground" title="3">Ground</button>
     <button data-mode="scenery" title="4">Scenery</button>
+    <button data-mode="height" title="5">Height</button>
   </div>
 
   <div class="pane" id="pane-layout">
@@ -264,6 +274,15 @@ body.final .final-hide { display: none !important; }
     <div class="box" id="sceneryDetail"></div>
   </div>
 
+  <div class="pane" id="pane-height">
+    <div class="hint">Raise and lower the ground. Left-click or drag uses the tool, right-click does the opposite (Smooth and Flatten work both ways). Each stroke is one undo. The track is graded level across its width at the ground under its middle, and the ground eases out to it either side.</div>
+    <div class="field"><label for="hTool">Tool</label><select id="hTool"><option value="raise" selected>Raise</option><option value="lower">Lower</option><option value="smooth">Smooth</option><option value="flatten">Flatten to the height clicked</option></select></div>
+    <div class="field"><label for="hRadius">Radius</label><select id="hRadius"><option value="3">3 grid units</option><option value="5">5</option><option value="8" selected>8</option><option value="12">12</option><option value="18">18</option></select></div>
+    <div class="field"><label for="hStrength">Strength</label><select id="hStrength"><option value="0.25" selected>0.25 m a dab</option><option value="0.5">0.5 m</option><option value="1">1 m</option></select></div>
+    <div class="row" style="margin-top:6px"><button id="btnClearHeight" title="Put all the ground back flat">Flatten all</button></div>
+    <div class="box" id="heightInfo"></div>
+  </div>
+
   <h2>Lap</h2>
   <div id="stats"></div>
 </aside>
@@ -284,7 +303,9 @@ body.final .final-hide { display: none !important; }
     <li><b>Surfaces:</b> mud, sand, water and other patches along the lap, laid by clicking the track.</li>
     <li><b>Ground:</b> paint the ground round the track with the game's ground tiles.</li>
     <li><b>Scenery:</b> banners (with your own words and colour), sponsor boards, start gates, tuff blocks, hay bales, tyre walls, stands, crowds, pits, trees and more. <kbd>Q</kbd> and <kbd>E</kbd> turn the selected item, <kbd>Ctrl+D</kbd> duplicates it.</li>
-    <li><b>Modes:</b> <kbd>1</kbd> Layout, <kbd>2</kbd> Surfaces, <kbd>3</kbd> Ground, <kbd>4</kbd> Scenery.</li>
+    <li><b>Height:</b> raise and lower the ground with a soft round brush (radius and strength in metres per dab), smooth it, or flatten it to one height. The track follows the ground under its middle and stays level across its width; riders slow up climbs and run quicker down drops. Ground steeper than 45° is refused as a wall, and a track climbing or dropping more than 35% along its length is a warning. Old tracks without heights stay flat.</li>
+    <li><b>Race view:</b> you edit in the game's own race camera and 3D scene (with <code>npm run dev</code> running), with hills, jumps, scenery and ground as a race draws them, and the lap map in its corner. Click, drag and right-click on the 3D ground; the keys are the same in every mode. Mouse wheel or <kbd>+</kbd> <kbd>−</kbd> zoom, <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or a middle-button (or <kbd>Space</kbd>+drag) pan, <kbd>[</kbd> <kbd>]</kbd> turn the view, <kbd>0</kbd> resets it. The selection is orange, problems red or dashed yellow. In Layout each section shows as a stripe in its kind's colour, with a cream line across the track where one section ends and the next begins. No race runs while you edit. Opened straight from disk (no <code>npm run dev</code>), the editor shows a plain map instead, since the game can't run there.</li>
+    <li><b>Modes:</b> <kbd>1</kbd> Layout, <kbd>2</kbd> Surfaces, <kbd>3</kbd> Ground, <kbd>4</kbd> Scenery, <kbd>5</kbd> Height.</li>
     <li><b>Export / Import</b> save one track as a <code>.track.json</code> file and add one back.</li>
     <li><b>Preview</b> <kbd>P</kbd> rides a dot round the lap, slower through the harder sections.</li>
     <li><b>Race it in the game</b> opens a race day on the track with the full field, with <code>npm run dev</code> running. Save first.</li>
@@ -471,12 +492,14 @@ const app = {
   sceneryBrush: null,
   hoverBound: -1,
   hoverCell: null,
+  hoverPt: null,
   rect: null,
   undo: [],
   redo: [],
   dirty: false,
   savedText: '',
   play: null,
+  view3d: false,
   images: new Map(), // art path -> HTMLImageElement, or missing while loading
   artBase: null,
 };
@@ -573,7 +596,7 @@ async function useSource(src) {
     $('#srcName').textContent = src.http ? `${src.base}tracks.json` : `${src.name}/${tracksPath}`;
     if (app.dirty) status('Loaded. The file is laid out differently from how the editor saves it, so it shows as changed.', 'err');
     else if (notes.length) status(`Loaded ${data.tracks.length} tracks; ${notes.join('; ')}.`, 'err');
-    else status(`Loaded ${data.tracks.length} tracks from ${tracksPath}.`, 'ok');
+    else status(`Loaded ${data.tracks.length} tracks from ${tracksPath}. ${checkSummary()}`, checkAll().errors ? 'err' : 'ok');
     buildLegend();
     buildPalettes();
     loadArt();
@@ -918,6 +941,7 @@ function drawGround(t) {
 
 /** Scenery with no tile art is drawn by type: simple top-down shapes in its colour. */
 function drawItem(it, sel, blocked = false) {
+  // blocked: true or 'error' (on the racing surface), or 'warning' (one to look at).
   const def = sceneryDef(it.type);
   const { w, h, a } = itemBox(it);
   const s = toScreen(it.x, it.y);
@@ -1012,10 +1036,22 @@ function drawItem(it, sel, blocked = false) {
     }
   }
   if (blocked) {
-    // On the racing surface: riders would ride through it.
-    ctx.strokeStyle = '#ff3b30';
+    // On the racing surface (red): riders would ride through it. A warning (yellow, dashed): look at it.
+    const warning = blocked === 'warning';
+    ctx.strokeStyle = warning ? '#ffd60a' : '#ff3b30';
     ctx.lineWidth = 3;
+    if (warning) ctx.setLineDash([5, 3]);
     ctx.strokeRect(-W / 2 - 2, -H / 2 - 2, W + 4, H + 4);
+    ctx.setLineDash([]);
+  }
+  if (app.flash && app.flash.item === it && performance.now() < app.flash.until) {
+    // Picked from the checks: a ring round it for a moment.
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, Math.hypot(W, H) / 2 + 8 + 4 * Math.sin(performance.now() / 90), 0, Math.PI * 2);
+    ctx.stroke();
+    requestDraw();
   }
   if (sel) {
     ctx.strokeStyle = '#f0a020';
@@ -1028,40 +1064,93 @@ function drawItem(it, sel, blocked = false) {
 }
 
 /**
- * Scenery on the racing surface, start straight included, by index (as src/core/trackParts.ts sceneryOnTrack). Riders ride
- * anywhere across the track, so anything there would be ridden through; start gates and finish
- * arches (overTrack in trackParts.json) are built to stand over it.
+ * Scenery checks, as src/core/trackClearance.ts sceneryIssues: each item's collider (what of it
+ * stands at riding height: a tree's trunk, a floodlight's or marshal post's pole, a banner's board,
+ * a finish arch's two posts, nothing of a start gate) turned as placed, measured against the
+ * racing surface (lap, start straight and the pad behind the gate).
+ * - error: on the racing surface, where riders would ride through it. The game refuses the file.
+ * - warning: within half a bike's width of the edge (a rider right on the edge would touch it), or
+ *   two solid items standing inside each other. Something to look at; the game races it.
+ * Never changes the track. Returns [{ i, level, message }], and is remembered until the track changes.
  */
-function sceneryOnTrack(t) {
+const BIKE_HALF_WIDTH = 0.25;
+const SOLID = new Set(['hay_bale', 'tyre_wall', 'tuff_block', 'van', 'pit_tent', 'stand', 'light_tower', 'skip', 'barrels', 'tyre_stack', 'hedge', 'banner', 'sponsor_board']);
+const issueCache = new WeakMap();
+function colliders(f) {
+  const along = (off, w, d) => ({ ...f, x: f.x + off * Math.cos(f.a), y: f.y + off * Math.sin(f.a), w, d });
+  switch (f.type) {
+    case 'start_gate': return [];
+    case 'finish_arch': return [along(-(f.w / 2 - 0.25), 0.5, 0.5), along(f.w / 2 - 0.25, 0.5, 0.5)];
+    case 'tree': return [along(0, 0.35, 0.35)];
+    case 'light_tower': return [along(0, 0.25, 0.25)];
+    case 'flag_post': return [along(0, 0.1, 0.1)];
+    case 'banner': case 'sponsor_board': return [{ ...f, d: 0.1 }];
+    case 'tape': return [{ ...f, d: 0.06 }];
+    case 'tuff_block': return [{ ...f, d: f.d * 0.8 }];
+    case 'bush': return [{ ...f, w: Math.min(f.w, f.d) * 0.9, d: Math.min(f.w, f.d) * 0.9 }];
+    case 'hedge': return [{ ...f, d: f.d * 0.6 }];
+    default: return [f];
+  }
+}
+function outline(f, step = 0.25) {
+  const out = [];
+  const nu = Math.max(1, Math.ceil(f.w / step));
+  const nv = Math.max(1, Math.ceil(f.d / step));
+  for (let i = 0; i <= nu; i++) for (let j = 0; j <= nv; j++) {
+    if (i > 0 && i < nu && j > 0 && j < nv) continue;
+    const u = (i / nu - 0.5) * f.w;
+    const v = (j / nv - 0.5) * f.d;
+    out.push({ x: f.x + u * Math.cos(f.a) - v * Math.sin(f.a), y: f.y + u * Math.sin(f.a) + v * Math.cos(f.a) });
+  }
+  out.push({ x: f.x, y: f.y });
+  return out;
+}
+function overlap(p, q) {
+  const corners = (f) => [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([u, v]) => ({ x: f.x + (u * f.w * Math.cos(f.a)) / 2 - (v * f.d * Math.sin(f.a)) / 2, y: f.y + (u * f.w * Math.sin(f.a)) / 2 + (v * f.d * Math.cos(f.a)) / 2 }));
+  const a = corners(p);
+  const b = corners(q);
+  for (const ang of [p.a, p.a + Math.PI / 2, q.a, q.a + Math.PI / 2]) {
+    const span = (pts) => { const d = pts.map((c) => c.x * Math.cos(ang) + c.y * Math.sin(ang)); return [Math.min(...d), Math.max(...d)]; };
+    const [a0, a1] = span(a);
+    const [b0, b1] = span(b);
+    if (a1 <= b0 + 1e-9 || b1 <= a0 + 1e-9) return false;
+  }
+  return true;
+}
+function sceneryIssues(t) {
+  const key = JSON.stringify([t.path, t.start, t.width, t.scenery]);
+  const hit = issueCache.get(t);
+  if (hit && hit.key === key) return hit.out;
   const g = lapGeom(t);
   const hw = (t.width ?? DEFAULT_WIDTH) / 2;
   const n = Math.max(200, Math.ceil(g.total / 0.25));
   const pts = Array.from({ length: n }, (_, i) => ({ ...pointAt(g, i / n), hw }));
-  // The start straight and the pad behind its gate are racing surface too, wider at the gate.
   const st = startGeom(t, g);
   if (st && st.total > 0) for (let u = -START_PAD; u <= st.total; u += 0.25) pts.push({ ...startPointAt(st, u), hw: startHalfWidth(st, u, hw) });
+  const off = (x, y) => { let best = Infinity; for (const p of pts) { const d = Math.hypot(p.x - x, p.y - y) - p.hw; if (d < best) best = d; } return best; };
+  const items = (t.scenery ?? []).map((it, i) => { const { w, h, a } = itemBox(it); return { i, type: it.type, x: it.x, y: it.y, w, d: h, a }; });
+  const name = (f) => `the ${(sceneryDef(f.type)?.name ?? f.type).toLowerCase()} at ${f.x}, ${f.y}`;
   const out = [];
-  (t.scenery ?? []).forEach((it, i) => {
-    const def = sceneryDef(it.type);
-    if (!def || def.overTrack) return;
-    const w = it.w ?? def.w;
-    const d = it.h ?? def.h;
-    const a = ((it.rot ?? 0) * Math.PI) / 180;
-    const reach = Math.hypot(w, d) / 2;
-    const near = pts.filter((p) => Math.hypot(p.x - it.x, p.y - it.y) < reach + p.hw);
-    if (!near.length) return;
-    for (let u = -0.5; u <= 0.5001; u += 0.1) {
-      for (let v = -0.5; v <= 0.5001; v += 0.25) {
-        const x = it.x + u * w * Math.cos(a) - v * d * Math.sin(a);
-        const y = it.y + u * w * Math.sin(a) + v * d * Math.cos(a);
-        if (near.some((p) => Math.hypot(p.x - x, p.y - y) < p.hw - 1e-6)) {
-          out.push(i);
-          return;
-        }
-      }
-    }
-  });
+  for (const f of items) {
+    if (!sceneryDef(f.type)) continue;
+    const cs = colliders(f);
+    // Quick skip: nothing of it comes within a bike's width of the track.
+    const reach = Math.hypot(f.w, f.d) / 2;
+    if (!pts.some((p) => Math.hypot(p.x - f.x, p.y - f.y) < reach + p.hw + BIKE_HALF_WIDTH + 0.5)) continue;
+    let into = -Infinity;
+    for (const c of cs) for (const p of outline(c)) into = Math.max(into, -off(p.x, p.y));
+    if (into > 1e-6) out.push({ i: f.i, level: 'error', message: `${name(f)} is on the racing surface, where riders would ride through it` });
+    else if (into > -BIKE_HALF_WIDTH) out.push({ i: f.i, level: 'warning', message: `${name(f)} is ${(-into).toFixed(2)} from the edge of the racing surface, so a rider right on the edge would touch it` });
+  }
+  for (let a = 0; a < items.length; a++) for (let b = a + 1; b < items.length; b++) {
+    if (SOLID.has(items[a].type) && SOLID.has(items[b].type) && colliders(items[a]).some((p) => colliders(items[b]).some((q) => overlap(p, q)))) out.push({ i: items[b].i, level: 'warning', message: `${name(items[b])} stands inside ${name(items[a])}` });
+  }
+  issueCache.set(t, { key, out });
   return out;
+}
+/** Items on the racing surface, by index (the errors of sceneryIssues). */
+function sceneryOnTrack(t) {
+  return [...new Set(sceneryIssues(t).filter((p) => p.level === 'error').map((p) => p.i))];
 }
 function contrast(hex) {
   const c = hex.replace('#', '');
@@ -1074,6 +1163,8 @@ function draw() {
   layout();
   const r = canvas.getBoundingClientRect();
   ctx.clearRect(0, 0, r.width, r.height);
+  // Under the race view the map is never seen: only its grid mapping (layout) is used, by the tools.
+  if (app.view3d) return;
   const t = track();
   if (!t) return;
   const { k, ox, oy, width } = view;
@@ -1237,8 +1328,9 @@ function draw() {
 
   // Scenery.
   ctx.globalAlpha = scene || app.mode === 'scenery' ? 1 : 0.25;
-  const blocked = new Set(sceneryOnTrack(t));
-  (t.scenery ?? []).forEach((it, i) => drawItem(it, app.mode === 'scenery' && i === app.selItem, blocked.has(i)));
+  const level = new Map();
+  for (const p of sceneryIssues(t)) if (level.get(p.i) !== 'error') level.set(p.i, p.level);
+  (t.scenery ?? []).forEach((it, i) => drawItem(it, app.mode === 'scenery' && i === app.selItem, level.get(i) ?? false));
   ctx.globalAlpha = 1;
 
   if (app.mode === 'layout') {
@@ -1288,6 +1380,8 @@ function draw() {
     }
   }
 
+  if (app.mode === 'height') drawHeights(t);
+
   // Ground brush outline and rectangle.
   if (app.mode === 'ground' && app.hoverCell && !app.rect) {
     const cell = t.ground?.cell ?? 2;
@@ -1335,6 +1429,7 @@ function setMode(mode) {
   for (const p of document.querySelectorAll('.pane')) p.classList.toggle('show', p.id === `pane-${mode}`);
   for (const id of ['#btnInsert', '#btnDelPt', '#btnRound', '#btnStart', '#btnReverse', '#btnFit']) $(id).style.display = mode === 'layout' ? '' : 'none';
   app.hoverCell = null;
+  app.hoverPt = null;
   refresh();
 }
 
@@ -1366,9 +1461,11 @@ function refresh() {
   if (app.mode === 'surface') renderPatches();
   if (app.mode === 'ground') renderGroundPane();
   if (app.mode === 'scenery') renderSceneryDetail();
+  if (app.mode === 'height') renderHeightPane();
   renderStats();
   renderChecks();
   requestDraw();
+  sendView();
 }
 
 function venuesUsing(id) { return (app.data.venues ?? []).filter((v) => v.track === id); }
@@ -1520,6 +1617,7 @@ function refreshLight() {
   $('#btnSplitSec').disabled = app.selSec < 0;
   renderSectionDetail();
   requestDraw();
+  sendView();
 }
 
 /** The selected section's racing line and jump height. */
@@ -1726,6 +1824,179 @@ function brushCells(cx, cy) {
 }
 function rectCells(r) { return [Math.min(r.x0, r.x1), Math.min(r.y0, r.y1), Math.max(r.x0, r.x1), Math.max(r.y0, r.y1)]; }
 $('#btnClearGround').addEventListener('click', () => commit((t) => { if (t.ground) t.ground.paint = {}; }));
+
+// ---------------------------------------------------------------------------------------------
+// Ground height. Mirrors src/core/elevation.ts: heights in metres at the corners of a lattice
+// `step` grid units apart, only where not 0, smooth (bilinear) between them.
+
+const ELEV_STEP = 2;
+const ELEV_MAX = 8;
+const WALL_SLOPE = 1;
+const STEEP_TRACK = 0.35;
+const elevCache = new WeakMap();
+/** The track's heights by lattice corner "i,j", cached per elevation object (every change makes a new one). */
+function elevMap(t) {
+  const e = t.elevation;
+  if (!e) return new Map();
+  let m = elevCache.get(e);
+  if (!m) {
+    m = new Map();
+    for (const [x, y, h] of e.points) if (h) m.set(`${Math.round(x / e.step)},${Math.round(y / e.step)}`, h);
+    elevCache.set(e, m);
+  }
+  return m;
+}
+function elevAt(t, x, y) {
+  const e = t.elevation;
+  if (!e?.points.length) return 0;
+  const m = elevMap(t);
+  const c = (i, j) => m.get(`${i},${j}`) ?? 0;
+  const gx = x / e.step;
+  const gy = y / e.step;
+  const i = Math.floor(gx);
+  const j = Math.floor(gy);
+  const fx = gx - i;
+  const fy = gy - j;
+  return (c(i, j) * (1 - fx) + c(i + 1, j) * fx) * (1 - fy) + (c(i, j + 1) * (1 - fx) + c(i + 1, j + 1) * fx) * fy;
+}
+/** Stores heights back on the track, sorted, without zeros; no heights at all leaves no elevation key. */
+function setHeights(t, m, step) {
+  const points = [...m].filter(([, h]) => Math.abs(h) >= 0.01).map(([k, h]) => { const [i, j] = k.split(',').map(Number); return [i * step, j * step, h]; });
+  points.sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+  if (points.length) t.elevation = { step, points };
+  else delete t.elevation;
+}
+/** One dab of the height brush at a grid point. `back` is the right button: the opposite of raise or lower. */
+function heightDab(t, gx, gy, back, level) {
+  const step = t.elevation?.step ?? ELEV_STEP;
+  const r = Number($('#hRadius').value);
+  const strength = Number($('#hStrength').value);
+  let tool = $('#hTool').value;
+  if (back && tool === 'raise') tool = 'lower';
+  else if (back && tool === 'lower') tool = 'raise';
+  const old = elevMap(t);
+  const m = new Map(old);
+  const get = (i, j) => old.get(`${i},${j}`) ?? 0;
+  const maxI = Math.floor(GRID_W / step);
+  const maxJ = Math.floor(GRID_H / step);
+  for (let i = Math.max(0, Math.floor((gx - r) / step)); i <= Math.min(maxI, Math.ceil((gx + r) / step)); i++) {
+    for (let j = Math.max(0, Math.floor((gy - r) / step)); j <= Math.min(maxJ, Math.ceil((gy + r) / step)); j++) {
+      const d = Math.hypot(i * step - gx, j * step - gy) / r;
+      if (d >= 1) continue;
+      // A soft round brush: full strength in the middle, nothing at the rim.
+      const w = 0.5 + 0.5 * Math.cos(Math.PI * d);
+      const h = get(i, j);
+      let to = h;
+      if (tool === 'raise') to = h + strength * w;
+      else if (tool === 'lower') to = h - strength * w;
+      else if (tool === 'smooth') to = h + ((get(i - 1, j) + get(i + 1, j) + get(i, j - 1) + get(i, j + 1)) / 4 - h) * w * 0.6;
+      else to = h + (level - h) * w * 0.6;
+      m.set(`${i},${j}`, clamp(Math.round(to * 100) / 100, -ELEV_MAX, ELEV_MAX));
+    }
+  }
+  setHeights(t, m, step);
+}
+/** Elevation checks, as src/core/elevation.ts elevationIssues: errors the game refuses and warnings. */
+function elevationIssues(t) {
+  const out = [];
+  const e = t.elevation;
+  if (!e) return out;
+  for (const [x, y, m] of e.points) {
+    if (!Number.isFinite(m) || Math.abs(m) > ELEV_MAX) out.push({ level: 'error', message: `the ground at ${x}, ${y} is ${m} m; it can be ${ELEV_MAX} m up or down at most`, x, y });
+    if (x % e.step !== 0 || y % e.step !== 0) out.push({ level: 'error', message: `the height at ${x}, ${y} is not on the ${e.step}-unit lattice`, x, y });
+  }
+  const m = elevMap(t);
+  const c = (i, j) => m.get(`${i},${j}`) ?? 0;
+  const run = (e.step * 8) / (t.width ?? DEFAULT_WIDTH);
+  const seen = new Set();
+  for (const [x, y] of e.points) {
+    const i = Math.round(x / e.step);
+    const j = Math.round(y / e.step);
+    for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const rise = Math.abs(c(i, j) - c(i + di, j + dj));
+      const k = `${Math.min(i, i + di)},${Math.min(j, j + dj)},${di !== 0}`;
+      if (rise / run > WALL_SLOPE && !seen.has(k)) {
+        seen.add(k);
+        out.push({ level: 'error', message: `the ground at ${x}, ${y} rises ${rise.toFixed(1)} m in ${run.toFixed(1)} m, a wall; smooth it out`, x, y });
+      }
+    }
+  }
+  const g = lapGeom(t);
+  const mpu = lapLength(t) / g.total;
+  const n = Math.max(40, Math.ceil(g.total / 0.5));
+  let worst = { grade: 0, x: 0, y: 0 };
+  let prev = null;
+  for (let k = 0; k <= n; k++) {
+    const p = pointAt(g, k / n);
+    const here = { x: p.x, y: p.y, m: elevAt(t, p.x, p.y) };
+    if (prev) {
+      const d = Math.hypot(here.x - prev.x, here.y - prev.y) * mpu;
+      const grade = d > 0 ? Math.abs(here.m - prev.m) / d : 0;
+      if (grade > worst.grade) worst = { grade, x: here.x, y: here.y };
+    }
+    prev = here;
+  }
+  if (worst.grade > STEEP_TRACK) out.push({ level: 'warning', message: `the track climbs or drops ${Math.round(worst.grade * 100)}% near ${worst.x.toFixed(0)}, ${worst.y.toFixed(0)}; past ${Math.round(STEEP_TRACK * 100)}% is steep for a 50cc`, x: worst.x, y: worst.y });
+  return out;
+}
+/** The height pane: highest and lowest ground, and what is under the pointer. */
+function renderHeightPane() {
+  const t = track();
+  const box = $('#heightInfo');
+  if (!t || !box) return;
+  const hs = (t.elevation?.points ?? []).map((p) => p[2]);
+  const top = hs.length ? Math.max(0, ...hs) : 0;
+  const low = hs.length ? Math.min(0, ...hs) : 0;
+  const under = app.hoverPt ? elevAt(t, app.hoverPt.x, app.hoverPt.y) : null;
+  box.textContent = hs.length ? `Highest ${top.toFixed(2)} m, lowest ${low.toFixed(2)} m, ${hs.length} heights set.` : 'All flat: no heights set.';
+  if (under !== null) box.textContent += ` Under the pointer: ${under.toFixed(2)} m.`;
+}
+/** The heights drawn over the map: warm for raised ground, blue for lowered, contour lines every metre, walls in red. */
+function drawHeights(t) {
+  const { k } = view;
+  const e = t.elevation;
+  if (e?.points.length) {
+    const step = e.step;
+    const m = elevMap(t);
+    for (const [key, h] of m) {
+      const [i, j] = key.split(',').map(Number);
+      const s = toScreen(i * step - step / 2, j * step - step / 2);
+      const a = Math.min(0.7, 0.12 + (Math.abs(h) / ELEV_MAX) * 0.6);
+      ctx.fillStyle = h > 0 ? `rgba(255, 214, 140, ${a})` : `rgba(70, 130, 255, ${a})`;
+      ctx.fillRect(s.x, s.y, step * k, step * k);
+    }
+    // Contours every metre, sampled every half grid unit.
+    ctx.strokeStyle = '#ffffff70';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    const d = 0.5;
+    for (let x = 0; x < GRID_W; x += d) {
+      for (let y = 0; y < GRID_H; y += d) {
+        const h = Math.floor(elevAt(t, x, y));
+        if (Math.floor(elevAt(t, x + d, y)) !== h) { const a = toScreen(x + d, y); ctx.moveTo(a.x, a.y); ctx.lineTo(a.x, a.y + d * k); }
+        if (Math.floor(elevAt(t, x, y + d)) !== h) { const a = toScreen(x, y + d); ctx.moveTo(a.x, a.y); ctx.lineTo(a.x + d * k, a.y); }
+      }
+    }
+    ctx.stroke();
+    for (const p of elevationIssues(t)) {
+      const s = toScreen(p.x, p.y);
+      ctx.strokeStyle = p.level === 'error' ? '#ff3b30' : '#ffd60a';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(s.x, s.y, Math.max(6, step * k * 0.6), 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+  if (app.hoverPt) {
+    const s = toScreen(app.hoverPt.x, app.hoverPt.y);
+    const r = Number($('#hRadius').value) * k;
+    ctx.strokeStyle = '#ffffffd0';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(s.x, s.y, r / 2, 0, Math.PI * 2); ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]);
+    label(`${elevAt(t, app.hoverPt.x, app.hoverPt.y).toFixed(2)} m`, s.x, s.y - r - 4);
+  }
+}
+$('#btnClearHeight').addEventListener('click', () => commit((t) => { delete t.elevation; }));
+for (const id of ['#hRadius', '#hTool', '#hStrength']) $(id).addEventListener('change', requestDraw);
 /** Paints the chosen ground under the track and a little either side, as a starting point. */
 $('#btnAutoGround').addEventListener('click', () => commit((t) => {
   const g = ensureGround(t);
@@ -1859,6 +2130,10 @@ function renderStats() {
     );
   }
   rows.push(['Surface patches', String(t.patches?.length ?? 0)], ['Scenery items', String(t.scenery?.length ?? 0)]);
+  if (t.elevation?.points.length) {
+    const hs = t.elevation.points.map((p) => p[2]);
+    rows.push(['Ground height', `${Math.min(0, ...hs).toFixed(2)} to ${Math.max(0, ...hs).toFixed(2)} m`]);
+  }
   for (const [a, b] of rows) { const x = document.createElement('span'); x.textContent = a; const y = document.createElement('span'); y.textContent = b; box.append(x, y); }
 }
 
@@ -1912,7 +2187,19 @@ function checkTrack(t, all) {
     for (const id of Object.keys(t.ground.paint ?? {})) if (!P.ground.some((g) => g.id === id)) bad.push(`No ground "${id}" in trackParts.json.`);
   }
   (t.scenery ?? []).forEach((s, i) => { if (!sceneryDef(s.type)) bad.push(`Scenery item ${i + 1}: no scenery "${s.type}" in trackParts.json.`); });
-  for (const i of sceneryOnTrack(t)) bad.push(`Scenery item ${i + 1} (${sceneryDef(t.scenery[i].type)?.name.toLowerCase() ?? t.scenery[i].type}) is on the racing surface, where riders would ride through it. Move it off the track (it is outlined in red).`);
+  const refs = new Map();
+  for (const p of sceneryIssues(t)) {
+    const text = p.level === 'error'
+      ? `Scenery item ${p.i + 1}: ${p.message}. Move it off the track (outlined in red; click here to find it).`
+      : `Scenery item ${p.i + 1}: ${p.message}. The game will race it; check it is meant to be there (dashed yellow; click here to find it).`;
+    (p.level === 'error' ? bad : warn).push(text);
+    refs.set(text, p.i);
+  }
+  for (const p of elevationIssues(t)) {
+    (p.level === 'error' ? bad : warn).push(p.level === 'error'
+      ? `Height: ${p.message} (red ring in Height mode).`
+      : `Height: ${p.message} (yellow ring in Height mode). The game will race it.`);
+  }
   // Section types against the drawing, and the start straight (as src/core/trackCheck.ts).
   if (Object.keys(app.sectionDefs).length) {
     const shapes = sectionShapes(t);
@@ -1936,7 +2223,7 @@ function checkTrack(t, all) {
   let crossings = 0;
   for (let i = 0; i < n; i++) for (let j = i + 2; j < n; j++) if (!(i === 0 && j === n - 1) && cross(g.pts[i], g.pts[i + 1], g.pts[j], g.pts[j + 1])) crossings++;
   if (crossings) warn.push(`The drawing crosses itself ${crossings === 1 ? 'once' : `${crossings} times`}. That's fine for a crossover, but riders will pass through each other there.`);
-  return { bad, warn };
+  return { bad, warn, refs };
 }
 
 function renderChecks() {
@@ -1944,14 +2231,69 @@ function renderChecks() {
   box.innerHTML = '';
   const t = track();
   if (!t) return;
-  const { bad, warn } = checkTrack(t, app.data.tracks);
+  const { bad, warn, refs } = checkTrack(t, app.data.tracks);
   const others = app.data.tracks.filter((x) => x !== t && checkTrack(x, app.data.tracks).bad.length).map((x) => x.name || x.id);
   for (const v of app.data.venues ?? []) if (v.track && !app.data.tracks.some((x) => x.id === v.track)) bad.push(`Venue "${v.name}" uses track "${v.track}", which doesn't exist.`);
-  const add = (cls, text) => { const d = document.createElement('div'); d.className = cls; d.textContent = text; box.appendChild(d); };
+  const add = (cls, text) => {
+    const d = document.createElement('div');
+    d.className = cls;
+    d.textContent = text;
+    const m = text.match(/^. (.*)$/);
+    const i = m ? refs?.get(m[1]) : undefined;
+    if (i !== undefined) {
+      d.classList.add('ref');
+      d.title = 'Select it';
+      d.onclick = () => findItem(i);
+    }
+    box.appendChild(d);
+  };
   bad.forEach((m) => add('bad', `✕ ${m}`));
   warn.forEach((m) => add('warn', `! ${m}`));
   if (others.length) add('bad', `✕ Other tracks have problems: ${others.join(', ')}.`);
   if (!bad.length && !warn.length && !others.length) add('good', '✓ This track passes the game\'s checks.');
+}
+/** Selects a scenery item from the checks: scenery mode, the item selected, the view on it, a ring round it. */
+function findItem(i) {
+  const t = track();
+  const it = t?.scenery?.[i];
+  if (!it) return;
+  setMode('scenery');
+  app.selItem = i;
+  const r = canvas.getBoundingClientRect();
+  const at = toScreen(it.x, it.y);
+  if (at.x < 40 || at.y < 40 || at.x > r.width - 40 || at.y > r.height - 40) {
+    view.ox += r.width / 2 - at.x;
+    view.oy += r.height / 2 - at.y;
+  }
+  app.flash = { item: it, until: performance.now() + 1600 };
+  refresh();
+}
+/** Every track's errors and warnings, for the Check button, loading and saving. */
+function checkAll() {
+  let errors = 0;
+  let warnings = 0;
+  const bad = [];
+  for (const t of app.data?.tracks ?? []) {
+    const r = checkTrack(t, app.data.tracks);
+    errors += r.bad.length;
+    warnings += r.warn.length;
+    if (r.bad.length) bad.push(t.name || t.id);
+  }
+  return { errors, warnings, bad };
+}
+function checkSummary() {
+  const { errors, warnings, bad } = checkAll();
+  if (!errors && !warnings) return 'Checks: every track passes.';
+  return `Checks: ${errors} error${errors === 1 ? '' : 's'}${bad.length ? ` (${bad.join(', ')})` : ''}, ${warnings} warning${warnings === 1 ? '' : 's'} to look at. See Checks.`;
+}
+function runChecks() {
+  if (!app.data) return;
+  renderChecks();
+  const { errors } = checkAll();
+  status(checkSummary(), errors ? 'err' : 'ok');
+  $('#checks').classList.remove('pulse');
+  void $('#checks').offsetWidth;
+  $('#checks').classList.add('pulse');
 }
 function hasErrors() {
   return app.data.tracks.some((t) => checkTrack(t, app.data.tracks).bad.length) || (app.data.venues ?? []).some((v) => v.track && !app.data.tracks.some((x) => x.id === v.track));
@@ -2130,7 +2472,7 @@ function deleteTrack() {
 }
 
 const TRACK_FILE = 'mxrpg-track';
-const TRACK_KEYS = ['id', 'name', 'size', 'surface', 'kind', 'width', 'practiceOnly', 'gates', 'path', 'sections', 'start', 'patches', 'ground', 'scenery'];
+const TRACK_KEYS = ['id', 'name', 'size', 'surface', 'kind', 'width', 'practiceOnly', 'gates', 'path', 'sections', 'start', 'patches', 'ground', 'elevation', 'scenery'];
 function exportTrack() {
   const t = track();
   download(`${t.id}.track.json`, `${JSON.stringify({ format: TRACK_FILE, version: 1, track: t }, null, 2)}\n`);
@@ -2187,7 +2529,7 @@ async function save(forceDownload) {
       await source.write(app.tracksPath, text);
       app.savedText = text;
       setDirty(false);
-      status(`Saved ${app.tracksPath}. Run npm test to check it.`, 'ok');
+      status(`Saved ${app.tracksPath}. ${checkSummary()}`, checkAll().errors ? 'err' : 'ok');
       return;
     } catch (e) {
       console.error(e);
@@ -2197,7 +2539,7 @@ async function save(forceDownload) {
   download('tracks.json', text);
   app.savedText = text;
   setDirty(false);
-  status('Downloaded tracks.json. Copy it over public/data/tracks.json.', 'ok');
+  status(`Downloaded tracks.json. Copy it over public/data/tracks.json. ${checkSummary()}`, checkAll().errors ? 'err' : 'ok');
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -2208,7 +2550,7 @@ function startPlay() {
   if (!t) return;
   app.play = { f: 0, last: performance.now() };
   const tick = (now) => {
-    if (!app.play || track() !== t) { app.play = null; refresh(); return; }
+    if (!app.play || track() !== t) { app.play = null; sendPlay(); refresh(); return; }
     const dt = Math.min(0.1, (now - app.play.last) / 1000);
     app.play.last = now;
     const s = t.sections[sectionAt(t, app.play.f)];
@@ -2216,13 +2558,18 @@ function startPlay() {
     // About 8 seconds a lap on an average section mix.
     const speed = 1 / 8 / (app.sectionDefs[s?.type]?.diff ?? 1);
     app.play.f = (app.play.f + dt * speed * clamp(600 / Math.max(100, len), 0.5, 2)) % 1;
+    sendPlay();
     requestDraw();
     requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
   refresh();
 }
-function stopPlay() { app.play = null; }
+function stopPlay() { app.play = null; sendPlay(); }
+/** The preview rider's place on the lap (or none) to the race view, which draws it. */
+function sendPlay() {
+  if (app.view3d) $('#view3d').contentWindow?.postMessage({ type: 'play', f: app.play ? app.play.f : null }, '*');
+}
 
 // ---------------------------------------------------------------------------------------------
 // Mouse
@@ -2270,14 +2617,23 @@ function snapHalf(v, e) { return $('#snap').checked && !e.altKey ? Math.round(v 
 function cellAt(t, gp) { const cell = t.ground?.cell ?? 2; return { x: Math.floor(gp.x / cell), y: Math.floor(gp.y / cell) }; }
 
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-canvas.addEventListener('pointerdown', (e) => {
+function onPointerDown(e) {
   const t = track();
   if (!t) return;
   const p = evPos(e);
   const gp = toGrid(p.x, p.y);
+  if (app.mode === 'height') {
+    if (e.button !== 0 && e.button !== 2) return;
+    if (!e.synthetic) canvas.setPointerCapture(e.pointerId);
+    begin();
+    drag = { kind: 'height', back: e.button === 2, level: elevAt(t, gp.x, gp.y), last: gp, started: true };
+    heightDab(t, gp.x, gp.y, drag.back, drag.level);
+    changed();
+    return;
+  }
   if (app.mode === 'ground') {
     if (e.button !== 0 && e.button !== 2) return;
-    canvas.setPointerCapture(e.pointerId);
+    if (!e.synthetic) canvas.setPointerCapture(e.pointerId);
     const c = cellAt(t, gp);
     const id = e.button === 2 ? null : app.groundBrush;
     if (e.shiftKey) { app.rect = { x0: c.x, y0: c.y, x1: c.x, y1: c.y, id }; requestDraw(); return; }
@@ -2295,7 +2651,7 @@ canvas.addEventListener('pointerdown', (e) => {
     return;
   }
   if (e.button !== 0) return;
-  canvas.setPointerCapture(e.pointerId);
+  if (!e.synthetic) canvas.setPointerCapture(e.pointerId);
   if (app.mode === 'surface') {
     const pr = onTrack(t, gp.x, gp.y);
     if (!pr) { app.selPatch = -1; refresh(); return; }
@@ -2332,8 +2688,9 @@ canvas.addEventListener('pointerdown', (e) => {
     app.selPt = -1;
   }
   refresh();
-});
-canvas.addEventListener('pointermove', (e) => {
+}
+canvas.addEventListener('pointerdown', onPointerDown);
+function onPointerMove(e) {
   const t = track();
   const p = evPos(e);
   const gp = toGrid(p.x, p.y);
@@ -2350,17 +2707,28 @@ canvas.addEventListener('pointermove', (e) => {
       const c = cellAt(t, gp);
       if (!app.hoverCell || c.x !== app.hoverCell.x || c.y !== app.hoverCell.y) { app.hoverCell = c; requestDraw(); }
     }
+    if (app.mode === 'height') {
+      app.hoverPt = gp;
+      $('#posLabel').textContent += ` · ground ${elevAt(t, gp.x, gp.y).toFixed(2)} m`;
+      renderHeightPane();
+      requestDraw();
+    }
   }
   if (app.rect) { const c = cellAt(t, gp); app.rect.x1 = c.x; app.rect.y1 = c.y; requestDraw(); return; }
   if (!drag) {
     const h = t && hit(p.x, p.y);
-    canvas.style.cursor = app.mode === 'ground' ? 'crosshair' : ['point', 'spt', 'bound', 'item'].includes(h?.kind) ? 'grab' : h?.kind === 'track' ? 'pointer' : 'default';
+    canvas.style.cursor = app.mode === 'ground' || app.mode === 'height' ? 'crosshair' : ['point', 'spt', 'bound', 'item'].includes(h?.kind) ? 'grab' : h?.kind === 'track' ? 'pointer' : 'default';
     const hb = h?.kind === 'bound' ? h.i : -1;
     if (hb !== app.hoverBound) { app.hoverBound = hb; requestDraw(); }
     return;
   }
   if (!drag.started) { begin(); drag.started = true; }
-  if (drag.kind === 'paint') {
+  if (drag.kind === 'height') {
+    // A new dab each time the pointer has moved a third of the brush radius, so a stroke lays an even ridge.
+    if (Math.hypot(gp.x - drag.last.x, gp.y - drag.last.y) < Number($('#hRadius').value) / 3) return;
+    drag.last = gp;
+    heightDab(t, gp.x, gp.y, drag.back, drag.level);
+  } else if (drag.kind === 'paint') {
     const c = cellAt(t, gp);
     paintCells(t, brushCells(c.x, c.y), drag.id);
   } else if (drag.kind === 'point') {
@@ -2395,8 +2763,9 @@ canvas.addEventListener('pointermove', (e) => {
     b.length = pair - a.length;
   }
   changed();
-});
-canvas.addEventListener('pointerup', () => {
+}
+canvas.addEventListener('pointermove', onPointerMove);
+function onPointerUp() {
   if (app.rect) {
     const t = track();
     const [x0, y0, x1, y1] = rectCells(app.rect);
@@ -2410,9 +2779,10 @@ canvas.addEventListener('pointerup', () => {
   if (drag?.started && exportTracks(app.data) === exportTracks(app.undo.at(-1).data)) app.undo.pop();
   drag = null;
   refresh();
-});
-canvas.addEventListener('pointerleave', () => { if (app.hoverCell) { app.hoverCell = null; requestDraw(); } });
-canvas.addEventListener('dblclick', (e) => {
+}
+canvas.addEventListener('pointerup', onPointerUp);
+canvas.addEventListener('pointerleave', () => { if (app.hoverCell || app.hoverPt) { app.hoverCell = null; app.hoverPt = null; requestDraw(); } });
+function onDblClick(e) {
   const t = track();
   if (!t || app.mode !== 'layout') return;
   const p = evPos(e);
@@ -2425,7 +2795,8 @@ canvas.addEventListener('dblclick', (e) => {
     app.selPt = h.seg + 1;
     app.selStart = -1;
   });
-});
+}
+canvas.addEventListener('dblclick', onDblClick);
 window.addEventListener('resize', requestDraw);
 
 // ---------------------------------------------------------------------------------------------
@@ -2434,6 +2805,7 @@ window.addEventListener('resize', requestDraw);
 $('#btnOpen').addEventListener('click', openFolder);
 $('#btnOpen2').addEventListener('click', openFolder);
 $('#btnSave').addEventListener('click', () => save());
+$('#btnCheck').addEventListener('click', () => runChecks());
 $('#btnDownload').addEventListener('click', () => save(true));
 $('#btnUndo').addEventListener('click', undo);
 $('#btnRedo').addEventListener('click', redo);
@@ -2459,7 +2831,72 @@ $('#btnFitSecs').addEventListener('click', () => {
 $('#btnFit').addEventListener('click', fitToGrid);
 $('#showScene').addEventListener('change', requestDraw);
 $('#btnPlay').addEventListener('click', () => { if (app.play) { stopPlay(); refresh(); } else startPlay(); });
-$('#btnRide').addEventListener('click', () => { const t = track(); if (t) window.open(`/?testtrack=${encodeURIComponent(t.id)}`, '_blank'); });
+$('#btnRide').addEventListener('click', () => {
+  const t = track();
+  if (!t) return;
+  if (app.dirty && !confirm('You have unsaved changes. The game races the saved tracks.json, so it won\'t have them. Open the race anyway?')) return;
+  window.open(`/?testtrack=${encodeURIComponent(t.id)}`, '_blank');
+});
+
+// ---------------------------------------------------------------------------------------------
+// Race view: the game's race screen 3D scene and camera (src/scenes/TrackEditScene.ts), in a frame
+// over the map. It shows the track open here, rebuilt after every change, and sends back where
+// you click on it as a grid point; the same tool code as the map then acts on it, so undo, the
+// checks, the unsaved marker and Save all work as before. No race runs in it.
+
+function openRaceView() {
+  if (!/^https?:$/.test(location.protocol)) {
+    // Opened from disk: the game can't run here, so the map stands in until the editor is served.
+    const note = document.createElement('div');
+    note.id = 'noRaceView';
+    note.textContent = 'Plain map: the editor edits in the race view, which runs the game. Start npm run dev and open http://localhost:5173/tools/track-editor.html.';
+    $('#view3d').after(note);
+    return;
+  }
+  app.view3d = true;
+  const f = $('#view3d');
+  if (!f.getAttribute('src')) f.src = '/?editview=1';
+  f.classList.add('on');
+  sendView();
+  requestDraw();
+}
+/** Passes a camera key (W A S D, [ ], + −, 0) on to the race view; true if it was one. */
+function camKeyToView(e, down) {
+  if (!app.view3d || !/^[wasd[\]+=_0-]$/i.test(e.key)) return false;
+  $('#view3d').contentWindow?.postMessage({ type: 'camkey', key: e.key, down }, '*');
+  return true;
+}
+window.addEventListener('keyup', (e) => { if (!/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName ?? '')) camKeyToView(e, false); });
+/** Sends the open track and what to mark on it to the race view. */
+function sendView() {
+  const f = $('#view3d');
+  const t = track();
+  if (!app.view3d || !t || !f.contentWindow) return;
+  const issues = [...sceneryIssues(t).map((p) => ({ item: p.i, level: p.level })), ...elevationIssues(t).map((p) => ({ x: p.x, y: p.y, level: p.level }))];
+  let brush = null;
+  if (app.mode === 'height') brush = { shape: 'circle', r: Number($('#hRadius').value) };
+  else if (app.mode === 'ground') brush = { shape: 'cells', cell: t.ground?.cell ?? 2, n: Number($('#gBrush').value) };
+  const sel = { item: app.mode === 'scenery' ? app.selItem : -1, sec: app.selSec, pt: app.selPt, start: app.selStart };
+  f.contentWindow.postMessage({ type: 'track', state: { track: t, parts: app.parts === FALLBACK_PARTS ? undefined : app.parts, mode: app.mode, sel, issues, brush, sectionColors: t.sections.map((s) => colorOf(s.type)) } }, '*');
+}
+window.addEventListener('message', (e) => {
+  const f = $('#view3d');
+  const m = e.data;
+  if (!f || e.source !== f.contentWindow || !m) return;
+  if (m.type === 'ready') { sendView(); return; }
+  if (m.type === 'key') {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: m.key, code: m.code, ctrlKey: m.ctrl, metaKey: m.meta, shiftKey: m.shift, altKey: m.alt, cancelable: true }));
+    return;
+  }
+  if (m.type !== 'pointer') return;
+  if (m.phase === 'leave') { canvas.dispatchEvent(new PointerEvent('pointerleave')); return; }
+  // The grid point, as where it is on the map, so the map's own hit tests and tools take it.
+  const r = canvas.getBoundingClientRect();
+  const s = m.x === null ? { x: -1e5, y: -1e5 } : toScreen(m.x, m.y);
+  const ev = { clientX: r.left + s.x, clientY: r.top + s.y, button: m.button ?? 0, shiftKey: !!m.shift, altKey: !!m.alt, ctrlKey: !!m.ctrl, metaKey: false, pointerId: -1, synthetic: true, preventDefault() {} };
+  ({ down: onPointerDown, move: onPointerMove, up: onPointerUp, dblclick: onDblClick })[m.phase]?.(ev);
+});
+for (const id of ['#hRadius', '#gBrush']) $(id).addEventListener('change', sendView);
 for (const b of document.querySelectorAll('#modes button')) b.addEventListener('click', () => setMode(b.dataset.mode));
 for (const id of ['#btnHelp', '#btnHelp2']) $(id).addEventListener('click', () => $('#help').showModal());
 $('#btnHelpClose').addEventListener('click', () => $('#help').close());
@@ -2472,9 +2909,11 @@ window.addEventListener('keydown', (e) => {
   if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
   if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); return; }
   if (!track()) return;
+  // The race view's camera keys work wherever the keyboard is: the view moves its own camera.
+  if (!mod && camKeyToView(e, true)) return;
   if (mod && e.key.toLowerCase() === 'd' && app.mode === 'scenery') { e.preventDefault(); duplicateItem(); return; }
   if (mod) return;
-  const modes = { 1: 'layout', 2: 'surface', 3: 'ground', 4: 'scenery' };
+  const modes = { 1: 'layout', 2: 'surface', 3: 'ground', 4: 'scenery', 5: 'height' };
   if (modes[e.key]) { setMode(modes[e.key]); return; }
   if (e.key.toLowerCase() === 'p') { $('#btnPlay').click(); return; }
   if (e.key === 'Escape') { deselect(); refresh(); return; }
@@ -2547,7 +2986,8 @@ async function tryServer() {
 
 setMode('layout');
 tryServer();
-window.trackEditor = { app, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart }; // for tests
+openRaceView();
+window.trackEditor = { app, openRaceView, sendView, heightDab, elevAt, elevationIssues, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart }; // for tests
 </script>
 </body>
 </html>

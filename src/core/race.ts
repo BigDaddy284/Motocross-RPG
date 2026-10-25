@@ -1,6 +1,7 @@
 import { bikeStats, type Bike, type BikesData } from './career';
 import { lapPlan, sectionBounds, startGeom, type DrawnShape, type StartGeom } from './trackGeom';
 import type { RiderStyle } from './riderProfile';
+import { sectionGrades, type TrackElevation } from './elevation';
 
 // The race simulation (Spec 10, GDD 11). Pure rules with no graphics: the race screen plays a
 // lap's results out section by section, and auto-complete just runs the laps straight through,
@@ -174,6 +175,8 @@ export interface TrackDef {
   /** The start straight: the gate first, its last point on the lap where it joins (trackGeom.startGeom). */
   start?: TrackStart;
   scenery?: SceneryItem[];
+  /** Raised and lowered ground under and round the track (elevation.ts); flat when left out. */
+  elevation?: TrackElevation;
 }
 
 export interface Tactic {
@@ -299,6 +302,8 @@ export class MotoSim {
   private readonly ceiling: number;
   private lapNo = 0;
   private readonly bounds: number[];
+  /** How the ground's climbs and drops stretch or shorten each section's time (elevation.ts). */
+  private readonly grades: number[];
   private readonly start: StartGeom;
   /** Everything a lap changes, as it was before the latest lap, so it can be run again (redoLap). */
   private before: LapStart | null = null;
@@ -313,6 +318,7 @@ export class MotoSim {
   ) {
     this.rng = seededRng(opts.seed);
     this.bounds = sectionBounds(track);
+    this.grades = sectionGrades(track);
     this.start = startGeom(track);
     this.cls = racing.classes[classId];
     this.ceiling = bikes.classes.find((c) => c.id === classId)?.ceiling ?? 1;
@@ -426,7 +432,7 @@ export class MotoSim {
       for (const r of order) {
         if (out.has(r)) continue;
         this.rng = draws.get(r)!;
-        let t = this.sectionTime(r, sec, def, isStart ? r.e.gate : -1) * (air.get(r) ?? 1);
+        let t = this.sectionTime(r, sec, def, isStart ? r.e.gate : -1) * (air.get(r) ?? 1) * (si >= 0 ? this.grades[si] : 1);
         const m = this.mistake(r, def, share);
         if (m) {
           const lost = m.timePct ? t * (m.timePct[0] + this.rng() * (m.timePct[1] - m.timePct[0])) / 100 : this.crashSeconds(r, m);

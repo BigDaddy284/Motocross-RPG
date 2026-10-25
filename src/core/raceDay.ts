@@ -174,19 +174,29 @@ export class RaceDay {
     return { taken, free };
   }
 
-  /** Every rider's gate once the player has picked theirs. CPU riders take the best gate left. */
+  /**
+   * Every rider's gate once the player has picked theirs. CPU riders take the best gate left. The
+   * player's gate must be one of gatesForPlayer().free: a gate past the size of the field, or one
+   * already taken, is an error, never quietly swapped for another.
+   */
   assignGates(playerGate: number): void {
     const gates = this.gateCount();
+    if (this.field.some((e) => e.id === PLAYER_ID)) {
+      const { taken } = this.gatesForPlayer();
+      if (!Number.isInteger(playerGate) || playerGate < 0 || playerGate >= gates) throw new RangeError(`Gate ${playerGate + 1} is not on this start: ${gates} riders, gates 1 to ${gates}`);
+      if (taken.has(playerGate)) throw new RangeError(`Gate ${playerGate + 1} is already taken`);
+    }
     const taken = new Map<number, string>();
     for (const id of this.pickOrder) {
-      const g = id === PLAYER_ID && !taken.has(playerGate) ? playerGate : this.cpuGatePick(taken, gates);
+      const g = id === PLAYER_ID ? playerGate : this.cpuGatePick(taken, gates);
       taken.set(g, id);
     }
     for (const [g, id] of taken) this.field.find((e) => e.id === id)!.gate = g;
   }
 
+  /** One gate per rider in the field (at most two rows of 8): gate 1 is the inside of the first corner. */
   private gateCount(): number {
-    return Math.max(this.field.length, this.track.gates?.length ?? 0);
+    return this.field.length;
   }
 
   private cpuGatePick(taken: Map<number, string>, gates: number): number {

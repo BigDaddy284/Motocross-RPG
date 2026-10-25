@@ -55,7 +55,10 @@ export class BootScene extends Phaser.Scene {
     services.content = content;
     services.maps = maps;
     services.travel = new Travel(maps, content.world.locks);
-    const test = new URLSearchParams(window.location.search).get('testtrack');
+    const params = new URLSearchParams(window.location.search);
+    // The track editor's race view, in a frame inside the editor (TrackEditScene).
+    if (params.has('editview')) return void this.scene.start('trackedit');
+    const test = params.get('testtrack');
     if (test && content.tracks.tracks.some((t) => t.id === test)) this.testRide(test);
     else this.scene.start('menu');
   }

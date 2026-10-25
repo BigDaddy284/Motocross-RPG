@@ -3,9 +3,10 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { SceneryItem, TrackDef } from '../core/race';
 import { START_HOLD, type RiderPose } from '../core/riderAI';
-import { nearestOnLap, pointAt, START_PAD, startPointAt } from '../core/trackGeom';
+import { OFFICIAL_SCALE, officialPlan, WALK_FROM, WALK_TO } from '../core/startOfficial';
+import { pointAt, START_PAD, startPointAt } from '../core/trackGeom';
 import { GRID_H, GRID_W, trackKind, type TrackPartsData } from '../core/trackParts';
-import { BIKE_LENGTH, LIP_AT, TrackSurface } from '../core/trackSurface';
+import { BIKE_LENGTH, CAM_AZ, LIP_AT, TrackSurface } from '../core/trackSurface';
 import { COLORS, TEXT_RES } from '../ui/theme';
 import { bikeColours, type RaceLook } from './raceBike';
 
@@ -21,7 +22,6 @@ import { bikeColours, type RaceLook } from './raceBike';
 // your rider (or the leader once you are out), with a map of the whole lap in the corner.
 
 /** Camera direction: degrees round from straight in front, and degrees down from level. */
-const CAM_AZ = 40;
 /** Seconds the official takes to raise or lower the start board. */
 const BOARD_MOVE = 0.4;
 const CAM_EL = 38;
@@ -93,11 +93,24 @@ export class RaceView {
   private readonly groundCanvas: HTMLCanvasElement;
   private readonly groundTex: THREE.CanvasTexture;
   private readonly mapDots: Phaser.GameObjects.Graphics;
+  private mapFrame: Phaser.GameObjects.Graphics | null = null;
   private readonly mapBox: { x: number; y: number; k: number };
   private readonly viewUnits: number;
   private readonly dir: THREE.Vector3;
   private readonly bg: number;
   private cam: THREE.Vector3 | null = null;
+  /** The ground, the track and the start straight: what a click in the track editor's race view lands on. */
+  private readonly ground: THREE.Mesh[] = [];
+  /**
+   * Set only by the track editor's race view (TrackEditScene): the camera stays where the editor
+   * puts it (centre, zoom, and turned `az` degrees from the race camera) instead of following a
+   * rider. A race never sets it.
+   */
+  editCam: { x: number; z: number; zoom: number; az: number } | null = null;
+  /** The track editor's markers (selection, brush, checks), drawn over everything; empty in a race. */
+  readonly overlay = new THREE.Group();
+  /** Goes up when the picture changes by itself (the ground's art arriving), for a view that only draws on a change. */
+  version = 0;
   private lastClock = 0;
   private dead = false;
   private readonly patchSpans: { from: number; to: number; color: number }[];
@@ -108,7 +121,7 @@ export class RaceView {
   /** The start gate's pickets, hinged at the bottom so they drop flat when the race starts. */
   private gateDrop: THREE.Group | null = null;
   /** The official holding the start board beside the start straight, and the board itself. */
-  private board: { stand: THREE.Group; panel: THREE.Group; arms: THREE.Group[] } | null = null;
+  private board: { stand: THREE.Group; panel: THREE.Group; arms: THREE.Group[]; legs: THREE.Group[]; a: { x: number; y: number }; b: { x: number; y: number } } | null = null;
   /** False for practice, which has no start procedure: the start board stays down. */
   hasStart = true;
   /** Frame times in ms (whole update, the 3D draw, and handing the picture to Phaser), for the performance check. */
@@ -125,6 +138,8 @@ export class RaceView {
     private readonly y: number,
     private readonly w: number,
     private readonly h: number,
+    /** The track editor's race view passes the last view's renderer on, so a rebuild reuses its WebGL context and compiled shaders. */
+    renderer?: THREE.WebGLRenderer,
   ) {
     this.surface = new TrackSurface(track);
     const kind = trackKind(parts, track);
@@ -140,8 +155,8 @@ export class RaceView {
     const res = Math.max(1, Math.min(2, k));
     const rw = Math.round(w * res);
     const rh = Math.round(h * res);
-    const canvas = document.createElement('canvas');
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+    this.renderer = renderer ?? new THREE.WebGLRenderer({ canvas: document.createElement('canvas'), antialias: true, preserveDrawingBuffer: true });
+    const canvas = this.renderer.domElement;
     this.renderer.setPixelRatio(1);
     this.renderer.setSize(rw, rh, false);
     this.renderer.shadowMap.enabled = true;
@@ -186,10 +201,11 @@ export class RaceView {
     this.groundTex.anisotropy = 4;
     this.drawGround();
     this.buildTerrain();
-    this.scene3.add(this.terrainMesh());
-    this.scene3.add(this.buildTrack());
+    this.ground.push(this.terrainMesh(), this.buildTrack());
+    if (this.surface.start.total > 0) this.ground.push(this.buildStart());
+    this.scene3.add(...this.ground);
+    this.scene3.add(this.overlay);
     if (this.surface.start.total > 0) {
-      this.scene3.add(this.buildStart());
       this.scene3.add(this.startGate());
       this.scene3.add(this.startBoard());
     }
@@ -257,10 +273,13 @@ export class RaceView {
     const s0 = pointAt(this.surface.g, 0);
     mg.fillStyle(0xffffff, 1).fillRect(this.mapBox.x + s0.x * mk - 2, this.mapBox.y + s0.y * mk - 2, 4, 4);
     this.mapDots = scene.add.graphics();
+    this.mapFrame = mg;
     parent.add([mg, this.mapDots]);
 
     this.image.once('destroy', () => this.destroy());
     this.loadArt();
+    // Handed a renderer: take up the shaders it already has before the last view lets them go.
+    if (renderer) this.renderer.compile(this.scene3, this.camera);
   }
 
   // ---- ground ----
@@ -274,6 +293,7 @@ export class RaceView {
       if (this.dead) return;
       this.drawGround();
       this.groundTex.needsUpdate = true;
+      this.version++;
     });
     this.scene.load.start();
   }
@@ -330,12 +350,80 @@ export class RaceView {
       const p = startPointAt(s.start, u);
       level.push({ x: p.x, z: p.y, r: s.startHw(u) * LIP_AT + 0.4 });
     }
-    if (!hills.length) return;
-    const r0 = s.hw * 1.3;
     const smooth = (x: number) => {
       const t = Math.max(0, Math.min(1, x));
       return t * t * (3 - 2 * t);
     };
+    // The editor's ground elevation: the painted ground, except by the track, which is graded level
+    // across its width at the ground under its middle, so the ground there eases from that level
+    // (right under the track, its lip and slope) out to the painted ground over a few grid units.
+    if (!s.elev.empty) {
+      const mid: { x: number; z: number; r: number; l: number }[] = [];
+      for (let i = 0; i < n; i++) {
+        const f = i / n;
+        const p = s.spot(f, 0);
+        mid.push({ x: p.x, z: p.z, r: s.hw * (LIP_AT + Math.max(s.skirt(f, -1), s.skirt(f, 1))), l: s.lift(f) });
+      }
+      for (let u = -START_PAD; u < s.start.total; u += 0.5) {
+        const p = startPointAt(s.start, u);
+        mid.push({ x: p.x, z: p.y, r: s.startHw(u) * LIP_AT + 0.4, l: s.groundAt(p.x, p.y) });
+      }
+      const BLEND = 3;
+      // Only bits of track within reach can matter: nearer than BLEND past their own reach for the
+      // blend, and the soft weights below drop out (under 1e-4) past 2.28 beyond the nearest. So each
+      // point looks at the bits in its own and the neighbouring cells, in their original order.
+      const reach = BLEND + Math.max(0, ...mid.map((q) => q.r)) + 2.3;
+      const cw = Math.ceil(tw / reach);
+      const ch = Math.ceil(th / reach);
+      const cellOf = (x: number, z: number) => [Math.floor((x + MARGIN) / reach), Math.floor((z + MARGIN) / reach)];
+      const inCell: number[][] = Array.from({ length: cw * ch }, () => []);
+      mid.forEach((q, k) => {
+        const [ci, cj] = cellOf(q.x, q.z);
+        inCell[Math.max(0, Math.min(ch - 1, cj)) * cw + Math.max(0, Math.min(cw - 1, ci))].push(k);
+      });
+      const nearby: (typeof mid)[] = [];
+      for (let cj = 0; cj < ch; cj++) {
+        for (let ci = 0; ci < cw; ci++) {
+          const ks: number[] = [];
+          for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) if (ci + di >= 0 && ci + di < cw && cj + dj >= 0 && cj + dj < ch) ks.push(...inCell[(cj + dj) * cw + ci + di]);
+          nearby.push(ks.sort((a, b) => a - b).map((k) => mid[k]));
+        }
+      }
+      for (let j = 0; j < th; j++) {
+        for (let i = 0; i < tw; i++) {
+          const x = i - MARGIN;
+          const z = j - MARGIN;
+          const [ci, cj] = cellOf(x, z);
+          const local = nearby[cj * cw + ci];
+          // How far off the track this is, and its level: from the nearest bits of track, weighted
+          // softly so the ground has no seam where two stretches at different levels come close.
+          let best = Infinity;
+          let near = Infinity;
+          for (const q of local) {
+            const dc = Math.hypot(x - q.x, z - q.z);
+            best = Math.min(best, dc - q.r);
+            near = Math.min(near, dc);
+          }
+          if (best >= BLEND) {
+            this.terrain[j * tw + i] = s.groundAt(x, z);
+            continue;
+          }
+          let sum = 0;
+          let wt = 0;
+          for (const q of local) {
+            const k = Math.exp(-(((Math.hypot(x - q.x, z - q.z) - near) / 0.75) ** 2));
+            if (k < 1e-4) continue;
+            sum += k * q.l;
+            wt += k;
+          }
+          const l = sum / wt;
+          const w = smooth(best / BLEND);
+          this.terrain[j * tw + i] = l * (1 - w) + s.groundAt(x, z) * w;
+        }
+      }
+    }
+    if (!hills.length) return;
+    const r0 = s.hw * 1.3;
     for (let j = 0; j < th; j++) {
       for (let i = 0; i < tw; i++) {
         const x = i - MARGIN;
@@ -355,7 +443,7 @@ export class RaceView {
           const d = Math.hypot(x - q.x, z - q.z);
           if (d < q.r + 5) h *= smooth((d - q.r) / 5);
         }
-        this.terrain[j * tw + i] = h;
+        this.terrain[j * tw + i] += h;
       }
     }
   }
@@ -544,51 +632,39 @@ export class RaceView {
   }
 
   /**
-   * The start board: an official beside the start straight, ahead of the gate on the side where
-   * it joins the lap, there all race. The board's face (START 30) is on one side and the other is
-   * plain white. It is held low with the white side out while the riders line up, raised face out
-   * five seconds before the drop, turned sideways at three, and lowered white side out again as
-   * the gate drops (updateStart).
+   * The start board: an official beside the start straight, there all race (startOfficial). They
+   * wait at A near the gate with the board held low, white side out, while the riders line up;
+   * raise it face out and walk to B as the five-second hold begins, turn it sideways at three, and
+   * lower it white side out at one, as they reach B, where they stay. The board's face (START 30) is
+   * on one side and the other is plain white (updateStart).
    */
   private startBoard(): THREE.Object3D {
-    const s = this.surface;
-    const st = s.start;
-    const side = s.joinSide || 1;
-    const merge = st.total - (s.hw * 2.5 + 1);
-    // Ahead of the gate, as near 8 units out as there is room for, in the grass between the start
-    // straight and the lap (or on the far side if that strip is too narrow), clear of scenery.
-    let best: { x: number; z: number; ang: number; score: number } | null = null;
-    for (let u = 4; u <= Math.max(4, merge); u += 0.5) {
-      for (const sd of [side, -side]) {
-        const edge = s.startHw(u) * LIP_AT;
-        for (const out of [2.2, 1.8, 1.5]) {
-          const p = s.startSpot(u, (sd * (edge + out)) / s.startHw(u));
-          const lapGap = nearestOnLap(s.g, p.x, p.z).d - s.hw * LIP_AT;
-          const clutter = (this.track.scenery ?? []).some((it) => Math.hypot(it.x - p.x, it.y - p.z) < 1.4 + Math.max(it.w ?? 0, it.h ?? 0) / 2);
-          if (lapGap < 1.1 || clutter) continue;
-          const score = Math.abs(u - 8) + (sd === side ? 0 : 3) + (2.2 - out);
-          if (!best || score < best.score) best = { x: p.x, z: p.z, ang: p.ang, score };
-          break;
-        }
-      }
-    }
-    const spot = best ?? { ...s.startSpot(6, (side * (s.startHw(6) * LIP_AT + 1.5)) / s.startHw(6)), score: 0 };
     const stand = new THREE.Group();
-    stand.position.set(spot.x, this.terrainAt(spot.x, spot.z), spot.z);
-    // Face the camera, so the player reads the board, turned just a touch back towards the riders
-    // (the face is printed on both sides, so the riders see it too).
-    const camAz = THREE.MathUtils.degToRad(CAM_AZ);
-    const toRiders = Math.atan2(-Math.cos(spot.ang), -Math.sin(spot.ang));
-    const toCam = camAz;
-    let turn = toCam - toRiders;
-    while (turn > Math.PI) turn -= 2 * Math.PI;
-    while (turn < -Math.PI) turn += 2 * Math.PI;
-    stand.rotation.y = toRiders + turn * 0.85;
+    let plan: ReturnType<typeof officialPlan>;
+    try {
+      plan = officialPlan(this.track, this.parts);
+    } catch (e) {
+      // Nowhere clear for them (the track checks say so too): no official, rather than one on the track.
+      console.warn(String(e));
+      return stand;
+    }
+    if (!plan) return stand;
+    stand.position.set(plan.a.x, this.terrainAt(plan.a.x, plan.a.y), plan.a.y);
+    stand.rotation.y = plan.facing;
+    // Drawn 10% smaller than first built, board and all: the scale is on this group alone.
+    stand.scale.setScalar(OFFICIAL_SCALE);
     // The official: legs, body, head, and arms that swing at the shoulder, up to hold the board
     // high or down to hold it low.
     const kit = this.mat(0x2a3a5a);
     const skin = this.mat(0xe0b090);
-    stand.add(this.boxMesh(0.12, 0.7, 0.14, kit, -0.1, 0, 0), this.boxMesh(0.12, 0.7, 0.14, kit, 0.1, 0, 0));
+    // Legs swing at the hip as they walk.
+    const legs = [-0.1, 0.1].map((x) => {
+      const leg = new THREE.Group();
+      leg.position.set(x, 0.7, 0);
+      leg.add(this.boxMesh(0.12, 0.7, 0.14, kit, 0, -0.7, 0));
+      stand.add(leg);
+      return leg;
+    });
     stand.add(this.boxMesh(0.42, 0.62, 0.24, this.mat(0xf0a020), 0, 0.7, 0));
     stand.add(this.boxMesh(0.22, 0.22, 0.22, skin, 0, 1.34, 0));
     const arms = [-1, 1].map((sd) => {
@@ -611,7 +687,7 @@ export class RaceView {
     for (const m of [front, back, core]) m.castShadow = true;
     panel.add(core, front, back);
     stand.add(panel);
-    this.board = { stand, panel, arms };
+    this.board = { stand, panel, arms, legs, a: plan.a, b: plan.b };
     this.updateStart(-Infinity);
     return stand;
   }
@@ -646,24 +722,35 @@ export class RaceView {
 
   /**
    * The start procedure as race time runs up to the gate drop at 0 (riderAI START_HOLD): the
-   * board is held low, white side out, while the riders line up; raised face out over the first
-   * moment of the five-second hold; turned sideways at three; and lowered white side out again as
-   * the gate's pickets fall flat at the drop, staying low for the rest of the race. Purely a
-   * function of the clock, so scrubbing or a new race always shows the right state.
+   * official waits at A holding the board low, white side out, while the riders line up; at five
+   * raises it face out and walks to B; turns it sideways at three; reaches B at one and lowers it
+   * white side out, and stays there with it low as the gate's pickets fall flat at the drop and for
+   * the rest of the race. Purely a function of the clock, so scrubbing or a new race always shows
+   * the right state.
    */
   private updateStart(clock: number): void {
     if (this.board) {
-      const { panel, arms } = this.board;
+      const { stand, panel, arms, legs, a, b } = this.board;
       const ease = (x: number) => {
         const t = Math.max(0, Math.min(1, x));
         return t * t * (3 - 2 * t);
       };
       // How far up the board is: 0 held low, 1 held high. Practice has no start, so it stays low.
-      const up = !this.hasStart ? 0 : clock < 0 ? ease((clock + START_HOLD) / BOARD_MOVE) : 1 - ease(clock / BOARD_MOVE);
+      const up = !this.hasStart ? 0 : clock < WALK_TO ? ease((clock + START_HOLD) / BOARD_MOVE) : 1 - ease((clock - WALK_TO) / BOARD_MOVE);
       // Low: in front of the official's legs, turned round so the white back faces out.
       panel.position.set(0, 0.72 + (2.45 - 0.72) * up, 0.42 + (0.12 - 0.42) * up);
       panel.rotation.set(0, Math.PI * (1 - up), clock >= -3 ? (Math.PI / 2) * up : 0);
       for (const arm of arms) arm.rotation.x = 2.7 * (1 - up);
+      // The walk from A to B, setting off and stopping gently, with the legs swinging in step.
+      const k = !this.hasStart ? 0 : Math.max(0, Math.min(1, (clock - WALK_FROM) / (WALK_TO - WALK_FROM)));
+      const w = k - Math.sin(2 * Math.PI * k) / (2 * Math.PI);
+      const x = a.x + (b.x - a.x) * w;
+      const z = a.y + (b.y - a.y) * w;
+      stand.position.set(x, this.terrainAt(x, z), z);
+      const walked = Math.hypot(b.x - a.x, b.y - a.y) * w;
+      const swing = k > 0 && k < 1 ? 0.45 * Math.sin((walked / 0.55) * Math.PI) : 0;
+      legs[0].rotation.x = swing;
+      legs[1].rotation.x = -swing;
     }
     if (this.gateDrop) this.gateDrop.rotation.x = -(Math.PI / 2) * Math.max(0, Math.min(1, clock / 0.3)) ** 2;
   }
@@ -1198,6 +1285,31 @@ export class RaceView {
   }
 
   private moveCamera(target: THREE.Vector3 | null, dt: number): void {
+    if (this.editCam) {
+      const e = this.editCam;
+      const az = THREE.MathUtils.degToRad(CAM_AZ + e.az);
+      const el = THREE.MathUtils.degToRad(CAM_EL);
+      this.dir.set(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
+      const halfW = this.viewUnits / 2 / e.zoom;
+      const halfH = (halfW * this.h) / this.w;
+      const c = this.camera;
+      if (c.right !== halfW || c.top !== halfH) {
+        Object.assign(c, { left: -halfW, right: halfW, top: halfH, bottom: -halfH });
+        c.updateProjectionMatrix();
+      }
+      this.cam = new THREE.Vector3(e.x, this.terrainAt(e.x, e.z), e.z);
+      this.camera.position.copy(this.cam).addScaledVector(this.dir, 120);
+      this.camera.lookAt(this.cam);
+      this.sun.position.copy(this.cam).add(new THREE.Vector3(-30, 60, -12));
+      this.sun.target.position.copy(this.cam);
+      const sc = this.sun.shadow.camera;
+      const reach = Math.max(this.viewUnits, halfW * 1.6);
+      if (sc.right !== reach) {
+        Object.assign(sc, { left: -reach, right: reach, top: reach, bottom: -reach });
+        sc.updateProjectionMatrix();
+      }
+      return;
+    }
     const want = target ?? this.cam ?? (() => {
       const p = this.surface.place(this.surface.start.from, 0);
       return new THREE.Vector3(p.x, 0, p.z);
@@ -1232,6 +1344,62 @@ export class RaceView {
     }
   }
 
+  /** The grid point under a point on the screen (Phaser's coordinates), on the ground or the track, or null off it. */
+  pick(px: number, py: number): { x: number; z: number } | null {
+    const ndc = new THREE.Vector2(((px - this.x) / this.w) * 2 - 1, 1 - ((py - this.y) / this.h) * 2);
+    if (Math.abs(ndc.x) > 1 || Math.abs(ndc.y) > 1) return null;
+    this.camera.updateMatrixWorld();
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(ndc, this.camera);
+    const hit = this.groundIndex().cast(ray.ray);
+    return hit ? { x: hit.x, z: hit.z } : null;
+  }
+
+  /** The height of whatever is underfoot at a grid point: the track where there is track, otherwise the ground. */
+  heightAt(x: number, z: number): number {
+    return this.groundIndex().top(x, z) ?? this.terrainAt(x, z);
+  }
+
+  private groundGrid: GroundIndex | null = null;
+
+  /** The ground's triangles sorted into grid cells, built on first use: the editor's clicks and markers look up only the few under a point. */
+  private groundIndex(): GroundIndex {
+    return (this.groundGrid ??= new GroundIndex(this.ground));
+  }
+
+  /** Points the camera at the editor's camera without drawing, so a pick right after a pan uses the new view. */
+  aim(): void {
+    this.moveCamera(null, 0);
+    this.camera.updateMatrixWorld();
+  }
+
+  /** The renderer, for the next view to reuse (the track editor's race view). */
+  get gl(): THREE.WebGLRenderer {
+    return this.renderer;
+  }
+
+  /** Grid units across the view at zoom 1. */
+  unitsAcross(): number {
+    return this.viewUnits;
+  }
+
+  /** Which way on the ground the screen's right and up point, as unit vectors (x and z). */
+  groundAxes(): { right: { x: number; z: number }; up: { x: number; z: number } } {
+    this.camera.updateMatrixWorld();
+    const e = this.camera.matrixWorld.elements;
+    const flat = (x: number, z: number) => {
+      const l = Math.hypot(x, z) || 1;
+      return { x: x / l, z: z / l };
+    };
+    return { right: flat(e[0], e[2]), up: flat(e[4], e[6]) };
+  }
+
+  /** Shows or hides the lap map in the corner. */
+  showMap(on: boolean): void {
+    this.mapDots.setVisible(on);
+    this.mapFrame?.setVisible(on);
+  }
+
   /** Where a 3D point is on the race screen, or null when it is outside the view. */
   private toScreen(v: THREE.Vector3): { x: number; y: number } | null {
     const p = v.clone().project(this.camera);
@@ -1263,7 +1431,8 @@ export class RaceView {
     }
   }
 
-  destroy(): void {
+  /** Lets the view go; `keepRenderer` leaves its renderer for the next view to reuse. */
+  destroy(keepRenderer = false): void {
     if (this.dead) return;
     this.dead = true;
     this.scene3.traverse((o) => {
@@ -1275,8 +1444,189 @@ export class RaceView {
         mat.dispose();
       }
     });
-    this.renderer.dispose();
-    this.renderer.forceContextLoss();
+    if (!keepRenderer) {
+      this.renderer.dispose();
+      this.renderer.forceContextLoss();
+    }
     if (this.scene.textures.exists(this.key)) this.scene.textures.remove(this.key);
+  }
+}
+
+/**
+ * The ground meshes' triangles bucketed by grid cell, for the editor's lookups: the same answers
+ * as a raycast at the meshes (faces culled the way their materials cull them), without testing
+ * every triangle in the scene.
+ */
+class GroundIndex {
+  private readonly tris: Float32Array; // 9 numbers a triangle: a, b, c in world space
+  private readonly cull: Uint8Array; // 0 both sides, 1 front only, 2 back only
+  private readonly cells: Int32Array[];
+  private readonly x0: number;
+  private readonly z0: number;
+  private readonly nx: number;
+  private readonly nz: number;
+  private readonly yMin: number;
+  private readonly yMax: number;
+  private static readonly CELL = 1;
+
+  constructor(meshes: THREE.Mesh[]) {
+    const tris: number[] = [];
+    const cull: number[] = [];
+    const v = new THREE.Vector3();
+    for (const m of meshes) {
+      m.updateMatrixWorld();
+      const pos = m.geometry.getAttribute('position');
+      const idx = m.geometry.getIndex();
+      const mat = m.material as THREE.Material;
+      const c = mat.side === THREE.DoubleSide ? 0 : mat.side === THREE.BackSide ? 2 : 1;
+      const n = idx ? idx.count : pos.count;
+      for (let i = 0; i + 2 < n; i += 3) {
+        for (let k = 0; k < 3; k++) {
+          v.fromBufferAttribute(pos, idx ? idx.getX(i + k) : i + k).applyMatrix4(m.matrixWorld);
+          tris.push(v.x, v.y, v.z);
+        }
+        cull.push(c);
+      }
+    }
+    this.tris = new Float32Array(tris);
+    this.cull = new Uint8Array(cull);
+    let x0 = Infinity,
+      x1 = -Infinity,
+      z0 = Infinity,
+      z1 = -Infinity,
+      y0 = Infinity,
+      y1 = -Infinity;
+    for (let i = 0; i < this.tris.length; i += 3) {
+      x0 = Math.min(x0, this.tris[i]);
+      x1 = Math.max(x1, this.tris[i]);
+      y0 = Math.min(y0, this.tris[i + 1]);
+      y1 = Math.max(y1, this.tris[i + 1]);
+      z0 = Math.min(z0, this.tris[i + 2]);
+      z1 = Math.max(z1, this.tris[i + 2]);
+    }
+    const C = GroundIndex.CELL;
+    this.x0 = Number.isFinite(x0) ? x0 : 0;
+    this.z0 = Number.isFinite(z0) ? z0 : 0;
+    this.nx = Number.isFinite(x0) ? Math.floor((x1 - x0) / C) + 1 : 1;
+    this.nz = Number.isFinite(z0) ? Math.floor((z1 - z0) / C) + 1 : 1;
+    this.yMin = Number.isFinite(y0) ? y0 : 0;
+    this.yMax = Number.isFinite(y1) ? y1 : 0;
+    const lists: number[][] = Array.from({ length: this.nx * this.nz }, () => []);
+    const t = this.tris;
+    for (let k = 0; k < this.cull.length; k++) {
+      const o = k * 9;
+      const ia = this.cx(Math.min(t[o], t[o + 3], t[o + 6]));
+      const ib = this.cx(Math.max(t[o], t[o + 3], t[o + 6]));
+      const ja = this.cz(Math.min(t[o + 2], t[o + 5], t[o + 8]));
+      const jb = this.cz(Math.max(t[o + 2], t[o + 5], t[o + 8]));
+      for (let j = ja; j <= jb; j++) for (let i = ia; i <= ib; i++) lists[j * this.nx + i].push(k);
+    }
+    this.cells = lists.map((l) => Int32Array.from(l));
+  }
+
+  private cx(x: number): number {
+    return Math.max(0, Math.min(this.nx - 1, Math.floor((x - this.x0) / GroundIndex.CELL)));
+  }
+
+  private cz(z: number): number {
+    return Math.max(0, Math.min(this.nz - 1, Math.floor((z - this.z0) / GroundIndex.CELL)));
+  }
+
+  /** The highest surface straight below a point, as a ray from 60 up looking down would find it (to 140 down), or null. */
+  top(x: number, z: number): number | null {
+    const i = Math.floor((x - this.x0) / GroundIndex.CELL);
+    const j = Math.floor((z - this.z0) / GroundIndex.CELL);
+    if (i < 0 || j < 0 || i >= this.nx || j >= this.nz) return null;
+    const t = this.tris;
+    let best: number | null = null;
+    for (const k of this.cells[j * this.nx + i]) {
+      const o = k * 9;
+      const ax = t[o],
+        az = t[o + 2],
+        bx = t[o + 3],
+        bz = t[o + 5],
+        cx = t[o + 6],
+        cz = t[o + 8];
+      // Normal's y (of (b - a) x (c - a)): which way the face points, up or down.
+      const ny = (bz - az) * (cx - ax) - (bx - ax) * (cz - az);
+      if (ny === 0) continue;
+      if (this.cull[k] === 1 && ny < 0) continue;
+      if (this.cull[k] === 2 && ny > 0) continue;
+      // Barycentric weights in the ground plane.
+      const w1 = ((x - ax) * (cz - az) - (z - az) * (cx - ax)) / -ny;
+      const w2 = ((z - az) * (bx - ax) - (x - ax) * (bz - az)) / -ny;
+      if (w1 < 0 || w2 < 0 || w1 + w2 > 1) continue;
+      const y = t[o + 1] + w1 * (t[o + 4] - t[o + 1]) + w2 * (t[o + 7] - t[o + 1]);
+      if (y > 60 || y < -140) continue;
+      if (best === null || y > best) best = y;
+    }
+    return best;
+  }
+
+  /** Where a ray first meets the ground, or null: only the cells under the ray's path are tested. */
+  cast(ray: THREE.Ray): THREE.Vector3 | null {
+    const o = ray.origin;
+    const d = ray.direction;
+    // The stretch of the ray between the ground's highest and lowest points.
+    let t0 = 0;
+    let t1 = 1e4;
+    if (Math.abs(d.y) > 1e-9) {
+      const ta = (this.yMax + 0.01 - o.y) / d.y;
+      const tb = (this.yMin - 0.01 - o.y) / d.y;
+      t0 = Math.max(0, Math.min(ta, tb));
+      t1 = Math.max(ta, tb);
+      if (t1 < 0) return null;
+    }
+    const a = new THREE.Vector3();
+    const b = new THREE.Vector3();
+    const c = new THREE.Vector3();
+    const hit = new THREE.Vector3();
+    let best: THREE.Vector3 | null = null;
+    let bestT = Infinity;
+    const seen = new Set<number>();
+    const t = this.tris;
+    const C = GroundIndex.CELL;
+    // Walk the cells the ray's ground track crosses, nearest first, and stop once a hit is nearer than the next cell.
+    const sx = o.x + d.x * t0;
+    const sz = o.z + d.z * t0;
+    let i = Math.floor((sx - this.x0) / C);
+    let j = Math.floor((sz - this.z0) / C);
+    const stepI = d.x > 0 ? 1 : -1;
+    const stepJ = d.z > 0 ? 1 : -1;
+    const dtX = d.x !== 0 ? Math.abs(C / d.x) : Infinity;
+    const dtZ = d.z !== 0 ? Math.abs(C / d.z) : Infinity;
+    let nextX = d.x !== 0 ? t0 + (this.x0 + (i + (d.x > 0 ? 1 : 0)) * C - sx) / d.x : Infinity;
+    let nextZ = d.z !== 0 ? t0 + (this.z0 + (j + (d.z > 0 ? 1 : 0)) * C - sz) / d.z : Infinity;
+    for (let guard = 0; guard < 100000; guard++) {
+      if (i >= 0 && j >= 0 && i < this.nx && j < this.nz) {
+        for (const k of this.cells[j * this.nx + i]) {
+          if (seen.has(k)) continue;
+          seen.add(k);
+          const q = k * 9;
+          a.set(t[q], t[q + 1], t[q + 2]);
+          b.set(t[q + 3], t[q + 4], t[q + 5]);
+          c.set(t[q + 6], t[q + 7], t[q + 8]);
+          const p = this.cull[k] === 2 ? ray.intersectTriangle(c, b, a, true, hit) : ray.intersectTriangle(a, b, c, this.cull[k] === 1, hit);
+          if (!p) continue;
+          const dist = p.distanceTo(o);
+          if (dist < bestT) {
+            bestT = dist;
+            best = p.clone();
+          }
+        }
+      }
+      const tNext = Math.min(nextX, nextZ);
+      if (tNext > t1 || bestT <= tNext) break;
+      if (nextX < nextZ) {
+        i += stepI;
+        nextX += dtX;
+      } else {
+        j += stepJ;
+        nextZ += dtZ;
+      }
+      // Off the grid and heading further away: nothing more to find.
+      if ((i < 0 && stepI < 0) || (i >= this.nx && stepI > 0) || (j < 0 && stepJ < 0) || (j >= this.nz && stepJ > 0)) break;
+    }
+    return best;
   }
 }

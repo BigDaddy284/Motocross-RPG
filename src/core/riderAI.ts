@@ -56,6 +56,24 @@ const ROOM = 5;
 export const START_HOLD = 5;
 /** Seconds the line-up takes, from the start procedure opening to the last rider stopping in their slot. */
 export const LINE_UP = 6;
+/** How fast finishers ride their cool-down after the flag, in metres a second. */
+const COOL_DOWN = 4;
+/** How far apart finishers ride their cool-down in single file, in grid units: three bike lengths (BIKE_LENGTH, trackSurface), room for the inside of a hairpin. */
+const COOL_GAP = 1.1 * 3;
+
+/** A finisher's cool-down: when and where they took the flag, how fast, and the edge they ride down. */
+interface Finish {
+  id: string;
+  t1: number;
+  d1: number;
+  v: number;
+  cruise: number;
+  from: number;
+  edge: number;
+}
+/** Gates in a start row, and the most riders the start takes (two rows). */
+export const ROW_SIZE = 8;
+export const MAX_GRID = 16;
 /** How far behind the front row the race view draws the second row, in grid units (RaceView: BIKE_LENGTH × 1.4). */
 const ROW_GAP = 1.1 * 1.4;
 
@@ -100,12 +118,13 @@ export class RaceDirector {
   readonly lined = new Set<string>();
   private readonly moves = new Map<string, LineUpMove>();
   private readonly lapUnits: number;
+  private finishCache: { key: string; plan: Map<string, Finish> } | null = null;
 
   constructor(
     readonly track: TrackDef,
     readonly profiles: Map<string, RiderProfile>,
     /** Each rider's gate on lap 1, best first. */
-    gates: Map<string, number>,
+    private readonly gates: Map<string, number>,
     /** Laps in the race, or null for practice. */
     readonly laps: number | null,
   ) {
@@ -114,27 +133,32 @@ export class RaceDirector {
     this.metres = lapMetres(track);
     this.lapUnits = g.total;
     this.start = startGeom(track, g);
-    // The gate row spreads across the track, gate 0 nearest the inside of the first corner.
+    // Each rider's gate is their slot: gates 1 to 8 (0 to 7 here) are the front row, from the inside
+    // of the first corner outwards, and gates 9 to 16 the second row, each straight behind the gate
+    // eight before it. A field of 8 or fewer is one row spread across the start.
     const order = [...gates.entries()].sort((a, b) => a[1] - b[1]).map(([id]) => id);
     const firstTurn = this.turns.find((t) => t !== 0) || 1;
-    // A big field lines up in two rows of up to 8, the second row straight behind the first.
-    const rows = order.length > 8 ? 2 : 1;
-    const perRow = Math.ceil(order.length / rows);
+    const n = order.length;
+    if (n > MAX_GRID) throw new Error(`${n} riders, but the start has ${MAX_GRID} gates`);
+    const used = new Set<number>();
+    for (const [id, gate] of gates) {
+      if (!Number.isInteger(gate) || gate < 0 || gate >= Math.max(n, 1) || used.has(gate)) throw new Error(`${id} has gate ${gate + 1}, which is not a free gate of the ${n}`);
+      used.add(gate);
+    }
+    const perRow = n > ROW_SIZE ? ROW_SIZE : n;
     const step = perRow > 1 ? 1.8 / (perRow - 1) : 0;
-    order.forEach((id, i) => {
-      const row = i % rows;
-      const col = Math.floor(i / rows);
-      this.gateRow.set(id, row);
-      this.gateLane.set(id, firstTurn * (order.length > 1 ? 0.9 - step * col : 0));
-    });
+    for (const [id, gate] of gates) {
+      this.gateRow.set(id, gate < ROW_SIZE ? 0 : 1);
+      this.gateLane.set(id, firstTurn * (perRow > 1 ? 0.9 - step * (gate % ROW_SIZE) : 0));
+    }
     for (const id of profiles.keys()) this.segs.set(id, []);
 
-    // The line-up, for a race. A few front-row riders (4 for a full field) are already in their
-    // slots; the rest wait scattered behind the start pad and ride up over about LINE_UP seconds,
-    // each in their own lane, setting off at different moments and different speeds, several at
-    // once. A second-row rider only sets off once the front-row rider in their own lane has
-    // stopped in their slot, so they never ride through it. Then the field holds still.
-    if (laps === null || order.length < 2) {
+    // The line-up, for a race. Riders reach their slots in gate order: the first few (4 for a full
+    // field) are already there, and the rest ride up from just behind the start pad over about
+    // LINE_UP seconds, several moving at once, each at their own pace from their own spot, in their
+    // own lane, so nobody touches. A second-row rider only sets off once the front-row rider in their
+    // lane has stopped in their slot, so they never ride through it. Then the field holds still.
+    if (laps === null || n < 2) {
       this.prep = 0;
       this.prestart = 0;
       return;
@@ -142,64 +166,42 @@ export class RaceDirector {
     let seed = 2166136261;
     for (const ch of `${track.id}|${order.join(',')}`) seed = Math.imul(seed ^ ch.charCodeAt(0), 16777619);
     const rnd = seededRng(seed >>> 0);
-    const front = order.filter((id) => this.startRow(id) === 0);
-    const k = Math.min(front.length, clamp(Math.round(order.length * 0.25), 4, 8));
-    const pool = [...front];
-    while (this.lined.size < k) this.lined.add(pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
-    // The front-row rider in each lane, for the second row to wait on.
-    const ahead = new Map<string, string>();
-    for (const id of order) {
-      if (this.startRow(id) !== 1) continue;
-      const lane = this.gateLane.get(id);
-      const f = front.find((x) => this.gateLane.get(x) === lane);
-      if (f) ahead.set(id, f);
-    }
-    const plan = new Map<string, LineUpMove>();
+    const k = Math.min(n, clamp(Math.round(n * 0.25), 4, ROW_SIZE));
+    for (const id of order.slice(0, k)) this.lined.add(id);
+    const gateOf = (id: string) => gates.get(id)!;
+    const byGate = new Map(order.map((id) => [gateOf(id), id]));
     // Riders drift onto their lane line from the same side, so neighbours never close up.
     const drift = rnd() < 0.5 ? -1 : 1;
-    const side = () => drift * (0.01 + rnd() * 0.03);
-    // Just clear of the pad (START_PAD behind the gate, plus room for the bike).
-    const wait = (row: number, spread: number) => START_PAD + 0.6 - row * ROW_GAP + rnd() * spread;
-    const behind = new Map([...ahead].map(([id, f]) => [f, id]));
-    for (const id of front) {
-      if (this.lined.has(id)) continue;
-      const b = behind.get(id);
-      if (!b) {
-        // Nobody waits on this rider: set off any time early on.
-        const back = wait(0, 1.2);
-        const t0 = rnd() * 2.4;
-        plan.set(id, { t0, t1: t0 + back / (1.4 + rnd() * 0.5), back, side: side() });
-        continue;
+    // Each rider's own draws, made once, so the plan can be tightened without changing who does what.
+    const movers = order.slice(k).map((id) => ({ id, r: [rnd(), rnd(), rnd(), rnd(), rnd(), rnd(), rnd()] }));
+    const build = (tight: number) => {
+      const plan = new Map<string, LineUpMove>();
+      let prev = 0;
+      for (const { id, r } of movers) {
+        const row = this.startRow(id);
+        // Just clear of the pad (START_PAD behind the gate, plus room for the bike), the second row
+        // about as far back as the front-row rider of their lane started.
+        const ahead = row ? byGate.get(gateOf(id) - ROW_SIZE) : undefined;
+        const fm = ahead ? plan.get(ahead) : undefined;
+        const back = Math.max(START_PAD + 0.6 - row * ROW_GAP + r[0] * 1.2 * tight, fm ? fm.back - ROW_GAP + 1.35 + r[1] * 0.4 : -Infinity);
+        // Each at their own easy pace: a top speed of 1.9 to 2.3 grid units a second.
+        const ride = (1.5 * back) / (1.9 + r[2] * 0.4);
+        // Arrive after the rider of the gate before, and set off only once the lane ahead is filled.
+        const laneFree = ahead ? (fm ? fm.t1 : 0) + 0.15 + r[3] * 0.3 * tight : 0;
+        const t1 = Math.max(prev + 0.08 + r[4] * 0.3 * tight, ride + r[5] * 0.4 * tight, laneFree + ride);
+        plan.set(id, { t0: t1 - ride, t1, back, side: drift * (0.01 + r[6] * 0.03) });
+        prev = t1;
       }
-      // A lane where both riders ride up: the front one first, the second-row one once they have
-      // stopped, waiting a bike length and a bit further back. The pair shares the time, finishing
-      // anywhere from a little early to right at the end, so neither has to hurry.
-      const fb = wait(0, 0.6);
-      const sb = fb - ROW_GAP + 1.35 + rnd() * 0.4;
-      const t0 = rnd() * 0.6;
-      const gap = 0.15 + rnd() * 0.35;
-      const end = LINE_UP - rnd() * 0.8;
-      const ride = Math.max(1, end - t0 - gap);
-      const split = (fb / (fb + sb)) * (0.9 + rnd() * 0.2);
-      const t1 = t0 + ride * split;
-      plan.set(id, { t0, t1, back: fb, side: side() });
-      plan.set(b, { t0: t1 + gap, t1: end, back: sb, side: side() });
-    }
-    // Second-row riders whose front-row rider was already in place: off whenever they like, one of
-    // them straight away, so the second row doesn't wait for the front row to fill.
-    const free = order.filter((id) => this.startRow(id) === 1 && !plan.has(id));
-    const first = free[Math.floor(rnd() * free.length)];
-    for (const id of free) {
-      const back = wait(1, 1.2);
-      const t0 = rnd() * (id === first ? 0.4 : 2.6);
-      plan.set(id, { t0, t1: t0 + back / (1.3 + rnd() * 0.5), back, side: side() });
-    }
+      return { plan, prev };
+    };
+    // Tighten the gaps until it fits in LINE_UP without anyone hurrying (at most a fifth quicker).
+    let { plan, prev } = build(1);
+    for (let tight = 0.8; prev > LINE_UP * 1.2 && tight >= 0; tight -= 0.2) ({ plan, prev } = build(tight));
     // Stretch or squeeze the whole plan so the last rider stops at LINE_UP: every rider keeps their
     // order and the second row still waits on the front.
-    const last = Math.max(0, ...[...plan.values()].map((m) => m.t1));
     this.prep = plan.size ? LINE_UP : 0;
     this.prestart = this.prep + START_HOLD;
-    const scale = last > 0 ? LINE_UP / last : 1;
+    const scale = prev > 0 ? LINE_UP / prev : 1;
     for (const [id, m] of plan) this.moves.set(id, { ...m, t0: -this.prestart + m.t0 * scale, t1: Math.min(-START_HOLD, -this.prestart + m.t1 * scale) });
   }
 
@@ -227,6 +229,11 @@ export class RaceDirector {
   /** Which start row a rider lines up in: 0 at the gate, 1 just behind it. */
   startRow(id: string): number {
     return this.gateRow.get(id) ?? 0;
+  }
+
+  /** A rider's gate, from 0 (gate 1). */
+  gateOf(id: string): number {
+    return this.gates.get(id) ?? 0;
   }
 
   /** Takes in a lap from the simulation. Call it in lap order, as the race screen does. */
@@ -271,6 +278,7 @@ export class RaceDirector {
   poses(t: number): RiderPose[] {
     const poses: RiderPose[] = [];
     for (const [id, list] of this.segs) poses.push(this.pose(id, list, t));
+    this.coolDown(poses);
     this.keepApart(poses);
     return poses;
   }
@@ -346,13 +354,75 @@ export class RaceDirector {
       return { id, dist: last.d1, lane: side * (1 + 0.45 * smooth((t - Math.max(outAt, last.t1)) / 2)), air: 0, elev: 0, state: 'retired', speed: 0 };
     }
     if (this.laps !== null && last.d1 >= this.laps - 1e-9) {
-      // A cool-down roll after the flag, easing off the racing line.
-      const v = ((last.d1 - last.d0) * this.metres) / Math.max(1e-6, last.t1 - last.t0);
-      const dt = t - last.t1;
-      const metres = v * 4 * (1 - Math.exp(-dt / 4));
-      return { id, dist: last.d1 + metres / this.metres, lane: clamp(side * 0.95 * smooth(dt / 3), -1, 1), air: 0, elev: 0, state: 'finished', speed: v * Math.exp(-dt / 4) };
+      // A cool-down after the flag: ease off to a steady slow ride down one edge of the track and
+      // keep rolling round, so finishers never park on the track where the riders behind are still
+      // racing to the line (they all used to stop in a heap 40 m past it).
+      const f = this.finishes().get(id)!;
+      const dt = t - f.t1;
+      return { id, dist: this.coolDist(f, t), lane: f.from + (f.edge * 0.7 - f.from) * smooth(dt / 3), air: 0, elev: 0, state: 'finished', speed: f.cruise + (f.v - f.cruise) * Math.exp(-dt / 2) };
     }
     return { id, dist: last.d1, lane: this.target(id, p, last), air: 0, elev: 0, state: 'waiting', speed: 0 };
+  }
+
+  /**
+   * How each finisher rides their cool-down: from the line they crossed on to one edge, the edge
+   * they were nearer, unless a rider who finished just before is still close ahead on it and the
+   * other edge is clearer. Worked out in finishing order, again whenever the laps change.
+   */
+  private finishes(): Map<string, Finish> {
+    const key = [...this.segs.values()].map((l) => l.length).join(',');
+    if (this.finishCache?.key === key) return this.finishCache.plan;
+    const plan = new Map<string, Finish>();
+    const all: Finish[] = [];
+    if (this.laps !== null) {
+      for (const [id, list] of this.segs) {
+        const last = list.at(-1);
+        if (!last || last.d1 < this.laps - 1e-9) continue;
+        const p = this.profiles.get(id)!;
+        const v = ((last.d1 - last.d0) * this.metres) / Math.max(1e-6, last.t1 - last.t0);
+        const from = this.target(id, p, last) + p.wobble * 0.08 * Math.sin(last.t1 * 1.3 + p.seed * 40);
+        all.push({ id, t1: last.t1, d1: last.d1, v, cruise: Math.min(v, COOL_DOWN), from, edge: from >= 0 ? 1 : -1 });
+      }
+    }
+    all.sort((a, b) => a.t1 - b.t1);
+    const lastOn = new Map<number, Finish>();
+    for (const f of all) {
+      // How far past the line the last finisher down each edge is when this one crosses.
+      const room = (edge: number) => {
+        const lead = lastOn.get(edge);
+        return lead ? this.coolDist(lead, f.t1) - f.d1 : Infinity;
+      };
+      if (room(f.edge) < COOL_GAP * 3 / this.lapUnits && room(-f.edge) > room(f.edge)) f.edge = -f.edge;
+      lastOn.set(f.edge, f);
+      plan.set(f.id, f);
+    }
+    this.finishCache = { key, plan };
+    return plan;
+  }
+
+  /** Where a finisher is at time t on their cool-down, left to themselves. */
+  private coolDist(f: Finish, t: number): number {
+    const dt = Math.max(0, t - f.t1);
+    return f.d1 + (f.cruise * dt + (f.v - f.cruise) * 2 * (1 - Math.exp(-dt / 2))) / this.metres;
+  }
+
+  /**
+   * Riders cooling down ride in single file down each edge, COOL_GAP apart: one who took the flag
+   * just behind another on the same edge eases off behind them instead of riding through them.
+   * Each is held at the lesser of where they would be and where the rider ahead allows, but never
+   * back over the line, so nobody ever rolls backwards.
+   */
+  private coolDown(poses: RiderPose[]): void {
+    const plan = this.finishes();
+    const gap = COOL_GAP / this.lapUnits;
+    const done = poses.filter((q) => q.state === 'finished' && plan.has(q.id)).sort((a, b) => plan.get(a.id)!.t1 - plan.get(b.id)!.t1);
+    const ahead = new Map<number, RiderPose>();
+    for (const q of done) {
+      const f = plan.get(q.id)!;
+      const lead = ahead.get(f.edge);
+      if (lead) q.dist = Math.min(q.dist, Math.max(f.d1, lead.dist - gap));
+      ahead.set(f.edge, q);
+    }
   }
 
   /** The line a rider aims for through a section: their own taste, the section's line, and any pass. */
@@ -441,7 +511,7 @@ export class RaceDirector {
 
   /** Riders side by side ease apart so they don't ride through each other. */
   private keepApart(poses: RiderPose[]): void {
-    const racing = poses.filter((q) => q.state !== 'grid' && q.state !== 'retired' && q.state !== 'finished').sort((a, b) => b.dist - a.dist);
+    const racing = poses.filter((q) => q.state !== 'grid' && q.state !== 'retired').sort((a, b) => b.dist - a.dist);
     for (let i = 0; i < racing.length; i++) {
       for (let j = i + 1; j < racing.length; j++) {
         const a = racing[i];
@@ -452,9 +522,11 @@ export class RaceDirector {
         if (Math.abs(dl) >= 0.5) continue;
         const push = (0.5 - Math.abs(dl)) * 0.5 * (1 - gap / ROOM);
         const dir = dl === 0 ? (frac(this.profiles.get(b.id)!.seed * 13) < 0.5 ? -1 : 1) : Math.sign(dl);
-        // The rider behind gives most of the room.
-        b.lane = clamp(b.lane + dir * push * 0.7, -1, 1);
-        a.lane = clamp(a.lane - dir * push * 0.3, -1, 1);
+        // The rider behind gives most of the room, but a rider cooling down after the flag gives
+        // way to anyone still racing.
+        const give = a.state === 'finished' && b.state !== 'finished' ? 0.2 : 0.7;
+        b.lane = clamp(b.lane + dir * push * give, -1, 1);
+        a.lane = clamp(a.lane - dir * push * (1 - give), -1, 1);
       }
     }
   }
