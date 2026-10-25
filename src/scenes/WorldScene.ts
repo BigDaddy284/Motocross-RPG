@@ -8,7 +8,7 @@ import type { SaveData } from '../core/saves';
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
 import { applyMapState, clearedPatches, hiddenSprites } from '../core/mapState';
 import { directions, guidesOn, routeArrival, waysOut } from '../core/guides';
-import { ROUTE, stepTriggerAt, type Arrival, type StepResult } from '../core/travel';
+import { ROUTE, spawnTile, stepTriggerAt, type Arrival, type StepResult } from '../core/travel';
 import { DriveMap, FACING_OF, ensureVan, exitTile, footprint, inwardHeading, nearestFree, placeNear, planDrive, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { entryFee, practiceFee, venueProblem, type VenueDef } from '../core/raceDay';
 import { noteActivity, shopForAction, type ShopDef } from '../core/shops';
@@ -879,8 +879,9 @@ export class WorldScene extends Phaser.Scene {
   private vanThrough(r: NonNullable<StepResult>): boolean {
     if (r.kind === 'blocked') this.hud.toast(r.message);
     else if (r.kind === 'route') {
-      const to = this.routeTo(r.via);
-      if (to) return this.driveTo(to);
+      let went = false;
+      this.routeTo(r.via, (to) => { went = this.driveTo(to); });
+      return went;
     } else return this.driveTo(r.to);
     return false;
   }
@@ -914,21 +915,31 @@ export class WorldScene extends Phaser.Scene {
 
   // ---- routes and route marshals ----
 
-  /** Where a route exit takes the rider: the place picked with the marshal, or its only place. Says why not, otherwise. */
-  private routeTo(via: MapObject): Arrival | null {
+  /**
+   * Where a route exit takes the rider, then `go` there: the place picked with the marshal, or its
+   * only place, straight away; otherwise a quick "Where to?" at the road itself, so travel never
+   * waits on a word with the marshal. Returns true when it went straight away.
+   */
+  private routeTo(via: MapObject, go: (to: Arrival) => void): boolean {
     const pick = services.routePick?.map === this.map.id && services.routePick.exit === via.name ? services.routePick.to : null;
     const to = routeArrival(this.map, via, services.content.world, services.maps, pick);
     if (typeof to === 'string') {
       this.hud.toast(to);
-      return null;
-    }
-    // Not asked: on to the road's first place, and where else it goes, for next time.
-    if (!pick && to.others.length) {
-      const guide = guidesOn(services.content.npcs, this.map)[0];
-      this.hud.toast(`Heading for ${to.place.name}. This road also goes to ${to.others.map((p) => p.name).join(' and ')}${guide ? `: ask the ${guide.name.toLowerCase()} by the road to go there` : ''}.`);
+      return false;
     }
     services.routePick = null;
-    return { map: to.map, tile: to.tile };
+    if (pick || !to.others.length) {
+      go({ map: to.map, tile: to.tile });
+      return true;
+    }
+    const route = services.content.world.routes.find((r) => r.map === this.map.id && r.exit === via.name);
+    const options = [to.place, ...to.others].map((p) => ({
+      label: p.name,
+      note: p.note,
+      onPick: () => go({ map: p.map, tile: spawnTile(services.maps.get(p.map)!, p.spawn)! }),
+    }));
+    this.hud.choose('Where to?', `${route ? `${route.road[0].toUpperCase()}${route.road.slice(1)}` : 'This road'} goes to ${options.length} places.`, options, () => {});
+    return false;
   }
 
   /** A route marshal: where each way out goes, then which route to take when there's a choice. */
@@ -1020,14 +1031,11 @@ export class WorldScene extends Phaser.Scene {
       return false;
     }
     if (r.kind === 'route') {
-      const to = this.routeTo(via);
-      if (!to) {
-        this.path = [];
-        this.onArrive = null;
-        return false;
-      }
-      this.leaveTo({ map: to.map, x: to.tile.x, y: to.tile.y, facing: 'up' });
-      return true;
+      const go = (to: Arrival) => this.leaveTo({ map: to.map, x: to.tile.x, y: to.tile.y, facing: 'up' });
+      if (this.routeTo(via, go)) return true;
+      this.path = [];
+      this.onArrive = null;
+      return false;
     }
     const entering = this.map.kind === 'area' && via.type === 'door';
     this.leaveTo({ map: r.to.map, x: r.to.tile.x, y: r.to.tile.y, facing: entering ? 'up' : 'down' }, entering);
