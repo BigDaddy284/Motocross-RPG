@@ -11,7 +11,7 @@ import { COLORS, textStyle } from '../ui/theme';
 import { START_MAP } from './careerFlow';
 import type { RaceSceneData } from './RaceScene';
 import { view } from '../ui/view';
-import { vanTexture } from '../world/VanView';
+import { vanTexture, vanTurnTexture } from '../world/VanView';
 
 // Loads the manifest, every baked map's data and the content files, checks them all, then loads
 // the character and van sheets. Map images load later, the first time each map is visited.
@@ -37,7 +37,10 @@ export class BootScene extends Phaser.Scene {
       this.load.spritesheet(`chr:${id}:walk`, `assets/${sheet.walk}`, { frameWidth: fw, frameHeight: fh });
       this.load.spritesheet(`chr:${id}:act`, `assets/${sheet.act}`, { frameWidth: fw, frameHeight: fh });
     }
-    for (const [id, sheet] of Object.entries(manifest.vehicles ?? {})) this.load.image(vanTexture(id), `assets/${sheet.image}`);
+    for (const [id, sheet] of Object.entries(manifest.vehicles ?? {})) {
+      this.load.image(vanTexture(id), `assets/${sheet.image}`);
+      if (sheet.turn) this.load.image(vanTurnTexture(id), `assets/${sheet.turn.image}`);
+    }
     this.load.once('complete', () => this.finish(manifest));
     this.load.start();
   }

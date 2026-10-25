@@ -259,6 +259,9 @@ function copyVehicles() {
     const sheet = readJson(path.join(dir, `map-${d.id}.json`));
     if (sheet.footprintTiles[0] !== d.length) throw new Error(`map-${d.id}.json: footprint ${sheet.footprintTiles[0]} tiles, but vehicles.json says ${d.length}`);
     out[d.id] = { image: useImage(path.join(dir, `map-${d.id}.png`)), views: sheet.views };
+    // The turning frames (vehgen/vanrot.py), when drawn.
+    const turnJson = path.join(dir, `map-${d.id}-turn.json`);
+    if (fs.existsSync(turnJson)) out[d.id].turn = { image: useImage(path.join(dir, `map-${d.id}-turn.png`)), frames: readJson(turnJson).frames };
   }
   return out;
 }
