@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import * as THREE from 'three';
 import type { TrackDef } from '../core/race';
-import { lapGeom, pointAt, sectionBounds } from '../core/trackGeom';
+import { sectionBounds } from '../core/trackGeom';
 import type { TrackPartsData } from '../core/trackParts';
 import { services } from '../services';
 import { COLORS, textStyle } from '../ui/theme';
@@ -28,11 +28,18 @@ export interface EditViewState {
   issues: { item?: number; x?: number; y?: number; level: 'error' | 'warning' }[];
   /** The brush under the pointer: a circle of radius r grid units, or a square of n ground cells. */
   brush: { shape: 'circle'; r: number } | { shape: 'cells'; cell: number; n: number } | null;
+  /** Each section's colour on the editor's map (by its kind, as '#rrggbb'), for the section lines in Layout. */
+  sectionColors?: string[];
 }
 
 const RED = 0xff3b30;
 const YELLOW = 0xffd60a;
 const SELECT = 0xff8a1e;
+/** Section boundaries: the game's cream edged in its ink, readable on dirt, grass and any section colour. */
+const BOUND = COLORS.cream;
+const BOUND_EDGE = COLORS.ink;
+/** A section colour sent as '#rrggbb'; the map's "other" orange when missing. */
+const hexColor = (c: string | undefined) => (c && /^#[0-9a-f]{6}$/i.test(c) ? parseInt(c.slice(1), 16) : 0xf0a020);
 /** Rebuilding the 3D scene takes a moment, so a stream of changes (a brush stroke) rebuilds at most this often, in ms. */
 const REBUILD_EVERY = 300;
 
@@ -242,6 +249,7 @@ export class TrackEditScene extends Phaser.Scene {
     this.cam.z = Math.max(-10, Math.min(70, this.cam.z));
     v.editCam = this.cam;
     this.markBrush();
+    if (this.state?.mode === 'layout' && Math.abs(Math.log(this.cam.zoom / this.markedZoom)) > 0.18) this.mark();
     const shot = `${this.cam.x},${this.cam.z},${this.cam.zoom},${this.cam.az},${v.version}`;
     if (!this.dirty && shot === this.drawn) return;
     this.dirty = false;
@@ -252,6 +260,8 @@ export class TrackEditScene extends Phaser.Scene {
   // ---- markers ----
 
   private brushGroup: THREE.Group | null = null;
+  /** The zoom the section lines were drawn for: zooming well past it draws them again at a width that reads. */
+  private markedZoom = 1;
 
   /** The selection and the checks' markers, rebuilt whenever the editor sends its state. */
   private mark(): void {
@@ -261,7 +271,7 @@ export class TrackEditScene extends Phaser.Scene {
     this.dirty = true;
     for (const c of [...v.overlay.children]) if (c !== this.brushGroup) dispose(v.overlay, c);
     const t = st.track;
-    const line = (pts: { x: number; z: number }[], color: number, closed = false, dashed = false) => v.overlay.add(ribbon(v, closed ? [...pts, pts[0]] : pts, color, dashed));
+    const line = (pts: { x: number; z: number }[], color: number, closed = false, dashed = false, width = 0.09, order = 10) => v.overlay.add(ribbon(v, closed ? [...pts, pts[0]] : pts, color, dashed, false, width, order));
     const rect = (x: number, z: number, w: number, d: number, a: number) => {
       const pts = [];
       for (const [u, q] of [
@@ -301,19 +311,32 @@ export class TrackEditScene extends Phaser.Scene {
       if (f) line(rect(f.x, f.z, f.w + 0.45, f.d + 0.45, f.a), SELECT, true);
     }
     if (st.mode === 'layout') {
-      // The lap's points (white, the finish line's bigger), the start straight's (blue), and the selected section.
+      // The sections, from the track's own section lengths: a stripe down the middle of each in its
+      // kind's colour (as on the map), following the bends, and a line across the track where one
+      // section ends and the next begins. The lap's start (the finish line) already has its own line.
+      const b = sectionBounds(t);
+      const n = t.sections.length;
+      // A few pixels wide at any zoom: wider in grid units zoomed out, narrower zoomed in.
+      this.markedZoom = this.cam.zoom;
+      const k = Math.max(0.5, Math.min(2, 0.8 / this.cam.zoom));
+      const along = (f0: number, f1: number) => {
+        const k = Math.max(2, Math.ceil(((f1 - f0) * v.surface.g.total) / 0.25));
+        return Array.from({ length: k + 1 }, (_, j) => v.surface.spot(f0 + ((f1 - f0) * j) / k, 0));
+      };
+      for (let i = 0; i < n; i++) {
+        if (b[i + 1] <= b[i]) continue;
+        const sel = i === st.sel.sec;
+        line(along(b[i], b[i + 1]), sel ? SELECT : hexColor(st.sectionColors?.[i]), false, false, (sel ? 0.2 : 0.11) * k, 9);
+      }
+      for (let i = 1; i < n; i++) {
+        if (b[i] <= b[i - 1] || b[i] >= 1) continue;
+        const across = Array.from({ length: 9 }, (_, j) => v.surface.spot(b[i], -1.05 + (2.1 * j) / 8));
+        line(across, BOUND_EDGE, false, false, 0.14 * k, 9.5);
+        line(across, BOUND, false, false, 0.07 * k, 9.6);
+      }
+      // The lap's points (white, the finish line's bigger) and the start straight's (blue).
       t.path.forEach(([x, y], i) => line(ring(x, y, i === st.sel.pt ? 0.6 : i === 0 ? 0.5 : 0.35), i === st.sel.pt ? SELECT : 0xffffff, true));
       (t.start?.path ?? []).forEach(([x, y], i) => line(rect(x, y, 0.6, 0.6, 0), i === st.sel.start ? SELECT : 0x4aa0ff, true));
-      if (st.sel.sec >= 0 && st.sel.sec < t.sections.length) {
-        const g = lapGeom(t.path);
-        const b = sectionBounds(t);
-        const pts = [];
-        for (let k = 0; k <= 40; k++) {
-          const p = pointAt(g, b[st.sel.sec] + ((b[st.sel.sec + 1] - b[st.sel.sec]) * k) / 40);
-          pts.push({ x: p.x, z: p.y });
-        }
-        line(pts, SELECT);
-      }
     }
   }
 
@@ -357,9 +380,8 @@ export class TrackEditScene extends Phaser.Scene {
 }
 
 /** A flat band (WebGL draws lines one pixel wide) along points on the ground, drawn over everything, dashed if asked; `quick` follows the ground's height grid instead of the 3D surface. */
-function ribbon(v: RaceView, pts: { x: number; z: number }[], color: number, dashed: boolean, quick = false): THREE.Mesh {
+function ribbon(v: RaceView, pts: { x: number; z: number }[], color: number, dashed: boolean, quick = false, w = 0.09, order = 10): THREE.Mesh {
   const y = (x: number, z: number) => (quick ? v.terrainAt(x, z) + 0.1 : v.heightAt(x, z) + 0.06);
-  const w = 0.09;
   const pos: number[] = [];
   let run = 0;
   for (let i = 1; i < pts.length; i++) {
@@ -377,7 +399,7 @@ function ribbon(v: RaceView, pts: { x: number; z: number }[], color: number, das
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, depthTest: false, side: THREE.DoubleSide }));
-  m.renderOrder = 10;
+  m.renderOrder = order;
   return m;
 }
 
