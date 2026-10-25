@@ -98,6 +98,9 @@ label.chk { display: flex; gap: 6px; align-items: center; color: var(--dim); }
 .sec .sw { width: 8px; height: 22px; border-radius: 2px; }
 .sec .n { color: var(--dim); font-size: 11px; text-align: right; }
 .sec.off { border-color: #c03030; }
+.sec.gap { border: 1px dashed #4aa0ff; }
+.sec.gap .sw { background: repeating-linear-gradient(0deg, #4aa0ff 0 3px, transparent 3px 6px); }
+.sec.gap .gapnote { grid-column: 3 / -1; color: #9cc8ff; font-size: 12px; }
 .sec.off .n { color: #ff7070; font-weight: 700; }
 .sec select, .sec input { width: 100%; }
 .sec select { padding: 3px 2px; }
@@ -259,7 +262,9 @@ body.final .final-hide { display: none !important; }
       </div>
       <div id="buildOpen">
         <h3 class="sub">Lap pieces</h3>
+        <div class="hint" id="endsHint"></div>
         <div class="pal" id="piecePal"></div>
+        <div class="row" style="margin-top:6px"><button id="btnConnect" title="Lay the bends and straights that join an open end (green ring) to where it closes into (blue ring): the far side of a gap, or the finish line to close the lap. Shown first; click or Enter places it.">Close the lap</button></div>
       </div>
         <div id="pieceCtl">
           <div class="row" style="margin-top:6px">
@@ -398,6 +403,8 @@ const FALLBACK_PARTS = {
 const $ = (s) => document.querySelector(s);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const round1 = (v) => Math.round(v * 10) / 10;
+/** Pieces' points are kept to 0.01, so a bend's heading where it ends is known to a fraction of a degree. */
+const round2 = (v) => Math.round(v * 100) / 100;
 const kindOf = (type) => KINDS.find((k) => k.types.includes(type));
 const colorOf = (type) => kindOf(type)?.color ?? OTHER_COLOR;
 const lapLength = (t) => t.sections.reduce((a, s) => a + s.length, 0);
@@ -1256,7 +1263,9 @@ function draw() {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.beginPath();
-    g.pts.forEach((p, i) => { const s = toScreen(p.x, p.y); if (i) ctx.lineTo(s.x, s.y); else ctx.moveTo(s.x, s.y); });
+    // A gap left between pieces is no track: the line lifts across it.
+    const gapAfter = new Set(t.sections.some(isGap) ? pieceSpans(t).filter((_, k) => isGap(t.sections[k])).map(([i0]) => i0) : []);
+    g.pts.forEach((p, i) => { const s = toScreen(p.x, p.y); if (i && !gapAfter.has(i - 1)) ctx.lineTo(s.x, s.y); else ctx.moveTo(s.x, s.y); });
     ctx.stroke();
   };
   const st = startGeom(t, g);
@@ -1301,6 +1310,7 @@ function draw() {
     const shapes = sectionShapes(t);
     t.sections.forEach((s, i) => {
       const sel = i === app.selSec;
+      if (isGap(s)) return;
       if (shapeMismatch(t, i, shapes[i])) strokeLap(g, bounds[i], bounds[i + 1], '#ff3030', width * 0.95, 'butt');
       strokeLap(g, bounds[i], bounds[i + 1], colorOf(s.type) + (sel ? 'ff' : 'b0'), sel ? width * 0.6 : Math.max(3, width * 0.22));
     });
@@ -1513,7 +1523,7 @@ function refresh() {
     $('#btnFitSecs').disabled = false;
     if (app.selPt === 0) $('#btnStart').disabled = true;
     // An unfinished lap (still being built from pieces) has no lap to fit, ride, reverse or start on yet.
-    if (t.open) for (const id of ['#btnFitSecs', '#btnPlay', '#btnReverse', '#btnStart', '#btnRound']) $(id).disabled = true;
+    if (building(t)) for (const id of ['#btnFitSecs', '#btnPlay', '#btnReverse', '#btnStart', '#btnRound']) $(id).disabled = true;
   }
   $('#btnPlay').textContent = app.play ? '■ Stop' : '▶ Preview';
   $('#btnPlay').classList.toggle('on', !!app.play);
@@ -1620,7 +1630,7 @@ function setKeyNear(o, key, value, anchor, before = false) {
 
 function sectionTypes() {
   const types = Object.keys(app.sectionDefs);
-  for (const s of track()?.sections ?? []) if (!types.includes(s.type)) types.push(s.type);
+  for (const s of track()?.sections ?? []) if (!types.includes(s.type) && !isGap(s)) types.push(s.type);
   return types;
 }
 
@@ -1634,6 +1644,17 @@ function renderSections() {
   const shapes = sectionShapes(t);
   t.sections.forEach((s, i) => {
     const row = document.createElement('div');
+    if (isGap(s)) {
+      // A gap left where a piece was taken out: an open connection, filled from its green ring.
+      row.className = `sec gap${i === app.selSec ? ' active' : ''}`;
+      row.innerHTML = '<div class="sw"></div><span class="n"></span><span class="gapnote"></span>';
+      row.querySelector('.n').textContent = String(i + 1);
+      row.querySelector('.gapnote').textContent = `Gap, ${s.length} m across: place pieces from its green ring, or Close the gap`;
+      row.title = 'An open connection where a piece was deleted. The track either side stays where it is.';
+      row.addEventListener('mousedown', () => { if (app.selSec !== i) { app.selSec = i; refreshLight(); } });
+      box.appendChild(row);
+      return;
+    }
     const off = shapeMismatch(t, i, shapes[i]);
     row.className = `sec${i === app.selSec ? ' active' : ''}${off ? ' off' : ''}`;
     row.title = `Drawn as ${an(shapes[i].shape)} ${shapes[i].shape} (turns ${Math.round(shapes[i].swept)}°)${off ? `: ${app.sectionDefs[s.type].name.toLowerCase()} needs ${shapesFor(s.type).join(' or ')}` : ''}`;
@@ -1665,10 +1686,10 @@ function renderSections() {
     pass.addEventListener('change', () => editSection(i, (x) => { const v = Number(pass.value); if (v >= 0 && v <= 1) x.passing = Math.round(v * 100) / 100; }));
     const btns = document.createElement('div');
     btns.className = 'btns';
-    const mk = (txt, title, fn, dis) => { const b = document.createElement('button'); b.textContent = txt; b.title = title; b.disabled = !!dis; b.addEventListener('click', (e) => { e.stopPropagation(); fn(); }); btns.appendChild(b); };
+    const mk = (txt, title, fn, dis) => { const b = document.createElement('button'); b.textContent = txt; b.title = title; b.disabled = !!dis; b.addEventListener('click', (e) => { e.stopPropagation(); fn(e); }); btns.appendChild(b); };
     mk('↑', 'Move up', () => moveSection(i, -1), i === 0);
     mk('↓', 'Move down', () => moveSection(i, 1), i === t.sections.length - 1);
-    mk('✕', 'Delete', () => deleteSection(i), t.sections.length <= 1);
+    mk('✕', 'Delete this piece and its stretch of track (Shift: remove only the section entry, its neighbours share its stretch)', (e) => deleteSection(i, e?.shiftKey), t.sections.length < 1 || isGap(s));
     row.append(sw, n, sel, len, pass, btns);
     row.addEventListener('mousedown', () => { if (app.selSec !== i) { app.selSec = i; refreshLight(); } });
     box.appendChild(row);
@@ -1727,11 +1748,80 @@ function moveSection(i, d) {
     app.selSec = i + d;
   });
 }
-function deleteSection(i) {
+/**
+ * Deletes section i and its piece of the track: its stretch of the drawing goes with it, so nothing
+ * of it is left on screen. Taken from the end of an open lap, or from its start, the lap is just
+ * shorter (from the start, the finish line moves on to the next piece). Taken from the middle,
+ * or from a closed lap, it leaves a gap, an open connection shown with its two ends, which pieces
+ * or Close the gap fill again; the last piece of a closed lap opens the lap instead. Neighbouring
+ * pieces never move. A finished track becomes unfinished (the game leaves it out until it is
+ * closed and Ready to race again), so it asks first. With Shift, only the section's entry goes and
+ * its neighbours share its stretch, as before.
+ */
+function deleteSection(i, labelOnly = false) {
+  const t0 = track();
+  if (!t0) return;
+  if (labelOnly || t0.path.length < 2) {
+    commit((t) => { t.sections.splice(i, 1); app.selSec = Math.min(i, t.sections.length - 1); });
+    if (labelOnly) status('Removed the section entry only: its neighbours share its stretch of the drawing.', 'ok');
+    return;
+  }
+  if (isGap(t0.sections[i])) { status('That is a gap, not a piece: place pieces from its green end, or click Close the gap.', 'err'); return; }
+  if (!t0.draft && !confirm(`Delete section ${i + 1} and its stretch of track? "${t0.name}" becomes unfinished (the game leaves it out) until the gap is closed and it is Ready to race again. Undo puts it back.`)) return;
+  const name = app.sectionDefs[t0.sections[i].type]?.name ?? t0.sections[i].type;
+  let how = '';
   commit((t) => {
-    t.sections.splice(i, 1);
+    const n = t.path.length;
+    const spans = pieceSpans(t);
+    const [i0, i1] = spans[i];
+    const last = t.sections.length - 1;
+    t.draft = true;
+    if (t.sections.length === 1) {
+      t.path = [];
+      t.sections = [];
+      t.open = true;
+      how = 'The lap is empty again.';
+    } else if (t.open && i === last) {
+      // The end of an open lap: it just stops sooner (and a gap left at the end goes too).
+      t.path.splice(i0 + 1);
+      t.sections.splice(i, 1);
+      while (isGap(t.sections.at(-1))) {
+        const sp = pieceSpans(t).at(-1);
+        t.path.splice(sp[0] + 1);
+        t.sections.pop();
+      }
+      how = 'The lap now ends at the piece before.';
+    } else if (t.open && i === 0) {
+      // The start of an open lap: the finish line moves on to the next piece (past any gap there).
+      let cut = i1;
+      let k = 1;
+      while (isGap(t.sections[k])) { cut = spans[k][1]; k++; }
+      t.path.splice(0, cut);
+      t.sections.splice(0, k);
+      how = 'The lap now starts at the next piece, with the finish line there.';
+    } else if (!t.open && i === last) {
+      // The last piece of a closed lap: the lap is open again, ending at the piece before.
+      if (i1 > i0 + 1) t.path.splice(i0 + 1, i1 - i0 - 1);
+      t.sections.splice(i, 1);
+      t.open = true;
+      how = 'The lap is open again: it ends at the piece before, and closes back into the finish line.';
+    } else {
+      // In the middle: a gap, merged with any gap either side.
+      let a = i, b = i;
+      while (a > 0 && isGap(t.sections[a - 1])) a--;
+      while (b < last && isGap(t.sections[b + 1])) b++;
+      const from = spans[a][0];
+      const to = spans[b][1];
+      if (to > from + 1) t.path.splice(from + 1, to - from - 1);
+      t.sections.splice(a, b - a + 1, { type: 'gap', length: gapMetres(t, from, from + 1) });
+      how = 'It leaves a gap: its two open ends are ringed (green to build on from, blue to close into). Place pieces from the green end, or click Close the gap.';
+    }
     app.selSec = Math.min(i, t.sections.length - 1);
+    app.selPt = -1;
+    app.placing = null;
   });
+  app.buildAt = null;
+  status(`Deleted ${name} (section ${i + 1}) and its stretch of track. ${how}`, 'ok');
 }
 function addSection() {
   commit((t) => {
@@ -2242,8 +2332,17 @@ function buildLegend() {
  */
 function checkTrack(t, all, strict = false) {
   if (t.draft && !strict) {
-    if (t.open) {
-      const warn = [`Unfinished: the lap isn't closed yet (${t.sections.length} piece${t.sections.length === 1 ? '' : 's'}). The game leaves this track out; keep placing pieces until the last one meets the first.`];
+    if (building(t)) {
+      const pieces = t.sections.filter((x) => !isGap(x)).length;
+      const warn = [`Unfinished: still to join, ${stillOpen(t)} (${pieces} piece${pieces === 1 ? '' : 's'} placed). The game leaves this track out until the lap is one continuous loop.`];
+      // Each open connection, by where it is, so it can be found.
+      for (const e of openEnds(t)) {
+        if (!e.target) continue;
+        const k = e.kind === 'gap' ? e.sec : t.sections.length;
+        warn.push(e.kind === 'gap'
+          ? `Gap after piece ${k} (at ${e.x.toFixed(0)}, ${e.y.toFixed(0)}) to piece ${k + 2} (at ${e.target.x.toFixed(0)}, ${e.target.y.toFixed(0)}), ${Math.round(Math.hypot(e.target.x - e.x, e.target.y - e.y) * PIECE_MPU)} m across: place pieces from its green ring, or click Close the gap.`
+          : `Open lap: the last piece ends at ${e.x.toFixed(0)}, ${e.y.toFixed(0)}, ${Math.round(Math.hypot(e.target.x - e.x, e.target.y - e.y) * PIECE_MPU)} m from the finish line (${e.target.x.toFixed(0)}, ${e.target.y.toFixed(0)}): keep placing pieces until one ends on it, or click Close the lap.`);
+      }
       if (!t.name?.trim()) warn.push('The track needs a name.');
       // What else it will need to race, so nothing comes as a surprise at Ready to race.
       if (!t.start) warn.push('No start straight yet: pick Start straight under Start and finish (Build the lap). Place it first and build the lap on from its end, or join it onto the lap.');
@@ -2644,6 +2743,9 @@ const PIECE_KINK = 20;
 /** How near the start the last piece's end has to come to close the lap, in grid units and degrees. */
 const CLOSE_DIST = 2.5;
 const CLOSE_TURN = 35;
+/** Within these (grid units, degrees) a piece's end is on the target, so it closes with no kink. */
+const CLOSE_SNAP = 0.6;
+const CLOSE_SNAP_TURN = 8;
 /** A straight piece's length in grid units, by type (others 12). */
 const PIECE_LEN = { straight: 14, tabletop: 12, double: 12, step_up: 10, rhythm: 14, whoops: 12, braking_bumps: 8, sand: 10, mud: 10, uphill: 12, downhill: 12 };
 const PIECE_PASS = { straight: 0.6, sweeper: 0.5, corner: 0.6, hairpin: 0.7 };
@@ -2659,32 +2761,139 @@ function pieceFor(type) {
 }
 /** Starts placing a piece of a section type (or stops, with null). */
 function startPiece(type) {
-  app.placing = type === 'start' ? { ...startPieceFor(), at: app.placing?.at ?? null } : type ? { ...pieceFor(type), at: app.placing?.at ?? null } : null;
+  const at = app.placing?.at ?? null;
+  app.placing = type === 'start' ? { ...startPieceFor(), at } : type === 'connect' ? { kind: 'connect', type: 'connect', at: null } : type ? { ...pieceFor(type), at } : null;
   refresh();
 }
-/** The open end of the track being built: its last point and heading, or null when nothing is placed. */
-function chainEnd(t) {
+// ---- open ends, gaps and the pieces' spans ----
+
+// An unfinished track is the lap's drawing (path) and one section per piece, in riding order. The
+// sections sit on the drawing by their share of the lap's metres, as the game lays them out, so
+// each piece's metres are its own length on the grid (PIECE_MPU a unit). A piece taken out leaves
+// a gap: a section of type 'gap' (only ever on an unfinished track, which the game leaves out)
+// whose stretch of the drawing is just the straight line across it, which is never drawn as
+// track. The open ends are where a piece can join on: the end of the last piece while the lap is
+// open, and the near side of each gap. Each has a target, where the track has to come back into:
+// the far side of the gap, or the finish line (the first point) to close the lap.
+
+/** A point of the drawing by index, counting round past the end on a closed lap. */
+function vertex(t, i) {
   const n = t.path.length;
-  if (n < 2) {
-    // A start straight placed first: the lap goes on from its end, heading the way its gate run points.
-    const sp = n ? null : t.start?.path;
-    if (!sp || sp.length < 2) return null;
-    const [jx, jy] = sp.at(-1);
-    return { x: jx, y: jy, h: Math.atan2(sp[1][1] - sp[0][1], sp[1][0] - sp[0][0]), fromStart: true };
-  }
-  const [ax, ay] = t.path[n - 2];
-  const [bx, by] = t.path[n - 1];
+  return t.path[((i % n) + n) % n];
+}
+/** Snaps a piece's heading to the 15° steps pieces are built in when it is within a rounding error of one. */
+function snapHeading(h) {
+  const step = Math.PI / 12;
+  const k = Math.round(h / step) * step;
+  return Math.abs(wrapAngle(h - k)) < (2 * Math.PI) / 180 ? wrapAngle(k) : h;
+}
+/** The way the track is heading as it arrives at point i, from the points before it (a bend's last step points half a step short of its heading). */
+function headingInto(t, i) {
+  const n = t.path.length;
+  if (n < 2 || (t.open && i < 1)) return null;
+  const [ax, ay] = vertex(t, i - 1);
+  const [bx, by] = vertex(t, i);
   let h = Math.atan2(by - ay, bx - ax);
-  // A bend's points are even steps round an arc, so its last step points half a step short of the
-  // way it ends up heading: the next piece carries on along the arc's own heading.
-  if (n >= 3) {
-    const [px, py] = t.path[n - 3];
+  if (n >= 3 && (!t.open || i >= 2)) {
+    const [px, py] = vertex(t, i - 2);
     const last = Math.hypot(bx - ax, by - ay);
     const prev = Math.hypot(ax - px, ay - py);
     const step = wrapAngle(h - Math.atan2(ay - py, ax - px));
     if (Math.abs(last - prev) < 0.2 && Math.abs(step) > 0.01 && Math.abs(step) < Math.PI / 4) h += step / 2;
   }
-  return { x: bx, y: by, h };
+  return snapHeading(h);
+}
+/** The way the track sets off from point i, from the points after it. */
+function headingOut(t, i) {
+  const n = t.path.length;
+  if (n < 2 || (t.open && i > n - 2)) return null;
+  const [ax, ay] = vertex(t, i);
+  const [bx, by] = vertex(t, i + 1);
+  let h = Math.atan2(by - ay, bx - ax);
+  if (n >= 3 && (!t.open || i <= n - 3)) {
+    const [cx, cy] = vertex(t, i + 2);
+    const first = Math.hypot(bx - ax, by - ay);
+    const next = Math.hypot(cx - bx, cy - by);
+    const step = wrapAngle(Math.atan2(cy - by, cx - bx) - h);
+    if (Math.abs(first - next) < 0.2 && Math.abs(step) > 0.01 && Math.abs(step) < Math.PI / 4) h -= step / 2;
+  }
+  return snapHeading(h);
+}
+/**
+ * Which points of the drawing each section runs between, as [from, to] indices of the drawing's
+ * points in riding order (to is path.length, the first point again, for the last section of a
+ * closed lap). The joins are where the sections' metres put them, at the nearest point.
+ */
+function pieceSpans(t) {
+  const g = lapGeom(t);
+  const b = sectionBounds(t);
+  const last = g.pts.length - 1;
+  const idx = b.map((f, k) => {
+    if (k === 0) return 0;
+    if (k === b.length - 1) return last;
+    const d = f * g.total;
+    let best = 0;
+    for (let i = 1; i <= last; i++) if (Math.abs(g.cum[i] - d) < Math.abs(g.cum[best] - d)) best = i;
+    return best;
+  });
+  for (let k = 1; k < idx.length; k++) idx[k] = Math.max(idx[k], idx[k - 1]);
+  return t.sections.map((_, k) => [idx[k], idx[k + 1]]);
+}
+const isGap = (s) => s?.type === 'gap';
+/** True while a track is being built: its lap not closed yet, or a gap left between pieces. */
+const building = (t) => !!t && (!!t.open || t.sections.some(isGap));
+/** A gap section's metres: the straight line across it. */
+function gapMetres(t, i0, i1) {
+  const [ax, ay] = vertex(t, i0);
+  const [bx, by] = vertex(t, i1);
+  return Math.max(1, Math.round(Math.hypot(bx - ax, by - ay) * PIECE_MPU));
+}
+/**
+ * The open ends of a track being built: where a piece can join on (x, y, the heading it carries on
+ * at), which point it is (vi) and where a piece joining there goes in the sections (sec), and
+ * the target it closes into (x, y, the heading the track has to arrive at, vi), if any.
+ */
+function openEnds(t) {
+  const n = t.path.length;
+  if (n < 2) {
+    // A start straight placed first: the lap goes on from its end, heading the way its gate run points.
+    const sp = n ? null : t.start?.path;
+    if (!sp || sp.length < 2) return [];
+    const [jx, jy] = sp.at(-1);
+    return [{ x: jx, y: jy, h: snapHeading(Math.atan2(sp[1][1] - sp[0][1], sp[1][0] - sp[0][0])), vi: -1, sec: 0, kind: 'lap', fromStart: true, target: null }];
+  }
+  const out = [];
+  const spans = pieceSpans(t);
+  t.sections.forEach((s, k) => {
+    if (!isGap(s)) return;
+    const [i0, i1] = spans[k];
+    const [x, y] = vertex(t, i0);
+    const [tx, ty] = vertex(t, i1);
+    out.push({ x, y, h: headingInto(t, i0) ?? headingOut(t, i0) ?? 0, vi: i0, sec: k, kind: 'gap', target: { x: tx, y: ty, h: headingOut(t, i1) ?? headingInto(t, i1) ?? 0, vi: i1 } });
+  });
+  if (t.open) {
+    const [x, y] = t.path[n - 1];
+    const [tx, ty] = t.path[0];
+    out.push({ x, y, h: headingInto(t, n - 1) ?? 0, vi: n - 1, sec: t.sections.length, kind: 'lap', target: { x: tx, y: ty, h: headingOut(t, 0) ?? 0, vi: 0 } });
+  }
+  return out;
+}
+/** The open end a piece at (x, y) joins: the nearest within PIECE_SNAP, else null. */
+function endNear(t, x, y) {
+  let best = null;
+  for (const e of openEnds(t)) {
+    const d = Math.hypot(e.x - x, e.y - y);
+    if (d <= PIECE_SNAP && (!best || d < best.d)) best = { ...e, d };
+  }
+  return best;
+}
+/** The open end the next piece goes on by default: the one nearest where the last piece was placed, else the lap's end. */
+function chainEnd(t) {
+  const ends = openEnds(t);
+  if (!ends.length) return null;
+  const near = app.buildAt;
+  if (near) return ends.reduce((a, e) => (Math.hypot(e.x - near.x, e.y - near.y) < Math.hypot(a.x - near.x, a.y - near.y) ? e : a));
+  return ends.find((e) => e.kind === 'lap') ?? ends[0];
 }
 /** The shape a piece makes, as the drawn-shape check sees it. */
 function pieceShape(pl, width) {
@@ -2794,33 +3003,41 @@ function placeStart() {
  */
 function ghostPiece(t, pl) {
   if (pl.kind === 'start') return startGhost(t, pl);
-  const end = chainEnd(t);
+  if (pl.kind === 'connect') return connectGhost(t, pl);
+  const ends = openEnds(t);
   const width = t.width ?? DEFAULT_WIDTH;
-  const at = pl.at ?? (end ? { x: end.x, y: end.y } : { x: GRID_W / 2 - pieceUnits(pl) / 2, y: GRID_H / 2 });
-  const joined = !!end && Math.hypot(at.x - end.x, at.y - end.y) <= PIECE_SNAP;
+  const first = chainEnd(t);
+  const at = pl.at ?? (first ? { x: first.x, y: first.y } : { x: GRID_W / 2 - pieceUnits(pl) / 2, y: GRID_H / 2 });
+  // It joins whichever open end it is brought onto.
+  const end = endNear(t, at.x, at.y);
+  const joined = !!end;
   const o = joined ? end : at;
   const h = (end ? end.h : 0) + (pl.turn * Math.PI) / 180;
-  let pts = piecePoints(pl, o.x, o.y, h).map(([x, y]) => [round1(x), round1(y)]);
+  let pts = piecePoints(pl, o.x, o.y, h).map(([x, y]) => [round2(x), round2(y)]);
   if (joined) pts[0] = [end.x, end.y];
-  const out = { pts, level: 'ok', msg: '', closes: false, joined };
+  const out = { pts, level: 'ok', msg: '', closes: false, joined, end };
   const fail = (msg) => Object.assign(out, { level: 'error', msg });
-  // The lap closes when the piece ends at the first point, heading about the way the lap starts.
-  if (joined && t.path.length >= 3) {
-    const [sx, sy] = t.path[0];
-    const [nx, ny] = t.path[1];
+  // It closes the lap (or the gap) when it ends on the target, heading the way the track goes on
+  // from there: within a rounding error, so what is placed joins up with no kink. Nearly there,
+  // Close the lap lays the rest.
+  let nearly = '';
+  if (joined && end.target && (end.kind === 'gap' || t.path.length >= 3)) {
+    const tg = end.target;
     const [ex, ey] = pts.at(-1);
     const [px, py] = pts.at(-2);
-    const turn = Math.abs(wrapAngle(Math.atan2(ny - sy, nx - sx) - Math.atan2(ey - py, ex - px))) * 180 / Math.PI;
-    if (Math.hypot(ex - sx, ey - sy) <= CLOSE_DIST && turn <= CLOSE_TURN) {
-      // Its last point is the lap's first: drawn to it, so what's shown is what's placed.
-      pts[pts.length - 1] = [sx, sy];
+    const dist = Math.hypot(ex - tg.x, ey - tg.y);
+    const turn = Math.abs(wrapAngle(tg.h - Math.atan2(ey - py, ex - px))) * 180 / Math.PI;
+    const what = end.kind === 'gap' ? 'the gap' : 'the lap';
+    if (dist <= CLOSE_SNAP && turn <= CLOSE_SNAP_TURN) {
+      // Its last point is the target: drawn to it, so what's shown is what's placed.
+      pts[pts.length - 1] = [tg.x, tg.y];
       out.closes = true;
-    }
+    } else if (dist <= CLOSE_DIST && turn <= CLOSE_TURN) nearly = ` It nearly closes ${what} (${dist.toFixed(1)} away, ${Math.round(turn)}° off): place it, then click Close ${what === 'the gap' ? 'the gap' : 'the lap'} to join the rest smoothly.`;
   }
   const shape = pieceShape(pl, width);
   const def = app.sectionDefs[pl.type];
   if (pts.some(([x, y]) => x < 0 || y < 0 || x > GRID_W || y > GRID_H)) return fail('It runs off the 100 × 60 grid: move or turn it.');
-  if (end && !joined) return fail(end.fromStart ? 'It isn\'t joined to the start straight: move it onto the start straight\'s end (the ring), where the lap begins.' : 'It isn\'t joined to the track: move it onto the end of the last piece (the ring), where it snaps on.');
+  if (ends.length && !joined) return fail(ends[0].fromStart ? 'It isn\'t joined to the start straight: move it onto the start straight\'s end (the green ring), where the lap begins.' : `It isn't joined to the track: move it onto an open end (a green ring${ends.length > 1 ? `; there are ${ends.length}` : ''}), where it snaps on.`);
   if (joined && Math.abs(pl.turn) > PIECE_KINK) return fail(`It kinks ${Math.abs(pl.turn)}° where it joins the last piece; turn it back (Q / E) to ${PIECE_KINK}° or less.`);
   if (def && !shapesFor(pl.type).includes(shape)) return fail(`${def.name} has to be ${shapesFor(pl.type).map((x) => `${an(x)} ${x}`).join(' or ')}, and this is ${an(shape)} ${shape}: make it ${shape === 'straight' ? 'a bend (B)' : 'longer or shorter (, .)'}.`);
   // Too near the track already built (other than where it joins, or closes), riders would ride through each other.
@@ -2837,51 +3054,267 @@ function ghostPiece(t, pl) {
     for (let i = 0; i < dense.length; i++) { if (i) run += Math.hypot(dense[i].x - dense[i - 1].x, dense[i].y - dense[i - 1].y); dense[i].d = run; }
     const clear = width + 0.5;
     const skip = width * 1.5 + 1;
+    // Along the drawing to a point of it, either way round.
+    const along = (f, vi) => {
+      const d = Math.abs(f * g.total - g.cum[Math.max(0, Math.min(g.cum.length - 1, vi))]);
+      return g.open ? d : Math.min(d, g.total - d);
+    };
     const hit = dense.find((p) => {
       if (joined && p.d < skip) return false;
-      if (out.closes && run - p.d < skip) return false;
       const pr = project(g, p.x, p.y);
-      return pr.dist < clear && pr.f * g.total < g.total - skip;
+      if (pr.dist >= clear || isGap(t.sections[sectionAt(t, pr.f)])) return false;
+      // Where it joins on, and where it closes into, it meets the track by design.
+      if (joined && end.vi >= 0 && along(pr.f, end.vi) < skip) return false;
+      if (joined && end.target && run - p.d < skip * 2 && along(pr.f, end.target.vi) < skip) return false;
+      return true;
     });
     if (hit) Object.assign(out, { level: 'warning', msg: `It runs over the track already built at ${hit.x.toFixed(0)}, ${hit.y.toFixed(0)}. It can go there (a crossover), but riders pass through each other.` });
   }
-  if (!out.msg) out.msg = out.closes ? 'This piece closes the lap. Click to place it.' : end?.fromStart ? 'Joined to the start straight: the lap starts here. Click to place it.' : end ? 'Joined on. Click to place it.' : 'Click to place the first piece.';
+  if (!out.msg) out.msg = (out.closes ? (end.kind === 'gap' ? 'This piece closes the gap. Click to place it.' : 'This piece closes the lap. Click to place it.') : end?.fromStart ? 'Joined to the start straight: the lap starts here. Click to place it.' : end ? `Joined on${end.kind === 'gap' ? ' at a gap' : ''}. Click to place it.` : 'Click to place the first piece.') + nearly;
   return out;
 }
 
+/**
+ * Adds pieces at an open end, as part of one change: their points (after the join, which is
+ * already there, and without the last if it is the target they close into) and their sections, in
+ * riding order. Closing the lap ends the draft's open lap; closing a gap takes its section away;
+ * otherwise a gap's straight line across is measured again.
+ */
+function addAtEnd(t, end, pts, secs, closes) {
+  const add = pts.slice(t.path.length ? 1 : 0, closes ? -1 : undefined);
+  if (end.kind === 'gap') {
+    t.path.splice(end.vi + 1, 0, ...add);
+    t.sections.splice(end.sec, 0, ...secs);
+    const gi = end.sec + secs.length;
+    if (closes) t.sections.splice(gi, 1);
+    else {
+      const sp = pieceSpans(t)[gi];
+      t.sections[gi].length = gapMetres(t, sp[0], sp[1]);
+    }
+    return;
+  }
+  t.path.push(...add);
+  t.sections.push(...secs);
+  if (closes) {
+    delete t.open;
+    // A closed lap needs a start straight to race; one is laid beside the start when there's room
+    // and none was placed (one placed is never moved).
+    const st = t.start ? null : autoStart(t);
+    if (st) setKeyNear(t, 'start', st, 'sections');
+  }
+}
+/** What's left to join up on a track being built, for the status line and the checks. */
+function stillOpen(t) {
+  const gaps = t.sections.filter(isGap).length;
+  if (!t.open && !gaps) return '';
+  const parts = [];
+  if (gaps) parts.push(`${gaps} gap${gaps === 1 ? '' : 's'} between pieces`);
+  if (t.open) parts.push('the lap not yet back to the finish line');
+  return parts.join(' and ');
+}
 /** Places the piece being placed: its points on the drawing and its section, as one undo step. */
 function placePiece() {
   const t = track();
   const pl = app.placing;
   if (pl?.kind === 'start') { placeStart(); return; }
-  if (!t || !pl || !t.open) return;
+  if (pl?.kind === 'connect') { placeConnect(); return; }
+  if (!t || !pl || !(t.open || openEnds(t).length)) return;
   const gh = ghostPiece(t, pl);
   if (gh.level === 'error') { status(gh.msg, 'err'); return; }
   let units = 0;
   for (let i = 1; i < gh.pts.length; i++) units += Math.hypot(gh.pts[i][0] - gh.pts[i - 1][0], gh.pts[i][1] - gh.pts[i - 1][1]);
   const shape = pieceShape(pl, t.width ?? DEFAULT_WIDTH);
+  const end = gh.end ?? { kind: 'lap', sec: t.sections.length };
   commit((t) => {
-    // The join is the last piece's end point already; a closing piece's end is the first point.
-    const add = gh.pts.slice(t.path.length ? 1 : 0, gh.closes ? -1 : undefined);
-    t.path.push(...add);
-    t.sections.push({ type: pl.type, length: Math.max(1, Math.round(units * PIECE_MPU)), passing: PIECE_PASS[shape] });
-    app.selSec = t.sections.length - 1;
+    addAtEnd(t, end, gh.pts, [{ type: pl.type, length: Math.max(1, Math.round(units * PIECE_MPU)), passing: PIECE_PASS[shape] }], gh.closes);
+    app.selSec = end.sec;
     app.selPt = -1;
-    if (gh.closes) {
-      delete t.open;
-      // A closed lap needs a start straight to race; one is laid beside the start when there's room
-      // and none was placed (one placed is never moved).
-      const st = t.start ? null : autoStart(t);
-      if (st) setKeyNear(t, 'start', st, 'sections');
-    }
   });
+  app.buildAt = gh.closes ? null : { x: gh.pts.at(-1)[0], y: gh.pts.at(-1)[1] };
   pl.turn = 0;
   pl.at = null;
-  if (gh.closes) {
+  const left = stillOpen(track());
+  if (gh.closes && !left) {
     app.placing = null;
-    status(track().start ? 'The lap is closed, with its start straight. Check it, then click Ready to race.' : 'The lap is closed. Place a start straight (Start and finish), then click Ready to race.', 'ok');
+    status(track().start ? 'The lap is closed, with its start straight: one continuous loop back to the finish line. Check it, then click Ready to race.' : 'The lap is closed: one continuous loop back to the finish line. Place a start straight (Start and finish), then click Ready to race.', 'ok');
     refresh();
-  } else status(`Placed ${app.sectionDefs[pl.type]?.name ?? pl.type}. Pick the next piece, or keep placing this one.`, 'ok');
+  } else if (gh.closes) {
+    status(`Closed the gap. Still to join: ${left}.`, 'ok');
+    refresh();
+  } else status(`Placed ${app.sectionDefs[pl.type]?.name ?? pl.type}. Pick the next piece, or keep placing this one.${gh.msg.includes('nearly closes') ? ' It nearly closes: Close the lap (or Close the gap) joins the rest smoothly.' : ''}`, 'ok');
+}
+// ---- closing the lap, or a gap ----
+
+// Close the lap (and Close the gap) lays the pieces that join an open end to its target for you:
+// the shortest way of a bend, a straight and a bend (or three bends) at a radius from wide to
+// tight, the way a car turns (Dubins paths), arriving at the target heading the way the track goes
+// on from there. Each bend is a Flat corner (a straight under 30°), each straight a Straight, so
+// they suit their shapes. It is shown before it is placed, red with why where it can't go, yellow
+// where it runs over track already built, and placed as one undo step. Nothing already placed moves.
+
+/** Bend radii Close the lap tries, widest first (grid units); 4 is the hairpin piece's. */
+const CONNECT_RADII = [12, 9, 7, 5.5, 4];
+const TAU = Math.PI * 2;
+const mod2pi = (a) => ((a % TAU) + TAU) % TAU;
+/**
+ * The ways from pose a to pose b (x, y, heading) turning at radius r, each as segments: a bend
+ * one way (+1, heading angle growing, a right turn on the map) or the other (-1) through an angle,
+ * or a straight of a length. Every one returned ends on b (checked by riding it).
+ */
+function dubins(a, b, r) {
+  const dx = (b.x - a.x) / r;
+  const dy = (b.y - a.y) / r;
+  const d = Math.hypot(dx, dy);
+  const th = Math.atan2(dy, dx);
+  const al = mod2pi(a.h - th);
+  const be = mod2pi(b.h - th);
+  const sa = Math.sin(al), sb = Math.sin(be), ca = Math.cos(al), cb = Math.cos(be), cab = Math.cos(al - be);
+  const words = [];
+  // Angle-growing bends are L here, shrinking R, as in the usual formulas (y running down only mirrors them on screen).
+  {
+    const p2 = 2 + d * d - 2 * cab + 2 * d * (sa - sb);
+    if (p2 >= 0) { const tmp = Math.atan2(cb - ca, d + sa - sb); words.push([[1, mod2pi(-al + tmp)], [0, Math.sqrt(p2)], [1, mod2pi(be - tmp)]]); }
+  }
+  {
+    const p2 = 2 + d * d - 2 * cab + 2 * d * (sb - sa);
+    if (p2 >= 0) { const tmp = Math.atan2(ca - cb, d - sa + sb); words.push([[-1, mod2pi(al - tmp)], [0, Math.sqrt(p2)], [-1, mod2pi(-be + tmp)]]); }
+  }
+  {
+    const p2 = -2 + d * d + 2 * cab + 2 * d * (sa + sb);
+    if (p2 >= 0) { const p = Math.sqrt(p2); const tmp = Math.atan2(-ca - cb, d + sa + sb) - Math.atan2(-2, p); words.push([[1, mod2pi(-al + tmp)], [0, p], [-1, mod2pi(-mod2pi(be) + tmp)]]); }
+  }
+  {
+    const p2 = -2 + d * d + 2 * cab - 2 * d * (sa + sb);
+    if (p2 >= 0) { const p = Math.sqrt(p2); const tmp = Math.atan2(ca + cb, d - sa - sb) - Math.atan2(2, p); words.push([[-1, mod2pi(al - tmp)], [0, p], [1, mod2pi(be - tmp)]]); }
+  }
+  {
+    const tmp = (6 - d * d + 2 * cab + 2 * d * (sa - sb)) / 8;
+    if (Math.abs(tmp) <= 1) { const p = mod2pi(TAU - Math.acos(tmp)); const t = mod2pi(al - Math.atan2(ca - cb, d - sa + sb) + p / 2); words.push([[-1, t], [1, p], [-1, mod2pi(al - be - t + p)]]); }
+  }
+  {
+    const tmp = (6 - d * d + 2 * cab + 2 * d * (sb - sa)) / 8;
+    if (Math.abs(tmp) <= 1) { const p = mod2pi(TAU - Math.acos(tmp)); const t = mod2pi(-al - Math.atan2(ca - cb, d + sa - sb) + p / 2); words.push([[1, t], [-1, p], [1, mod2pi(be - al - t + p)]]); }
+  }
+  const out = [];
+  for (const w of words) {
+    const segs = w.map(([turn, v]) => (turn ? { turn, ang: v, len: v * r } : { turn: 0, ang: 0, len: v * r }));
+    // Ride it to be sure it ends on b, heading b's way.
+    let x = a.x, y = a.y, h = a.h;
+    for (const sg of segs) {
+      if (!sg.turn) { x += Math.cos(h) * sg.len; y += Math.sin(h) * sg.len; continue; }
+      const cx = x - sg.turn * r * Math.sin(h);
+      const cy = y + sg.turn * r * Math.cos(h);
+      h += sg.turn * sg.ang;
+      x = cx + sg.turn * r * Math.sin(h);
+      y = cy - sg.turn * r * Math.cos(h);
+    }
+    if (Math.hypot(x - b.x, y - b.y) < 1e-3 && Math.abs(wrapAngle(h - b.h)) < 1e-3) out.push({ segs, r, len: segs.reduce((s, g) => s + g.len, 0) });
+  }
+  return out;
+}
+/** A Dubins way as pieces: its points from a (bends every 15° or less) and a section for each bend and straight; slivers join the piece before. */
+function connectPieces(a, way, width) {
+  const pts = [[a.x, a.y]];
+  const secs = [];
+  let x = a.x, y = a.y, h = a.h;
+  for (const sg of way.segs) {
+    if (sg.len < 0.05) continue;
+    if (!sg.turn) {
+      x += Math.cos(h) * sg.len; y += Math.sin(h) * sg.len;
+      pts.push([x, y]);
+    } else {
+      const r = way.r;
+      const cx = x - sg.turn * r * Math.sin(h);
+      const cy = y + sg.turn * r * Math.cos(h);
+      const steps = Math.max(1, Math.ceil((sg.ang * 180) / Math.PI / 15));
+      for (let k = 1; k <= steps; k++) {
+        const hk = h + (sg.turn * sg.ang * k) / steps;
+        pts.push([cx + sg.turn * r * Math.sin(hk), cy - sg.turn * r * Math.cos(hk)]);
+      }
+      h += sg.turn * sg.ang;
+      x = cx + sg.turn * r * Math.sin(h); y = cy - sg.turn * r * Math.cos(h);
+    }
+    const deg = (sg.ang * 180) / Math.PI;
+    const shape = !sg.turn || deg < STRAIGHT_UNDER ? 'straight' : deg >= HAIRPIN_FROM ? 'hairpin' : way.r >= SWEEPER_WIDTHS * width ? 'sweeper' : 'corner';
+    const metres = sg.len * PIECE_MPU;
+    // Under 2 grid units it is part of the piece before (or the next, at the start).
+    if (sg.len < 2 && secs.length) { secs.at(-1).length += metres; continue; }
+    if (sg.len < 2 && !secs.length) { secs.push({ type: 'straight', length: metres, passing: PIECE_PASS.straight, carry: true }); continue; }
+    const type = shape === 'straight' ? 'straight' : 'flat_corner';
+    if (secs.length && secs.at(-1).carry) { const c = secs.pop(); secs.push({ type, length: c.length + metres, passing: PIECE_PASS[shape] }); continue; }
+    secs.push({ type, length: metres, passing: PIECE_PASS[shape] });
+  }
+  return { pts: pts.map(([px, py]) => [round2(px), round2(py)]), secs: secs.map(({ carry, ...sec }) => ({ ...sec, length: Math.max(1, Math.round(sec.length)) })) };
+}
+/** Close the lap (or a gap) being placed: from the open end nearest the pointer to its target. */
+function connectGhost(t, pl) {
+  const ends = openEnds(t).filter((e) => e.target);
+  const out = { pts: [], level: 'error', msg: '', closes: true, joined: true, end: null, secs: [] };
+  if (!ends.length) return Object.assign(out, { msg: t.path.length < 2 ? 'Place a few pieces first: Close the lap joins the last back to the first.' : 'Nothing to close: the lap is closed with no gaps.' });
+  const at = pl.at ?? chainEnd(t) ?? ends[0];
+  const end = ends.reduce((a, e) => (Math.hypot(e.x - at.x, e.y - at.y) < Math.hypot(a.x - at.x, a.y - at.y) ? e : a));
+  out.end = end;
+  const what = end.kind === 'gap' ? 'the gap' : 'the lap';
+  const width = t.width ?? DEFAULT_WIDTH;
+  const g = t.path.length >= 2 ? lapGeom(t) : null;
+  // Every way at every radius, judged: on the grid, and clear of the track already built (away from its own two ends).
+  let best = null;
+  for (const r of CONNECT_RADII) {
+    for (const way of dubins(end, end.target, r)) {
+      const pc = connectPieces(end, way, width);
+      const off = pc.pts.some(([x, y]) => x < 0 || y < 0 || x > GRID_W || y > GRID_H);
+      let over = null;
+      if (g) {
+        const skip = width * 1.5 + 1;
+        let run = 0;
+        for (let i = 1; i < pc.pts.length && !over; i++) {
+          const [ax, ay] = pc.pts[i - 1];
+          const [bx, by] = pc.pts[i];
+          const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / 0.5));
+          for (let k = 1; k <= n; k++) {
+            const x = ax + ((bx - ax) * k) / n, y = ay + ((by - ay) * k) / n;
+            run += Math.hypot(bx - ax, by - ay) / n;
+            if (run < skip || way.len - run < skip) continue;
+            const pr = project(g, x, y);
+            if (pr.dist < width + 0.5 && !isGap(t.sections[sectionAt(t, pr.f)])) { over = [x, y]; break; }
+          }
+        }
+      }
+      // Clear beats crossing, crossing beats off the grid, then the shortest.
+      const score = (off ? 1e6 : 0) + (over ? 1e4 : 0) + way.len;
+      if (!best || score < best.score) best = { score, way, pc, off, over };
+    }
+  }
+  if (!best) return Object.assign(out, { msg: `No way found to close ${what} from here.` });
+  out.pts = best.pc.pts;
+  out.secs = best.pc.secs;
+  // Ends exactly on the target.
+  out.pts[0] = [end.x, end.y];
+  out.pts[out.pts.length - 1] = [end.target.x, end.target.y];
+  const bends = best.pc.secs.filter((x) => x.type !== 'straight').length;
+  const desc = `${best.pc.secs.length} piece${best.pc.secs.length === 1 ? '' : 's'} (${bends} bend${bends === 1 ? '' : 's'} at radius ${best.way.r}), about ${Math.round(best.way.len * PIECE_MPU)} m`;
+  if (best.off) return Object.assign(out, { msg: `Closing ${what} from here would run off the 100 × 60 grid. Lay a piece or two towards the blue ring first, then Close ${what} again.` });
+  if (best.over) return Object.assign(out, { level: 'warning', msg: `Closes ${what} with ${desc}, but it runs over the track already built at ${best.over[0].toFixed(0)}, ${best.over[1].toFixed(0)} (a crossover: riders pass through each other). Lay a piece or two another way first to avoid it, or click to place it anyway.` });
+  return Object.assign(out, { level: 'ok', msg: `Closes ${what} with ${desc}, arriving at the ${end.kind === 'gap' ? 'far side of the gap' : 'finish line'} heading the way the track goes on. Click or Enter to place it.` });
+}
+/** Places Close the lap's pieces, as one undo step. */
+function placeConnect() {
+  const t = track();
+  const pl = app.placing;
+  if (!t || !pl) return;
+  const gh = connectGhost(t, pl);
+  if (gh.level === 'error') { status(gh.msg, 'err'); return; }
+  const what = gh.end.kind === 'gap' ? 'gap' : 'lap';
+  commit((t) => {
+    addAtEnd(t, gh.end, gh.pts, gh.secs, true);
+    app.selSec = gh.end.sec;
+    app.selPt = -1;
+  });
+  app.placing = null;
+  app.buildAt = null;
+  const left = stillOpen(track());
+  status(left ? `Closed the ${what} with ${gh.secs.length} piece${gh.secs.length === 1 ? '' : 's'}. Still to join: ${left}.` : `Closed the ${what} with ${gh.secs.length} piece${gh.secs.length === 1 ? '' : 's'}: the lap is one continuous loop back to the finish line.${track().start ? ' Check it, then click Ready to race.' : ' Place a start straight (Start and finish), then click Ready to race.'}`, 'ok');
+  refresh();
 }
 /** Changes the piece being placed: turn (degrees), mirror, longer (+1) or shorter (-1), or bend on or off. */
 function adjustPiece(what, d = 0) {
@@ -2917,9 +3350,19 @@ function renderBuild() {
   const placingStart = app.placing?.kind === 'start';
   box.hidden = !t?.draft && !placingStart;
   if (!t || box.hidden) { app.placing = null; return; }
-  $('#buildOpen').hidden = !t.open || !t.draft;
+  const ends = openEnds(t);
+  $('#buildOpen').hidden = !building(t) || !t.draft;
   $('#readyRow').hidden = !t.draft;
-  $('#btnReady').disabled = !!t.open;
+  $('#btnReady').disabled = building(t);
+  const gaps = t.sections.filter(isGap).length;
+  const closing = ends.filter((e) => e.target);
+  const near = app.placing?.kind === 'connect' ? ghostPiece(t, app.placing).end : chainEnd(t);
+  $('#btnConnect').textContent = near?.kind === 'gap' ? 'Close the gap' : 'Close the lap';
+  $('#btnConnect').disabled = !closing.length;
+  $('#btnConnect').classList.toggle('sel', app.placing?.kind === 'connect');
+  $('#endsHint').textContent = !t.path.length
+    ? ''
+    : `${ends.length} open end${ends.length === 1 ? '' : 's'}: a green ring with an arrow is where the next piece joins on, heading the arrow's way; a blue dashed ring is where the track has to come back into${t.open ? ' (the finish line, to close the lap)' : ''}${gaps ? ` (the far side of ${gaps === 1 ? 'the gap' : 'each gap'})` : ''}, arriving the arrow's way. Bring a piece onto a green ring to join it there. Close the lap lays the bends that join the last green ring to its blue one.`;
   $('#btnStartPiece').querySelector('span').textContent = t.start ? 'Move start straight' : 'Start straight';
   $('#btnStartPiece').classList.toggle('sel', placingStart);
   $('#btnStartRemove').disabled = !t.start;
@@ -2927,8 +3370,8 @@ function renderBuild() {
   const startNote = t.start ? '' : ' No start straight yet: place one from Start and finish (first, or onto the lap).';
   $('#buildHint').textContent = !t.draft
     ? 'Placing the start straight on a finished track.'
-    : t.open
-      ? (t.path.length ? `${t.sections.length} piece${t.sections.length === 1 ? '' : 's'} placed. The next joins the end of the last (the ring); bring the last back round to the first to close the lap.` : t.start ? 'The start straight is placed: the first lap piece joins its end (the ring), where the lap begins.' : 'An empty track: place the start straight first and build the lap on from its end, or start with any section type and join the start straight on later.') + startNote
+    : building(t)
+      ? (t.path.length ? `${t.sections.filter((x) => !isGap(x)).length} piece${t.sections.filter((x) => !isGap(x)).length === 1 ? '' : 's'} placed. Still to join: ${stillOpen(t)}.` : t.start ? 'The start straight is placed: the first lap piece joins its end (the green ring), where the lap begins.' : 'An empty track: place the start straight first and build the lap on from its end, or start with any section type and join the start straight on later.') + startNote
       : `The lap is closed. Shape it as any track, then Ready to race runs the game\'s checks and lets the game use it.${startNote}`;
   const pal = $('#piecePal');
   if (!pal.dataset.built || pal.dataset.built !== String(Object.keys(app.sectionDefs).length)) {
@@ -2948,9 +3391,13 @@ function renderBuild() {
   $('#pieceCtl').hidden = !pl;
   $('#btnPieceBend').disabled = pl?.kind === 'start';
   $('#btnPieceMirror').textContent = pl?.kind === 'start' ? 'Side F' : 'Mirror F';
-  if (!pl) { $('#pieceMsg').textContent = t.open ? 'Pick a section type to place.' : ''; $('#pieceMsg').className = 'hint'; return; }
+  for (const id of ['#btnPieceL', '#btnPieceR', '#btnPieceMirror', '#btnPieceShort', '#btnPieceLong']) $(id).disabled = pl?.kind === 'connect';
+  if (pl?.kind === 'connect') { $('#btnPieceBend').disabled = true; $('#pieceSize').textContent = ''; }
+  if (!pl) { $('#pieceMsg').textContent = building(t) ? 'Pick a section type to place.' : ''; $('#pieceMsg').className = 'hint'; return; }
   const gh = ghostPiece(t, pl);
-  if (pl.kind === 'start') {
+  if (pl.kind === 'connect') {
+    $('#pieceMsg').textContent = `${gh.msg} Esc cancels.`;
+  } else if (pl.kind === 'start') {
     $('#pieceSize').textContent = `${Math.round(gh.total)} long`;
     $('#pieceMsg').textContent = `Start straight, about ${Math.round(gh.total * PIECE_MPU)} m from the gate to where it joins, coming in from the ${pl.side > 0 ? 'right' : 'left'}${pl.turn ? `, turned ${pl.turn}°` : ''}. Q / E turn it, F the other side, , . shorter or longer. ${gh.msg}`;
   } else {
@@ -2963,7 +3410,7 @@ function renderBuild() {
 function readyToRace() {
   const t = track();
   if (!t?.draft) return;
-  if (t.open) { status('Close the lap first: keep placing pieces until the last one meets the first.', 'err'); return; }
+  if (building(t)) { status(`Not ready yet: still to join, ${stillOpen(t)}. Place pieces from the green rings, or click Close the lap.`, 'err'); return; }
   const { bad } = checkTrack(t, app.data.tracks, true);
   if (bad.length) { status(`Not ready yet: ${bad.length} thing${bad.length === 1 ? '' : 's'} to fix first (see Checks). ${bad[0]}`, 'err'); return; }
   commit((t) => { delete t.draft; });
@@ -2972,7 +3419,7 @@ function readyToRace() {
 /** The ghost piece and the ring at the end of the track, on the map. */
 function drawGhost() {
   const t = track();
-  if ((!t?.open && app.placing?.kind !== 'start') || !app.placing || app.view3d) return;
+  if ((!building(t) && app.placing?.kind !== 'start') || !app.placing || app.view3d) return;
   const { k } = view;
   const end = app.placing.kind === 'start' ? null : chainEnd(t);
   if (end) {
@@ -2992,25 +3439,74 @@ function drawGhost() {
 }
 /** What the race view draws for the piece being placed. */
 function ghostForView(t) {
-  if (!app.placing || (!t.open && app.placing.kind !== 'start')) return undefined;
+  if (!app.placing || (!building(t) && app.placing.kind !== 'start')) return undefined;
   const gh = ghostPiece(t, app.placing);
   if (app.placing.kind === 'start') return { pts: gh.pts, level: gh.level, ring: gh.ring };
-  const end = chainEnd(t);
+  const end = gh.end ?? chainEnd(t);
   return { pts: gh.pts, level: gh.level, ring: end ? [end.x, end.y, PIECE_SNAP] : null };
 }
 /**
- * The track as the race view is sent it. An unfinished lap is shown open: the gap from its end back
- * to its start goes in as one more straight, past gapFrom (a fraction of the drawing), which the
- * view leaves out. An empty one is a stub off the grid, left out altogether.
+ * The track as the race view is sent it. An unfinished lap is shown open: each gap (and the way back
+ * from its end to its start while it is open) goes in as a stretch the view leaves out (gaps, and
+ * gapFrom for the last, as fractions of the drawing). Each open end gets a short stub on past it
+ * (inside the gap) heading the way its piece does, so the track is cut off square there instead
+ * of bending towards the far side of the gap. An empty one is a stub off the grid, left out
+ * altogether.
  */
+const STUB = 1.6;
 function trackForView(t) {
-  if (!t.open) return { track: t };
-  if (t.path.length < 2) return { track: { ...t, path: [[-40, -40], [-30, -40], [-35, -32]], sections: [{ type: 'straight', length: 30, passing: 0.5 }] }, gapFrom: 0 };
-  const g = lapGeom(t);
-  const [ax, ay] = t.path.at(-1);
-  const [bx, by] = t.path[0];
-  const gap = Math.max(0.1, Math.hypot(ax - bx, ay - by));
-  return { track: { ...t, sections: [...t.sections, { type: 'straight', length: Math.max(1, Math.round(gap * PIECE_MPU)), passing: 0.5 }] }, gapFrom: g.total / (g.total + gap) };
+  const gapsIn = t.sections.some(isGap);
+  if (!t.open && !gapsIn) return { track: t };
+  if (t.path.length < 2) return { track: { ...t, path: [[-40, -40], [-30, -40], [-35, -32]], sections: [{ type: 'straight', length: 30, passing: 0.5 }] }, gapFrom: 0, gaps: [] };
+  const spans = pieceSpans(t);
+  const n = t.path.length;
+  // The drawing with stubs: after each gap's near end, and before its far end.
+  const path = [];
+  const sections = [];
+  const cuts = [];
+  const stub = (i, h, sign) => { const [x, y] = vertex(t, i); return [x + sign * Math.cos(h) * STUB, y + sign * Math.sin(h) * STUB]; };
+  let vi = 0;
+  const push = (upTo) => { for (; vi <= upTo && vi < n; vi++) path.push(t.path[vi]); };
+  t.sections.forEach((sec, k) => {
+    const [i0, i1] = spans[k];
+    if (!isGap(sec)) { sections.push(sec); return; }
+    push(i0);
+    const from = path.length - 1;
+    path.push(stub(i0, headingInto(t, i0) ?? 0, 1));
+    const into = headingOut(t, i1);
+    if (into !== null) path.push(stub(i1, into, -1));
+    cuts.push({ k: sections.length, from, to: path.length });
+    sections.push({ type: 'gap', length: 1, passing: 0.5 });
+  });
+  push(n - 1);
+  let tail = null;
+  let leadIn = 0;
+  if (t.open) {
+    const from = path.length - 1;
+    path.push(stub(n - 1, headingInto(t, n - 1) ?? 0, 1));
+    const into = headingOut(t, 0);
+    // A start straight joining at the finish line merges into the lap from the side, so the stretch
+    // of lap just behind the finish line, where the last piece will come in, is drawn already: the
+    // start straight runs into it as it will once the lap is closed.
+    const [jx, jy] = t.start?.path?.at(-1) ?? [NaN, NaN];
+    const merge = into !== null && Math.hypot(jx - t.path[0][0], jy - t.path[0][1]) < 0.05;
+    leadIn = merge ? ((t.width ?? DEFAULT_WIDTH) / 2) * 2.5 + 1 : 0;
+    if (into !== null) path.push(stub(0, into, -(leadIn + STUB) / STUB));
+    if (leadIn) path.push(stub(0, into, -leadIn / STUB));
+    tail = { k: sections.length, from, to: path.length - (leadIn ? 1 : 0) };
+    sections.push({ type: 'gap', length: 1, passing: 0.5 });
+    if (leadIn) { tail.lead = sections.length; sections.push({ type: 'straight', length: 1, passing: 0.5 }); }
+  }
+  // Each gap's metres from its own length on the grid, like a piece's, so the sections sit where they did.
+  const g = lapGeom({ path, open: false });
+  const at = (i) => g.cum[Math.min(i, g.cum.length - 1)];
+  for (const c of tail ? [...cuts, tail] : cuts) sections[c.k] = { ...sections[c.k], length: Math.max(1, Math.round((at(c.to) - at(c.from)) * PIECE_MPU)) };
+  if (tail?.lead) sections[tail.lead] = { ...sections[tail.lead], length: Math.max(1, Math.round((g.total - at(tail.to)) * PIECE_MPU)) };
+  return {
+    track: { ...t, path, sections, open: undefined },
+    gaps: [...cuts, ...(tail?.lead ? [tail] : [])].map((c) => [at(c.from) / g.total, at(c.to) / g.total]),
+    gapFrom: tail && !tail.lead ? at(tail.from) / g.total : 1,
+  };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -3274,7 +3770,7 @@ async function save(forceDownload) {
 
 function startPlay() {
   const t = track();
-  if (!t || t.open) return;
+  if (!t || building(t)) return;
   app.play = { f: 0, last: performance.now() };
   const tick = (now) => {
     if (!app.play || track() !== t) { app.play = null; sendPlay(); refresh(); return; }
@@ -3375,7 +3871,7 @@ function onPointerDown(e) {
     changed();
     return;
   }
-  if (app.placing && app.mode === 'layout' && (t.open || app.placing.kind === 'start')) {
+  if (app.placing && app.mode === 'layout' && (building(t) || app.placing.kind === 'start')) {
     if (e.button === 2) startPiece(null);
     else if (e.button === 0) { app.placing.at = gp; placePiece(); }
     return;
@@ -3465,7 +3961,7 @@ function onPointerMove(e) {
     }
   }
   if (app.rect) { const c = cellAt(t, gp); app.rect.x1 = c.x; app.rect.y1 = c.y; requestDraw(); return; }
-  if (app.placing && app.mode === 'layout' && (t?.open || app.placing.kind === 'start') && !drag) {
+  if (app.placing && app.mode === 'layout' && (building(t) || app.placing.kind === 'start') && !drag) {
     app.placing.at = gp;
     canvas.style.cursor = 'crosshair';
     renderBuild();
@@ -3598,6 +4094,11 @@ $('#btnPieceShort').addEventListener('click', () => adjustPiece('size', -1));
 $('#btnPieceLong').addEventListener('click', () => adjustPiece('size', 1));
 $('#btnPiecePlace').addEventListener('click', placePiece);
 $('#btnPieceCancel').addEventListener('click', () => startPiece(null));
+$('#btnConnect').addEventListener('click', () => {
+  startPiece('connect');
+  const gh = track() && ghostPiece(track(), app.placing);
+  if (gh) status(gh.msg, gh.level === 'error' ? 'err' : 'ok');
+});
 $('#btnReady').addEventListener('click', readyToRace);
 $('#btnStartPiece').addEventListener('click', addStart);
 $('#btnStartOfficial').addEventListener('click', pickOfficial);
@@ -3611,8 +4112,8 @@ $('#btnRide').addEventListener('click', () => {
   const t = track();
   if (!t) return;
   if (t.draft) {
-    alert(t.open
-      ? 'This track is unfinished: its lap isn\'t closed yet, so it can\'t be raced. Keep placing pieces until the last one meets the first, then click Ready to race and Save.'
+    alert(building(t)
+      ? `This track is unfinished: still to join, ${stillOpen(t)}, so it can't be raced. Place pieces from the green rings, or click Close the lap, then Ready to race and Save.`
       : 'This track is unfinished, and the game leaves unfinished tracks out. Click Ready to race (it runs the checks first), then Save, to race it.');
     return;
   }
@@ -3674,7 +4175,9 @@ function sendView() {
   const sel = { item: app.mode === 'scenery' ? app.selItem : -1, sec: app.selSec, pt: app.selPt, start: app.selStart, route: app.selRoute };
   const shown = trackForView(t);
   const ghost = app.mode === 'layout' ? ghostForView(t) : undefined;
-  f.contentWindow.postMessage({ type: 'track', officialKey: officialKey(t), state: { track: shown.track, gapFrom: shown.gapFrom, ghost, parts: app.parts === FALLBACK_PARTS ? undefined : app.parts, mode: app.mode, sel, issues, brush, sectionColors: shown.track.sections.map((s) => colorOf(s.type)) } }, '*');
+  // The open ends of a track being built (Layout): where pieces join on, and where each closes into.
+  const ends = app.mode === 'layout' && t.draft ? openEnds(t).flatMap((e) => [[e.x, e.y, e.h, 'end'], ...(e.target ? [[e.target.x, e.target.y, e.target.h, 'target']] : [])]) : undefined;
+  f.contentWindow.postMessage({ type: 'track', officialKey: officialKey(t), state: { track: shown.track, gapFrom: shown.gapFrom, gaps: shown.gaps, points: shown.track === t ? undefined : t.path, ends, ghost, parts: app.parts === FALLBACK_PARTS ? undefined : app.parts, mode: app.mode, sel, issues, brush, sectionColors: shown.track.sections.map((s) => colorOf(s.type)) } }, '*');
 }
 window.addEventListener('message', (e) => {
   const f = $('#view3d');

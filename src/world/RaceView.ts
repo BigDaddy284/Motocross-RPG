@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { SceneryItem, TrackDef } from '../core/race';
 import { START_HOLD, type RiderPose } from '../core/riderAI';
-import { alongRoute, OFFICIAL_ITEM, OFFICIAL_SCALE, officialPlan, placedOfficial, routeLength, WALK_FROM, WALK_TO, type OfficialSpot } from '../core/startOfficial';
+import { alongRoute, OFFICIAL_ITEM, OFFICIAL_SCALE, officialPlan, placedOfficial, routeLength, walkProgress, BOARD_MOVE, BOARD_SIDEWAYS, WALK_FROM, WALK_TO, type OfficialSpot } from '../core/startOfficial';
 import { pointAt, START_PAD, startPointAt } from '../core/trackGeom';
 import { GRID_H, GRID_W, trackKind, type TrackPartsData } from '../core/trackParts';
 import { BIKE_LENGTH, CAM_AZ, LIP_AT, TrackSurface } from '../core/trackSurface';
@@ -22,8 +22,6 @@ import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
 // your rider (or the leader once you are out), with a map of the whole lap in the corner.
 
 /** Camera direction: degrees round from straight in front, and degrees down from level. */
-/** Seconds the official takes to raise or lower the start board. */
-const BOARD_MOVE = 0.4;
 const CAM_EL = 38;
 /** Grid units across the view, by track kind. Riders stay big enough to follow at this size. */
 const VIEW_UNITS: Record<string, number> = { stadium: 36, outdoor: 32, endurance: 32 };
@@ -113,6 +111,8 @@ export class RaceView {
    * grading of the ground, no line on the lap map). 1 (all of it drawn) otherwise.
    */
   private readonly gapFrom: number;
+  /** The stretches of the drawing that aren't track (fractions of it): the gap back to the start, and any gaps left between pieces of an unfinished track. */
+  private readonly gaps: [number, number][];
   /** The track editor's markers (selection, brush, checks), drawn over everything; empty in a race. */
   readonly overlay = new THREE.Group();
   /** Goes up when the picture changes by itself (the ground's art arriving), for a view that only draws on a change. */
@@ -146,10 +146,11 @@ export class RaceView {
     private readonly h: number,
     /** The track editor's race view passes the last view's renderer on, so a rebuild reuses its WebGL context and compiled shaders. */
     renderer?: THREE.WebGLRenderer,
-    /** The track editor's race view, for an unfinished track: see gapFrom. */
-    opts: { gapFrom?: number } = {},
+    /** The track editor's race view, for an unfinished track: see gapFrom, and gaps between its pieces (fractions of the drawing). */
+    opts: { gapFrom?: number; gaps?: [number, number][] } = {},
   ) {
     this.gapFrom = opts.gapFrom ?? 1;
+    this.gaps = [...(opts.gaps ?? []), ...(this.gapFrom < 1 ? [[this.gapFrom, 1] as [number, number]] : [])];
     this.surface = new TrackSurface(track);
     const kind = trackKind(parts, track);
     this.follow = true;
@@ -274,9 +275,19 @@ export class RaceView {
     mg.fillStyle(COLORS.ink, 0.85).fillRoundedRect(this.mapBox.x - 6, this.mapBox.y - 6, mw + 12, GRID_H * mk + 12, 6);
     mg.lineStyle(4, 0xc98a4b, 1);
     mg.beginPath();
-    const steps = Math.max(1, Math.ceil(this.gapFrom * 200));
-    const lapPts = this.gapFrom < 1 ? Array.from({ length: steps + 1 }, (_, i) => pointAt(this.surface.g, (this.gapFrom * i) / steps)) : this.surface.g.pts;
-    if (this.gapFrom > 0) lapPts.forEach((p, i) => (i ? mg.lineTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk) : mg.moveTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk)));
+    if (!this.gaps.length) this.surface.g.pts.forEach((p, i) => (i ? mg.lineTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk) : mg.moveTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk)));
+    else {
+      // Only the stretches that are track, each its own line.
+      let pen = false;
+      for (let i = 0; i <= 400; i++) {
+        const f = i / 400;
+        if (!this.drawn(f)) { pen = false; continue; }
+        const p = pointAt(this.surface.g, f);
+        if (pen) mg.lineTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk);
+        else mg.moveTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk);
+        pen = true;
+      }
+    }
     mg.strokePath();
     if (this.surface.start.total > 0) {
       mg.lineStyle(3, 0xc98a4b, 1);
@@ -294,6 +305,11 @@ export class RaceView {
     this.loadArt();
     // Handed a renderer: take up the shaders it already has before the last view lets them go.
     if (renderer) this.renderer.compile(this.scene3, this.camera);
+  }
+
+  /** False on a gap in an unfinished track's drawing (see gaps), where no track is drawn. */
+  private drawn(f: number): boolean {
+    return !this.gaps.some(([a, b]) => f > a && f < b);
   }
 
   // ---- ground ----
@@ -353,7 +369,7 @@ export class RaceView {
     const n = Math.ceil(s.g.total / 0.5);
     for (let i = 0; i < n; i++) {
       const f = i / n;
-      if (f > this.gapFrom) break;
+      if (!this.drawn(f)) continue;
       const p = s.spot(f, 0);
       const e = s.centre(f);
       if (s.onHill(f) && e > 0.05) hills.push({ x: p.x, z: p.z, e });
@@ -376,7 +392,7 @@ export class RaceView {
       const mid: { x: number; z: number; r: number; l: number }[] = [];
       for (let i = 0; i < n; i++) {
         const f = i / n;
-        if (f > this.gapFrom) break;
+        if (!this.drawn(f)) continue;
         const p = s.spot(f, 0);
         mid.push({ x: p.x, z: p.z, r: s.hw * (LIP_AT + Math.max(s.skirt(f, -1), s.skirt(f, 1))), l: s.lift(f) });
       }
@@ -552,7 +568,7 @@ export class RaceView {
     }
     const idx: number[] = [];
     for (let i = 0; i < rows; i++) {
-      if ((i + 1) / rows > this.gapFrom + 1e-9) break;
+      if (!this.drawn((i + 0.5) / rows)) continue;
       const a = i * cols;
       const b = ((i + 1) % rows) * cols;
       for (let j = 0; j < cols - 1; j++) idx.push(a + j, b + j, a + j + 1, a + j + 1, b + j, b + j + 1);
@@ -757,12 +773,11 @@ export class RaceView {
       const up = !this.hasStart ? 0 : clock < WALK_TO ? ease((clock + START_HOLD) / BOARD_MOVE) : 1 - ease((clock - WALK_TO) / BOARD_MOVE);
       // Low: in front of the official's legs, turned round so the white back faces out.
       panel.position.set(0, 0.72 + (2.45 - 0.72) * up, 0.42 + (0.12 - 0.42) * up);
-      panel.rotation.set(0, Math.PI * (1 - up), clock >= -3 ? (Math.PI / 2) * up : 0);
+      panel.rotation.set(0, Math.PI * (1 - up), clock >= BOARD_SIDEWAYS ? (Math.PI / 2) * up : 0);
       for (const arm of arms) arm.rotation.x = 2.7 * (1 - up);
       // The walk from A along the route to B, setting off and stopping gently, with the legs swinging in step.
       const k = !this.hasStart ? 0 : Math.max(0, Math.min(1, (clock - WALK_FROM) / (WALK_TO - WALK_FROM)));
-      const w = k - Math.sin(2 * Math.PI * k) / (2 * Math.PI);
-      const walked = length * w;
+      const walked = this.hasStart ? length * walkProgress(clock) : 0;
       const at = alongRoute(route, walked);
       // On the ground, or on the track where a placed route crosses it.
       stand.position.set(at.x, this.heightAt(at.x, at.y), at.y);

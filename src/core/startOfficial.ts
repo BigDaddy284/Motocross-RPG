@@ -24,6 +24,19 @@ export const OFFICIAL_MARGIN = 0.15;
 /** How long the walk from A to B takes: from the start of the hold to one second before the drop. */
 export const WALK_FROM = -5;
 export const WALK_TO = -1;
+/**
+ * How far along the walk the official is (0 at A to 1 at B) as race time runs from WALK_FROM to
+ * WALK_TO: setting off and stopping gently, fastest halfway, at twice the average pace. The race
+ * view walks them by it, and the checks time the walk by it.
+ */
+export function walkProgress(clock: number): number {
+  const k = Math.max(0, Math.min(1, (clock - WALK_FROM) / (WALK_TO - WALK_FROM)));
+  return k - Math.sin(2 * Math.PI * k) / (2 * Math.PI);
+}
+/** When the board is raised (from the start of the hold), turned sideways, and lowered (from WALK_TO), and how long a raise or a lower takes, in race seconds. */
+export const BOARD_UP = -5;
+export const BOARD_SIDEWAYS = -3;
+export const BOARD_MOVE = 0.4;
 /** The scenery item a track places the official with. */
 export const OFFICIAL_ITEM = 'start_official';
 /**
@@ -216,6 +229,26 @@ export function alongRoute(route: OfficialSpot[], d: number): OfficialSpot {
  * with it, worded for the track editor and the content check: the plan is still given when there
  * are problems, to draw.
  */
+/**
+ * The walk's timing as the race view runs it, for a route `length` grid units long: when they set
+ * off and arrive (race seconds, the gate dropping at 0), their top speed (grid units a second,
+ * sampled from walkProgress), when the board is up, sideways and down again.
+ */
+export interface WalkTiming {
+  setOff: number;
+  arrive: number;
+  topSpeed: number;
+  boardUp: number;
+  boardSideways: number;
+  boardDown: number;
+}
+export function walkTiming(length: number): WalkTiming {
+  let top = 0;
+  const dt = 0.01;
+  for (let c = WALK_FROM; c < WALK_TO; c += dt) top = Math.max(top, ((walkProgress(c + dt) - walkProgress(c)) * length) / dt);
+  return { setOff: WALK_FROM, arrive: WALK_TO, topSpeed: top, boardUp: BOARD_UP + BOARD_MOVE, boardSideways: BOARD_SIDEWAYS, boardDown: WALK_TO + BOARD_MOVE };
+}
+
 export function placedOfficial(track: TrackDef, parts: TrackPartsData): { plan: OfficialPlan | null; problems: string[]; length: number } {
   const items = track.scenery ?? [];
   const placed = items.filter((it) => it.type === OFFICIAL_ITEM);

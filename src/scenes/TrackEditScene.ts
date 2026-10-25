@@ -37,6 +37,12 @@ export interface EditViewState {
    * end back to its start (the last section), not drawn. 0 for an empty track, drawn as nothing.
    */
   gapFrom?: number;
+  /** Gaps left between the pieces of an unfinished track (fractions of the drawing), not drawn; their sections have type 'gap'. */
+  gaps?: [number, number][];
+  /** The drawing's own points, when the track sent has more (an unfinished track's, with the open ends' stubs): the ones ringed in Layout. */
+  points?: [number, number][];
+  /** The open ends of an unfinished track: where pieces join on (x, y, heading in radians, 'end'), and where a gap or the lap closes into ('target'). */
+  ends?: [number, number, number, 'end' | 'target'][];
   /** The section piece being placed: its points, whether it can go there, and the ring it snaps on at (x, y, radius). */
   ghost?: { pts: [number, number][]; level: 'ok' | 'warning' | 'error'; ring: [number, number, number] | null };
 }
@@ -274,14 +280,14 @@ export class TrackEditScene extends Phaser.Scene {
     const st = this.state;
     if (!st || this.scale.width < 50 || this.scale.height < 50) return;
     const parts = st.parts ?? services.content.trackParts;
-    const key = JSON.stringify([st.track, st.gapFrom, parts === services.content.trackParts ? null : parts, this.scale.width, this.scale.height]);
+    const key = JSON.stringify([st.track, st.gapFrom, st.gaps, parts === services.content.trackParts ? null : parts, this.scale.width, this.scale.height]);
     if (key !== this.built) {
       const first = !this.built;
       this.built = key;
       // The new view takes over the old one's renderer (its WebGL context and shaders), then the old one goes.
       const old = this.view;
       const was = [...this.holder.list];
-      this.view = new RaceView(this, this.holder, structuredClone(st.track), parts, 0, 0, this.scale.width, this.scale.height, old?.gl, { gapFrom: st.gapFrom });
+      this.view = new RaceView(this, this.holder, structuredClone(st.track), parts, 0, 0, this.scale.width, this.scale.height, old?.gl, { gapFrom: st.gapFrom, gaps: st.gaps });
       old?.destroy(true);
       for (const o of was) o.destroy();
       this.view.editCam = this.cam;
@@ -400,19 +406,32 @@ export class TrackEditScene extends Phaser.Scene {
         const k = Math.max(2, Math.ceil(((f1 - f0) * v.surface.g.total) / 0.25));
         return Array.from({ length: k + 1 }, (_, j) => v.surface.spot(f0 + ((f1 - f0) * j) / k, 0));
       };
+      const gap = (i: number) => t.sections[i]?.type === 'gap';
       for (let i = 0; i < n; i++) {
-        if (b[i + 1] <= b[i]) continue;
+        if (b[i + 1] <= b[i] || gap(i)) continue;
         const sel = i === st.sel.sec;
         line(along(b[i], b[i + 1]), sel ? SELECT : hexColor(st.sectionColors?.[i]), false, false, (sel ? 0.2 : 0.11) * k, 9);
       }
       for (let i = 1; i < n; i++) {
-        if (b[i] <= b[i - 1] || b[i] >= 1 || (open && b[i] >= b[n])) continue;
+        if (b[i] <= b[i - 1] || b[i] >= 1 || (open && b[i] >= b[n]) || (gap(i) && gap(i - 1))) continue;
         const across = Array.from({ length: 9 }, (_, j) => v.surface.spot(b[i], -1.05 + (2.1 * j) / 8));
         line(across, BOUND_EDGE, false, false, 0.14 * k, 9.5);
         line(across, BOUND, false, false, 0.07 * k, 9.6);
       }
       // The lap's points (white, the finish line's bigger) and the start straight's (blue).
-      if (st.gapFrom !== 0) t.path.forEach(([x, y], i) => line(ring(x, y, i === st.sel.pt ? 0.6 : i === 0 ? 0.5 : 0.35), i === st.sel.pt ? SELECT : 0xffffff, true));
+      if (st.gapFrom !== 0) (st.points ?? t.path).forEach(([x, y], i) => line(ring(x, y, i === st.sel.pt ? 0.6 : i === 0 ? 0.5 : 0.35), i === st.sel.pt ? SELECT : 0xffffff, true));
+      // An unfinished track's open ends: green where the next piece joins on, an arrow the way it
+      // heads; blue where a gap or the lap closes into, the arrow the way the track has to arrive.
+      for (const [x, y, h, kind] of st.ends ?? []) {
+        const color = kind === 'end' ? GREEN : 0x4aa0ff;
+        const r = (t.width ?? 3.4) / 2 + 0.4;
+        line(ring(x, y, r), color, true, kind === 'target', 0.1 * k, 10.8);
+        const tip = { x: x + Math.cos(h) * (r + 1.2), z: y + Math.sin(h) * (r + 1.2) };
+        const tail = kind === 'end' ? { x, z: y } : { x: x - Math.cos(h) * (r + 1.2), z: y - Math.sin(h) * (r + 1.2) };
+        const head = kind === 'end' ? tip : { x, z: y };
+        line([tail, head], color, false, false, 0.12 * k, 10.8);
+        for (const side of [-1, 1]) line([head, { x: head.x - Math.cos(h + side * 0.5) * 0.9, z: head.z - Math.sin(h + side * 0.5) * 0.9 }], color, false, false, 0.12 * k, 10.8);
+      }
       // The piece being placed, as wide as the track, and the ring at the end of the track it snaps on at.
       const g = st.ghost;
       if (g) {
