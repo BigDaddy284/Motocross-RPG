@@ -54,6 +54,7 @@ canvas#view { position: absolute; inset: 0; width: 100%; height: 100%; display: 
 #toolbar > * { pointer-events: auto; }
 #view3d { position: absolute; left: 0; top: 46px; width: 100%; height: calc(100% - 46px); border: 0; visibility: hidden; pointer-events: none; background: #0d0e11; }
 #view3d.on { visibility: visible; pointer-events: auto; }
+#noRaceView { position: absolute; left: 10px; bottom: 10px; max-width: 60%; padding: 6px 10px; border-radius: 6px; background: #000000b0; color: #f0c040; font-size: 12px; pointer-events: none; }
 footer { grid-area: foot; display: flex; gap: 14px; padding: 4px 10px; background: var(--panel); border-top: 1px solid var(--line); color: var(--dim); white-space: nowrap; overflow: hidden; }
 footer #msg { color: var(--text); overflow: hidden; text-overflow: ellipsis; }
 footer #msg.err { color: var(--danger); }
@@ -206,7 +207,6 @@ body.final .final-hide { display: none !important; }
     <label class="chk" style="background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:3px 8px"><input type="checkbox" id="snap" checked> Snap</label>
     <label class="chk" style="background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:3px 8px" title="Fade the ground and scenery to see the track"><input type="checkbox" id="showScene" checked> Scenery</label>
     <button id="btnPlay" title="Ride a dot round the lap (P). It slows down in the harder sections.">▶ Preview</button>
-    <button id="btnView3d" title="Edit in the race view (V): the game's own race camera and 3D scene, with the same tools, undo, checks and save. Needs npm run dev.">Race view</button>
     <button id="btnRide" title="Open a race day on this track in the game, with npm run dev running. Save first: the game reads the saved tracks.json.">Race it in the game</button>
   </div>
   <div id="welcome">
@@ -304,7 +304,7 @@ body.final .final-hide { display: none !important; }
     <li><b>Ground:</b> paint the ground round the track with the game's ground tiles.</li>
     <li><b>Scenery:</b> banners (with your own words and colour), sponsor boards, start gates, tuff blocks, hay bales, tyre walls, stands, crowds, pits, trees and more. <kbd>Q</kbd> and <kbd>E</kbd> turn the selected item, <kbd>Ctrl+D</kbd> duplicates it.</li>
     <li><b>Height:</b> raise and lower the ground with a soft round brush (radius and strength in metres per dab), smooth it, or flatten it to one height. The track follows the ground under its middle and stays level across its width; riders slow up climbs and run quicker down drops. Ground steeper than 45° is refused as a wall, and a track climbing or dropping more than 35% along its length is a warning. Old tracks without heights stay flat.</li>
-    <li><b>Race view</b> <kbd>V</kbd> shows the track in the game's own race camera and 3D scene (with <code>npm run dev</code> running), with hills, jumps, scenery and ground as a race draws them. Every tool works there as on the map: click, drag and right-click on the 3D ground, and the keys are the same. Mouse wheel or <kbd>+</kbd> <kbd>−</kbd> zoom, <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or a middle-button (or <kbd>Space</kbd>+drag) pan, <kbd>[</kbd> <kbd>]</kbd> turn the view, <kbd>0</kbd> resets it. The selection is orange, problems red or dashed yellow. It edits the same track as the map, so undo, the unsaved marker and Save are the same; no race runs while you edit. <b>Map view</b> or <kbd>V</kbd> goes back.</li>
+    <li><b>Race view:</b> you edit in the game's own race camera and 3D scene (with <code>npm run dev</code> running), with hills, jumps, scenery and ground as a race draws them, and the lap map in its corner. Click, drag and right-click on the 3D ground; the keys are the same in every mode. Mouse wheel or <kbd>+</kbd> <kbd>−</kbd> zoom, <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or a middle-button (or <kbd>Space</kbd>+drag) pan, <kbd>[</kbd> <kbd>]</kbd> turn the view, <kbd>0</kbd> resets it. The selection is orange, problems red or dashed yellow. In Layout each section shows as a stripe in its kind's colour, with a cream line across the track where one section ends and the next begins. No race runs while you edit. Opened straight from disk (no <code>npm run dev</code>), the editor shows a plain map instead, since the game can't run there.</li>
     <li><b>Modes:</b> <kbd>1</kbd> Layout, <kbd>2</kbd> Surfaces, <kbd>3</kbd> Ground, <kbd>4</kbd> Scenery, <kbd>5</kbd> Height.</li>
     <li><b>Export / Import</b> save one track as a <code>.track.json</code> file and add one back.</li>
     <li><b>Preview</b> <kbd>P</kbd> rides a dot round the lap, slower through the harder sections.</li>
@@ -1163,6 +1163,8 @@ function draw() {
   layout();
   const r = canvas.getBoundingClientRect();
   ctx.clearRect(0, 0, r.width, r.height);
+  // Under the race view the map is never seen: only its grid mapping (layout) is used, by the tools.
+  if (app.view3d) return;
   const t = track();
   if (!t) return;
   const { k, ox, oy, width } = view;
@@ -2547,7 +2549,7 @@ function startPlay() {
   if (!t) return;
   app.play = { f: 0, last: performance.now() };
   const tick = (now) => {
-    if (!app.play || track() !== t) { app.play = null; refresh(); return; }
+    if (!app.play || track() !== t) { app.play = null; sendPlay(); refresh(); return; }
     const dt = Math.min(0.1, (now - app.play.last) / 1000);
     app.play.last = now;
     const s = t.sections[sectionAt(t, app.play.f)];
@@ -2555,13 +2557,18 @@ function startPlay() {
     // About 8 seconds a lap on an average section mix.
     const speed = 1 / 8 / (app.sectionDefs[s?.type]?.diff ?? 1);
     app.play.f = (app.play.f + dt * speed * clamp(600 / Math.max(100, len), 0.5, 2)) % 1;
+    sendPlay();
     requestDraw();
     requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
   refresh();
 }
-function stopPlay() { app.play = null; }
+function stopPlay() { app.play = null; sendPlay(); }
+/** The preview rider's place on the lap (or none) to the race view, which draws it. */
+function sendPlay() {
+  if (app.view3d) $('#view3d').contentWindow?.postMessage({ type: 'play', f: app.play ? app.play.f : null }, '*');
+}
 
 // ---------------------------------------------------------------------------------------------
 // Mouse
@@ -2836,20 +2843,20 @@ $('#btnRide').addEventListener('click', () => {
 // you click on it as a grid point; the same tool code as the map then acts on it, so undo, the
 // checks, the unsaved marker and Save all work as before. No race runs in it.
 
-function toggleRaceView(on = !app.view3d) {
-  if (on && !/^https?:$/.test(location.protocol)) {
-    status('The race view runs the game, so it needs npm run dev: open the editor from http://localhost:5173/tools/track-editor.html.', 'err');
+function openRaceView() {
+  if (!/^https?:$/.test(location.protocol)) {
+    // Opened from disk: the game can't run here, so the map stands in until the editor is served.
+    const note = document.createElement('div');
+    note.id = 'noRaceView';
+    note.textContent = 'Plain map: the editor edits in the race view, which runs the game. Start npm run dev and open http://localhost:5173/tools/track-editor.html.';
+    $('#view3d').after(note);
     return;
   }
-  app.view3d = on;
+  app.view3d = true;
   const f = $('#view3d');
-  if (on && !f.getAttribute('src')) f.src = '/?editview=1';
-  // Hidden, not removed: the frame keeps its size, so the game in it never sees a zero-size window.
-  f.classList.toggle('on', on);
-  f.contentWindow?.postMessage({ type: 'visible', on }, '*');
-  $('#btnView3d').classList.toggle('on', on);
-  $('#btnView3d').textContent = on ? 'Map view' : 'Race view';
-  if (on) { sendView(); f.focus(); } else canvas.focus?.();
+  if (!f.getAttribute('src')) f.src = '/?editview=1';
+  f.classList.add('on');
+  sendView();
   requestDraw();
 }
 /** Sends the open track and what to mark on it to the race view. */
@@ -2881,7 +2888,6 @@ window.addEventListener('message', (e) => {
   const ev = { clientX: r.left + s.x, clientY: r.top + s.y, button: m.button ?? 0, shiftKey: !!m.shift, altKey: !!m.alt, ctrlKey: !!m.ctrl, metaKey: false, pointerId: -1, synthetic: true, preventDefault() {} };
   ({ down: onPointerDown, move: onPointerMove, up: onPointerUp, dblclick: onDblClick })[m.phase]?.(ev);
 });
-$('#btnView3d').addEventListener('click', () => toggleRaceView());
 for (const id of ['#hRadius', '#gBrush']) $(id).addEventListener('change', sendView);
 for (const b of document.querySelectorAll('#modes button')) b.addEventListener('click', () => setMode(b.dataset.mode));
 for (const id of ['#btnHelp', '#btnHelp2']) $(id).addEventListener('click', () => $('#help').showModal());
@@ -2897,7 +2903,6 @@ window.addEventListener('keydown', (e) => {
   if (!track()) return;
   if (mod && e.key.toLowerCase() === 'd' && app.mode === 'scenery') { e.preventDefault(); duplicateItem(); return; }
   if (mod) return;
-  if (e.key.toLowerCase() === 'v') { toggleRaceView(); return; }
   const modes = { 1: 'layout', 2: 'surface', 3: 'ground', 4: 'scenery', 5: 'height' };
   if (modes[e.key]) { setMode(modes[e.key]); return; }
   if (e.key.toLowerCase() === 'p') { $('#btnPlay').click(); return; }
@@ -2971,7 +2976,8 @@ async function tryServer() {
 
 setMode('layout');
 tryServer();
-window.trackEditor = { app, toggleRaceView, sendView, heightDab, elevAt, elevationIssues, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart }; // for tests
+openRaceView();
+window.trackEditor = { app, openRaceView, sendView, heightDab, elevAt, elevationIssues, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart }; // for tests
 </script>
 </body>
 </html>

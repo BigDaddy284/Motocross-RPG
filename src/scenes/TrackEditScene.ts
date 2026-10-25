@@ -54,8 +54,6 @@ export class TrackEditScene extends Phaser.Scene {
   private hover: { x: number; z: number } | null = null;
   private pan: { x: number; y: number; cx: number; cz: number } | null = null;
   private space = false;
-  /** False while the editor shows its map instead: nothing is drawn then. */
-  private shown = true;
   private readonly keys = new Set<string>();
   /** What the picture last drawn showed (the camera, and the view's own changes); the view draws again only when something changes. */
   private drawn = '';
@@ -78,13 +76,8 @@ export class TrackEditScene extends Phaser.Scene {
     };
     on(window, 'message', (e) => {
       if (e.source !== window.parent || !e.data) return;
-      if (e.data.type === 'visible') {
-        this.shown = !!e.data.on;
-        this.dirty = true;
-        return;
-      }
+      if (e.data.type === 'play') return void this.markPlay(typeof e.data.f === 'number' ? e.data.f : null);
       if (e.data.type !== 'track') return;
-      this.shown = true;
       this.state = e.data.state as EditViewState;
       status.setVisible(false);
       this.queue();
@@ -179,7 +172,7 @@ export class TrackEditScene extends Phaser.Scene {
       this.keys.delete(e.key.toLowerCase());
     });
     this.scale.on('resize', () => {
-      // Hidden (the editor's map view), the frame has no size: build when it is shown again.
+      // Too small to draw (a window being resized from nothing): build once it has a size.
       if (this.scale.width < 50 || this.scale.height < 50) return;
       this.built = '';
       this.queue();
@@ -231,7 +224,6 @@ export class TrackEditScene extends Phaser.Scene {
   }
 
   update(_t: number, dtMs: number): void {
-    if (!this.shown) return;
     if (this.pending && performance.now() - this.lastBuild > REBUILD_EVERY) {
       this.pending = false;
       this.rebuild();
@@ -269,7 +261,7 @@ export class TrackEditScene extends Phaser.Scene {
     const st = this.state;
     if (!v || !st) return;
     this.dirty = true;
-    for (const c of [...v.overlay.children]) if (c !== this.brushGroup) dispose(v.overlay, c);
+    for (const c of [...v.overlay.children]) if (c !== this.brushGroup && c !== this.playDot) dispose(v.overlay, c);
     const t = st.track;
     const line = (pts: { x: number; z: number }[], color: number, closed = false, dashed = false, width = 0.09, order = 10) => v.overlay.add(ribbon(v, closed ? [...pts, pts[0]] : pts, color, dashed, false, width, order));
     const rect = (x: number, z: number, w: number, d: number, a: number) => {
@@ -338,6 +330,36 @@ export class TrackEditScene extends Phaser.Scene {
       t.path.forEach(([x, y], i) => line(ring(x, y, i === st.sel.pt ? 0.6 : i === 0 ? 0.5 : 0.35), i === st.sel.pt ? SELECT : 0xffffff, true));
       (t.start?.path ?? []).forEach(([x, y], i) => line(rect(x, y, 0.6, 0.6, 0), i === st.sel.start ? SELECT : 0x4aa0ff, true));
     }
+  }
+
+  /** The editor's Preview rider: an orange dot ridden round the lap, as on the map. */
+  private playDot: THREE.Mesh | null = null;
+
+  private markPlay(f: number | null): void {
+    const v = this.view;
+    if (!v) return;
+    if (f === null) {
+      if (this.playDot) dispose(this.playDot.parent ?? v.overlay, this.playDot);
+      this.playDot = null;
+      this.dirty = true;
+      return;
+    }
+    if (!this.playDot || this.playDot.parent !== v.overlay) {
+      if (this.playDot) dispose(this.playDot.parent ?? v.overlay, this.playDot);
+      const dot = new THREE.Mesh(new THREE.CircleGeometry(0.75, 24), new THREE.MeshBasicMaterial({ color: SELECT, depthTest: false }));
+      dot.rotation.x = -Math.PI / 2;
+      dot.renderOrder = 11;
+      const rim = new THREE.Mesh(new THREE.RingGeometry(0.75, 1, 24), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false }));
+      rim.renderOrder = 11;
+      dot.add(rim);
+      v.overlay.add(dot);
+      this.playDot = dot;
+    }
+    const p = v.surface.spot(f, 0);
+    this.playDot.position.set(p.x, v.heightAt(p.x, p.z) + 0.1, p.z);
+    // 10 pixels across its middle, as on the map, at any zoom.
+    this.playDot.scale.setScalar((10 * v.unitsAcross()) / this.cam.zoom / this.scale.width);
+    this.dirty = true;
   }
 
   /** The brush under the pointer, following the ground. */
