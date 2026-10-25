@@ -1,0 +1,300 @@
+{
+  "note": "The building library: every building that can stand on an area map, for the map editor to place (tools/map-editor.html, Buildings) and the game to check against the maps. footprint is the tiles the building takes up, one string a row from its top-left: # solid (blocked), . part of the building you can walk on (a doorway, a porch), and a space for a tile that isn't part of it, so a building can be any size and any shape; its size comes from these tiles, never from its picture. parts is its picture, one or more images from a sheet under public/assets, each its crop [x, y, w, h] of the sheet drawn with its top-left at tile at [x, y] of the footprint, so an exterior can be put together from pieces of other buildings; a building with no parts is drawn with tiles on the map instead. doors are the tiles you walk in by ([x, y] in the footprint, on a . tile), each into an interior map (int.home.bike_shop is the map int-home-bike-shop), arriving on that interior's spawn, or the spawn named. returns are where you come back out ([x, y], usually the tile below a door, outside the footprint); name one only when an interior's exit asks for it by name. A building with doors needs interiors of its own: no other building may lead into them, or the way back out would be ambiguous, so it can stand on one map once. npc is who works there (shown on the map). draft: true marks a building still being made: it stays here and in the editor, but can't be placed on a map and is only checked lightly.",
+  "buildings": [
+    {
+      "id": "bld.home.rented_room", "name": "Rented room", "zone": "Home Town",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [0,0,384,256], "at": [0,0]}],
+      "footprint": [
+        "#####",
+        "#####",
+        "#####",
+        "#.###"
+      ],
+      "doors": [{"tile": [1,3], "interior": "int.home.rented_room"}],
+      "returns": [{"tile": [1,4]}]
+    },
+    {
+      "id": "bld.home.neighbour_house", "name": "Neighbour's house", "zone": "Home Town", "npc": "Neighbour with a PC",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [384,0,448,320], "at": [0,0]}],
+      "footprint": [
+        "######",
+        "######",
+        "######",
+        "######",
+        "##.###"
+      ],
+      "doors": [{"tile": [2,4], "interior": "int.home.neighbour"}],
+      "returns": [{"tile": [2,5]}]
+    },
+    {
+      "id": "bld.home.filler_house", "name": "Town house (no entry)", "zone": "Home Town",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [832,0,384,320], "at": [0,0]}],
+      "footprint": [
+        "#####",
+        "#####",
+        "#####",
+        "#####",
+        "#####"
+      ],
+      "doors": [],
+      "returns": []
+    },
+    {
+      "id": "bld.home.local_garage", "name": "Local garage", "zone": "Home Town", "npc": "Garage mechanic",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [1216,0,576,256], "at": [0,0]}],
+      "footprint": [
+        "########",
+        "########",
+        "########",
+        "#....###"
+      ],
+      "doors": [{"tile": [1,3], "interior": "int.home.local_garage"},{"tile": [2,3], "interior": "int.home.local_garage"},{"tile": [3,3], "interior": "int.home.local_garage", "spawn": "side_door"},{"tile": [4,3], "interior": "int.home.local_garage", "spawn": "side_door"}],
+      "returns": [{"tile": [1,4]},{"tile": [3,4], "name": "side_door"}]
+    },
+    {
+      "id": "bld.home.bike_shop", "name": "General bike shop", "zone": "Home Town", "npc": "General bike shop owner",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [0,320,512,320], "at": [0,0]}],
+      "footprint": [
+        "#######",
+        "#######",
+        "#######",
+        "#######",
+        "###.###"
+      ],
+      "doors": [{"tile": [3,4], "interior": "int.home.bike_shop"}],
+      "returns": [{"tile": [3,5]}]
+    },
+    {
+      "id": "bld.home.tyre_shop", "name": "Tyres and wheels", "zone": "Home Town", "npc": "Tyres and wheels specialist",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [512,320,512,256], "at": [0,0]}],
+      "footprint": [
+        "#######",
+        "#######",
+        "#######",
+        "####.##"
+      ],
+      "doors": [{"tile": [4,3], "interior": "int.home.tyre_shop"}],
+      "returns": [{"tile": [4,4]}]
+    },
+    {
+      "id": "bld.home.van_office", "name": "Van seller's office", "zone": "Home Town", "npc": "Van seller",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [1024,320,320,256], "at": [0,0]}],
+      "footprint": [
+        "####",
+        "####",
+        "####",
+        "#.##"
+      ],
+      "doors": [{"tile": [1,3], "interior": "int.home.van_office"}],
+      "returns": [{"tile": [1,4]}]
+    },
+    {
+      "id": "bld.home.practice_kiosk", "name": "Practice track kiosk", "zone": "Home Town", "npc": "Practice track owner",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [1344,320,256,256], "at": [0,0]}],
+      "footprint": [
+        "###",
+        "###",
+        "###",
+        "###"
+      ],
+      "doors": [],
+      "returns": []
+    },
+    {
+      "id": "bld.home.running_pavilion", "name": "Running track pavilion", "zone": "Home Town", "npc": "Running track coach",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [1600,320,448,256], "at": [0,0]}],
+      "footprint": [
+        "######",
+        "######",
+        "######",
+        "######"
+      ],
+      "doors": [],
+      "returns": []
+    },
+    {
+      "id": "bld.iz.fabrication_shop", "name": "Fabrication shop", "zone": "Industrial Zone", "npc": "Fabrication shop boss",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [0,640,704,320], "at": [0,0]}],
+      "footprint": [
+        "##########",
+        "##########",
+        "##########",
+        "##########",
+        "#####.####"
+      ],
+      "doors": [{"tile": [5,4], "interior": "int.iz.fabrication_shop"}],
+      "returns": [{"tile": [5,5]}]
+    },
+    {
+      "id": "bld.iz.engine_rebuilder", "name": "Engine rebuilder", "zone": "Industrial Zone", "npc": "Engine rebuilder",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [704,640,640,320], "at": [0,0]}],
+      "footprint": [
+        "#########",
+        "#########",
+        "#########",
+        "#########",
+        "######.##"
+      ],
+      "doors": [{"tile": [6,4], "interior": "int.iz.engine_rebuilder"}],
+      "returns": [{"tile": [6,5]}]
+    },
+    {
+      "id": "bld.iz.modifier_unit", "name": "Modifier machine unit", "zone": "Industrial Zone", "npc": "Modifier machine owner",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [1344,640,448,256], "at": [0,0]}],
+      "footprint": [
+        "######",
+        "######",
+        "######",
+        "#.####"
+      ],
+      "doors": [{"tile": [1,3], "interior": "int.iz.modifier_unit"}],
+      "returns": [{"tile": [1,4]}]
+    },
+    {
+      "id": "bld.iz.filler_unit", "name": "Industrial unit (no entry)", "zone": "Industrial Zone",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [0,960,512,320], "at": [0,0]}],
+      "footprint": [
+        "#######",
+        "#######",
+        "#######",
+        "#######",
+        "#######"
+      ],
+      "doors": [],
+      "returns": []
+    },
+    {
+      "id": "bld.home.tool_shop", "name": "Tool shop", "zone": "Home Town", "npc": "Tool shop owner",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [512,960,448,256], "at": [0,0]}],
+      "footprint": [
+        "######",
+        "######",
+        "######",
+        "##.###"
+      ],
+      "doors": [{"tile": [2,3], "interior": "int.home.tool_shop"}],
+      "returns": [{"tile": [2,4]}]
+    },
+    {
+      "id": "bld.home.starter_terrace", "name": "Starter terrace (house Tier 1)", "zone": "Home Town",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [960,960,384,320], "at": [0,0]}],
+      "footprint": [
+        "#####",
+        "#####",
+        "#####",
+        "#####",
+        "###.#"
+      ],
+      "doors": [{"tile": [3,4], "interior": "int.home.starter_terrace"}],
+      "returns": [{"tile": [3,5]}]
+    },
+    {
+      "id": "bld.home.shed_workshop", "name": "Shed workshop (Tier 1 garden)", "zone": "Home Town",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [1344,960,256,256], "at": [0,0]}],
+      "footprint": [
+        "###",
+        "###",
+        "###",
+        "#.#"
+      ],
+      "doors": [{"tile": [1,3], "interior": "int.home.shed_workshop"}],
+      "returns": [{"tile": [1,4]}]
+    },
+    {
+      "id": "bld.iz.lockup", "name": "Warehouse lock-up", "zone": "Industrial Zone",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [1600,960,256,256], "at": [0,0]}],
+      "footprint": [
+        "###",
+        "###",
+        "###",
+        "###"
+      ],
+      "doors": [],
+      "returns": []
+    },
+    {
+      "id": "bld.home.carwash", "name": "Town carwash", "zone": "Home Town",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [0,1280,384,256], "at": [0,0]}],
+      "footprint": [
+        "#####",
+        "#####",
+        "#####",
+        "#####"
+      ],
+      "doors": [],
+      "returns": []
+    },
+    {
+      "id": "bld.example.security_hut", "name": "Security hut", "zone": "Examples",
+      "parts": [{"sheet": "art/area-map/tiled/tiles/industrial-props/security-hut.png", "crop": [0,0,128,128], "at": [0,0]}],
+      "footprint": [
+        "##",
+        "##"
+      ],
+      "doors": [],
+      "returns": []
+    },
+    {
+      "id": "bld.example.town_block", "name": "Town block", "zone": "Examples",
+      "parts": [
+        {"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [704,640,640,320], "at": [0,0]},
+        {"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [0,640,704,320], "at": [9,0]},
+        {"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [0,960,512,320], "at": [19,0]},
+        {"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [704,640,640,320], "at": [26,0]},
+        {"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [0,640,704,320], "at": [0,5]},
+        {"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [0,960,512,320], "at": [10,5]},
+        {"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [0,320,512,320], "at": [17,5]},
+        {"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [384,0,448,320], "at": [24,5]},
+        {"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [832,0,384,320], "at": [30,5]},
+        {"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [1216,0,576,256], "at": [0,10]},
+        {"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [512,320,512,256], "at": [8,10]},
+        {"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [1344,640,448,256], "at": [15,10]},
+        {"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [0,0,384,256], "at": [21,10]},
+        {"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [1600,960,256,256], "at": [26,10]},
+        {"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [1344,960,256,256], "at": [29,10]},
+        {"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [1344,320,256,256], "at": [32,10]},
+        {"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [0,1280,384,256], "at": [0,14]},
+        {"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [1600,320,448,256], "at": [5,14]},
+        {"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [512,960,448,256], "at": [11,14]},
+        {"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [1024,320,320,256], "at": [17,14]},
+        {"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [1344,640,448,256], "at": [21,14]},
+        {"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [1216,0,576,256], "at": [27,14]}
+      ],
+      "footprint": [
+        "###################################",
+        "###################################",
+        "###################################",
+        "###################################",
+        "###################################",
+        "###################################",
+        "###################################",
+        "###################################",
+        "###################################",
+        "###################################",
+        "###################################",
+        "###################################",
+        "###################################",
+        "###################################",
+        "###################################",
+        "###################################",
+        "###################################",
+        "###################################"
+      ],
+      "doors": [],
+      "returns": []
+    },
+    {
+      "id": "bld.iz.engine_rebuilder_lockup", "name": "Engine rebuilder with lock-up", "zone": "Industrial Zone", "npc": "Engine rebuilder", "draft": true,
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [704,640,640,320], "at": [0,0]},{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [1600,960,256,256], "at": [9,1]}],
+      "footprint": [
+        "#########   ",
+        "############",
+        "############",
+        "############",
+        "######.#####"
+      ],
+      "doors": [{"tile": [6,4], "interior": "int.iz.engine_rebuilder_lockup"}],
+      "returns": [{"tile": [6,5]}]
+    }
+  ]
+}

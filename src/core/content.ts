@@ -1,3 +1,4 @@
+import { BUILDINGS_SCHEMA, checkBuildings, type BuildingsData } from './buildings';
 import type { BikesData, ItemDef, StoryData, WorldData } from './career';
 import { Grid } from './grid';
 import { objectTile, type BakedMap, type Facing } from './mapTypes';
@@ -47,6 +48,7 @@ export interface Content {
   trackParts: TrackPartsData;
   shops: ShopsData;
   vehicles: VehiclesData;
+  buildings: BuildingsData;
 }
 
 export interface Manifest {
@@ -265,6 +267,7 @@ export const CONTENT_FILES = {
   trackParts: 'data/trackParts.json',
   shops: 'data/shops.json',
   vehicles: 'data/vehicles.json',
+  buildings: 'data/buildings.json',
 } as const;
 
 export type RawContent = Record<keyof typeof CONTENT_FILES, unknown>;
@@ -283,6 +286,7 @@ const SCHEMAS: Record<keyof typeof CONTENT_FILES, Schema> = {
   trackParts: TRACK_PARTS_SCHEMA,
   shops: SHOPS_SCHEMA,
   vehicles: VEHICLES_SCHEMA,
+  buildings: BUILDINGS_SCHEMA,
 };
 
 /** Checks raw file contents and returns the typed content, or every problem found. */
@@ -313,6 +317,7 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
     trackParts: raw.trackParts as TrackPartsData,
     shops: raw.shops as ShopsData,
     vehicles: raw.vehicles as VehiclesData,
+    buildings: raw.buildings as BuildingsData,
   };
   const file = CONTENT_FILES.npcs;
   const seen = new Set<string>();
@@ -341,6 +346,7 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
   errors.push(...checkTrackParts(content.trackParts, content.tracks.tracks, () => true));
   errors.push(...checkShopContent(CONTENT_FILES.shops, content.shops, content.bikes, seen, maps));
   errors.push(...checkVehicles(CONTENT_FILES.vehicles, raw.vehicles, maps).errors);
+  errors.push(...checkBuildings(content.buildings, maps));
   content.vehicles.designs.forEach((d, i) => {
     if (!manifest.vehicles?.[d.id]) errors.push({ file: CONTENT_FILES.vehicles, field: `designs[${i}].id`, message: `no van sheet for "${d.id}" in the manifest (run tools/import-art.mjs --vehicles)` });
   });
