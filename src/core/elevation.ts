@@ -15,8 +15,11 @@ export interface TrackElevation {
   points: [number, number, number][];
 }
 
+/** The track grid (trackParts GRID_W × GRID_H): past its edges the ground keeps the height at the edge. */
+const EDGE_W = 100;
+const EDGE_H = 60;
 /** Highest and lowest the editor lets ground go, in metres. */
-export const ELEV_MAX = 8;
+export const ELEV_MAX = 24;
 /** Steepest the ground may be anywhere before it's an error (a wall), as a rise over run: 45°. */
 export const WALL_SLOPE = 1;
 /** Steepest the track may climb or drop along its length before it's a warning, as a rise over run (35%). */
@@ -41,8 +44,8 @@ export class Elevation {
   /** The ground's height in metres at a point on the grid. */
   at(x: number, y: number): number {
     if (this.empty) return 0;
-    const gx = x / this.step;
-    const gy = y / this.step;
+    const gx = Math.max(0, Math.min(EDGE_W, x)) / this.step;
+    const gy = Math.max(0, Math.min(EDGE_H, y)) / this.step;
     const i = Math.floor(gx);
     const j = Math.floor(gy);
     const fx = gx - i;
@@ -85,6 +88,8 @@ export function elevationIssues(track: TrackDef, mpu: number, along: { x: number
   // The race view draws the track TRACK_METRES (8) wide, DEFAULT_TRACK_WIDTH (3.4) grid units unless set.
   const run = (e.step * 8) / (track.width ?? 3.4);
   const seen = new Set<string>();
+  const lastI = Math.floor(EDGE_W / e.step);
+  const lastJ = Math.floor(EDGE_H / e.step);
   for (const [x, y] of e.points) {
     const i = Math.round(x / e.step);
     const j = Math.round(y / e.step);
@@ -94,6 +99,8 @@ export function elevationIssues(track: TrackDef, mpu: number, along: { x: number
       [0, 1],
       [0, -1],
     ]) {
+      // Past the grid's edge the ground keeps the edge's height, so there is no wall there.
+      if (i + di < 0 || j + dj < 0 || i + di > lastI || j + dj > lastJ) continue;
       const rise = Math.abs(el.corner(i, j) - el.corner(i + di, j + dj));
       const k = `${Math.min(i, i + di)},${Math.min(j, j + dj)},${di !== 0}`;
       if (rise / run > WALL_SLOPE && !seen.has(k)) {

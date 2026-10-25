@@ -277,8 +277,8 @@ body.final .final-hide { display: none !important; }
   <div class="pane" id="pane-height">
     <div class="hint">Raise and lower the ground. Left-click or drag uses the tool, right-click does the opposite (Smooth and Flatten work both ways). Each stroke is one undo. The track is graded level across its width at the ground under its middle, and the ground eases out to it either side.</div>
     <div class="field"><label for="hTool">Tool</label><select id="hTool"><option value="raise" selected>Raise</option><option value="lower">Lower</option><option value="smooth">Smooth</option><option value="flatten">Flatten to the height clicked</option></select></div>
-    <div class="field"><label for="hRadius">Radius</label><select id="hRadius"><option value="3">3 grid units</option><option value="5">5</option><option value="8" selected>8</option><option value="12">12</option><option value="18">18</option></select></div>
-    <div class="field"><label for="hStrength">Strength</label><select id="hStrength"><option value="0.25" selected>0.25 m a dab</option><option value="0.5">0.5 m</option><option value="1">1 m</option></select></div>
+    <div class="field"><label for="hRadius">Radius</label><select id="hRadius"><option value="3">3 grid units</option><option value="5">5</option><option value="8" selected>8</option><option value="12">12</option><option value="18">18</option><option value="24">24</option></select></div>
+    <div class="field"><label for="hStrength">Strength</label><select id="hStrength"><option value="0.25" selected>0.25 m a dab</option><option value="0.5">0.5 m</option><option value="1">1 m</option><option value="2">2 m</option></select></div>
     <div class="row" style="margin-top:6px"><button id="btnClearHeight" title="Put all the ground back flat">Flatten all</button></div>
     <div class="box" id="heightInfo"></div>
   </div>
@@ -304,7 +304,7 @@ body.final .final-hide { display: none !important; }
     <li><b>Ground:</b> paint the ground round the track with the game's ground tiles.</li>
     <li><b>Scenery:</b> banners (with your own words and colour), sponsor boards, start gates, tuff blocks, hay bales, tyre walls, stands, crowds, pits, trees and more. <kbd>Q</kbd> and <kbd>E</kbd> turn the selected item, <kbd>Ctrl+D</kbd> duplicates it.</li>
     <li><b>Height:</b> raise and lower the ground with a soft round brush (radius and strength in metres per dab), smooth it, or flatten it to one height. The track follows the ground under its middle and stays level across its width; riders slow up climbs and run quicker down drops. Ground steeper than 45° is refused as a wall, and a track climbing or dropping more than 35% along its length is a warning. Old tracks without heights stay flat.</li>
-    <li><b>Race view:</b> you edit in the game's own race camera and 3D scene (with <code>npm run dev</code> running), with hills, jumps, scenery and ground as a race draws them, and the lap map in its corner. Click, drag and right-click on the 3D ground; the keys are the same in every mode. Mouse wheel or <kbd>+</kbd> <kbd>−</kbd> zoom, <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or a middle-button (or <kbd>Space</kbd>+drag) pan, <kbd>[</kbd> <kbd>]</kbd> turn the view, <kbd>0</kbd> resets it. The selection is orange, problems red or dashed yellow. In Layout each section shows as a stripe in its kind's colour, with a cream line across the track where one section ends and the next begins. No race runs while you edit. Opened straight from disk (no <code>npm run dev</code>), the editor shows a plain map instead, since the game can't run there.</li>
+    <li><b>Race view:</b> you edit in the game's own race camera and 3D scene with hills, jumps, scenery and ground as a race draws them, and the lap map in its corner. Click, drag and right-click on the 3D ground; the keys are the same in every mode. Mouse wheel or <kbd>+</kbd> <kbd>−</kbd> zoom, <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or a middle-button (or <kbd>Space</kbd>+drag) pan, <kbd>[</kbd> <kbd>]</kbd> turn the view, <kbd>0</kbd> resets it. The selection is orange, problems red or dashed yellow. In Layout each section shows as a stripe in its kind's colour, with a cream line across the track where one section ends and the next begins. No race runs while you edit. Opened straight from disk, the race view runs the game from the published site (<code>bigdaddy284.github.io/The-Motocross-RPG</code>), so it needs an internet connection; with neither that nor <code>npm run dev</code>, the editor shows a plain map instead.</li>
     <li><b>Modes:</b> <kbd>1</kbd> Layout, <kbd>2</kbd> Surfaces, <kbd>3</kbd> Ground, <kbd>4</kbd> Scenery, <kbd>5</kbd> Height.</li>
     <li><b>Export / Import</b> save one track as a <code>.track.json</code> file and add one back.</li>
     <li><b>Preview</b> <kbd>P</kbd> rides a dot round the lap, slower through the harder sections.</li>
@@ -1827,10 +1827,11 @@ $('#btnClearGround').addEventListener('click', () => commit((t) => { if (t.groun
 
 // ---------------------------------------------------------------------------------------------
 // Ground height. Mirrors src/core/elevation.ts: heights in metres at the corners of a lattice
-// `step` grid units apart, only where not 0, smooth (bilinear) between them.
+// `step` grid units apart, only where not 0, smooth (bilinear) between them; past the grid's edges
+// the ground keeps the height at the edge.
 
 const ELEV_STEP = 2;
-const ELEV_MAX = 8;
+const ELEV_MAX = 24;
 const WALL_SLOPE = 1;
 const STEEP_TRACK = 0.35;
 const elevCache = new WeakMap();
@@ -1851,8 +1852,8 @@ function elevAt(t, x, y) {
   if (!e?.points.length) return 0;
   const m = elevMap(t);
   const c = (i, j) => m.get(`${i},${j}`) ?? 0;
-  const gx = x / e.step;
-  const gy = y / e.step;
+  const gx = clamp(x, 0, GRID_W) / e.step;
+  const gy = clamp(y, 0, GRID_H) / e.step;
   const i = Math.floor(gx);
   const j = Math.floor(gy);
   const fx = gx - i;
@@ -1909,10 +1910,13 @@ function elevationIssues(t) {
   const c = (i, j) => m.get(`${i},${j}`) ?? 0;
   const run = (e.step * 8) / (t.width ?? DEFAULT_WIDTH);
   const seen = new Set();
+  const lastI = Math.floor(GRID_W / e.step);
+  const lastJ = Math.floor(GRID_H / e.step);
   for (const [x, y] of e.points) {
     const i = Math.round(x / e.step);
     const j = Math.round(y / e.step);
     for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      if (i + di < 0 || j + dj < 0 || i + di > lastI || j + dj > lastJ) continue;
       const rise = Math.abs(c(i, j) - c(i + di, j + dj));
       const k = `${Math.min(i, i + di)},${Math.min(j, j + dj)},${di !== 0}`;
       if (rise / run > WALL_SLOPE && !seen.has(k)) {
@@ -1961,7 +1965,7 @@ function drawHeights(t) {
     for (const [key, h] of m) {
       const [i, j] = key.split(',').map(Number);
       const s = toScreen(i * step - step / 2, j * step - step / 2);
-      const a = Math.min(0.7, 0.12 + (Math.abs(h) / ELEV_MAX) * 0.6);
+      const a = Math.min(0.7, 0.12 + (Math.abs(h) / 12) * 0.58);
       ctx.fillStyle = h > 0 ? `rgba(255, 214, 140, ${a})` : `rgba(70, 130, 255, ${a})`;
       ctx.fillRect(s.x, s.y, step * k, step * k);
     }
@@ -2844,21 +2848,32 @@ $('#btnRide').addEventListener('click', () => {
 // you click on it as a grid point; the same tool code as the map then acts on it, so undo, the
 // checks, the unsaved marker and Save all work as before. No race runs in it.
 
+/** The published game, for an editor opened straight from disk (it can't run the game itself). */
+const PUBLISHED_GAME = 'https://bigdaddy284.github.io/The-Motocross-RPG/';
+let raceViewReady = false;
 function openRaceView() {
-  if (!/^https?:$/.test(location.protocol)) {
-    // Opened from disk: the game can't run here, so the map stands in until the editor is served.
-    const note = document.createElement('div');
-    note.id = 'noRaceView';
-    note.textContent = 'Plain map: the editor edits in the race view, which runs the game. Start npm run dev and open http://localhost:5173/tools/track-editor.html.';
-    $('#view3d').after(note);
-    return;
-  }
+  // Served (npm run dev, or the published site), the game is one folder up; opened from disk, the
+  // published game runs in the frame instead. Either way the editor sends it the track to show.
+  const served = /^https?:$/.test(location.protocol);
   app.view3d = true;
   const f = $('#view3d');
-  if (!f.getAttribute('src')) f.src = '/?editview=1';
+  if (!f.getAttribute('src')) f.src = served ? new URL('../?editview=1', location.href).href : `${PUBLISHED_GAME}?editview=1`;
   f.classList.add('on');
   sendView();
   requestDraw();
+  // No game answering (offline, or nothing serving it): the plain map stands in, with a note why.
+  setTimeout(() => {
+    if (raceViewReady) return;
+    app.view3d = false;
+    f.classList.remove('on');
+    const note = document.createElement('div');
+    note.id = 'noRaceView';
+    note.textContent = served
+      ? 'Plain map: the race view could not start the game. Reload the page to try again.'
+      : 'Plain map: the race view runs the game from the published site, which could not be reached. Go online and reload, or run npm run dev and open http://localhost:5173/tools/track-editor.html.';
+    f.after(note);
+    requestDraw();
+  }, 30000);
 }
 /** Passes a camera key (W A S D, [ ], + −, 0) on to the race view; true if it was one. */
 function camKeyToView(e, down) {
@@ -2883,7 +2898,13 @@ window.addEventListener('message', (e) => {
   const f = $('#view3d');
   const m = e.data;
   if (!f || e.source !== f.contentWindow || !m) return;
-  if (m.type === 'ready') { sendView(); return; }
+  if (m.type === 'ready') {
+    raceViewReady = true;
+    document.querySelector('#noRaceView')?.remove();
+    if (!app.view3d) { app.view3d = true; f.classList.add('on'); requestDraw(); }
+    sendView();
+    return;
+  }
   if (m.type === 'key') {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: m.key, code: m.code, ctrlKey: m.ctrl, metaKey: m.meta, shiftKey: m.shift, altKey: m.alt, cancelable: true }));
     return;
@@ -2969,7 +2990,7 @@ function status(text, kind = '') {
 
 async function tryServer() {
   if (!/^https?:$/.test(location.protocol)) return;
-  for (const base of ['../public/data/', '/data/', 'data/']) {
+  for (const base of ['../public/data/', '../data/', '/data/', 'data/']) {
     try {
       const r = await fetch(`${base}tracks.json`, { cache: 'no-store' });
       if (!r.ok || !(r.headers.get('content-type') ?? '').includes('json')) continue;

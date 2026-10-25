@@ -36,6 +36,19 @@ describe('ground elevation', () => {
     expect(new Elevation(undefined).at(10, 10)).toBe(0);
   });
 
+  it('keeps the edge height past the grid, so a hill at the edge is no wall', () => {
+    const e = new Elevation({ step: 2, points: [[0, 30, 20], [100, 60, -20]] });
+    expect(e.at(-10, 30)).toBeCloseTo(20);
+    expect(e.at(130, 90)).toBeCloseTo(-20);
+    const t = farm();
+    // 20 m along the left edge, easing down 3 m every lattice step.
+    const points: [number, number, number][] = [];
+    for (let x = 0; x <= 12; x += 2) for (let y = 0; y <= 60; y += 2) points.push([x, y, 20 - 1.5 * x]);
+    t.elevation = { step: 2, points };
+    const { mpu, along } = lapProfile(t);
+    expect(elevationIssues(t, mpu, along).filter((p) => p.level === 'error')).toEqual([]);
+  });
+
   it('leaves an old track without elevation exactly as it was', () => {
     const t = farm();
     const a = new TrackSurface(t);
@@ -79,11 +92,11 @@ describe('ground elevation', () => {
 
   it('refuses a height past the limit, a point off the lattice and a wall, and warns of a steep track', () => {
     const t = farm();
-    t.elevation = { step: 2, points: [[10, 10, 9], [11, 10, 1], [40, 40, 7]] };
+    t.elevation = { step: 2, points: [[10, 10, 25], [11, 10, 1], [40, 40, 7]] };
     const { mpu, along } = lapProfile(t);
     const issues = elevationIssues(t, mpu, along);
     const errors = issues.filter((p) => p.level === 'error').map((p) => p.message);
-    expect(errors.some((m) => /8 m up or down/.test(m))).toBe(true);
+    expect(errors.some((m) => /24 m up or down/.test(m))).toBe(true);
     expect(errors.some((m) => /not on the 2-unit lattice/.test(m))).toBe(true);
     expect(errors.some((m) => /a wall/.test(m))).toBe(true);
     const problems = checkTrackParts(content.trackParts, [t], () => true).map((e) => e.message);
