@@ -41,11 +41,11 @@ export interface EditViewState {
   gapFrom?: number;
   /** Gaps left between the pieces of an unfinished track (fractions of the drawing), not drawn; their sections have type 'gap'. */
   gaps?: [number, number][];
-  /** The drawing's own points, when the track sent has more (an unfinished track's, with the open ends' stubs): the ones ringed in Layout. */
+  /** The route's control points (the drawing has more where the route curves, and an open route's stubs): the ones ringed in Layout. */
   points?: [number, number][];
-  /** The open ends of an unfinished track: where pieces join on (x, y, heading in radians, 'end'), and where a gap or the lap closes into ('target'). */
-  ends?: [number, number, number, 'end' | 'target'][];
-  /** The section piece being placed: its points, whether it can go there, and the ring it snaps on at (x, y, radius). */
+  /** The selected control point's curve handles, as the spots they are at. */
+  handles?: [number, number][];
+  /** What is being placed (the start straight, the finish line or a feature): its points, whether it can go there, and the ring it snaps on at (x, y, radius). */
   ghost?: { pts: [number, number][]; level: 'ok' | 'warning' | 'error'; ring: [number, number, number] | null };
 }
 
@@ -441,17 +441,13 @@ export class TrackEditScene extends Phaser.Scene {
       // The lap's points (white; the finish line's bigger, once one is placed) and the start straight's (blue).
       const finish = (t as { finish?: false }).finish !== false;
       if (st.gapFrom !== 0) (st.points ?? t.path).forEach(([x, y], i) => line(ring(x, y, i === st.sel.pt ? 0.6 : i === 0 && finish ? 0.5 : 0.35), i === st.sel.pt ? SELECT : 0xffffff, true));
-      // An unfinished track's open ends: green where the next piece joins on, an arrow the way it
-      // heads; blue where a gap or the lap closes into, the arrow the way the track has to arrive.
-      for (const [x, y, h, kind] of st.ends ?? []) {
-        const color = kind === 'end' ? GREEN : 0x4aa0ff;
-        const r = (t.width ?? 3.4) / 2 + 0.4;
-        line(ring(x, y, r), color, true, kind === 'target', 0.1 * k, 10.8);
-        const tip = { x: x + Math.cos(h) * (r + 1.2), z: y + Math.sin(h) * (r + 1.2) };
-        const tail = kind === 'end' ? { x, z: y } : { x: x - Math.cos(h) * (r + 1.2), z: y - Math.sin(h) * (r + 1.2) };
-        const head = kind === 'end' ? tip : { x, z: y };
-        line([tail, head], color, false, false, 0.12 * k, 10.8);
-        for (const side of [-1, 1]) line([head, { x: head.x - Math.cos(h + side * 0.5) * 0.9, z: head.z - Math.sin(h + side * 0.5) * 0.9 }], color, false, false, 0.12 * k, 10.8);
+      // The selected control point's curve handles: a dashed line to each, and a small ring.
+      if (st.handles && st.sel.pt >= 0 && st.points?.[st.sel.pt]) {
+        const [px, pz] = st.points[st.sel.pt];
+        for (const [hx, hz] of st.handles) {
+          line([{ x: px, z: pz }, { x: hx, z: hz }], 0x8fd3ff, false, true, 0.08 * k, 10.8);
+          line(ring(hx, hz, 0.3), 0x8fd3ff, true, false, 0.08 * k, 10.9);
+        }
       }
       // The piece being placed, as wide as the track, and the ring at the end of the track it snaps on at.
       const g = st.ghost;

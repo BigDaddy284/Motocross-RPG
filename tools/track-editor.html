@@ -100,9 +100,6 @@ label.chk { display: flex; gap: 6px; align-items: center; color: var(--dim); }
 .sec .sw { width: 8px; height: 22px; border-radius: 2px; }
 .sec .n { color: var(--dim); font-size: 11px; text-align: right; }
 .sec.off { border-color: #c03030; }
-.sec.gap { border: 1px dashed #4aa0ff; }
-.sec.gap .sw { background: repeating-linear-gradient(0deg, #4aa0ff 0 3px, transparent 3px 6px); }
-.sec.gap .gapnote { grid-column: 3 / -1; color: #9cc8ff; font-size: 12px; }
 .sec.off .n { color: #ff7070; font-weight: 700; }
 .sec select, .sec input { width: 100%; }
 .sec select { padding: 3px 2px; }
@@ -123,15 +120,20 @@ label.chk { display: flex; gap: 6px; align-items: center; color: var(--dim); }
 #stats span:nth-child(odd) { color: var(--dim); }
 #checks { font-size: 12px; }
 #checks div { padding: 3px 4px; border-radius: 4px; }
-#checks .bad, #pieceMsg.bad { color: #f0a0a0; }
-#checks .warn, #pieceMsg.warn { color: var(--warn); }
-#checks .good, #pieceMsg.good { color: var(--ok); }
+#checks .bad, #featMsg.bad { color: #f0a0a0; }
+#checks .warn, #featMsg.warn { color: var(--warn); }
+#checks .good, #featMsg.good { color: var(--ok); }
 #startPal { grid-template-columns: repeat(3, 1fr); margin-bottom: 4px; }
 #startPal button { font-size: 11px; }
 h3.sub { margin: 8px 0 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); }
-#piecePal { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
-#piecePal button { flex-direction: row; justify-content: flex-start; padding: 5px 6px; font-size: 12px; text-align: left; }
-#pieceMsg { font-size: 12px; margin: 6px 0; }
+#featPal { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+#featPal button { flex-direction: row; justify-content: flex-start; padding: 5px 6px; font-size: 12px; text-align: left; }
+#featMsg, #routeHint { font-size: 12px; margin: 6px 0; }
+.status { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: 0; text-transform: none; padding: 1px 8px; border-radius: 10px; margin-left: 6px; vertical-align: 1px; background: #3a3a44; color: #e8e8f0; }
+.status.warn { background: #5a4a10; color: #ffd60a; }
+.status.check { background: #1b4a6a; color: #9cd0ff; }
+.status.ready { background: #1e4d2a; color: #7ee28d; }
+.sec.base select, .sec.base input { opacity: 0.6; }
 #checks .ref { cursor: pointer; text-decoration: underline dotted; }
 #checks .ref:hover { background: #ffffff14; }
 #checks.pulse { animation: pulse 0.6s; }
@@ -215,8 +217,9 @@ body.final .final-hide { display: none !important; }
   </div>
   <div id="toolbar">
     <button id="btnInsert" title="Add a point halfway to the next one (or double-click the track)">+ Point</button>
-    <button id="btnDelPt" title="Delete the selected point (Del, or right-click it)">− Point</button>
-    <button id="btnRound" title="Round off the corner at the selected point (R)">Round corner</button>
+    <button id="btnDelPt" title="Delete the selected point: the route joins up across it (Del, or right-click it)">− Point</button>
+    <button id="btnDelSeg" title="Delete the stretch of route after the selected point: the route opens there (its ends stay where they are)">− Segment</button>
+    <button id="btnRound" title="Round the corner at the selected point: it gets curve handles to drag (R). On a smooth point, makes it a sharp corner again.">Round corner</button>
     <button id="btnStart" title="Make the selected point the finish line, where every lap starts and ends">Finish here</button>
     <button id="btnAddStart" title="Place the start gate on its own start straight that joins the lap: it follows the pointer like a piece (Q / E turn, F other side, , . length). Drag its blue points afterwards to shape it; the white one stays on the lap where it joins, anywhere on it.">+ Start straight</button>
     <button id="btnAddFinish" title="Place or move the finish line: a chequered bar follows the pointer and snaps onto the lap. Every lap starts and ends there, and the sections are measured from it.">+ Finish line</button>
@@ -254,44 +257,30 @@ body.final .final-hide { display: none !important; }
   </div>
 
   <div class="pane" id="pane-layout">
-    <div class="box" id="buildBox" hidden>
-      <h2>Build the lap</h2>
-      <div class="hint" id="buildHint"></div>
+    <div class="box" id="routeBox">
+      <h2>Route <span id="routeStatus" class="status"></span></h2>
+      <div class="hint" id="routeHint"></div>
+      <div class="row">
+        <button id="btnDrawRoute" title="Draw the route: each click adds a control point after the last. Click the first point to close the route; Enter or Esc stops drawing. Backspace takes the last point off.">Draw route</button>
+        <button id="btnCloseRoute" title="Close the route: the last point joins back to the first. On a closed route, opens it there again.">Close the route</button>
+      </div>
       <h3 class="sub">Start and finish</h3>
       <div class="pal" id="startPal">
-        <button id="btnStartPiece" title="Place the start straight: the gate, the riders' line-up and the run onto the lap. Its end (the ring) snaps onto the lap; place it first and the lap is built on from its end."><canvas width="44" height="44"></canvas><span>Start straight</span></button>
+        <button id="btnStartPiece" title="Place the start straight: the gate, the riders' line-up and the run onto the route. Its end (the ring) snaps onto the route where riders join it. It is never placed for you."><canvas width="44" height="44"></canvas><span>Start straight</span></button>
         <button id="btnStartOfficial" title="Place the start board official (Scenery): where they wait with the board, then Draw route for their walk in the countdown"><canvas width="44" height="44"></canvas><span>Start board official</span></button>
         <button id="btnStartRemove" title="Take the start straight off this track (Undo puts it back)"><canvas width="44" height="44"></canvas><span>Remove start straight</span></button>
-        <button id="btnFinishPiece" title="Place the finish line on the closed lap: a chequered bar follows the pointer and snaps onto the lap where every lap starts and ends. The sections are measured from it. It is never placed for you."><canvas width="44" height="44"></canvas><span>Finish line</span></button>
-        <button id="btnFinishRemove" title="Take the finish line off this track: the lap stays as it is, but the track is unfinished until a finish line is placed again (Undo puts it back)"><canvas width="44" height="44"></canvas><span>Remove finish line</span></button>
+        <button id="btnFinishPiece" title="Place the finish line on the closed route: a chequered bar follows the pointer and snaps onto the route where every lap starts and ends. The sections are measured from it. It is never placed for you."><canvas width="44" height="44"></canvas><span>Finish line</span></button>
+        <button id="btnFinishRemove" title="Take the finish line off this track: the route stays as it is, but the track is a draft until a finish line is placed again (Undo puts it back)"><canvas width="44" height="44"></canvas><span>Remove finish line</span></button>
       </div>
-      <div id="buildOpen">
-        <h3 class="sub">Lap pieces</h3>
-        <div class="hint" id="endsHint"></div>
-        <div class="pal" id="piecePal"></div>
-        <div class="row" style="margin-top:6px"><button id="btnConnect" title="Lay the bends and straights that join an open end (green ring) to where it closes into (blue ring): the far side of a gap, or the finish line to close the lap. Shown first; click or Enter places it.">Close the lap</button></div>
-      </div>
-        <div id="pieceCtl">
-          <div class="row" style="margin-top:6px">
-            <button id="btnPieceL" title="Turn it left (Q)">⟲ Q</button>
-            <button id="btnPieceR" title="Turn it right (E)">⟳ E</button>
-            <button id="btnPieceMirror" title="Bend the other way (F)">Mirror F</button>
-            <button id="btnPieceBend" title="A straight or a bend, where the type can be either (B)">Bend B</button>
-          </div>
-          <div class="row" style="margin-top:4px">
-            <button id="btnPieceShort" title="Shorter, or a tighter bend (,)">− ,</button>
-            <span id="pieceSize" class="hint" style="flex:2;text-align:center"></span>
-            <button id="btnPieceLong" title="Longer, or a wider bend (.)">+ .</button>
-          </div>
-          <div class="row" style="margin-top:4px">
-            <button id="btnPiecePlace" class="primary" title="Place it (click on the track, or Enter)">Place ↵</button>
-            <button id="btnPieceCancel" title="Stop placing (Esc, or right-click)">Cancel Esc</button>
-          </div>
-        </div>
-        <div id="pieceMsg" class="hint"></div>
       <div class="row" id="readyRow"><button id="btnReady" title="Run the game's checks and, if it passes, let the game use this track">Ready to race</button></div>
     </div>
-    <div class="hint">Drag the points to shape the lap. Double-click the track to add a point, right-click a point to remove it.</div>
+    <div class="box" id="featBox">
+      <h2>Features</h2>
+      <div class="hint">Jumps, whoops, sand and the like go on top of the route: pick one and click the route to place it. Drag it along the route, drag its white diamonds to stretch it, <kbd>Del</kbd> removes it. The straights and bends between them come from the route's shape.</div>
+      <div class="pal" id="featPal"></div>
+      <div id="featMsg" class="hint"></div>
+    </div>
+    <div class="hint">Drag the points to shape the route. Double-click the route to add a point, right-click a point to remove it. Select a point and Round corner to give it curve handles; drag a handle to shape the curve (<kbd>Alt</kbd> moves one side only).</div>
     <div class="final-hide">
       <h2>Sections <span id="secCount" style="text-transform:none;letter-spacing:0"></span></h2>
       <div class="sechead"><span></span><span>#</span><span>Type</span><span>Metres</span><span>Pass</span><span></span></div>
@@ -300,9 +289,10 @@ body.final .final-hide { display: none !important; }
         <button id="btnAddSec" disabled title="Add a section after the selected one">+ Section</button>
         <button id="btnSplitSec" disabled title="Split the selected section into two halves">Split</button>
         <button id="btnFitSecs" disabled title="Replace the sections with straights and corners that suit the drawing, to rename and fill with jumps">From drawing</button>
+        <button id="btnUseFeats" disabled title="Keep this track's jumps and special sections as features on the route, and let the straights and bends between them follow the route's shape. Its sections are kept as they are until you click this.">Use features</button>
       </div>
       <div class="box" id="secDetail"></div>
-      <div class="hint">Sections run in order from the finish line, and each type has to suit the shape drawn there (red edge if not). Drag the white diamonds on the track to move metres between neighbouring sections. Pass is the chance of a pass being on in that section (0 to 1).</div>
+      <div class="hint" id="secHint">Sections run in order from the finish line, and each type has to suit the shape drawn there (red edge if not). Pass is the chance of a pass being on in that section (0 to 1).</div>
       <h2>Section colours</h2>
       <div id="legend"></div>
     </div>
@@ -548,6 +538,13 @@ const app = {
   selPatch: -1,
   selItem: -1,
   selStart: -1,
+  /** The selected feature (t.features), or -1. */
+  selFeat: -1,
+  /** Drawing the route: clicks add control points. drawAt is where the pointer is, for the line from the last point. */
+  drawing: false,
+  drawAt: null,
+  /** What is being placed on the track (the start straight, the finish line or a feature), or null. */
+  placing: null,
   /** The selected point of the start official's route (1 is its first after where they stand), or -1. */
   selRoute: -1,
   /** Drawing the official's route: what it was before, for Cancel. */
@@ -575,8 +572,8 @@ const sceneryDef = (id) => app.parts.scenery.find((s) => s.id === id);
 const groundDef = (id) => app.parts.ground.find((g) => g.id === id);
 const surfaceDef = (id) => app.parts.surfaces.find((s) => s.id === id);
 
-function snapshot() { return { data: clone(app.data), cur: app.cur, selPt: app.selPt, selSec: app.selSec, selPatch: app.selPatch, selItem: app.selItem, selStart: app.selStart }; }
-function restore(s) { Object.assign(app, { data: s.data, cur: s.cur, selPt: s.selPt, selSec: s.selSec, selPatch: s.selPatch, selItem: s.selItem, selStart: s.selStart ?? -1 }); }
+function snapshot() { return { data: clone(app.data), cur: app.cur, selPt: app.selPt, selSec: app.selSec, selPatch: app.selPatch, selItem: app.selItem, selStart: app.selStart, selFeat: app.selFeat }; }
+function restore(s) { Object.assign(app, { data: s.data, cur: s.cur, selPt: s.selPt, selSec: s.selSec, selPatch: s.selPatch, selItem: s.selItem, selStart: s.selStart ?? -1, selFeat: s.selFeat ?? -1 }); }
 /** Call before every change. Changes made by one drag share one undo step. */
 function begin() {
   app.undo.push(snapshot());
@@ -584,13 +581,14 @@ function begin() {
   app.redo.length = 0;
 }
 function changed() {
+  derive(track());
   setDirty(exportTracks(app.data) !== app.savedText);
   refresh();
 }
 function undo() { if (!app.undo.length) return; app.redo.push(snapshot()); restore(app.undo.pop()); changed(); }
 function redo() { if (!app.redo.length) return; app.undo.push(snapshot()); restore(app.redo.pop()); changed(); }
 function setDirty(d) { app.dirty = d; $('#dirty').textContent = d ? '● Unsaved' : ''; }
-function deselect() { app.selPt = -1; app.selSec = -1; app.selPatch = -1; app.selItem = -1; app.selStart = -1; app.selRoute = -1; app.routeDraw = null; }
+function deselect() { app.selPt = -1; app.selSec = -1; app.selPatch = -1; app.selItem = -1; app.selStart = -1; app.selRoute = -1; app.selFeat = -1; app.routeDraw = null; }
 
 /** Runs a change as one undo step, and drops it if nothing actually changed. */
 function commit(fn) {
@@ -599,6 +597,7 @@ function commit(fn) {
   const before = exportTracks(app.data);
   const snap = snapshot();
   fn(t);
+  derive(t);
   if (exportTracks(app.data) === before) return refresh();
   app.undo.push(snap);
   app.redo.length = 0;
@@ -886,10 +885,14 @@ function autoStart(t) {
   return null;
 }
 /**
- * Sections that suit the drawing: the lap split into straights and bends, each bend given the
- * plainest type its shape allows. A starting point for a new track, to rename and fill with jumps.
+ * The route split into straights and bends by its shape, each bend given the plainest type its
+ * shape allows: stretches [from, to] in grid units along the route with the type and passing
+ * chance each suits. The sections between a track's features come from these.
  */
-function sectionsFromDrawing(t) {
+const BASE_TYPES = { straight: 'straight', sweeper: 'fast_sweeper', corner: 'flat_corner', hairpin: 'hairpin' };
+const isBaseType = (ty) => Object.values(BASE_TYPES).includes(ty);
+function baseRuns(t) {
+  if (t.path.length < 2) return [];
   const g = lapGeom(t);
   const width = t.width ?? DEFAULT_WIDTH;
   const step = 1;
@@ -914,15 +917,256 @@ function sectionsFromDrawing(t) {
     const u = { a: runs[k - 1].a, b: runs[k].b };
     if (shapeOf(runs[k - 1]) === 'straight' && shapeOf(runs[k]) === 'straight' && shapeOf(u) === 'straight') { runs[k - 1].b = u.b; runs.splice(k, 1); }
   }
-  const typeOf = { straight: 'straight', sweeper: 'fast_sweeper', corner: 'flat_corner', hairpin: 'hairpin' };
-  const pass = { straight: 0.6, sweeper: 0.5, corner: 0.6, hairpin: 0.7 };
-  const out = runs.map((r) => {
+  return runs.map((r) => {
     const shape = shapeOf(r);
-    const type = app.sectionDefs[typeOf[shape]] || !Object.keys(app.sectionDefs).length ? typeOf[shape] : 'straight';
-    return { type, units: ((r.b - r.a) / n) * g.total, passing: pass[shape] };
+    const type = app.sectionDefs[BASE_TYPES[shape]] || !Object.keys(app.sectionDefs).length ? BASE_TYPES[shape] : 'straight';
+    return { type, from: (r.a / n) * g.total, to: (r.b / n) * g.total, passing: PIECE_PASS[shape], shape };
   });
+}
+/**
+ * Sections that suit the drawing: the lap split into straights and bends, each bend given the
+ * plainest type its shape allows. For a track without features, to rename and fill with jumps.
+ */
+function sectionsFromDrawing(t) {
   // About 2.7 m a grid unit, as on the game's tracks.
-  return out.map((x) => ({ type: x.type, length: Math.max(5, Math.round(x.units * 2.7)), passing: x.passing }));
+  return baseRuns(t).map((r) => ({ type: r.type, length: Math.max(5, Math.round((r.to - r.from) * 2.7)), passing: r.passing }));
+}
+
+// ---------------------------------------------------------------------------------------------
+// The layout: the route's control points and curve handles, and the features on it
+
+// A track's route is drawn as control points (t.layout.points, or the path itself while every
+// point is a sharp corner): [x, y] is a sharp corner, [x, y, hx, hy] a smooth point whose curve
+// leaves along the handle (hx, hy from the point) and arrives along its mirror, and
+// [x, y, hx, hy, gx, gy] one whose arriving handle (gx, gy) is set on its own. The drawing the
+// game races (t.path) is generated from it: straight lines between sharp points, and cubic curves
+// sampled about a grid unit apart through the handles, each layout point a path point. Features
+// (t.features) are jumps, whoops, sand and the like placed on top of the route by where they
+// start (at, grid units from the first point along the route) and how long they are (len): the
+// sections the game races are generated from the route's shape (straights, sweepers, corners,
+// hairpins) cut by the features. A track from before features keeps the sections it was saved
+// with until Use features is clicked, so nothing of it is reinterpreted on its own.
+
+/** The route's control points: the layout's, or the path's while every point is sharp. Edit them in place, then derive. */
+const lpts = (t) => t.layout?.points ?? t.path;
+const smooth = (p) => p.length >= 4;
+const hOut = (p) => (smooth(p) ? [p[2], p[3]] : null);
+const hIn = (p) => (p.length >= 6 ? [p[4], p[5]] : smooth(p) ? [-p[2], -p[3]] : null);
+/** Gives the track its own layout (the path's points) so a handle can be set, and returns its points. */
+function ensureLayout(t) {
+  if (!t.layout) t.layout = { points: t.path.map(([x, y]) => [x, y]) };
+  return t.layout.points;
+}
+const LIDX = new WeakMap();
+const SECFEAT = new WeakMap();
+/** The curve from layout point a to b: its four control points. */
+function curveOf(a, b) {
+  const ho = hOut(a);
+  const hi = hIn(b);
+  return [[a[0], a[1]], ho ? [a[0] + ho[0], a[1] + ho[1]] : [a[0], a[1]], hi ? [b[0] + hi[0], b[1] + hi[1]] : [b[0], b[1]], [b[0], b[1]]];
+}
+const bez = ([p0, p1, p2, p3], u) => { const v = 1 - u; return [v * v * v * p0[0] + 3 * v * v * u * p1[0] + 3 * v * u * u * p2[0] + u * u * u * p3[0], v * v * v * p0[1] + 3 * v * v * u * p1[1] + 3 * v * u * u * p2[1] + u * u * u * p3[1]]; };
+/** Regenerates the drawing from the layout: each layout point is a path point, with the curves sampled between. */
+function rebuildPath(t) {
+  if (!t.layout) { LIDX.set(t, t.path.map((_, i) => i)); return; }
+  const L = t.layout.points;
+  if (!L.some(smooth)) {
+    // Every point sharp: the path is the layout, so the layout isn't kept twice.
+    t.path = L.map(([x, y]) => [x, y]);
+    delete t.layout;
+    LIDX.set(t, t.path.map((_, i) => i));
+    return;
+  }
+  const path = [];
+  const idx = [];
+  const n = L.length;
+  const segs = t.open ? n - 1 : n;
+  for (let i = 0; i < n; i++) {
+    idx.push(path.length);
+    path.push([L[i][0], L[i][1]]);
+    if (i >= segs) continue;
+    const a = L[i];
+    const b = L[(i + 1) % n];
+    if (!hOut(a) && !hIn(b)) continue;
+    const c = curveOf(a, b);
+    const est = Math.hypot(c[1][0] - c[0][0], c[1][1] - c[0][1]) + Math.hypot(c[2][0] - c[1][0], c[2][1] - c[1][1]) + Math.hypot(c[3][0] - c[2][0], c[3][1] - c[2][1]);
+    const steps = Math.max(6, Math.ceil(est));
+    for (let k = 1; k < steps; k++) {
+      const [x, y] = bez(c, k / steps);
+      path.push([round2(x), round2(y)]);
+    }
+  }
+  t.path = path;
+  LIDX.set(t, idx);
+}
+/** The path index of each layout point. */
+function layoutIndices(t) {
+  if (!t.layout) return t.path.map((_, i) => i);
+  if (!LIDX.has(t)) rebuildPath(t);
+  return LIDX.get(t);
+}
+/** The layout segment (from point i to the next) a path point k lies on. */
+function routeSegOf(t, k) {
+  const idx = layoutIndices(t);
+  let i = 0;
+  while (i + 1 < idx.length && idx[i + 1] <= k) i++;
+  return i;
+}
+/** How far (0 to 1) along its layout segment the spot d grid units along the path is. */
+function segParam(t, d) {
+  const g = lapGeom(t);
+  const idx = layoutIndices(t);
+  let k = 0;
+  while (k < g.pts.length - 2 && g.cum[k + 1] <= d) k++;
+  const frac = clamp((d - g.cum[k]) / Math.max(1e-9, g.cum[k + 1] - g.cum[k]), 0, 1);
+  const seg = routeSegOf(t, k);
+  const i0 = idx[seg];
+  const i1 = seg + 1 < idx.length ? idx[seg + 1] : g.pts.length - 1;
+  return { seg, u: (k - i0 + frac) / Math.max(1, i1 - i0) };
+}
+/**
+ * Splits layout segment seg at u (0 to 1 along its curve) with a new point there, the curve
+ * unchanged (its handles are shared out), and returns the new point's index.
+ */
+function splitSegment(t, seg, u) {
+  const L0 = lpts(t);
+  const a = L0[seg];
+  const b = L0[(seg + 1) % L0.length];
+  if (!hOut(a) && !hIn(b)) {
+    L0.splice(seg + 1, 0, [round1(a[0] + (b[0] - a[0]) * u), round1(a[1] + (b[1] - a[1]) * u)]);
+    return seg + 1;
+  }
+  const L = ensureLayout(t);
+  const c = curveOf(a, b);
+  const lerp = (p, q) => [p[0] + (q[0] - p[0]) * u, p[1] + (q[1] - p[1]) * u];
+  const q0 = lerp(c[0], c[1]);
+  const q1 = lerp(c[1], c[2]);
+  const q2 = lerp(c[2], c[3]);
+  const r0 = lerp(q0, q1);
+  const r1 = lerp(q1, q2);
+  const m = lerp(r0, r1);
+  const A = L[seg];
+  const B = L[(seg + 1) % L.length];
+  if (hOut(A)) { const inA = hIn(A); A.length = 6; A[4] = inA[0]; A[5] = inA[1]; A[2] = round2(q0[0] - A[0]); A[3] = round2(q0[1] - A[1]); }
+  if (hIn(B)) { if (!hOut(B)) { B.length = 6; B[2] = 0; B[3] = 0; } else B.length = 6; B[4] = round2(q2[0] - B[0]); B[5] = round2(q2[1] - B[1]); }
+  const M = [round1(m[0]), round1(m[1]), round2(r1[0] - m[0]), round2(r1[1] - m[1]), round2(r0[0] - m[0]), round2(r0[1] - m[1])];
+  if (Math.abs(M[2] + M[4]) < 0.05 && Math.abs(M[3] + M[5]) < 0.05) M.length = 4;
+  L.splice(seg + 1, 0, M);
+  return seg + 1;
+}
+/** Keeps the drawing and the sections true to the layout and the features after a change. */
+function derive(t) {
+  if (!t) return;
+  if (t.layout) rebuildPath(t); else LIDX.delete(t);
+  if (t.features) rebuildSections(t);
+}
+/** Every section type that is placed as a feature: all but the straights and bends the route makes itself. */
+const featureTypes = () => sectionTypes().filter((x) => x !== 'start_gate' && !isBaseType(x));
+/**
+ * The sections from the route and its features: the route's straights and bends (baseRuns) cut
+ * by the features, in riding order from the first point. A feature past the end of the route is
+ * left out, one past the end of an open route cut short, and where two overlap the later one
+ * wins, each of which the checks say. Slivers under a grid unit join the neighbour.
+ */
+function rebuildSections(t) {
+  const total = t.path.length >= 2 ? lapGeom(t).total : 0;
+  const feats = (t.features ?? []).map((f, k) => ({ ...f, k })).filter((f) => f.at < total - 1e-6).sort((a, b) => a.at - b.at || a.k - b.k);
+  const base = baseRuns(t);
+  const cuts = [];
+  const fill = (from, to) => {
+    for (const r of base) {
+      const a = Math.max(from, r.from);
+      const b = Math.min(to, r.to);
+      if (b - a > 1e-6) cuts.push({ type: r.type, from: a, to: b, passing: r.passing, feat: -1 });
+    }
+  };
+  let cursor = 0;
+  for (const f of feats) {
+    const a = Math.max(cursor, f.at);
+    const b = Math.min(total, f.at + f.len);
+    if (b - a < 1e-6) continue;
+    if (a > cursor + 1e-6) fill(cursor, a);
+    cuts.push({ type: f.type, from: a, to: b, passing: f.passing, line: f.line, height: f.height, feat: f.k });
+    cursor = b;
+  }
+  if (cursor < total - 1e-6) fill(cursor, total);
+  for (let i = cuts.length - 1; i >= 0; i--) {
+    const c = cuts[i];
+    if (c.to - c.from >= 1 || c.feat >= 0 || cuts.length === 1) continue;
+    const prev = i > 0 && cuts[i - 1].feat < 0 ? cuts[i - 1] : null;
+    const next = i < cuts.length - 1 && cuts[i + 1].feat < 0 ? cuts[i + 1] : null;
+    if (prev) prev.to = c.to;
+    else if (next) next.from = c.from;
+    else continue;
+    cuts.splice(i, 1);
+  }
+  t.sections = cuts.map((c) => {
+    const sec = { type: c.type, length: Math.max(1, Math.round((c.to - c.from) * PIECE_MPU)), passing: c.passing };
+    if (c.line) sec.line = c.line;
+    if (c.height !== undefined) sec.height = c.height;
+    return sec;
+  });
+  SECFEAT.set(t, cuts.map((c) => c.feat));
+}
+/** Which feature each section comes from (-1 for the route's own straights and bends). */
+function sectionFeats(t) {
+  if (!t.features) return t.sections.map(() => -1);
+  if (!SECFEAT.has(t)) rebuildSections(t);
+  return SECFEAT.get(t);
+}
+const featureOfSection = (t, i) => sectionFeats(t)[i] ?? -1;
+const sectionOfFeature = (t, k) => sectionFeats(t).indexOf(k);
+/** The feature whose stretch of the route d grid units along it falls in, or -1. */
+function featureAt(t, d) {
+  return (t.features ?? []).findIndex((f) => d >= f.at && d <= f.at + f.len);
+}
+const featureName = (f) => app.sectionDefs[f.type]?.name ?? f.type;
+/**
+ * Gives a track its jumps and special sections as features on the route, at the share of the
+ * lap each section has now, and lets the straights and bends between them follow the route.
+ */
+function useFeatures(t) {
+  if (t.features) return;
+  const g = lapGeom(t);
+  const b = sectionBounds(t);
+  t.features = [];
+  t.sections.forEach((s, i) => {
+    if (isBaseType(s.type) || s.type === 'start_gate' || s.type === 'gap') return;
+    const f = { type: s.type, at: round1(b[i] * g.total), len: Math.max(0.5, round1((b[i + 1] - b[i]) * g.total)), passing: s.passing };
+    if (s.line) f.line = s.line;
+    if (s.height !== undefined) f.height = s.height;
+    t.features.push(f);
+  });
+  rebuildSections(t);
+}
+/**
+ * What is wrong with the features: off the end of the route, cut short by an open route's end,
+ * overlapping, or on a stretch whose shape doesn't suit the type. Each names the feature (k).
+ */
+function featureProblems(t) {
+  const out = [];
+  const feats = t.features ?? [];
+  if (!feats.length) return out;
+  const total = t.path.length >= 2 ? lapGeom(t).total : 0;
+  const g = t.path.length >= 2 ? lapGeom(t) : null;
+  const width = t.width ?? DEFAULT_WIDTH;
+  const m = (u) => Math.round(u * PIECE_MPU);
+  feats.forEach((f, k) => {
+    const name = `Feature ${k + 1} (${featureName(f).toLowerCase()})`;
+    if (f.at >= total - 1e-6) { out.push({ k, level: 'error', message: `${name} at ${m(f.at)} m is past the end of the route (${m(total)} m), so it isn't on the track: drag it back onto the route, or delete it.` }); return; }
+    if (f.at + f.len > total + 1e-6) out.push({ k, level: 'warning', message: `${name} runs ${m(f.at + f.len - total)} m past the end of the ${t.open ? 'open ' : ''}route, so it is cut short there${t.open ? ' until the route goes on or is closed' : ''}.` });
+    feats.forEach((o, j) => {
+      if (j <= k || o.at >= total) return;
+      const a = Math.max(f.at, o.at);
+      const b = Math.min(f.at + f.len, o.at + o.len, total);
+      if (b - a > 1e-6) out.push({ k, level: 'warning', message: `${name} overlaps feature ${j + 1} (${featureName(o).toLowerCase()}) between ${m(a)} and ${m(b)} m: the one placed later wins there. Move or shorten one of them.` });
+    });
+    if (g && app.sectionDefs[f.type]) {
+      const d = drawnShape(g, f.at / total, Math.min(total, f.at + f.len) / total, width);
+      if (!shapesFor(f.type).includes(d.shape)) out.push({ k, level: 'error', message: `${name} is on ${an(d.shape)} ${d.shape} (the route turns ${Math.round(d.swept)}° there); it needs ${shapesFor(f.type).map((x) => `${an(x)} ${x}`).join(' or ')}. Move it along the route, or reshape the route there.` });
+    }
+  });
+  return out;
 }
 function patchAt(t, metres) {
   const lap = lapLength(t);
@@ -1274,7 +1518,7 @@ function draw() {
   for (let x = 0; x <= GRID_W; x += 10) ctx.fillText(String(x), ox + x * k + 2, oy + GRID_H * k + 20);
   for (let y = 10; y <= GRID_H; y += 10) ctx.fillText(String(y), ox - 24, oy + y * k + 3);
 
-  if (t.path.length < 2) return drawGhost();
+  if (t.path.length < 2) { drawLayout(t, null); drawGhost(); return; }
   const g = lapGeom(t);
   const pathLine = (color, wd) => {
     ctx.strokeStyle = color;
@@ -1282,9 +1526,7 @@ function draw() {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.beginPath();
-    // A gap left between pieces is no track: the line lifts across it.
-    const gapAfter = new Set(t.sections.some(isGap) ? pieceSpans(t).filter((_, k) => isGap(t.sections[k])).map(([i0]) => i0) : []);
-    g.pts.forEach((p, i) => { const s = toScreen(p.x, p.y); if (i && !gapAfter.has(i - 1)) ctx.lineTo(s.x, s.y); else ctx.moveTo(s.x, s.y); });
+    g.pts.forEach((p, i) => { const s = toScreen(p.x, p.y); if (i) ctx.lineTo(s.x, s.y); else ctx.moveTo(s.x, s.y); });
     ctx.stroke();
   };
   const st = startGeom(t, g);
@@ -1329,7 +1571,6 @@ function draw() {
     const shapes = sectionShapes(t);
     t.sections.forEach((s, i) => {
       const sel = i === app.selSec;
-      if (isGap(s)) return;
       if (shapeMismatch(t, i, shapes[i])) strokeLap(g, bounds[i], bounds[i + 1], '#ff3030', width * 0.95, 'butt');
       strokeLap(g, bounds[i], bounds[i + 1], colorOf(s.type) + (sel ? 'ff' : 'b0'), sel ? width * 0.6 : Math.max(3, width * 0.22));
     });
@@ -1429,19 +1670,7 @@ function draw() {
       const sp = toScreen(c.x, c.y);
       label(app.sectionDefs[s.type]?.name ?? s.type, sp.x, sp.y - width - 6);
     }
-    t.path.forEach(([x, y], i) => {
-      const s = toScreen(x, y);
-      const sel = i === app.selPt;
-      ctx.fillStyle = sel ? '#f0a020' : i === 0 ? '#ffffff' : '#1f2229';
-      ctx.strokeStyle = sel ? '#ffffff' : '#f0a020';
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(s.x, s.y, sel ? 7 : 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      if (sel) {
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '11px system-ui, sans-serif';
-        ctx.fillText(String(i), s.x + 8, s.y - 8);
-      }
-    });
+    drawLayout(t, g);
     // Start straight points: blue squares, the gate end labelled, the last one white on the lap
     // (red when it has come off the lap, so the join is broken).
     const joinOff = t.path.length >= 2 && (startGeom(t)?.off ?? 0) > 0.3;
@@ -1456,18 +1685,30 @@ function draw() {
       ctx.strokeRect(s.x - r, s.y - r, r * 2, r * 2);
       if (i === 0) label('Start gate', s.x, s.y - 14);
     });
-    // Section boundary handles (the finish line is fixed at point 0).
-    if (!app.final) {
+    // Section boundary handles on a track without features (the finish line is fixed at point 0);
+    // with features, each feature's ends (white diamonds, orange when it is selected).
+    if (!app.final && !t.features) {
       for (let i = 1; i < t.sections.length; i++) {
         const p = pointAt(g, bounds[i]);
         const s = toScreen(p.x, p.y);
-        ctx.fillStyle = app.hoverBound === i ? '#f0a020' : '#ffffff';
-        ctx.strokeStyle = '#14141e';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(s.x, s.y - 7); ctx.lineTo(s.x + 7, s.y); ctx.lineTo(s.x, s.y + 7); ctx.lineTo(s.x - 7, s.y); ctx.closePath();
-        ctx.fill(); ctx.stroke();
+        diamond(s.x, s.y, app.hoverBound === i ? '#f0a020' : '#ffffff');
       }
+    }
+    if (!app.final && t.features) {
+      t.features.forEach((f, k) => {
+        if (f.at >= g.total) return;
+        const sel = k === app.selFeat;
+        for (const side of [0, 1]) {
+          const p = pointAt(g, Math.min(1, (side ? f.at + f.len : f.at) / g.total));
+          const s = toScreen(p.x, p.y);
+          diamond(s.x, s.y, sel ? '#f0a020' : app.hoverBound === `${k}:${side}` ? '#f0a020' : '#ffffff');
+        }
+        if (sel) {
+          const c = pointAt(g, Math.min(1, (f.at + f.len / 2) / g.total));
+          const sp = toScreen(c.x, c.y);
+          label(`${featureName(f)}, ${Math.round(f.len * PIECE_MPU)} m`, sp.x, sp.y - width - 6);
+        }
+      });
     }
   }
 
@@ -1503,6 +1744,71 @@ function draw() {
   drawGhost();
 }
 
+function diamond(x, y, fill) {
+  ctx.fillStyle = fill;
+  ctx.strokeStyle = '#14141e';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(x, y - 7); ctx.lineTo(x + 7, y); ctx.lineTo(x, y + 7); ctx.lineTo(x - 7, y); ctx.closePath();
+  ctx.fill(); ctx.stroke();
+}
+/**
+ * The route's control points (circles: the first white, the selected orange, smooth ones with a
+ * ring), the selected point's curve handles (dashed lines to small squares), and the line being
+ * drawn from the last point to the pointer.
+ */
+function drawLayout(t, g) {
+  if (app.mode !== 'layout') return;
+  const L = lpts(t);
+  if (app.drawing && app.drawAt && L.length) {
+    const a = toScreen(L.at(-1)[0], L.at(-1)[1]);
+    const b = toScreen(app.drawAt.x, app.drawAt.y);
+    ctx.save();
+    ctx.setLineDash([8, 6]);
+    ctx.strokeStyle = '#ffffffb0';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    ctx.restore();
+  }
+  const P = L[app.selPt];
+  if (P && smooth(P)) {
+    const s = toScreen(P[0], P[1]);
+    for (const h of [hOut(P), hIn(P)]) {
+      const e = toScreen(P[0] + h[0], P[1] + h[1]);
+      ctx.save();
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = '#8fd3ff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(e.x, e.y); ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle = '#8fd3ff';
+      ctx.strokeStyle = '#14141e';
+      ctx.lineWidth = 1.5;
+      ctx.fillRect(e.x - 5, e.y - 5, 10, 10);
+      ctx.strokeRect(e.x - 5, e.y - 5, 10, 10);
+    }
+  }
+  L.forEach((p, i) => {
+    const s = toScreen(p[0], p[1]);
+    const sel = i === app.selPt;
+    ctx.fillStyle = sel ? '#f0a020' : i === 0 ? '#ffffff' : '#1f2229';
+    ctx.strokeStyle = sel ? '#ffffff' : smooth(p) ? '#8fd3ff' : '#f0a020';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(s.x, s.y, sel ? 7 : 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    if (sel || (app.drawing && i === L.length - 1)) {
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '11px system-ui, sans-serif';
+      ctx.fillText(String(i), s.x + 8, s.y - 8);
+    }
+  });
+  if (app.drawing && L.length >= 3 && t.open) {
+    const s = toScreen(L[0][0], L[0][1]);
+    ctx.strokeStyle = '#34c759';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(s.x, s.y, 11, 0, Math.PI * 2); ctx.stroke();
+  }
+}
+
 function label(text, x, y) {
   ctx.font = '12px system-ui, sans-serif';
   const w = ctx.measureText(text).width + 10;
@@ -1536,24 +1842,31 @@ function refresh() {
   $('#btnRedo').disabled = !app.redo.length;
   if (t) {
     $('#btnDel').disabled = app.data.tracks.length <= 1;
-    $('#btnSplitSec').disabled = app.selSec < 0;
-    for (const id of ['#btnDelPt', '#btnRound', '#btnStart', '#btnInsert']) $(id).disabled = app.selPt < 0;
-    if (t.path.length <= 3) $('#btnDelPt').disabled = true;
+    const L = lpts(t);
+    $('#btnSplitSec').disabled = app.selSec < 0 || !!t.features;
+    $('#btnAddSec').disabled = !!t.features;
+    for (const id of ['#btnDelPt', '#btnRound', '#btnStart', '#btnInsert', '#btnDelSeg']) $(id).disabled = app.selPt < 0;
+    if (!t.draft && L.length <= 3) $('#btnDelPt').disabled = true;
+    if (app.selPt >= 0 && (t.open ? app.selPt >= L.length - 1 : L.length < 3)) $('#btnDelSeg').disabled = true;
+    if (app.selPt >= 0 && t.open && app.selPt >= L.length - 1) $('#btnInsert').disabled = true;
+    $('#btnRound').textContent = L[app.selPt] && smooth(L[app.selPt]) ? 'Sharp corner' : 'Round corner';
     if (app.selStart >= 0 && t.start) { $('#btnInsert').disabled = false; $('#btnDelPt').disabled = t.start.path.length <= 2 || app.selStart === t.start.path.length - 1; }
     $('#btnAddStart').disabled = !!t.start;
-    $('#btnAddFinish').disabled = building(t);
+    $('#btnAddFinish').disabled = !!t.open || L.length < 3;
     $('#btnAddFinish').textContent = t.finish === false ? '+ Finish line' : 'Move finish line';
-    $('#btnFitSecs').disabled = false;
+    $('#btnFitSecs').disabled = !!t.features;
+    $('#btnUseFeats').disabled = !!t.features;
     if (app.selPt === 0) $('#btnStart').disabled = true;
-    // An unfinished lap (still being built from pieces) has no lap to fit, ride, reverse or start on yet.
-    if (building(t)) for (const id of ['#btnFitSecs', '#btnPlay', '#btnReverse', '#btnStart', '#btnRound']) $(id).disabled = true;
+    // An open route has no lap to ride, reverse or start on yet.
+    if (t.open || L.length < 3) for (const id of ['#btnFitSecs', '#btnPlay', '#btnReverse', '#btnStart']) $(id).disabled = true;
+    if (app.selPt >= 0 && (L.length < 3 || (t.open && (app.selPt === 0 || app.selPt === L.length - 1)))) $('#btnRound').disabled = true;
   }
   $('#btnPlay').textContent = app.play ? '■ Stop' : '▶ Preview';
   $('#btnPlay').classList.toggle('on', !!app.play);
   if (!has) return;
   renderTrackList();
   renderProps();
-  if (app.mode === 'layout') { renderBuild(); renderSections(); renderSectionDetail(); }
+  if (app.mode === 'layout') { renderRoute(); renderSections(); renderSectionDetail(); }
   if (app.mode === 'surface') renderPatches();
   if (app.mode === 'ground') renderGroundPane();
   if (app.mode === 'scenery') renderSceneryDetail();
@@ -1653,7 +1966,7 @@ function setKeyNear(o, key, value, anchor, before = false) {
 
 function sectionTypes() {
   const types = Object.keys(app.sectionDefs);
-  for (const s of track()?.sections ?? []) if (!types.includes(s.type) && !isGap(s)) types.push(s.type);
+  for (const s of track()?.sections ?? []) if (!types.includes(s.type) && s.type !== 'gap') types.push(s.type);
   return types;
 }
 
@@ -1665,22 +1978,18 @@ function renderSections() {
   $('#secCount').textContent = `(${t.sections.length})`;
   const types = sectionTypes();
   const shapes = sectionShapes(t);
+  const feats = sectionFeats(t);
+  $('#secHint').textContent = t.features
+    ? 'Sections run in order from the finish line: the straights and bends come from the route\'s shape, and the rest are the features placed on it (edit those here or on the route). Each type has to suit the shape drawn there (red edge if not). Pass is the chance of a pass being on in that section (0 to 1).'
+    : 'Sections run in order from the finish line, and each type has to suit the shape drawn there (red edge if not). Drag the white diamonds on the track to move metres between neighbouring sections. Pass is the chance of a pass being on in that section (0 to 1). Use features keeps the jumps and special sections as features on the route, and lets the straights and bends follow the route.';
   t.sections.forEach((s, i) => {
     const row = document.createElement('div');
-    if (isGap(s)) {
-      // A gap left where a piece was taken out: an open connection, filled from its green ring.
-      row.className = `sec gap${i === app.selSec ? ' active' : ''}`;
-      row.innerHTML = '<div class="sw"></div><span class="n"></span><span class="gapnote"></span>';
-      row.querySelector('.n').textContent = String(i + 1);
-      row.querySelector('.gapnote').textContent = `Gap, ${s.length} m across: place pieces from its green ring, or Close the gap`;
-      row.title = 'An open connection where a piece was deleted. The track either side stays where it is.';
-      row.addEventListener('mousedown', () => { if (app.selSec !== i) { app.selSec = i; refreshLight(); } });
-      box.appendChild(row);
-      return;
-    }
+    const fk = feats[i];
+    const f = fk >= 0 ? t.features[fk] : null;
+    const base = !!t.features && !f;
     const off = shapeMismatch(t, i, shapes[i]);
-    row.className = `sec${i === app.selSec ? ' active' : ''}${off ? ' off' : ''}`;
-    row.title = `Drawn as ${an(shapes[i].shape)} ${shapes[i].shape} (turns ${Math.round(shapes[i].swept)}°)${off ? `: ${app.sectionDefs[s.type].name.toLowerCase()} needs ${shapesFor(s.type).join(' or ')}` : ''}`;
+    row.className = `sec${i === app.selSec ? ' active' : ''}${off ? ' off' : ''}${base ? ' base' : ''}`;
+    row.title = `${base ? 'From the route\'s shape. ' : f ? `Feature ${fk + 1}. ` : ''}Drawn as ${an(shapes[i].shape)} ${shapes[i].shape} (turns ${Math.round(shapes[i].swept)}°)${off ? `: ${app.sectionDefs[s.type].name.toLowerCase()} needs ${shapesFor(s.type).join(' or ')}` : ''}`;
     const sw = document.createElement('div');
     sw.className = 'sw';
     sw.style.background = colorOf(s.type);
@@ -1688,33 +1997,38 @@ function renderSections() {
     n.className = 'n';
     n.textContent = String(i + 1);
     const sel = document.createElement('select');
-    for (const ty of types) {
+    for (const ty of f ? featureTypes() : types) {
       const o = document.createElement('option');
       o.value = ty;
       o.textContent = app.sectionDefs[ty]?.name ?? `${ty} (unknown)`;
       sel.appendChild(o);
     }
+    if (f && !featureTypes().includes(s.type)) { const o = document.createElement('option'); o.value = s.type; o.textContent = app.sectionDefs[s.type]?.name ?? `${s.type} (unknown)`; sel.appendChild(o); }
     sel.value = s.type;
     const def = app.sectionDefs[s.type];
     sel.title = def ? `Difficulty ${def.diff}. Skills: ${Object.keys(def.skills).join(', ')}. Damages: ${def.damage}.` : '';
-    sel.addEventListener('change', () => editSection(i, (x) => {
+    sel.disabled = base;
+    if (base) sel.title = 'A straight or bend from the route\'s shape. To change what is here, place a feature on it.';
+    sel.addEventListener('change', () => (f ? editFeature(fk, (x) => { x.type = sel.value; if (!HEIGHTS.has(x.type)) delete x.height; }) : editSection(i, (x) => {
       x.type = sel.value;
       if (!HEIGHTS.has(x.type)) delete x.height;
-    }));
+    })));
     const len = document.createElement('input');
     len.type = 'number'; len.min = '1'; len.step = '5'; len.value = String(s.length);
-    len.addEventListener('change', () => editSection(i, (x) => { const v = Number(len.value); if (v >= 1) x.length = Math.round(v); }));
+    len.disabled = base;
+    len.addEventListener('change', () => (f ? editFeature(fk, (x) => { const v = Number(len.value); if (v >= 1) x.len = Math.max(0.5, Math.round((v / PIECE_MPU) * 2) / 2); }) : editSection(i, (x) => { const v = Number(len.value); if (v >= 1) x.length = Math.round(v); })));
     const pass = document.createElement('input');
     pass.type = 'number'; pass.min = '0'; pass.max = '1'; pass.step = '0.1'; pass.value = String(s.passing);
-    pass.addEventListener('change', () => editSection(i, (x) => { const v = Number(pass.value); if (v >= 0 && v <= 1) x.passing = Math.round(v * 100) / 100; }));
+    pass.disabled = base;
+    pass.addEventListener('change', () => (f ? editFeature(fk, (x) => { const v = Number(pass.value); if (v >= 0 && v <= 1) x.passing = Math.round(v * 100) / 100; }) : editSection(i, (x) => { const v = Number(pass.value); if (v >= 0 && v <= 1) x.passing = Math.round(v * 100) / 100; })));
     const btns = document.createElement('div');
     btns.className = 'btns';
     const mk = (txt, title, fn, dis) => { const b = document.createElement('button'); b.textContent = txt; b.title = title; b.disabled = !!dis; b.addEventListener('click', (e) => { e.stopPropagation(); fn(e); }); btns.appendChild(b); };
-    mk('↑', 'Move up', () => moveSection(i, -1), i === 0);
-    mk('↓', 'Move down', () => moveSection(i, 1), i === t.sections.length - 1);
-    mk('✕', 'Delete this piece and its stretch of track (Shift: remove only the section entry, its neighbours share its stretch)', (e) => deleteSection(i, e?.shiftKey), t.sections.length < 1 || isGap(s));
+    mk('↑', 'Move up', () => moveSection(i, -1), i === 0 || !!t.features);
+    mk('↓', 'Move down', () => moveSection(i, 1), i === t.sections.length - 1 || !!t.features);
+    mk('✕', f ? 'Delete this feature: the route\'s own straight or bend is back there' : 'Remove this section entry: its neighbours share its stretch', () => (f ? deleteFeature(fk) : deleteSection(i)), base || t.sections.length < 1);
     row.append(sw, n, sel, len, pass, btns);
-    row.addEventListener('mousedown', () => { if (app.selSec !== i) { app.selSec = i; refreshLight(); } });
+    row.addEventListener('mousedown', () => { if (app.selSec !== i || app.selFeat !== fk) { app.selSec = i; app.selFeat = fk; refreshLight(); } });
     box.appendChild(row);
   });
 }
@@ -1732,12 +2046,23 @@ function renderSectionDetail() {
   const box = $('#secDetail');
   box.innerHTML = '';
   const t = track();
+  if (t && !app.final && app.selFeat >= 0 && t.features?.[app.selFeat]) return renderFeatureDetail(t, app.selFeat);
   const s = t?.sections[app.selSec];
-  if (!s || app.final) { box.innerHTML = '<div class="hint">Select a section to set its racing line and jump height.</div>'; return; }
+  if (!s || app.final) { box.innerHTML = `<div class="hint">${t?.features ? 'Select a feature to set its length, racing line and jump height.' : 'Select a section to set its racing line and jump height.'}</div>`; return; }
   const def = app.sectionDefs[s.type];
   const head = document.createElement('div');
   head.innerHTML = '<b></b> <span class="hint"></span>';
   head.querySelector('b').textContent = `Section ${app.selSec + 1}: ${def?.name ?? s.type}`;
+  if (t.features) {
+    // A straight or bend the route makes itself: nothing to set on it.
+    const d0 = sectionShapes(t)[app.selSec];
+    head.querySelector('.hint').textContent = `from the route's shape: ${an(d0.shape)} ${d0.shape}, turning ${Math.round(d0.swept)}°`;
+    const note = document.createElement('div');
+    note.className = 'hint';
+    note.textContent = 'To give this stretch a racing line, a jump or another surface, place a feature on it.';
+    box.append(head, note);
+    return;
+  }
   head.querySelector('.hint').textContent = def ? `difficulty ${def.diff}, damages ${def.damage}` : '';
   box.appendChild(head);
   const d = sectionShapes(t)[app.selSec];
@@ -1764,6 +2089,89 @@ function renderSectionDetail() {
   }
 }
 
+/** The selected feature: its type, length, place on the route, passing, racing line and jump height. */
+function renderFeatureDetail(t, k) {
+  const box = $('#secDetail');
+  const f = t.features[k];
+  const def = app.sectionDefs[f.type];
+  const g = lapGeom(t);
+  const head = document.createElement('div');
+  head.innerHTML = '<b></b> <span class="hint"></span>';
+  head.querySelector('b').textContent = `Feature ${k + 1}: ${def?.name ?? f.type}`;
+  head.querySelector('.hint').textContent = def ? `difficulty ${def.diff}, damages ${def.damage}` : '';
+  box.appendChild(head);
+  const probs = featureProblems(t).filter((p) => p.k === k);
+  const shape = document.createElement('div');
+  if (f.at < g.total) {
+    const d = drawnShape(g, f.at / g.total, Math.min(1, (f.at + f.len) / g.total), t.width ?? DEFAULT_WIDTH);
+    shape.className = probs.some((p) => p.level === 'error') ? 'bad' : probs.length ? 'warn' : 'hint';
+    if (probs.some((p) => p.level === 'error')) shape.style.color = '#f0a0a0';
+    shape.textContent = `On ${an(d.shape)} ${d.shape}: the route turns ${Math.round(d.swept)}° there${Number.isFinite(d.radius) ? `, tightest radius ${d.radius.toFixed(1)}` : ''}. ${def ? `${def.name} suits ${shapesFor(f.type).join(', ')}.` : ''} ${probs.map((p) => p.message).join(' ')}`;
+  } else { shape.className = 'bad'; shape.style.color = '#f0a0a0'; shape.textContent = probs.map((p) => p.message).join(' '); }
+  box.appendChild(shape);
+  const field = (labelText, el) => { const d = document.createElement('div'); d.className = 'field'; const l = document.createElement('label'); l.textContent = labelText; d.append(l, el); box.appendChild(d); return el; };
+  const type = document.createElement('select');
+  fillSelect(type, featureTypes().map((id) => ({ id, name: app.sectionDefs[id]?.name ?? id })), f.type);
+  type.addEventListener('change', () => editFeature(k, (x) => { x.type = type.value; if (!HEIGHTS.has(x.type)) delete x.height; }));
+  field('Type', type);
+  const len = document.createElement('input');
+  len.type = 'number'; len.min = '1'; len.step = '1'; len.value = String(Math.round(f.len * PIECE_MPU));
+  len.title = 'Metres along the route (its white diamonds stretch it too)';
+  len.addEventListener('change', () => editFeature(k, (x) => { const v = Number(len.value); if (v >= 1) x.len = Math.max(0.5, Math.round((v / PIECE_MPU) * 2) / 2); }));
+  field('Metres', len);
+  const at = document.createElement('input');
+  at.type = 'number'; at.min = '0'; at.step = '1'; at.value = String(Math.round(f.at * PIECE_MPU));
+  at.title = 'Metres round the route from the first point to where it starts (drag it along the route too)';
+  at.addEventListener('change', () => editFeature(k, (x) => { const v = Number(at.value); if (v >= 0) x.at = Math.max(0, Math.round((v / PIECE_MPU) * 2) / 2); }));
+  field('From', at);
+  const pass = document.createElement('input');
+  pass.type = 'number'; pass.min = '0'; pass.max = '1'; pass.step = '0.1'; pass.value = String(f.passing);
+  pass.title = 'The chance of a pass being on in it (0 to 1)';
+  pass.addEventListener('change', () => editFeature(k, (x) => { const v = Number(pass.value); if (v >= 0 && v <= 1) x.passing = Math.round(v * 100) / 100; }));
+  field('Pass', pass);
+  const line = document.createElement('select');
+  fillSelect(line, [{ id: '', name: 'Any (riders choose)' }, ...app.parts.lines.map((l) => ({ id: l, name: l[0].toUpperCase() + l.slice(1) }))], f.line ?? '');
+  line.title = 'The line most riders take through it on the race screen';
+  line.addEventListener('change', () => editFeature(k, (x) => { if (line.value) x.line = line.value; else delete x.line; }));
+  field('Line', line);
+  if (HEIGHTS.has(f.type)) {
+    const inp = document.createElement('input');
+    inp.type = 'number'; inp.min = '0'; inp.max = '12'; inp.step = '0.5';
+    inp.value = f.height === undefined ? '' : String(f.height);
+    inp.placeholder = 'default';
+    inp.title = 'Height in metres of the jump face or hill, for the race screen';
+    inp.addEventListener('change', () => editFeature(k, (x) => { const v = Number(inp.value); if (inp.value !== '' && v >= 0) x.height = v; else delete x.height; }));
+    field('Height', inp);
+  }
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.style.marginTop = '6px';
+  const dup = document.createElement('button');
+  dup.textContent = 'Duplicate';
+  dup.title = 'Another of the same right after it on the route';
+  dup.addEventListener('click', () => duplicateFeature(k));
+  const del = document.createElement('button');
+  del.textContent = 'Delete';
+  del.title = 'Take it off the route (Del). The route\'s own straight or bend is back there.';
+  del.addEventListener('click', () => deleteFeature(k));
+  row.append(dup, del);
+  box.appendChild(row);
+}
+function editFeature(k, fn) { commit((t) => { fn(t.features[k]); app.selFeat = k; app.selSec = sectionOfFeature(t, k); }); }
+function deleteFeature(k = app.selFeat) {
+  const t = track();
+  const f = t?.features?.[k];
+  if (!f) return;
+  const name = featureName(f);
+  commit((t) => { t.features.splice(k, 1); app.selFeat = -1; app.selSec = -1; });
+  status(`Deleted ${name.toLowerCase()} (feature ${k + 1}). The route's own straight or bend is back there; Undo puts it back.`, 'ok');
+}
+function duplicateFeature(k = app.selFeat) {
+  const t = track();
+  const f = t?.features?.[k];
+  if (!f) return;
+  commit((t) => { t.features.push({ ...clone(f), at: round1(f.at + f.len) }); app.selFeat = t.features.length - 1; app.selSec = sectionOfFeature(t, app.selFeat); });
+}
 function editSection(i, fn) { commit((t) => fn(t.sections[i])); }
 function moveSection(i, d) {
   commit((t) => {
@@ -1771,80 +2179,12 @@ function moveSection(i, d) {
     app.selSec = i + d;
   });
 }
-/**
- * Deletes section i and its piece of the track: its stretch of the drawing goes with it, so nothing
- * of it is left on screen. Taken from the end of an open lap, or from its start, the lap is just
- * shorter (from the start, the finish line moves on to the next piece). Taken from the middle,
- * or from a closed lap, it leaves a gap, an open connection shown with its two ends, which pieces
- * or Close the gap fill again; the last piece of a closed lap opens the lap instead. Neighbouring
- * pieces never move. A finished track becomes unfinished (the game leaves it out until it is
- * closed and Ready to race again), so it asks first. With Shift, only the section's entry goes and
- * its neighbours share its stretch, as before.
- */
-function deleteSection(i, labelOnly = false) {
+/** Removes section i's entry on a track without features: its neighbours share its stretch of the drawing. */
+function deleteSection(i) {
   const t0 = track();
-  if (!t0) return;
-  if (labelOnly || t0.path.length < 2) {
-    commit((t) => { t.sections.splice(i, 1); app.selSec = Math.min(i, t.sections.length - 1); });
-    if (labelOnly) status('Removed the section entry only: its neighbours share its stretch of the drawing.', 'ok');
-    return;
-  }
-  if (isGap(t0.sections[i])) { status('That is a gap, not a piece: place pieces from its green end, or click Close the gap.', 'err'); return; }
-  if (!t0.draft && !confirm(`Delete section ${i + 1} and its stretch of track? "${t0.name}" becomes unfinished (the game leaves it out) until the gap is closed and it is Ready to race again. Undo puts it back.`)) return;
-  const name = app.sectionDefs[t0.sections[i].type]?.name ?? t0.sections[i].type;
-  let how = '';
-  commit((t) => {
-    const n = t.path.length;
-    const spans = pieceSpans(t);
-    const [i0, i1] = spans[i];
-    const last = t.sections.length - 1;
-    t.draft = true;
-    if (t.sections.length === 1) {
-      t.path = [];
-      t.sections = [];
-      t.open = true;
-      how = 'The lap is empty again.';
-    } else if (t.open && i === last) {
-      // The end of an open lap: it just stops sooner (and a gap left at the end goes too).
-      t.path.splice(i0 + 1);
-      t.sections.splice(i, 1);
-      while (isGap(t.sections.at(-1))) {
-        const sp = pieceSpans(t).at(-1);
-        t.path.splice(sp[0] + 1);
-        t.sections.pop();
-      }
-      how = 'The lap now ends at the piece before.';
-    } else if (t.open && i === 0) {
-      // The start of an open lap: the finish line moves on to the next piece (past any gap there).
-      let cut = i1;
-      let k = 1;
-      while (isGap(t.sections[k])) { cut = spans[k][1]; k++; }
-      t.path.splice(0, cut);
-      t.sections.splice(0, k);
-      how = t.finish === false ? 'The lap now starts at the next piece.' : 'The lap now starts at the next piece, with the finish line there.';
-    } else if (!t.open && i === last) {
-      // The last piece of a closed lap: the lap is open again, ending at the piece before.
-      if (i1 > i0 + 1) t.path.splice(i0 + 1, i1 - i0 - 1);
-      t.sections.splice(i, 1);
-      t.open = true;
-      how = 'The lap is open again: it ends at the piece before, and closes back into its first point.';
-    } else {
-      // In the middle: a gap, merged with any gap either side.
-      let a = i, b = i;
-      while (a > 0 && isGap(t.sections[a - 1])) a--;
-      while (b < last && isGap(t.sections[b + 1])) b++;
-      const from = spans[a][0];
-      const to = spans[b][1];
-      if (to > from + 1) t.path.splice(from + 1, to - from - 1);
-      t.sections.splice(a, b - a + 1, { type: 'gap', length: gapMetres(t, from, from + 1) });
-      how = 'It leaves a gap: its two open ends are ringed (green to build on from, blue to close into). Place pieces from the green end, or click Close the gap.';
-    }
-    app.selSec = Math.min(i, t.sections.length - 1);
-    app.selPt = -1;
-    app.placing = null;
-  });
-  app.buildAt = null;
-  status(`Deleted ${name} (section ${i + 1}) and its stretch of track. ${how}`, 'ok');
+  if (!t0 || t0.features) return;
+  commit((t) => { t.sections.splice(i, 1); app.selSec = Math.min(i, t.sections.length - 1); });
+  status('Removed the section entry: its neighbours share its stretch of the drawing.', 'ok');
 }
 function addSection() {
   commit((t) => {
@@ -1857,6 +2197,7 @@ function splitSection() {
   const t = track();
   const s = t?.sections[app.selSec];
   if (!s) return;
+  if (t.features) return;
   if (s.length < 2) { status('A section needs at least 2 metres to split.', 'err'); return; }
   commit(() => {
     const a = Math.ceil(s.length / 2);
@@ -2426,24 +2767,23 @@ function buildLegend() {
  */
 function checkTrack(t, all, strict = false) {
   if (t.draft && !strict) {
-    if (building(t)) {
-      const pieces = t.sections.filter((x) => !isGap(x)).length;
-      const warn = [`Unfinished: still to join, ${stillOpen(t)} (${pieces} piece${pieces === 1 ? '' : 's'} placed). The game leaves this track out until the lap is one continuous loop.`];
-      // Each open connection, by where it is, so it can be found.
-      for (const e of openEnds(t)) {
-        if (!e.target) continue;
-        const k = e.kind === 'gap' ? e.sec : t.sections.length;
-        warn.push(e.kind === 'gap'
-          ? `Gap after piece ${k} (at ${e.x.toFixed(0)}, ${e.y.toFixed(0)}) to piece ${k + 2} (at ${e.target.x.toFixed(0)}, ${e.target.y.toFixed(0)}), ${Math.round(Math.hypot(e.target.x - e.x, e.target.y - e.y) * PIECE_MPU)} m across: place pieces from its green ring, or click Close the gap.`
-          : `Open lap: the last piece ends at ${e.x.toFixed(0)}, ${e.y.toFixed(0)}, ${Math.round(Math.hypot(e.target.x - e.x, e.target.y - e.y) * PIECE_MPU)} m from the lap's first point (${e.target.x.toFixed(0)}, ${e.target.y.toFixed(0)}): keep placing pieces until one ends on it, or click Close the lap.`);
-      }
+    const refs = new Map();
+    const n = lpts(t).length;
+    if (t.open || n < 3) {
+      // An open route: what it still needs, and what else it will need to race, so nothing comes as a surprise at Ready to race.
+      const warn = [!n
+        ? 'Unfinished: no route yet. Click Draw route and click the ground point by point; click the first point again to close the route. The game leaves this track out until the route is closed.'
+        : t.open
+          ? `Unfinished: the route is open (${n} point${n === 1 ? '' : 's'}${n >= 2 ? `, ${Math.round(lapGeom(t).total * PIECE_MPU)} m` : ''}). Keep drawing from its last point, or close it: click its first point while drawing, or click Close the route. The game leaves this track out until the route is closed.`
+          : `Unfinished: the route needs at least 3 points (it has ${n}). Double-click it to add one.`];
       if (!t.name?.trim()) warn.push('The track needs a name.');
-      for (const c of boundaryCrossings(t)) warn.push(`Geometry: ${c.k >= 0 ? `section ${c.k + 1}` : 'the drawing'} crosses the build boundary at ${c.x.toFixed(0)}, ${c.y.toFixed(0)}: the race ground ends at the 100 × 60 grid, so bring it back inside (its points are red) before the track can be ready to race.`);
-      // What else it will need to race, so nothing comes as a surprise at Ready to race.
-      if (!t.start) warn.push('No start straight yet: pick Start straight under Start and finish (Build the lap). Place it first and build the lap on from its end, or join it onto the lap.');
+      for (const c of boundaryCrossings(t)) { const text = boundaryText(t, c, true); warn.push(text); refs.set(text, { pt: c.seg }); }
+      for (const p of featureProblems(t)) { warn.push(p.message); refs.set(p.message, { feat: p.k }); }
+      if (!t.start) warn.push('No start straight yet: pick Start straight under Start and finish. Its end goes on the route where riders join it.');
       else if (t.path.length >= 2) for (const m of startProblems(t)) warn.push(`Race start: ${m}`);
-      const refs = new Map();
-      for (const m of officialNotes(t)) { warn.push(m.text); if (m.i >= 0) refs.set(m.text, m.i); }
+      if (t.finish === false) warn.push('No finish line yet: once the route is closed, pick Finish line under Start and finish and put it on the route where every lap starts and ends.');
+      for (const m of officialNotes(t)) { warn.push(m.text); if (m.i >= 0) refs.set(m.text, { item: m.i }); }
+      for (const p of cheerProblems(t)) { warn.push(p.message); refs.set(p.message, { item: p.i }); }
       for (const p of elevationIssues(t)) warn.push(`Height: ${p.message} (${p.level === 'error' ? 'red' : 'yellow'} ring in Height mode).`);
       return { bad: [], warn, refs };
     }
@@ -2454,12 +2794,12 @@ function checkTrack(t, all, strict = false) {
     const circuit = r.bad.filter((m) => !ready.includes(m));
     const needs = [t.finish === false && 'a finish line', !t.start && 'a start straight'].filter(Boolean);
     const warn = [circuit.length
-      ? `Unfinished: the lap is closed, with ${circuit.length} thing${circuit.length === 1 ? '' : 's'} to fix in the circuit before Ready to race (below). The game leaves this track out until then.`
+      ? `Unfinished: the route is closed, with ${circuit.length} thing${circuit.length === 1 ? '' : 's'} to fix in the circuit before Ready to race (below). The game leaves this track out until then.`
       : needs.length
-        ? `Unfinished: the lap is closed and the circuit passes its checks. Still needed to race: ${needs.join(' and ')} (Start and finish in Layout). Then click Ready to race.`
+        ? `Unfinished: the route is closed and the circuit passes its checks. Still needed to race: ${needs.join(' and ')} (Start and finish in Layout). Then click Ready to race.`
         : ready.length
-          ? `Unfinished: the lap is closed and the circuit passes its checks, but the race start needs attention (below) before Ready to race.`
-          : 'Unfinished: the lap is closed and passes the checks. Click Ready to race in Layout to let the game use it.', ...circuit, ...ready, ...r.warn];
+          ? `Unfinished: the route is closed and the circuit passes its checks, but the race start needs attention (below) before Ready to race.`
+          : 'Unfinished: the route is closed and passes the checks. Click Ready to race in Layout to let the game use it.', ...circuit, ...ready, ...r.warn];
     return { bad: [], warn, refs: r.refs, good: r.good };
   }
   const bad = [];
@@ -2472,11 +2812,10 @@ function checkTrack(t, all, strict = false) {
   if (!ID.test(t.surface ?? '')) bad.push('Surface needs a value like hard_pack.');
   if (t.kind !== undefined && !P.kinds.some((k) => k.id === t.kind)) bad.push(`No track kind "${t.kind}" in trackParts.json.`);
   if (t.width !== undefined && !(t.width >= 1 && t.width <= 12)) bad.push('Width must be between 1 and 12.');
-  if (t.path.length < 3) bad.push('The drawing needs at least 3 points.');
-  t.path.forEach(([x, y], i) => {
-    if (x < 0 || y < 0) bad.push(`Point ${i} is below 0, which the game rejects.`);
-    else if (x > GRID_W || y > GRID_H) warn.push(`Point ${i} is off the 100 × 60 grid, so the race screen squashes the track.`);
-  });
+  if (t.open) bad.push('The route is open: close it (click its first point while drawing, or Close the route) so the lap joins up.');
+  if (lpts(t).length < 3) bad.push('The route needs at least 3 points.');
+  const refs = new Map();
+  for (const c of boundaryCrossings(t)) { const text = boundaryText(t, c, false); bad.push(text); refs.set(text, { pt: c.seg }); }
   if (!t.sections.length) bad.push('The track needs at least one section.');
   t.sections.forEach((s, i) => {
     if (Object.keys(app.sectionDefs).length && !app.sectionDefs[s.type]) bad.push(`Section ${i + 1}: no section type "${s.type}" in racing.json.`);
@@ -2494,14 +2833,14 @@ function checkTrack(t, all, strict = false) {
     for (const id of Object.keys(t.ground.paint ?? {})) if (!P.ground.some((g) => g.id === id)) bad.push(`No ground "${id}" in trackParts.json.`);
   }
   (t.scenery ?? []).forEach((s, i) => { if (!sceneryDef(s.type)) bad.push(`Scenery item ${i + 1}: no scenery "${s.type}" in trackParts.json.`); });
-  const refs = new Map();
   for (const p of sceneryIssues(t)) {
     const text = p.level === 'error'
       ? `Scenery item ${p.i + 1}: ${p.message}. Move it off the track (outlined in red; click here to find it).`
       : `Scenery item ${p.i + 1}: ${p.message}. The game will race it; check it is meant to be there (dashed yellow; click here to find it).`;
     (p.level === 'error' ? bad : warn).push(text);
-    refs.set(text, p.i);
+    refs.set(text, { item: p.i });
   }
+  for (const p of featureProblems(t)) { (p.level === 'error' ? bad : warn).push(p.message); refs.set(p.message, { feat: p.k }); }
   for (const p of elevationIssues(t)) {
     (p.level === 'error' ? bad : warn).push(p.level === 'error'
       ? `Height: ${p.message} (red ring in Height mode).`
@@ -2510,29 +2849,29 @@ function checkTrack(t, all, strict = false) {
   // Section types against the drawing, and the start straight (as src/core/trackCheck.ts).
   if (Object.keys(app.sectionDefs).length) {
     const shapes = sectionShapes(t);
+    const feats = sectionFeats(t);
     t.sections.forEach((s, i) => {
       const def = app.sectionDefs[s.type];
-      if (!def) return;
+      if (!def || feats[i] >= 0) return;
       if (s.type === 'start_gate') { bad.push(`Section ${i + 1} is a start gate on the lap. The start is its own start straight now, so make this a straight.`); return; }
       const d = shapes[i];
       if (shapeMismatch(t, i, d)) bad.push(`Circuit: section ${i + 1} (${def.name.toLowerCase()}) is drawn as ${an(d.shape)} ${d.shape} (it turns ${Math.round(d.swept)}°); it needs to be drawn as ${shapesFor(s.type).map((x) => `${an(x)} ${x}`).join(' or ')}.${app.final ? ' Reshape the drawing there.' : ' It is edged in red.'}`);
     });
   }
   bad.push(...startProblems(t).map((m) => `Race start: ${m}`));
-  if (t.finish === false) bad.push('Finish line: none placed yet. Pick Finish line under Start and finish (or + Finish line above the view) and put it on the lap where every lap starts and ends; it is never placed for you.');
+  if (t.finish === false) bad.push('Finish line: none placed yet. Pick Finish line under Start and finish (or + Finish line above the view) and put it on the route where every lap starts and ends; it is never placed for you.');
   const oi = officialIndex(t);
   if (oi >= 0) {
     const probs = [...officialLocalProblems(t), ...(t === track() ? officialProblems(t) ?? [] : [])].filter((m, k, a) => a.indexOf(m) === k);
     for (const m of probs) {
       const text = `Scenery item ${oi + 1}: ${m[0].toUpperCase()}${m.slice(1)} (click here to find it).`;
       bad.push(text);
-      refs.set(text, oi);
+      refs.set(text, { item: oi });
     }
   }
-  for (const m of officialNotes(t)) { warn.push(m.text); if (m.i >= 0) refs.set(m.text, m.i); }
-  for (const p of cheerProblems(t)) { (p.level === 'error' ? bad : warn).push(p.message); refs.set(p.message, p.i); }
+  for (const m of officialNotes(t)) { warn.push(m.text); if (m.i >= 0) refs.set(m.text, { item: m.i }); }
+  for (const p of cheerProblems(t)) { (p.level === 'error' ? bad : warn).push(p.message); refs.set(p.message, { item: p.i }); }
   if (!t.practiceOnly && !t.gates?.length) warn.push('No gate curve: every gate starts the same.');
-  for (const c of boundaryCrossings(t)) bad.push(`Geometry: ${c.k >= 0 ? `section ${c.k + 1}` : 'the drawing'} crosses the build boundary at ${c.x.toFixed(0)}, ${c.y.toFixed(0)}: the race ground ends at the 100 × 60 grid, so drag it back inside (its points are red) before the track is ready to race.`);
   // Two segments that cross make a figure of eight on screen, which the race screen can't show as a bridge.
   const g = lapGeom(t);
   const n = g.pts.length - 1;
@@ -2546,7 +2885,7 @@ function checkTrack(t, all, strict = false) {
   for (const c of tightCorners(t)) warn.push(`Geometry: the corner at ${c.x.toFixed(0)}, ${c.y.toFixed(0)} is tighter than the track's edge can follow (about ${(c.r * PIECE_MPU).toFixed(1)} m round against a half-width of ${((t.width ?? DEFAULT_WIDTH) / 2 * PIECE_MPU).toFixed(1)} m), so the race view mitres its inside edge to a point there. Select the point and Round corner, or widen the bend.`);
   // What is in place, so the groups read as a whole.
   const good = [];
-  if (t.path.length >= 3) good.push(`Circuit: a closed loop of ${t.sections.length} section${t.sections.length === 1 ? '' : 's'}, ${lap} m.`);
+  if (t.path.length >= 3 && !t.open) good.push(`Circuit: a closed route of ${lpts(t).length} points and ${t.sections.length} section${t.sections.length === 1 ? '' : 's'}, ${lap} m${t.features ? `, with ${t.features.length} feature${t.features.length === 1 ? '' : 's'}` : ''}.`);
   if (t.start) { const sg = startGeom(t); if (sg) good.push(`Race start: a start straight ${Math.round(sg.total * PIECE_MPU)} m from the gate, joining ${Math.round(sg.join * lap)} m into the lap.`); }
   if (t.finish !== false && t.path.length) good.push(`Finish line: at ${t.path[0][0]}, ${t.path[0][1]}, the lap's first point; every lap starts and ends there.`);
   return { bad, warn, refs, good };
@@ -2557,8 +2896,14 @@ function checkTrack(t, all, strict = false) {
  * such a corner the race view's surface is mitred to a point, so the inside edge is pinched there.
  */
 const TIGHT_LANE = 1.22;
+/** A boundary crossing worded for the checks: which stretch of the route, where, and what to do. */
+function boundaryText(t, c, drafting) {
+  const n = lpts(t).length;
+  const where = n ? `the route between points ${c.seg} and ${(c.seg + 1) % n}` : 'the route';
+  return `Geometry: ${where} crosses the build boundary at ${c.x.toFixed(0)}, ${c.y.toFixed(0)}: the race ground ends at the 100 × 60 grid, so bring it back inside (its points are red) before the track ${drafting ? 'can be' : 'is'} ready to race.`;
+}
 function tightCorners(t) {
-  if (t.path.length < 3 || building(t)) return [];
+  if (t.path.length < 3 || t.open) return [];
   const g = lapGeom(t);
   const hw = (t.width ?? DEFAULT_WIDTH) / 2;
   const n = Math.max(64, Math.ceil(g.total / 0.1));
@@ -2597,11 +2942,11 @@ function renderChecks() {
     d.className = cls;
     d.textContent = text;
     const m = text.match(/^. (.*)$/);
-    const i = m ? refs?.get(m[1]) : undefined;
-    if (i !== undefined) {
+    const ref = m ? refs?.get(m[1]) : undefined;
+    if (ref !== undefined) {
       d.classList.add('ref');
       d.title = 'Select it';
-      d.onclick = () => findItem(i);
+      d.onclick = () => findRef(ref);
     }
     box.appendChild(d);
   };
@@ -2610,6 +2955,38 @@ function renderChecks() {
   if (others.length) add('bad', `✕ Other tracks have problems: ${others.join(', ')}.`);
   if (!bad.length && !warn.length && !others.length) add('good', '✓ This track passes the game\'s checks.');
   good.forEach((m) => add('good', `✓ ${m}`));
+}
+/** Selects what a check is about: a scenery item, a feature or a route point. */
+function findRef(ref) {
+  if (typeof ref === 'number' || ref.item !== undefined) return findItem(typeof ref === 'number' ? ref : ref.item);
+  const t = track();
+  if (!t) return;
+  if (app.mode !== 'layout') setMode('layout');
+  if (ref.feat !== undefined && t.features?.[ref.feat]) {
+    app.selFeat = ref.feat;
+    app.selSec = sectionOfFeature(t, ref.feat);
+    app.selPt = -1;
+    const f = t.features[ref.feat];
+    const g = lapGeom(t);
+    const p = pointAt(g, Math.min(1, (f.at + f.len / 2) / g.total));
+    lookAt(p.x, p.y);
+  } else if (ref.pt !== undefined && lpts(t)[ref.pt]) {
+    app.selPt = ref.pt;
+    app.selFeat = -1;
+    app.selSec = -1;
+    const [x, y] = lpts(t)[ref.pt];
+    lookAt(x, y);
+  }
+  refresh();
+}
+/** Brings a grid point into the map's view when it is off it. */
+function lookAt(x, y) {
+  const r = canvas.getBoundingClientRect();
+  const at = toScreen(x, y);
+  if (at.x < 40 || at.y < 40 || at.x > r.width - 40 || at.y > r.height - 40) {
+    view.ox += r.width / 2 - at.x;
+    view.oy += r.height / 2 - at.y;
+  }
 }
 /** Selects a scenery item from the checks: scenery mode, the item selected, the view on it, a ring round it. */
 function findItem(i) {
@@ -3120,85 +3497,30 @@ function renderOfficialDetail(box, t, it) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Building a new track from pieces
+// Placing on the route: the start straight, the finish line and the features
 
-// A new track starts empty and is built from section pieces: pick a section type in Build the lap
-// and a piece of it (a straight, or a bend of so many degrees) follows the pointer as a ghost,
-// green where it can go, red with the reason where it can't. Q / E turn it, F mirrors a bend,
-// , and . make it shorter or longer, and a click places it (Esc or a right-click cancels). Each
-// piece placed adds its points to the drawing and one section of its type, so the lap and its
-// sections are the ordinary ones the rest of the editor works on. The first piece goes anywhere;
-// each after it joins the end of the last, and the piece whose end meets the first piece's start
-// closes the lap. Nothing already placed is ever moved to make a piece fit.
+// Each follows the pointer as a ghost (green where it can go, yellow with a note where it can but
+// something wants looking at, red with the reason where it can't) and a click or Enter places it;
+// Esc or a right-click stops. Nothing already placed is ever moved to make room.
 
 /** Metres a grid unit, as for sections from the drawing (about the game's tracks). */
 const PIECE_MPU = 2.7;
-/** Grid units from the end of the track within which a piece snaps on to it. */
-const PIECE_SNAP = 4;
-/** The sharpest kink allowed where a piece joins the one before, in degrees. */
-const PIECE_KINK = 20;
-/** How near the start the last piece's end has to come to close the lap, in grid units and degrees. */
-const CLOSE_DIST = 2.5;
-const CLOSE_TURN = 35;
-/** Within these (grid units, degrees) a piece's end is on the target, so it closes with no kink. */
-const CLOSE_SNAP = 0.6;
-const CLOSE_SNAP_TURN = 8;
-/** A straight piece's length in grid units, by type (others 12). */
+/** A feature's length in grid units when first placed, by type (others 12). */
 const PIECE_LEN = { straight: 14, tabletop: 12, double: 12, step_up: 10, rhythm: 14, whoops: 12, braking_bumps: 8, sand: 10, mud: 10, uphill: 12, downhill: 12 };
 const PIECE_PASS = { straight: 0.6, sweeper: 0.5, corner: 0.6, hairpin: 0.7 };
-
-/** The piece a section type starts as: a straight where it can be one, else the bend it suits. */
-function pieceFor(type) {
-  const shapes = shapesFor(type);
-  const p = { type, bend: false, len: PIECE_LEN[type] ?? 12, deg: 90, r: 5, mirror: false, turn: 0, at: null };
-  if (shapes.includes('straight')) return p;
-  if (shapes.includes('corner')) return { ...p, bend: true };
-  if (shapes.includes('hairpin')) return { ...p, bend: true, deg: 180, r: 4 };
-  return { ...p, bend: true, deg: 45, r: 12 };
-}
-/** Starts placing a piece of a section type (or stops, with null). */
-function startPiece(type) {
-  const at = app.placing?.at ?? null;
-  app.placing = type === 'start' ? { ...startPieceFor(), at } : type === 'finish' ? { kind: 'finish', type: 'finish', at } : type === 'connect' ? { kind: 'connect', type: 'connect', at: null } : type ? { ...pieceFor(type), at } : null;
-  refresh();
-}
-// ---- open ends, gaps and the pieces' spans ----
-
-// An unfinished track is the lap's drawing (path) and one section per piece, in riding order. The
-// sections sit on the drawing by their share of the lap's metres, as the game lays them out, so
-// each piece's metres are its own length on the grid (PIECE_MPU a unit). A piece taken out leaves
-// a gap: a section of type 'gap' (only ever on an unfinished track, which the game leaves out)
-// whose stretch of the drawing is just the straight line across it, which is never drawn as
-// track. The open ends are where a piece can join on: the end of the last piece while the lap is
-// open, and the near side of each gap. Each has a target, where the track has to come back into:
-// the far side of the gap, or the finish line (the first point) to close the lap.
 
 /** A point of the drawing by index, counting round past the end on a closed lap. */
 function vertex(t, i) {
   const n = t.path.length;
   return t.path[((i % n) + n) % n];
 }
-/** Snaps a piece's heading to the 15° steps pieces are built in when it is within a rounding error of one. */
-function snapHeading(h) {
-  const step = Math.PI / 12;
-  const k = Math.round(h / step) * step;
-  return Math.abs(wrapAngle(h - k)) < (2 * Math.PI) / 180 ? wrapAngle(k) : h;
-}
-/** The way the track is heading as it arrives at point i, from the points before it (a bend's last step points half a step short of its heading). */
+/** The way the track is heading as it arrives at point i, from the points before it. */
 function headingInto(t, i) {
   const n = t.path.length;
   if (n < 2 || (t.open && i < 1)) return null;
   const [ax, ay] = vertex(t, i - 1);
   const [bx, by] = vertex(t, i);
-  let h = Math.atan2(by - ay, bx - ax);
-  if (n >= 3 && (!t.open || i >= 2)) {
-    const [px, py] = vertex(t, i - 2);
-    const last = Math.hypot(bx - ax, by - ay);
-    const prev = Math.hypot(ax - px, ay - py);
-    const step = wrapAngle(h - Math.atan2(ay - py, ax - px));
-    if (Math.abs(last - prev) < 0.2 && Math.abs(step) > 0.01 && Math.abs(step) < Math.PI / 4) h += step / 2;
-  }
-  return snapHeading(h);
+  return Math.atan2(by - ay, bx - ax);
 }
 /** The way the track sets off from point i, from the points after it. */
 function headingOut(t, i) {
@@ -3206,124 +3528,15 @@ function headingOut(t, i) {
   if (n < 2 || (t.open && i > n - 2)) return null;
   const [ax, ay] = vertex(t, i);
   const [bx, by] = vertex(t, i + 1);
-  let h = Math.atan2(by - ay, bx - ax);
-  if (n >= 3 && (!t.open || i <= n - 3)) {
-    const [cx, cy] = vertex(t, i + 2);
-    const first = Math.hypot(bx - ax, by - ay);
-    const next = Math.hypot(cx - bx, cy - by);
-    const step = wrapAngle(Math.atan2(cy - by, cx - bx) - h);
-    if (Math.abs(first - next) < 0.2 && Math.abs(step) > 0.01 && Math.abs(step) < Math.PI / 4) h -= step / 2;
-  }
-  return snapHeading(h);
+  return Math.atan2(by - ay, bx - ax);
 }
-/**
- * Which points of the drawing each section runs between, as [from, to] indices of the drawing's
- * points in riding order (to is path.length, the first point again, for the last section of a
- * closed lap). The joins are where the sections' metres put them, at the nearest point.
- */
-function pieceSpans(t) {
-  const g = lapGeom(t);
-  const b = sectionBounds(t);
-  const last = g.pts.length - 1;
-  const idx = b.map((f, k) => {
-    if (k === 0) return 0;
-    if (k === b.length - 1) return last;
-    const d = f * g.total;
-    let best = 0;
-    for (let i = 1; i <= last; i++) if (Math.abs(g.cum[i] - d) < Math.abs(g.cum[best] - d)) best = i;
-    return best;
-  });
-  for (let k = 1; k < idx.length; k++) idx[k] = Math.max(idx[k], idx[k - 1]);
-  return t.sections.map((_, k) => [idx[k], idx[k + 1]]);
-}
-const isGap = (s) => s?.type === 'gap';
-/** True while a track is being built: its lap not closed yet, or a gap left between pieces. */
-const building = (t) => !!t && (!!t.open || t.sections.some(isGap));
-/** A gap section's metres: the straight line across it. */
-function gapMetres(t, i0, i1) {
-  const [ax, ay] = vertex(t, i0);
-  const [bx, by] = vertex(t, i1);
-  return Math.max(1, Math.round(Math.hypot(bx - ax, by - ay) * PIECE_MPU));
-}
-/**
- * The open ends of a track being built: where a piece can join on (x, y, the heading it carries on
- * at), which point it is (vi) and where a piece joining there goes in the sections (sec), and
- * the target it closes into (x, y, the heading the track has to arrive at, vi), if any.
- */
-function openEnds(t) {
-  const n = t.path.length;
-  if (n < 2) {
-    // A start straight placed first: the lap goes on from its end, heading the way its gate run points.
-    const sp = n ? null : t.start?.path;
-    if (!sp || sp.length < 2) return [];
-    const [jx, jy] = sp.at(-1);
-    return [{ x: jx, y: jy, h: snapHeading(Math.atan2(sp[1][1] - sp[0][1], sp[1][0] - sp[0][0])), vi: -1, sec: 0, kind: 'lap', fromStart: true, target: null }];
-  }
-  const out = [];
-  const spans = pieceSpans(t);
-  t.sections.forEach((s, k) => {
-    if (!isGap(s)) return;
-    const [i0, i1] = spans[k];
-    const [x, y] = vertex(t, i0);
-    const [tx, ty] = vertex(t, i1);
-    out.push({ x, y, h: headingInto(t, i0) ?? headingOut(t, i0) ?? 0, vi: i0, sec: k, kind: 'gap', target: { x: tx, y: ty, h: headingOut(t, i1) ?? headingInto(t, i1) ?? 0, vi: i1 } });
-  });
-  if (t.open) {
-    const [x, y] = t.path[n - 1];
-    const [tx, ty] = t.path[0];
-    out.push({ x, y, h: headingInto(t, n - 1) ?? 0, vi: n - 1, sec: t.sections.length, kind: 'lap', target: { x: tx, y: ty, h: headingOut(t, 0) ?? 0, vi: 0 } });
-  }
-  return out;
-}
-/** The open end a piece at (x, y) joins: the nearest within PIECE_SNAP, else null. */
-function endNear(t, x, y) {
-  let best = null;
-  for (const e of openEnds(t)) {
-    const d = Math.hypot(e.x - x, e.y - y);
-    if (d <= PIECE_SNAP && (!best || d < best.d)) best = { ...e, d };
-  }
-  return best;
-}
-/** The open end the next piece goes on by default: the one nearest where the last piece was placed, else the lap's end. */
-function chainEnd(t) {
-  const ends = openEnds(t);
-  if (!ends.length) return null;
-  const near = app.buildAt;
-  if (near) return ends.reduce((a, e) => (Math.hypot(e.x - near.x, e.y - near.y) < Math.hypot(a.x - near.x, a.y - near.y) ? e : a));
-  return ends.find((e) => e.kind === 'lap') ?? ends[0];
-}
-/** The shape a piece makes, as the drawn-shape check sees it. */
-function pieceShape(pl, width) {
-  if (!pl.bend || pl.deg < STRAIGHT_UNDER) return 'straight';
-  if (pl.deg >= HAIRPIN_FROM) return 'hairpin';
-  return pl.r >= SWEEPER_WIDTHS * width ? 'sweeper' : 'corner';
-}
-/** A piece's points from where it starts (x, y) heading h (radians): a straight, or a bend every 15 degrees or less. */
-/** Moulding points along a straight piece (its two ends included): each is a point of the drawing, to drag on its own. */
-const STRAIGHT_POINTS = 5;
-function piecePoints(pl, x, y, h) {
-  if (!pl.bend) return Array.from({ length: STRAIGHT_POINTS }, (_, k) => [x + (Math.cos(h) * pl.len * k) / (STRAIGHT_POINTS - 1), y + (Math.sin(h) * pl.len * k) / (STRAIGHT_POINTS - 1)]);
-  // Turning right on the map (clockwise, y down) unless mirrored.
-  const s = pl.mirror ? -1 : 1;
-  const cx = x - s * pl.r * Math.sin(h);
-  const cy = y + s * pl.r * Math.cos(h);
-  const steps = Math.max(2, Math.ceil(pl.deg / 15));
-  const out = [];
-  for (let k = 0; k <= steps; k++) {
-    const a = h + (s * (pl.deg * Math.PI)) / 180 * (k / steps);
-    out.push([cx + s * pl.r * Math.sin(a), cy - s * pl.r * Math.cos(a)]);
-  }
-  return out;
-}
-const pieceUnits = (pl) => (pl.bend ? (pl.r * pl.deg * Math.PI) / 180 : pl.len);
 
-// The start straight as a piece (Start and finish in Build the lap, or + Start straight): the
-// shape the automatic one has (autoStart), a run alongside the lap from the gate that turns onto
-// it at about 45°, so it stays clear of the lap until it merges. Its end (the ring) snaps onto the
-// lap where the pointer is near it, heading the way the lap runs there; Q / E turn it about that
-// end, F brings it in from the other side, , and . make the run shorter or longer. On an empty
-// track it can be placed first, anywhere: the lap is then built on from its end (chainEnd). It is
-// checked as the game checks a start straight (startProblems), and nothing else is moved for it.
+// The start straight (Start and finish, or + Start straight): the shape the automatic one has
+// (autoStart), a run alongside the route from the gate that turns onto it at about 45°, so it
+// stays clear of the route until it merges. Its end (the ring) snaps onto the route where the
+// pointer is near it, heading the way the route runs there; Q / E turn it about that end, F
+// brings it in from the other side, , and . make the run shorter or longer. It is checked as the
+// game checks a start straight (startProblems), and nothing else is moved for it.
 
 /** Grid units of the run from the gate before it turns onto the lap: by default, and the least and most. */
 const START_RUN = 16;
@@ -3397,484 +3610,201 @@ function placeStart() {
   refresh();
 }
 
-/**
- * Where the piece being placed would go and whether it can: its points (as they would be added),
- * level ok, warning or error with why, and whether it closes the lap.
- */
-function ghostPiece(t, pl) {
+
+/** Where what is being placed would go: its points, level ok, warning or error with why, and the ring it snaps on at. */
+function ghostOf(t, pl) {
   if (pl.kind === 'start') return startGhost(t, pl);
   if (pl.kind === 'finish') return finishGhost(t, pl);
-  if (pl.kind === 'connect') return connectGhost(t, pl);
-  const ends = openEnds(t);
-  const width = t.width ?? DEFAULT_WIDTH;
-  const first = chainEnd(t);
-  const at = pl.at ?? (first ? { x: first.x, y: first.y } : { x: GRID_W / 2 - pieceUnits(pl) / 2, y: GRID_H / 2 });
-  // It joins whichever open end it is brought onto.
-  const end = endNear(t, at.x, at.y);
-  const joined = !!end;
-  const o = joined ? end : at;
-  const h = (end ? end.h : 0) + (pl.turn * Math.PI) / 180;
-  let pts = piecePoints(pl, o.x, o.y, h).map(([x, y]) => [round2(x), round2(y)]);
-  if (joined) pts[0] = [end.x, end.y];
-  const out = { pts, level: 'ok', msg: '', closes: false, joined, end };
-  const fail = (msg) => Object.assign(out, { level: 'error', msg });
-  // It closes the lap (or the gap) when it ends on the target, heading the way the track goes on
-  // from there: within a rounding error, so what is placed joins up with no kink. Nearly there,
-  // Close the lap lays the rest.
-  let nearly = '';
-  if (joined && end.target && (end.kind === 'gap' || t.path.length >= 3)) {
-    const tg = end.target;
-    const [ex, ey] = pts.at(-1);
-    const [px, py] = pts.at(-2);
-    const dist = Math.hypot(ex - tg.x, ey - tg.y);
-    const turn = Math.abs(wrapAngle(tg.h - Math.atan2(ey - py, ex - px))) * 180 / Math.PI;
-    const what = end.kind === 'gap' ? 'the gap' : 'the lap';
-    if (dist <= CLOSE_SNAP && turn <= CLOSE_SNAP_TURN) {
-      // Its last point is the target: drawn to it, so what's shown is what's placed.
-      pts[pts.length - 1] = [tg.x, tg.y];
-      out.closes = true;
-    } else if (dist <= CLOSE_DIST && turn <= CLOSE_TURN) nearly = ` It nearly closes ${what} (${dist.toFixed(1)} away, ${Math.round(turn)}° off): place it, then click Close ${what === 'the gap' ? 'the gap' : 'the lap'} to join the rest smoothly.`;
-  }
-  const shape = pieceShape(pl, width);
-  const def = app.sectionDefs[pl.type];
-  const over = pts.find(outside);
-  if (over) {
-    const already = boundaryCrossings(t);
-    if (already.length) return fail(`Section ${already[0].k + 1} already crosses the build boundary at ${already[0].x.toFixed(0)}, ${already[0].y.toFixed(0)}: bring it back inside before another piece goes out.`);
-    if (pts.some(farOut)) return fail(`It runs more than ${BOUND_OUT} grid units past the build boundary (the 100 × 60 ground): move or turn it.`);
-    Object.assign(out, { level: 'warning', msg: `It crosses the build boundary at ${over[0].toFixed(0)}, ${over[1].toFixed(0)} (the race ground ends there). It can go there while you build, but the track isn't race-ready until every section is back inside; Checks says which.` });
-  }
-  if (ends.length && !joined) return fail(ends[0].fromStart ? 'It isn\'t joined to the start straight: move it onto the start straight\'s end (the green ring), where the lap begins.' : `It isn't joined to the track: move it onto an open end (a green ring${ends.length > 1 ? `; there are ${ends.length}` : ''}), where it snaps on.`);
-  if (joined && Math.abs(pl.turn) > PIECE_KINK) return fail(`It kinks ${Math.abs(pl.turn)}° where it joins the last piece; turn it back (Q / E) to ${PIECE_KINK}° or less.`);
-  if (def && !shapesFor(pl.type).includes(shape)) return fail(`${def.name} has to be ${shapesFor(pl.type).map((x) => `${an(x)} ${x}`).join(' or ')}, and this is ${an(shape)} ${shape}: make it ${shape === 'straight' ? 'a bend (B)' : 'longer or shorter (, .)'}.`);
-  // Too near the track already built (other than where it joins, or closes), riders would ride through each other.
-  if (t.path.length >= 2) {
-    const g = lapGeom(t);
-    const dense = [];
-    for (let i = 1; i < pts.length; i++) {
-      const [ax, ay] = pts[i - 1];
-      const [bx, by] = pts[i];
-      const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / 0.5));
-      for (let k = i === 1 ? 0 : 1; k <= n; k++) dense.push({ x: ax + ((bx - ax) * k) / n, y: ay + ((by - ay) * k) / n, d: 0 });
-    }
-    let run = 0;
-    for (let i = 0; i < dense.length; i++) { if (i) run += Math.hypot(dense[i].x - dense[i - 1].x, dense[i].y - dense[i - 1].y); dense[i].d = run; }
-    const clear = width + 0.5;
-    const skip = width * 1.5 + 1;
-    // Along the drawing to a point of it, either way round.
-    const along = (f, vi) => {
-      const d = Math.abs(f * g.total - g.cum[Math.max(0, Math.min(g.cum.length - 1, vi))]);
-      return g.open ? d : Math.min(d, g.total - d);
-    };
-    const hit = dense.find((p) => {
-      if (joined && p.d < skip) return false;
-      const pr = project(g, p.x, p.y);
-      if (pr.dist >= clear || isGap(t.sections[sectionAt(t, pr.f)])) return false;
-      // Where it joins on, and where it closes into, it meets the track by design.
-      if (joined && end.vi >= 0 && along(pr.f, end.vi) < skip) return false;
-      if (joined && end.target && run - p.d < skip * 2 && along(pr.f, end.target.vi) < skip) return false;
-      return true;
-    });
-    if (hit && !out.msg) Object.assign(out, { level: 'warning', msg: `It runs over the track already built at ${hit.x.toFixed(0)}, ${hit.y.toFixed(0)}. It can go there (a crossover), but riders pass through each other.` });
-  }
-  if (!out.msg) out.msg = (out.closes ? (end.kind === 'gap' ? 'This piece closes the gap. Click to place it.' : 'This piece closes the lap. Click to place it.') : end?.fromStart ? 'Joined to the start straight: the lap starts here. Click to place it.' : end ? `Joined on${end.kind === 'gap' ? ' at a gap' : ''}. Click to place it.` : 'Click to place the first piece.') + nearly;
-  return out;
+  return featureGhost(t, pl);
 }
-
-/**
- * Adds pieces at an open end, as part of one change: their points (after the join, which is
- * already there, and without the last if it is the target they close into) and their sections, in
- * riding order. Closing the lap ends the draft's open lap; closing a gap takes its section away;
- * otherwise a gap's straight line across is measured again.
- */
-function addAtEnd(t, end, pts, secs, closes) {
-  const add = pts.slice(t.path.length ? 1 : 0, closes ? -1 : undefined);
-  if (end.kind === 'gap') {
-    t.path.splice(end.vi + 1, 0, ...add);
-    t.sections.splice(end.sec, 0, ...secs);
-    const gi = end.sec + secs.length;
-    if (closes) t.sections.splice(gi, 1);
-    else {
-      const sp = pieceSpans(t)[gi];
-      t.sections[gi].length = gapMetres(t, sp[0], sp[1]);
-    }
-    return;
-  }
-  t.path.push(...add);
-  t.sections.push(...secs);
-  // Closing the lap ends the open lap and nothing more: the start straight and the finish line are
-  // placed on their own (Start and finish), never laid for you.
-  if (closes) delete t.open;
-}
-/** What's left to join up on a track being built, for the status line and the checks. */
-function stillOpen(t) {
-  const gaps = t.sections.filter(isGap).length;
-  if (!t.open && !gaps) return '';
-  const parts = [];
-  if (gaps) parts.push(`${gaps} gap${gaps === 1 ? '' : 's'} between pieces`);
-  if (t.open) parts.push('the lap not yet back to its first point');
-  return parts.join(' and ');
-}
-/** Places the piece being placed: its points on the drawing and its section, as one undo step. */
+/** Places what is being placed, as one undo step. */
 function placePiece() {
-  const t = track();
   const pl = app.placing;
-  if (pl?.kind === 'start') { placeStart(); return; }
-  if (pl?.kind === 'finish') { placeFinish(); return; }
-  if (pl?.kind === 'connect') { placeConnect(); return; }
-  if (!t || !pl || !(t.open || openEnds(t).length)) return;
-  const gh = ghostPiece(t, pl);
-  if (gh.level === 'error') { status(gh.msg, 'err'); return; }
-  let units = 0;
-  for (let i = 1; i < gh.pts.length; i++) units += Math.hypot(gh.pts[i][0] - gh.pts[i - 1][0], gh.pts[i][1] - gh.pts[i - 1][1]);
-  const shape = pieceShape(pl, t.width ?? DEFAULT_WIDTH);
-  const end = gh.end ?? { kind: 'lap', sec: t.sections.length };
-  commit((t) => {
-    addAtEnd(t, end, gh.pts, [{ type: pl.type, length: Math.max(1, Math.round(units * PIECE_MPU)), passing: PIECE_PASS[shape] }], gh.closes);
-    app.selSec = end.sec;
-    app.selPt = -1;
-  });
-  app.buildAt = gh.closes ? null : { x: gh.pts.at(-1)[0], y: gh.pts.at(-1)[1] };
-  pl.turn = 0;
-  pl.at = null;
-  const left = stillOpen(track());
-  if (gh.closes && !left) {
-    app.placing = null;
-    status(closedMsg(track()), 'ok');
-    refresh();
-  } else if (gh.closes) {
-    status(`Closed the gap. Still to join: ${left}.`, 'ok');
-    refresh();
-  } else status(`Placed ${app.sectionDefs[pl.type]?.name ?? pl.type}. Pick the next piece, or keep placing this one.${gh.msg.includes('nearly closes') ? ' It nearly closes: Close the lap (or Close the gap) joins the rest smoothly.' : ''}`, 'ok');
+  if (!pl) return;
+  if (pl.kind === 'start') placeStart();
+  else if (pl.kind === 'finish') placeFinish();
+  else placeFeature();
 }
-/** What to do once the lap is one continuous loop: what is still to place before Ready to race. */
-function closedMsg(t) {
-  const needs = [t.finish === false && 'the finish line', !t.start && 'a start straight'].filter(Boolean);
-  return `The lap is closed: one continuous loop.${needs.length ? ` Place ${needs.join(' and ')} (Start and finish), then click Ready to race.` : ' Check it, then click Ready to race.'}`;
-}
-// ---- closing the lap, or a gap ----
-
-// Close the lap (and Close the gap) lays the pieces that join an open end to its target for you:
-// the shortest way of a bend, a straight and a bend (or three bends) at a radius from wide to
-// tight, the way a car turns (Dubins paths), arriving at the target heading the way the track goes
-// on from there. Each bend is a Flat corner (a straight under 30°), each straight a Straight, so
-// they suit their shapes. It is shown before it is placed, red with why where it can't go, yellow
-// where it runs over track already built, and placed as one undo step. Nothing already placed moves.
-
-/** Bend radii Close the lap tries, widest first (grid units); 4 is the hairpin piece's. */
-const CONNECT_RADII = [12, 9, 7, 5.5, 4];
-const TAU = Math.PI * 2;
-const mod2pi = (a) => ((a % TAU) + TAU) % TAU;
-/**
- * The ways from pose a to pose b (x, y, heading) turning at radius r, each as segments: a bend
- * one way (+1, heading angle growing, a right turn on the map) or the other (-1) through an angle,
- * or a straight of a length. Every one returned ends on b (checked by riding it).
- */
-function dubins(a, b, r) {
-  const dx = (b.x - a.x) / r;
-  const dy = (b.y - a.y) / r;
-  const d = Math.hypot(dx, dy);
-  const th = Math.atan2(dy, dx);
-  const al = mod2pi(a.h - th);
-  const be = mod2pi(b.h - th);
-  const sa = Math.sin(al), sb = Math.sin(be), ca = Math.cos(al), cb = Math.cos(be), cab = Math.cos(al - be);
-  const words = [];
-  // Angle-growing bends are L here, shrinking R, as in the usual formulas (y running down only mirrors them on screen).
-  {
-    const p2 = 2 + d * d - 2 * cab + 2 * d * (sa - sb);
-    if (p2 >= -1e-9) { const tmp = Math.atan2(cb - ca, d + sa - sb); words.push([[1, mod2pi(-al + tmp)], [0, Math.sqrt(Math.max(0, p2))], [1, mod2pi(be - tmp)]]); }
-  }
-  {
-    const p2 = 2 + d * d - 2 * cab + 2 * d * (sb - sa);
-    if (p2 >= -1e-9) { const tmp = Math.atan2(ca - cb, d - sa + sb); words.push([[-1, mod2pi(al - tmp)], [0, Math.sqrt(Math.max(0, p2))], [-1, mod2pi(-be + tmp)]]); }
-  }
-  {
-    const p2 = -2 + d * d + 2 * cab + 2 * d * (sa + sb);
-    if (p2 >= -1e-9) { const p = Math.sqrt(Math.max(0, p2)); const tmp = Math.atan2(-ca - cb, d + sa + sb) - Math.atan2(-2, p); words.push([[1, mod2pi(-al + tmp)], [0, p], [-1, mod2pi(-mod2pi(be) + tmp)]]); }
-  }
-  {
-    const p2 = -2 + d * d + 2 * cab - 2 * d * (sa + sb);
-    if (p2 >= -1e-9) { const p = Math.sqrt(Math.max(0, p2)); const tmp = Math.atan2(ca + cb, d - sa - sb) - Math.atan2(2, p); words.push([[-1, mod2pi(al - tmp)], [0, p], [1, mod2pi(be - tmp)]]); }
-  }
-  {
-    const tmp = (6 - d * d + 2 * cab + 2 * d * (sa - sb)) / 8;
-    if (Math.abs(tmp) <= 1) { const p = mod2pi(TAU - Math.acos(tmp)); const t = mod2pi(al - Math.atan2(ca - cb, d - sa + sb) + p / 2); words.push([[-1, t], [1, p], [-1, mod2pi(al - be - t + p)]]); }
-  }
-  {
-    const tmp = (6 - d * d + 2 * cab + 2 * d * (sb - sa)) / 8;
-    if (Math.abs(tmp) <= 1) { const p = mod2pi(TAU - Math.acos(tmp)); const t = mod2pi(-al - Math.atan2(ca - cb, d + sa - sb) + p / 2); words.push([[1, t], [-1, p], [1, mod2pi(be - al - t + p)]]); }
-  }
-  const out = [];
-  for (const w of words) {
-    const segs = w.map(([turn, v]) => (turn ? { turn, ang: v, len: v * r } : { turn: 0, ang: 0, len: v * r }));
-    // Ride it to be sure it ends on b, heading b's way.
-    let x = a.x, y = a.y, h = a.h;
-    for (const sg of segs) {
-      if (!sg.turn) { x += Math.cos(h) * sg.len; y += Math.sin(h) * sg.len; continue; }
-      const cx = x - sg.turn * r * Math.sin(h);
-      const cy = y + sg.turn * r * Math.cos(h);
-      h += sg.turn * sg.ang;
-      x = cx + sg.turn * r * Math.sin(h);
-      y = cy - sg.turn * r * Math.cos(h);
-    }
-    if (Math.hypot(x - b.x, y - b.y) < 1e-3 && Math.abs(wrapAngle(h - b.h)) < 1e-3) out.push({ segs, r, len: segs.reduce((s, g) => s + g.len, 0) });
-  }
-  return out;
-}
-/** A Dubins way as pieces: its points from a (bends every 15° or less) and a section for each bend and straight; slivers join the piece before. */
-function connectPieces(a, way, width) {
-  const pts = [[a.x, a.y]];
-  const secs = [];
-  let x = a.x, y = a.y, h = a.h;
-  for (const sg of way.segs) {
-    if (sg.len < 0.05) continue;
-    if (!sg.turn) {
-      x += Math.cos(h) * sg.len; y += Math.sin(h) * sg.len;
-      pts.push([x, y]);
-    } else {
-      const r = way.r;
-      const cx = x - sg.turn * r * Math.sin(h);
-      const cy = y + sg.turn * r * Math.cos(h);
-      const steps = Math.max(1, Math.ceil((sg.ang * 180) / Math.PI / 15));
-      for (let k = 1; k <= steps; k++) {
-        const hk = h + (sg.turn * sg.ang * k) / steps;
-        pts.push([cx + sg.turn * r * Math.sin(hk), cy - sg.turn * r * Math.cos(hk)]);
-      }
-      h += sg.turn * sg.ang;
-      x = cx + sg.turn * r * Math.sin(h); y = cy - sg.turn * r * Math.cos(h);
-    }
-    const deg = (sg.ang * 180) / Math.PI;
-    const shape = !sg.turn || deg < STRAIGHT_UNDER ? 'straight' : deg >= HAIRPIN_FROM ? 'hairpin' : way.r >= SWEEPER_WIDTHS * width ? 'sweeper' : 'corner';
-    const metres = sg.len * PIECE_MPU;
-    // Under 2 grid units it is part of the piece before (or the next, at the start).
-    if (sg.len < 2 && secs.length) { secs.at(-1).length += metres; continue; }
-    if (sg.len < 2 && !secs.length) { secs.push({ type: 'straight', length: metres, passing: PIECE_PASS.straight, carry: true }); continue; }
-    const type = shape === 'straight' ? 'straight' : 'flat_corner';
-    if (secs.length && secs.at(-1).carry) { const c = secs.pop(); secs.push({ type, length: c.length + metres, passing: PIECE_PASS[shape] }); continue; }
-    secs.push({ type, length: metres, passing: PIECE_PASS[shape] });
-  }
-  return { pts: pts.map(([px, py]) => [round2(px), round2(py)]), secs: secs.map(({ carry, ...sec }) => ({ ...sec, length: Math.max(1, Math.round(sec.length)) })) };
-}
-/**
- * The radius of the one bend that joins pose a to pose b with only straights either side, or NaN:
- * where the two headings' lines cross, ahead of a and behind b, the bend fits the nearer of the
- * two distances to the crossing.
- */
-function fitRadius(a, b) {
-  const turn = wrapAngle(b.h - a.h);
-  if (Math.abs(turn) < (5 * Math.PI) / 180 || Math.abs(turn) > Math.PI - 1e-3) return NaN;
-  const [ax, ay, bx, by] = [Math.cos(a.h), Math.sin(a.h), Math.cos(b.h), Math.sin(b.h)];
-  // a + s·da = b - t·db
-  const det = ax * by - ay * bx;
-  if (Math.abs(det) < 1e-9) return NaN;
-  const ex = b.x - a.x, ey = b.y - a.y;
-  const sv = (ex * by - ey * bx) / det;
-  const tv = (ax * ey - ay * ex) / det;
-  if (sv <= 0 || tv <= 0) return NaN;
-  return Math.min(sv, tv) / Math.tan(Math.abs(turn) / 2);
-}
-/** Close the lap (or a gap) being placed: from the open end nearest the pointer to its target. */
-function connectGhost(t, pl) {
-  const ends = openEnds(t).filter((e) => e.target);
-  const out = { pts: [], level: 'error', msg: '', closes: true, joined: true, end: null, secs: [] };
-  if (!ends.length) return Object.assign(out, { msg: t.path.length < 2 ? 'Place a few pieces first: Close the lap joins the last back to the first.' : 'Nothing to close: the lap is closed with no gaps.' });
-  const at = pl.at ?? chainEnd(t) ?? ends[0];
-  const end = ends.reduce((a, e) => (Math.hypot(e.x - at.x, e.y - at.y) < Math.hypot(a.x - at.x, a.y - at.y) ? e : a));
-  out.end = end;
-  const what = end.kind === 'gap' ? 'the gap' : 'the lap';
-  const width = t.width ?? DEFAULT_WIDTH;
-  const g = t.path.length >= 2 ? lapGeom(t) : null;
-  // Every way at every radius, judged: on the grid, and clear of the track already built (away from its own two ends).
-  let best = null;
-  let loops = 0;
-  // Turning the target needs, and the single bend that joins the two straight on, when there is one (a 90° gap left by a deleted corner is one corner again, not two).
-  const net = Math.abs(wrapAngle(end.target.h - end.h));
-  const radii = [...CONNECT_RADII];
-  const fit = fitRadius(end, end.target);
-  // Just under it too, leaving a short straight either side, for ends a rounding off a single bend.
-  for (const r of [fit, fit * 0.97]) if (r >= CONNECT_RADII.at(-1) * 0.95 && r <= 30 && !radii.some((q) => Math.abs(q - r) < 0.05)) radii.push(r);
-  for (const r of radii) {
-    for (const way of dubins(end, end.target, r)) {
-      // Turning round on itself (a loop) is never a way to close: the riders would cross their own line.
-      const swept = way.segs.reduce((a, sg) => a + (sg.turn ? sg.ang : 0), 0);
-      if (swept > net + Math.PI + 1e-6) { loops++; continue; }
-      const pc = connectPieces(end, way, width);
-      const off = pc.pts.some(([x, y]) => x < 0 || y < 0 || x > GRID_W || y > GRID_H);
-      let over = null;
-      if (g) {
-        const skip = width * 1.5 + 1;
-        let run = 0;
-        for (let i = 1; i < pc.pts.length && !over; i++) {
-          const [ax, ay] = pc.pts[i - 1];
-          const [bx, by] = pc.pts[i];
-          const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / 0.5));
-          for (let k = 1; k <= n; k++) {
-            const x = ax + ((bx - ax) * k) / n, y = ay + ((by - ay) * k) / n;
-            run += Math.hypot(bx - ax, by - ay) / n;
-            if (run < skip || way.len - run < skip) continue;
-            const pr = project(g, x, y);
-            if (pr.dist < width + 0.5 && !isGap(t.sections[sectionAt(t, pr.f)])) { over = [x, y]; break; }
-          }
-        }
-      }
-      // Clear beats crossing, crossing beats off the grid; then the shortest, with fewer and wider bends counting for it.
-      const bends = way.segs.filter((sg) => sg.turn && sg.len >= 0.05).length;
-      const score = (off ? 1e6 : 0) + (over ? 1e4 : 0) + way.len + 2.5 * bends + 8 / r;
-      if (!best || score < best.score) best = { score, way, pc, off, over };
-    }
-  }
-  if (!best) return Object.assign(out, { msg: loops ? `No smooth way to close ${what} from here: the ends are too close together for the turn between them at a radius of ${CONNECT_RADII.at(-1)} or wider, so only a loop would join them. Delete the piece either side as well to make room, then Close ${what} again.` : `No way found to close ${what} from here.` });
-  out.pts = best.pc.pts;
-  out.secs = best.pc.secs;
-  // Ends exactly on the target.
-  out.pts[0] = [end.x, end.y];
-  out.pts[out.pts.length - 1] = [end.target.x, end.target.y];
-  const bends = best.pc.secs.filter((x) => x.type !== 'straight').length;
-  const desc = `${best.pc.secs.length} piece${best.pc.secs.length === 1 ? '' : 's'}${bends ? ` (${bends} bend${bends === 1 ? '' : 's'} at radius ${+best.way.r.toFixed(1)})` : ''}, about ${Math.round(best.way.len * PIECE_MPU)} m`;
-  if (best.off) return Object.assign(out, { msg: `Closing ${what} from here would run off the 100 × 60 grid. Lay a piece or two towards the blue ring first, then Close ${what} again.` });
-  if (best.over) return Object.assign(out, { level: 'warning', msg: `Closes ${what} with ${desc}, but it runs over the track already built at ${best.over[0].toFixed(0)}, ${best.over[1].toFixed(0)} (a crossover: riders pass through each other). Lay a piece or two another way first to avoid it, or click to place it anyway.` });
-  return Object.assign(out, { level: 'ok', msg: `Closes ${what} with ${desc}, arriving at the ${end.kind === 'gap' ? 'far side of the gap' : "lap's first point"} heading the way the track goes on. Click or Enter to place it.` });
-}
-/** Places Close the lap's pieces, as one undo step. */
-function placeConnect() {
-  const t = track();
-  const pl = app.placing;
-  if (!t || !pl) return;
-  const gh = connectGhost(t, pl);
-  if (gh.level === 'error') { status(gh.msg, 'err'); return; }
-  const what = gh.end.kind === 'gap' ? 'gap' : 'lap';
-  commit((t) => {
-    addAtEnd(t, gh.end, gh.pts, gh.secs, true);
-    app.selSec = gh.end.sec;
-    app.selPt = -1;
-  });
+/** Stops placing (Esc, a right-click, or Cancel). */
+function cancelPlacing() {
+  if (!app.placing) return;
   app.placing = null;
-  app.buildAt = null;
-  const left = stillOpen(track());
-  status(left ? `Closed the ${what} with ${gh.secs.length} piece${gh.secs.length === 1 ? '' : 's'}. Still to join: ${left}.` : `Closed the ${what} with ${gh.secs.length} piece${gh.secs.length === 1 ? '' : 's'}. ${closedMsg(track())}`, 'ok');
   refresh();
 }
-/** Changes the piece being placed: turn (degrees), mirror, longer (+1) or shorter (-1), or bend on or off. */
+/** Q / E turn the start straight, F brings it in from the other side, , . make it (or a feature) shorter or longer. */
 function adjustPiece(what, d = 0) {
   const pl = app.placing;
   if (!pl) return;
-  if (pl.kind === 'finish') return;
   if (pl.kind === 'start') {
     if (what === 'turn') pl.turn = clamp(pl.turn + d, -180, 180);
     else if (what === 'mirror') pl.side = -pl.side;
     else if (what === 'size') pl.run = clamp(pl.run + d * 2, START_RUN_MIN, START_RUN_MAX);
-    renderBuild();
-    requestDraw();
-    sendView();
-    return;
-  }
-  if (what === 'turn') pl.turn = clamp(pl.turn + d, -180, 180);
-  else if (what === 'mirror') pl.mirror = !pl.mirror;
-  else if (what === 'size') {
-    if (pl.bend) pl.deg = clamp(pl.deg + d * 15, 15, 270);
-    else pl.len = clamp(pl.len + d * 2, 2, 60);
-  } else if (what === 'bend') {
-    const shapes = shapesFor(pl.type);
-    if (pl.bend ? shapes.includes('straight') : shapes.some((x) => x !== 'straight')) pl.bend = !pl.bend;
-  }
-  renderBuild();
+  } else if (pl.kind === 'feature' && what === 'size') pl.len = clamp(pl.len + d * 2, 2, 60);
+  else return;
+  renderRoute();
   requestDraw();
   sendView();
 }
-/** The Build the lap box: shown on an unfinished track, with the pieces while the lap is open. */
-function renderBuild() {
+
+// ---- features ----
+
+/** Starts placing a feature of a section type: it follows the pointer along the route. */
+function startFeature(type) {
   const t = track();
-  const box = $('#buildBox');
-  // Shown on an unfinished track, and on any track while its start straight is being placed.
-  const placingStart = app.placing?.kind === 'start';
-  box.hidden = !t?.draft && !freePlacing();
-  if (!t || box.hidden) { app.placing = null; return; }
-  const ends = openEnds(t);
-  $('#buildOpen').hidden = !building(t) || !t.draft;
+  if (!t) return;
+  if (app.mode !== 'layout') setMode('layout');
+  app.drawing = false;
+  app.placing = { kind: 'feature', type, len: PIECE_LEN[type] ?? 12, at: null };
+  deselect();
+  refresh();
+  status(t.path.length >= 2
+    ? `Placing ${(app.sectionDefs[type]?.name ?? type).toLowerCase()}: bring it onto the route where it goes, , . make it shorter or longer. Click or Enter places it, Esc cancels. Drag it along the route afterwards, or its white diamonds to stretch it.`
+    : 'Draw the route first: features go on the route.', t.path.length >= 2 ? 'ok' : 'err');
+}
+/** Where the feature being placed would go: a band along the route where the pointer is near it, and what the checks would say of it. */
+function featureGhost(t, pl) {
+  const out = { pts: [], level: 'ok', msg: '', joined: false, ring: null };
+  const fail = (msg) => Object.assign(out, { level: 'error', msg });
+  if (t.path.length < 2) return fail('Draw the route first: features go on the route.');
+  const g = lapGeom(t);
+  const at = pl.at ?? pointAt(g, 0.5);
+  const pr = project(g, at.x, at.y);
+  const len = Math.min(pl.len, Math.max(0.5, round1(g.total)));
+  const a = clamp(Math.round((pr.f * g.total - len / 2) * 2) / 2, 0, Math.max(0, g.total - len));
+  out.a = a;
+  out.len = len;
+  const steps = Math.max(2, Math.ceil(len / 0.5));
+  for (let k = 0; k <= steps; k++) { const p = pointAt(g, Math.min(1, (a + (len * k) / steps) / g.total)); out.pts.push([round2(p.x), round2(p.y)]); }
+  if (pr.dist > START_SNAP) return fail('It isn\'t on the route: bring it onto the route, and it snaps on along the track.');
+  out.joined = true;
+  const name = app.sectionDefs[pl.type]?.name ?? pl.type;
+  out.msg = `${name}, ${Math.round(len * PIECE_MPU)} m, from ${Math.round(a * PIECE_MPU)} m round the route. Click to place it.`;
+  const k = t.features?.length ?? 0;
+  const probs = featureProblems({ ...t, features: [...(t.features ?? []), { type: pl.type, at: a, len, passing: 0.5 }] }).filter((p) => p.k === k);
+  if (probs.length) Object.assign(out, { level: 'warning', msg: `${out.msg} It can go here, but: ${probs.map((p) => p.message.replace(/^Feature \d+ \([^)]*\) /, 'it ')).join(' ')}` });
+  return out;
+}
+/** Places the feature being placed, as one undo step. On a track from before features, its sections become features first. */
+function placeFeature() {
+  const t = track();
+  const pl = app.placing;
+  if (!t || !pl) return;
+  const gh = featureGhost(t, pl);
+  if (gh.level === 'error') { status(gh.msg, 'err'); return; }
+  if (!t.features && !confirm(`"${t.name}" was made before features. Keep its jumps and special sections as features on the route, and let the straights and bends between them follow the route's shape? (Use features in Sections does the same. Undo puts it back.)`)) return;
+  const name = app.sectionDefs[pl.type]?.name ?? pl.type;
+  commit((t) => {
+    useFeatures(t);
+    t.features.push({ type: pl.type, at: gh.a, len: gh.len, passing: 0.5 });
+    derive(t);
+    app.selFeat = t.features.length - 1;
+    app.selSec = sectionOfFeature(t, app.selFeat);
+    app.selPt = -1;
+  });
+  app.placing = null;
+  status(`Placed ${name.toLowerCase()}. Drag it along the route, drag its white diamonds to stretch it, and set its line and height under Sections.${gh.level === 'warning' ? ` ${gh.msg.replace(/^.*It can go here, but: /, 'Note: ')}` : ''}`, gh.level === 'warning' ? 'err' : 'ok');
+  refresh();
+}
+
+// ---- the Route box ----
+
+/** Draft, Draft with warnings, Ready for validation or Race-ready, with why. */
+function trackStatus(t) {
+  if (!t.draft) return { label: 'Race-ready', cls: 'ready', note: 'The game uses this track as saved.' };
+  const L = lpts(t);
+  const needs = !!t.open || L.length < 3 || !t.start || t.finish === false;
+  if (!needs && !checkTrack(t, app.data.tracks, true).bad.length) return { label: 'Ready for validation', cls: 'check', note: 'The route is closed, with a start straight and a finish line, and the checks pass: click Ready to race.' };
+  const warns = checkTrack(t, app.data.tracks).warn.filter((m) => !/^(Unfinished|No start straight yet|No finish line yet)/.test(m)).length;
+  if (warns) return { label: 'Draft with warnings', cls: 'warn', note: `${warns} thing${warns === 1 ? '' : 's'} to look at in Checks. It saves as it is; the game leaves it out until it is Ready to race.` };
+  return { label: 'Draft', cls: '', note: 'It saves as it is; the game leaves it out until the route is closed, with a start straight and a finish line, and it is Ready to race.' };
+}
+/** The Route box: the route's state, the drawing and closing tools, Start and finish, and the feature palette. */
+function renderRoute() {
+  const t = track();
+  $('#routeBox').hidden = !t;
+  $('#featBox').hidden = !t;
+  if (!t) { app.placing = null; app.drawing = false; return; }
+  const L = lpts(t);
+  const n = L.length;
+  const st = trackStatus(t);
+  const badge = $('#routeStatus');
+  badge.textContent = st.label;
+  badge.className = `status ${st.cls}`;
+  badge.title = st.note;
+  $('#btnDrawRoute').disabled = !t.open && n >= 3;
+  $('#btnDrawRoute').classList.toggle('on', app.drawing);
+  $('#btnDrawRoute').textContent = app.drawing ? 'Stop drawing' : 'Draw route';
+  $('#btnCloseRoute').textContent = t.open || n < 3 ? 'Close the route' : 'Open the route';
+  $('#btnCloseRoute').disabled = n < 3;
   $('#readyRow').hidden = !t.draft;
-  $('#btnReady').disabled = building(t);
-  const gaps = t.sections.filter(isGap).length;
-  const closing = ends.filter((e) => e.target);
-  const near = app.placing?.kind === 'connect' ? ghostPiece(t, app.placing).end : chainEnd(t);
-  $('#btnConnect').textContent = near?.kind === 'gap' ? 'Close the gap' : 'Close the lap';
-  $('#btnConnect').disabled = !closing.length;
-  $('#btnConnect').classList.toggle('sel', app.placing?.kind === 'connect');
-  $('#endsHint').textContent = !t.path.length
-    ? ''
-    : `${ends.length} open end${ends.length === 1 ? '' : 's'}: a green ring with an arrow is where the next piece joins on, heading the arrow's way; a blue dashed ring is where the track has to come back into${t.open ? " (the lap's first point, to close the lap)" : ''}${gaps ? ` (the far side of ${gaps === 1 ? 'the gap' : 'each gap'})` : ''}, arriving the arrow's way. Bring a piece onto a green ring to join it there. Close the lap lays the bends that join the last green ring to its blue one.`;
+  $('#btnReady').disabled = !!t.open || n < 3;
   $('#btnStartPiece').querySelector('span').textContent = t.start ? 'Move start straight' : 'Start straight';
-  $('#btnStartPiece').classList.toggle('sel', placingStart);
+  $('#btnStartPiece').classList.toggle('sel', app.placing?.kind === 'start');
   $('#btnStartRemove').disabled = !t.start;
   $('#btnStartOfficial').querySelector('span').textContent = officialIndex(t) >= 0 ? 'Start board official ✓' : 'Start board official';
   $('#btnFinishPiece').querySelector('span').textContent = t.finish === false ? 'Finish line' : 'Move finish line';
-  $('#btnFinishPiece').disabled = building(t);
+  $('#btnFinishPiece').disabled = !!t.open || n < 3;
   $('#btnFinishPiece').classList.toggle('sel', app.placing?.kind === 'finish');
   $('#btnFinishRemove').disabled = t.finish === false;
   const needs = [!t.start && 'a start straight', t.finish === false && 'a finish line'].filter(Boolean);
-  const startNote = needs.length ? ` Still needed to race: ${needs.join(' and ')} (Start and finish${t.finish === false && building(t) ? ', the finish line once the lap is closed' : ''}).` : '';
-  $('#buildHint').textContent = !t.draft
-    ? `Placing the ${app.placing?.kind === 'finish' ? 'finish line' : 'start straight'} on a finished track.`
-    : building(t)
-      ? (t.path.length ? `${t.sections.filter((x) => !isGap(x)).length} piece${t.sections.filter((x) => !isGap(x)).length === 1 ? '' : 's'} placed. Still to join: ${stillOpen(t)}.` : t.start ? 'The start straight is placed: the first lap piece can join its end (the green ring), or go anywhere and have the start straight joined on later.' : 'An empty track: pick a section type and place pieces until they close into a loop. The start straight and the finish line are placed on their own, before or after.') + startNote
-      : `The lap is closed. Shape it as any track, then Ready to race runs the game\'s checks and lets the game use it.${startNote}`;
-  const pal = $('#piecePal');
-  if (!pal.dataset.built || pal.dataset.built !== String(Object.keys(app.sectionDefs).length)) {
+  const startNote = needs.length ? ` Still needed to race: ${needs.join(' and ')} (Start and finish${t.finish === false && t.open ? ', the finish line once the route is closed' : ''}).` : '';
+  const metres = n >= 2 ? `${Math.round(lapGeom(t).total * PIECE_MPU)} m` : '';
+  const pl = app.placing;
+  const gh = pl && pl.kind !== 'feature' ? ghostOf(t, pl) : null;
+  $('#routeHint').className = gh ? (gh.level === 'error' ? 'bad' : gh.level === 'warning' ? 'warn' : 'good') : 'hint';
+  $('#routeHint').textContent = gh
+    ? pl.kind === 'start'
+      ? `Start straight, about ${Math.round(gh.total * PIECE_MPU)} m from the gate to where it joins, coming in from the ${pl.side > 0 ? 'right' : 'left'}${pl.turn ? `, turned ${pl.turn}°` : ''}. Q / E turn it, F the other side, , . shorter or longer. ${gh.msg} Esc cancels.`
+      : `Finish line. ${gh.msg} Esc cancels.`
+    : app.drawing
+      ? `Drawing: click the ground to add point ${n}${n >= 3 ? ', or click the first point (green ring) to close the route' : ''}. Enter or Esc stops, Backspace takes the last point off.`
+      : !n
+        ? 'An empty track. Click Draw route and click the ground point by point; click the first point to close the route. The start straight and the finish line are placed on their own, before or after.'
+        : t.open
+          ? `An open route of ${n} point${n === 1 ? '' : 's'}${metres ? `, ${metres}` : ''}. Draw route carries on from its last point; Close the route joins the last point back to the first. Drag the points to shape it.${startNote}`
+          : `A closed route of ${n} points, ${metres}. Drag its points, Round corner a point for curve handles, and place features on it. Open the route (or − Segment on a point) takes it apart again.${startNote}`;
+  const pal = $('#featPal');
+  const types = featureTypes();
+  if (pal.dataset.built !== types.join(',')) {
     pal.innerHTML = '';
-    pal.dataset.built = String(Object.keys(app.sectionDefs).length);
-    for (const type of sectionTypes().filter((x) => x !== 'start_gate')) {
+    pal.dataset.built = types.join(',');
+    for (const type of types) {
       const b = document.createElement('button');
       b.dataset.type = type;
       b.textContent = app.sectionDefs[type]?.name ?? type;
+      b.title = app.sectionDefs[type] ? `${app.sectionDefs[type].name}: suits ${shapesFor(type).join(', ')}` : type;
       b.style.borderLeft = `5px solid ${colorOf(type)}`;
-      b.addEventListener('click', () => startPiece(type));
+      b.addEventListener('click', () => (app.placing?.type === type ? cancelPlacing() : startFeature(type)));
       pal.appendChild(b);
     }
+    if (!types.length) pal.innerHTML = '<div class="hint">No section types: racing.json has none.</div>';
   }
-  for (const b of pal.children) b.classList.toggle('sel', b.dataset.type === app.placing?.type);
-  const pl = app.placing;
-  $('#pieceCtl').hidden = !pl;
-  $('#btnPieceBend').disabled = pl?.kind === 'start';
-  $('#btnPieceMirror').textContent = pl?.kind === 'start' ? 'Side F' : 'Mirror F';
-  for (const id of ['#btnPieceL', '#btnPieceR', '#btnPieceMirror', '#btnPieceShort', '#btnPieceLong']) $(id).disabled = pl?.kind === 'connect' || pl?.kind === 'finish';
-  if (pl?.kind === 'connect' || pl?.kind === 'finish') { $('#btnPieceBend').disabled = true; $('#pieceSize').textContent = ''; }
-  if (!pl) { $('#pieceMsg').textContent = building(t) ? 'Pick a section type to place.' : ''; $('#pieceMsg').className = 'hint'; return; }
-  const gh = ghostPiece(t, pl);
-  if (pl.kind === 'connect') {
-    $('#pieceMsg').textContent = `${gh.msg} Esc cancels.`;
-  } else if (pl.kind === 'finish') {
-    $('#pieceMsg').textContent = `Finish line. ${gh.msg} Esc cancels.`;
-  } else if (pl.kind === 'start') {
-    $('#pieceSize').textContent = `${Math.round(gh.total)} long`;
-    $('#pieceMsg').textContent = `Start straight, about ${Math.round(gh.total * PIECE_MPU)} m from the gate to where it joins, coming in from the ${pl.side > 0 ? 'right' : 'left'}${pl.turn ? `, turned ${pl.turn}°` : ''}. Q / E turn it, F the other side, , . shorter or longer. ${gh.msg}`;
+  for (const b of pal.children) b.classList.toggle('sel', pl?.kind === 'feature' && b.dataset.type === pl.type);
+  const fm = $('#featMsg');
+  if (pl?.kind === 'feature') {
+    const fg = featureGhost(t, pl);
+    fm.textContent = `${fg.msg} , . shorter or longer, Esc cancels.`;
+    fm.className = fg.level === 'error' ? 'bad' : fg.level === 'warning' ? 'warn' : 'good';
   } else {
-    $('#pieceSize').textContent = pl.bend ? `${pl.deg}° bend, radius ${pl.r}` : `${pl.len} long`;
-    $('#pieceMsg').textContent = `${app.sectionDefs[pl.type]?.name ?? pl.type}, ${pl.bend ? `${pl.deg}° ${pl.mirror ? 'left' : 'right'}` : 'straight'}, about ${Math.round(pieceUnits(pl) * PIECE_MPU)} m${pl.turn ? `, turned ${pl.turn}°` : ''}. ${gh.msg}`;
+    fm.textContent = t.features ? `${t.features.length} feature${t.features.length === 1 ? '' : 's'} on the route.` : n ? 'This track keeps the sections it was saved with: placing a feature (or Use features under Sections) puts its jumps and special sections on the route as features.' : '';
+    fm.className = 'hint';
   }
-  $('#pieceMsg').className = gh.level === 'error' ? 'bad' : gh.level === 'warning' ? 'warn' : 'good';
 }
-/** Marks Ready to race: the game's checks first, then it stops being unfinished. */
+/** Marks Ready to race: the game's checks first, then it stops being a draft. */
 function readyToRace() {
   const t = track();
   if (!t?.draft) return;
-  if (building(t)) { status(`Not ready yet: still to join, ${stillOpen(t)}. Place pieces from the green rings, or click Close the lap.`, 'err'); return; }
+  if (t.open || lpts(t).length < 3) { status('Not ready yet: the route is open. Close it (click its first point while drawing, or Close the route), then Ready to race.', 'err'); return; }
   const { bad } = checkTrack(t, app.data.tracks, true);
   if (bad.length) { status(`Not ready yet: ${bad.length} thing${bad.length === 1 ? '' : 's'} to fix first (see Checks). ${bad[0]}`, 'err'); return; }
   commit((t) => { delete t.draft; });
   status('Ready to race: the game will use this track once you Save. Give it a venue to race it in a career.', 'ok');
 }
-/** The ghost piece and the ring at the end of the track, on the map. */
+/** The ghost of what is being placed, on the map. */
 function drawGhost() {
   const t = track();
-  if ((!building(t) && !freePlacing()) || !app.placing || app.view3d) return;
-  const { k } = view;
-  const end = freePlacing() ? null : chainEnd(t);
-  if (end) {
-    const s = toScreen(end.x, end.y);
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(s.x, s.y, PIECE_SNAP * k, 0, Math.PI * 2); ctx.stroke();
-  }
-  const gh = ghostPiece(t, app.placing);
+  if (!app.placing || app.view3d || app.mode !== 'layout') return;
+  const gh = ghostOf(t, app.placing);
   ctx.strokeStyle = gh.level === 'error' ? '#ff3b30a0' : gh.level === 'warning' ? '#ffd60aa0' : '#34c759a0';
   ctx.lineWidth = view.width;
   ctx.lineCap = 'round';
@@ -3883,143 +3813,63 @@ function drawGhost() {
   gh.pts.forEach(([x, y], i) => { const s = toScreen(x, y); if (i) ctx.lineTo(s.x, s.y); else ctx.moveTo(s.x, s.y); });
   ctx.stroke();
 }
-/** What the race view draws for the piece being placed. */
+/** What the race view draws for what is being placed. */
 function ghostForView(t) {
-  if (!app.placing || (!building(t) && !freePlacing())) return undefined;
-  const gh = ghostPiece(t, app.placing);
-  if (freePlacing()) return { pts: gh.pts, level: gh.level, ring: gh.ring };
-  const end = gh.end ?? chainEnd(t);
-  return { pts: gh.pts, level: gh.level, ring: end ? [end.x, end.y, PIECE_SNAP] : null };
+  if (!app.placing) return undefined;
+  const gh = ghostOf(t, app.placing);
+  return { pts: gh.pts, level: gh.level, ring: gh.ring ?? null };
 }
 /**
- * The track as the race view is sent it. An unfinished lap is shown open: each gap (and the way back
- * from its end to its start while it is open) goes in as a stretch the view leaves out (gaps, and
- * gapFrom for the last, as fractions of the drawing). Each open end gets a short stub on past it
- * (inside the gap) heading the way its piece does, so the track is cut off square there instead
- * of bending towards the far side of the gap. An empty one is a stub off the grid, left out
- * altogether.
+ * The track as the race view is sent it. An open route is shown open: the way back from its last
+ * point to its first goes in as a stretch the view leaves out (gapFrom, a fraction of the
+ * drawing), with a short stub on past each end heading the way the route does, so the track is
+ * cut off square there. An empty one is a stub off the grid, left out altogether.
  */
 const STUB = 1.6;
 function trackForView(t) {
-  const gapsIn = t.sections.some(isGap);
-  if (!t.open && !gapsIn) return { track: t };
-  if (t.path.length < 2) return { track: { ...t, path: [[-40, -40], [-30, -40], [-35, -32]], sections: [{ type: 'straight', length: 30, passing: 0.5 }] }, gapFrom: 0, gaps: [] };
-  const spans = pieceSpans(t);
+  if (!t.open) return { track: t };
+  if (t.path.length < 2) return { track: { ...t, path: [[-40, -40], [-30, -40], [-35, -32]], sections: [{ type: 'straight', length: 30, passing: 0.5 }], open: undefined }, gapFrom: 0, gaps: [] };
   const n = t.path.length;
-  // The drawing with stubs: after each gap's near end, and before its far end.
-  const path = [];
-  const sections = [];
-  const cuts = [];
-  const stub = (i, h, sign) => { const [x, y] = vertex(t, i); return [x + sign * Math.cos(h) * STUB, y + sign * Math.sin(h) * STUB]; };
-  let vi = 0;
-  const push = (upTo) => { for (; vi <= upTo && vi < n; vi++) path.push(t.path[vi]); };
-  t.sections.forEach((sec, k) => {
-    const [i0, i1] = spans[k];
-    if (!isGap(sec)) { sections.push(sec); return; }
-    push(i0);
-    const from = path.length - 1;
-    path.push(stub(i0, headingInto(t, i0) ?? 0, 1));
-    const into = headingOut(t, i1);
-    if (into !== null) path.push(stub(i1, into, -1));
-    cuts.push({ k: sections.length, from, to: path.length });
-    sections.push({ type: 'gap', length: 1, passing: 0.5 });
-  });
-  push(n - 1);
-  let tail = null;
-  let leadIn = 0;
-  if (t.open) {
-    const from = path.length - 1;
-    path.push(stub(n - 1, headingInto(t, n - 1) ?? 0, 1));
-    const into = headingOut(t, 0);
-    // A start straight joining at the finish line merges into the lap from the side, so the stretch
-    // of lap just behind the finish line, where the last piece will come in, is drawn already: the
-    // start straight runs into it as it will once the lap is closed.
-    const [jx, jy] = t.start?.path?.at(-1) ?? [NaN, NaN];
-    const merge = into !== null && Math.hypot(jx - t.path[0][0], jy - t.path[0][1]) < 0.05;
-    leadIn = merge ? ((t.width ?? DEFAULT_WIDTH) / 2) * 2.5 + 1 : 0;
-    if (into !== null) path.push(stub(0, into, -(leadIn + STUB) / STUB));
-    if (leadIn) path.push(stub(0, into, -leadIn / STUB));
-    tail = { k: sections.length, from, to: path.length - (leadIn ? 1 : 0) };
-    sections.push({ type: 'gap', length: 1, passing: 0.5 });
-    if (leadIn) { tail.lead = sections.length; sections.push({ type: 'straight', length: 1, passing: 0.5 }); }
-  }
-  // Each gap's metres from its own length on the grid, like a piece's, so the sections sit where they did.
+  const stub = (i, h, sign) => { const [x, y] = t.path[i]; return [x + sign * Math.cos(h) * STUB, y + sign * Math.sin(h) * STUB]; };
+  const path = [...t.path, stub(n - 1, headingInto(t, n - 1) ?? 0, 1)];
+  const into = headingOut(t, 0);
+  if (into !== null) path.push(stub(0, into, -1));
   const g = lapGeom({ path, open: false });
-  const at = (i) => g.cum[Math.min(i, g.cum.length - 1)];
-  for (const c of tail ? [...cuts, tail] : cuts) sections[c.k] = { ...sections[c.k], length: Math.max(1, Math.round((at(c.to) - at(c.from)) * PIECE_MPU)) };
-  if (tail?.lead) sections[tail.lead] = { ...sections[tail.lead], length: Math.max(1, Math.round((g.total - at(tail.to)) * PIECE_MPU)) };
-  return {
-    track: { ...t, path, sections, open: undefined },
-    gaps: [...cuts, ...(tail?.lead ? [tail] : [])].map((c) => [at(c.from) / g.total, at(c.to) / g.total]),
-    gapFrom: tail && !tail.lead ? at(tail.from) / g.total : 1,
-  };
+  const drawn = g.cum[n - 1];
+  const sections = [...(t.sections.length ? t.sections : [{ type: 'straight', length: Math.max(1, Math.round(drawn * PIECE_MPU)), passing: 0.5 }]), { type: 'gap', length: Math.max(1, Math.round((g.total - drawn) * PIECE_MPU)), passing: 0.5 }];
+  return { track: { ...t, path, sections, open: undefined }, gaps: [], gapFrom: drawn / g.total };
 }
 
 // ---------------------------------------------------------------------------------------------
 // Point tools
 
 /**
- * The build boundary is the 100 × 60 grid: the race ground. A section being shaped may cross it
- * by up to BOUND_OUT grid units while the track is built (one at a time), and the track isn't
- * race-ready until it is back inside. Scenery may stand up to SCENE_OUT outside, on the ground
- * the race view lays round the grid.
+ * The build boundary is the 100 × 60 grid: the race ground. A stretch of the route may cross it
+ * by up to BOUND_OUT grid units while the track is shaped, and the track isn't race-ready until
+ * it is back inside. Scenery may stand up to SCENE_OUT outside, on the ground the race view lays
+ * round the grid.
  */
 const BOUND_OUT = 12;
 const SCENE_OUT = 20;
 const outside = ([x, y]) => x < 0 || y < 0 || x > GRID_W || y > GRID_H;
 const farOut = ([x, y]) => x < -BOUND_OUT || y < -BOUND_OUT || x > GRID_W + BOUND_OUT || y > GRID_H + BOUND_OUT;
-/** The sections with a point past the build boundary: which (k), and where it first leaves (x, y). */
+/** The stretches of the route past the build boundary: which layout segment (seg), and where each first leaves (x, y). */
 function boundaryCrossings(t) {
   const out = [];
   if (!t?.path?.length) return out;
-  const spans = t.sections.length && t.path.length >= 2 ? pieceSpans(t) : null;
   const seen = new Set();
   t.path.forEach((p, i) => {
     if (!outside(p)) return;
-    let k = -1;
-    if (spans) k = spans.findIndex(([i0, i1]) => i >= i0 && i <= i1);
-    if (seen.has(k)) return;
-    seen.add(k);
-    out.push({ k, x: p[0], y: p[1] });
+    const seg = routeSegOf(t, i);
+    if (seen.has(seg)) return;
+    seen.add(seg);
+    out.push({ seg, x: p[0], y: p[1] });
   });
   return out;
 }
-/**
- * True when every section's metres are its own stretch of the drawing (as pieces are placed, PIECE_MPU
- * a grid unit): the sections then sit on their own points, and a point dragged changes only the
- * pieces it belongs to.
- */
-function pieceBuilt(t) {
-  if (t.path.length < 2 || !t.sections.length) return false;
-  const g = lapGeom(t);
-  const spans = pieceSpans(t);
-  return t.sections.every((s, k) => {
-    const [i0, i1] = spans[k];
-    const units = isGap(s) ? Math.hypot(vertex(t, i1)[0] - vertex(t, i0)[0], vertex(t, i1)[1] - vertex(t, i0)[1]) : g.cum[Math.min(i1, g.cum.length - 1)] - g.cum[Math.min(i0, g.cum.length - 1)];
-    return Math.abs(s.length - units * PIECE_MPU) <= 1.5;
-  });
-}
-/**
- * A point of a piece-built lap being dragged: the pieces that point belongs to keep their metres
- * true to their drawing, so every other section stays exactly on its own points. A section's
- * metres are the race's distance through it, so a piece pulled longer is ridden longer.
- */
-function followDrawing(t, drag) {
-  if (!drag.pieces) return;
-  const g = lapGeom(t);
-  const n = t.path.length;
-  drag.pieces.forEach(([i0, i1], k) => {
-    const s = t.sections[k];
-    if (!s) return;
-    const has = i1 >= n ? drag.i >= i0 || drag.i === 0 : drag.i >= i0 && drag.i <= i1;
-    if (!has) return;
-    if (isGap(s)) { s.length = gapMetres(t, i0, i1); return; }
-    const units = g.cum[Math.min(i1, g.cum.length - 1)] - g.cum[Math.min(i0, g.cum.length - 1)];
-    s.length = Math.max(1, Math.round(units * PIECE_MPU));
-  });
-}
 /** Keeps the start straight's last point on the lap when the drawing moves under it. */
 function keepJoined(t) {
+  derive(t);
   const sp = t.start?.path;
   if (!sp || sp.length < 2 || t.path.length < 2) return;
   const g = lapGeom(t);
@@ -4027,23 +3877,142 @@ function keepJoined(t) {
   const p = pointAt(g, project(g, x, y).f);
   sp[sp.length - 1] = [round1(p.x), round1(p.y)];
 }
-/** + Start straight and Start and finish: the start straight follows the pointer to be placed, like a piece. */
+/**
+ * Where the features are before the route is reshaped at a point, so they can stay where they
+ * are on the ground: each feature's start, which layout segment it is on, and each segment's
+ * length. followFeatures then moves each by how much the segments before its own have changed.
+ */
+function featureAnchor(t, i) {
+  if (!t.features || t.path.length < 2) return null;
+  const g = lapGeom(t);
+  const idx = layoutIndices(t);
+  const segLen = idx.map((k, j) => (j + 1 < idx.length ? g.cum[idx[j + 1]] - g.cum[k] : g.total - g.cum[k]));
+  const fseg = t.features.map((f) => { let j = 0; while (j + 1 < idx.length && g.cum[idx[j + 1]] <= f.at) j++; return j; });
+  return { i, segLen, fseg, at: t.features.map((f) => f.at) };
+}
+function followFeatures(t, anchor) {
+  if (!anchor || !t.features || t.path.length < 2) return;
+  derive(t);
+  const g = lapGeom(t);
+  const idx = layoutIndices(t);
+  if (idx.length !== anchor.segLen.length) return;
+  const segLen = idx.map((k, j) => (j + 1 < idx.length ? g.cum[idx[j + 1]] - g.cum[k] : g.total - g.cum[k]));
+  t.features.forEach((f, k) => {
+    let d = 0;
+    for (let j = 0; j < anchor.fseg[k]; j++) d += segLen[j] - anchor.segLen[j];
+    f.at = Math.max(0, round1(anchor.at[k] + d));
+  });
+}
+/** + Start straight and Start and finish: the start straight follows the pointer to be placed. */
 function addStart() {
   const t = track();
   if (!t) return;
   if (app.mode !== 'layout') setMode('layout');
+  app.drawing = false;
   app.placing = { ...startPieceFor(), at: null };
   deselect();
   refresh();
   status(t.path.length >= 2
-    ? 'Placing the start straight: bring its end (the ring) onto the lap where riders join it, Q / E turn it, F brings it in from the other side, , . shorter or longer. Click or Enter places it, Esc cancels.'
-    : 'Placing the start straight first: click where it should go, Q / E turn it, , . shorter or longer. The first lap piece then joins its end. Esc cancels.', 'ok');
+    ? 'Placing the start straight: bring its end (the ring) onto the route where riders join it, Q / E turn it, F brings it in from the other side, , . shorter or longer. Click or Enter places it, Esc cancels.'
+    : 'Placing the start straight first: click where it should go, Q / E turn it, , . shorter or longer. Drag its white end onto the route once there is one. Esc cancels.', 'ok');
 }
 function removeStart() {
   const t = track();
   if (!t?.start) return;
   commit((t) => { delete t.start; app.selStart = -1; });
   status('Removed the start straight. Undo puts it back; place a new one from Start and finish.', 'ok');
+}
+
+// ---- drawing the route ----
+
+/** Draw route: each click adds a control point after the last, until the first point is clicked (closing it), Enter or Esc. */
+function startDrawing() {
+  const t = track();
+  if (!t) return;
+  if (app.mode !== 'layout') setMode('layout');
+  const L = lpts(t);
+  if (!t.open && L.length >= 3) { status('The route is closed. Click Open the route, or − Segment on a point, to draw on from an open end.', 'err'); return; }
+  app.placing = null;
+  app.drawing = true;
+  app.drawAt = null;
+  deselect();
+  app.selPt = L.length - 1;
+  if (!t.open) commit((t) => { t.open = true; t.draft = true; });
+  refresh();
+  status(L.length ? `Drawing on from point ${L.length - 1}: click the ground to add a point${L.length >= 3 ? ', click the first point to close the route' : ''}. Enter or Esc stops.` : 'Drawing the route: click the ground point by point, and click the first point again to close it. Enter or Esc stops.', 'ok');
+}
+function stopDrawing() {
+  if (!app.drawing) return;
+  app.drawing = false;
+  app.drawAt = null;
+  refresh();
+}
+/** Adds a control point at the end of the route (Draw route). */
+function addLayoutPoint(x, y, e) {
+  const pt = [clamp(snapGrid(x, e), -BOUND_OUT, GRID_W + BOUND_OUT), clamp(snapGrid(y, e), -BOUND_OUT, GRID_H + BOUND_OUT)];
+  commit((t) => {
+    const L = lpts(t);
+    if (L.length && Math.hypot(L.at(-1)[0] - pt[0], L.at(-1)[1] - pt[1]) < 0.5) return;
+    L.push(pt);
+    t.open = true;
+    t.draft = true;
+    app.selPt = L.length - 1;
+    keepJoined(t);
+  });
+}
+/** Close the route: the last point joins back to the first. */
+function closeRoute() {
+  const t = track();
+  if (!t) return;
+  const L = lpts(t);
+  if (L.length < 3) { status('The route needs at least 3 points to close.', 'err'); return; }
+  if (!t.open) return;
+  app.drawing = false;
+  app.drawAt = null;
+  commit((t) => { delete t.open; app.selPt = -1; });
+  const t2 = track();
+  const needs = [!t2.start && 'a start straight', t2.finish === false && 'a finish line'].filter(Boolean);
+  status(`Closed the route: ${L.length} points, ${Math.round(lapGeom(t2).total * PIECE_MPU)} m.${needs.length ? ` Still needed to race: ${needs.join(' and ')} (Start and finish), then Ready to race.` : ' Click Ready to race when it passes the checks.'}`, 'ok');
+}
+/**
+ * − Segment, and Open the route: takes the stretch of route after point i out, so the route is open
+ * there: the point after it becomes the route's first point, and its ends stay where they are. The
+ * finish line goes with the first point when that changes, and the track is a draft again.
+ */
+function deleteSegment(i) {
+  const t0 = track();
+  if (!t0) return;
+  const L0 = lpts(t0);
+  if (t0.open) { status('The route is open already: delete points, or draw on from its last point.', 'err'); return; }
+  if (L0.length < 3 || i < 0 || i >= L0.length) return;
+  if (!t0.draft && !confirm(`Open the route of "${t0.name}" there? It becomes a draft (the game leaves it out) until the route is closed and it is Ready to race again. Undo puts it back.`)) return;
+  const wasFinish = t0.finish !== false;
+  commit((t) => {
+    useFeatures(t);
+    derive(t);
+    const L = lpts(t);
+    const n = L.length;
+    const k = (i + 1) % n;
+    if (k !== 0) {
+      const g = lapGeom(t);
+      const units = g.cum[layoutIndices(t)[k]];
+      const lap = lapLength(t);
+      for (const f of t.features) f.at = round1((((f.at - units) % g.total) + g.total) % g.total);
+      for (const p of t.patches ?? []) p.at = (((p.at - (units / g.total) * lap) % lap) + lap) % lap;
+      const rot = [...L.slice(k), ...L.slice(0, k)];
+      if (t.layout) t.layout.points = rot; else t.path = rot;
+      t.finish = false;
+    }
+    t.open = true;
+    t.draft = true;
+    app.selPt = -1;
+    app.selFeat = -1;
+    app.selSec = -1;
+    keepJoined(t);
+  });
+  app.drawing = false;
+  const moved = (i + 1) % L0.length !== 0;
+  status(`Opened the route after point ${i}: it now runs from the point after it round to point ${i}, and the ends stay where they are.${moved && wasFinish ? ' The finish line went with the old first point: place it again once the route is closed.' : ''} Draw route carries on from the end; Close the route joins it up again.`, 'ok');
 }
 function insertPoint() {
   const t = track();
@@ -4059,13 +4028,12 @@ function insertPoint() {
     return;
   }
   if (!t || app.selPt < 0) return;
-  commit(() => {
-    const a = t.path[app.selPt];
-    const b = t.path[(app.selPt + 1) % t.path.length];
-    t.path.splice(app.selPt + 1, 0, [round1((a[0] + b[0]) / 2), round1((a[1] + b[1]) / 2)]);
-    app.selPt++;
-  });
+  const L = lpts(t);
+  if (L.length < 2 || (t.open && app.selPt >= L.length - 1)) return;
+  const i = app.selPt;
+  commit((t) => { splitSegment(t, i, 0.5); app.selPt = i + 1; });
 }
+/** Takes a control point out: the route joins up across it (an open route's end just stops sooner). */
 function deletePoint(i = app.selPt) {
   const t = track();
   if (t && app.selStart >= 0 && i === app.selPt) {
@@ -4075,59 +4043,74 @@ function deletePoint(i = app.selPt) {
     commit((t) => { t.start.path.splice(j, 1); app.selStart = Math.min(j, t.start.path.length - 1); });
     return;
   }
-  if (!t || i < 0) return;
-  if (t.path.length <= 3) { status('The drawing needs at least 3 points.', 'err'); return; }
+  if (!t || i < 0 || !lpts(t)[i]) return;
+  if (!t.draft && lpts(t).length <= 3) { status('A race-ready track needs at least 3 points. Open the route (it becomes a draft) to take it apart.', 'err'); return; }
+  let note = '';
   commit((t) => {
-    t.path.splice(i, 1);
-    if (i === 0) status(t.finish === false ? 'Point 0 was the lap\'s first point; the next point is now.' : 'Point 0 was the finish line; the next point is now the finish line.', 'ok');
-    app.selPt = Math.min(i, t.path.length - 1);
+    const L = lpts(t);
+    const g = t.path.length >= 2 ? lapGeom(t) : null;
+    const units = g ? g.cum[layoutIndices(t)[i]] : 0;
+    const total0 = g?.total ?? 0;
+    L.splice(i, 1);
+    if (!t.open && L.length < 3) { t.open = true; t.draft = true; note = ' The route is open now (fewer than 3 points).'; }
+    if (i === 0 && !t.open && t.finish !== false) note = ' Point 0 was the finish line; the next point is now the finish line.';
+    if (t.features && g) {
+      derive(t);
+      const d = (t.path.length >= 2 ? lapGeom(t).total : 0) - total0;
+      for (const f of t.features) if (f.at > units + 1e-6) f.at = Math.max(0, round1(f.at + d));
+    }
+    keepJoined(t);
+    app.selPt = L.length ? Math.min(i, L.length - 1) : -1;
   });
+  if (note) status(`Deleted point ${i}.${note}`, 'ok');
 }
-/** Replaces a corner point with a curve through the corner, like the berms on the backyard loop. */
+/** Round corner: gives the selected point curve handles (along the chord between its neighbours), or takes them off a smooth point. */
 function roundCorner() {
   const t = track();
   const i = app.selPt;
   if (!t || i < 0) return;
-  const n = t.path.length;
-  const P = t.path[i];
-  const A = t.path[(i - 1 + n) % n];
-  const B = t.path[(i + 1) % n];
+  const L = lpts(t);
+  const n = L.length;
+  const P = L[i];
+  if (!P) return;
+  if (smooth(P)) {
+    commit((t) => { lpts(t)[i].length = 2; });
+    status('A sharp corner again. Round corner gives it curve handles back.', 'ok');
+    return;
+  }
+  if (n < 3 || (t.open && (i === 0 || i === n - 1))) { status('An end of an open route has no corner to round: select a point between two others.', 'err'); return; }
+  const A = L[(i - 1 + n) % n];
+  const B = L[(i + 1) % n];
   const la = Math.hypot(A[0] - P[0], A[1] - P[1]);
   const lb = Math.hypot(B[0] - P[0], B[1] - P[1]);
-  const r = Math.min(la, lb) * 0.45;
-  if (r < 1) { status('The neighbouring points are too close to round this corner.', 'err'); return; }
-  const s = [P[0] + ((A[0] - P[0]) / la) * r, P[1] + ((A[1] - P[1]) / la) * r];
-  const e = [P[0] + ((B[0] - P[0]) / lb) * r, P[1] + ((B[1] - P[1]) / lb) * r];
-  const pts = [];
-  const steps = 4;
-  for (let j = 0; j <= steps; j++) {
-    const u = j / steps;
-    // Quadratic curve from s to e with the old corner as its control point.
-    pts.push([round1((1 - u) ** 2 * s[0] + 2 * (1 - u) * u * P[0] + u * u * e[0]), round1((1 - u) ** 2 * s[1] + 2 * (1 - u) * u * P[1] + u * u * e[1])]);
-  }
+  if (Math.min(la, lb) < 1) { status('The neighbouring points are too close to round this corner.', 'err'); return; }
+  const dx = B[0] - A[0];
+  const dy = B[1] - A[1];
+  const l = Math.hypot(dx, dy) || 1;
+  const r = Math.min(la, lb) * 0.4;
+  const anchor = featureAnchor(t, i);
   commit((t) => {
-    t.path.splice(i, 1, ...pts);
-    // Keep the finish line where it was if the corner was the finish.
-    if (i === 0) t.path.push(...t.path.splice(0, 2));
-    app.selPt = i === 0 ? 0 : i + 2;
+    const Q = ensureLayout(t)[i];
+    Q.length = 4;
+    Q[2] = round1((dx / l) * r);
+    Q[3] = round1((dy / l) * r);
+    followFeatures(t, anchor);
+    keepJoined(t);
+    app.selPt = i;
   });
+  status('Rounded the corner: drag its handles (the blue squares) to shape the curve, Alt drags one side on its own. Round corner again (Sharp corner) takes them off.', 'ok');
 }
 function startHere() {
   const i = app.selPt;
   const t = track();
-  if (i <= 0 || !t || building(t)) return;
+  if (i <= 0 || !t || t.open || lpts(t).length < 3) return;
   const g = lapGeom(t);
-  commit((t) => { setFinish(t, g.cum[i] / g.total); app.selPt = 0; });
+  const idx = layoutIndices(t);
+  commit((t) => { setFinish(t, g.cum[idx[i]] / g.total); app.selPt = 0; });
   status('The finish line is at that point now. The sections turned round with it, so the lap is laid out as before and every lap starts and ends there.', 'ok');
 }
 /** Turns a fraction of the lap into the matching metres into the lap's sections. */
 function lapMetresAt(t, f) { return f * lapLength(t); }
-/**
- * Puts the finish line at lap fraction f of a closed lap: the drawing's first point moves there (a
- * point is added if none is within a tenth of a unit), the sections are split there if need be
- * and turned round to start there, and the surface patches keep their place on the ground. The
- * shape of the lap and its sections' metres do not change, so the lap is laid out as before.
- */
 /** Grid units within which the finish line snaps to a section boundary, so no sliver of a section is left either side. */
 const FINISH_SNAP = 0.75;
 /** The lap fraction the finish line lands on for a pointer at f: a section boundary when one is near. */
@@ -4142,68 +4125,83 @@ function snapFinishF(t, f) {
   }
   return best;
 }
+/**
+ * Puts the finish line at lap fraction f of a closed route: the route's first point moves there (a
+ * point is added if none is within a tenth of a unit, the curve unchanged), the features keep
+ * their place on the ground, the sections of a track without features are split there if need be
+ * and turned round to start there, and the surface patches keep their place. The shape of the
+ * route does not change, so the lap is laid out as before.
+ */
 function setFinish(t, f) {
   const g = lapGeom(t);
-  const n = t.path.length;
   const d = snapFinishF(t, f) * g.total;
+  const idx = layoutIndices(t);
+  let L = lpts(t);
   let i = -1;
-  for (let k = 0; k < n; k++) {
-    const dk = Math.abs(g.cum[k] - d);
+  for (let k = 0; k < L.length; k++) {
+    const dk = Math.abs(g.cum[idx[k]] - d);
     if (Math.min(dk, g.total - dk) <= 0.1) { i = k; break; }
   }
   if (i < 0) {
-    let seg = 0;
-    while (seg < n - 1 && g.cum[seg + 1] <= d) seg++;
-    const p = pointAt(g, d / g.total);
-    i = seg + 1;
-    t.path.splice(i, 0, [round1(p.x), round1(p.y)]);
+    const sp = segParam(t, d);
+    i = splitSegment(t, sp.seg, sp.u);
   }
+  derive(t);
+  L = lpts(t);
+  const g2 = lapGeom(t);
+  const units = g2.cum[layoutIndices(t)[i]];
+  const oldFinish = L[0];
+  const lap = lapLength(t);
+  const m = (units / g2.total) * lap;
   const oldLast = t.sections.at(-1);
   const oldFirst = t.sections[0];
-  const oldFinish = t.path[0];
-  const g2 = lapGeom(t);
-  const lap = lapLength(t);
-  const m = (g2.cum[i] / g2.total) * lap;
-  // The section the line falls in, split there unless it is within half a metre of a boundary.
-  let k = 0;
-  let at = 0;
-  while (k < t.sections.length && at + t.sections[k].length <= m + 0.5) { at += t.sections[k].length; k++; }
-  if (k >= t.sections.length) { k = 0; at = 0; }
-  else if (m - at > 0.5) {
-    const sec = t.sections[k];
-    const a = Math.max(1, Math.min(sec.length - 1, Math.round(m - at)));
-    t.sections.splice(k, 1, { ...sec, length: a }, { ...sec, length: sec.length - a });
-    k++;
-    at += a;
+  if (t.features) {
+    for (const ft of t.features) ft.at = round1((((ft.at - units) % g2.total) + g2.total) % g2.total);
+  } else {
+    // The section the line falls in, split there unless it is within half a metre of a boundary.
+    let k = 0;
+    let at = 0;
+    while (k < t.sections.length && at + t.sections[k].length <= m + 0.5) { at += t.sections[k].length; k++; }
+    if (k >= t.sections.length) { k = 0; at = 0; }
+    else if (m - at > 0.5) {
+      const sec = t.sections[k];
+      const a = Math.max(1, Math.min(sec.length - 1, Math.round(m - at)));
+      t.sections.splice(k, 1, { ...sec, length: a }, { ...sec, length: sec.length - a });
+      k++;
+      at += a;
+    }
+    t.sections = [...t.sections.slice(k), ...t.sections.slice(0, k)];
+    for (const p of t.patches ?? []) p.at = (((p.at - at) % lap) + lap) % lap;
+    // The line leaving a boundary it made when it was placed there: the two halves of one section
+    // that met at the old line join up again when they are the same section in all but length.
+    const j = t.sections.indexOf(oldLast);
+    if (j >= 0 && j < t.sections.length - 1 && t.sections[j + 1] === oldFirst) {
+      const same = (p, q) => JSON.stringify({ ...p, length: 0 }) === JSON.stringify({ ...q, length: 0 });
+      if (same(oldLast, oldFirst)) t.sections.splice(j, 2, { ...oldLast, length: oldLast.length + oldFirst.length });
+    }
   }
-  t.path = [...t.path.slice(i), ...t.path.slice(0, i)];
-  t.sections = [...t.sections.slice(k), ...t.sections.slice(0, k)];
-  for (const p of t.patches ?? []) p.at = (((p.at - at) % lap) + lap) % lap;
-  // The line leaving a boundary it made when it was placed there: the two halves of one section
-  // that met at the old line join up again when they are the same section in all but length.
-  const j = t.sections.indexOf(oldLast);
-  if (j >= 0 && j < t.sections.length - 1 && t.sections[j + 1] === oldFirst) {
-    const same = (p, q) => JSON.stringify({ ...p, length: 0 }) === JSON.stringify({ ...q, length: 0 });
-    if (same(oldLast, oldFirst)) t.sections.splice(j, 2, { ...oldLast, length: oldLast.length + oldFirst.length });
-  }
-  // The point the line left goes too when it only marked the line: on the straight between its neighbours.
-  const oi = t.path.indexOf(oldFinish);
-  if (oi > 0 && t.path.length > 3) {
-    const a = t.path[oi - 1];
-    const c = t.path[(oi + 1) % t.path.length];
+  if (t.features) for (const p of t.patches ?? []) p.at = (((p.at - m) % lap) + lap) % lap;
+  const rot = [...L.slice(i), ...L.slice(0, i)];
+  // The point the line left goes too when it only marked the line: a sharp point on the straight between its neighbours.
+  const oi = rot.indexOf(oldFinish);
+  if (oi > 0 && rot.length > 3 && !smooth(oldFinish)) {
+    const a = rot[oi - 1];
+    const c = rot[(oi + 1) % rot.length];
     const l = Math.hypot(c[0] - a[0], c[1] - a[1]);
     const off = l > 1e-9 ? Math.abs((c[0] - a[0]) * (a[1] - oldFinish[1]) - (a[0] - oldFinish[0]) * (c[1] - a[1])) / l : 1;
     const between = Math.hypot(oldFinish[0] - a[0], oldFinish[1] - a[1]) + Math.hypot(c[0] - oldFinish[0], c[1] - oldFinish[1]) - l < 0.02;
-    if (off < 0.05 && between) t.path.splice(oi, 1);
+    if (off < 0.05 && between && !hOut(a) && !hIn(c)) rot.splice(oi, 1);
   }
+  if (t.layout) t.layout.points = rot; else t.path = rot;
   delete t.finish;
+  derive(t);
 }
 /** Where the finish line being placed would go: a bar across the lap where the pointer is near it. */
 function finishGhost(t, pl) {
   const width = t.width ?? DEFAULT_WIDTH;
   const out = { pts: [], level: 'ok', msg: '', joined: false, ring: null };
   const fail = (msg) => Object.assign(out, { level: 'error', msg });
-  if (building(t) || t.path.length < 3) return fail('The finish line goes on a closed lap: close the lap first (Close the lap), then put the finish line anywhere on it.');
+  if (t.open || lpts(t).length < 3) return fail('The finish line goes on a closed route: close the route first, then put the finish line anywhere on it.');
   const lap = lapGeom(t);
   const at = pl.at ?? pointAt(lap, 0);
   const pr = project(lap, at.x, at.y);
@@ -4245,8 +4243,9 @@ function placeFinish() {
 function addFinish() {
   const t = track();
   if (!t) return;
-  if (building(t)) { status('Close the lap first: the finish line goes anywhere on a closed lap.', 'err'); return; }
+  if (t.open || lpts(t).length < 3) { status('Close the route first: the finish line goes anywhere on a closed route.', 'err'); return; }
   if (app.mode !== 'layout') setMode('layout');
+  app.drawing = false;
   app.placing = { kind: 'finish', type: 'finish', at: null };
   deselect();
   refresh();
@@ -4258,32 +4257,48 @@ function removeFinish() {
   commit((t) => { t.finish = false; t.draft = true; app.selPt = -1; });
   status('Removed the finish line. The lap is unchanged, but the track is unfinished until a finish line is placed again (Start and finish, or Finish here on a selected point). Undo puts it back.', 'ok');
 }
-/** True while the start straight or the finish line is being placed: they go on any track, finished or not. */
-function freePlacing() { return app.placing?.kind === 'start' || app.placing?.kind === 'finish'; }
 function reverse() {
   commit((t) => {
-    t.path = [t.path[0], ...t.path.slice(1).reverse()];
-    t.sections.reverse();
-    const start = t.sections.findIndex((s) => s.type === 'start_gate');
-    if (start > 0) t.sections.unshift(...t.sections.splice(start, 1));
-    // Patches stay where they are on the ground: measured the other way round the lap.
+    const L = lpts(t);
+    const total = t.path.length >= 2 ? lapGeom(t).total : 0;
     const lap = lapLength(t);
+    const rev = (t.open ? [...L].reverse() : [L[0], ...L.slice(1).reverse()]).map((p) => {
+      if (!smooth(p)) return [p[0], p[1]];
+      const o = hIn(p);
+      const n = hOut(p);
+      return p.length >= 6 ? [p[0], p[1], o[0], o[1], n[0], n[1]] : [p[0], p[1], o[0], o[1]];
+    });
+    if (t.layout) t.layout.points = rev; else t.path = rev;
+    if (t.features) for (const f of t.features) f.at = Math.max(0, round1(total - f.at - f.len));
+    else {
+      t.sections.reverse();
+      const start = t.sections.findIndex((s) => s.type === 'start_gate');
+      if (start > 0) t.sections.unshift(...t.sections.splice(start, 1));
+    }
+    // Patches stay where they are on the ground: measured the other way round the lap.
     for (const p of t.patches ?? []) p.at = (((lap - p.at - p.length) % lap) + lap) % lap;
     deselect();
   });
-  status(track()?.start ? 'Reversed the drawing and the order of the sections. The start straight now joins against the riding direction: redraw it.' : 'Reversed the drawing and the order of the sections.', 'ok');
+  status(track()?.start ? 'Reversed the route and the order of the sections. The start straight now joins against the riding direction: redraw it.' : 'Reversed the route and the order of the sections.', 'ok');
 }
 function fitToGrid() {
   commit((t) => {
-    const xs = t.path.map((p) => p[0]);
-    const ys = t.path.map((p) => p[1]);
+    const L = lpts(t);
+    if (!L.length) return;
+    const xs = L.map((p) => p[0]);
+    const ys = L.map((p) => p[1]);
     const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
     const m = 6;
     const k = Math.min((GRID_W - 2 * m) / Math.max(1, x1 - x0), (GRID_H - 2 * m) / Math.max(1, y1 - y0));
     const cx = (GRID_W - (x1 - x0) * k) / 2;
     const cy = (GRID_H - (y1 - y0) * k) / 2;
     const map = ([x, y]) => [round1(cx + (x - x0) * k), round1(cy + (y - y0) * k)];
-    t.path = t.path.map(map);
+    const mapPt = (p) => [...map(p), ...p.slice(2).map((v) => round1(v * k))];
+    if (t.layout) t.layout.points = L.map(mapPt); else t.path = L.map(mapPt);
+    if (t.features) {
+      for (const f of t.features) { f.at = round1(f.at * k); f.len = Math.max(0.5, round1(f.len * k)); }
+      for (const p of t.patches ?? []) { p.at = Math.round(p.at * k); p.length = Math.max(1, Math.round(p.length * k)); }
+    }
     if (t.start) t.start.path = t.start.path.map(map);
     keepJoined(t);
     // Scenery moves with the track.
@@ -4300,9 +4315,9 @@ function uniqueId(base) {
   return id;
 }
 /**
- * A new track starts empty and unfinished (draft): nothing is drawn until you place section pieces
- * from Build the lap, one after another, until the last one meets the first and closes the lap.
- * The game leaves unfinished tracks out until they are marked Ready to race.
+ * A new track starts empty and a draft, drawing its route: each click adds a control point,
+ * and a click on the first point closes the route. The game leaves drafts out until they are
+ * marked Ready to race.
  */
 function newTrack() {
   begin();
@@ -4312,13 +4327,16 @@ function newTrack() {
     gates: [2, 2, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, -1, -1, -1, -2],
     path: [],
     sections: [],
+    features: [],
   });
   app.cur = app.data.tracks.length - 1;
   deselect();
   if (app.mode !== 'layout') setMode('layout');
-  startPiece('straight');
+  app.placing = null;
+  app.drawing = true;
+  app.drawAt = null;
   changed();
-  status('A new, empty track: a straight follows the pointer. Click to place it, or pick another section type in Build the lap. Name the track under Track.', 'ok');
+  status('A new, empty track: click the ground to draw the route point by point, and click the first point again to close it. Name the track under Track.', 'ok');
 }
 function duplicateTrack() {
   begin();
@@ -4343,7 +4361,7 @@ function deleteTrack() {
 }
 
 const TRACK_FILE = 'mxrpg-track';
-const TRACK_KEYS = ['id', 'name', 'size', 'surface', 'kind', 'width', 'practiceOnly', 'gates', 'path', 'sections', 'start', 'patches', 'ground', 'elevation', 'scenery'];
+const TRACK_KEYS = ['id', 'name', 'size', 'surface', 'kind', 'width', 'practiceOnly', 'gates', 'path', 'layout', 'sections', 'features', 'start', 'patches', 'ground', 'elevation', 'scenery'];
 function exportTrack() {
   const t = track();
   download(`${t.id}.track.json`, `${JSON.stringify({ format: TRACK_FILE, version: 1, track: t }, null, 2)}\n`);
@@ -4418,7 +4436,7 @@ async function save(forceDownload) {
 
 function startPlay() {
   const t = track();
-  if (!t || building(t)) return;
+  if (!t || t.open || t.path.length < 3) return;
   app.play = { f: 0, last: performance.now() };
   const tick = (now) => {
     if (!app.play || track() !== t) { app.play = null; sendPlay(); refresh(); return; }
@@ -4455,22 +4473,47 @@ function hit(sx, sy) {
   if (!t) return null;
   const gp = toGrid(sx, sy);
   if (app.mode === 'layout') {
+    const L = lpts(t);
+    const P = L[app.selPt];
+    if (P && smooth(P)) {
+      for (const [side, h] of [['out', hOut(P)], ['in', hIn(P)]]) {
+        const s = toScreen(P[0] + h[0], P[1] + h[1]);
+        if (Math.abs(sx - s.x) <= 7 && Math.abs(sy - s.y) <= 7) return { kind: 'handle', i: app.selPt, side };
+      }
+    }
     const sp = t.start?.path ?? [];
     for (let i = sp.length - 1; i >= 0; i--) {
       const s = toScreen(sp[i][0], sp[i][1]);
       if (Math.abs(sx - s.x) <= 8 && Math.abs(sy - s.y) <= 8) return { kind: 'spt', i };
     }
-    for (let i = t.path.length - 1; i >= 0; i--) {
-      const s = toScreen(t.path[i][0], t.path[i][1]);
+    for (let i = L.length - 1; i >= 0; i--) {
+      const s = toScreen(L[i][0], L[i][1]);
       if (Math.hypot(sx - s.x, sy - s.y) <= 9) return { kind: 'point', i };
     }
     if (!app.final && t.path.length >= 2) {
       const g = lapGeom(t);
-      const b = sectionBounds(t);
-      for (let i = 1; i < t.sections.length; i++) {
-        const p = pointAt(g, b[i]);
-        const s = toScreen(p.x, p.y);
-        if (Math.abs(sx - s.x) + Math.abs(sy - s.y) <= 10) return { kind: 'bound', i };
+      if (t.features) {
+        for (let k = t.features.length - 1; k >= 0; k--) {
+          const f = t.features[k];
+          if (f.at >= g.total) continue;
+          for (const side of [1, 0]) {
+            const p = pointAt(g, Math.min(1, (side ? f.at + f.len : f.at) / g.total));
+            const s = toScreen(p.x, p.y);
+            if (Math.abs(sx - s.x) + Math.abs(sy - s.y) <= 10) return { kind: 'fend', k, side };
+          }
+        }
+      } else {
+        const b = sectionBounds(t);
+        for (let i = 1; i < t.sections.length; i++) {
+          const p = pointAt(g, b[i]);
+          const s = toScreen(p.x, p.y);
+          if (Math.abs(sx - s.x) + Math.abs(sy - s.y) <= 10) return { kind: 'bound', i };
+        }
+      }
+      const pr = onTrack(t, gp.x, gp.y);
+      if (pr && t.features) {
+        const k = featureAt(t, pr.f * g.total);
+        if (k >= 0) return { kind: 'feat', k, f: pr.f, seg: pr.seg };
       }
     }
   }
@@ -4520,15 +4563,19 @@ function onPointerDown(e) {
     return;
   }
   const h = hit(p.x, p.y);
-  if (app.placing && app.mode === 'layout' && (building(t) || freePlacing())) {
-    // A click on one of the start straight's points moves that point, unless the piece in hand is
-    // joining on there (the green ring at the start straight's end): then it is placed.
-    const moving = e.button === 0 && h?.kind === 'spt' && !ghostPiece(t, app.placing).joined;
-    if (!moving) {
-      if (e.button === 2) startPiece(null);
-      else if (e.button === 0) { app.placing.at = gp; placePiece(); }
-      return;
-    }
+  if (app.placing && app.mode === 'layout') {
+    if (e.button === 2) cancelPlacing();
+    else if (e.button === 0) { app.placing.at = gp; placePiece(); }
+    return;
+  }
+  if (app.drawing && app.mode === 'layout') {
+    if (e.button === 2) { stopDrawing(); return; }
+    if (e.button !== 0) return;
+    const L = lpts(t);
+    if (h?.kind === 'point' && h.i === 0 && L.length >= 3) { closeRoute(); return; }
+    if (h?.kind === 'point' && h.i === L.length - 1) { stopDrawing(); return; }
+    addLayoutPoint(gp.x, gp.y, e);
+    return;
   }
   if (app.mode === 'scenery' && app.routeDraw) {
     if (e.button === 2) routeDrawing(false);
@@ -4537,7 +4584,7 @@ function onPointerDown(e) {
   }
   if (e.button === 2 && h?.kind === 'rpt') { deleteRoutePoint(h.i); return; }
   if (e.button === 2) {
-    if (h?.kind === 'point') deletePoint(h.i);
+    if (h?.kind === 'point') { app.selStart = -1; deletePoint(h.i); }
     else if (h?.kind === 'spt') { app.selStart = h.i; app.selPt = -1; deletePoint(); }
     else if (h?.kind === 'item') { app.selItem = h.i; deleteItem(); }
     return;
@@ -4574,16 +4621,33 @@ function onPointerDown(e) {
   if (h.kind === 'point') {
     app.selPt = h.i;
     app.selStart = -1;
-    drag = { kind: 'point', i: h.i, started: false, pieces: pieceBuilt(t) ? pieceSpans(t) : null };
+    app.selFeat = -1;
+    drag = { kind: 'point', i: h.i, started: false, anchor: featureAnchor(t, h.i) };
+  } else if (h.kind === 'handle') {
+    drag = { kind: 'handle', i: h.i, side: h.side, started: false, anchor: featureAnchor(t, h.i) };
   } else if (h.kind === 'spt') {
     app.selStart = h.i;
     app.selPt = -1;
+    app.selFeat = -1;
     drag = { kind: 'spt', i: h.i, started: false, before: clone(t.start.path) };
   } else if (h.kind === 'bound') {
     app.selSec = h.i;
     drag = { kind: 'bound', i: h.i, started: false };
+  } else if (h.kind === 'fend') {
+    app.selFeat = h.k;
+    app.selSec = sectionOfFeature(t, h.k);
+    app.selPt = -1;
+    app.selStart = -1;
+    drag = { kind: 'fend', k: h.k, side: h.side, started: false };
+  } else if (h.kind === 'feat') {
+    app.selFeat = h.k;
+    app.selSec = sectionOfFeature(t, h.k);
+    app.selPt = -1;
+    app.selStart = -1;
+    drag = { kind: 'feat', k: h.k, off: h.f * lapGeom(t).total - t.features[h.k].at, started: false };
   } else {
     app.selSec = app.final ? -1 : sectionAt(t, h.f);
+    app.selFeat = -1;
     app.selPt = -1;
   }
   refresh();
@@ -4594,12 +4658,12 @@ function onPointerMove(e) {
   const p = evPos(e);
   const gp = toGrid(p.x, p.y);
   if (t) {
-    const pr = onTrack(t, gp.x, gp.y);
+    const pr = t.path.length >= 2 ? onTrack(t, gp.x, gp.y) : null;
     const len = lapLength(t);
     const sec = pr ? t.sections[sectionAt(t, pr.f)] : null;
     const patch = pr ? t.patches?.[patchAt(t, pr.f * len)] : null;
     const where = pr
-      ? ` · ${Math.round(pr.f * len)} m into the lap${app.final ? '' : ` · ${app.sectionDefs[sec.type]?.name ?? sec.type}`}${patch ? ` · ${surfaceDef(patch.surface)?.name ?? patch.surface}` : ''}`
+      ? ` · ${Math.round(pr.f * len)} m into the lap${app.final || !sec ? '' : ` · ${app.sectionDefs[sec.type]?.name ?? sec.type}`}${patch ? ` · ${surfaceDef(patch.surface)?.name ?? patch.surface}` : ''}`
       : '';
     $('#posLabel').textContent = `x ${gp.x.toFixed(1)}, y ${gp.y.toFixed(1)}${where}`;
     if (app.mode === 'ground') {
@@ -4614,18 +4678,24 @@ function onPointerMove(e) {
     }
   }
   if (app.rect) { const c = cellAt(t, gp); app.rect.x1 = c.x; app.rect.y1 = c.y; requestDraw(); return; }
-  if (app.placing && app.mode === 'layout' && (building(t) || freePlacing()) && !drag) {
+  if (app.placing && app.mode === 'layout' && !drag) {
     app.placing.at = gp;
     canvas.style.cursor = 'crosshair';
-    renderBuild();
+    renderRoute();
     requestDraw();
     sendView();
     return;
   }
+  if (app.drawing && app.mode === 'layout' && !drag) {
+    app.drawAt = { x: snapGrid(gp.x, e), y: snapGrid(gp.y, e) };
+    canvas.style.cursor = 'crosshair';
+    requestDraw();
+    return;
+  }
   if (!drag) {
     const h = t && hit(p.x, p.y);
-    canvas.style.cursor = app.mode === 'ground' || app.mode === 'height' || (app.mode === 'scenery' && app.routeDraw) ? 'crosshair' : ['point', 'spt', 'bound', 'item', 'rpt'].includes(h?.kind) ? 'grab' : h?.kind === 'track' ? 'pointer' : 'default';
-    const hb = h?.kind === 'bound' ? h.i : -1;
+    canvas.style.cursor = app.mode === 'ground' || app.mode === 'height' || (app.mode === 'scenery' && app.routeDraw) ? 'crosshair' : ['point', 'spt', 'bound', 'item', 'rpt', 'handle', 'fend', 'feat'].includes(h?.kind) ? 'grab' : h?.kind === 'track' ? 'pointer' : 'default';
+    const hb = h?.kind === 'bound' ? h.i : h?.kind === 'fend' ? `${h.k}:${h.side}` : -1;
     if (hb !== app.hoverBound) { app.hoverBound = hb; requestDraw(); }
     return;
   }
@@ -4639,8 +4709,27 @@ function onPointerMove(e) {
     const c = cellAt(t, gp);
     paintCells(t, brushCells(c.x, c.y), drag.id);
   } else if (drag.kind === 'point') {
-    t.path[drag.i] = [clamp(snapGrid(gp.x, e), -BOUND_OUT, GRID_W + BOUND_OUT), clamp(snapGrid(gp.y, e), -BOUND_OUT, GRID_H + BOUND_OUT)];
-    followDrawing(t, drag);
+    const P = lpts(t)[drag.i];
+    P[0] = clamp(snapGrid(gp.x, e), -BOUND_OUT, GRID_W + BOUND_OUT);
+    P[1] = clamp(snapGrid(gp.y, e), -BOUND_OUT, GRID_H + BOUND_OUT);
+    followFeatures(t, drag.anchor);
+    keepJoined(t);
+  } else if (drag.kind === 'handle') {
+    // A handle dragged: its mirror follows on a smooth point, unless Alt sets this side on its own.
+    const P = lpts(t)[drag.i];
+    const v = [round1(snapGrid(gp.x, e) - P[0]), round1(snapGrid(gp.y, e) - P[1])];
+    if (drag.side === 'out') {
+      if (e.altKey && P.length < 6) { const g0 = hIn(P); P[4] = g0[0]; P[5] = g0[1]; }
+      P[2] = v[0];
+      P[3] = v[1];
+    } else if (e.altKey || P.length >= 6) {
+      P[4] = v[0];
+      P[5] = v[1];
+    } else {
+      P[2] = -v[0];
+      P[3] = -v[1];
+    }
+    followFeatures(t, drag.anchor);
     keepJoined(t);
   } else if (drag.kind === 'spt') {
     const sp = t.start.path;
@@ -4671,6 +4760,22 @@ function onPointerMove(e) {
     const lap = lapLength(t);
     const m = project(lapGeom(t), gp.x, gp.y).f * lap;
     t.patches[drag.i].at = (((Math.round((m - drag.off) / 5) * 5) % lap) + lap) % lap;
+  } else if (drag.kind === 'feat') {
+    // A feature dragged along the route keeps its length.
+    const g = lapGeom(t);
+    const f = t.features[drag.k];
+    f.at = clamp(Math.round((project(g, gp.x, gp.y).f * g.total - drag.off) * 2) / 2, 0, Math.max(0, round1(g.total - f.len)));
+  } else if (drag.kind === 'fend') {
+    // A feature's end dragged stretches it: the other end stays where it is.
+    const g = lapGeom(t);
+    const f = t.features[drag.k];
+    const d = Math.round(project(g, gp.x, gp.y).f * g.total * 2) / 2;
+    if (drag.side) f.len = clamp(round1(d - f.at), 0.5, Math.max(0.5, round1(g.total - f.at)));
+    else {
+      const end = f.at + f.len;
+      f.at = clamp(d, 0, end - 0.5);
+      f.len = round1(end - f.at);
+    }
   } else {
     // Move metres between the two sections either side of the boundary.
     const f = project(lapGeom(t), gp.x, gp.y).f;
@@ -4705,16 +4810,30 @@ canvas.addEventListener('pointerup', onPointerUp);
 canvas.addEventListener('pointerleave', () => { if (app.hoverCell || app.hoverPt) { app.hoverCell = null; app.hoverPt = null; requestDraw(); } });
 function onDblClick(e) {
   const t = track();
-  if (!t || app.mode !== 'layout') return;
+  if (!t || app.mode !== 'layout' || app.drawing || app.placing) return;
   const p = evPos(e);
   const h = hit(p.x, p.y);
-  if (h?.kind !== 'track') return;
+  if (h?.kind !== 'track' && h?.kind !== 'feat') return;
   const gp = toGrid(p.x, p.y);
   commit((t) => {
-    t.path.splice(h.seg + 1, 0, [clamp(snapGrid(gp.x, e), 0, GRID_W), clamp(snapGrid(gp.y, e), 0, GRID_H)]);
+    const g = lapGeom(t);
+    const total0 = g.total;
+    const d = h.f * g.total;
+    const { seg, u } = segParam(t, d);
+    const L = lpts(t);
+    const straight = !hOut(L[seg]) && !hIn(L[(seg + 1) % L.length]);
+    const i = splitSegment(t, seg, u);
+    // On a straight stretch the new point goes where the click was; a curve keeps its shape.
+    if (straight) lpts(t)[i] = [clamp(snapGrid(gp.x, e), -BOUND_OUT, GRID_W + BOUND_OUT), clamp(snapGrid(gp.y, e), -BOUND_OUT, GRID_H + BOUND_OUT)];
+    if (t.features) {
+      derive(t);
+      const dl = lapGeom(t).total - total0;
+      for (const f of t.features) if (f.at > d + 1e-6) f.at = Math.max(0, round1(f.at + dl));
+    }
     keepJoined(t);
-    app.selPt = h.seg + 1;
+    app.selPt = i;
     app.selStart = -1;
+    app.selFeat = -1;
   });
 }
 canvas.addEventListener('dblclick', onDblClick);
@@ -4739,6 +4858,7 @@ $('#btnAddSec').addEventListener('click', addSection);
 $('#btnSplitSec').addEventListener('click', splitSection);
 $('#btnInsert').addEventListener('click', insertPoint);
 $('#btnDelPt').addEventListener('click', () => deletePoint());
+$('#btnDelSeg').addEventListener('click', () => deleteSegment(app.selPt));
 $('#btnRound').addEventListener('click', roundCorner);
 $('#btnStart').addEventListener('click', startHere);
 $('#btnReverse').addEventListener('click', reverse);
@@ -4749,20 +4869,16 @@ $('#btnFitSecs').addEventListener('click', () => {
   commit((t) => { t.sections = sectionsFromDrawing(t); app.selSec = -1; });
   status('Sections now follow the drawing. Change straights to jumps, and corners to berms or ruts, as you like.', 'ok');
 });
-$('#btnFit').addEventListener('click', fitToGrid);
-$('#btnPieceL').addEventListener('click', () => adjustPiece('turn', -15));
-$('#btnPieceR').addEventListener('click', () => adjustPiece('turn', 15));
-$('#btnPieceMirror').addEventListener('click', () => adjustPiece('mirror'));
-$('#btnPieceBend').addEventListener('click', () => adjustPiece('bend'));
-$('#btnPieceShort').addEventListener('click', () => adjustPiece('size', -1));
-$('#btnPieceLong').addEventListener('click', () => adjustPiece('size', 1));
-$('#btnPiecePlace').addEventListener('click', placePiece);
-$('#btnPieceCancel').addEventListener('click', () => startPiece(null));
-$('#btnConnect').addEventListener('click', () => {
-  startPiece('connect');
-  const gh = track() && ghostPiece(track(), app.placing);
-  if (gh) status(gh.msg, gh.level === 'error' ? 'err' : 'ok');
+$('#btnUseFeats').addEventListener('click', () => {
+  const t = track();
+  if (!t || t.features) return;
+  if (!confirm(`Keep "${t.name}"'s jumps and special sections as features on the route, and let the straights and bends between them follow the route's shape? Its sections are regenerated from the route (Undo puts them back as they were).`)) return;
+  commit((t) => { useFeatures(t); app.selSec = -1; });
+  status(`Using features: ${track().features.length} kept from the sections, at their place on the route. The straights and bends between them now follow the route.`, 'ok');
 });
+$('#btnFit').addEventListener('click', fitToGrid);
+$('#btnDrawRoute').addEventListener('click', () => (app.drawing ? stopDrawing() : startDrawing()));
+$('#btnCloseRoute').addEventListener('click', () => { const t = track(); if (!t) return; if (t.open || lpts(t).length < 3) closeRoute(); else deleteSegment(lpts(t).length - 1); });
 $('#btnReady').addEventListener('click', readyToRace);
 $('#btnStartPiece').addEventListener('click', addStart);
 $('#btnStartOfficial').addEventListener('click', pickOfficial);
@@ -4781,9 +4897,9 @@ $('#btnRide').addEventListener('click', () => {
   const t = track();
   if (!t) return;
   if (t.draft) {
-    alert(building(t)
-      ? `This track is unfinished: still to join, ${stillOpen(t)}, so it can't be raced. Place pieces from the green rings, or click Close the lap, then Ready to race and Save.`
-      : 'This track is unfinished, and the game leaves unfinished tracks out. Click Ready to race (it runs the checks first), then Save, to race it.');
+    alert(t.open || lpts(t).length < 3
+      ? 'This track is a draft with an open route, so it can\'t be raced. Close the route, place the start straight and the finish line, then Ready to race and Save.'
+      : 'This track is a draft, and the game leaves drafts out. Click Ready to race (it runs the checks first), then Save, to race it.');
     return;
   }
   if (app.dirty && !confirm('You have unsaved changes. The game races the saved tracks.json, so it won\'t have them. Open the race anyway?')) return;
@@ -4844,9 +4960,11 @@ function sendView() {
   const sel = { item: app.mode === 'scenery' ? app.selItem : -1, sec: app.selSec, pt: app.selPt, start: app.selStart, route: app.selRoute };
   const shown = trackForView(t);
   const ghost = app.mode === 'layout' ? ghostForView(t) : undefined;
-  // The open ends of a track being built (Layout): where pieces join on, and where each closes into.
-  const ends = app.mode === 'layout' && t.draft ? openEnds(t).flatMap((e) => [[e.x, e.y, e.h, 'end'], ...(e.target ? [[e.target.x, e.target.y, e.target.h, 'target']] : [])]) : undefined;
-  f.contentWindow.postMessage({ type: 'track', officialKey: officialKey(t), state: { track: shown.track, gapFrom: shown.gapFrom, gaps: shown.gaps, points: shown.track === t ? undefined : t.path, ends, ghost, parts: app.parts === FALLBACK_PARTS ? undefined : app.parts, mode: app.mode, sel, issues, brush, sectionColors: shown.track.sections.map((s) => colorOf(s.type)) } }, '*');
+  // The route's control points, and the selected point's curve handles, for Layout.
+  const L = lpts(t);
+  const P = L[app.selPt];
+  const handles = app.mode === 'layout' && P && smooth(P) ? [hOut(P), hIn(P)].map((h) => [P[0] + h[0], P[1] + h[1]]) : undefined;
+  f.contentWindow.postMessage({ type: 'track', officialKey: officialKey(t), state: { track: shown.track, gapFrom: shown.gapFrom, gaps: shown.gaps, points: L.map((q) => [q[0], q[1]]), handles, ghost, parts: app.parts === FALLBACK_PARTS ? undefined : app.parts, mode: app.mode, sel, issues, brush, sectionColors: shown.track.sections.map((s) => colorOf(s.type)) } }, '*');
 }
 window.addEventListener('message', (e) => {
   const f = $('#view3d');
@@ -4904,10 +5022,18 @@ window.addEventListener('keydown', (e) => {
   if (e.key.toLowerCase() === 'p') { $('#btnPlay').click(); return; }
   if (app.placing && app.mode === 'layout') {
     const k = e.key.toLowerCase();
-    if (e.key === 'Escape') { startPiece(null); return; }
+    if (e.key === 'Escape') { cancelPlacing(); return; }
     if (e.key === 'Enter') { e.preventDefault(); placePiece(); return; }
-    const act = { q: ['turn', -15], e: ['turn', 15], f: ['mirror'], b: ['bend'], ',': ['size', -1], '.': ['size', 1] }[k];
+    const act = { q: ['turn', -15], e: ['turn', 15], f: ['mirror'], ',': ['size', -1], '.': ['size', 1] }[k];
     if (act) { e.preventDefault(); adjustPiece(...act); return; }
+  }
+  if (app.drawing && app.mode === 'layout') {
+    if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); stopDrawing(); return; }
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      e.preventDefault();
+      commit((t) => { const L = lpts(t); if (L.length) { L.pop(); app.selPt = L.length - 1; keepJoined(t); } });
+      return;
+    }
   }
   if (e.key === 'Escape' && app.routeDraw) { routeDrawing(false); return; }
   if (e.key === 'Escape') { deselect(); refresh(); return; }
@@ -4930,13 +5056,14 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (app.mode !== 'layout') return;
-  if (del) { e.preventDefault(); deletePoint(); }
+  if (del) { e.preventDefault(); if (app.selPt < 0 && app.selStart < 0 && app.selFeat >= 0) deleteFeature(); else deletePoint(); }
   else if (e.key.toLowerCase() === 'r') roundCorner();
   else if (e.key.startsWith('Arrow') && app.selPt >= 0) {
     e.preventDefault();
     const d = e.shiftKey ? 5 : $('#snap').checked ? 1 : 0.1;
     const [dx, dy] = { ArrowLeft: [-d, 0], ArrowRight: [d, 0], ArrowUp: [0, -d], ArrowDown: [0, d] }[e.key];
-    commit((t) => { const p = t.path[app.selPt]; t.path[app.selPt] = [clamp(round1(p[0] + dx), -BOUND_OUT, GRID_W + BOUND_OUT), clamp(round1(p[1] + dy), -BOUND_OUT, GRID_H + BOUND_OUT)]; keepJoined(t); });
+    const anchor = featureAnchor(track(), app.selPt);
+    commit((t) => { const p = lpts(t)[app.selPt]; if (!p) return; p[0] = clamp(round1(p[0] + dx), -BOUND_OUT, GRID_W + BOUND_OUT); p[1] = clamp(round1(p[1] + dy), -BOUND_OUT, GRID_H + BOUND_OUT); followFeatures(t, anchor); keepJoined(t); });
   } else if (e.key.startsWith('Arrow') && app.selStart >= 0 && app.selStart < (track().start?.path.length ?? 0) - 1) {
     e.preventDefault();
     const d = e.shiftKey ? 5 : $('#snap').checked ? 1 : 0.1;
@@ -4982,7 +5109,7 @@ async function tryServer() {
 setMode('layout');
 tryServer();
 openRaceView();
-window.trackEditor = { app, openRaceView, sendView, heightDab, elevAt, elevationIssues, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart, openEnds, building, stillOpen, deleteSection, planWalk, alongStart, followStart, setOfficialAlong, trackRoom, walkRoom, undo, redo, trackForView, officialProblems, connectGhost, dubins, fitRadius, placeConnect, startPiece, setFinish, finishGhost, addFinish, placeFinish, removeFinish, addStart, placeStart, placePiece, readyToRace, tightCorners, keepJoined, startHere, lapLength, refresh, pieceSpans, pieceBuilt, sectionBounds, boundaryCrossings, BOUND_OUT, SCENE_OUT, cheerProblems, routeDrawing, addRoutePoint }; // for tests
+window.trackEditor = { app, openRaceView, sendView, heightDab, elevAt, elevationIssues, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, findRef, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart, planWalk, alongStart, followStart, setOfficialAlong, trackRoom, walkRoom, undo, redo, trackForView, officialProblems, setFinish, finishGhost, addFinish, placeFinish, removeFinish, addStart, placeStart, placePiece, cancelPlacing, adjustPiece, readyToRace, tightCorners, keepJoined, startHere, lapLength, refresh, sectionBounds, boundaryCrossings, BOUND_OUT, SCENE_OUT, cheerProblems, routeDrawing, addRoutePoint, lpts, derive, rebuildPath, rebuildSections, splitSegment, segParam, layoutIndices, baseRuns, sectionFeats, featureProblems, featureTypes, featureAt, useFeatures, startFeature, featureGhost, placeFeature, deleteFeature, duplicateFeature, editFeature, startDrawing, stopDrawing, addLayoutPoint, closeRoute, deleteSegment, deletePoint, insertPoint, roundCorner, trackStatus, reverse, fitToGrid, newTrack, deleteSection }; // for tests
 </script>
 </body>
 </html>

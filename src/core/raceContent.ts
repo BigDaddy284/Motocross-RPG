@@ -131,7 +131,7 @@ export const TRACKS_SCHEMA: Schema = {
       minItems: 1,
       items: {
         type: 'object',
-        optional: ['practiceOnly', 'gates', 'kind', 'width', 'patches', 'ground', 'scenery', 'start', 'elevation'],
+        optional: ['practiceOnly', 'gates', 'kind', 'width', 'patches', 'ground', 'scenery', 'start', 'elevation', 'layout', 'features'],
         fields: {
           id: IDS,
           name: S,
@@ -140,6 +140,13 @@ export const TRACKS_SCHEMA: Schema = {
           practiceOnly: { type: 'boolean' },
           gates: { type: 'array', items: N },
           path: { type: 'array', minItems: 3, items: POINT },
+          // The editor's route: control points [x, y], with curve handles [x, y, hx, hy] or [x, y, hx, hy, gx, gy]; the path is generated from it.
+          layout: { type: 'object', fields: { points: { type: 'array', items: { type: 'array', items: N, minItems: 2, maxItems: 6 } } } },
+          // The editor's features on the route (jumps and the like), from which the sections are generated with the route's own straights and bends.
+          features: {
+            type: 'array',
+            items: { type: 'object', optional: ['line', 'height'], fields: { type: IDS, at: N0, len: { type: 'number', min: 0.5 }, passing: SHARE, line: IDS, height: N0 } },
+          },
           sections: {
             type: 'array',
             minItems: 1,
