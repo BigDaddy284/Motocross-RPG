@@ -62,7 +62,7 @@ Mod tracks are race tracks made with the game's track editor and raced in the ga
 
 Then use **Ready to race**, which runs the game's checks.
 
-**2. Save it.** Tracks made with **New**, **Duplicate** or **Import** are mod tracks. The first **Save** asks for the track's name, and the track is saved as its own file, `public/mods/tracks/<name>.track.json`, never into the game's `tracks.json`. It can't overwrite another track: a name already in use is refused.
+**2. Save it.** The editor opens on the mod tracks: the example in `public/mods/tracks/` and any saved there; the game's own four tracks are not listed (the Development edition has a **Show the game's own tracks** tick under the list, remembered in the browser, for working on the game itself). Tracks made with **New**, **Duplicate** or **Import** are mod tracks. The first **Save** asks for the track's name, and the track is saved as its own file, `public/mods/tracks/<name>.track.json`, never into the game's `tracks.json`. It can't overwrite another track: a name already in use is refused.
 
 - With `npm run dev`, use the track editor at http://localhost:5173/tools/track-editor.html and **Load the tracks from this server**. Save then writes straight into `public/mods/tracks/`, and the game picks the track up on its next page load. Saved mod tracks are listed in the editor too, to carry on editing.
 - If you **Open folder…** on the project in Chrome or Edge, Save writes into the `public/mods/tracks/` folder there.
