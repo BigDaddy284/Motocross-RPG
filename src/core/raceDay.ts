@@ -122,6 +122,18 @@ export interface DayResult {
  * (paying the entry) before this is made. Moto 1's gate pick order is random (no standings yet);
  * moto 2's follows moto 1's finishing order (Spec 12.2a).
  */
+/** How strongly a CPU rider is drawn to their favourite spot on the start, in start bonus % per gate away. */
+const GATE_FAVOURITE_PULL = 0.3;
+/** The spread of a CPU rider's own feel for each gate, in start bonus %. */
+const GATE_FEEL = 1.6;
+
+/** A stable number for a rider id, to seed their gate preferences. */
+function hashId(id: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+
 export class RaceDay {
   readonly field: Entrant[];
   readonly motos: MotoRecord[] = [];
@@ -168,14 +180,14 @@ export class RaceDay {
     const taken = new Map<number, string>();
     for (const id of this.pickOrder) {
       if (id === PLAYER_ID) break;
-      taken.set(this.cpuGatePick(taken, gates), id);
+      taken.set(this.cpuGatePick(id, taken, gates), id);
     }
     const free = [...Array(gates).keys()].filter((g) => !taken.has(g));
     return { taken, free };
   }
 
   /**
-   * Every rider's gate once the player has picked theirs. CPU riders take the best gate left. The
+   * Every rider's gate once the player has picked theirs. CPU riders take the gate they like best of those left (cpuGatePick). The
    * player's gate must be one of gatesForPlayer().free: a gate past the size of the field, or one
    * already taken, is an error, never quietly swapped for another.
    */
@@ -188,7 +200,7 @@ export class RaceDay {
     }
     const taken = new Map<number, string>();
     for (const id of this.pickOrder) {
-      const g = id === PLAYER_ID ? playerGate : this.cpuGatePick(taken, gates);
+      const g = id === PLAYER_ID ? playerGate : this.cpuGatePick(id, taken, gates);
       taken.set(g, id);
     }
     for (const [g, id] of taken) this.field.find((e) => e.id === id)!.gate = g;
@@ -199,9 +211,30 @@ export class RaceDay {
     return this.field.length;
   }
 
-  private cpuGatePick(taken: Map<number, string>, gates: number): number {
-    for (let g = 0; g < gates; g++) if (!taken.has(g)) return g;
-    return gates;
+  /**
+   * A CPU rider's pick: the free gate they like best. Most want the inside gates and their start
+   * bonus, but each rider has a favourite spot this moto (a rut they like, a line round the first
+   * corner) and their own feel for each gate, so the field fills the start unevenly instead of
+   * from gate 1 up. Worked out from the day's seed, the rider and the moto, never from what is
+   * already taken, so the gate screen and the start always agree.
+   */
+  private cpuGatePick(id: string, taken: Map<number, string>, gates: number): number {
+    const rng = seededRng(mixSeed(this.seed, hashId(id) + 7919 * this.motos.length));
+    const favourite = rng() * gates;
+    const bonus = this.track.gates ?? [];
+    let best = gates;
+    let bestScore = -Infinity;
+    for (let g = 0; g < gates; g++) {
+      // One draw per gate, taken or not, so a rider's feel for a gate never depends on the others.
+      const feel = (rng() - 0.5) * GATE_FEEL;
+      if (taken.has(g)) continue;
+      const score = (bonus[g] ?? 0) - Math.abs(g - favourite) * GATE_FAVOURITE_PULL + feel;
+      if (score > bestScore) {
+        bestScore = score;
+        best = g;
+      }
+    }
+    return best;
   }
 
   /** The moto simulation for the next moto. The caller runs it (live or auto-complete). */

@@ -71,7 +71,7 @@ describe('rider AI (GDD 11.1)', () => {
   });
 
 
-  it('puts the rider at each picked gate in that slot, and that place in the line-up', () => {
+  it('puts the rider at each picked gate in that slot, and in their turn in the line-up', () => {
     for (const g of [1, 5, 8, 9, 11, 16]) {
       for (const seed of [8, 99]) {
         const { dir } = race('farmland', seed, true);
@@ -81,9 +81,10 @@ describe('rider AI (GDD 11.1)', () => {
         // Its lane is the (g-1) % 8th of eight, from gate 1's on the inside of the first corner across.
         const inside = dir.poses(0).find((p) => dir.gateOf(p.id) === 0)!.lane;
         expect(slot.lane).toBeCloseTo(inside * (1 - (2 * ((g - 1) % 8)) / 7), 9);
+        // It rides up in its turn in the line-up (pick order), not its gate's.
         const arrived = arrivals(dir);
-        const order = [...arrived.entries()].sort((a, b) => a[1] - b[1] || dir.gateOf(a[0]) - dir.gateOf(b[0])).map(([x]) => x);
-        expect(order.indexOf(id) + 1).toBe(g);
+        const i = dir.arrival.indexOf(id);
+        if (i > 0 && !dir.lined.has(id)) expect(arrived.get(id)!).toBeGreaterThan(arrived.get(dir.arrival[i - 1])!);
       }
     }
   });

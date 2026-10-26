@@ -195,6 +195,20 @@ describe('race day (Spec 12, 14)', () => {
     expect(venueProblem(content, farmland, c, { 'found.venue-farmland': true })).toMatch(/broken/);
   });
 
+  it('CPU riders pick gates they like, so the start fills unevenly, and the gate screen matches the start', () => {
+    let inOrder = 0;
+    for (let seed = 1; seed <= 20; seed++) {
+      const d = day(seed);
+      const { taken, free } = d.gatesForPlayer();
+      d.assignGates(free[free.length - 1]);
+      for (const [g, id] of taken) expect(d.field.find((e) => e.id === id)!.gate).toBe(g);
+      const gates = d.pickOrder.map((id) => d.field.find((e) => e.id === id)!.gate!);
+      expect(new Set(gates).size).toBe(d.field.length);
+      if (gates.every((g, i) => i === 0 || g > gates[i - 1] || d.pickOrder[i] === PLAYER_ID)) inOrder++;
+    }
+    expect(inOrder).toBe(0);
+  });
+
   it('runs two motos, sets moto 2 gate picks by moto 1 order, and totals the day', () => {
     const d = day(77);
     for (let m = 0; m < 2; m++) {
