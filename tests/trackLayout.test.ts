@@ -41,24 +41,22 @@ describe('drawn shape of a stretch', () => {
     expect(drawnShape(lapGeom(arc), 0, 0.15, 3.4).shape).toBe('sweeper');
   });
 
-  it('every section of every track sits on a stretch drawn the shape its type needs', () => {
-    for (const t of content.tracks.tracks) {
-      const shapes = sectionShapes(t);
-      t.sections.forEach((s, i) => expect(sections[s.type].shapes, `${t.id} section ${i + 1} ${s.type}`).toContain(shapes[i].shape));
-      expect(layoutProblems(t, sections), t.id).toEqual([]);
-    }
+  it('every shipped track passes the layout checks', () => {
+    for (const t of content.tracks.tracks) expect(layoutProblems(t, sections), t.id).toEqual([]);
   });
 });
 
 describe('layout check', () => {
   const farm = content.tracks.tracks.find((t) => t.id === 'farmland')!;
 
-  it('flags a hairpin drawn on a straight', () => {
+  it('lets any section type sit on any drawn shape: a hairpin on a straight is the track maker\'s choice', () => {
     const shapes = sectionShapes(farm);
     const i = shapes.findIndex((x) => x.shape === 'straight');
-    const bad: TrackDef = { ...farm, sections: farm.sections.map((s, j) => (j === i ? { ...s, type: 'hairpin' } : s)) };
-    const p = layoutProblems(bad, sections);
-    expect(p.some((x) => x.field === `sections[${i}].type` && /drawn as a straight/.test(x.message))).toBe(true);
+    const odd: TrackDef = { ...farm, sections: farm.sections.map((s, j) => (j === i ? { ...s, type: 'hairpin' } : s)) };
+    expect(layoutProblems(odd, sections)).toEqual([]);
+    const j = shapes.findIndex((x) => x.shape === 'hairpin' || x.shape === 'corner');
+    const flat: TrackDef = { ...farm, sections: farm.sections.map((s, k) => (k === j ? { ...s, type: 'straight' } : s)) };
+    expect(layoutProblems(flat, sections)).toEqual([]);
   });
 
   it('flags a missing start, one off the lap, one that cuts across the lap and a start gate on the lap', () => {

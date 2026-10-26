@@ -46,7 +46,7 @@ export interface EditViewState {
   /** The selected control point's curve handles, as the spots they are at. */
   handles?: [number, number][];
   /** What is being placed (the start straight, the finish line or a feature): its points, whether it can go there, and the ring it snaps on at (x, y, radius). */
-  ghost?: { pts: [number, number][]; level: 'ok' | 'warning' | 'error'; ring: [number, number, number] | null };
+  ghost?: { pts: [number, number][]; level: 'ok' | 'warning' | 'error'; ring: [number, number, number] | null; /** The route being drawn: a thin dashed line from the last point to the pointer, not a piece. */ dashed?: boolean };
 }
 
 const GREEN = 0x34c759;
@@ -440,7 +440,8 @@ export class TrackEditScene extends Phaser.Scene {
       }
       // The lap's points (white; the finish line's bigger, once one is placed) and the start straight's (blue).
       const finish = (t as { finish?: false }).finish !== false;
-      if (st.gapFrom !== 0) (st.points ?? t.path).forEach(([x, y], i) => line(ring(x, y, i === st.sel.pt ? 0.6 : i === 0 && finish ? 0.5 : 0.35), i === st.sel.pt ? SELECT : 0xffffff, true));
+      // With nothing built yet (gapFrom 0: a placeholder track off the grid), the route's own points still show, so the first click does.
+      (st.gapFrom !== 0 ? st.points ?? t.path : st.points ?? []).forEach(([x, y], i) => line(ring(x, y, i === st.sel.pt ? 0.6 : i === 0 && finish ? 0.5 : 0.35), i === st.sel.pt ? SELECT : 0xffffff, true));
       // The selected control point's curve handles: a dashed line to each, and a small ring.
       if (st.handles && st.sel.pt >= 0 && st.points?.[st.sel.pt]) {
         const [px, pz] = st.points[st.sel.pt];
@@ -454,7 +455,8 @@ export class TrackEditScene extends Phaser.Scene {
       if (g) {
         if (g.ring) line(ring(g.ring[0], g.ring[1], g.ring[2]), 0xffffff, true, true, 0.08 * k, 11);
         const w = (t.width ?? 3.4) / 2;
-        line(g.pts.map(([x, y]) => ({ x, z: y })), g.level === 'error' ? RED : g.level === 'warning' ? YELLOW : GREEN, false, false, w, 11);
+        if (g.dashed) line(g.pts.map(([x, y]) => ({ x, z: y })), 0xffffff, false, true, 0.12 * k, 11);
+        else line(g.pts.map(([x, y]) => ({ x, z: y })), g.level === 'error' ? RED : g.level === 'warning' ? YELLOW : GREEN, false, false, w, 11);
       }
       (t.start?.path ?? []).forEach(([x, y], i) => line(rect(x, y, 0.6, 0.6, 0), i === st.sel.start ? SELECT : 0x4aa0ff, true));
     }

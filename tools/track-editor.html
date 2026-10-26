@@ -276,7 +276,7 @@ body.final .final-hide { display: none !important; }
     </div>
     <div class="box" id="featBox">
       <h2>Features</h2>
-      <div class="hint">Jumps, whoops, sand and the like go on top of the route: pick one and click the route to place it. Drag it along the route, drag its white diamonds to stretch it, <kbd>Del</kbd> removes it. The straights and bends between them come from the route's shape.</div>
+      <div class="hint">Jumps, whoops, sand and the like go on top of the route: pick one and click the route to place it. Drag it along the route, drag its white diamonds to stretch it, <kbd>Del</kbd> removes it. Corners are features too: nothing is typed from the route's shape, and a feature rides as its type whatever shape it is drawn. Between features the route rides as plain track.</div>
       <div class="pal" id="featPal"></div>
       <div id="featMsg" class="hint"></div>
     </div>
@@ -289,7 +289,7 @@ body.final .final-hide { display: none !important; }
         <button id="btnAddSec" disabled title="Add a section after the selected one">+ Section</button>
         <button id="btnSplitSec" disabled title="Split the selected section into two halves">Split</button>
         <button id="btnFitSecs" disabled title="Replace the sections with straights and corners that suit the drawing, to rename and fill with jumps">From drawing</button>
-        <button id="btnUseFeats" disabled title="Keep this track's jumps and special sections as features on the route, and let the straights and bends between them follow the route's shape. Its sections are kept as they are until you click this.">Use features</button>
+        <button id="btnUseFeats" disabled title="Keep this track's corners, jumps and special sections as features on the route, each with its type, and let the route between them ride as plain track; a First corner section becomes the start straight's end. Its sections are kept as they are until you click this.">Use features</button>
       </div>
       <div class="box" id="secDetail"></div>
       <div class="hint" id="secHint">Sections run in order from the finish line, and each type has to suit the shape drawn there (red edge if not). Pass is the chance of a pass being on in that section (0 to 1).</div>
@@ -341,12 +341,12 @@ body.final .final-hide { display: none !important; }
 <dialog id="help">
   <h3 style="margin-top:0">Track editor help</h3>
   <ul>
-    <li><b>Layout:</b> the route is the shape the race screen shows: control points on a 100 × 60 grid, joined in order and back to the first point, where the finish line goes. Drag a point to move it (snaps to whole grid units; untick <b>Snap</b> or hold <kbd>Alt</kbd> for tenths). Double-click the route to add a point, right-click a point or press <kbd>Del</kbd> to delete it (the route joins up across it), arrow keys nudge it. <b>Round corner</b> <kbd>R</kbd> gives the selected point curve handles (blue squares): drag one to shape the curve, its mirror follows, <kbd>Alt</kbd> drags one side on its own; <b>Sharp corner</b> takes them off. <b>− Segment</b> takes out the stretch after the selected point, so the route is open there. The drawing the game races is generated from the route, the straights and bends between the features come from its shape, and Undo and Redo cover every step.</li>
-    <li><b>New tracks</b> start empty and as a draft, drawing their route: click the ground point by point, and click the first point (the green ring) to close the route; <kbd>Enter</kbd> or <kbd>Esc</kbd> stops drawing, <kbd>Backspace</kbd> takes the last point off, and <b>Draw route</b> carries on from the last point of an open route. <b>Close the route</b> joins the last point back to the first; <b>Open the route</b> takes the closing stretch out again. Nothing else is laid for you: the start straight and the finish line are placed on their own under <b>Start and finish</b>, before or after. <b>Features</b> (jumps, whoops, sand and the like) go on top of the route: pick one and it follows the pointer along the route, <kbd>,</kbd> <kbd>.</kbd> make it shorter or longer, a click places it; drag it along the route, drag its white diamonds to stretch it, <kbd>Del</kbd> removes it, and its line and jump height are under Sections. Two that overlap, or one on a stretch whose shape doesn't suit it, are allowed with a warning in Checks that names them (click it to select the feature). A draft saves at any time, with one point, an open route, no start or finish, or errors; the Route box says <b>Draft</b>, <b>Draft with warnings</b>, <b>Ready for validation</b> or <b>Race-ready</b>, and the game leaves drafts out until <b>Ready to race</b> passes the game's checks. Tracks made before features keep their sections as saved; <b>Use features</b> (Sections), or placing a feature, keeps their jumps and special sections as features and lets the straights and bends follow the route.</li>
-    <li><b>Start straight:</b> every track starts from a gate on its own start straight that joins the route, as on a real track. Its points are the blue squares: the first is the gate (the black bar, with the yellow line-up behind it), the white one is where it joins the route and stays on the route when dragged. To add one, pick <b>Start straight</b> under <b>Start and finish</b> (or <b>+ Start straight</b> above the view): it follows the pointer, its end (the ring) snapping onto the route where the pointer is near it, green where it can go and red with the reason where it can't; <kbd>Q</kbd> <kbd>E</kbd> turn it, <kbd>F</kbd> brings it in from the other side, <kbd>,</kbd> <kbd>.</kbd> make it shorter or longer, a click or <kbd>Enter</kbd> places it and <kbd>Esc</kbd> cancels. On an empty track it can go first, anywhere, and be joined on later by dragging its white end onto the route (anywhere on it, just before or after the finish line included). It turns red when it is off the route. <b>Move start straight</b> places it again, and <b>Remove start straight</b> takes it off. Riders ride it once, then the lap from the join round to the finish line, which ends lap 1. Select a blue point for <b>+ Point</b> and <b>− Point</b>. The checks ask for it to be at least 12 grid units long, clear of the route until it joins, meeting the route at 75° or less.</li>
+    <li><b>Layout:</b> the route is the shape the race screen shows: control points on a 100 × 60 grid, joined in order and back to the first point, where the finish line goes. Drag a point to move it (snaps to whole grid units; untick <b>Snap</b> or hold <kbd>Alt</kbd> for tenths). Double-click the route to add a point, right-click a point or press <kbd>Del</kbd> to delete it (the route joins up across it), arrow keys nudge it. <b>Round corner</b> <kbd>R</kbd> gives the selected point curve handles (blue squares): drag one to shape the curve, its mirror follows, <kbd>Alt</kbd> drags one side on its own; <b>Sharp corner</b> takes them off. <b>− Segment</b> takes out the stretch after the selected point, so the route is open there. The drawing the game races is generated from the route; between the features it rides as plain track whatever its shape, and Undo and Redo cover every step, each point placed included.</li>
+    <li><b>New tracks</b> start empty and as a draft, drawing their route: click the ground point by point, and click the first point (the green ring) to close the route; <kbd>Enter</kbd> or <kbd>Esc</kbd> stops drawing, <kbd>Backspace</kbd> takes the last point off, and <b>Draw route</b> carries on from the last point of an open route. <b>Close the route</b> joins the last point back to the first; <b>Open the route</b> takes the closing stretch out again. Nothing else is laid for you: the start straight and the finish line are placed on their own under <b>Start and finish</b>, before or after. <b>Features</b> (corners, hairpins, berms, ruts, jumps, whoops, sand and the like) go on top of the route, and only where you put them: nothing is typed from the route's shape, so a route with no features rides as plain track. Pick one and it follows the pointer along the route, <kbd>,</kbd> <kbd>.</kbd> make it shorter or longer, a click places it; drag it along the route, drag its white diamonds to stretch it, <kbd>Del</kbd> removes it, and its line and jump height are under Sections. A feature rides as its type whatever shape it is drawn (a hairpin at 90° or wide open), and moving or reshaping it never changes its type. Two that overlap are allowed with a warning in Checks that names them (click it to select the feature). A draft saves at any time, with one point, an open route, no start or finish, or errors; the Route box says <b>Draft</b>, <b>Draft with warnings</b>, <b>Ready for validation</b> or <b>Race-ready</b>, and the game leaves drafts out until <b>Ready to race</b> passes the game's checks. Tracks made before features keep their sections as saved; <b>Use features</b> (Sections), or placing a feature, keeps their corners, jumps and special sections as features, with their types, and lets the route between them ride as plain track.</li>
+    <li><b>Start straight:</b> every track starts from a gate on its own start straight that joins the route, as on a real track. Its points are the blue squares: the first is the gate (the black bar, with the yellow line-up behind it), the white one is where it joins the route and stays on the route when dragged. To add one, pick <b>Start straight</b> under <b>Start and finish</b> (or <b>+ Start straight</b> above the view): it follows the pointer, its end (the ring) snapping onto the route where the pointer is near it, green where it can go and red with the reason where it can't; <kbd>Q</kbd> <kbd>E</kbd> turn it, <kbd>F</kbd> brings it in from the other side, <kbd>,</kbd> <kbd>.</kbd> make it shorter or longer, a click or <kbd>Enter</kbd> places it and <kbd>Esc</kbd> cancels. On an empty track it can go first, anywhere, and be joined on later by dragging its white end onto the route (anywhere on it, just before or after the finish line included). It turns red when it is off the route. <b>Move start straight</b> places it again, and <b>Remove start straight</b> takes it off. Riders ride it once, then the lap from the join round to the finish line, which ends lap 1. <b>The first corner</b> is the start straight's end: from where it joins to the route's next point, the race rides the route with the first corner's own rules (difficulty, skills, lap 1's first-corner incident), with no section of its own to place; a feature placed there rides as that feature. Select a blue point for <b>+ Point</b> and <b>− Point</b>. The checks ask for it to be at least 12 grid units long, clear of the route until it joins, meeting the route at 75° or less.</li>
     <li><b>Finish line:</b> its own part of the track, placed by you and never for you: closing the lap or joining the start straight makes no finish line. Pick <b>Finish line</b> under <b>Start and finish</b> (or <b>+ Finish line</b> above the view) once the lap is closed and a chequered bar follows the pointer, snapping across the lap; a click or <kbd>Enter</kbd> places it. It becomes the lap's first point (a point is added there if there was none), and the sections are split and turned round to start there, so the lap is laid out exactly as before. <b>Finish here</b> puts it on the selected point, dragging point 0 moves it along the lap, and <b>Remove finish line</b> takes it off (the track is then unfinished until one is placed again). A track without one is a valid draft; it is listed under the checks as still needed to race.</li>
     <li><b>Kind</b> sets how the race screen shows the track: a stadium track fits on one screen; outdoor and endurance tracks use a camera that follows the riders, with a map of the whole lap. <b>Width</b> is the track width on the race screen.</li>
-    <li class="final-hide"><b>Sections</b> are what the race simulation rides, in order. Each is placed on the drawing by its share of the lap length, and its type has to suit the shape drawn there (straight, sweeper, corner or hairpin, as racing.json says): a hairpin on a straight would have riders braking for nothing. A section that doesn't suit its drawing is edged in red and listed in the checks. <b>From drawing</b> replaces the sections with straights and corners that suit the drawing. Click the track to pick the section under the pointer. Drag a white diamond to move metres between two sections. The section box sets the line riders take through it and the height of jumps and hills.</li>
+    <li class="final-hide"><b>Sections</b> are what the race simulation rides, in order. Each is placed on the drawing by its share of the lap length and ridden as its type whatever shape is drawn there; the panel says what the shape reads as (straight, sweeper, corner or hairpin). On a track from before features, <b>From drawing</b> replaces the sections with straights and corners that suit the drawing, if you ask for it. Click the track to pick the section under the pointer. Drag a white diamond to move metres between two sections. The section box sets the line riders take through it and the height of jumps and hills.</li>
     <li class="final-hide"><b>Gates</b> is the start bonus curve, in percent of start time, best gate first (Spec 10.4).</li>
     <li><b>Surfaces:</b> mud, sand, water and other patches along the lap, laid by clicking the track.</li>
     <li><b>Ground:</b> paint the ground round the track with the game's ground tiles.</li>
@@ -742,8 +742,8 @@ function sectionAt(t, f) {
 }
 
 // Drawn shapes (as src/core/trackGeom.ts drawnShape): what a stretch of the drawing looks like,
-// measured from the drawing alone. A section's type has to suit the shape it sits on
-// (racing.json "shapes"), or riders brake on straights and take U-turns flat out.
+// measured from the drawing alone, as information: any section type can be drawn any shape (a
+// hairpin at 90° or wide open), as the track maker chooses.
 const STRAIGHT_UNDER = 30;
 const HAIRPIN_FROM = 135;
 const SWEEPER_WIDTHS = 2;
@@ -789,12 +789,8 @@ function sectionShapes(t) {
   return t.sections.map((_, i) => drawnShape(g, b[i], b[i + 1], t.width ?? DEFAULT_WIDTH));
 }
 const an = (w) => (/^[aeiou]/.test(w) ? 'an' : 'a');
-/** The shapes a section type may be drawn as, from racing.json (any, for an older file without them). */
-const shapesFor = (type) => app.sectionDefs[type]?.shapes ?? ['straight', 'sweeper', 'corner', 'hairpin'];
-function shapeMismatch(t, i, d) {
-  const s = t.sections[i];
-  return app.sectionDefs[s.type] && s.type !== 'start_gate' && !shapesFor(s.type).includes(d.shape);
-}
+/** What a drawn shape reads as, for the section and feature panels. */
+const shapeText = (d) => `${an(d.shape)} ${d.shape}, turning ${Math.round(d.swept)}°${Number.isFinite(d.radius) ? `, tightest radius ${d.radius.toFixed(1)}` : ''}`;
 
 // The start straight (as trackGeom.ts startGeom): its own stretch from the start gate (its first
 // point) that joins the lap at its last point. Riders line up at the gate, ride it once on lap 1,
@@ -815,6 +811,36 @@ function startGeom(t, g = lapGeom(t)) {
   const end = pts.at(-1);
   const near = project(g, end.x, end.y);
   return { pts, cum, total, join: near.f, off: near.dist };
+}
+/** Shortest first corner, in grid units (trackGeom.FIRST_CORNER_MIN): a route point closer to the join than this is passed over for the next. */
+const FIRST_CORNER_MIN = 1;
+/**
+ * The first corner (as trackGeom.firstCornerSpan): the lap from where the start straight joins to
+ * the route's next control point, as lap fractions {from, to} (to may pass 1), where the race
+ * rides the route's own track with the first corner's rules. Null without a start straight on the
+ * route, and on a track from before features that has its own first-corner section.
+ */
+function firstCornerSpan(t) {
+  if (!t || t.path.length < 2 || t.open) return null;
+  const g = lapGeom(t);
+  const sg = startGeom(t, g);
+  if (!sg || sg.off > 1) return null;
+  if (t.sections.some((s) => s.type === 'first_corner')) return null;
+  const min = FIRST_CORNER_MIN / g.total;
+  let best = Infinity;
+  let point = -1;
+  lpts(t).forEach((p, i) => {
+    let d = project(g, p[0], p[1]).f - sg.join;
+    if (d < min) d += 1;
+    if (d < best) { best = d; point = i; }
+  });
+  if (!Number.isFinite(best)) return null;
+  return { from: sg.join, to: sg.join + best, point, metres: Math.round(best * g.total * PIECE_MPU) };
+}
+/** True when the middle of the stretch [a, b] (lap fractions) lies in the span, counting round past the finish line (trackGeom.inSpan). */
+function inSpan(span, [a, b]) {
+  const mid = ((((a + b) / 2 - span.from) % 1) + 1) % 1;
+  return mid < span.to - span.from - 1e-9;
 }
 function startHalfWidth(s, u, hw) {
   const t = clamp(u / Math.max(1e-9, s.total * 0.7), 0, 1);
@@ -885,12 +911,18 @@ function autoStart(t) {
   return null;
 }
 /**
- * The route split into straights and bends by its shape, each bend given the plainest type its
- * shape allows: stretches [from, to] in grid units along the route with the type and passing
- * chance each suits. The sections between a track's features come from these.
+ * The route's own surface: the stretches between the features ride as plain track (a straight),
+ * whatever shape they are drawn; corners, jumps and the rest are the features placed on them.
+ * Nothing is typed from the route's shape.
+ */
+const BASE_TYPE = 'straight';
+const isBaseType = (ty) => ty === BASE_TYPE;
+/**
+ * From drawing (tracks from before features only): the route split into straights and bends by
+ * its shape, each bend given the plainest type its shape allows: stretches [from, to] in grid
+ * units along the route with the type and passing chance each suits.
  */
 const BASE_TYPES = { straight: 'straight', sweeper: 'fast_sweeper', corner: 'flat_corner', hairpin: 'hairpin' };
-const isBaseType = (ty) => Object.values(BASE_TYPES).includes(ty);
 function baseRuns(t) {
   if (t.path.length < 2) return [];
   const g = lapGeom(t);
@@ -1060,25 +1092,23 @@ function derive(t) {
   if (t.layout) rebuildPath(t); else LIDX.delete(t);
   if (t.features) rebuildSections(t);
 }
-/** Every section type that is placed as a feature: all but the straights and bends the route makes itself. */
-const featureTypes = () => sectionTypes().filter((x) => x !== 'start_gate' && !isBaseType(x));
 /**
- * The sections from the route and its features: the route's straights and bends (baseRuns) cut
- * by the features, in riding order from the first point. A feature past the end of the route is
- * left out, one past the end of an open route cut short, and where two overlap the later one
- * wins, each of which the checks say. Slivers under a grid unit join the neighbour.
+ * Every section type that is placed as a feature: all but the start gate, the plain track the
+ * route is itself, and the first corner, which is the start straight's end (firstCornerSpan).
+ */
+const featureTypes = () => sectionTypes().filter((x) => x !== 'start_gate' && x !== 'first_corner' && !isBaseType(x));
+/**
+ * The sections from the route and its features: the route's own plain track cut by the features,
+ * in riding order from the first point. A feature past the end of the route is left out, one past
+ * the end of an open route cut short, and where two overlap the later one wins, each of which the
+ * checks say. Slivers under a grid unit join the neighbour.
  */
 function rebuildSections(t) {
   const total = t.path.length >= 2 ? lapGeom(t).total : 0;
   const feats = (t.features ?? []).map((f, k) => ({ ...f, k })).filter((f) => f.at < total - 1e-6).sort((a, b) => a.at - b.at || a.k - b.k);
-  const base = baseRuns(t);
   const cuts = [];
   const fill = (from, to) => {
-    for (const r of base) {
-      const a = Math.max(from, r.from);
-      const b = Math.min(to, r.to);
-      if (b - a > 1e-6) cuts.push({ type: r.type, from: a, to: b, passing: r.passing, feat: -1 });
-    }
+    if (to - from > 1e-6) cuts.push({ type: BASE_TYPE, from, to, passing: PIECE_PASS.straight, feat: -1 });
   };
   let cursor = 0;
   for (const f of feats) {
@@ -1100,18 +1130,9 @@ function rebuildSections(t) {
     else continue;
     cuts.splice(i, 1);
   }
-  // Each of the route's own stretches is typed by its own shape (a run cut by a feature may be
-  // straighter than the run was), and the metres are rounded so no boundary drifts more than
-  // half a metre from where it is on the route.
-  const g = total ? lapGeom(t) : null;
-  const width = t.width ?? DEFAULT_WIDTH;
+  // The metres are rounded so no boundary drifts more than half a metre from where it is on the route.
   const metres = (u) => Math.round(u * PIECE_MPU);
   t.sections = cuts.map((c) => {
-    if (c.feat < 0 && g) {
-      const shape = drawnShape(g, c.from / total, c.to / total, width).shape;
-      c.type = app.sectionDefs[BASE_TYPES[shape]] || !Object.keys(app.sectionDefs).length ? BASE_TYPES[shape] : 'straight';
-      c.passing = PIECE_PASS[shape];
-    }
     const sec = { type: c.type, length: Math.max(1, metres(c.to) - metres(c.from)), passing: c.passing };
     if (c.line) sec.line = c.line;
     if (c.height !== undefined) sec.height = c.height;
@@ -1133,8 +1154,9 @@ function featureAt(t, d) {
 }
 const featureName = (f) => app.sectionDefs[f.type]?.name ?? f.type;
 /**
- * Gives a track its jumps and special sections as features on the route, at the share of the
- * lap each section has now, and lets the straights and bends between them follow the route.
+ * Gives a track its corners, jumps and special sections as features on the route, at the share
+ * of the lap each section has now, each keeping its type; its straights become the route's own
+ * plain track, and a first-corner section becomes the start straight's end (firstCornerSpan).
  */
 function useFeatures(t) {
   if (t.features) return;
@@ -1142,7 +1164,7 @@ function useFeatures(t) {
   const b = sectionBounds(t);
   t.features = [];
   t.sections.forEach((s, i) => {
-    if (isBaseType(s.type) || s.type === 'start_gate' || s.type === 'gap') return;
+    if (isBaseType(s.type) || s.type === 'start_gate' || s.type === 'gap' || s.type === 'first_corner') return;
     const f = { type: s.type, at: round1(b[i] * g.total), len: Math.max(0.5, round1((b[i + 1] - b[i]) * g.total)), passing: s.passing };
     if (s.line) f.line = s.line;
     if (s.height !== undefined) f.height = s.height;
@@ -1152,15 +1174,14 @@ function useFeatures(t) {
 }
 /**
  * What is wrong with the features: off the end of the route, cut short by an open route's end,
- * overlapping, or on a stretch whose shape doesn't suit the type. Each names the feature (k).
+ * or overlapping. Each names the feature (k). The shape a feature is drawn on is the track
+ * maker's choice: a hairpin can be as wide or as tight as the route makes it.
  */
 function featureProblems(t) {
   const out = [];
   const feats = t.features ?? [];
   if (!feats.length) return out;
   const total = t.path.length >= 2 ? lapGeom(t).total : 0;
-  const g = t.path.length >= 2 ? lapGeom(t) : null;
-  const width = t.width ?? DEFAULT_WIDTH;
   const m = (u) => Math.round(u * PIECE_MPU);
   feats.forEach((f, k) => {
     const name = `Feature ${k + 1} (${featureName(f).toLowerCase()})`;
@@ -1172,10 +1193,6 @@ function featureProblems(t) {
       const b = Math.min(f.at + f.len, o.at + o.len, total);
       if (b - a > 1e-6) out.push({ k, level: 'warning', message: `${name} overlaps feature ${j + 1} (${featureName(o).toLowerCase()}) between ${m(a)} and ${m(b)} m: the one placed later wins there. Move or shorten one of them.` });
     });
-    if (g && app.sectionDefs[f.type]) {
-      const d = drawnShape(g, f.at / total, Math.min(total, f.at + f.len) / total, width);
-      if (!shapesFor(f.type).includes(d.shape)) out.push({ k, level: 'error', message: `${name} is on ${an(d.shape)} ${d.shape} (the route turns ${Math.round(d.swept)}° there); it needs ${shapesFor(f.type).map((x) => `${an(x)} ${x}`).join(' or ')}. Move it along the route, or reshape the route there.` });
-    }
   });
   return out;
 }
@@ -1576,13 +1593,10 @@ function draw() {
   });
 
   // Sections as a coloured stripe down the middle, the selected one wider (development only).
-  // A section whose type doesn't suit the shape it's drawn on is edged in red.
   const bounds = sectionBounds(t);
   if (!app.final && app.mode === 'layout') {
-    const shapes = sectionShapes(t);
     t.sections.forEach((s, i) => {
       const sel = i === app.selSec;
-      if (shapeMismatch(t, i, shapes[i])) strokeLap(g, bounds[i], bounds[i + 1], '#ff3030', width * 0.95, 'butt');
       strokeLap(g, bounds[i], bounds[i + 1], colorOf(s.type) + (sel ? 'ff' : 'b0'), sel ? width * 0.6 : Math.max(3, width * 0.22));
     });
   }
@@ -1802,11 +1816,21 @@ function drawLayout(t, g) {
   L.forEach((p, i) => {
     const s = toScreen(p[0], p[1]);
     const sel = i === app.selPt;
+    const last = app.drawing && i === L.length - 1;
     ctx.fillStyle = sel ? '#f0a020' : i === 0 ? '#ffffff' : '#1f2229';
     ctx.strokeStyle = sel ? '#ffffff' : smooth(p) ? '#8fd3ff' : '#f0a020';
     ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(s.x, s.y, sel ? 7 : 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    if (sel || (app.drawing && i === L.length - 1)) {
+    if (last) {
+      // The point the route goes on from while drawing: ringed, so the first click shows at once.
+      ctx.save();
+      ctx.setLineDash([3, 3]);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(s.x, s.y, 11, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
+    if (sel || last) {
       ctx.fillStyle = '#ffffff';
       ctx.font = '11px system-ui, sans-serif';
       ctx.fillText(String(i), s.x + 8, s.y - 8);
@@ -1991,17 +2015,19 @@ function renderSections() {
   const types = sectionTypes();
   const shapes = sectionShapes(t);
   const feats = sectionFeats(t);
+  const bounds = sectionBounds(t);
+  const fcSpan = firstCornerSpan(t);
   $('#secHint').textContent = t.features
-    ? 'Sections run in order from the finish line: the straights and bends come from the route\'s shape, and the rest are the features placed on it (edit those here or on the route). Each type has to suit the shape drawn there (red edge if not). Pass is the chance of a pass being on in that section (0 to 1).'
-    : 'Sections run in order from the finish line, and each type has to suit the shape drawn there (red edge if not). Drag the white diamonds on the track to move metres between neighbouring sections. Pass is the chance of a pass being on in that section (0 to 1). Use features keeps the jumps and special sections as features on the route, and lets the straights and bends follow the route.';
+    ? 'Sections run in order from the finish line: the route itself rides as plain track, and the corners, jumps and the rest are the features placed on it (edit those here or on the route), each ridden as its type whatever shape it is drawn. The first corner is the start straight\'s end: from where it joins to the route\'s next point. Pass is the chance of a pass being on in that section (0 to 1).'
+    : 'Sections run in order from the finish line, each ridden as its type whatever shape it is drawn. Drag the white diamonds on the track to move metres between neighbouring sections. Pass is the chance of a pass being on in that section (0 to 1). Use features keeps the corners, jumps and special sections as features on the route, with their types, and lets the route between them ride as plain track.';
   t.sections.forEach((s, i) => {
     const row = document.createElement('div');
     const fk = feats[i];
     const f = fk >= 0 ? t.features[fk] : null;
     const base = !!t.features && !f;
-    const off = shapeMismatch(t, i, shapes[i]);
-    row.className = `sec${i === app.selSec ? ' active' : ''}${off ? ' off' : ''}${base ? ' base' : ''}`;
-    row.title = `${base ? 'From the route\'s shape. ' : f ? `Feature ${fk + 1}. ` : ''}Drawn as ${an(shapes[i].shape)} ${shapes[i].shape} (turns ${Math.round(shapes[i].swept)}°)${off ? `: ${app.sectionDefs[s.type].name.toLowerCase()} needs ${shapesFor(s.type).join(' or ')}` : ''}`;
+    const fc = base && fcSpan && inSpan(fcSpan, [bounds[i], bounds[i + 1]]);
+    row.className = `sec${i === app.selSec ? ' active' : ''}${base ? ' base' : ''}`;
+    row.title = `${base ? (fc ? 'The route itself; rides as the first corner (the start straight\'s end). ' : 'The route itself, plain track. ') : f ? `Feature ${fk + 1}. ` : ''}Drawn as ${shapeText(shapes[i])}.`;
     const sw = document.createElement('div');
     sw.className = 'sw';
     sw.style.background = colorOf(s.type);
@@ -2066,12 +2092,17 @@ function renderSectionDetail() {
   head.innerHTML = '<b></b> <span class="hint"></span>';
   head.querySelector('b').textContent = `Section ${app.selSec + 1}: ${def?.name ?? s.type}`;
   if (t.features) {
-    // A straight or bend the route makes itself: nothing to set on it.
+    // A stretch of the route itself: nothing to set on it.
     const d0 = sectionShapes(t)[app.selSec];
-    head.querySelector('.hint').textContent = `from the route's shape: ${an(d0.shape)} ${d0.shape}, turning ${Math.round(d0.swept)}°`;
+    const b0 = sectionBounds(t);
+    const fcs = firstCornerSpan(t);
+    const fc = fcs && inSpan(fcs, [b0[app.selSec], b0[app.selSec + 1]]);
+    head.querySelector('.hint').textContent = `the route itself, drawn as ${shapeText(d0)}`;
     const note = document.createElement('div');
     note.className = 'hint';
-    note.textContent = 'To give this stretch a racing line, a jump or another surface, place a feature on it.';
+    note.textContent = fc
+      ? `This stretch is the first corner: from where the start straight joins to the route's next point, the race rides it with the first corner's own difficulty, skills and incidents. To give it a surface of its own (a berm, ruts), place a feature on it, which rides as that feature.`
+      : 'To give this stretch a racing line, a corner type, a jump or another surface, place a feature on it.';
     box.append(head, note);
     return;
   }
@@ -2079,10 +2110,8 @@ function renderSectionDetail() {
   box.appendChild(head);
   const d = sectionShapes(t)[app.selSec];
   const shape = document.createElement('div');
-  const off = shapeMismatch(t, app.selSec, d);
-  shape.className = off ? 'bad' : 'hint';
-  if (off) shape.style.color = '#f0a0a0';
-  shape.textContent = `Drawn as ${an(d.shape)} ${d.shape}: turns ${Math.round(d.swept)}°${Number.isFinite(d.radius) ? `, tightest radius ${d.radius.toFixed(1)}` : ''}. ${def ? `${def.name} suits ${shapesFor(s.type).join(', ')}.` : ''}`;
+  shape.className = 'hint';
+  shape.textContent = `Drawn as ${shapeText(d)}. It rides as ${def ? an(def.name.toLowerCase()) + ' ' + def.name.toLowerCase() : s.type} whatever its shape.`;
   box.appendChild(shape);
   const field = (labelText, el) => { const f = document.createElement('div'); f.className = 'field'; const l = document.createElement('label'); l.textContent = labelText; f.append(l, el); box.appendChild(f); return el; };
   const sel = document.createElement('select');
@@ -2118,7 +2147,7 @@ function renderFeatureDetail(t, k) {
     const d = drawnShape(g, f.at / g.total, Math.min(1, (f.at + f.len) / g.total), t.width ?? DEFAULT_WIDTH);
     shape.className = probs.some((p) => p.level === 'error') ? 'bad' : probs.length ? 'warn' : 'hint';
     if (probs.some((p) => p.level === 'error')) shape.style.color = '#f0a0a0';
-    shape.textContent = `On ${an(d.shape)} ${d.shape}: the route turns ${Math.round(d.swept)}° there${Number.isFinite(d.radius) ? `, tightest radius ${d.radius.toFixed(1)}` : ''}. ${def ? `${def.name} suits ${shapesFor(f.type).join(', ')}.` : ''} ${probs.map((p) => p.message).join(' ')}`;
+    shape.textContent = `On ${shapeText(d)}. ${def ? `It rides as ${an(def.name.toLowerCase())} ${def.name.toLowerCase()} whatever its shape; drag its ends to shape it.` : ''} ${probs.map((p) => p.message).join(' ')}`;
   } else { shape.className = 'bad'; shape.style.color = '#f0a0a0'; shape.textContent = probs.map((p) => p.message).join(' '); }
   box.appendChild(shape);
   const field = (labelText, el) => { const d = document.createElement('div'); d.className = 'field'; const l = document.createElement('label'); l.textContent = labelText; d.append(l, el); box.appendChild(d); return el; };
@@ -2858,16 +2887,13 @@ function checkTrack(t, all, strict = false) {
       ? `Height: ${p.message} (red ring in Height mode).`
       : `Height: ${p.message} (yellow ring in Height mode). The game will race it.`);
   }
-  // Section types against the drawing, and the start straight (as src/core/trackCheck.ts).
+  // A start gate on the lap, and the start straight (as src/core/trackCheck.ts). The shape a
+  // section is drawn is the track maker's choice: no type needs a particular shape.
   if (Object.keys(app.sectionDefs).length) {
-    const shapes = sectionShapes(t);
     const feats = sectionFeats(t);
     t.sections.forEach((s, i) => {
-      const def = app.sectionDefs[s.type];
-      if (!def || feats[i] >= 0) return;
-      if (s.type === 'start_gate') { bad.push(`Section ${i + 1} is a start gate on the lap. The start is its own start straight now, so make this a straight.`); return; }
-      const d = shapes[i];
-      if (shapeMismatch(t, i, d)) bad.push(`Circuit: section ${i + 1} (${def.name.toLowerCase()}) is drawn as ${an(d.shape)} ${d.shape} (it turns ${Math.round(d.swept)}°); it needs to be drawn as ${shapesFor(s.type).map((x) => `${an(x)} ${x}`).join(' or ')}.${app.final ? ' Reshape the drawing there.' : ' It is edged in red.'}`);
+      if (!app.sectionDefs[s.type] || feats[i] >= 0) return;
+      if (s.type === 'start_gate') bad.push(`Section ${i + 1} is a start gate on the lap. The start is its own start straight now, so make this a straight.`);
     });
   }
   bad.push(...startProblems(t).map((m) => `Race start: ${m}`));
@@ -2898,7 +2924,11 @@ function checkTrack(t, all, strict = false) {
   // What is in place, so the groups read as a whole.
   const good = [];
   if (t.path.length >= 3 && !t.open) good.push(`Circuit: a closed route of ${lpts(t).length} points and ${t.sections.length} section${t.sections.length === 1 ? '' : 's'}, ${lap} m${t.features ? `, with ${t.features.length} feature${t.features.length === 1 ? '' : 's'}` : ''}.`);
-  if (t.start) { const sg = startGeom(t); if (sg) good.push(`Race start: a start straight ${Math.round(sg.total * PIECE_MPU)} m from the gate, joining ${Math.round(sg.join * lap)} m into the lap.`); }
+  if (t.start) {
+    const sg = startGeom(t);
+    const fc = firstCornerSpan(t);
+    if (sg) good.push(`Race start: a start straight ${Math.round(sg.total * PIECE_MPU)} m from the gate, joining ${Math.round(sg.join * lap)} m into the lap.${fc ? ` The first corner runs ${fc.metres} m from the join to point ${fc.point}: the race rides it with the first corner's rules, and lap 1's first-corner incident happens there.` : ''}`);
+  }
   if (t.finish !== false && t.path.length) good.push(`Finish line: at ${t.path[0][0]}, ${t.path[0][1]}, the lap's first point; every lap starts and ends there.`);
   return { bad, warn, refs, good };
 }
@@ -3703,7 +3733,7 @@ function placeFeature() {
   if (!t || !pl) return;
   const gh = featureGhost(t, pl);
   if (gh.level === 'error') { status(gh.msg, 'err'); return; }
-  if (!t.features && !confirm(`"${t.name}" was made before features. Keep its jumps and special sections as features on the route, and let the straights and bends between them follow the route's shape? (Use features in Sections does the same. Undo puts it back.)`)) return;
+  if (!t.features && !confirm(`"${t.name}" was made before features. Keep its corners, jumps and special sections as features on the route, each with its type, and let the route between them ride as plain track? A First corner section becomes the start straight's end. (Use features in Sections does the same. Undo puts it back.)`)) return;
   const name = app.sectionDefs[pl.type]?.name ?? pl.type;
   commit((t) => {
     useFeatures(t);
@@ -3759,7 +3789,8 @@ function renderRoute() {
   $('#btnFinishPiece').classList.toggle('sel', app.placing?.kind === 'finish');
   $('#btnFinishRemove').disabled = t.finish === false;
   const needs = [!t.start && 'a start straight', t.finish === false && 'a finish line'].filter(Boolean);
-  const startNote = needs.length ? ` Still needed to race: ${needs.join(' and ')} (Start and finish${t.finish === false && t.open ? ', the finish line once the route is closed' : ''}).` : '';
+  const fcs = !needs.length && !t.open ? firstCornerSpan(t) : null;
+  const startNote = needs.length ? ` Still needed to race: ${needs.join(' and ')} (Start and finish${t.finish === false && t.open ? ', the finish line once the route is closed' : ''}).` : fcs ? ` The first corner is the start straight's end: ${fcs.metres} m from the join to point ${fcs.point}.` : '';
   const metres = n >= 2 ? `${Math.round(lapGeom(t).total * PIECE_MPU)} m` : '';
   const pl = app.placing;
   const gh = pl && pl.kind !== 'feature' ? ghostOf(t, pl) : null;
@@ -3784,7 +3815,7 @@ function renderRoute() {
       const b = document.createElement('button');
       b.dataset.type = type;
       b.textContent = app.sectionDefs[type]?.name ?? type;
-      b.title = app.sectionDefs[type] ? `${app.sectionDefs[type].name}: suits ${shapesFor(type).join(', ')}` : type;
+      b.title = app.sectionDefs[type] ? `${app.sectionDefs[type].name}: difficulty ${app.sectionDefs[type].diff}, damages ${app.sectionDefs[type].damage}. Any shape: place it on the route and drag its ends.` : type;
       b.style.borderLeft = `5px solid ${colorOf(type)}`;
       b.addEventListener('click', () => (app.placing?.type === type ? cancelPlacing() : startFeature(type)));
       pal.appendChild(b);
@@ -3827,6 +3858,12 @@ function drawGhost() {
 }
 /** What the race view draws for what is being placed. */
 function ghostForView(t) {
+  if (app.drawing && app.drawAt) {
+    // Drawing the route: the stretch the next click would add, from the last point to the pointer.
+    const L = lpts(t);
+    if (!L.length) return undefined;
+    return { pts: [[L.at(-1)[0], L.at(-1)[1]], [app.drawAt.x, app.drawAt.y]], level: 'ok', ring: null, dashed: true };
+  }
   if (!app.placing) return undefined;
   const gh = ghostOf(t, app.placing);
   return { pts: gh.pts, level: gh.level, ring: gh.ring ?? null };
@@ -3959,9 +3996,13 @@ function stopDrawing() {
   app.drawAt = null;
   refresh();
 }
-/** Adds a control point at the end of the route (Draw route). */
+/**
+ * Adds a control point at the end of the route (Draw route), as its own undo step: the point
+ * shows at once (ringed, with the stretch to the pointer previewed), and Undo takes it off again.
+ */
 function addLayoutPoint(x, y, e) {
   const pt = [clamp(snapGrid(x, e), -BOUND_OUT, GRID_W + BOUND_OUT), clamp(snapGrid(y, e), -BOUND_OUT, GRID_H + BOUND_OUT)];
+  const was = lpts(track()).length;
   commit((t) => {
     const L = lpts(t);
     if (L.length && Math.hypot(L.at(-1)[0] - pt[0], L.at(-1)[1] - pt[1]) < 0.5) return;
@@ -3971,6 +4012,11 @@ function addLayoutPoint(x, y, e) {
     app.selPt = L.length - 1;
     keepJoined(t);
   });
+  const n = lpts(track()).length;
+  if (n === was) return;
+  status(n === 1
+    ? `Point 0 placed at ${pt[0]}, ${pt[1]}: the route starts here. Click the ground for point 1 (the dashed line shows the stretch); Undo takes it off.`
+    : `Point ${n - 1} placed at ${pt[0]}, ${pt[1]}: ${Math.round(lapGeom(track()).total * PIECE_MPU)} m so far. Click for the next${n >= 3 ? ', or click point 0 (the green ring) to close the route' : ''}; Undo takes it off.`, 'ok');
 }
 /** Close the route: the last point joins back to the first. */
 function closeRoute() {
@@ -4229,13 +4275,12 @@ function finishGhost(t, pl) {
   const metres = Math.round(pr.f * lapLength(t));
   const was = t.finish === false ? '' : ' The finish line there now moves here.';
   out.msg = `${metres} m round the lap from the first point as it is now. Click to put the finish line here: every lap then starts and ends here, and the sections are measured from it.${was}`;
-  // Inside a bend's section the section is split in two there, and a short remainder may no
-  // longer be drawn as its type says: a straight is the usual place for the line.
+  // Inside a feature (or a bend section on an older track) the section is split in two there.
   const si = sectionAt(t, pr.f);
   const sec = t.sections[si];
   const b = sectionBounds(t);
-  const inside = sec && !shapesFor(sec.type).includes('straight') && pr.f - b[si] > 0.5 / lapLength(t) && b[si + 1] - pr.f > 0.5 / lapLength(t);
-  if (inside) Object.assign(out, { level: 'warning', msg: `${out.msg} This is inside section ${si + 1} (${app.sectionDefs[sec.type]?.name?.toLowerCase() ?? sec.type}), which is split in two here; the checks may then want a short half retyped. A straight is the usual place.` });
+  const inside = sec && !isBaseType(sec.type) && pr.f - b[si] > 0.5 / lapLength(t) && b[si + 1] - pr.f > 0.5 / lapLength(t);
+  if (inside) Object.assign(out, { level: 'warning', msg: `${out.msg} This is inside section ${si + 1} (${app.sectionDefs[sec.type]?.name?.toLowerCase() ?? sec.type}), which is split in two here, so riders cross the line part way through it. Plain track is the usual place.` });
   return out;
 }
 /** Places the finish line being placed, as one undo step. */
@@ -4584,8 +4629,15 @@ function onPointerDown(e) {
     if (e.button === 2) { stopDrawing(); return; }
     if (e.button !== 0) return;
     const L = lpts(t);
-    if (h?.kind === 'point' && h.i === 0 && L.length >= 3) { closeRoute(); return; }
-    if (h?.kind === 'point' && h.i === L.length - 1) { stopDrawing(); return; }
+    if (h?.kind === 'point') {
+      // A point already placed: drag it to move it; a plain click on the first point closes the
+      // route, and on the last stops drawing.
+      if (!e.synthetic) canvas.setPointerCapture(e.pointerId);
+      app.selPt = h.i;
+      drag = { kind: 'point', i: h.i, started: false, anchor: featureAnchor(t, h.i), click: h.i === 0 && L.length >= 3 ? 'close' : h.i === L.length - 1 ? 'stop' : null };
+      refresh();
+      return;
+    }
     addLayoutPoint(gp.x, gp.y, e);
     return;
   }
@@ -4699,9 +4751,12 @@ function onPointerMove(e) {
     return;
   }
   if (app.drawing && app.mode === 'layout' && !drag) {
-    app.drawAt = { x: snapGrid(gp.x, e), y: snapGrid(gp.y, e) };
+    const at = { x: snapGrid(gp.x, e), y: snapGrid(gp.y, e) };
+    const moved = !app.drawAt || app.drawAt.x !== at.x || app.drawAt.y !== at.y;
+    app.drawAt = at;
     canvas.style.cursor = 'crosshair';
     requestDraw();
+    if (moved) sendView();
     return;
   }
   if (!drag) {
@@ -4815,7 +4870,10 @@ function onPointerUp() {
     return;
   }
   if (drag?.started && exportTracks(app.data) === exportTracks(app.undo.at(-1).data)) app.undo.pop();
+  const click = drag && !drag.started ? drag.click : null;
   drag = null;
+  if (click === 'close') { closeRoute(); return; }
+  if (click === 'stop') { stopDrawing(); return; }
   refresh();
 }
 canvas.addEventListener('pointerup', onPointerUp);
@@ -4884,9 +4942,9 @@ $('#btnFitSecs').addEventListener('click', () => {
 $('#btnUseFeats').addEventListener('click', () => {
   const t = track();
   if (!t || t.features) return;
-  if (!confirm(`Keep "${t.name}"'s jumps and special sections as features on the route, and let the straights and bends between them follow the route's shape? Its sections are regenerated from the route (Undo puts them back as they were).`)) return;
+  if (!confirm(`Keep "${t.name}"'s corners, jumps and special sections as features on the route, each with its type, and let the route between them ride as plain track? A First corner section becomes the start straight's end. Its sections are regenerated from the route (Undo puts them back as they were).`)) return;
   commit((t) => { useFeatures(t); app.selSec = -1; });
-  status(`Using features: ${track().features.length} kept from the sections, at their place on the route. The straights and bends between them now follow the route.`, 'ok');
+  status(`Using features: ${track().features.length} kept from the sections, at their place on the route, with their types. The route between them rides as plain track.`, 'ok');
 });
 $('#btnFit').addEventListener('click', fitToGrid);
 $('#btnDrawRoute').addEventListener('click', () => (app.drawing ? stopDrawing() : startDrawing()));
@@ -5121,7 +5179,7 @@ async function tryServer() {
 setMode('layout');
 tryServer();
 openRaceView();
-window.trackEditor = { app, openRaceView, sendView, heightDab, elevAt, elevationIssues, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, findRef, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart, planWalk, alongStart, followStart, setOfficialAlong, trackRoom, walkRoom, undo, redo, trackForView, officialProblems, setFinish, finishGhost, addFinish, placeFinish, removeFinish, addStart, placeStart, placePiece, cancelPlacing, adjustPiece, readyToRace, tightCorners, keepJoined, startHere, lapLength, refresh, sectionBounds, boundaryCrossings, BOUND_OUT, SCENE_OUT, cheerProblems, routeDrawing, addRoutePoint, lpts, derive, rebuildPath, rebuildSections, splitSegment, segParam, layoutIndices, baseRuns, sectionFeats, featureProblems, featureTypes, featureAt, useFeatures, startFeature, featureGhost, placeFeature, deleteFeature, duplicateFeature, editFeature, startDrawing, stopDrawing, addLayoutPoint, closeRoute, deleteSegment, deletePoint, insertPoint, roundCorner, trackStatus, reverse, fitToGrid, newTrack, deleteSection }; // for tests
+window.trackEditor = { app, openRaceView, sendView, heightDab, elevAt, elevationIssues, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, findRef, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart, planWalk, alongStart, followStart, setOfficialAlong, trackRoom, walkRoom, undo, redo, trackForView, officialProblems, setFinish, finishGhost, addFinish, placeFinish, removeFinish, addStart, placeStart, placePiece, cancelPlacing, adjustPiece, readyToRace, tightCorners, keepJoined, startHere, lapLength, refresh, sectionBounds, boundaryCrossings, BOUND_OUT, SCENE_OUT, cheerProblems, routeDrawing, addRoutePoint, lpts, derive, rebuildPath, rebuildSections, splitSegment, segParam, layoutIndices, baseRuns, sectionFeats, featureProblems, featureTypes, featureAt, useFeatures, startFeature, featureGhost, placeFeature, deleteFeature, duplicateFeature, editFeature, startDrawing, stopDrawing, addLayoutPoint, closeRoute, deleteSegment, deletePoint, insertPoint, roundCorner, trackStatus, reverse, fitToGrid, newTrack, deleteSection, firstCornerSpan, inSpan }; // for tests
 </script>
 </body>
 </html>
