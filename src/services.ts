@@ -1,5 +1,6 @@
 import type { Content, Manifest } from './core/content';
 import type { BakedMap } from './core/mapTypes';
+import type { ImportedFile, ModTrack } from './core/modTracks';
 import { SaveManager } from './core/saves';
 import { SettingsStore } from './core/settings';
 import { defaultStore } from './core/storage';
@@ -19,7 +20,11 @@ export const services = {
   travel: null as unknown as Travel,
   /** The route picked with a route marshal: leaving this map by this exit goes to that place. */
   routePick: null as { map: string; exit: string; to: string } | null,
+  /** The track files installed in the mods folder, as fetched at start. */
+  modFolder: [] as ImportedFile[],
+  /** Every mod track, installed and imported, checked (core/modTracks.ts). */
+  modTracks: [] as ModTrack[],
 };
 
 export const CAREER_SLOT = 'career-1';
-export const BUILD_LABEL = 'Test build 0.3';
+export const BUILD_LABEL = 'Alpha v1';

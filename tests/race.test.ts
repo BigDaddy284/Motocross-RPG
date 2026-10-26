@@ -186,13 +186,34 @@ describe('race day (Spec 12, 14)', () => {
     expect(entryFee(content, farmland, { first_race_done: true })).toBe(2000);
   });
 
-  it('keeps Farmland shut until the local racer points you there, and the other two locked', () => {
+  it('keeps Farmland shut until the local racer points you there, and opens Riverside Arena and Longmoor Enduro', () => {
     const c = rider();
     expect(venueProblem(content, farmland, c, {})).not.toBeNull();
     expect(venueProblem(content, farmland, c, { 'found.venue-farmland': true })).toBeNull();
-    for (const id of ['venue-quarry', 'venue-woodland']) expect(venueProblem(content, content.tracks.venues.find((v) => v.id === id)!, c, { 'found.venue-farmland': true })).not.toBeNull();
+    for (const [id, track] of [['venue-quarry', 'arena-supercross'], ['venue-woodland', 'longmoor-endurance']]) {
+      const v = content.tracks.venues.find((x) => x.id === id)!;
+      expect(venueProblem(content, v, c, {})).toBeNull();
+      // Same prices as Farmland, its own track official on its own map, and an official placed on the start straight.
+      expect([v.track, v.class, v.field, v.practiceFeePct, v.firstRaceFree]).toEqual([track, farmland.class, farmland.field, farmland.practiceFeePct, farmland.firstRaceFree]);
+      expect(content.npcs.find((n) => n.id === v.office)?.map).toBe(v.map);
+      expect(content.tracks.tracks.find((t) => t.id === track)!.scenery!.filter((s) => s.type === 'start_official')).toHaveLength(1);
+    }
     c.bike.parts.top_end.condition = 0;
     expect(venueProblem(content, farmland, c, { 'found.venue-farmland': true })).toMatch(/broken/);
+  });
+
+  it('CPU riders pick gates they like, so the start fills unevenly, and the gate screen matches the start', () => {
+    let inOrder = 0;
+    for (let seed = 1; seed <= 20; seed++) {
+      const d = day(seed);
+      const { taken, free } = d.gatesForPlayer();
+      d.assignGates(free[free.length - 1]);
+      for (const [g, id] of taken) expect(d.field.find((e) => e.id === id)!.gate).toBe(g);
+      const gates = d.pickOrder.map((id) => d.field.find((e) => e.id === id)!.gate!);
+      expect(new Set(gates).size).toBe(d.field.length);
+      if (gates.every((g, i) => i === 0 || g > gates[i - 1] || d.pickOrder[i] === PLAYER_ID)) inOrder++;
+    }
+    expect(inOrder).toBe(0);
   });
 
   it('runs two motos, sets moto 2 gate picks by moto 1 order, and totals the day', () => {

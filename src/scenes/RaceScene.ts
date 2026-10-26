@@ -354,7 +354,8 @@ export class RaceScene extends Phaser.Scene {
     this.pen = penMeter(this, 900 - PEN_W, 43, services.content.racing.ink, PEN_W);
     this.screen.add(this.pen);
     this.pen.setVisible(!practice);
-    this.director = directorFor(sim, services.content.bikes, services.content.racing.messages);
+    // Riders ride up to the start in the order they picked their gates.
+    this.director = directorFor(sim, services.content.bikes, services.content.racing.messages, this.day?.pickOrder);
     this.view = new RaceView(this, this.screen, sim.track, services.content.trackParts, 16, 82, 900, 440);
     this.view.hasStart = !practice;
     this.box(16, 534, 900, 170);

@@ -2,7 +2,21 @@
 
 A single-player, offline motocross career RPG. Start as an unknown rider with a broken 50cc and work your way up to legend.
 
-This is **test build 0.3**: your first race day, now with shops and repairs. After the garage mechanic's tutorial and the van, sign on at Farmland MX and race two motos against the Local Champion and 14 other riders, or put laps in on the backyard loop. Every lap trains your Rider Ability skills and wears your bike, and now you can buy parts, fit spares and pay for repairs in Home Town. All art is placeholder art in the agreed style, imported from the project's art threads.
+This is **Alpha v1**: the first build with the whole career loop in place, from a broken bike to race days at three venues, plus player-made tracks. All art is placeholder art in the agreed style, imported from the project's art threads.
+
+## What Alpha v1 offers
+
+The game loop: **earn money, keep the bike going, race, level up, repeat.**
+
+1. **Start a career** in Home Town with a broken 50cc. The garage mechanic's tutorial gets it running and teaches the basics.
+2. **Earn money** on shifts in the Industrial Zone: the fabrication shop (frame brackets) and the engine rebuilder (pistons). Pay is per part made, and is boosted 10× while testing.
+3. **Look after the bike.** Every lap wears its parts, and a part at 0% breaks. Buy new or better-grade parts at the general bike shop and the tyre shop in Home Town (fitted free, or kept as spares in your bag), and pay the local garage to repair or fit them.
+4. **Get a van** and load your bike to reach the tracks on the venue road.
+5. **Race.** Three venues are open: **Farmland MX**, **Riverside Arena** and **Longmoor Enduro**, each with a track official at the race office. A race day is two motos of 5 laps against 15 riders, including the Local Champion: £20 entry (your first race day is free), gate picks, a start official and a pit board, with prize money to 10th in each moto. Free practice is 25% of the entry, and the backyard loop at home is free.
+6. **Level up.** Racing and practice train your Rider Ability skills, and better skills and better parts make you faster.
+7. **Race your own tracks** with **Mod Track** on the venue road (see *Making and installing mod tracks* below).
+
+It runs in a browser on desktop or on a phone held sideways, and saves automatically.
 
 ## Play it
 
@@ -32,6 +46,36 @@ This is **test build 0.3**: your first race day, now with shops and repairs. Aft
 
 Hold the phone sideways: the game is laid out for landscape, and asks you to turn the phone if it is upright. For the most room, use the browser's Add to Home Screen: the game then opens full screen with no browser bars. The game draws at the phone's full screen resolution, and panels shrink to fit a short screen.
 
+## Making and installing mod tracks
+
+Mod tracks are race tracks made with the game's track editor and raced in the game from **Mod Track** on the venue road. A mod race day plays exactly like Farmland MX: the same entry fee, field, AI riders, prize money, XP and parts wear. For now, picking a mod track goes straight to the gate pick, without a venue area to walk round, and race day is the only mode (no practice).
+
+**1. Build the track.** Open the track editor: `tools/track-editor.html` on the published site, or http://localhost:5173/tools/track-editor.html when running `npm run dev`. Choose **New track**, draw the route, then add:
+
+- a **start straight**, which needs its own gate and must join the lap;
+- a **finish line**;
+- a **start board official**, with a walk that ends clear of the track.
+
+Then use **Ready to race**, which runs the game's checks. If you're running `npm run dev`, **Race it in the game** lets you try it first; save before you use it.
+
+**2. Export it.** Use **Export**, which saves the track on its own as `<track id>.track.json`.
+
+**3. Install it.** Either of these works:
+
+- **Mods folder** (your own copy of the game): put the file in `public/mods/tracks/`, which becomes `mods/tracks/` in a built copy. With `npm run dev` it appears the next time the page loads. For a built copy, rebuild with `npm run build`, because the build writes the folder's `index.json` (a website can't list a folder by itself). `farmland-example.track.json` is there as an example.
+- **Import** (any copy, including the published site): in the game, open **Mod Track** and choose **Import track file**, then pick the `.track.json`. It is kept in that browser only, and can be removed from its race office.
+
+**What a mod track must meet.** The game runs the same checks as on its own tracks:
+
+- it is a track file from the editor (or a bare track), and is not marked as an unfinished draft;
+- it is not practice-only;
+- it has a start straight with its gate, long enough and joined onto the lap;
+- every section type is one the game knows;
+- it uses only the game's own surfaces, ground and scenery (custom art isn't supported yet);
+- the start official stands and walks clear of the track, the line-up and solid scenery.
+
+A track that fails stays in the list, and picking it shows the reasons. An import that fails isn't added. Each track is listed by its name, with its file name under it. Mod tracks get their own ids, so they never clash with the game's tracks. The code is in `src/core/modTracks.ts`.
+
 ## Project status: driving fixes, track editor, buildings and the world map
 
 Done on branch `claude/project-thread-ch8ujf`. The driving controls and feel are unchanged (no driving or physics code was touched), Home Town's map file is byte-for-byte the same (pinned by a hash test), and the race-day camera stays fixed.
@@ -59,6 +103,17 @@ Known limits: a finish line placed inside a bend splits that section, and a shor
 To resume: `npm install`, `npm test`, `npm run dev`, then open `/tools/track-editor.html` or `/tools/map-editor.html`.
 
 ## What's in this build
+
+### Alpha v1: three race venues
+
+- **Riverside Arena and Longmoor Enduro are open.** The two tracks that were editor test tracks are now race venues in the game, on the maps that were Quarry MX and Woodland MX (the map and venue ids stay `area1-venue-quarry` / `venue-quarry` and `area1-venue-woodland` / `venue-woodland`, so saves carry over). Each has its own track official by the race office (`npc.track_official_quarry`, `npc.track_official_woodland`), the same 16-rider field, and the same prices as Farmland MX: £20 entry, practice at 25% of entry, and the first race day of a career free.
+- **The start official** stands on the start straight at all three tracks and walks off it before the drop, placed in each track's data (a `start_official` scenery item with its route).
+- **A natural line-up.** CPU riders pick gates they like (most want the inside, but each has a favourite spot), and riders roll up to the gate in pick order, front row first, so the start fills unevenly.
+- **Mod Track: race player-made tracks.** "Mod Track" is on the venue road and every venue lane (the route marshal lists it too, and it needs the van like the venues). Picking it opens a list of mod tracks by name, with the file name under each; picking one goes straight to a race day and its gate pick, with no area to walk round. A mod race day is the same as Farmland MX: £20 entry (no free first race), the 16-rider local 50cc field, 2 motos, prize money, XP and parts wear. Race day only, no practice.
+  - **Installing:** put the `.track.json` files the track editor's **Export** button makes in `public/mods/tracks/` (`mods/tracks/` beside the built game). The build (and `npm run dev`, on every load) writes an `index.json` of that folder for the game to read. `farmland-example.track.json` is there as an example.
+  - **Importing:** "Import track file" in the list loads a `.track.json` from your device and keeps it in that browser; an imported track can be removed again from its race office.
+  - **Checks:** every mod track gets the game's own track checks (schema, sections, start straight, the start official's spot and walk, and only the game's own surfaces, ground and scenery). One that fails stays in the list and says why when picked; a failed import isn't kept. Mod tracks use the game's own art for now. See `src/core/modTracks.ts`.
+- **Shift pay is 10× while testing** (`testPayMultiplier` in `public/data/world.json`; review before Final v1).
 
 ### Added to test build 0.3: your van on the map
 

@@ -1,5 +1,5 @@
 import type { BikesData } from './career';
-import { seededRng, type LapTrace, type MessageDef, type MistakeOutcome, type MotoSim, type TrackDef, type TrackSection } from './race';
+import { mixSeed, seededRng, type LapTrace, type MessageDef, type MistakeOutcome, type MotoSim, type TrackDef, type TrackSection } from './race';
 import { riderProfile, type RiderProfile } from './riderProfile';
 import { lapGeom, lapMetres, sectionTurns, START_PAD, startGeom, type StartGeom } from './trackGeom';
 
@@ -95,6 +95,16 @@ const smooth = (x: number) => {
   return t * t * (3 - 2 * t);
 };
 const frac = (x: number) => x - Math.floor(x);
+/** The ids in a seeded random order (its own draws, so the line-up's other draws stay as they were). */
+const shuffled = (ids: string[], seed: number) => {
+  const rnd = seededRng(mixSeed(seed, 1));
+  const out = [...ids];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+};
 
 export class RaceDirector {
   private readonly segs = new Map<string, Seg[]>();
@@ -116,6 +126,8 @@ export class RaceDirector {
   readonly prep: number;
   /** Riders already in their slot when the start procedure begins. */
   readonly lined = new Set<string>();
+  /** The order riders reach their slots: the front row in pick order, then the second row in pick order. Empty in practice. */
+  readonly arrival: string[] = [];
   private readonly moves = new Map<string, LineUpMove>();
   private readonly lapUnits: number;
   private finishCache: { key: string; plan: Map<string, Finish> } | null = null;
@@ -127,6 +139,8 @@ export class RaceDirector {
     private readonly gates: Map<string, number>,
     /** Laps in the race, or null for practice. */
     readonly laps: number | null,
+    /** The order riders picked their gates, which is the order they ride up to the start. Left out, a shuffle drawn from the track and the gates. */
+    pickOrder?: string[],
   ) {
     const g = lapGeom(track.path);
     this.turns = sectionTurns(track, g);
@@ -153,9 +167,9 @@ export class RaceDirector {
     }
     for (const id of profiles.keys()) this.segs.set(id, []);
 
-    // The line-up, for a race. Riders reach their slots in gate order: the first few (4 for a full
-    // field) are already there, and the rest ride up from just behind the start pad over about
-    // LINE_UP seconds, several moving at once, each at their own pace from their own spot, in their
+    // The line-up, for a race. Riders reach their slots in the order they picked their gates, front
+    // row first, as at a real start, so the gate fills unevenly: the first few (4 for a full field)
+    // are already there, and the rest ride up from just behind the start pad over about LINE_UP seconds, several moving at once, each at their own pace from their own spot, in their
     // own lane, so nobody touches. A second-row rider only sets off once the front-row rider in their
     // lane has stopped in their slot, so they never ride through it. Then the field holds still.
     if (laps === null || n < 2) {
@@ -167,13 +181,18 @@ export class RaceDirector {
     for (const ch of `${track.id}|${order.join(',')}`) seed = Math.imul(seed ^ ch.charCodeAt(0), 16777619);
     const rnd = seededRng(seed >>> 0);
     const k = Math.min(n, clamp(Math.round(n * 0.25), 4, ROW_SIZE));
-    for (const id of order.slice(0, k)) this.lined.add(id);
     const gateOf = (id: string) => gates.get(id)!;
     const byGate = new Map(order.map((id) => [gateOf(id), id]));
+    // Pick order, the front row first: a second-row rider stops in the slot the front-row rider of
+    // their lane rides through, so the second row rolls in once the front row is in.
+    const picks = pickOrder?.filter((id) => gates.has(id)).length === n ? pickOrder.filter((id) => gates.has(id)) : shuffled(order, seed >>> 0);
+    const arrival = this.arrival;
+    arrival.push(...picks.filter((id) => !this.startRow(id)), ...picks.filter((id) => this.startRow(id)));
+    for (const id of arrival.slice(0, k)) this.lined.add(id);
     // Riders drift onto their lane line from the same side, so neighbours never close up.
     const drift = rnd() < 0.5 ? -1 : 1;
     // Each rider's own draws, made once, so the plan can be tightened without changing who does what.
-    const movers = order.slice(k).map((id) => ({ id, r: [rnd(), rnd(), rnd(), rnd(), rnd(), rnd(), rnd()] }));
+    const movers = arrival.slice(k).map((id) => ({ id, r: [rnd(), rnd(), rnd(), rnd(), rnd(), rnd(), rnd()] }));
     const build = (tight: number) => {
       const plan = new Map<string, LineUpMove>();
       let prev = 0;
@@ -186,7 +205,7 @@ export class RaceDirector {
         const back = Math.max(START_PAD + 0.6 - row * ROW_GAP + r[0] * 1.2 * tight, fm ? fm.back - ROW_GAP + 1.35 + r[1] * 0.4 : -Infinity);
         // Each at their own easy pace: a top speed of 1.9 to 2.3 grid units a second.
         const ride = (1.5 * back) / (1.9 + r[2] * 0.4);
-        // Arrive after the rider of the gate before, and set off only once the lane ahead is filled.
+        // Arrive after the rider who picked before, and set off only once the lane ahead is filled.
         const laneFree = ahead ? (fm ? fm.t1 : 0) + 0.15 + r[3] * 0.3 * tight : 0;
         const t1 = Math.max(prev + 0.08 + r[4] * 0.3 * tight, ride + r[5] * 0.4 * tight, laneFree + ride);
         plan.set(id, { t0: t1 - ride, t1, back, side: drift * (0.01 + r[6] * 0.03) });
@@ -533,7 +552,7 @@ export class RaceDirector {
 }
 
 /** A director for a moto: every rider's profile from their skills, bike and message at the start. */
-export function directorFor(sim: MotoSim, bikes: BikesData, messages: MessageDef[]): RaceDirector {
+export function directorFor(sim: MotoSim, bikes: BikesData, messages: MessageDef[], pickOrder?: string[]): RaceDirector {
   const ceiling = bikes.classes.find((c) => c.id === sim.classId)?.ceiling ?? 1;
   const profiles = new Map<string, RiderProfile>();
   const gates = new Map<string, number>();
@@ -541,7 +560,7 @@ export function directorFor(sim: MotoSim, bikes: BikesData, messages: MessageDef
     profiles.set(r.e.id, riderProfile(r.e, r.stats, ceiling, messages.find((m) => m.id === r.message)));
     gates.set(r.e.id, r.e.gate);
   }
-  return new RaceDirector(sim.track, profiles, gates, sim.totalLaps);
+  return new RaceDirector(sim.track, profiles, gates, sim.totalLaps, pickOrder);
 }
 
 function rank(o: MistakeOutcome['id']): number {

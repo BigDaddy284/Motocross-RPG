@@ -36,17 +36,18 @@ describe('route marshals', () => {
   it('in Home Town, name both ways out: the venue road and the Industrial Zone', () => {
     const lines = directions(waysOut(map('area1-home-town'), world, maps, travel, OPEN));
     expect(lines).toEqual([
-      'Out to the west, the venue road goes to Farmland MX, Quarry MX and Woodland MX.',
+      'Out to the west, the venue road goes to Farmland MX, Riverside Arena, Longmoor Enduro and Mod Track.',
       "Farmland MX: Hard-pack local track. The local racer's favourite.",
-      "Quarry MX: Rocky, with big hills. Locked until its owner's tasks are done.",
-      "Woodland MX: Tight and rooty under the trees. Locked until its owner's tasks are done.",
+      'Riverside Arena: Supercross in the arena by the river: tight turns and tuff blocks.',
+      'Longmoor Enduro: A long loop under the trees.',
+      'Mod Track: Race a player-made track: pick one from the list and go straight to the gate.',
       'Out to the east, that road takes you to Industrial Zone.',
     ]);
   });
 
   it("say the venue road is shut, and why, until it's open", () => {
     const lines = directions(waysOut(map('area1-home-town'), world, maps, travel, {}));
-    expect(lines[0]).toBe("Out to the west, the venue road goes to Farmland MX, Quarry MX and Woodland MX. It's shut for you just now: You'll need a van, loaded with your bike, to get to the tracks.");
+    expect(lines[0]).toBe("Out to the west, the venue road goes to Farmland MX, Riverside Arena, Longmoor Enduro and Mod Track. It's shut for you just now: You'll need a van, loaded with your bike, to get to the tracks.");
     expect(lines).toHaveLength(2);
   });
 
@@ -60,8 +61,9 @@ describe('route marshals', () => {
       expect(ways).toHaveLength(1);
       expect(ways[0].side).toBe('south');
       const names = ways[0].places.map((p) => p.map);
-      expect(names).toHaveLength(3);
+      expect(names).toHaveLength(4);
       expect(names).toContain('area1-home-town');
+      expect(names).toContain('mod-tracks');
       expect(names).not.toContain(id);
     }
   });
@@ -70,7 +72,7 @@ describe('route marshals', () => {
     const w = structuredClone(world);
     w.places.push({ map: 'area1-nowhere', spawn: 'x', name: 'Nowhere', note: '' });
     w.routes[0].to.push('area1-nowhere');
-    expect(routePlaces(w, maps, w.routes[0]).map((p) => p.name)).toEqual(['Farmland MX', 'Quarry MX', 'Woodland MX']);
+    expect(routePlaces(w, maps, w.routes[0]).map((p) => p.name)).toEqual(['Farmland MX', 'Riverside Arena', 'Longmoor Enduro', 'Mod Track']);
     w.routes[0].to = ['area1-nowhere'];
     expect(directions(waysOut(map('area1-home-town'), w, maps, travel, OPEN))[0]).toBe("Out to the west, that road doesn't go anywhere yet.");
   });
@@ -95,7 +97,7 @@ describe('leaving by a route', () => {
       expect(typeof to).not.toBe('string');
       if (typeof to === 'string') continue;
       expect(to.map).toBe('area1-venue-farmland');
-      expect(to.others.map((p) => p.map)).toEqual(['area1-venue-quarry', 'area1-venue-woodland']);
+      expect(to.others.map((p) => p.map)).toEqual(['area1-venue-quarry', 'area1-venue-woodland', 'mod-tracks']);
     }
   });
 
@@ -120,8 +122,8 @@ describe('leaving by a route', () => {
 describe('route checks', () => {
   it('refuse a route exit with no route, a route to a place that isn’t listed, or one back to itself', () => {
     expect(errorsWith((r) => { r.world.routes = r.world.routes.slice(1); })).toEqual([expect.stringMatching(/the exit "To the venue route" on area1-home-town leads to a choice of places, but no route lists them/)]);
-    expect(errorsWith((r) => { r.world.routes[0].to.push('area1-industrial-zone'); })).toEqual([expect.stringMatching(/routes\[0\]\.to\[3\]: "area1-industrial-zone" isn't one of the places/)]);
-    expect(errorsWith((r) => { r.world.routes[1].to.push('area1-venue-farmland'); })).toEqual([expect.stringMatching(/routes\[1\]\.to\[3\]: leads back to area1-venue-farmland/)]);
+    expect(errorsWith((r) => { r.world.routes[0].to.push('area1-industrial-zone'); })).toEqual([expect.stringMatching(/routes\[0\]\.to\[4\]: "area1-industrial-zone" isn't one of the places/)]);
+    expect(errorsWith((r) => { r.world.routes[1].to.push('area1-venue-farmland'); })).toEqual([expect.stringMatching(/routes\[1\]\.to\[4\]: leads back to area1-venue-farmland/)]);
     expect(errorsWith((r) => { r.world.routes[0].exit = 'To the Industrial Zone'; })).toEqual(expect.arrayContaining([expect.stringMatching(/goes straight to area1-industrial-zone, not to a choice of places/)]));
   });
 

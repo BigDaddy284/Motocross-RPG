@@ -170,7 +170,7 @@ describe('roadworks and the venue route', () => {
   });
 
   it('every venue map has a road back out', () => {
-    for (const d of world.places) {
+    for (const d of world.places.filter((p) => !p.mods)) {
       const m = maps.get(d.map)!;
       if (m.id === 'area1-home-town') continue;
       const out = m.objects.find((o) => o.type === 'exit')!;
@@ -180,10 +180,10 @@ describe('roadworks and the venue route', () => {
 });
 
 describe('testing pay boost', () => {
-  it('triples shift pay while testing (review before Final v1)', () => {
+  it('pays 10× for shifts while testing (review before Final v1)', () => {
     const fab = world.jobs.find((j) => j.id === 'job.fabrication')!;
-    expect(world.testPayMultiplier).toBe(3);
-    expect(jobPay(world, fab)).toBe(225);
+    expect(world.testPayMultiplier).toBe(10);
+    expect(jobPay(world, fab)).toBe(750);
     expect(jobPay({ ...world, testPayMultiplier: undefined }, fab)).toBe(75);
   });
 });

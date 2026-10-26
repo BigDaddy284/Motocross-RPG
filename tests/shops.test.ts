@@ -148,7 +148,10 @@ describe('buying, fitting and selling', () => {
     const c = career();
     const before = c.bike.parts.forks;
     c.bag.push({ id: 'task.parts_order' }, { id: SPARE, part: { slot: 'forks', class: '50cc', grade: 2, condition: 1 } });
-    expect(fitSpare(shops, bikes, garage, c, 1).ok).toBe(true);
+    const fitted = fitSpare(shops, bikes, garage, c, 1);
+    expect(fitted.ok).toBe(true);
+    // Says it is a swap, not a repair: the spare goes on and the part taken off becomes a spare.
+    expect(fitted.message).toBe(`Swapped in your spare G2 forks (100%). Taken off: G${before.grade} forks (${Math.round(before.condition * 100)}%), now a spare in your bag.`);
     expect(c.money).toBe(100000 - 500);
     expect(c.bike.parts.forks).toEqual({ grade: 2, condition: 1 });
     expect(c.bag).toEqual([{ id: 'task.parts_order' }, { id: SPARE, part: { slot: 'forks', class: '50cc', ...before } }]);

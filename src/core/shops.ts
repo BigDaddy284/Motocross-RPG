@@ -180,9 +180,9 @@ function swapIn(bikes: BikesData, career: CareerState, slot: string, part: Part)
   career.bike.parts[slot] = { grade: part.grade, condition: part.condition };
   const name = slotName(bikes, slot);
   if (!old) return '';
-  if (old.condition <= 0) return ` Your broken ${name} went to the dump.`;
+  if (old.condition <= 0) return ` Taken off: your broken ${name}, sent to the dump.`;
   career.bag.push({ id: SPARE, part: { slot, class: career.bike.class, grade: old.grade, condition: old.condition } });
-  return ` Your old G${old.grade} ${name} (${Math.round(old.condition * 100)}%) went in your bag.`;
+  return ` Taken off: G${old.grade} ${name} (${Math.round(old.condition * 100)}%), now a spare in your bag.`;
 }
 
 export const slotName = (bikes: BikesData, slot: string) => (bikes.slots.find((s) => s.id === slot)?.name ?? slot).toLowerCase();
@@ -251,7 +251,7 @@ export function fitSpare(data: ShopsData, bikes: BikesData, shop: ShopDef, caree
   if (!roomFor(data, career, part.slot, 1)) return { ok: false, message: fullMessage(data) };
   career.money -= fee;
   career.bag.splice(index, 1);
-  return { ok: true, message: `G${part.grade} ${slotName(bikes, part.slot)} fitted.${swapIn(bikes, career, part.slot, part)}` };
+  return { ok: true, message: `Swapped in your spare G${part.grade} ${slotName(bikes, part.slot)} (${Math.round(part.condition * 100)}%).${swapIn(bikes, career, part.slot, part)}` };
 }
 
 /** How each bike stat would change with this part fitted, for the stats that change. */

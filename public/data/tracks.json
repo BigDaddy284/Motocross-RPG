@@ -132,7 +132,7 @@
       ]
     },
     {
-      "id": "arena-supercross", "name": "Riverside Arena (supercross)", "size": "small", "surface": "hard_pack", "kind": "stadium", "width": 3,
+      "id": "arena-supercross", "name": "Riverside Arena", "size": "small", "surface": "hard_pack", "kind": "stadium", "width": 3,
       "gates": [4, 3, 3, 2, 2, 2, 1, 1, 1, 0, 0, 0, -1, -1, -2, -3],
       "path": [[50, 50], [74, 50], [84, 47], [88, 41], [84, 35], [72, 33], [30, 33], [22, 30], [26, 25], [74, 25], [84, 22], [88, 16], [84, 11], [72, 9], [28, 9], [18, 12], [12, 20], [12, 32], [14, 43], [18, 48], [26, 50]],
       "sections": [
@@ -283,11 +283,12 @@
         { "type": "tuff_block", "x": 14.75, "y": 49.25 },
         { "type": "tuff_block", "x": 19.5, "y": 45 },
         { "type": "tuff_block", "x": 22, "y": 52 },
-        { "type": "tuff_block", "x": 23.5, "y": 46.5 }
+        { "type": "tuff_block", "x": 23.5, "y": 46.5 },
+        { "type": "start_official", "x": 50.4, "y": 43.5, "route": [[50.2, 40.7], [49.5, 37.6]] }
       ]
     },
     {
-      "id": "longmoor-endurance", "name": "Longmoor Enduro Loop", "size": "large", "surface": "loam", "kind": "endurance", "width": 2.6,
+      "id": "longmoor-endurance", "name": "Longmoor Enduro", "size": "large", "surface": "loam", "kind": "endurance", "width": 2.6,
       "gates": [2, 2, 2, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, -1, -1, -1],
       "path": [[30, 54], [62, 54], [74, 51], [82, 45], [90, 48], [94, 42], [88, 36], [76, 38], [66, 44], [52, 46], [44, 41], [50, 34], [64, 32], [78, 28], [88, 22], [84, 14], [72, 10], [56, 12], [44, 18], [34, 16], [30, 8], [18, 8], [8, 14], [6, 26], [12, 34], [22, 36], [26, 44], [14, 48], [20, 54]],
       "sections": [
@@ -377,14 +378,15 @@
         { "type": "flag_post", "x": 40, "y": 22 },
         { "type": "flag_post", "x": 14, "y": 20 },
         { "type": "hay_bale", "x": 72, "y": 56 },
-        { "type": "hay_bale", "x": 8, "y": 56 }
+        { "type": "hay_bale", "x": 8, "y": 56 },
+        { "type": "start_official", "x": 62.5, "y": 51.1, "route": [[62.1, 49.2], [61.4, 47.1]] }
       ]
     }
   ],
   "venues": [
     {"id": "venue-farmland", "name": "Farmland MX", "map": "area1-venue-farmland", "track": "farmland", "class": "50cc", "field": "area1.local", "office": "npc.track_official", "needs": "found.venue-farmland", "practiceFeePct": 25, "firstRaceFree": true},
-    {"id": "venue-quarry", "name": "Quarry MX", "map": "area1-venue-quarry", "locked": "The owner's not letting anyone race here yet. Do them a favour first. (Comes in a later build.)"},
-    {"id": "venue-woodland", "name": "Woodland MX", "map": "area1-venue-woodland", "locked": "Private track. The owner wants a favour before you can ride. (Comes in a later build.)"},
+    {"id": "venue-quarry", "name": "Riverside Arena", "map": "area1-venue-quarry", "track": "arena-supercross", "class": "50cc", "field": "area1.local", "office": "npc.track_official_quarry", "practiceFeePct": 25, "firstRaceFree": true},
+    {"id": "venue-woodland", "name": "Longmoor Enduro", "map": "area1-venue-woodland", "track": "longmoor-endurance", "class": "50cc", "field": "area1.local", "office": "npc.track_official_woodland", "practiceFeePct": 25, "firstRaceFree": true},
     {"id": "backyard", "name": "Backyard loop", "map": "area1-home-town", "area": [3, 10, 6, 4], "track": "backyard", "class": "50cc", "practiceOnly": true}
   ]
 }
