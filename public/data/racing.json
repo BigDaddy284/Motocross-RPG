@@ -19,7 +19,9 @@
     "rutPerMoto": 0.01,
     "rutSections": ["rutted_corner", "flat_corner", "berm"],
     "cleanAir": { "top": 3, "bonusPct": 0.5, "trafficAfter": 10, "penaltyPct": 1.0 },
-    "retireAtBroken": 4
+    "retireAtBroken": 4,
+    "firstCorner": { "chance": 0.3, "riders": [1, 3] },
+    "pileup": { "chance": 0.35, "window": 0.8, "most": 3 }
   },
   "xp": {
     "sectionFactor": 2.0,

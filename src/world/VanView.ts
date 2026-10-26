@@ -15,6 +15,13 @@ import { TILE } from './Character';
 const DRIVER_SCALE = 0.85;
 /** The point of the rider's 64 × 64 frame that sits in the middle of the window: their face. */
 const DRIVER_FACE: [number, number] = [32, 24];
+/**
+ * A turning frame's window is only used when it is about the size of the glass in the parked view
+ * nearest its heading (this much bigger at most, plus a few pixels). On many turning frames the
+ * sheets mark the whole cab, roof and all, so cropping to that showed the whole seated rider on
+ * top of the van mid-turn; there the driver is hidden instead, as the roof hides them.
+ */
+const GLASS_SLACK = 1.25;
 /** Ask for the next move this far (in tiles) before the van would have to start braking. */
 const LOOKAHEAD = 0.5;
 /** Seconds to ease onto the parked pose when the back hasn't quite straightened up behind the cab. */
@@ -222,7 +229,7 @@ export class VanView {
       if (this.sprite.texture.key !== vanTurnTexture(this.design.id)) this.sprite.setTexture(vanTurnTexture(this.design.id), name);
       else if (this.sprite.frame.name !== name) this.sprite.setFrame(name);
       anchor = f.anchor;
-      win = f.driver;
+      win = glassSized(f.driver, this.sheet.views[nearestHeading(at.angle)].driver) ? f.driver : null;
     }
     this.sprite.setOrigin(anchor[0] / this.sprite.frame.width, anchor[1] / this.sprite.frame.height);
     // Sorted by the lowest point of the footprint on screen.
@@ -259,6 +266,11 @@ export class VanView {
     d.setPosition(ix, iy).setVisible(true).setDepth(this.sprite.depth + 0.01);
     d.setCrop((wx - ix) / DRIVER_SCALE, (wy - iy) / DRIVER_SCALE, win[2] / DRIVER_SCALE, win[3] / DRIVER_SCALE);
   }
+}
+
+/** True when a turning frame's window is no bigger than the parked view's glass (GLASS_SLACK). */
+function glassSized(win: [number, number, number, number] | null | undefined, parked: [number, number, number, number] | null | undefined): boolean {
+  return !!win && !!parked && win[2] <= parked[2] * GLASS_SLACK + 4 && win[3] <= parked[3] * GLASS_SLACK + 4;
 }
 
 function nearestHeading(angle: number): Heading {

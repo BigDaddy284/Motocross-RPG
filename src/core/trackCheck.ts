@@ -1,12 +1,11 @@
 import type { TrackDef } from './race';
-import { headingAt, lapGeom, nearestOnLap, sectionShapes, START_PAD, startGeom, startHalfWidth, startHeadingAt, startPointAt } from './trackGeom';
+import { headingAt, lapGeom, nearestOnLap, START_PAD, startGeom, startHalfWidth, startHeadingAt, startPointAt } from './trackGeom';
 import { DEFAULT_TRACK_WIDTH } from './trackParts';
 
 // Checks that a track's sections and start straight agree with its drawing, shared by the game's
 // content checks and (mirrored) the track editor. A section's type says how the race simulation
-// times it and how riders ride it, so it has to match the shape drawn: a hairpin drawn on a
-// straight makes riders brake hard in the middle of nowhere, and a straight drawn round a U-turn
-// sends them through it flat out.
+// times it and how riders ride it; the shape it is drawn on is the track maker's choice (a wide
+// hairpin, a tight sweeper), so no check ties a type to a drawn shape.
 
 export interface LayoutProblem {
   field: string;
@@ -18,27 +17,14 @@ export const START_MIN = 12;
 /** Steepest angle, in degrees, the start straight may join the lap at. */
 export const JOIN_MAX = 75;
 
-export function layoutProblems(track: TrackDef, sectionDefs: Record<string, { name: string; shapes: string[] }>): LayoutProblem[] {
+export function layoutProblems(track: TrackDef, sectionDefs: Record<string, { name: string }>): LayoutProblem[] {
   const out: LayoutProblem[] = [];
-  const shapes = sectionShapes(track);
   track.sections.forEach((s, i) => {
-    const def = sectionDefs[s.type];
-    if (!def) return;
-    if (s.type === 'start_gate') {
-      out.push({ field: `sections[${i}].type`, message: `section ${i + 1} is a start gate on the lap; the start is its own start straight now, so make this a straight` });
-      return;
-    }
-    const d = shapes[i];
-    if (!def.shapes.includes(d.shape)) {
-      out.push({ field: `sections[${i}].type`, message: `section ${i + 1} (${def.name.toLowerCase()}) is drawn as ${article(d.shape)} ${d.shape} (it turns ${Math.round(d.swept)}°); it needs to be drawn as ${def.shapes.map((x) => `${article(x)} ${x}`).join(' or ')}` });
-    }
+    if (!sectionDefs[s.type]) return;
+    if (s.type === 'start_gate') out.push({ field: `sections[${i}].type`, message: `section ${i + 1} is a start gate on the lap; the start is its own start straight now, so make this a straight` });
   });
   out.push(...startProblems(track));
   return out;
-}
-
-function article(w: string): string {
-  return /^[aeiou]/.test(w) ? 'an' : 'a';
 }
 
 /** The start straight: there, long enough, joined onto the lap, clear of the rest of the track. */
@@ -56,7 +42,6 @@ export function startProblems(track: TrackDef): LayoutProblem[] {
   const near = nearestOnLap(g, end.x, end.y);
   if (near.d > 0.3) add(`the start straight ends ${near.d.toFixed(1)} grid units off the lap; its last point must be on the lap where it joins`);
   if (s.total < START_MIN) add(`the start straight is ${s.total.toFixed(1)} grid units long; it needs at least ${START_MIN} for the gate, the line-up and a run to the lap`);
-  if (s.join > 0.5) add('the start straight joins the lap in its second half, so lap 1 would skip most of the circuit; join it nearer the start of the lap');
   let turn = startHeadingAt(s, s.total - 0.5, 0.5) - headingAt(g, s.join);
   while (turn > Math.PI) turn -= 2 * Math.PI;
   while (turn < -Math.PI) turn += 2 * Math.PI;

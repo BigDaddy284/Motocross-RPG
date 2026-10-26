@@ -1,15 +1,21 @@
 {
-  "note": "Story locks on map objects, the world map's destinations, and the repeatable shift jobs (Spec 14.5a, 15.5). Pay is in pounds per part. testPayMultiplier boosts all shift pay while testing (Boss, test build 3): set it back to 1, or remove it, before Final v1.",
+  "note": "Story locks on map objects, where the roads out go, and the repeatable shift jobs (Spec 14.5a, 15.5). places are where a route can take you (the map and the spawn you arrive on). routes are exits with a choice of places at the end (an exit whose to is world_map, a name kept from the old world map screen so the maps did not change): the route marshal by the exit (npcs.json, guide: true) says where each goes and lets you pick, then you leave by the exit. Without a pick, leaving by the exit asks where to, so the marshal is never in the way. Pay is in pounds per part. testPayMultiplier boosts all shift pay while testing (Boss, test build 3): set it back to 1, or remove it, before Final v1.",
   "testPayMultiplier": 3,
   "locks": [
     { "map": "area1-home-town", "object": "To the venue route", "flag": "van_loaded", "message": "You'll need a van, loaded with your bike, to get to the tracks." },
     { "map": "area1-home-town", "object": "Bus stop", "flag": "van_loaded", "message": "The bus won't take a bike. You'll need a van to get to the tracks." }
   ],
-  "worldMap": [
+  "places": [
     { "map": "area1-home-town", "spawn": "from_world_map", "name": "Home Town", "note": "Your rented room, the garage and the shops." },
     { "map": "area1-venue-farmland", "spawn": "from_world_map", "name": "Farmland MX", "note": "Hard-pack local track. The local racer's favourite." },
     { "map": "area1-venue-quarry", "spawn": "from_world_map", "name": "Quarry MX", "note": "Rocky, with big hills. Locked until its owner's tasks are done." },
     { "map": "area1-venue-woodland", "spawn": "from_world_map", "name": "Woodland MX", "note": "Tight and rooty under the trees. Locked until its owner's tasks are done." }
+  ],
+  "routes": [
+    { "map": "area1-home-town", "exit": "To the venue route", "road": "the venue road", "to": ["area1-venue-farmland", "area1-venue-quarry", "area1-venue-woodland"] },
+    { "map": "area1-venue-farmland", "exit": "To the world map", "road": "the lane", "to": ["area1-home-town", "area1-venue-quarry", "area1-venue-woodland"] },
+    { "map": "area1-venue-quarry", "exit": "To the world map", "road": "the lane", "to": ["area1-home-town", "area1-venue-farmland", "area1-venue-woodland"] },
+    { "map": "area1-venue-woodland", "exit": "To the world map", "road": "the lane", "to": ["area1-home-town", "area1-venue-farmland", "area1-venue-quarry"] }
   ],
   "jobs": [
     {

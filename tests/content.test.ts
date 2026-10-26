@@ -40,6 +40,18 @@ describe('content files', () => {
     expect(errors.map((e) => e.field)).toEqual(['npcs[0].sprite', 'npcs[0].tile']);
   });
 
+  it('leaves unfinished tracks out, and stops a venue using one', () => {
+    const r = raw() as ReturnType<typeof raw> & { tracks: { tracks: Record<string, unknown>[]; venues: Record<string, unknown>[] } };
+    // An unfinished track from the track editor: empty, so it would fail every track check.
+    r.tracks.tracks.push({ id: 'new-track', name: 'New track', size: 'small', surface: 'hard_pack', draft: true, open: true, path: [], sections: [] });
+    const ok = checkContent(r, manifest, maps);
+    expect(ok.errors.map(formatError)).toEqual([]);
+    expect(ok.content!.tracks.tracks.some((t) => t.id === 'new-track')).toBe(false);
+    r.tracks.venues[0].track = 'new-track';
+    const { errors } = checkContent(r, manifest, maps);
+    expect(errors.map(formatError)).toContain('data/tracks.json: venues[0].track: "new-track" (New track) is unfinished; mark it Ready to race in the track editor first');
+  });
+
   it('places map-spot NPCs and tile-placed NPCs', () => {
     const { content } = checkContent(raw(), manifest, maps);
     const town = npcsOnMap(content!, maps.get('area1-home-town')!);

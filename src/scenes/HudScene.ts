@@ -27,7 +27,7 @@ import type { WorldScene } from './WorldScene';
 import { cssSize, view } from '../ui/view';
 
 // Screen-space layer over the world: map name, money and task, messages, the dialogue box, the
-// bike / bag / task panel, confirm boxes, the work progress bar, the world map, the pause menu and
+// bike / bag / task panel, confirm boxes, the work progress bar, the pause menu and
 // touch buttons. Runs alongside the world scene at a fixed zoom.
 
 type PanelTab = 'bike' | 'bag' | 'task' | 'skills';
@@ -48,7 +48,7 @@ export class HudScene extends Phaser.Scene {
   private taskText!: Phaser.GameObjects.Text;
   private shiftText!: Phaser.GameObjects.Text;
   private progressBox: Phaser.GameObjects.Container | null = null;
-  /** The bike panel, a confirm box or the world map: anything that takes over input until closed. */
+  /** The bike panel, a confirm box or a choice: anything that takes over input until closed. */
   private modal: Phaser.GameObjects.Container | null = null;
   private onModalClose: (() => void) | null = null;
   private career: CareerState | null = null;
@@ -76,6 +76,17 @@ export class HudScene extends Phaser.Scene {
   /** A text size after the player's Text size setting, for panels laid out on page(). */
   private pts(size: number): number {
     return Math.round((size * services.settings.get().accessibility.textScale) / 100);
+  }
+
+  /**
+   * Narrows a one-line text to `maxW` if it is wider (never widens it). Panel columns sit at set
+   * places, so a long label at a big Text size, or in a wider font (Windows draws these labels in
+   * Trebuchet MS), would otherwise run into the next column.
+   */
+  private fitWidth(o: Phaser.GameObjects.Text, maxW: number): Phaser.GameObjects.Text {
+    o.setScale(1);
+    if (o.width > maxW) o.setScale(maxW / o.width);
+    return o;
   }
 
   /**
@@ -403,30 +414,6 @@ export class HudScene extends Phaser.Scene {
     });
   }
 
-  /** The world map: pick where to drive. Destinations are listed in data/world.json. */
-  openWorldMap(current: string, onPick: (map: string, spawn: string) => void): void {
-    const dests = services.content.world.worldMap;
-    const { width, height, k } = this.page();
-    const w = Math.min(640, width - 32);
-    const h = 150 + dests.length * 76;
-    const c = this.add.container((width / 2) * k, (height / 2) * k).setScale(k);
-    this.backdrop(c, w, h, true);
-    c.add(this.add.text(0, -h / 2 + 34, 'Where to?', textStyle(28, COLORS.accent)).setOrigin(0.5));
-    dests.forEach((d, i) => {
-      const y = -h / 2 + 100 + i * 76;
-      const here = d.map === current;
-      const b = button(this, -w / 2 + 150, y, here ? `${d.name} (here)` : d.name, () => {
-        this.closeModal();
-        onPick(d.map, d.spawn);
-      }, 240, 46);
-      b.setEnabled(!here);
-      c.add(b);
-      c.add(this.add.text(-w / 2 + 290, y, d.note, textStyle(this.pts(15), COLORS.muted, { wordWrap: { width: w - 310 } })).setOrigin(0, 0.5));
-    });
-    c.add(button(this, 0, h / 2 - 40, 'Stay here', () => this.closeModal(), 200, 44));
-    this.openModal(c);
-  }
-
   /** Bike, bag and task in one panel (the task journal lives in the bag until the home PC, Spec 21b). */
   openPanel(tab: PanelTab, onClose?: () => void): void {
     const career = this.career;
@@ -453,30 +440,43 @@ export class HudScene extends Phaser.Scene {
     });
     c.add(button(this, w / 2 - 46, top + 22, '✕', () => this.closeModal(), 44, 40));
     const y0 = top + 70;
-    const body = (x: number, y: number, text: string, size = 16, color: number = COLORS.cream, wrap = w - 56) =>
-      c.add(this.add.text(x, y, text, textStyle(this.pts(size), color, { wordWrap: { width: wrap } })));
+    const body = (x: number, y: number, text: string, size = 16, color: number = COLORS.cream, wrap = w - 56) => {
+      const o = this.add.text(x, y, text, textStyle(this.pts(size), color, { wordWrap: { width: wrap } }));
+      c.add(o);
+      return o;
+    };
+    /** One line, narrowed to fit maxW. */
+    const line = (x: number, y: number, text: string, size: number, color: number, maxW: number) => {
+      const o = this.fitWidth(this.add.text(x, y, text, textStyle(this.pts(size), color)), maxW);
+      c.add(o);
+      return o;
+    };
 
     if (tab === 'bike') {
       const bike = career.bike;
       const brand = bikes.brands.find((b) => b.id === bike.brand);
-      body(left, y0, `${brand?.starter ?? bike.brand}  ·  ${bike.class}`, 22, COLORS.accent);
+      const px = 20;
+      line(left, y0, `${brand?.starter ?? bike.brand}  ·  ${bike.class}`, 22, COLORS.accent, px - 16 - left);
       const problem = bikeProblem(bikes, bike);
-      body(left, y0 + 32, problem ?? 'Runs. Ready for the backyard, and for the tracks once you have a van.', 16, problem ? COLORS.accent : COLORS.muted, w / 2 - 40);
+      const note = body(left, y0 + 32, problem ?? 'Runs. Ready for the backyard, and for the tracks once you have a van.', 16, problem ? COLORS.accent : COLORS.muted, w / 2 - 40);
       const stats = bikeStats(bikes, bike);
       const max = statMax(bikes, bike.class);
-      bikes.stats.forEach((st, i) => c.add(statBar(this, left, y0 + 100 + i * 34, st.name, w / 2 - 260, max, 110).setValue(stats[st.id])));
-      const px = 20;
-      body(px, y0, 'Parts', 20, COLORS.accent);
+      // The stats start below the note, however many lines it takes.
+      const statsY = Math.max(y0 + 100, note.y + note.height + 22);
+      bikes.stats.forEach((st, i) => c.add(statBar(this, left, statsY + i * 34, st.name, w / 2 - 260, max, 110).setValue(stats[st.id])));
+      line(px, y0, 'Parts', 20, COLORS.accent, w / 2 - 28 - px);
+      // Columns: the part's name, its grade, a bar and the percentage, each kept to its own space.
+      const barW = w / 2 - 330;
+      const pctX = px + 240 + barW;
       bikes.slots.forEach((slot, i) => {
         const part = bike.parts[slot.id];
         const y = y0 + 40 + i * 32;
         const cond = part ? Math.round(part.condition * 100) : 0;
-        body(px, y, slot.name, 15);
-        body(px + 190, y, part ? `G${part.grade}` : '—', 15, COLORS.muted);
-        const barW = w / 2 - 330;
+        line(px, y, slot.name, 15, COLORS.cream, 182);
+        line(px + 190, y, part ? `G${part.grade}` : '—', 15, COLORS.muted, 34);
         c.add(this.add.rectangle(px + 230, y + 10, barW, 10, COLORS.panelLight).setOrigin(0, 0.5));
         c.add(this.add.rectangle(px + 230, y + 10, Math.max(1, (barW * cond) / 100), 10, cond === 0 ? 0xb03030 : cond <= 20 ? COLORS.accent : 0x6fa84a).setOrigin(0, 0.5));
-        body(px + 240 + barW, y, cond === 0 ? 'Broken' : `${cond}%`, 15, cond === 0 ? COLORS.accent : COLORS.cream);
+        line(pctX, y, cond === 0 ? 'Broken' : `${cond}%`, 15, cond === 0 ? COLORS.accent : COLORS.cream, w / 2 - 12 - pctX);
       });
     } else if (tab === 'bag') {
       const limit = services.content.shops.spareLimit;
@@ -528,24 +528,31 @@ export class HudScene extends Phaser.Scene {
       // Skills: each lead skill with its child skills, level and progress to the next level (GDD 6.1).
       const { skills } = services.content;
       const colW = (w - 56) / skills.leads.length;
+      // The note goes at the foot first, so the rows can share out the room above it.
+      const foot = body(left, 0, 'Racing and practice train Rider Ability. Training minigames for every skill come in later builds.', 14, COLORS.muted);
+      foot.setY(h / 2 - 14 - foot.height);
       skills.leads.forEach((lead, i) => {
         const x = left + i * colW;
         const lx = leadXp(career.skills, lead);
-        body(x, y0, lead.name, 20, COLORS.accent, colW - 16);
-        body(x, y0 + 28, `Level ${leadLevel(skills, career.skills, lead)} · ${Math.floor(lx).toLocaleString()} XP`, 15, COLORS.cream, colW - 16);
+        const head = line(x, y0, lead.name, 20, COLORS.accent, colW - 16);
+        const level = line(x, Math.max(y0 + 28, head.y + head.height - 2), `Level ${leadLevel(skills, career.skills, lead)} · ${Math.floor(lx).toLocaleString()} XP`, 15, COLORS.cream, colW - 16);
         const barW = colW - 40;
-        c.add(this.add.rectangle(x, y0 + 58, barW, 8, COLORS.panelLight).setOrigin(0, 0.5));
-        c.add(this.add.rectangle(x, y0 + 58, Math.max(1, barW * levelProgress(lx, lead.multiplier, skills.maxLevel)), 8, COLORS.accent).setOrigin(0, 0.5));
+        const leadBarY = Math.max(y0 + 58, level.y + level.height + 6);
+        c.add(this.add.rectangle(x, leadBarY, barW, 8, COLORS.panelLight).setOrigin(0, 0.5));
+        c.add(this.add.rectangle(x, leadBarY, Math.max(1, barW * levelProgress(lx, lead.multiplier, skills.maxLevel)), 8, COLORS.accent).setOrigin(0, 0.5));
+        const first = leadBarY + 18;
+        const rowH = Math.min(48, (foot.y - 6 - first) / Math.max(1, lead.children.length));
         lead.children.forEach((ch, j) => {
-          const y = y0 + 76 + j * 48;
+          const y = first + j * rowH;
           const xp = childXp(career.skills, ch.id);
-          body(x, y, ch.name, 15, COLORS.cream, colW - 50);
-          c.add(this.add.text(x + barW, y, `${childLevel(skills, career.skills, ch.id)}`, textStyle(this.pts(15), COLORS.accent)).setOrigin(1, 0));
-          c.add(this.add.rectangle(x, y + 26, barW, 6, COLORS.panelLight).setOrigin(0, 0.5));
-          c.add(this.add.rectangle(x, y + 26, Math.max(1, barW * levelProgress(xp, 1, skills.maxLevel)), 6, 0x6fa84a).setOrigin(0, 0.5));
+          const lv = this.add.text(x + barW, y, `${childLevel(skills, career.skills, ch.id)}`, textStyle(this.pts(15), COLORS.accent)).setOrigin(1, 0);
+          c.add(lv);
+          const name = line(x, y, ch.name, 15, COLORS.cream, barW - lv.width - 8);
+          const barY = y + Math.min(rowH - 8, Math.max(26, name.height + 4));
+          c.add(this.add.rectangle(x, barY, barW, 6, COLORS.panelLight).setOrigin(0, 0.5));
+          c.add(this.add.rectangle(x, barY, Math.max(1, barW * levelProgress(xp, 1, skills.maxLevel)), 6, 0x6fa84a).setOrigin(0, 0.5));
         });
       });
-      body(left, h / 2 - 40, 'Racing and practice train Rider Ability. Training minigames for every skill come in later builds.', 14, COLORS.muted);
     }
     this.openModal(c, () => {
       const d = this.panelDone;
@@ -599,6 +606,12 @@ export class HudScene extends Phaser.Scene {
       c.add(o);
       return o;
     };
+    /** One line, narrowed to fit maxW: for the columns of a list, which sit at set places. */
+    const line = (x: number, y: number, t: string, size: number, color: number, maxW: number) => {
+      const o = this.fitWidth(this.add.text(x, y, t, textStyle(this.pts(size), color)), maxW);
+      c.add(o);
+      return o;
+    };
     /** Applies a shop action, shows what happened and redraws the panel. */
     const done = (r: Result, t: ShopTab = tab, pg = 0) => {
       this.toast(r.message);
@@ -606,7 +619,9 @@ export class HudScene extends Phaser.Scene {
       reopen(t, pg);
     };
 
-    text(left, top, shop.name, 24, COLORS.accent);
+    const title = text(left, top, shop.name, 24, COLORS.accent);
+    // Kept above the tab buttons (their tops are at top + 46) at any Text size.
+    if (title.height > 44) title.setScale(44 / title.height);
     const money = text(0, top + 4, `Money: ${formatMoney(career.money)}`, 18, COLORS.accent);
     money.setX(w / 2 - 80 - money.width);
     c.add(button(this, w / 2 - 46, top + 16, '✕', () => this.closeModal(), 44, 40));
@@ -640,8 +655,8 @@ export class HudScene extends Phaser.Scene {
         if (!sellsFor(shop, cls)) return;
         const y = y0 - 6 + i * 46;
         const name = bikes.slots.find((s) => s.id === slot)?.name ?? slot;
-        text(left, y + 8, name, 16, COLORS.cream, 215);
-        text(left + 222, y + 8, yours(slot), 15, career.bike.parts[slot]?.condition <= 0 ? COLORS.accent : COLORS.muted);
+        line(left, y + 8, name, 16, COLORS.cream, 215);
+        line(left + 222, y + 8, yours(slot), 15, career.bike.parts[slot]?.condition <= 0 ? COLORS.accent : COLORS.muted, 170);
         for (let g = lo; g <= hi; g++) {
           const item = stock.find((s) => s.slot === slot && s.grade === g);
           const label = !item ? `G${g}: none in` : item.soldOut ? `G${g}: sold out` : `G${g}  ${formatMoney(item.price)}`;
@@ -659,8 +674,8 @@ export class HudScene extends Phaser.Scene {
         const y = y0 + k * 46;
         const value = resaleValue(shops, shop, career, p);
         const special = shop.sells!.slots.includes(p.slot);
-        text(left, y + 6, `G${p.grade} ${bikes.slots.find((s) => s.id === p.slot)?.name ?? p.slot}`, 16, COLORS.cream, 260);
-        text(left + 270, y + 6, `${Math.round(p.condition * 100)}%${special ? '' : ' · not their line, half price'}`, 14, COLORS.muted, 300);
+        line(left, y + 6, `G${p.grade} ${bikes.slots.find((s) => s.id === p.slot)?.name ?? p.slot}`, 16, COLORS.cream, 260);
+        line(left + 270, y + 6, `${Math.round(p.condition * 100)}%${special ? '' : ' · not their line, half price'}`, 14, COLORS.muted, w / 2 - 200 - (left + 270));
         const b = button(this, w / 2 - 110, y + 16, value === null ? "Won't buy" : `Sell ${formatMoney(value)}`, () => {
           const sell = () => done(sellSpare(shops, shop, career, i), 'sell', pg);
           // Small sales are one click; bigger ones ask first (GDD 8.3).
@@ -674,12 +689,12 @@ export class HudScene extends Phaser.Scene {
       bikes.slots.forEach((slot, i) => {
         const y = y0 - 12 + i * 34;
         const part = career.bike.parts[slot.id];
-        text(left, y + 4, slot.name, 15, COLORS.cream, 200);
-        text(left + 210, y + 4, yours(slot.id), 15, part?.condition <= 0 ? COLORS.accent : COLORS.muted);
+        line(left, y + 4, slot.name, 15, COLORS.cream, 200);
+        line(left + 210, y + 4, yours(slot.id), 15, part?.condition <= 0 ? COLORS.accent : COLORS.muted, 112);
         if (!part) return;
         const q = repairQuote(shops, slot.id, part, cls);
         if (!q.ok) {
-          text(left + 330, y + 4, q.reason, 14, COLORS.muted, w - 400);
+          line(left + 330, y + 4, q.reason, 14, COLORS.muted, w / 2 - 20 - (left + 330));
           return;
         }
         const b = button(this, left + 420, y + 12, `Repair ${formatMoney(q.cost)}`, () => inner(() => {
@@ -692,7 +707,7 @@ export class HudScene extends Phaser.Scene {
         }), 170, 32);
         b.setEnabled(career.money >= q.cost);
         c.add(b);
-        text(left + 520, y + 4, `→ G${q.grade} at 100%`, 14, COLORS.muted);
+        line(left + 520, y + 4, `→ G${q.grade} at 100%`, 14, COLORS.muted, w / 2 - 20 - (left + 520));
       });
     } else {
       const fee = pence(shop.fitFee ?? 0);
@@ -701,8 +716,8 @@ export class HudScene extends Phaser.Scene {
       spareRows.slice(from, to).forEach(({ part, i }, k) => {
         const p = part!;
         const y = y0 + k * 46;
-        text(left, y + 6, `G${p.grade} ${bikes.slots.find((s) => s.id === p.slot)?.name ?? p.slot} · ${Math.round(p.condition * 100)}%`, 16, COLORS.cream, 300);
-        text(left + 310, y + 6, `Replaces your ${yours(p.slot)}`, 14, COLORS.muted, 260);
+        line(left, y + 6, `G${p.grade} ${bikes.slots.find((s) => s.id === p.slot)?.name ?? p.slot} · ${Math.round(p.condition * 100)}%`, 16, COLORS.cream, 300);
+        line(left + 310, y + 6, `Replaces your ${yours(p.slot)}`, 14, COLORS.muted, w / 2 - 200 - (left + 310));
         const b = button(this, w / 2 - 110, y + 16, fee ? `Fit ${formatMoney(fee)}` : 'Fit', () => done(fitSpare(shops, bikes, shop, career, i), 'fit', pg), 170, 38);
         b.setEnabled(career.money >= fee && p.class === cls);
         c.add(b);

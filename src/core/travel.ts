@@ -6,7 +6,10 @@ import { objectTile, objectTiles, type BakedMap, type MapObject, type Tile } fro
 //   or at the spawn its `spawn` prop names (a building with a second door);
 // - an interior exit returns to the area map whose door leads in, on that building's return tile,
 //   or on the return tile its `return` prop names;
-// - an area exit names another area map and a spawn point there.
+// - an area exit names another area map and a spawn point there;
+// - an area exit to "world_map" (the name is kept from the old world map screen, so the maps don't
+//   change) is a road with a choice of places at the end of it: data/world.json routes lists them,
+//   and the route marshal standing by it says which is which (guides.ts).
 
 export interface Arrival {
   map: string;
@@ -15,7 +18,7 @@ export interface Arrival {
 
 export type StepResult =
   | { kind: 'travel'; to: Arrival; via: MapObject }
-  | { kind: 'worldMap'; via: MapObject }
+  | { kind: 'route'; via: MapObject }
   | { kind: 'blocked'; message: string; via: MapObject }
   | null;
 
@@ -37,7 +40,8 @@ export function spawnTile(map: BakedMap, name?: string): Tile | null {
   return s ? objectTile(s, map.tileSize) : null;
 }
 
-export const WORLD_MAP = 'world_map';
+/** An exit or travel object with this as its `to` is a route: see data/world.json routes. */
+export const ROUTE = 'world_map';
 
 export class Travel {
   constructor(
@@ -50,15 +54,23 @@ export class Travel {
     return this.locks.find((l) => l.map === map.id && l.object === via.name && !flags[l.flag]) ?? null;
   }
 
+  /** Why a door or exit can't be used yet, or null when it can. */
+  shut(map: BakedMap, via: MapObject, flags: Record<string, boolean> = {}): string | null {
+    const p = via.props;
+    const lock = this.lockFor(map, via, flags);
+    if (lock) return lock.message;
+    // A map lock opens with a story lock above or the flag named by its unlock property.
+    const storyOpened = this.locks.some((l) => l.map === map.id && l.object === via.name);
+    if (p.locked && !storyOpened && !(typeof p.unlock === 'string' && flags[p.unlock])) return `${via.name} is locked for now.`;
+    return null;
+  }
+
   /** Where stepping onto a door or exit leads, or why it can't be used yet. */
   resolve(map: BakedMap, via: MapObject, flags: Record<string, boolean> = {}): StepResult {
     const p = via.props;
-    const lock = this.lockFor(map, via, flags);
-    if (lock) return { kind: 'blocked', message: lock.message, via };
-    // A map lock opens with a story lock above or the flag named by its unlock property.
-    const storyOpened = this.locks.some((l) => l.map === map.id && l.object === via.name);
-    if (p.locked && !storyOpened && !(typeof p.unlock === 'string' && flags[p.unlock])) return { kind: 'blocked', message: `${via.name} is locked for now.`, via };
-    if (p.to === WORLD_MAP) return { kind: 'worldMap', via };
+    const shut = this.shut(map, via, flags);
+    if (shut) return { kind: 'blocked', message: shut, via };
+    if (p.to === ROUTE) return { kind: 'route', via };
 
     if (via.type === 'door' && typeof p.interior === 'string') {
       const target = this.maps.get(interiorMapId(p.interior));

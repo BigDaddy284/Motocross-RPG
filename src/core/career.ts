@@ -89,11 +89,31 @@ export interface JobDef {
   stations: { object: string; label: string; ms: number }[];
 }
 
+export interface PlaceDef {
+  map: string;
+  spawn: string;
+  name: string;
+  note: string;
+}
+
+export interface RouteDef {
+  /** The map and the name of its exit (an exit with to "world_map"). */
+  map: string;
+  exit: string;
+  /** What the road is called, for directions ("the venue road"). */
+  road: string;
+  /** The places it leads to, by map id: each must be in places. */
+  to: string[];
+}
+
 export interface WorldData {
   /** Testing only: multiplies all shift pay. Review before Final v1. */
   testPayMultiplier?: number;
   locks: { map: string; object: string; flag: string; message: string }[];
-  worldMap: { map: string; spawn: string; name: string; note: string }[];
+  /** Places at the end of a route (an exit with a choice of roads): where you arrive and what it is. */
+  places: PlaceDef[];
+  /** Exits that lead to a choice of places, and which ones (the route marshal there gives directions). */
+  routes: RouteDef[];
   jobs: JobDef[];
 }
 

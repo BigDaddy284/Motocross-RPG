@@ -1,5 +1,5 @@
 {
-  "note": "Area 1 NPCs (Spec 18.7 roster). An NPC is placed by its own map and tile, or by an npc spot with its id on an area map. talk picks the first matching line set (if a flag is set, unless it is set), falling back to dialogue. An NPC with quietUntil ignores the rider until that flag is set (GDD 4.2). A story step for the NPC always comes first.",
+  "note": "Area 1 NPCs (Spec 18.7 roster). An NPC is placed by its own map and tile, or by an npc spot with its id on an area map. talk picks the first matching line set (if a flag is set, unless it is set), falling back to dialogue. An NPC with quietUntil ignores the rider until that flag is set (GDD 4.2). A story step for the NPC always comes first. guide: true makes a route marshal: they read the map they stand on for directions (every exit, where it goes, what is shut) and let you pick which route to take (data/world.json routes); dialogue is their greeting.",
   "npcs": [
     {"id": "npc.garage_mechanic", "name": "Garage mechanic", "sprite": "npc-01-garage-mechanic", "map": "int-home-local-garage", "tile": [4, 2], "facing": "down", "dialogue": "garage_mechanic.hello", "talk": [{"unless": "tutorial_done", "dialogue": "busy.tutorial"}]},
     {"id": "npc.van_seller", "name": "Van seller", "sprite": "npc-02-van-seller", "map": "int-home-van-office", "tile": [3, 1], "facing": "down", "dialogue": "van_seller.hello", "talk": [{"unless": "tutorial_done", "dialogue": "busy.tutorial"}]},
@@ -11,6 +11,11 @@
     {"id": "npc.modifier_owner", "name": "Modifier machine owner", "sprite": "npc-11-modifier-machine-owner", "map": "int-iz-modifier-unit", "tile": [5, 3], "facing": "up", "dialogue": "modifier_owner.hello", "quietUntil": "tutorial_done"},
     {"id": "npc.track_official", "name": "Track official", "sprite": "npc-10-practice-track-owner", "map": "area1-venue-farmland", "tile": [16, 13], "facing": "down", "dialogue": "track_official.hello", "quietUntil": "tutorial_done"},
     {"id": "npc.local_champion", "name": "Local Champion", "sprite": "npc-08-local-champion", "map": "area1-venue-farmland", "tile": [19, 13], "facing": "left", "dialogue": "local_champion.hello", "quietUntil": "tutorial_done", "talk": [{"if": "first_race_done", "dialogue": "local_champion.after"}]},
-    {"id": "npc.neighbour", "name": "Neighbour", "sprite": "npc-12-neighbour-pc", "map": "int-home-neighbour", "tile": [8, 5], "facing": "down", "dialogue": "neighbour.hello", "quietUntil": "tutorial_done"}
+    {"id": "npc.neighbour", "name": "Neighbour", "sprite": "npc-12-neighbour-pc", "map": "int-home-neighbour", "tile": [8, 5], "facing": "down", "dialogue": "neighbour.hello", "quietUntil": "tutorial_done"},
+    {"id": "npc.marshal_home", "name": "Route marshal", "sprite": "npc-09-running-coach", "map": "area1-home-town", "tile": [3, 19], "facing": "down", "dialogue": "route_marshal.hello", "guide": true},
+    {"id": "npc.marshal_industrial", "name": "Route marshal", "sprite": "npc-09-running-coach", "map": "area1-industrial-zone", "tile": [1, 19], "facing": "up", "dialogue": "route_marshal.hello", "guide": true},
+    {"id": "npc.marshal_farmland", "name": "Route marshal", "sprite": "npc-09-running-coach", "map": "area1-venue-farmland", "tile": [15, 20], "facing": "left", "dialogue": "route_marshal.hello", "guide": true},
+    {"id": "npc.marshal_quarry", "name": "Route marshal", "sprite": "npc-09-running-coach", "map": "area1-venue-quarry", "tile": [15, 20], "facing": "left", "dialogue": "route_marshal.hello", "guide": true},
+    {"id": "npc.marshal_woodland", "name": "Route marshal", "sprite": "npc-09-running-coach", "map": "area1-venue-woodland", "tile": [15, 20], "facing": "left", "dialogue": "route_marshal.hello", "guide": true}
   ]
 }

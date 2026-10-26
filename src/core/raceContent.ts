@@ -51,7 +51,10 @@ export const RACING_SCHEMA: Schema = {
     note: { type: 'string' },
     sim: {
       type: 'object',
+      optional: ['firstCorner', 'pileup'],
       fields: {
+        firstCorner: { type: 'object', fields: { chance: SHARE, riders: RANGE } },
+        pileup: { type: 'object', fields: { chance: SHARE, window: N0, most: { type: 'number', integer: true, min: 1 } } },
         spread: N0,
         noise: N0,
         consistencyNoiseCut: SHARE,
@@ -128,7 +131,7 @@ export const TRACKS_SCHEMA: Schema = {
       minItems: 1,
       items: {
         type: 'object',
-        optional: ['practiceOnly', 'gates', 'kind', 'width', 'patches', 'ground', 'scenery', 'start', 'elevation'],
+        optional: ['practiceOnly', 'gates', 'kind', 'width', 'patches', 'ground', 'scenery', 'start', 'elevation', 'hills', 'layout', 'features'],
         fields: {
           id: IDS,
           name: S,
@@ -137,6 +140,13 @@ export const TRACKS_SCHEMA: Schema = {
           practiceOnly: { type: 'boolean' },
           gates: { type: 'array', items: N },
           path: { type: 'array', minItems: 3, items: POINT },
+          // The editor's route: control points [x, y], with curve handles [x, y, hx, hy] or [x, y, hx, hy, gx, gy]; the path is generated from it.
+          layout: { type: 'object', fields: { points: { type: 'array', items: { type: 'array', items: N, minItems: 2, maxItems: 6 } } } },
+          // The editor's features on the route (jumps and the like), from which the sections are generated with the route's own straights and bends.
+          features: {
+            type: 'array',
+            items: { type: 'object', optional: ['line', 'height'], fields: { type: IDS, at: N0, len: { type: 'number', min: 0.5 }, passing: SHARE, line: IDS, height: N0 } },
+          },
           sections: {
             type: 'array',
             minItems: 1,
@@ -154,6 +164,8 @@ export const TRACKS_SCHEMA: Schema = {
               paint: { type: 'record', values: { type: 'array', items: { type: 'array', items: { type: 'number', integer: true, min: 0 }, minItems: 2, maxItems: 2 } } },
             },
           },
+          // The editor's hills and dips along the track (elevation.ts TrackHill).
+          hills: { type: 'array', items: { type: 'object', fields: { at: N0, len: { type: 'number', min: 0.5 }, height: N } } },
           elevation: {
             type: 'object',
             fields: {
@@ -165,8 +177,8 @@ export const TRACKS_SCHEMA: Schema = {
             type: 'array',
             items: {
               type: 'object',
-              optional: ['w', 'h', 'rot', 'text', 'color'],
-              fields: { type: IDS, x: N, y: N, w: { type: 'number', min: 0.1 }, h: { type: 'number', min: 0.1 }, rot: N, text: { type: 'string' }, color: { type: 'string', pattern: /^#[0-9a-fA-F]{3,8}$/ } },
+              optional: ['w', 'h', 'rot', 'text', 'color', 'route', 'variant', 'action'],
+              fields: { type: IDS, x: N, y: N, variant: { type: 'string' }, action: { type: 'string' }, w: { type: 'number', min: 0.1 }, h: { type: 'number', min: 0.1 }, rot: N, text: { type: 'string' }, color: { type: 'string', pattern: /^#[0-9a-fA-F]{3,8}$/ }, route: { type: 'array', items: { type: 'array', items: N, minItems: 2, maxItems: 2 } } },
             },
           },
         },

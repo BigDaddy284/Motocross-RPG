@@ -1,6 +1,8 @@
+import { BUILDINGS_SCHEMA, checkBuildings, type BuildingsData } from './buildings';
 import type { BikesData, ItemDef, StoryData, WorldData } from './career';
 import { Grid } from './grid';
 import { objectTile, type BakedMap, type Facing } from './mapTypes';
+import { ROUTE, stepTriggerAt } from './travel';
 import type { RacingData } from './race';
 import { TRACK_PARTS_SCHEMA, checkTrackParts, type TrackPartsData } from './trackParts';
 import { RACING_SCHEMA, RIDERS_SCHEMA, SKILLS_SCHEMA, TRACKS_SCHEMA, checkRaceContent } from './raceContent';
@@ -26,6 +28,8 @@ export interface NpcDef {
   talk?: { if?: string; unless?: string; dialogue: string }[];
   /** The NPC ignores the rider until this flag is set (GDD 4.2: only the opening chain's NPCs talk at first). */
   quietUntil?: string;
+  /** A route marshal: gives directions from the map's exits and helps pick a route (core/guides.ts). */
+  guide?: boolean;
 }
 
 export interface DialogueLine {
@@ -47,6 +51,7 @@ export interface Content {
   trackParts: TrackPartsData;
   shops: ShopsData;
   vehicles: VehiclesData;
+  buildings: BuildingsData;
 }
 
 export interface Manifest {
@@ -75,7 +80,7 @@ export const NPCS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['map', 'tile', 'facing', 'talk', 'quietUntil'],
+        optional: ['map', 'tile', 'facing', 'talk', 'quietUntil', 'guide'],
         fields: {
           id: { type: 'string', pattern: ID },
           name: { type: 'string', nonEmpty: true },
@@ -89,6 +94,7 @@ export const NPCS_SCHEMA: Schema = {
             items: { type: 'object', optional: ['if', 'unless'], fields: { if: { type: 'string', pattern: ID }, unless: { type: 'string', pattern: ID }, dialogue: { type: 'string', pattern: ID } } },
           },
           quietUntil: { type: 'string', pattern: ID },
+          guide: { type: 'boolean' },
         },
       },
     },
@@ -221,10 +227,13 @@ export const WORLD_SCHEMA: Schema = {
       type: 'array',
       items: { type: 'object', fields: { map: { type: 'string', pattern: ID }, object: { type: 'string', nonEmpty: true }, flag: { type: 'string', pattern: ID }, message: { type: 'string', nonEmpty: true } } },
     },
-    worldMap: {
+    places: {
       type: 'array',
-      minItems: 1,
       items: { type: 'object', fields: { map: { type: 'string', pattern: ID }, spawn: { type: 'string', pattern: ID }, name: { type: 'string', nonEmpty: true }, note: { type: 'string' } } },
+    },
+    routes: {
+      type: 'array',
+      items: { type: 'object', fields: { map: { type: 'string', pattern: ID }, exit: { type: 'string', nonEmpty: true }, road: { type: 'string', nonEmpty: true }, to: { type: 'array', minItems: 1, items: { type: 'string', pattern: ID } } } },
     },
     jobs: {
       type: 'array',
@@ -265,6 +274,7 @@ export const CONTENT_FILES = {
   trackParts: 'data/trackParts.json',
   shops: 'data/shops.json',
   vehicles: 'data/vehicles.json',
+  buildings: 'data/buildings.json',
 } as const;
 
 export type RawContent = Record<keyof typeof CONTENT_FILES, unknown>;
@@ -283,10 +293,20 @@ const SCHEMAS: Record<keyof typeof CONTENT_FILES, Schema> = {
   trackParts: TRACK_PARTS_SCHEMA,
   shops: SHOPS_SCHEMA,
   vehicles: VEHICLES_SCHEMA,
+  buildings: BUILDINGS_SCHEMA,
 };
 
 /** Checks raw file contents and returns the typed content, or every problem found. */
 export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<string, BakedMap>): { content: Content | null; errors: ContentError[] } {
+  // Unfinished tracks (draft: true, still being built in the track editor) stay in tracks.json but
+  // the game leaves them out: they aren't checked, raced or offered. A venue can't use one.
+  const drafts = new Map<string, string>();
+  const rawTracks = raw.tracks as { tracks?: unknown } | null;
+  if (rawTracks && Array.isArray(rawTracks.tracks)) {
+    const all = rawTracks.tracks as { draft?: unknown; id?: unknown; name?: unknown }[];
+    for (const t of all) if (t?.draft === true) drafts.set(String(t.id), String(t.name ?? t.id));
+    if (drafts.size) raw = { ...raw, tracks: { ...rawTracks, tracks: all.filter((t) => t?.draft !== true) } };
+  }
   const errors = (Object.keys(CONTENT_FILES) as (keyof typeof CONTENT_FILES)[]).flatMap((k) => validate(CONTENT_FILES[k], raw[k], SCHEMAS[k]));
   if (errors.length) return { content: null, errors };
 
@@ -304,6 +324,7 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
     trackParts: raw.trackParts as TrackPartsData,
     shops: raw.shops as ShopsData,
     vehicles: raw.vehicles as VehiclesData,
+    buildings: raw.buildings as BuildingsData,
   };
   const file = CONTENT_FILES.npcs;
   const seen = new Set<string>();
@@ -324,11 +345,15 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
     }
   });
   errors.push(...checkCareerContent(content, maps));
+  content.tracks.venues.forEach((v, i) => {
+    if (v.track && drafts.has(v.track)) errors.push({ file: CONTENT_FILES.tracks, field: `venues[${i}].track`, message: `"${v.track}" (${drafts.get(v.track)}) is unfinished; mark it Ready to race in the track editor first` });
+  });
   errors.push(...checkRaceContent(content, maps));
   // Tile art isn't listed at run time; tests check it exists (tests/tracks.test.ts).
   errors.push(...checkTrackParts(content.trackParts, content.tracks.tracks, () => true));
   errors.push(...checkShopContent(CONTENT_FILES.shops, content.shops, content.bikes, seen, maps));
   errors.push(...checkVehicles(CONTENT_FILES.vehicles, raw.vehicles, maps).errors);
+  errors.push(...checkBuildings(content.buildings, maps));
   content.vehicles.designs.forEach((d, i) => {
     if (!manifest.vehicles?.[d.id]) errors.push({ file: CONTENT_FILES.vehicles, field: `designs[${i}].id`, message: `no van sheet for "${d.id}" in the manifest (run tools/import-art.mjs --vehicles)` });
   });
@@ -392,10 +417,36 @@ function checkCareerContent(c: Content, maps: Map<string, BakedMap>): ContentErr
     else if (!m.objects.some((o) => o.name === name)) err(CONTENT_FILES.world, field, `no object "${name}" on ${mapId}`);
   };
   world.locks.forEach((l, i) => objectOn(`locks[${i}].object`, l.map, l.object));
-  world.worldMap.forEach((d, i) => {
+  world.places.forEach((d, i) => {
     const m = maps.get(d.map);
-    if (!m) err(CONTENT_FILES.world, `worldMap[${i}].map`, `no map "${d.map}"`);
-    else if (!m.objects.some((o) => o.type === 'spawn' && o.name === d.spawn)) err(CONTENT_FILES.world, `worldMap[${i}].spawn`, `no spawn "${d.spawn}" on ${d.map}`);
+    if (!m) err(CONTENT_FILES.world, `places[${i}].map`, `no map "${d.map}"`);
+    else if (!m.objects.some((o) => o.type === 'spawn' && o.name === d.spawn)) err(CONTENT_FILES.world, `places[${i}].spawn`, `no spawn "${d.spawn}" on ${d.map}`);
+  });
+  // Routes: an exit to "world_map" leads to a choice of places, so it needs its list here.
+  world.routes.forEach((r, i) => {
+    const m = maps.get(r.map);
+    const exit = m?.objects.find((o) => o.type === 'exit' && o.name === r.exit);
+    if (!m) err(CONTENT_FILES.world, `routes[${i}].map`, `no map "${r.map}"`);
+    else if (!exit) err(CONTENT_FILES.world, `routes[${i}].exit`, `no exit "${r.exit}" on ${r.map}`);
+    else if (exit.props.to !== ROUTE) err(CONTENT_FILES.world, `routes[${i}].exit`, `"${r.exit}" on ${r.map} goes straight to ${String(exit.props.to)}, not to a choice of places (to "${ROUTE}")`);
+    r.to.forEach((id, j) => {
+      if (!world.places.some((p) => p.map === id)) err(CONTENT_FILES.world, `routes[${i}].to[${j}]`, `"${id}" isn't one of the places`);
+      if (id === r.map) err(CONTENT_FILES.world, `routes[${i}].to[${j}]`, `leads back to ${id}, where it starts`);
+    });
+  });
+  for (const m of maps.values()) {
+    if (m.kind !== 'area') continue;
+    for (const o of m.objects) {
+      if (o.type === 'exit' && o.props.to === ROUTE && !world.routes.some((r) => r.map === m.id && r.exit === o.name)) err(CONTENT_FILES.world, 'routes', `the exit "${o.name}" on ${m.id} leads to a choice of places, but no route lists them`);
+    }
+  }
+  // Route marshals stand on a map with a way out, off the exits and doors.
+  c.npcs.forEach((n, i) => {
+    if (!n.guide) return;
+    const m = n.map ? maps.get(n.map) : undefined;
+    if (!m || !n.tile) return void err(CONTENT_FILES.npcs, `npcs[${i}].guide`, 'a route marshal needs a map and a tile to stand on');
+    if (!m.objects.some((o) => o.type === 'exit')) err(CONTENT_FILES.npcs, `npcs[${i}].guide`, `${m.id} has no exits to give directions to`);
+    if (stepTriggerAt(m, { x: n.tile[0], y: n.tile[1] })) err(CONTENT_FILES.npcs, `npcs[${i}].tile`, `${n.tile.join(',')} is on a door or exit; stand the marshal beside it`);
   });
   world.jobs.forEach((j, i) => {
     objectOn(`jobs[${i}].start`, j.map, j.start);

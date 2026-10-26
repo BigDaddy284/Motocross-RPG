@@ -3,7 +3,8 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { SceneryItem, TrackDef } from '../core/race';
 import { START_HOLD, type RiderPose } from '../core/riderAI';
-import { OFFICIAL_SCALE, officialPlan, WALK_FROM, WALK_TO } from '../core/startOfficial';
+import { CHEER_ITEM, CHEER_RANGE, CHEER_WALK, cheerAction, cheerColour, cheerRoute, cheerTiming, cheerVariant, REACT_SECONDS, VARIANT_SCALE, type CheerAction } from '../core/cheer';
+import { alongRoute, OFFICIAL_ITEM, OFFICIAL_SCALE, officialPlan, placedOfficial, routeLength, walkProgress, BOARD_MOVE, BOARD_SIDEWAYS, WALK_FROM, WALK_TO, type OfficialSpot } from '../core/startOfficial';
 import { pointAt, START_PAD, startPointAt } from '../core/trackGeom';
 import { GRID_H, GRID_W, trackKind, type TrackPartsData } from '../core/trackParts';
 import { BIKE_LENGTH, CAM_AZ, LIP_AT, TrackSurface } from '../core/trackSurface';
@@ -22,13 +23,16 @@ import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
 // your rider (or the leader once you are out), with a map of the whole lap in the corner.
 
 /** Camera direction: degrees round from straight in front, and degrees down from level. */
-/** Seconds the official takes to raise or lower the start board. */
-const BOARD_MOVE = 0.4;
 const CAM_EL = 38;
 /** Grid units across the view, by track kind. Riders stay big enough to follow at this size. */
 const VIEW_UNITS: Record<string, number> = { stadium: 36, outdoor: 32, endurance: 32 };
 /** Ground drawn round the 100 × 60 grid, in grid units. */
 const MARGIN = 24;
+// The bank at each edge of the track runs a little past its foot and a little under the ground, so
+// where the ground slopes away from a raised track its triangles (drawn flat between lattice points)
+// never show through the bank.
+const FOOT_OUT = 1.25;
+const FOOT_BURY = 0.15;
 const TILE_PX = 32;
 const ART_DIR = 'assets/art/area-map/tiled/tiles';
 const SURFACES: Record<string, number> = { hard_pack: 0xb07a45, loam: 0x8a5a33, sand: 0xd8c07a, mud: 0x6b4a2b };
@@ -48,6 +52,26 @@ export interface ViewRider {
   look?: RaceLook;
 }
 
+/** A cheering fan in the scene (cheerFigure, updateCheers). */
+export interface Cheer {
+  i: number;
+  group: THREE.Group;
+  figure: THREE.Group;
+  legs: THREE.Group[];
+  arms: THREE.Group[];
+  body: THREE.Mesh;
+  action: CheerAction;
+  route: { x: number; y: number }[];
+  length: number;
+  walked: number;
+  facing: number;
+  /** When they may next react (view seconds), when the current reaction began, and their own rest and delay. */
+  restUntil: number;
+  reactAt: number;
+  rest: number;
+  delay: number;
+  phase: number;
+}
 interface Bike {
   root: THREE.Group;
   body: THREE.Group;
@@ -107,6 +131,14 @@ export class RaceView {
    * rider. A race never sets it.
    */
   editCam: { x: number; z: number; zoom: number; az: number } | null = null;
+  /**
+   * Set only by the track editor's race view, for an unfinished track whose lap isn't closed yet:
+   * the drawing past this fraction is the gap back to the start, which isn't drawn (no track, no
+   * grading of the ground, no line on the lap map). 1 (all of it drawn) otherwise.
+   */
+  private readonly gapFrom: number;
+  /** The stretches of the drawing that aren't track (fractions of it): the gap back to the start, and any gaps left between pieces of an unfinished track. */
+  private readonly gaps: [number, number][];
   /** The track editor's markers (selection, brush, checks), drawn over everything; empty in a race. */
   readonly overlay = new THREE.Group();
   /** Goes up when the picture changes by itself (the ground's art arriving), for a view that only draws on a change. */
@@ -121,7 +153,10 @@ export class RaceView {
   /** The start gate's pickets, hinged at the bottom so they drop flat when the race starts. */
   private gateDrop: THREE.Group | null = null;
   /** The official holding the start board beside the start straight, and the board itself. */
-  private board: { stand: THREE.Group; panel: THREE.Group; arms: THREE.Group[]; legs: THREE.Group[]; a: { x: number; y: number }; b: { x: number; y: number } } | null = null;
+  /** The cheering fans (scenery type cheer): walk in on load, then react to bikes passing (updateCheers). */
+  readonly cheers: Cheer[] = [];
+  private cheerClock = 0;
+  private board: { stand: THREE.Group; panel: THREE.Group; arms: THREE.Group[]; legs: THREE.Group[]; route: OfficialSpot[]; length: number } | null = null;
   /** False for practice, which has no start procedure: the start board stays down. */
   hasStart = true;
   /** Frame times in ms (whole update, the 3D draw, and handing the picture to Phaser), for the performance check. */
@@ -140,7 +175,11 @@ export class RaceView {
     private readonly h: number,
     /** The track editor's race view passes the last view's renderer on, so a rebuild reuses its WebGL context and compiled shaders. */
     renderer?: THREE.WebGLRenderer,
+    /** The track editor's race view, for an unfinished track: see gapFrom, and gaps between its pieces (fractions of the drawing). */
+    opts: { gapFrom?: number; gaps?: [number, number][] } = {},
   ) {
+    this.gapFrom = opts.gapFrom ?? 1;
+    this.gaps = [...(opts.gaps ?? []), ...(this.gapFrom < 1 ? [[this.gapFrom, 1] as [number, number]] : [])];
     this.surface = new TrackSurface(track);
     const kind = trackKind(parts, track);
     this.follow = true;
@@ -208,8 +247,12 @@ export class RaceView {
     if (this.surface.start.total > 0) {
       this.scene3.add(this.startGate());
       this.scene3.add(this.startBoard());
+    } else if (this.track.scenery?.some((it) => it.type === OFFICIAL_ITEM)) {
+      // An official placed on a new track before its start straight: drawn standing where placed (the track editor).
+      this.scene3.add(this.startBoard());
     }
-    this.scene3.add(this.startLine());
+    // The chequered finish line at the lap's first point; an unfinished track in the editor may not have placed one yet.
+    if (this.track.finish !== false) this.scene3.add(this.startLine());
     // Low scenery that never needs fading is baked into one mesh; textured parts stay separate.
     const low: THREE.Mesh[] = [];
     for (const it of track.scenery ?? []) {
@@ -218,7 +261,8 @@ export class RaceView {
       this.scene3.add(obj);
       obj.updateMatrixWorld(true);
       const box = new THREE.Box3().setFromObject(obj);
-      if (box.max.y < 1.2) {
+      // Fans move, so they are never baked into the still scenery.
+      if (box.max.y < 1.2 && it.type !== CHEER_ITEM) {
         const plain: THREE.Mesh[] = [];
         obj.traverse((o) => {
           const m = o as THREE.Mesh;
@@ -262,7 +306,19 @@ export class RaceView {
     mg.fillStyle(COLORS.ink, 0.85).fillRoundedRect(this.mapBox.x - 6, this.mapBox.y - 6, mw + 12, GRID_H * mk + 12, 6);
     mg.lineStyle(4, 0xc98a4b, 1);
     mg.beginPath();
-    this.surface.g.pts.forEach((p, i) => (i ? mg.lineTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk) : mg.moveTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk)));
+    if (!this.gaps.length) this.surface.g.pts.forEach((p, i) => (i ? mg.lineTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk) : mg.moveTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk)));
+    else {
+      // Only the stretches that are track, each its own line.
+      let pen = false;
+      for (let i = 0; i <= 400; i++) {
+        const f = i / 400;
+        if (!this.drawn(f)) { pen = false; continue; }
+        const p = pointAt(this.surface.g, f);
+        if (pen) mg.lineTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk);
+        else mg.moveTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk);
+        pen = true;
+      }
+    }
     mg.strokePath();
     if (this.surface.start.total > 0) {
       mg.lineStyle(3, 0xc98a4b, 1);
@@ -271,7 +327,7 @@ export class RaceView {
       mg.strokePath();
     }
     const s0 = pointAt(this.surface.g, 0);
-    mg.fillStyle(0xffffff, 1).fillRect(this.mapBox.x + s0.x * mk - 2, this.mapBox.y + s0.y * mk - 2, 4, 4);
+    if (this.gapFrom > 0) mg.fillStyle(0xffffff, 1).fillRect(this.mapBox.x + s0.x * mk - 2, this.mapBox.y + s0.y * mk - 2, 4, 4);
     this.mapDots = scene.add.graphics();
     this.mapFrame = mg;
     parent.add([mg, this.mapDots]);
@@ -280,6 +336,11 @@ export class RaceView {
     this.loadArt();
     // Handed a renderer: take up the shaders it already has before the last view lets them go.
     if (renderer) this.renderer.compile(this.scene3, this.camera);
+  }
+
+  /** False on a gap in an unfinished track's drawing (see gaps), where no track is drawn. */
+  private drawn(f: number): boolean {
+    return !this.gaps.some(([a, b]) => f > a && f < b);
   }
 
   // ---- ground ----
@@ -339,6 +400,7 @@ export class RaceView {
     const n = Math.ceil(s.g.total / 0.5);
     for (let i = 0; i < n; i++) {
       const f = i / n;
+      if (!this.drawn(f)) continue;
       const p = s.spot(f, 0);
       const e = s.centre(f);
       if (s.onHill(f) && e > 0.05) hills.push({ x: p.x, z: p.z, e });
@@ -354,25 +416,64 @@ export class RaceView {
       const t = Math.max(0, Math.min(1, x));
       return t * t * (3 - 2 * t);
     };
-    // The editor's ground elevation: the painted ground, except by the track, which is graded level
-    // across its width at the ground under its middle, so the ground there eases from that level
-    // (right under the track, its lip and slope) out to the painted ground over a few grid units.
-    if (!s.elev.empty) {
-      const mid: { x: number; z: number; r: number; l: number }[] = [];
+    // The editor's elevation: the painted ground, except by the track, which is graded level across
+    // its width at its own level (the ground under its middle plus its hills), so the ground there
+    // eases from that level (right under the track, its lip and slope) out to the painted ground.
+    // That easing is a raised or sunk track's side: grass, as wide as it needs to be to stay a
+    // slope (SIDE_RUN grid units of run for each grid unit of rise), never a wall.
+    if (!s.elev.empty || s.track.hills?.length) {
+      // Bits of track in route order: the lap (seg 0) then the start straight (seg 1).
+      const mid: { x: number; z: number; r: number; l: number; seg: number; u?: number }[] = [];
       for (let i = 0; i < n; i++) {
         const f = i / n;
+        if (!this.drawn(f)) continue;
         const p = s.spot(f, 0);
-        mid.push({ x: p.x, z: p.z, r: s.hw * (LIP_AT + Math.max(s.skirt(f, -1), s.skirt(f, 1))), l: s.lift(f) });
+        mid.push({ x: p.x, z: p.z, r: s.hw * (LIP_AT + Math.max(s.skirt(f, -1), s.skirt(f, 1))), l: s.lift(f), seg: 0 });
       }
+      const lapEnd = mid.length;
       for (let u = -START_PAD; u < s.start.total; u += 0.5) {
         const p = startPointAt(s.start, u);
-        mid.push({ x: p.x, z: p.y, r: s.startHw(u) * LIP_AT + 0.4, l: s.groundAt(p.x, p.y) });
+        mid.push({ x: p.x, z: p.y, r: s.startHw(u) * LIP_AT + 0.4, l: s.startGround(u), seg: 1, u });
       }
+      // The level of the track at the bit of route nearest a point: interpolated along the route
+      // between the nearest bit and its neighbours, so under the track and at its foot the ground
+      // is exactly the track's level, with none of the smoothing below (which, on a hill's
+      // shoulders, would lift the ground into the riding surface).
+      const exact = (x: number, z: number, k: number) => {
+        const q = mid[k];
+        // The start straight's level is graded to the lap where they meet, so it is a function of
+        // the spot itself.
+        if (q.seg === 1) return s.startGround(q.u!, x, z);
+        const nb = (j: number) => {
+          if (q.seg === 0) return mid[((j % lapEnd) + lapEnd) % lapEnd];
+          return j >= lapEnd && j < mid.length ? mid[j] : undefined;
+        };
+        let bestD = Infinity;
+        let level = q.l;
+        for (const o of [nb(k - 1), nb(k + 1)]) {
+          if (!o || o === q) continue;
+          const dx = o.x - q.x;
+          const dz = o.z - q.z;
+          const len2 = dx * dx + dz * dz;
+          if (len2 < 1e-9) continue;
+          const t = Math.max(0, Math.min(1, ((x - q.x) * dx + (z - q.z) * dz) / len2));
+          const d = Math.hypot(x - (q.x + dx * t), z - (q.z + dz * t));
+          if (d < bestD) {
+            bestD = d;
+            level = q.l + (o.l - q.l) * t;
+          }
+        }
+        return level;
+      };
       const BLEND = 3;
-      // Only bits of track within reach can matter: nearer than BLEND past their own reach for the
-      // blend, and the soft weights below drop out (under 1e-4) past 2.28 beyond the nearest. So each
-      // point looks at the bits in its own and the neighbouring cells, in their original order.
-      const reach = BLEND + Math.max(0, ...mid.map((q) => q.r)) + 2.3;
+      const SIDE_RUN = 1.5;
+      const blendAt = (drop: number) => Math.max(BLEND, drop * SIDE_RUN);
+      const maxBlend = blendAt(Math.max(0, ...mid.map((q) => Math.abs(q.l - s.groundAt(q.x, q.z)))));
+      // Only bits of track within reach can matter: nearer than the widest blend past their own
+      // reach for the blend, and the soft weights below drop out (under 1e-4) past 2.28 beyond the
+      // nearest. So each point looks at the bits in its own and the neighbouring cells, in their
+      // original order.
+      const reach = maxBlend + Math.max(0, ...mid.map((q) => q.r)) + 2.3;
       const cw = Math.ceil(tw / reach);
       const ch = Math.ceil(th / reach);
       const cellOf = (x: number, z: number) => [Math.floor((x + MARGIN) / reach), Math.floor((z + MARGIN) / reach)];
@@ -381,14 +482,17 @@ export class RaceView {
         const [ci, cj] = cellOf(q.x, q.z);
         inCell[Math.max(0, Math.min(ch - 1, cj)) * cw + Math.max(0, Math.min(cw - 1, ci))].push(k);
       });
-      const nearby: (typeof mid)[] = [];
+      const nearby: number[][] = [];
       for (let cj = 0; cj < ch; cj++) {
         for (let ci = 0; ci < cw; ci++) {
           const ks: number[] = [];
           for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) if (ci + di >= 0 && ci + di < cw && cj + dj >= 0 && cj + dj < ch) ks.push(...inCell[(cj + dj) * cw + ci + di]);
-          nearby.push(ks.sort((a, b) => a - b).map((k) => mid[k]));
+          nearby.push(ks.sort((a, b) => a - b));
         }
       }
+      // Under the riding surface the ground sits a little below the track, so the track's mesh is
+      // never pushed up by the ground between the lattice's points; the gap closes at the foot.
+      const SINK = 0.05;
       for (let j = 0; j < th; j++) {
         for (let i = 0; i < tw; i++) {
           const x = i - MARGIN;
@@ -399,26 +503,39 @@ export class RaceView {
           // softly so the ground has no seam where two stretches at different levels come close.
           let best = Infinity;
           let near = Infinity;
-          for (const q of local) {
+          let nearest = -1;
+          for (const k of local) {
+            const q = mid[k];
             const dc = Math.hypot(x - q.x, z - q.z);
             best = Math.min(best, dc - q.r);
-            near = Math.min(near, dc);
+            if (dc < near) {
+              near = dc;
+              nearest = k;
+            }
           }
-          if (best >= BLEND) {
+          if (best >= maxBlend) {
             this.terrain[j * tw + i] = s.groundAt(x, z);
             continue;
           }
-          let sum = 0;
-          let wt = 0;
-          for (const q of local) {
-            const k = Math.exp(-(((Math.hypot(x - q.x, z - q.z) - near) / 0.75) ** 2));
-            if (k < 1e-4) continue;
-            sum += k * q.l;
-            wt += k;
+          let l = exact(x, z, nearest);
+          if (best < 0) {
+            l -= SINK * smooth(-best / 0.7);
+          } else {
+            let sum = 0;
+            let wt = 0;
+            for (const k of local) {
+              const q = mid[k];
+              const kw = Math.exp(-(((Math.hypot(x - q.x, z - q.z) - near) / 0.4) ** 2));
+              if (kw < 1e-4) continue;
+              sum += kw * q.l;
+              wt += kw;
+            }
+            // Out from the foot, over a grid unit and a half, the exact level gives way to the soft one.
+            l += (sum / wt - l) * smooth(best / 1.5);
           }
-          const l = sum / wt;
-          const w = smooth(best / BLEND);
-          this.terrain[j * tw + i] = l * (1 - w) + s.groundAt(x, z) * w;
+          const ground = s.groundAt(x, z);
+          const w = smooth(best / blendAt(Math.abs(l - ground)));
+          this.terrain[j * tw + i] = l * (1 - w) + ground * w;
         }
       }
     }
@@ -516,13 +633,13 @@ export class RaceView {
       const f = i / rows;
       const skL = s.skirt(f, -1);
       const skR = s.skirt(f, 1);
-      const lanes = [-(LIP_AT + skL), -(LIP_AT + skL * 0.45), -LIP_AT, ...inner, LIP_AT, LIP_AT + skR * 0.45, LIP_AT + skR];
+      const lanes = [-(LIP_AT + skL * FOOT_OUT), -(LIP_AT + skL * 0.45), -LIP_AT, ...inner, LIP_AT, LIP_AT + skR * 0.45, LIP_AT + skR * FOOT_OUT];
       const patch = this.patchAt(f);
       const grain = 0.94 + 0.1 * noise(i);
       lanes.forEach((lane, j) => {
         const p = s.spot(f, lane);
         const foot = j === 0 || j === cols - 1;
-        pos.push(p.x, foot ? this.terrainAt(p.x, p.z) : Math.max(s.height(f, lane), this.terrainAt(p.x, p.z) + 0.02), p.z);
+        pos.push(p.x, foot ? this.terrainAt(p.x, p.z) - FOOT_BURY : Math.max(s.height(f, lane), this.terrainAt(p.x, p.z) + 0.02), p.z);
         // The dirt texture runs along the lap, one repeat every 4 grid units.
         uv.push((f * s.g.total) / 4, (lane + 2) / 4);
         let color: number;
@@ -536,6 +653,7 @@ export class RaceView {
     }
     const idx: number[] = [];
     for (let i = 0; i < rows; i++) {
+      if (!this.drawn((i + 0.5) / rows)) continue;
       const a = i * cols;
       const b = ((i + 1) % rows) * cols;
       for (let j = 0; j < cols - 1; j++) idx.push(a + j, b + j, a + j + 1, a + j + 1, b + j, b + j + 1);
@@ -574,14 +692,14 @@ export class RaceView {
       const dip = 0.006 * Math.max(0, Math.min(1, (u - merge) / 0.5));
       const lip = s.startHeight(u, LIP_AT);
       const sk = Math.max(0.35, lip * 0.9) / s.startHw(u);
-      const lanes = [-(LIP_AT + sk), -(LIP_AT + sk * 0.45), -LIP_AT, ...inner, LIP_AT, LIP_AT + sk * 0.45, LIP_AT + sk];
+      const lanes = [-(LIP_AT + sk * FOOT_OUT), -(LIP_AT + sk * 0.45), -LIP_AT, ...inner, LIP_AT, LIP_AT + sk * 0.45, LIP_AT + sk * FOOT_OUT];
       const grain = 0.94 + 0.1 * noise(i + 977);
       // Concrete under the gate and the line-up, dirt from just past the gate.
       const pad = u < 0.9;
       lanes.forEach((lane, j) => {
         const p = s.startSpot(u, lane);
         const foot = j === 0 || j === cols - 1;
-        pos.push(p.x, foot ? this.terrainAt(p.x, p.z) : Math.max(s.startHeight(u, lane), this.terrainAt(p.x, p.z) + 0.02) - dip, p.z);
+        pos.push(p.x, foot ? this.terrainAt(p.x, p.z) - FOOT_BURY : Math.max(s.startHeight(u, lane), this.terrainAt(p.x, p.z) + 0.02) - dip, p.z);
         uv.push(u / 4, (lane + 2) / 4);
         let color: number;
         if (Math.abs(lane) <= 1) color = pad ? shade(0xa8a49a, 0.95 + 0.06 * noise(i * 7 + j)) : shade(base, grain * (0.97 + 0.06 * noise(i * 31 + j)));
@@ -642,14 +760,15 @@ export class RaceView {
     const stand = new THREE.Group();
     let plan: ReturnType<typeof officialPlan>;
     try {
-      plan = officialPlan(this.track, this.parts);
+      // Placed by the track, they're drawn where placed even with a problem (the track editor shows it; the game refuses such a track).
+      plan = this.track.scenery?.some((it) => it.type === OFFICIAL_ITEM) ? placedOfficial(this.track, this.parts).plan : officialPlan(this.track, this.parts);
     } catch (e) {
       // Nowhere clear for them (the track checks say so too): no official, rather than one on the track.
       console.warn(String(e));
       return stand;
     }
     if (!plan) return stand;
-    stand.position.set(plan.a.x, this.terrainAt(plan.a.x, plan.a.y), plan.a.y);
+    stand.position.set(plan.a.x, this.heightAt(plan.a.x, plan.a.y), plan.a.y);
     stand.rotation.y = plan.facing;
     // Drawn 10% smaller than first built, board and all: the scale is on this group alone.
     stand.scale.setScalar(OFFICIAL_SCALE);
@@ -687,7 +806,7 @@ export class RaceView {
     for (const m of [front, back, core]) m.castShadow = true;
     panel.add(core, front, back);
     stand.add(panel);
-    this.board = { stand, panel, arms, legs, a: plan.a, b: plan.b };
+    this.board = { stand, panel, arms, legs, route: plan.route, length: routeLength(plan.route) };
     this.updateStart(-Infinity);
     return stand;
   }
@@ -730,7 +849,7 @@ export class RaceView {
    */
   private updateStart(clock: number): void {
     if (this.board) {
-      const { stand, panel, arms, legs, a, b } = this.board;
+      const { stand, panel, arms, legs, route, length } = this.board;
       const ease = (x: number) => {
         const t = Math.max(0, Math.min(1, x));
         return t * t * (3 - 2 * t);
@@ -739,15 +858,14 @@ export class RaceView {
       const up = !this.hasStart ? 0 : clock < WALK_TO ? ease((clock + START_HOLD) / BOARD_MOVE) : 1 - ease((clock - WALK_TO) / BOARD_MOVE);
       // Low: in front of the official's legs, turned round so the white back faces out.
       panel.position.set(0, 0.72 + (2.45 - 0.72) * up, 0.42 + (0.12 - 0.42) * up);
-      panel.rotation.set(0, Math.PI * (1 - up), clock >= -3 ? (Math.PI / 2) * up : 0);
+      panel.rotation.set(0, Math.PI * (1 - up), clock >= BOARD_SIDEWAYS ? (Math.PI / 2) * up : 0);
       for (const arm of arms) arm.rotation.x = 2.7 * (1 - up);
-      // The walk from A to B, setting off and stopping gently, with the legs swinging in step.
+      // The walk from A along the route to B, setting off and stopping gently, with the legs swinging in step.
       const k = !this.hasStart ? 0 : Math.max(0, Math.min(1, (clock - WALK_FROM) / (WALK_TO - WALK_FROM)));
-      const w = k - Math.sin(2 * Math.PI * k) / (2 * Math.PI);
-      const x = a.x + (b.x - a.x) * w;
-      const z = a.y + (b.y - a.y) * w;
-      stand.position.set(x, this.terrainAt(x, z), z);
-      const walked = Math.hypot(b.x - a.x, b.y - a.y) * w;
+      const walked = this.hasStart ? length * walkProgress(clock) : 0;
+      const at = alongRoute(route, walked);
+      // On the ground, or on the track where a placed route crosses it.
+      stand.position.set(at.x, this.heightAt(at.x, at.y), at.y);
       const swing = k > 0 && k < 1 ? 0.45 * Math.sin((walked / 0.55) * Math.PI) : 0;
       legs[0].rotation.x = swing;
       legs[1].rotation.x = -swing;
@@ -872,6 +990,8 @@ export class RaceView {
 
   /** Builds one scenery item as 3D shapes standing on the ground. */
   private buildItem(it: SceneryItem): THREE.Object3D | null {
+    // The start official placed as scenery is built with the start (startBoard).
+    if (it.type === OFFICIAL_ITEM) return null;
     const def = this.parts.scenery.find((s) => s.id === it.type);
     const w = it.w ?? def?.w ?? 2;
     const d = it.h ?? def?.h ?? 2;
@@ -955,6 +1075,9 @@ export class RaceView {
       }
       case 'crowd':
         this.fans(g, w, d, 0, 0, 0, Math.round(w * d * 1.4), 7);
+        break;
+      case CHEER_ITEM:
+        this.cheerFigure(g, it);
         break;
       case 'pit_tent': {
         for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) add(this.boxMesh(0.08, 1.9, 0.08, this.mat(0xcccccc), (sx * w) / 2.1, 0, (sz * d) / 2.1));
@@ -1057,6 +1180,138 @@ export class RaceView {
   }
 
   /** Spectators: small figures in many colours, standing on a patch of ground or a stand step. */
+  /**
+   * A cheering fan: the same box figure as the official (legs, body, head, arms that swing at the
+   * shoulder), sized by its variant and dressed in its colour. Placed where the item is; if it
+   * has a route it walks in along it when the view starts (updateCheers), and stands at the end
+   * facing the track.
+   */
+  private cheerFigure(g: THREE.Group, it: SceneryItem): void {
+    const i = (this.track.scenery ?? []).indexOf(it);
+    const variant = cheerVariant(it, i);
+    const sc = VARIANT_SCALE[variant];
+    const figure = new THREE.Group();
+    figure.scale.set(OFFICIAL_SCALE * sc.w, OFFICIAL_SCALE * sc.h, OFFICIAL_SCALE * sc.w);
+    const kit = this.mat(hex(cheerColour(it, i), 0xe04040));
+    const trousers = this.mat([0x2a3a5a, 0x4a4a50, 0x6a5040, 0x3a5a3a][Math.floor(noise(i * 17 + 9) * 4)]);
+    const skin = this.mat([0xe0b090, 0xc08860, 0x8a5a3a, 0xf0d0b0][Math.floor(noise(i * 19 + 11) * 4)]);
+    const legs = [-0.1, 0.1].map((x) => {
+      const leg = new THREE.Group();
+      leg.position.set(x, 0.7, 0);
+      leg.add(this.boxMesh(0.12, 0.7, 0.14, trousers, 0, -0.7, 0));
+      figure.add(leg);
+      return leg;
+    });
+    const body = this.boxMesh(0.42, 0.62, 0.24, kit, 0, 0.7, 0);
+    figure.add(body);
+    figure.add(this.boxMesh(0.22, 0.22, 0.22, skin, 0, 1.34, 0));
+    const arms = [-1, 1].map((sd) => {
+      const arm = new THREE.Group();
+      arm.position.set(sd * 0.27, 1.24, 0.04);
+      arm.add(this.boxMesh(0.09, 0.8, 0.09, skin, 0, -0.3, 0));
+      figure.add(arm);
+      return arm;
+    });
+    g.add(figure);
+    const route = cheerRoute(it);
+    // Where they end up they face the track (the nearest point of it), unless turned by hand.
+    const end = route[route.length - 1];
+    let facing = -(((it.rot ?? 0) * Math.PI) / 180);
+    if (it.rot === undefined) {
+      let best = Infinity;
+      let fx = end.x + 1;
+      let fy = end.y;
+      for (let f = 0; f < 1; f += 0.005) {
+        const p = this.surface.spot(f, 0);
+        const d = Math.hypot(p.x - end.x, p.z - end.y);
+        if (d < best) { best = d; fx = p.x; fy = p.z; }
+      }
+      facing = -Math.atan2(fy - end.y, fx - end.x) + Math.PI / 2;
+    }
+    const tm = cheerTiming(i);
+    this.cheers.push({ i, group: g, figure, legs, arms, body, action: cheerAction(it, i), route, length: routeLength(route), walked: 0, facing, restUntil: tm.delay, reactAt: -Infinity, rest: tm.rest, delay: tm.delay, phase: noise(i * 23 + 13) * Math.PI * 2 });
+    g.rotation.y = route.length > 1 ? -Math.atan2(route[1].y - route[0].y, route[1].x - route[0].x) + Math.PI / 2 : facing;
+  }
+
+  /**
+   * Moves the fans on by dt seconds: walking in along their route when the view starts (a steady
+   * walking pace, never a jump), and, standing, reacting to a bike within CHEER_RANGE with their
+   * own action, each after their own delay and with their own rest between, so a crowd never moves
+   * as one. Cheap: one distance a fan a bike.
+   */
+  updateCheers(dt: number, bikes: { x: number; z: number }[]): void {
+    if (!this.cheers.length) return;
+    this.cheerClock += dt;
+    const now = this.cheerClock;
+    const r2 = CHEER_RANGE * CHEER_RANGE;
+    for (const c of this.cheers) {
+      const walking = c.walked < c.length;
+      if (walking) {
+        const before = alongRoute(c.route, c.walked);
+        c.walked = Math.min(c.length, c.walked + CHEER_WALK * dt);
+        const at = alongRoute(c.route, c.walked);
+        c.group.position.set(at.x, this.heightAt(at.x, at.y), at.y);
+        if (Math.hypot(at.x - before.x, at.y - before.y) > 1e-6) c.group.rotation.y = -Math.atan2(at.y - before.y, at.x - before.x) + Math.PI / 2;
+        if (c.walked >= c.length) c.group.rotation.y = c.facing;
+        const swing = 0.45 * Math.sin((c.walked / 0.55) * Math.PI);
+        c.legs[0].rotation.x = swing;
+        c.legs[1].rotation.x = -swing;
+        for (const a of c.arms) a.rotation.set(-swing * 0.6, 0, 0);
+        continue;
+      }
+      c.legs[0].rotation.x = c.legs[1].rotation.x = 0;
+      const p = c.group.position;
+      // A bike passing sets them off, once rested; the reaction then plays out on its own.
+      if (now >= c.restUntil && now - c.reactAt >= REACT_SECONDS && bikes.some((b) => (b.x - p.x) ** 2 + (b.z - p.z) ** 2 <= r2)) {
+        c.reactAt = now;
+        c.restUntil = now + REACT_SECONDS + c.rest;
+      }
+      const k = (now - c.reactAt) / REACT_SECONDS;
+      if (k >= 0 && k < 1) this.poseCheer(c, k);
+      else {
+        // Resting: a slight sway, each to their own beat.
+        const sway = 0.06 * Math.sin(now * 1.7 + c.phase);
+        c.arms[0].rotation.set(sway, 0, 0.05);
+        c.arms[1].rotation.set(-sway, 0, -0.05);
+        c.figure.position.y = 0;
+      }
+    }
+  }
+
+  /** One frame of a fan's reaction, k from 0 (start) to 1 (over): arms, and for a celebration a hop. */
+  private poseCheer(c: Cheer, k: number): void {
+    // In quickly, hold, out gently.
+    const env = k < 0.2 ? k / 0.2 : k > 0.75 ? (1 - k) / 0.25 : 1;
+    const up = -Math.PI * env;
+    const [left, right] = c.arms;
+    c.figure.position.y = 0;
+    switch (c.action) {
+      case 'arms_up':
+        left.rotation.set(up, 0, 0.25 * env);
+        right.rotation.set(up, 0, -0.25 * env);
+        break;
+      case 'wave':
+        left.rotation.set(0.1 * env, 0, 0.05);
+        right.rotation.set(up, 0, -0.45 * env * Math.sin(k * Math.PI * 6));
+        break;
+      case 'clap': {
+        const meet = 0.32 * env * (0.5 + 0.5 * Math.sin(k * Math.PI * 8));
+        left.rotation.set(-Math.PI / 2 * env, 0, -meet);
+        right.rotation.set(-Math.PI / 2 * env, 0, meet);
+        break;
+      }
+      case 'fist_pump':
+        left.rotation.set(0.1 * env, 0, 0.05);
+        right.rotation.set((-Math.PI / 2 - (Math.PI / 2) * (0.5 + 0.5 * Math.sin(k * Math.PI * 6))) * env, 0, -0.15 * env);
+        break;
+      case 'celebrate':
+        left.rotation.set(up, 0, 0.35 * env * Math.sin(k * Math.PI * 4));
+        right.rotation.set(up, 0, -0.35 * env * Math.sin(k * Math.PI * 4));
+        c.figure.position.y = 0.22 * Math.abs(Math.sin(k * Math.PI * 3)) * env;
+        break;
+    }
+  }
+
   private fans(g: THREE.Group, w: number, d: number, x: number, y: number, z: number, n: number, seed: number): void {
     const body = new THREE.BoxGeometry(0.22, 0.42, 0.18);
     const head = new THREE.BoxGeometry(0.16, 0.16, 0.16);
@@ -1178,7 +1433,7 @@ export class RaceView {
       }
       let dist = p.dist;
       // The second start row waits a bike length behind the gate and closes up as the race starts.
-      if (r.startRow && p.dist < s.start.join) dist -= (r.startRow * BIKE_LENGTH * 1.4 * Math.max(0, Math.min(1, 1 - clock / 2))) / s.g.total;
+      if (r.startRow && s.onStart(p.dist)) dist -= (r.startRow * BIKE_LENGTH * 1.4 * Math.max(0, Math.min(1, 1 - clock / 2))) / s.g.total;
       const f = dist - Math.floor(dist);
       const onStart = s.onStart(dist);
       const [back, front] = s.wheelsAt(dist, p.lane, p.air);
@@ -1220,6 +1475,11 @@ export class RaceView {
     }
     this.agePuffs(Math.min(1, dc * 1.4 + dt * 0.3));
     this.updateStart(clock);
+    if (this.cheers.length) {
+      const spots: { x: number; z: number }[] = [];
+      for (const r of riders) { const b = this.bikes.get(r.pose.id); if (b && r.pose.state !== 'retired') spots.push({ x: b.root.position.x, z: b.root.position.z }); }
+      this.updateCheers(Math.min(0.1, dt), spots);
+    }
     if (!riders.some((r) => r.player && r.pose.state !== 'retired')) this.marker.visible = false;
     else this.marker.visible = true;
     this.moveCamera(target, dt);

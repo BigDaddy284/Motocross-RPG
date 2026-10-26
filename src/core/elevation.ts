@@ -1,5 +1,5 @@
 import type { TrackDef } from './race';
-import { lapGeom, lapMetres, pointAt, sectionBounds } from './trackGeom';
+import { lapGeom, lapMetres, pointAt, sectionBounds, type LapGeom } from './trackGeom';
 
 // Ground elevation the track editor paints: raised and lowered ground under and around a track.
 // A track stores it as heights in metres at the corners of a square lattice (`step` grid units
@@ -15,11 +15,61 @@ export interface TrackElevation {
   points: [number, number, number][];
 }
 
+/**
+ * A hill or dip the track editor's elevation tool puts on the track along its length: centred
+ * `at` grid units along the route from its first point, `len` grid units long in all, `height`
+ * metres up (or down, negative) at its centre, easing to nothing at both ends (hillProfile). The
+ * track's level is the ground under its middle plus every hill there; hills that overlap add up.
+ */
+export interface TrackHill {
+  at: number;
+  len: number;
+  height: number;
+}
+
+/**
+ * A hill's shape along its length: 1 at the centre, 0 at both ends, as a raised cosine, so the
+ * slope is 0 at the ends and the peak and the hill meets the track either side with no step and
+ * no kink. `d` is the distance from the centre in grid units.
+ */
+export function hillProfile(d: number, len: number): number {
+  const half = len / 2;
+  const a = Math.abs(d);
+  if (half <= 0 || a >= half) return 0;
+  return 0.5 * (1 + Math.cos((Math.PI * a) / half));
+}
+
+/**
+ * The hills' height in metres `u` grid units along the lap from its first point, counting round
+ * past the lap's end on a closed lap (a hill over the finish line is one hill), and cut at the
+ * ends of an open route.
+ */
+export function hillsAt(hills: TrackHill[] | undefined, u: number, total: number, open = false): number {
+  if (!hills?.length) return 0;
+  let m = 0;
+  for (const h of hills) {
+    let d = u - h.at;
+    if (!open && total > 0) {
+      d = ((d % total) + total) % total;
+      if (d > total / 2) d -= total;
+    }
+    m += h.height * hillProfile(d, h.len);
+  }
+  return m;
+}
+
+/** The track's level in metres at lap fraction f: the ground under its middle plus its hills there. */
+export function trackLevel(track: TrackDef, g: LapGeom, el: Elevation, f: number): number {
+  const p = pointAt(g, f);
+  const u = (((f % 1) + 1) % 1) * g.total;
+  return el.at(p.x, p.y) + hillsAt(track.hills, u, g.total);
+}
+
 /** The track grid (trackParts GRID_W × GRID_H): past its edges the ground keeps the height at the edge. */
 const EDGE_W = 100;
 const EDGE_H = 60;
-/** Highest and lowest the editor lets ground go, in metres. */
-export const ELEV_MAX = 24;
+/** Highest and lowest the editor lets ground go, in metres: ±36 (1.5 times the ±24 it was). */
+export const ELEV_MAX = 36;
 /** Steepest the ground may be anywhere before it's an error (a wall), as a rise over run: 45°. */
 export const WALL_SLOPE = 1;
 /** Steepest the track may climb or drop along its length before it's a warning, as a rise over run (35%). */
@@ -79,6 +129,20 @@ export interface ElevationIssue {
 export function elevationIssues(track: TrackDef, mpu: number, along: { x: number; y: number; m: number }[]): ElevationIssue[] {
   const out: ElevationIssue[] = [];
   const e = track.elevation;
+  for (const h of track.hills ?? []) {
+    if (!Number.isFinite(h.height) || Math.abs(h.height) > ELEV_MAX) out.push({ level: 'error', message: `the hill ${Math.round(h.at)} units along the track is ${h.height} m; a hill or dip can be ${ELEV_MAX} m at most`, ...hillSpot(track, h) });
+  }
+  // Along the track: the worst stretch, once (the ground under the track and its hills together).
+  let worst = { grade: 0, x: 0, y: 0 };
+  for (let k = 1; k < along.length; k++) {
+    const a = along[k - 1];
+    const b = along[k];
+    const d = Math.hypot(b.x - a.x, b.y - a.y) * mpu;
+    if (d <= 0) continue;
+    const grade = Math.abs(b.m - a.m) / d;
+    if (grade > worst.grade) worst = { grade, x: b.x, y: b.y };
+  }
+  if (worst.grade > STEEP_TRACK) out.push({ level: 'warning', message: `the track climbs or drops ${Math.round(worst.grade * 100)}% near ${worst.x.toFixed(0)}, ${worst.y.toFixed(0)}; past ${Math.round(STEEP_TRACK * 100)}% is steep for a 50cc`, x: worst.x, y: worst.y });
   if (!e) return out;
   for (const [x, y, m] of e.points) {
     if (!Number.isFinite(m) || Math.abs(m) > ELEV_MAX) out.push({ level: 'error', message: `the ground at ${x}, ${y} is ${m} m; it can be ${ELEV_MAX} m up or down at most`, x, y });
@@ -109,21 +173,18 @@ export function elevationIssues(track: TrackDef, mpu: number, along: { x: number
       }
     }
   }
-  // Along the track: the worst stretch, once.
-  let worst = { grade: 0, x: 0, y: 0 };
-  for (let k = 1; k < along.length; k++) {
-    const a = along[k - 1];
-    const b = along[k];
-    const d = Math.hypot(b.x - a.x, b.y - a.y) * mpu;
-    if (d <= 0) continue;
-    const grade = Math.abs(b.m - a.m) / d;
-    if (grade > worst.grade) worst = { grade, x: b.x, y: b.y };
-  }
-  if (worst.grade > STEEP_TRACK) out.push({ level: 'warning', message: `the track climbs or drops ${Math.round(worst.grade * 100)}% near ${worst.x.toFixed(0)}, ${worst.y.toFixed(0)}; past ${Math.round(STEEP_TRACK * 100)}% is steep for a 50cc`, x: worst.x, y: worst.y });
   return out;
 }
 
-/** The lap every half grid unit with the ground's height under its middle, in riding order (lap metres per grid unit in mpu). */
+/** Where a hill's centre is on the grid. */
+function hillSpot(track: TrackDef, h: TrackHill): { x: number; y: number } {
+  if (track.path.length < 2) return { x: 0, y: 0 };
+  const g = lapGeom(track.path);
+  const p = pointAt(g, h.at / g.total);
+  return { x: p.x, y: p.y };
+}
+
+/** The lap every half grid unit with the track's level under its middle (ground and hills), in riding order (lap metres per grid unit in mpu). */
 export function lapProfile(track: TrackDef): { mpu: number; along: { x: number; y: number; m: number }[] } {
   const g = lapGeom(track.path);
   const el = new Elevation(track.elevation);
@@ -131,7 +192,7 @@ export function lapProfile(track: TrackDef): { mpu: number; along: { x: number; 
   const along = [];
   for (let i = 0; i <= n; i++) {
     const p = pointAt(g, i / n);
-    along.push({ x: p.x, y: p.y, m: el.at(p.x, p.y) });
+    along.push({ x: p.x, y: p.y, m: trackLevel(track, g, el, i / n) });
   }
   return { mpu: lapMetres(track) / g.total, along };
 }
@@ -147,7 +208,7 @@ export const DROP_GAIN = 0.5;
  * race view's riders then follow those times, so they slow up a painted climb and run down a drop.
  */
 export function sectionGrades(track: TrackDef): number[] {
-  if (!track.elevation?.points.length) return track.sections.map(() => 1);
+  if (!track.elevation?.points.length && !track.hills?.length) return track.sections.map(() => 1);
   const g = lapGeom(track.path);
   const el = new Elevation(track.elevation);
   const b = sectionBounds(track);
@@ -157,8 +218,7 @@ export function sectionGrades(track: TrackDef): number[] {
     let drop = 0;
     let prev = 0;
     for (let k = 0; k <= steps; k++) {
-      const p = pointAt(g, b[si] + ((b[si + 1] - b[si]) * k) / steps);
-      const m = el.at(p.x, p.y);
+      const m = trackLevel(track, g, el, b[si] + ((b[si + 1] - b[si]) * k) / steps);
       if (k) {
         if (m > prev) climb += m - prev;
         else drop += prev - m;

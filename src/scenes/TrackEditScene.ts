@@ -1,8 +1,11 @@
 import Phaser from 'phaser';
 import * as THREE from 'three';
 import type { TrackDef } from '../core/race';
+import { CHEER_ITEM } from '../core/cheer';
+import { OFFICIAL_ITEM, placedOfficial } from '../core/startOfficial';
 import { sectionBounds } from '../core/trackGeom';
 import type { TrackPartsData } from '../core/trackParts';
+import { GRID_H, GRID_W } from '../core/trackParts';
 import { services } from '../services';
 import { COLORS, textStyle } from '../ui/theme';
 import { RaceView } from '../world/RaceView';
@@ -23,14 +26,30 @@ export interface EditViewState {
   track: TrackDef;
   parts?: TrackPartsData;
   mode: string;
-  sel: { item: number; sec: number; pt: number; start: number };
+  /** route: the selected point of the start official's route (1 is its first after where they stand), or -1. */
+  sel: { item: number; sec: number; pt: number; start: number; route?: number };
   /** Scenery items with a problem (by index) and problem spots (height), each an error or a warning. */
   issues: { item?: number; x?: number; y?: number; level: 'error' | 'warning' }[];
   /** The brush under the pointer: a circle of radius r grid units, or a square of n ground cells. */
   brush: { shape: 'circle'; r: number } | { shape: 'cells'; cell: number; n: number } | null;
   /** Each section's colour on the editor's map (by its kind, as '#rrggbb'), for the section lines in Layout. */
   sectionColors?: string[];
+  /**
+   * An unfinished track with its lap still open: the drawing past this fraction is the gap from its
+   * end back to its start (the last section), not drawn. 0 for an empty track, drawn as nothing.
+   */
+  gapFrom?: number;
+  /** Gaps left between the pieces of an unfinished track (fractions of the drawing), not drawn; their sections have type 'gap'. */
+  gaps?: [number, number][];
+  /** The route's control points (the drawing has more where the route curves, and an open route's stubs): the ones ringed in Layout. */
+  points?: [number, number][];
+  /** The selected control point's curve handles, as the spots they are at. */
+  handles?: [number, number][];
+  /** What is being placed (the start straight, the finish line or a feature): its points, whether it can go there, and the ring it snaps on at (x, y, radius). */
+  ghost?: { pts: [number, number][]; level: 'ok' | 'warning' | 'error'; ring: [number, number, number] | null; /** The route being drawn: a thin dashed line from the last point to the pointer, not a piece. */ dashed?: boolean };
 }
+
+const GREEN = 0x34c759;
 
 const RED = 0xff3b30;
 const YELLOW = 0xffd60a;
@@ -41,11 +60,15 @@ const BOUND_EDGE = COLORS.ink;
 /** A section colour sent as '#rrggbb'; the map's "other" orange when missing. */
 const hexColor = (c: string | undefined) => (c && /^#[0-9a-f]{6}$/i.test(c) ? parseInt(c.slice(1), 16) : 0xf0a020);
 /** Rebuilding the 3D scene takes a moment, so a stream of changes (a brush stroke) rebuilds at most this often, in ms. */
+/** An angle in degrees, from 0 up to 360. */
+const wrapDeg = (a: number) => ((a % 360) + 360) % 360;
+
 const REBUILD_EVERY = 300;
 
 export class TrackEditScene extends Phaser.Scene {
   private view: RaceView | null = null;
   private holder!: Phaser.GameObjects.Container;
+  private turnLabel!: Phaser.GameObjects.Text;
   private state: EditViewState | null = null;
   private built = '';
   private pending = false;
@@ -53,6 +76,10 @@ export class TrackEditScene extends Phaser.Scene {
   private cam = { x: 50, z: 30, zoom: 1, az: 0 };
   private hover: { x: number; z: number } | null = null;
   private pan: { x: number; y: number; cx: number; cz: number } | null = null;
+  /** A Shift + middle-button drag turning the view: where it started and the turn then. */
+  private turn: { x: number; az: number } | null = null;
+  /** The turn the view is easing to, in degrees: [ ] and the editor's turn buttons move it 45° at a time. */
+  private azTo = 0;
   private space = false;
   private readonly keys = new Set<string>();
   /** What the picture last drawn showed (the camera, and the view's own changes); the view draws again only when something changes. */
@@ -67,8 +94,9 @@ export class TrackEditScene extends Phaser.Scene {
   create(): void {
     this.holder = this.add.container(0, 0);
     this.add
-      .text(10, 8, 'Race view · wheel or + − zoom · W A S D or middle-drag pan · [ ] turn · 0 reset', textStyle(13, COLORS.cream, { backgroundColor: '#000000a0', padding: { x: 6, y: 4 } }))
+      .text(10, 8, 'Race view · wheel or + − zoom · W A S D or middle-drag pan · [ ] or Shift + middle-drag turn · 0 reset', textStyle(13, COLORS.cream, { backgroundColor: '#000000a0', padding: { x: 6, y: 4 } }))
       .setDepth(10);
+    this.turnLabel = this.add.text(10, 36, '', textStyle(13, COLORS.cream, { backgroundColor: '#000000a0', padding: { x: 6, y: 4 } })).setDepth(10).setVisible(false);
     const status = this.add.text(10, 36, 'Waiting for the track editor…', textStyle(13, COLORS.cream, { backgroundColor: '#000000a0', padding: { x: 6, y: 4 } })).setDepth(10);
     const on = <K extends keyof WindowEventMap>(target: Window | HTMLElement, type: K, fn: (e: WindowEventMap[K]) => void, opts?: AddEventListenerOptions) => {
       target.addEventListener(type, fn as EventListener, opts);
@@ -83,6 +111,7 @@ export class TrackEditScene extends Phaser.Scene {
       this.state = e.data.state as EditViewState;
       status.setVisible(false);
       this.queue();
+      this.checkOfficial(String(e.data.officialKey ?? ''));
     });
     const canvas = this.game.canvas;
     const at = (e: MouseEvent) => {
@@ -100,6 +129,11 @@ export class TrackEditScene extends Phaser.Scene {
     on(canvas, 'contextmenu', (e) => e.preventDefault());
     on(canvas, 'pointerdown', (e) => {
       canvas.focus();
+      if (e.button === 1 && e.shiftKey) {
+        this.turn = { x: at(e).x, az: this.cam.az };
+        e.preventDefault();
+        return;
+      }
       if (e.button === 1 || (e.button === 0 && this.space)) {
         const p = at(e);
         this.pan = { x: p.x, y: p.y, cx: this.cam.x, cz: this.cam.z };
@@ -110,6 +144,12 @@ export class TrackEditScene extends Phaser.Scene {
       pointer('down', e);
     });
     on(canvas, 'pointermove', (e) => {
+      if (this.turn) {
+        // A quarter turn for every 225 pixels dragged, following the pointer at once.
+        this.azTo = wrapDeg(this.turn.az + ((at(e).x - this.turn.x) * 90) / 225);
+        this.cam.az = this.azTo;
+        return;
+      }
       if (this.pan && this.view) {
         // Drag the ground: the grid point under the pointer stays under it.
         const p = at(e);
@@ -127,6 +167,10 @@ export class TrackEditScene extends Phaser.Scene {
       pointer('move', e);
     });
     on(canvas, 'pointerup', (e) => {
+      if (this.turn) {
+        this.turn = null;
+        return;
+      }
       if (this.pan) {
         this.pan = null;
         return;
@@ -178,7 +222,7 @@ export class TrackEditScene extends Phaser.Scene {
     send({ type: 'ready' });
   }
 
-  /** The camera's keys: W A S D pan while held, [ ] turn, + − zoom, 0 resets. True if the key is one. */
+  /** The camera's keys: W A S D pan while held, [ ] turn 45° (smoothly), + − zoom, 0 resets. True if the key is one. */
   private camKey(key: string, down: boolean): boolean {
     const k = key.toLowerCase();
     if (key.length === 1 && 'wasd'.includes(k)) {
@@ -187,12 +231,27 @@ export class TrackEditScene extends Phaser.Scene {
       return true;
     }
     if (!down) return false;
-    if (key === '[' || key === ']') this.cam.az = (this.cam.az + (key === '[' ? -45 : 45) + 360) % 360;
+    if (key === '[' || key === ']') this.azTo = wrapDeg(this.azTo + (key === '[' ? -45 : 45));
     else if (key === '+' || key === '=') this.zoom(1.25);
     else if (key === '-' || key === '_') this.zoom(1 / 1.25);
     else if (key === '0') this.resetCam();
     else return false;
     return true;
+  }
+
+  /** The key of the track state the start official was last checked for. */
+  private officialChecked = '';
+
+  /**
+   * The game's checks of a start official placed on the track (startOfficial placedOfficial), sent
+   * back to the editor, which can't run them itself. Once for each state of the track.
+   */
+  private checkOfficial(key: string): void {
+    const st = this.state;
+    if (!st || !key || key === this.officialChecked) return;
+    this.officialChecked = key;
+    const problems = st.track.scenery?.some((it) => it.type === OFFICIAL_ITEM) ? placedOfficial(st.track, st.parts ?? services.content.trackParts).problems : [];
+    window.parent.postMessage({ type: 'official', key, problems }, '*');
   }
 
   private zoom(k: number): void {
@@ -202,9 +261,16 @@ export class TrackEditScene extends Phaser.Scene {
   private resetCam(): void {
     const t = this.state?.track;
     if (!t) return;
+    if (this.state?.gapFrom === 0) {
+      // Nothing built yet: the middle of the grid.
+      this.cam = { x: 50, z: 30, zoom: 0.45, az: this.cam.az };
+      this.azTo = 0;
+      return;
+    }
     const xs = t.path.map((p) => p[0]);
     const ys = t.path.map((p) => p[1]);
-    this.cam = { x: (Math.min(...xs) + Math.max(...xs)) / 2, z: (Math.min(...ys) + Math.max(...ys)) / 2, zoom: 0.45, az: 0 };
+    this.cam = { x: (Math.min(...xs) + Math.max(...xs)) / 2, z: (Math.min(...ys) + Math.max(...ys)) / 2, zoom: 0.45, az: this.cam.az };
+    this.azTo = 0;
   }
 
   /** Rebuilds the 3D scene for a changed track, at most every REBUILD_EVERY ms. */
@@ -216,14 +282,14 @@ export class TrackEditScene extends Phaser.Scene {
     const st = this.state;
     if (!st || this.scale.width < 50 || this.scale.height < 50) return;
     const parts = st.parts ?? services.content.trackParts;
-    const key = JSON.stringify([st.track, parts === services.content.trackParts ? null : parts, this.scale.width, this.scale.height]);
+    const key = JSON.stringify([st.track, st.gapFrom, st.gaps, parts === services.content.trackParts ? null : parts, this.scale.width, this.scale.height]);
     if (key !== this.built) {
       const first = !this.built;
       this.built = key;
       // The new view takes over the old one's renderer (its WebGL context and shaders), then the old one goes.
       const old = this.view;
       const was = [...this.holder.list];
-      this.view = new RaceView(this, this.holder, structuredClone(st.track), parts, 0, 0, this.scale.width, this.scale.height, old?.gl);
+      this.view = new RaceView(this, this.holder, structuredClone(st.track), parts, 0, 0, this.scale.width, this.scale.height, old?.gl, { gapFrom: st.gapFrom, gaps: st.gaps });
       old?.destroy(true);
       for (const o of was) o.destroy();
       this.view.editCam = this.cam;
@@ -250,6 +316,11 @@ export class TrackEditScene extends Phaser.Scene {
     this.cam.z += step * (mx * right.z + my * up.z);
     this.cam.x = Math.max(-10, Math.min(110, this.cam.x));
     this.cam.z = Math.max(-10, Math.min(70, this.cam.z));
+    // Turning eases to the angle asked for, the short way round, at up to 240° a second.
+    const dAz = ((this.azTo - this.cam.az + 540) % 360) - 180;
+    if (dAz !== 0) this.cam.az = Math.abs(dAz) < 0.5 ? this.azTo : wrapDeg(this.cam.az + Math.sign(dAz) * Math.min(Math.abs(dAz), Math.max(Math.abs(dAz) * 0.25, (240 * dtMs) / 1000)));
+    const turned = Math.round(this.cam.az) % 360;
+    this.turnLabel.setText(`View turned ${turned > 180 ? `${360 - turned}° left` : `${turned}° right`} · 0 or Reset view goes back`).setVisible(turned !== 0);
     v.editCam = this.cam;
     this.markBrush();
     if (this.state?.mode === 'layout' && Math.abs(Math.log(this.cam.zoom / this.markedZoom)) > 0.18) this.mark();
@@ -313,12 +384,41 @@ export class TrackEditScene extends Phaser.Scene {
       const f = size(st.sel.item);
       if (f) line(rect(f.x, f.z, f.w + 0.45, f.d + 0.45, f.a), SELECT, true);
     }
+    // The start official's route in Scenery: dashed, or with its points when they're selected (the last, where they end up, red).
+    // Cheering fans' walks in too, each its own.
+    if (st.mode === 'scenery') t.scenery?.forEach((it, oi) => {
+      if (it.type !== OFFICIAL_ITEM && it.type !== CHEER_ITEM) return;
+      const route = [{ x: it.x, z: it.y }, ...(it.route ?? []).map(([x, y]) => ({ x, z: y }))];
+      const sel = st.sel.item === oi;
+      if (route.length > 1) line(route, 0xffffff, false, !sel, 0.07, 10.5);
+      if (sel) route.forEach((p, i) => i && line(ring(p.x, p.z, 0.35), i === st.sel.route ? SELECT : i === route.length - 1 ? RED : 0xffffff, true, false, 0.09, 10.6));
+    });
+    // The build boundary: the race ground's edge, a translucent dashed line on the ground, so what
+    // is placed can be seen against it (a section may cross it while the track is built).
+    {
+      const edge: { x: number; z: number }[] = [];
+      const corners = [
+        [0, 0],
+        [GRID_W, 0],
+        [GRID_W, GRID_H],
+        [0, GRID_H],
+      ];
+      for (let i = 0; i < 4; i++) {
+        const [ax, az] = corners[i];
+        const [bx, bz] = corners[(i + 1) % 4];
+        const n = Math.ceil(Math.hypot(bx - ax, bz - az) / 2);
+        for (let k = 0; k < n; k++) edge.push({ x: ax + ((bx - ax) * k) / n, z: az + ((bz - az) * k) / n });
+      }
+      line(edge, 0xffffff, true, true, 0.12, 8.5);
+    }
     if (st.mode === 'layout') {
       // The sections, from the track's own section lengths: a stripe down the middle of each in its
       // kind's colour (as on the map), following the bends, and a line across the track where one
       // section ends and the next begins. The lap's start (the finish line) already has its own line.
       const b = sectionBounds(t);
-      const n = t.sections.length;
+      // An open lap's last section is the gap back to the start, which isn't drawn.
+      const open = st.gapFrom !== undefined;
+      const n = t.sections.length - (open ? 1 : 0);
       // A few pixels wide at any zoom: wider in grid units zoomed out, narrower zoomed in.
       this.markedZoom = this.cam.zoom;
       const k = Math.max(0.5, Math.min(2, 0.8 / this.cam.zoom));
@@ -326,19 +426,51 @@ export class TrackEditScene extends Phaser.Scene {
         const k = Math.max(2, Math.ceil(((f1 - f0) * v.surface.g.total) / 0.25));
         return Array.from({ length: k + 1 }, (_, j) => v.surface.spot(f0 + ((f1 - f0) * j) / k, 0));
       };
+      const gap = (i: number) => t.sections[i]?.type === 'gap';
       for (let i = 0; i < n; i++) {
-        if (b[i + 1] <= b[i]) continue;
+        if (b[i + 1] <= b[i] || gap(i)) continue;
         const sel = i === st.sel.sec;
         line(along(b[i], b[i + 1]), sel ? SELECT : hexColor(st.sectionColors?.[i]), false, false, (sel ? 0.2 : 0.11) * k, 9);
       }
       for (let i = 1; i < n; i++) {
-        if (b[i] <= b[i - 1] || b[i] >= 1) continue;
+        if (b[i] <= b[i - 1] || b[i] >= 1 || (open && b[i] >= b[n]) || (gap(i) && gap(i - 1))) continue;
         const across = Array.from({ length: 9 }, (_, j) => v.surface.spot(b[i], -1.05 + (2.1 * j) / 8));
         line(across, BOUND_EDGE, false, false, 0.14 * k, 9.5);
         line(across, BOUND, false, false, 0.07 * k, 9.6);
       }
-      // The lap's points (white, the finish line's bigger) and the start straight's (blue).
-      t.path.forEach(([x, y], i) => line(ring(x, y, i === st.sel.pt ? 0.6 : i === 0 ? 0.5 : 0.35), i === st.sel.pt ? SELECT : 0xffffff, true));
+      // The lap's points (white; the finish line's bigger, once one is placed) and the start straight's (blue).
+      const finish = (t as { finish?: false }).finish !== false;
+      // With nothing built yet (gapFrom 0: a placeholder track off the grid), the route's own points still show, so the first click does.
+      (st.gapFrom !== 0 ? st.points ?? t.path : st.points ?? []).forEach(([x, y], i) => line(ring(x, y, i === st.sel.pt ? 0.6 : i === 0 && finish ? 0.5 : 0.35), i === st.sel.pt ? SELECT : 0xffffff, true));
+      // The selected control point's curve handles: a dashed line to each, and a small ring.
+      if (st.handles && st.sel.pt >= 0 && st.points?.[st.sel.pt]) {
+        const [px, pz] = st.points[st.sel.pt];
+        for (const [hx, hz] of st.handles) {
+          line([{ x: px, z: pz }, { x: hx, z: hz }], 0x8fd3ff, false, true, 0.08 * k, 10.8);
+          line(ring(hx, hz, 0.3), 0x8fd3ff, true, false, 0.08 * k, 10.9);
+        }
+      }
+      // The piece being placed, as wide as the track, and the ring at the end of the track it snaps on at.
+      const g = st.ghost;
+      if (g) {
+        if (g.ring) line(ring(g.ring[0], g.ring[1], g.ring[2]), 0xffffff, true, true, 0.08 * k, 11);
+        const w = (t.width ?? 3.4) / 2;
+        if (g.dashed) {
+          // Dashes are whole segments of the ribbon, so a long stretch is cut into short ones first.
+          const fine: { x: number; z: number }[] = [];
+          for (let i = 0; i < g.pts.length; i++) {
+            const [x, y] = g.pts[i];
+            if (i > 0) {
+              const [px, py] = g.pts[i - 1];
+              const n = Math.max(1, Math.ceil(Math.hypot(x - px, y - py) / 0.4));
+              for (let j = 1; j < n; j++) fine.push({ x: px + ((x - px) * j) / n, z: py + ((y - py) * j) / n });
+            }
+            fine.push({ x, z: y });
+          }
+          line(fine, 0xffffff, false, true, 0.12 * k, 11);
+        }
+        else line(g.pts.map(([x, y]) => ({ x, z: y })), g.level === 'error' ? RED : g.level === 'warning' ? YELLOW : GREEN, false, false, w, 11);
+      }
       (t.start?.path ?? []).forEach(([x, y], i) => line(rect(x, y, 0.6, 0.6, 0), i === st.sel.start ? SELECT : 0x4aa0ff, true));
     }
   }

@@ -168,6 +168,8 @@ export function colliders(f: Footprint): Footprint[] {
   const along = (off: number, w: number, d: number) => ({ ...f, x: f.x + off * Math.cos(f.a), y: f.y + off * Math.sin(f.a), w, d });
   switch (f.type) {
     case 'start_gate':
+    // The start official (startOfficial.ts) is a person who walks off; their own checks keep them clear.
+    case 'start_official':
       return [];
     case 'finish_arch':
       return [along(-(f.w / 2 - 0.25), 0.5, 0.5), along(f.w / 2 - 0.25, 0.5, 0.5)];
@@ -233,7 +235,7 @@ export function sceneryIssues(parts: TrackPartsData, track: TrackDef, index = ne
   const items = footprints(parts, track);
   const name = (f: Footprint) => `the ${(parts.scenery.find((s) => s.id === f.type)?.name ?? f.type).toLowerCase()} at ${f.x}, ${f.y}`;
   for (const f of items) {
-    if (!parts.scenery.some((s) => s.id === f.type)) continue;
+    if (!parts.scenery.some((s) => s.id === f.type) || f.type === 'start_official') continue;
     // How far inside the racing surface's edge the item comes, at its deepest (0 or less: clear of it).
     let into = -Infinity;
     for (const c of colliders(f)) for (const p of footprintOutline(c)) into = Math.max(into, -index.offSurface(p.x, p.y));

@@ -60,7 +60,7 @@ export function actionMessage(o: MapObject, flags: Record<string, boolean> = {})
     case 'gate':
       return `${o.name} is locked.`;
     case 'travel':
-      return `${o.name}: the world map comes in a later build.`;
+      return `${o.name}: the roads out are marked at the edge of town.`;
     default:
       return null;
   }

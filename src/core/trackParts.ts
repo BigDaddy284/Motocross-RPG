@@ -1,6 +1,7 @@
 import { elevationIssues, lapProfile } from './elevation';
 import type { TrackDef } from './race';
-import { officialPlan } from './startOfficial';
+import { OFFICIAL_ITEM, officialPlan, placedOfficial } from './startOfficial';
+import { cheerProblems } from './cheer';
 import { sceneryIssues } from './trackClearance';
 import type { ContentError, Schema } from './validate';
 
@@ -50,6 +51,8 @@ export interface TrackPartsData {
   surfaces: TrackSurfaceDef[];
   ground: GroundDef[];
   scenery: SceneryDef[];
+  /** The start official placed as scenery (start_official): the longest walk allowed, in grid units (startOfficial MAX_WALK when left out). */
+  official?: { maxWalk: number };
 }
 
 const ID = /^[a-z0-9_.-]+$/;
@@ -60,9 +63,10 @@ const ART = { type: 'string', pattern: /^[a-z0-9_-]+\/[a-z0-9_.-]+$/ } as const;
 
 export const TRACK_PARTS_SCHEMA: Schema = {
   type: 'object',
-  optional: ['note'],
+  optional: ['note', 'official'],
   fields: {
     note: { type: 'string' },
+    official: { type: 'object', fields: { maxWalk: { type: 'number', min: 1, max: 30 } } },
     sectionEditor: { type: 'boolean' },
     kinds: { type: 'array', minItems: 1, items: { type: 'object', fields: { id: IDS, name: S, view: { type: 'string', oneOf: ['screen', 'follow'] }, desc: S } } },
     lines: { type: 'array', minItems: 1, items: IDS },
@@ -123,11 +127,16 @@ export function checkTrackParts(parts: TrackPartsData, tracks: TrackDef[], artEx
     t.scenery?.forEach((s, j) => !scenery.has(s.type) && err(F.tracks, at(`scenery[${j}].type`), `no scenery "${s.type}" in ${F.parts}`));
     // Errors only: warnings (sceneryIssues) are for the track editor to show, and never stop the game.
     for (const p of sceneryIssues(parts, t)) if (p.level === 'error') err(F.tracks, at(`scenery[${p.i}]`), p.message);
+    for (const p of cheerProblems(t, parts)) if (p.level === 'error') err(F.tracks, at(`scenery[${p.i}]`), p.message);
     if (t.elevation) {
       const { mpu, along } = lapProfile(t);
       for (const p of elevationIssues(t, mpu, along)) if (p.level === 'error') err(F.tracks, at('elevation'), p.message);
     }
-    if (!t.practiceOnly && t.start) {
+    if (t.scenery?.some((s) => s.type === OFFICIAL_ITEM)) {
+      // Placed by the track: every problem with where they stand and walk.
+      const j = t.scenery.findIndex((s) => s.type === OFFICIAL_ITEM);
+      for (const m of placedOfficial(t, parts).problems) err(F.tracks, at(`scenery[${j}]`), m);
+    } else if (!t.practiceOnly && t.start) {
       try {
         officialPlan(t, parts);
       } catch {
