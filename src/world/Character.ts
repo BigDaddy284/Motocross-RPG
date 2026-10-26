@@ -64,9 +64,10 @@ export class Character {
     return this.sprite.y;
   }
 
-  placeAt(t: Tile): void {
+  /** Stands on a tile, `lift` pixels up from its bottom edge (on a pavement drawn across the middle of the tile, standLift.ts). */
+  placeAt(t: Tile, lift = 0): void {
     this.tile = { ...t };
-    this.setPixel(t.x * TILE + TILE / 2, (t.y + 1) * TILE);
+    this.setPixel(t.x * TILE + TILE / 2, (t.y + 1) * TILE - lift);
   }
 
   private setPixel(x: number, y: number): void {

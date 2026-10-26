@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { checkContent, type RawContent } from '../src/core/content';
+import { checkContent, npcsOnMap, type RawContent } from '../src/core/content';
 import { directions, guidesOn, routeArrival, routePlaces, waysOut } from '../src/core/guides';
 import { Grid } from '../src/core/grid';
 import { ROUTE, spawnTile, stepTriggerAt, Travel } from '../src/core/travel';
 import { loadManifest, loadMaps, rawContent } from './helpers';
+import { standLift } from '../src/world/standLift';
 
 const maps = loadMaps();
 const content = checkContent(rawContent(), loadManifest(), maps).content!;
@@ -155,5 +156,19 @@ describe('road exits and the local racer (Alpha v1)', () => {
     expect(stepTriggerAt(home, t)).toBeUndefined();
     const ground = home.ground[0].cells as number[];
     expect(home.images[ground[t.y * home.width + t.x]]).toMatch(/street/);
+  });
+});
+
+describe('NPCs stand on the path, not in the road', () => {
+  it('puts every NPC on an area map off the road, and lifts them onto the paving on a one-tile pavement', () => {
+    for (const m of maps.values()) {
+      if (m.kind !== 'area') continue;
+      for (const p of npcsOnMap(content, m)) {
+        const imgs = m.ground.map((l) => m.images[(l.cells as number[])[p.y * m.width + p.x]] ?? '');
+        expect(imgs.some((i) => /\/road-\d/.test(i)), `${p.npc.id} on ${m.id}`).toBe(false);
+        // On a pavement drawn across the middle of its tile (road or verge below), the feet go up onto it.
+        if (imgs.some((i) => /street-(00001000|10000000)\.png$/.test(i))) expect(standLift(m, p.x, p.y), `${p.npc.id} on ${m.id}`).toBeGreaterThan(0);
+      }
+    }
   });
 });

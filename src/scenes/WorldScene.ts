@@ -17,6 +17,7 @@ import { CAREER_SLOT, services } from '../services';
 import { Character, TILE } from '../world/Character';
 import { MapView, OVERHEAD_DEPTH, isMapCached, loadMapImages } from '../world/MapView';
 import { actionMessage } from '../world/messages';
+import { standLift } from '../world/standLift';
 import { VanView, type Driver } from '../world/VanView';
 import type { HudScene } from './HudScene';
 import type { RaceSceneData } from './RaceScene';
@@ -117,6 +118,8 @@ export class WorldScene extends Phaser.Scene {
     for (const p of npcsOnMap(services.content, map)) {
       // NPCs don't block the way: walking past (not clicking them) goes straight through.
       const character = new Character(this, p.npc.sprite, p, p.facing);
+      // Standing on the paving, not the kerb or road below it.
+      character.placeAt(p, standLift(map, p.x, p.y));
       this.npcs.push({ placement: p, character });
     }
     this.drive = new DriveMap(map, this.grid, services.content.vehicles.drivable);
