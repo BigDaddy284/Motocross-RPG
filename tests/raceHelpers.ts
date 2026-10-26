@@ -11,10 +11,11 @@ export const content = checkContent(rawContent(), loadManifest(), loadMaps()).co
 export const units = (track: { path: Parameters<typeof lapGeom>[0] }) => lapGeom(track.path).total;
 export const JUMPY = new Set(['tabletop', 'double', 'step_up', 'rhythm', 'whoops', 'braking_bumps']);
 
-/** The whole CPU field, plus one rider on a worn-out bike with a broken part. */
+/** The first 15 CPU riders (the original local field), plus one rider on a worn-out bike with a broken part. */
 export function field(cls: string): Entrant[] {
-  const list = content.riders.riders.map((d, i) => cpuEntrant(content, d, cls, i));
-  const wreck = cpuEntrant(content, { ...content.riders.riders[content.riders.riders.length - 1], id: 'cpu.wreck', name: 'Wreck' }, cls, list.length);
+  const riders = content.riders.riders.slice(0, 15);
+  const list = riders.map((d, i) => cpuEntrant(content, d, cls, i));
+  const wreck = cpuEntrant(content, { ...riders[riders.length - 1], id: 'cpu.wreck', name: 'Wreck' }, cls, list.length);
   for (const [slot, p] of Object.entries(wreck.bike.parts)) wreck.bike.parts[slot] = { ...p, condition: slot === 'top_end' ? 0 : 0.15 };
   return [...list, wreck];
 }

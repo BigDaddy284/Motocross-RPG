@@ -188,7 +188,7 @@ export const TRACKS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['track', 'class', 'field', 'office', 'needs', 'practiceFeePct', 'firstRaceFree', 'practiceOnly', 'area', 'locked'],
+        optional: ['track', 'class', 'field', 'office', 'needs', 'practiceFeePct', 'firstRaceFree', 'practiceOnly', 'area', 'locked', 'regulars'],
         fields: {
           id: IDS,
           name: S,
@@ -196,6 +196,7 @@ export const TRACKS_SCHEMA: Schema = {
           track: IDS,
           class: IDS,
           field: IDS,
+          regulars: { type: 'array', items: IDS },
           office: IDS,
           needs: IDS,
           practiceFeePct: N0,
@@ -211,7 +212,7 @@ export const TRACKS_SCHEMA: Schema = {
 
 export const RIDERS_SCHEMA: Schema = {
   type: 'object',
-  optional: ['note'],
+  optional: ['note', 'fieldSize', 'regulars'],
   fields: {
     note: { type: 'string' },
     riders: {
@@ -236,6 +237,8 @@ export const RIDERS_SCHEMA: Schema = {
       },
     },
     fields: { type: 'record', values: { type: 'array', items: IDS } },
+    fieldSize: { type: 'record', values: { type: 'number', integer: true, min: 1, max: 15 } },
+    regulars: { type: 'record', values: { type: 'array', items: IDS } },
   },
 };
 
@@ -280,6 +283,7 @@ export function checkRaceContent(c: { skills: SkillsData; racing: RacingData; tr
     if (v.track && !trackIds.has(v.track)) err(F.tracks, at('track'), `no track "${v.track}"`);
     if (v.track && !v.locked && !racing.classes[v.class ?? '']) err(F.tracks, at('class'), `no class "${v.class}" in ${F.racing}`);
     if (v.field && !fieldIds.has(v.field)) err(F.tracks, at('field'), `no field "${v.field}" in ${F.riders}`);
+    v.regulars?.forEach((id, j) => !riders.fields[v.field ?? '']?.includes(id) && err(F.tracks, at(`regulars[${j}]`), `"${id}" isn't in the ${v.field ?? '(no)'} field's pool in ${F.riders}`));
     if (!v.track && !v.locked) err(F.tracks, at('track'), 'a venue needs a track or a locked message');
   });
 
@@ -293,5 +297,7 @@ export function checkRaceContent(c: { skills: SkillsData; racing: RacingData; tr
     for (const k of Object.keys(r.skills ?? {})) if (!childIds.has(k)) err(F.riders, `riders[${i}].skills.${k}`, `no skill "${k}"`);
   });
   for (const [f, ids] of Object.entries(riders.fields)) ids.forEach((id, j) => !riderIds.has(id) && err(F.riders, `fields.${f}[${j}]`, `no rider "${id}"`));
+  for (const f of Object.keys(riders.fieldSize ?? {})) if (!fieldIds.has(f)) err(F.riders, `fieldSize.${f}`, `no field "${f}"`);
+  for (const [f, ids] of Object.entries(riders.regulars ?? {})) ids.forEach((id, j) => !riders.fields[f]?.includes(id) && err(F.riders, `regulars.${f}[${j}]`, `"${id}" isn't in the ${f} field's pool`));
   return errors;
 }

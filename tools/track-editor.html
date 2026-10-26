@@ -229,7 +229,7 @@ body.final .final-hide { display: none !important; }
     <label class="chk" style="background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:3px 8px"><input type="checkbox" id="snap" checked> Snap</label>
     <label class="chk" style="background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:3px 8px" title="Fade the ground and scenery to see the track"><input type="checkbox" id="showScene" checked> Scenery</label>
     <button id="btnPlay" title="Ride a dot round the lap (P). It slows down in the harder sections.">▶ Preview</button>
-    <button id="btnRide" title="Open a race day on this track in the game, with npm run dev running. Save first: the game reads the saved tracks.json.">Race it in the game</button>
+    <button id="btnRide" title="Open a race day on this track in the game, with npm run dev running. Save first: the game reads the saved files.">Race it in the game</button>
   </div>
   <div id="welcome">
     <div class="card">
@@ -241,6 +241,7 @@ body.final .final-hide { display: none !important; }
         <li><code>assets/art</code> for the ground and scenery tiles, the same art as the map editor.</li>
       </ul>
       <p>In Chrome or Edge, <b>Save</b> writes straight back into the folder. In other browsers, Save downloads <code>tracks.json</code> for you to copy into place.</p>
+      <p><b>New</b>, <b>Duplicate</b> and <b>Import</b> make <b>mod tracks</b>: the first Save asks for the track's name, and each one is saved as its own file in <code>public/mods/tracks/</code> (never into the game's <code>tracks.json</code>), to race from Mod Track in the game.</p>
       <div class="row"><button class="primary" id="btnOpen2">Open folder…</button><button id="btnHelp2">Help and shortcuts</button></div>
       <p id="serverHint" class="hint"></p>
     </div>
@@ -315,7 +316,7 @@ body.final .final-hide { display: none !important; }
   </div>
 
   <div class="pane" id="pane-scenery">
-    <div class="hint">Pick an item, then click to place it. Click an item to select it, drag to move it, <kbd>Q</kbd> <kbd>E</kbd> turn it, <kbd>Del</kbd> removes it.</div>
+    <div class="hint">Pick an item: it follows the pointer, see-through, where a click would place it; <kbd>Q</kbd> <kbd>E</kbd> turn it first. Click an item to select it, drag to move it, <kbd>Q</kbd> <kbd>E</kbd> turn it 15°, with <kbd>Shift</kbd> 5°, with <kbd>Alt</kbd> 1° (or type any angle in Turn), <kbd>Del</kbd> removes it.</div>
     <div class="pal" id="sceneryPal"></div>
     <div class="box" id="sceneryDetail"></div>
   </div>
@@ -352,12 +353,13 @@ body.final .final-hide { display: none !important; }
     <li class="final-hide"><b>Gates</b> is the start bonus curve, in percent of start time, best gate first (Spec 10.4).</li>
     <li><b>Surfaces:</b> mud, sand, water and other patches along the lap, laid by clicking the track.</li>
     <li><b>Ground:</b> paint the ground round the track with the game's ground tiles.</li>
-    <li><b>Scenery:</b> banners (with your own words and colour), sponsor boards, start gates, tuff blocks, hay bales, tyre walls, stands, crowds, pits, trees and more. <kbd>Q</kbd> and <kbd>E</kbd> turn the selected item, <kbd>Ctrl+D</kbd> duplicates it. <b>Cheering fans</b> are people who stand trackside and react as bikes pass: pick a variant (body shape), an action (arms up, wave, clap, fist pump, celebrate) and a shirt colour, or leave them to be picked. <b>Draw route</b> gives a fan a walk in: when the track loads they walk from where placed along it, at walking pace, and cheer from its end, so a crowd can file in. A fan must never be on the track, where placed or where the walk ends (an error the game refuses); a walk that crosses the track is only a warning. Each fan reacts in their own time, with a rest between, so a crowd never moves as one.</li>
+    <li><b>Scenery:</b> banners (with your own words and colour), sponsor boards, start gates, tuff blocks, hay bales, tyre walls, stands, crowds, pits, trees and more. Pick an item and it follows the pointer, see-through, on the map and in the race view, where a click would place it, turned as <kbd>Q</kbd> and <kbd>E</kbd> have turned it (the turn is kept for the next item too). <kbd>Q</kbd> and <kbd>E</kbd> turn the selected item 15° a press, 5° with <kbd>Shift</kbd> and 1° with <kbd>Alt</kbd>, and the Turn box takes any whole number of degrees; <kbd>Ctrl+D</kbd> duplicates it. <b>Cheering fans</b> are people who stand trackside and react as bikes pass: pick a variant (body shape), an action (arms up, wave, clap, fist pump, celebrate) and a shirt colour, or leave them to be picked. <b>Draw route</b> gives a fan a walk in: when the track loads they walk from where placed along it, at walking pace, and cheer from its end, so a crowd can file in. A fan must never be on the track, where placed or where the walk ends (an error the game refuses); a walk that crosses the track is only a warning. Each fan reacts in their own time, with a rest between, so a crowd never moves as one.</li>
     <li><b>Start board official:</b> pick <b>Start board official</b> under Start and finish in Layout, or the last item in Scenery, and click where they wait with the board while the riders line up (one a track; without one the game picks their spot beside the start straight). Select them and click <b>Draw route</b>, then click the ground in order to where they end up (the red point), and <b>Done</b> or <kbd>Esc</kbd>; <b>Cancel</b> puts the old route back, <b>Reset route</b> clears it. Drag a route point to move it, right-click it or press <kbd>Del</kbd> to remove it; dragging the official moves only where they start. In the countdown they raise the board and set off at five, turn it sideways at three and lower it white side out at one as they arrive. The route can be at most <code>official.maxWalk</code> grid units (trackParts.json, 8), may cross the track ahead of the gate but not the riders lined up at the gate or solid scenery, and must end clear of the track; the race view runs the game's checks and they show under the official and in Checks. On a new track they stand where placed until there's a start straight; Checks says when a track has no official or an official has no route.</li>
     <li><b>Height:</b> <b>Raise the track</b> and <b>Lower the track</b> work along the track's length: hover the track and the stretch the tool would change is highlighted, the <b>Length</b> you set centred under the pointer and following the route round corners (cut at the end of an open route); a click raises it by the <b>Height</b> set, right-click lowers it, with the most at the centre easing to nothing at both ends, so the hill meets the track either side with no step and no kink. Nothing changes until you click; each click is one undo, and clicking the same stretch again steps its height instead of stacking another hill (back to level, it goes). Hills are saved with the track (<code>hills</code>), keep their place when the route is reshaped, and are drawn on the map as a band with their height. The track keeps its width, banking, berms and section types; the ground either side rises or sinks to meet it as a grass slope, never a wall. The <b>ground brush</b> (raise, lower, smooth, flatten; radius and strength) shapes the ground away from the track as before. Heights go from 36 m down to 36 m up; riders slow up climbs and run quicker down drops; ground steeper than 45° is refused as a wall, and a track climbing or dropping more than 35% along its length is a warning. Old tracks keep their ground as saved.</li>
     <li><b>Race view:</b> you edit in the game's own race camera and 3D scene with hills, jumps, scenery and ground as a race draws them, and the lap map in its corner. Click, drag and right-click on the 3D ground; the keys are the same in every mode. Mouse wheel or <kbd>+</kbd> <kbd>−</kbd> zoom, <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or a middle-button (or <kbd>Space</kbd>+drag) pan, <kbd>[</kbd> <kbd>]</kbd>, the <b>⟲ Turn left</b> and <b>⟳ Turn right</b> buttons (bottom left) or a <kbd>Shift</kbd>+middle-button drag turn the view round the track, to see it from any side; <kbd>0</kbd> or <b>Reset view</b> goes back to the race camera's angle. Turning only changes the editor's view: clicks still land where the pointer is, and races always use the fixed race camera. The selection is orange, problems red or dashed yellow. In Layout each section shows as a stripe in its kind's colour, with a cream line across the track where one section ends and the next begins. No race runs while you edit. Opened straight from disk, the race view runs the game from the published site (<code>bigdaddy284.github.io/Motocross-RPG</code>), so it needs an internet connection; with neither that nor <code>npm run dev</code>, the editor shows a plain map instead.</li>
     <li><b>Modes:</b> <kbd>1</kbd> Layout, <kbd>2</kbd> Surfaces, <kbd>3</kbd> Ground, <kbd>4</kbd> Scenery, <kbd>5</kbd> Height.</li>
     <li><b>Export / Import</b> save one track as a <code>.track.json</code> file and add one back.</li>
+    <li><b>Mod tracks</b>: New, Duplicate and Import make one. The first Save asks for its name; it is then saved as <code>public/mods/tracks/&lt;name&gt;.track.json</code> (through <code>npm run dev</code>, or into the opened folder), never into <code>tracks.json</code>, and raced from Mod Track in the game. The game's own tracks still save into <code>tracks.json</code>.</li>
     <li><b>Preview</b> <kbd>P</kbd> rides a dot round the lap, slower through the harder sections.</li>
     <li><b>Race it in the game</b> opens a race day on the track with the full field, with <code>npm run dev</code> running. Save first.</li>
     <li><b>Save</b> <kbd>Ctrl+S</kbd>. <b>Undo</b> <kbd>Ctrl+Z</kbd>, <b>Redo</b> <kbd>Ctrl+Y</kbd>. An unchanged file saves back byte for byte. After saving, run <code>npm test</code>; the game also checks the file when it starts.</li>
@@ -523,6 +525,22 @@ function exportTracks(d) {
   return `{\n${parts.join(',\n')}\n}\n`;
 }
 
+// Mod tracks (player-made, raced from Mod Track in the game) live in the editor's track list
+// beside the game's own, marked with modFile: their file in public/mods/tracks/ ('' until named).
+// They are saved there, one file each, and never into tracks.json.
+const MOD_DIR = 'mods/tracks';
+const isMod = (t) => t.modFile !== undefined;
+/** tracks.json as saved: the game's own tracks only. */
+function gameTracksText(d) { return exportTracks({ ...d, tracks: d.tracks.filter((t) => !isMod(t)) }); }
+/** A mod track's file, as the track editor's Export writes one. */
+function modText(t) {
+  const { modFile: _f, ...track } = t;
+  return `${JSON.stringify({ format: TRACK_FILE, version: 1, track }, null, 2)}\n`;
+}
+/** A file name from a track name: lower case letters, digits and dashes. */
+const modSlug = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+function modsDirty() { return app.data.tracks.some((t) => isMod(t) && (t.modFile === '' || app.modSaved[t.modFile] !== modText(t))); }
+
 // ---------------------------------------------------------------------------------------------
 // App state
 
@@ -556,6 +574,10 @@ const app = {
   surfaceBrush: null,
   groundBrush: null,
   sceneryBrush: null,
+  /** How the next scenery item placed is turned, in degrees (Q and E before placing). */
+  placeRot: 0,
+  /** Whether Alt was held on the last pointer move (no snapping), for the placing preview. */
+  hoverAlt: false,
   hoverBound: -1,
   hoverCell: null,
   hoverPt: null,
@@ -584,7 +606,7 @@ function begin() {
 }
 function changed() {
   derive(track());
-  setDirty(exportTracks(app.data) !== app.savedText);
+  setDirty(gameTracksText(app.data) !== app.savedText || modsDirty());
   refresh();
 }
 function undo() { if (!app.undo.length) return; app.redo.push(snapshot()); restore(app.undo.pop()); changed(); }
@@ -651,7 +673,19 @@ async function useSource(src) {
     const assets = src.http ? '..' : dirOf(dataDir);
     const artBase = `${assets ? `${assets}/` : ''}${ART_DIR}/`;
     const final = parts.sectionEditor === false || new URLSearchParams(location.search).has('final');
-    Object.assign(app, { tracksPath, data, sectionDefs, parts, final, artBase, cur: 0, undo: [], redo: [], savedText: text, play: null, images: new Map() });
+    // The mods folder sits beside data/ (public/mods/tracks, or /mods/tracks on the dev server).
+    const pub = src.http ? null : dataDir.includes('/') || dataDir === 'data' ? dirOf(dataDir) : null;
+    const modDir = src.http ? `${src.base}../${MOD_DIR}/` : pub !== null ? `${pub ? `${pub}/` : ''}${MOD_DIR}` : null;
+    const modSaved = {};
+    for (const { file, raw } of await readMods(src, modDir)) {
+      const t = raw?.format === TRACK_FILE ? raw.track : raw;
+      if (!t || !Array.isArray(t.path) || !Array.isArray(t.sections)) { notes.push(`${MOD_DIR}/${file} isn't a track file`); continue; }
+      t.id = ID.test(t.id ?? '') && !data.tracks.some((x) => x.id === t.id) ? t.id : `${modSlug(file.replace(/\.track\.json$|\.json$/, '')) || 'mod'}-mod`;
+      t.modFile = file;
+      data.tracks.push(t);
+      modSaved[file] = modText(t);
+    }
+    Object.assign(app, { tracksPath, modDir, modSaved, data, sectionDefs, parts, final, artBase, cur: 0, undo: [], redo: [], savedText: text, play: null, images: new Map() });
     // A track with a section past the build boundary can't be raced: it is a draft until it is back inside.
     for (const t of data.tracks) if (!t.draft && boundaryCrossings(t).length) { t.draft = true; notes.push(`"${t.name}" has a section past the build boundary, so it is a draft again`); }
     deselect();
@@ -661,7 +695,7 @@ async function useSource(src) {
     document.body.classList.toggle('final', final);
     $('#edition').textContent = final ? 'Final v1' : 'Development';
     $('#edition').classList.toggle('final', final);
-    setDirty(exportTracks(data) !== text);
+    setDirty(gameTracksText(data) !== text);
     $('#welcome').style.display = 'none';
     $('#srcName').textContent = src.http ? `${src.base}tracks.json` : `${src.name}/${tracksPath}`;
     if (app.dirty) status(`Loaded. The file is laid out differently from how the editor saves it, so it shows as changed.${notes.length ? ` Also: ${notes.join('; ')}.` : ''}`, 'err');
@@ -675,6 +709,27 @@ async function useSource(src) {
     console.error(e);
     status(`Could not read ${tracksPath}: ${e.message}`, 'err');
   }
+}
+
+/** The mod track files in the mods folder, read as JSON (any that can't be read are left out). */
+async function readMods(src, modDir) {
+  if (modDir === null) return [];
+  const out = [];
+  try {
+    if (src.http) {
+      const r = await fetch(`${modDir}index.json`, { cache: 'no-store' });
+      const names = r.ok ? await r.json() : [];
+      for (const file of Array.isArray(names) ? names : []) {
+        try { const f = await fetch(`${modDir}${encodeURIComponent(file)}`, { cache: 'no-store' }); if (f.ok) out.push({ file, raw: JSON.parse(await f.text()) }); } catch { /* left out */ }
+      }
+    } else {
+      const prefix = `${modDir}/`;
+      for (const p of [...src.files.keys()].filter((k) => k.startsWith(prefix) && /^[^/]+\.json$/.test(k.slice(prefix.length)) && !k.endsWith('/index.json')).sort()) {
+        try { out.push({ file: p.slice(prefix.length), raw: JSON.parse(await src.text(p)) }); } catch { /* left out */ }
+      }
+    }
+  } catch { /* no mods folder */ }
+  return out;
 }
 
 /** Loads the ground and scenery tile art. Anything missing is drawn in its colour instead. */
@@ -1687,6 +1742,8 @@ function draw() {
   const level = new Map();
   for (const p of sceneryIssues(t)) if (level.get(p.i) !== 'error') level.set(p.i, p.level);
   (t.scenery ?? []).forEach((it, i) => drawItem(it, app.mode === 'scenery' && i === app.selItem, level.get(i) ?? false));
+  const ghostItem = scene ? null : ghostItemForView(t);
+  if (ghostItem) { ctx.globalAlpha = 0.5; drawItem(ghostItem, true); }
   ctx.globalAlpha = 1;
   if (app.mode === 'scenery') drawRoute(t);
 
@@ -1926,7 +1983,7 @@ function renderTrackList() {
     const kind = app.parts.kinds.find((k) => k.id === (t.kind ?? 'outdoor'))?.name ?? t.kind;
     d.innerHTML = '<b></b><br><small></small>';
     d.querySelector('b').textContent = t.name || t.id;
-    d.querySelector('small').textContent = `${t.id} · ${kind} · ${lapLength(t)} m${t.practiceOnly ? ' · practice' : ''}${t.draft ? ' · unfinished' : ''}${venuesUsing(t.id).length ? '' : ' · no venue'}`;
+    d.querySelector('small').textContent = `${isMod(t) ? `mod · ${t.modFile || 'not saved yet'}` : t.id} · ${kind} · ${lapLength(t)} m${t.practiceOnly ? ' · practice' : ''}${t.draft ? ' · unfinished' : ''}${isMod(t) || venuesUsing(t.id).length ? '' : ' · no venue'}`;
     d.addEventListener('click', () => { app.cur = i; deselect(); stopPlay(); refresh(); });
     list.appendChild(d);
   });
@@ -1961,7 +2018,9 @@ function renderProps() {
   setOptions('#surfaces', ['hard_pack', 'loam', 'sand', 'clay', 'mud', ...app.data.tracks.map((x) => x.surface)]);
   $('#kindInfo').textContent = app.parts.kinds.find((k) => k.id === (t.kind ?? 'outdoor'))?.desc ?? '';
   const used = venuesUsing(t.id);
-  $('#venueInfo').textContent = used.length ? `Used by: ${used.map((v) => v.name).join(', ')}.` : 'No venue uses this track yet. Add one to the venues list in tracks.json to ride it in the game.';
+  $('#venueInfo').textContent = isMod(t)
+    ? `Mod track: ${t.modFile ? `saved to public/${MOD_DIR}/${t.modFile}` : 'Save asks for its name and saves it to the mods folder'}, and raced from Mod Track on the venue road.`
+    : used.length ? `Used by: ${used.map((v) => v.name).join(', ')}.` : 'No venue uses this track yet. Add one to the venues list in tracks.json to ride it in the game.';
 }
 
 $('#fName').addEventListener('change', (e) => commit((t) => { t.name = e.target.value.trim(); }));
@@ -2849,7 +2908,9 @@ function placeItem(x, y, e) {
   }
   commit((t) => {
     if (!t.scenery) setKeyNear(t, 'scenery', [], 'ground' in t ? 'ground' : 'patches' in t ? 'patches' : 'sections');
-    t.scenery.push({ type: def.id, x: clamp(snapHalf(x, e), -SCENE_OUT, GRID_W + SCENE_OUT), y: clamp(snapHalf(y, e), -SCENE_OUT, GRID_H + SCENE_OUT) });
+    const it = { type: def.id, x: clamp(snapHalf(x, e), -SCENE_OUT, GRID_W + SCENE_OUT), y: clamp(snapHalf(y, e), -SCENE_OUT, GRID_H + SCENE_OUT) };
+    if (app.placeRot) it.rot = app.placeRot;
+    t.scenery.push(it);
     app.selItem = t.scenery.length - 1;
   });
 }
@@ -3990,7 +4051,9 @@ function ghostForView(t) {
     // The elevation tool's preview: the stretch of track it would raise or lower, as a band.
     if (!app.hoverPt) return undefined;
     const gh = hillGhost(t, app.hoverPt);
-    return gh.ok ? { pts: gh.pts, level: 'ok', ring: null } : undefined;
+    if (!gh.ok) return undefined;
+    const c = gh.pts[Math.floor(gh.pts.length / 2)];
+    return { pts: gh.pts, level: 'ok', ring: [c[0], c[1], 0.6] };
   }
   if (app.drawing && app.drawAt) {
     // Drawing the route: the stretch the next click would add, from the last point to the pointer.
@@ -4001,6 +4064,16 @@ function ghostForView(t) {
   if (!app.placing) return undefined;
   const gh = ghostOf(t, app.placing);
   return { pts: gh.pts, level: gh.level, ring: gh.ring ?? null };
+}
+/** The scenery item the next click would place (Scenery, nothing selected): where it would go and how it is turned. */
+function ghostItemForView(t) {
+  if (app.mode !== 'scenery' || !app.hoverPt || app.selItem >= 0 || app.routeDraw || drag) return undefined;
+  const def = sceneryDef(app.sceneryBrush);
+  if (!def) return undefined;
+  const e = { altKey: app.hoverAlt };
+  const it = { type: def.id, x: clamp(snapHalf(app.hoverPt.x, e), -SCENE_OUT, GRID_W + SCENE_OUT), y: clamp(snapHalf(app.hoverPt.y, e), -SCENE_OUT, GRID_H + SCENE_OUT) };
+  if (app.placeRot) it.rot = app.placeRot;
+  return it;
 }
 /**
  * The track as the race view is sent it. An open route is shown open: the way back from its last
@@ -4525,6 +4598,7 @@ function newTrack() {
     path: [],
     sections: [],
     features: [],
+    modFile: '',
   });
   app.cur = app.data.tracks.length - 1;
   deselect();
@@ -4533,13 +4607,15 @@ function newTrack() {
   app.drawing = true;
   app.drawAt = null;
   changed();
-  status('A new, empty track: click the ground to draw the route point by point, and click the first point again to close it. Name the track under Track.', 'ok');
+  status('A new, empty mod track: click the ground to draw the route point by point, and click the first point again to close it. Save asks for its name and saves it to the mods/tracks folder.', 'ok');
 }
 function duplicateTrack() {
   begin();
   const t = clone(track());
   t.id = uniqueId(`${t.id}-copy`);
   t.name = `${t.name} (copy)`;
+  // A copy is a new mod track, named when it is saved.
+  t.modFile = '';
   app.data.tracks.splice(app.cur + 1, 0, t);
   app.cur++;
   deselect();
@@ -4549,7 +4625,7 @@ function deleteTrack() {
   const t = track();
   const used = venuesUsing(t.id);
   if (used.length) { status(`${used.map((v) => v.name).join(', ')} uses this track. Point the venue at another track in tracks.json first.`, 'err'); return; }
-  if (!confirm(`Delete the track "${t.name}"?`)) return;
+  if (!confirm(isMod(t) && t.modFile ? `Take "${t.name}" out of the list? Its file, ${MOD_DIR}/${t.modFile}, stays in the folder: delete it there to take it out of the game.` : `Delete the track "${t.name}"?`)) return;
   begin();
   app.data.tracks.splice(app.cur, 1);
   app.cur = Math.max(0, app.cur - 1);
@@ -4581,12 +4657,13 @@ async function importTrack(file) {
       if (s.height !== undefined) out.height = Number(s.height);
       return out;
     });
+    clean.modFile = '';
     begin();
     app.data.tracks.push(clean);
     app.cur = app.data.tracks.length - 1;
     deselect();
     changed();
-    status(`Imported "${clean.name}" as ${clean.id}. Check the Checks panel for anything this game doesn't have.`, 'ok');
+    status(`Imported "${clean.name}" as a mod track; Save names it and saves it to the mods/tracks folder. Check the Checks panel for anything this game doesn't have.`, 'ok');
   } catch (e) {
     status(`Could not import ${file.name}: ${e.message}`, 'err');
   }
@@ -4609,25 +4686,92 @@ function download(name, text) {
 async function save(forceDownload) {
   if (!app.data) return;
   if (hasErrors() && !confirm('Some tracks fail the game\'s checks (see Checks), so the game will refuse to start with this file. Save anyway?')) return;
-  const text = exportTracks(app.data);
-  if (source.canWrite && forceDownload !== true) {
+  if (forceDownload === true) {
+    const text = gameTracksText(app.data);
+    download('tracks.json', text);
+    status(`Downloaded tracks.json (the game's own tracks). Copy it over public/data/tracks.json.`, 'ok');
+    return;
+  }
+  // New mod tracks get a name, and a file of their own, before anything is written.
+  for (const t of app.data.tracks) if (t.modFile === '' && !nameModTrack(t)) return;
+  const said = [];
+  for (const t of app.data.tracks) {
+    if (!isMod(t)) continue;
+    const text = modText(t);
+    if (app.modSaved[t.modFile] === text) continue;
+    said.push(await writeMod(t.modFile, text));
+    app.modSaved[t.modFile] = text;
+  }
+  const text = gameTracksText(app.data);
+  if (text !== app.savedText) said.push(await writeTracks(text));
+  app.savedText = text;
+  setDirty(false);
+  refresh();
+  status(`${said.length ? said.join(' ') : 'Nothing to save.'} ${checkSummary()}`, checkAll().errors ? 'err' : 'ok');
+}
+
+/** The game's own tracks into tracks.json, or a download when the folder can't be written. Returns what it did. */
+async function writeTracks(text) {
+  if (source.canWrite) {
     try {
       await source.write(app.tracksPath, text);
-      app.savedText = text;
-      setDirty(false);
-      status(`Saved ${app.tracksPath}. ${checkSummary()}`, checkAll().errors ? 'err' : 'ok');
-      return;
+      return `Saved ${app.tracksPath}.`;
     } catch (e) {
       console.error(e);
-      status(`Saving into the folder failed (${e.message}); downloading instead.`, 'err');
+      download('tracks.json', text);
+      return `Saving into the folder failed (${e.message}), so tracks.json was downloaded: copy it over public/data/tracks.json.`;
     }
   }
   download('tracks.json', text);
-  app.savedText = text;
-  setDirty(false);
-  status(`Downloaded tracks.json. Copy it over public/data/tracks.json. ${checkSummary()}`, checkAll().errors ? 'err' : 'ok');
+  return 'Downloaded tracks.json: copy it over public/data/tracks.json.';
 }
 
+/** A mod track into the mods folder: through the dev server, into the opened folder, or as a download. Returns what it did. */
+async function writeMod(file, text) {
+  const where = `${MOD_DIR}/${file}`;
+  try {
+    if (source.http) {
+      const r = await fetch(`/__mods/tracks/${encodeURIComponent(file)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: text });
+      if (r.ok) return `Saved public/${where}.`;
+      throw new Error(r.status === 404 || r.status === 405 ? 'this server can\'t save files (run npm run dev)' : await r.text());
+    }
+    if (source.root && app.modDir !== null) {
+      let dir = source.root;
+      for (const part of app.modDir.split('/').filter(Boolean)) dir = await dir.getDirectoryHandle(part, { create: true });
+      const h = await dir.getFileHandle(file, { create: true });
+      if (h.requestPermission && (await h.requestPermission({ mode: 'readwrite' })) !== 'granted') throw new Error('the browser did not allow saving into the folder');
+      const w = await h.createWritable();
+      await w.write(text);
+      await w.close();
+      return `Saved ${app.modDir}/${file}.`;
+    }
+  } catch (e) {
+    console.error(e);
+    download(file, text);
+    return `Couldn't save ${where} (${e.message}), so ${file} was downloaded: put it in public/${MOD_DIR}.`;
+  }
+  download(file, text);
+  return `Downloaded ${file}: put it in public/${MOD_DIR}.`;
+}
+
+/** Asks for a new mod track's name, which also names its file. False if cancelled. */
+function nameModTrack(t) {
+  let suggest = t.name && t.name !== 'New track' ? t.name : '';
+  for (;;) {
+    const name = prompt(`Name this track. It is saved as its own file in ${MOD_DIR}, named after it, and listed by this name under Mod Track in the game.`, suggest);
+    if (name === null) { status('Not saved: the new track needs a name.', 'err'); return false; }
+    const slug = modSlug(name.trim());
+    const file = `${slug}.track.json`;
+    if (!slug || slug === 'new-track') { alert('Give the track a name of its own (letters or digits), not "New track".'); continue; }
+    const clash = app.data.tracks.find((x) => x !== t && (x.modFile === file || x.id === slug));
+    if (clash) { alert(`"${clash.name}" already uses that name. Pick another, so neither is saved over.`); suggest = name; continue; }
+    begin();
+    t.name = name.trim();
+    t.id = slug;
+    t.modFile = file;
+    return true;
+  }
+}
 // ---------------------------------------------------------------------------------------------
 // Preview: a dot rides the lap, spending time in each section by its length × difficulty.
 
@@ -4896,6 +5040,12 @@ function onPointerMove(e) {
       requestDraw();
       if (hillTool()) sendView();
     }
+    if (app.mode === 'scenery') {
+      // The placing preview follows the pointer while nothing is selected or dragged.
+      app.hoverPt = gp;
+      app.hoverAlt = !!e.altKey;
+      if (app.selItem < 0 && !app.routeDraw && !drag) { requestDraw(); sendView(); }
+    }
   }
   if (app.rect) { const c = cellAt(t, gp); app.rect.x1 = c.x; app.rect.y1 = c.y; requestDraw(); return; }
   if (app.placing && app.mode === 'layout' && !drag) {
@@ -5033,7 +5183,7 @@ function onPointerUp() {
   refresh();
 }
 canvas.addEventListener('pointerup', onPointerUp);
-canvas.addEventListener('pointerleave', () => { if (app.hoverCell || app.hoverPt) { app.hoverCell = null; app.hoverPt = null; requestDraw(); } });
+canvas.addEventListener('pointerleave', () => { if (app.hoverCell || app.hoverPt) { app.hoverCell = null; app.hoverPt = null; requestDraw(); if (app.mode === 'scenery' || app.mode === 'height') sendView(); } });
 function onDblClick(e) {
   const t = track();
   if (!t || app.mode !== 'layout' || app.drawing || app.placing) return;
@@ -5129,8 +5279,10 @@ $('#btnRide').addEventListener('click', () => {
       : 'This track is a draft, and the game leaves drafts out. Click Ready to race (it runs the checks first), then Save, to race it.');
     return;
   }
-  if (app.dirty && !confirm('You have unsaved changes. The game races the saved tracks.json, so it won\'t have them. Open the race anyway?')) return;
-  window.open(`/?testtrack=${encodeURIComponent(t.id)}`, '_blank');
+  if (t.modFile === '') { alert('Save the track first: it needs a name and its file in the mods folder before the game can race it.'); return; }
+  if (app.dirty && !confirm('You have unsaved changes. The game races the saved files, so it won\'t have them. Open the race anyway?')) return;
+  // The game gives a mod track the id mod.<file name>.
+  window.open(`/?testtrack=${encodeURIComponent(isMod(t) ? `mod.${t.modFile.replace(/\.track\.json$/, '')}` : t.id)}`, '_blank');
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -5187,11 +5339,12 @@ function sendView() {
   const sel = { item: app.mode === 'scenery' ? app.selItem : -1, sec: app.selSec, pt: app.selPt, start: app.selStart, route: app.selRoute };
   const shown = trackForView(t);
   const ghost = app.mode === 'layout' || app.mode === 'height' ? ghostForView(t) : undefined;
+  const ghostItem = ghostItemForView(t);
   // The route's control points, and the selected point's curve handles, for Layout.
   const L = lpts(t);
   const P = L[app.selPt];
   const handles = app.mode === 'layout' && P && smooth(P) ? [hOut(P), hIn(P)].map((h) => [P[0] + h[0], P[1] + h[1]]) : undefined;
-  f.contentWindow.postMessage({ type: 'track', officialKey: officialKey(t), state: { track: shown.track, gapFrom: shown.gapFrom, gaps: shown.gaps, points: L.map((q) => [q[0], q[1]]), handles, ghost, parts: app.parts === FALLBACK_PARTS ? undefined : app.parts, mode: app.mode, sel, issues, brush, sectionColors: shown.track.sections.map((s) => colorOf(s.type)) } }, '*');
+  f.contentWindow.postMessage({ type: 'track', officialKey: officialKey(t), state: { track: shown.track, gapFrom: shown.gapFrom, gaps: shown.gaps, points: L.map((q) => [q[0], q[1]]), handles, ghost, ghostItem, parts: app.parts === FALLBACK_PARTS ? undefined : app.parts, mode: app.mode, sel, issues, brush, sectionColors: shown.track.sections.map((s) => colorOf(s.type)) } }, '*');
 }
 window.addEventListener('message', (e) => {
   const f = $('#view3d');
@@ -5268,8 +5421,13 @@ window.addEventListener('keydown', (e) => {
   if (app.mode === 'scenery') {
     if (del && app.selRoute > 0) { e.preventDefault(); deleteRoutePoint(app.selRoute); }
     else if (del) { e.preventDefault(); deleteItem(); }
-    else if (e.key.toLowerCase() === 'q') turnItem(-15);
-    else if (e.key.toLowerCase() === 'e') turnItem(15);
+    else if (e.key.toLowerCase() === 'q' || e.key.toLowerCase() === 'e') {
+      // 15° a press; Shift for 5°, Alt for 1°. With nothing selected, it turns the item about to be placed.
+      e.preventDefault();
+      const step = (e.altKey ? 1 : e.shiftKey ? 5 : 15) * (e.key.toLowerCase() === 'q' ? -1 : 1);
+      if (app.selItem >= 0) turnItem(step);
+      else { app.placeRot = (((app.placeRot + step) % 360) + 360) % 360; requestDraw(); sendView(); }
+    }
     else if (e.key.startsWith('Arrow') && app.selItem >= 0) {
       e.preventDefault();
       const d = e.shiftKey ? 2 : 0.5;
@@ -5327,7 +5485,7 @@ async function tryServer() {
       const b = document.createElement('button');
       b.textContent = 'Load the tracks from this server';
       b.addEventListener('click', () => useSource(new HttpSource(base)));
-      hint.append('Or: ', b, ' (saving downloads the file).');
+      hint.append('Or: ', b, ' (mod tracks save into public/mods/tracks; the game\'s own tracks.json downloads).');
       return;
     } catch { /* try the next */ }
   }

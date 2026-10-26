@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { newCareerState, type CareerState } from '../src/core/career';
 import { checkContent } from '../src/core/content';
 import { MotoSim, mixSeed } from '../src/core/race';
-import { PLAYER_ID, RaceDay, applyRide, cpuEntrant, entryFee, motoPrize, playerEntrant, practiceSim, venueProblem } from '../src/core/raceDay';
+import { PLAYER_ID, RaceDay, applyRide, cpuEntrant, drawField, entryFee, motoPrize, playerEntrant, practiceSim, venueProblem } from '../src/core/raceDay';
 import { addXp, childLevel, leadLevel, levelForXp, newSkillState, xpForLevel } from '../src/core/skills';
 import { loadManifest, loadMaps, rawContent } from './helpers';
 
@@ -186,13 +186,14 @@ describe('race day (Spec 12, 14)', () => {
     expect(entryFee(content, farmland, { first_race_done: true })).toBe(2000);
   });
 
-  it('keeps Farmland shut until the local racer points you there, and opens Riverside Arena and Longmoor Enduro', () => {
+  it('keeps every race track shut until the tutorial ends (the local racer points you to Farmland), then opens all three', () => {
     const c = rider();
     expect(venueProblem(content, farmland, c, {})).not.toBeNull();
     expect(venueProblem(content, farmland, c, { 'found.venue-farmland': true })).toBeNull();
     for (const [id, track] of [['venue-quarry', 'arena-supercross'], ['venue-woodland', 'longmoor-endurance']]) {
       const v = content.tracks.venues.find((x) => x.id === id)!;
-      expect(venueProblem(content, v, c, {})).toBeNull();
+      expect(venueProblem(content, v, c, { van_loaded: true })).not.toBeNull();
+      expect(venueProblem(content, v, c, { 'found.venue-farmland': true })).toBeNull();
       // Same prices as Farmland, its own track official on its own map, and an official placed on the start straight.
       expect([v.track, v.class, v.field, v.practiceFeePct, v.firstRaceFree]).toEqual([track, farmland.class, farmland.field, farmland.practiceFeePct, farmland.firstRaceFree]);
       expect(content.npcs.find((n) => n.id === v.office)?.map).toBe(v.map);
@@ -297,5 +298,44 @@ describe('race content checks', () => {
     (raw.riders as { fields: Record<string, string[]> }).fields['area1.local'].push('cpu.nobody');
     const { errors } = checkContent(raw, loadManifest(), maps);
     expect(errors.some((e) => e.file === 'data/riders.json' && /cpu\.nobody/.test(e.message))).toBe(true);
+  });
+});
+
+describe('the race day field: regulars plus a random draw from the pool', () => {
+  const venue = (id: string) => content.tracks.venues.find((v) => v.id === id)!;
+  const ids = (v: string, seed: number) => drawField(content, venue(v), seed).map((r) => r.id);
+
+  it('races 15 CPU riders, the Local Champion every time and Kyle Brooks every time at Farmland', () => {
+    for (let seed = 1; seed <= 40; seed++) {
+      for (const v of ['venue-farmland', 'venue-quarry', 'venue-woodland']) {
+        const f = ids(v, seed);
+        expect(f, `${v} ${seed}`).toHaveLength(15);
+        expect(new Set(f).size).toBe(15);
+        expect(f).toContain('cpu.local_champion');
+      }
+      expect(ids('venue-farmland', seed)).toContain('cpu.local_racer');
+      expect(new RaceDay(content, venue('venue-farmland'), playerEntrant(content, rider(), 'Test'), seed, 2000).field).toHaveLength(16);
+    }
+  });
+
+  it('draws the rest at random each race day, the same draw for the same day, from the whole pool', () => {
+    expect(ids('venue-quarry', 5)).toEqual(ids('venue-quarry', 5));
+    const fields = new Set([...Array(20).keys()].map((s) => ids('venue-quarry', s + 1).join()));
+    expect(fields.size).toBeGreaterThan(15);
+    const seen = new Set([...Array(200).keys()].flatMap((s) => ids('venue-quarry', s + 1)));
+    expect([...seen].sort()).toEqual([...content.riders.fields['area1.local']].sort());
+    // Kyle is in the pool away from Farmland, so some days he isn't there.
+    expect([...Array(40).keys()].some((s) => !ids('venue-quarry', s + 1).includes('cpu.local_racer'))).toBe(true);
+  });
+
+  it('includes every new rider by name, with average stats', () => {
+    const names = ['Neal Gizard', 'Harvey Gizard', 'Louie Gizard', 'Kate Gizard', 'Aidan Gizard', 'Taylor Heart', 'Jason Styles', 'Jordan Styles', 'James Nestor', 'Mickey Alington', 'Louis Jonez', 'Andy McLaren', 'Justin Smyth', 'Dan Smyth'];
+    const champ = content.riders.riders.find((r) => r.id === 'cpu.local_champion')!;
+    for (const n of names) {
+      const r = content.riders.riders.find((x) => x.name === n)!;
+      expect(r, n).toBeDefined();
+      expect(content.riders.fields['area1.local']).toContain(r.id);
+      expect(r.level).toBeLessThan(champ.level);
+    }
   });
 });

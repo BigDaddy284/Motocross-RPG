@@ -92,7 +92,7 @@
       "toast": "The venue route is open. Head west out of Home Town to reach the tracks."
     },
     {
-      "id": "find_track", "journal": "Ask the local racer near the practice track where to race.",
+      "id": "find_track", "journal": "Ask the local racer outside the local garage where to race.",
       "on": { "talk": "npc.local_racer" }, "lines": "story.find_track",
       "effects": { "flags": ["found.venue-farmland"] }
     }

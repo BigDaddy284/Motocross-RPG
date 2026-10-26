@@ -48,7 +48,7 @@ describe('track surface', () => {
 
     it(`keeps every bike's wheels on the surface through a race on ${track.id}`, () => {
       const s = new TrackSurface(track);
-      const field: Entrant[] = content.riders.riders.map((d, i) => cpuEntrant(content, d, '50cc', i));
+      const field: Entrant[] = content.riders.riders.slice(0, 15).map((d, i) => cpuEntrant(content, d, '50cc', i));
       const sim = new MotoSim(content.racing, content.bikes, track, '50cc', field, { laps: 3, motoIndex: 0, seed: 11 });
       const dir = directorFor(sim, content.bikes, content.racing.messages);
       for (const tr of sim.runToEnd()) dir.addLap(tr);

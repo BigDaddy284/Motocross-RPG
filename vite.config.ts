@@ -20,6 +20,33 @@ export default defineConfig({
           res.setHeader('Content-Type', 'application/json');
           res.end(modIndex());
         });
+        // The track editor saves player-made tracks here while developing: POST /__mods/tracks/<name>.track.json.
+        server.middlewares.use('/__mods/tracks/', (req, res) => {
+          const name = decodeURIComponent((req.url ?? '').split('?')[0].replace(/^\//, ''));
+          const fail = (code: number, message: string) => {
+            res.statusCode = code;
+            res.end(message);
+          };
+          if (req.method !== 'POST') return fail(405, 'POST a track file');
+          if (!/^[a-z0-9][a-z0-9_-]{0,60}\.track\.json$/.test(name)) return fail(400, 'The file name must be letters, digits, - and _, ending .track.json');
+          let body = '';
+          req.setEncoding('utf8');
+          req.on('data', (c: string) => {
+            body += c;
+            if (body.length > 4_000_000) req.destroy();
+          });
+          req.on('end', () => {
+            try {
+              JSON.parse(body);
+            } catch {
+              return fail(400, 'Not JSON');
+            }
+            mkdirSync(MOD_DIR, { recursive: true });
+            writeFileSync(`${MOD_DIR}/${name}`, body);
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ saved: `${MOD_DIR}/${name}` }));
+          });
+        });
       },
       closeBundle() {
         if (!existsSync('dist')) return;

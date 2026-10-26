@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { checkContent, type RawContent } from '../src/core/content';
+import { checkContent, npcsOnMap, type RawContent } from '../src/core/content';
 import { directions, guidesOn, routeArrival, routePlaces, waysOut } from '../src/core/guides';
 import { Grid } from '../src/core/grid';
 import { ROUTE, spawnTile, stepTriggerAt, Travel } from '../src/core/travel';
 import { loadManifest, loadMaps, rawContent } from './helpers';
+import { standLift } from '../src/world/standLift';
 
 const maps = loadMaps();
 const content = checkContent(rawContent(), loadManifest(), maps).content!;
@@ -129,5 +130,45 @@ describe('route checks', () => {
 
   it('refuse a marshal standing on an exit', () => {
     expect(errorsWith((r) => { r.npcs.npcs.find((n: { id: string }) => n.id === 'npc.marshal_industrial').tile = [0, 17]; })).toEqual([expect.stringMatching(/npcs\[\d+\]\.tile: 0,17 is on a door or exit/)]);
+  });
+});
+
+describe('road exits and the local racer (Alpha v1)', () => {
+  it('make every road out of an area a 2×2 trigger, with the arrival spot just inside it', () => {
+    for (const m of maps.values()) {
+      if (m.kind !== 'area') continue;
+      for (const o of m.objects.filter((x) => x.type === 'exit')) {
+        expect([o.w / m.tileSize, o.h / m.tileSize], `${m.id} ${o.name}`).toEqual([2, 2]);
+        for (const s of m.objects.filter((x) => x.type === 'spawn')) expect(stepTriggerAt(m, { x: s.x / m.tileSize, y: s.y / m.tileSize }), `${m.id} ${s.name}`).toBeUndefined();
+      }
+    }
+  });
+
+  it('stands the local racer on the pavement outside the local garage', () => {
+    const home = map('area1-home-town');
+    const racer = home.objects.find((o) => o.type === 'npc' && o.props.npc === 'npc.local_racer')!;
+    const garage = home.objects.find((o) => o.type === 'building' && o.name === 'Local garage')!;
+    const t = { x: racer.x / 64, y: racer.y / 64 };
+    expect(t.y).toBe((garage.y + garage.h) / 64);
+    expect(t.x).toBeGreaterThanOrEqual(garage.x / 64);
+    expect(t.x).toBeLessThan((garage.x + garage.w) / 64);
+    expect(Grid.fromMap(home).isFree(t.x, t.y)).toBe(true);
+    expect(stepTriggerAt(home, t)).toBeUndefined();
+    const ground = home.ground[0].cells as number[];
+    expect(home.images[ground[t.y * home.width + t.x]]).toMatch(/street/);
+  });
+});
+
+describe('NPCs stand on the path, not in the road', () => {
+  it('puts every NPC on an area map off the road, and lifts them onto the paving on a one-tile pavement', () => {
+    for (const m of maps.values()) {
+      if (m.kind !== 'area') continue;
+      for (const p of npcsOnMap(content, m)) {
+        const imgs = m.ground.map((l) => m.images[(l.cells as number[])[p.y * m.width + p.x]] ?? '');
+        expect(imgs.some((i) => /\/road-\d/.test(i)), `${p.npc.id} on ${m.id}`).toBe(false);
+        // On a pavement drawn across the middle of its tile (road or verge below), the feet go up onto it.
+        if (imgs.some((i) => /street-(00001000|10000000)\.png$/.test(i))) expect(standLift(m, p.x, p.y), `${p.npc.id} on ${m.id}`).toBeGreaterThan(0);
+      }
+    }
   });
 });

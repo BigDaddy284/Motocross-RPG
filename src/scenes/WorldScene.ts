@@ -11,12 +11,13 @@ import { directions, guidesOn, routeArrival, waysOut } from '../core/guides';
 import { ROUTE, spawnTile, stepTriggerAt, type Arrival, type StepResult } from '../core/travel';
 import { DriveMap, FACING_OF, ensureVan, exitTile, footprint, inwardHeading, nearestFree, placeNear, planDrive, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { MOD_PLACE, forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
-import { entryFee, practiceFee, venueProblem, type VenueDef } from '../core/raceDay';
+import { entryFee, fieldCount, practiceFee, venueProblem, type VenueDef } from '../core/raceDay';
 import { noteActivity, shopForAction, type ShopDef } from '../core/shops';
 import { CAREER_SLOT, services } from '../services';
 import { Character, TILE } from '../world/Character';
 import { MapView, OVERHEAD_DEPTH, isMapCached, loadMapImages } from '../world/MapView';
 import { actionMessage } from '../world/messages';
+import { standLift } from '../world/standLift';
 import { VanView, type Driver } from '../world/VanView';
 import type { HudScene } from './HudScene';
 import type { RaceSceneData } from './RaceScene';
@@ -117,6 +118,8 @@ export class WorldScene extends Phaser.Scene {
     for (const p of npcsOnMap(services.content, map)) {
       // NPCs don't block the way: walking past (not clicking them) goes straight through.
       const character = new Character(this, p.npc.sprite, p, p.facing);
+      // Standing on the paving, not the kerb or road below it.
+      character.placeAt(p, standLift(map, p.x, p.y));
       this.npcs.push({ placement: p, character });
     }
     this.drive = new DriveMap(map, this.grid, services.content.vehicles.drivable);
@@ -625,7 +628,7 @@ export class WorldScene extends Phaser.Scene {
     }
     const fee = entryFee(rc, venue, this.save.flags);
     const cls = rc.racing.classes[venue.class ?? '50cc'];
-    const field = (rc.riders.fields[venue.field ?? ''] ?? []).length + 1;
+    const field = fieldCount(rc, venue) + 1;
     const first = fee === 0 && venue.firstRaceFree;
     const text = [
       mod ? mod.intro : first ? "First time here? Your first race day is on us." : 'Race office. What can I do for you?',
