@@ -455,7 +455,20 @@ export class TrackEditScene extends Phaser.Scene {
       if (g) {
         if (g.ring) line(ring(g.ring[0], g.ring[1], g.ring[2]), 0xffffff, true, true, 0.08 * k, 11);
         const w = (t.width ?? 3.4) / 2;
-        if (g.dashed) line(g.pts.map(([x, y]) => ({ x, z: y })), 0xffffff, false, true, 0.12 * k, 11);
+        if (g.dashed) {
+          // Dashes are whole segments of the ribbon, so a long stretch is cut into short ones first.
+          const fine: { x: number; z: number }[] = [];
+          for (let i = 0; i < g.pts.length; i++) {
+            const [x, y] = g.pts[i];
+            if (i > 0) {
+              const [px, py] = g.pts[i - 1];
+              const n = Math.max(1, Math.ceil(Math.hypot(x - px, y - py) / 0.4));
+              for (let j = 1; j < n; j++) fine.push({ x: px + ((x - px) * j) / n, z: py + ((y - py) * j) / n });
+            }
+            fine.push({ x, z: y });
+          }
+          line(fine, 0xffffff, false, true, 0.12 * k, 11);
+        }
         else line(g.pts.map(([x, y]) => ({ x, z: y })), g.level === 'error' ? RED : g.level === 'warning' ? YELLOW : GREEN, false, false, w, 11);
       }
       (t.start?.path ?? []).forEach(([x, y], i) => line(rect(x, y, 0.6, 0.6, 0), i === st.sel.start ? SELECT : 0x4aa0ff, true));
