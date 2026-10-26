@@ -2,6 +2,10 @@
 
 A single-player, offline motocross career RPG. Start as an unknown rider with a broken 50cc and work your way up to legend.
 
+| Home Town: the player by the old rusty truck | Race day at Farmland MX: bikes in the air over the double |
+| --- | --- |
+| ![Home Town, with the player standing next to the old rusty truck](docs/screenshots/alpha-v1-home-town-rusty-truck.png) | ![A race day at Farmland MX, with riders in the air over the double](docs/screenshots/alpha-v1-race-day-farmland-double.png) |
+
 This is **Alpha v1**: the first build with the whole career loop in place, from a broken bike to race days at three venues, plus player-made tracks. All art is placeholder art in the agreed style, imported from the project's art threads.
 
 ## What Alpha v1 offers
@@ -50,7 +54,7 @@ Hold the phone sideways: the game is laid out for landscape, and asks you to tur
 
 Mod tracks are race tracks made with the game's track editor and raced in the game from **Mod Track** on the venue road. A mod race day plays exactly like Farmland MX: the same entry fee, field, AI riders, prize money, XP and parts wear. For now, picking a mod track goes straight to the gate pick, without a venue area to walk round, and race day is the only mode (no practice).
 
-**1. Build the track.** Open the track editor: `tools/track-editor.html` on the published site, or http://localhost:5173/tools/track-editor.html when running `npm run dev`. Choose **New track**, draw the route, then add:
+**1. Build the track** on a computer: the track editor needs a mouse and keyboard and isn't usable on a phone (racing mod tracks on a phone works, through Import track file). Open the track editor: `tools/track-editor.html` on the published site, or http://localhost:5173/tools/track-editor.html when running `npm run dev`. Choose **New track**, draw the route, then add:
 
 - a **start straight**, which needs its own gate and must join the lap;
 - a **finish line**;
