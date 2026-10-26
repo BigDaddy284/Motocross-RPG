@@ -359,7 +359,7 @@ body.final .final-hide { display: none !important; }
     <li><b>Race view:</b> you edit in the game's own race camera and 3D scene with hills, jumps, scenery and ground as a race draws them, and the lap map in its corner. Click, drag and right-click on the 3D ground; the keys are the same in every mode. Mouse wheel or <kbd>+</kbd> <kbd>−</kbd> zoom, <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or a middle-button (or <kbd>Space</kbd>+drag) pan, <kbd>[</kbd> <kbd>]</kbd>, the <b>⟲ Turn left</b> and <b>⟳ Turn right</b> buttons (bottom left) or a <kbd>Shift</kbd>+middle-button drag turn the view round the track, to see it from any side; <kbd>0</kbd> or <b>Reset view</b> goes back to the race camera's angle. Turning only changes the editor's view: clicks still land where the pointer is, and races always use the fixed race camera. The selection is orange, problems red or dashed yellow. In Layout each section shows as a stripe in its kind's colour, with a cream line across the track where one section ends and the next begins. No race runs while you edit. Opened straight from disk, the race view runs the game from the published site (<code>bigdaddy284.github.io/Motocross-RPG</code>), so it needs an internet connection; with neither that nor <code>npm run dev</code>, the editor shows a plain map instead.</li>
     <li><b>Modes:</b> <kbd>1</kbd> Layout, <kbd>2</kbd> Surfaces, <kbd>3</kbd> Ground, <kbd>4</kbd> Scenery, <kbd>5</kbd> Height.</li>
     <li><b>Export / Import</b> save one track as a <code>.track.json</code> file and add one back.</li>
-    <li><b>Mod tracks</b>: New, Duplicate and Import make one. The first Save asks for its name; it is then saved as <code>public/mods/tracks/&lt;name&gt;.track.json</code> (through <code>npm run dev</code>, or into the opened folder), never into <code>tracks.json</code>, and raced from Mod Track in the game. The game's own tracks still save into <code>tracks.json</code>.</li>
+    <li><b>Mod tracks</b>: the editor opens on the mod tracks: the example in <code>public/mods/tracks/</code> and any you have saved; the game's own tracks are not listed (in the Development edition, <b>Show the game's own tracks</b> under the list brings them in, and the editor remembers that). New, Duplicate and Import make one. The first Save asks for its name; it is then saved as <code>public/mods/tracks/&lt;name&gt;.track.json</code> (through <code>npm run dev</code>, or into the opened folder), never into <code>tracks.json</code>, and raced from Mod Track in the game. The game's own tracks still save into <code>tracks.json</code>.</li>
     <li><b>Preview</b> <kbd>P</kbd> rides a dot round the lap, slower through the harder sections.</li>
     <li><b>Race it in the game</b> opens a race day on the track with the full field, with <code>npm run dev</code> running. Save first.</li>
     <li><b>Save</b> <kbd>Ctrl+S</kbd>. <b>Undo</b> <kbd>Ctrl+Z</kbd>, <b>Redo</b> <kbd>Ctrl+Y</kbd>. An unchanged file saves back byte for byte. After saving, run <code>npm test</code>; the game also checks the file when it starts.</li>
@@ -530,6 +530,9 @@ function exportTracks(d) {
 // They are saved there, one file each, and never into tracks.json.
 const MOD_DIR = 'mods/tracks';
 const isMod = (t) => t.modFile !== undefined;
+/** Whether a track is in the list: mod tracks always; the game's own only when Show the game's tracks is ticked (Development), or when there are no mod tracks to show. */
+const shown = (t) => isMod(t) || app.showGame || !app.data.tracks.some(isMod);
+const firstShown = () => Math.max(0, app.data.tracks.findIndex(shown));
 /** tracks.json as saved: the game's own tracks only. */
 function gameTracksText(d) { return exportTracks({ ...d, tracks: d.tracks.filter((t) => !isMod(t)) }); }
 /** A mod track's file, as the track editor's Export writes one. */
@@ -551,6 +554,8 @@ const app = {
   sectionDefs: {}, // racing.json sections
   parts: FALLBACK_PARTS, // trackParts.json
   final: false,
+  /** Development only: list the game's own tracks beside the mod tracks (remembered in this browser). */
+  showGame: false,
   mode: 'layout',
   cur: 0,
   selPt: -1,
@@ -686,6 +691,12 @@ async function useSource(src) {
       modSaved[file] = modText(t);
     }
     Object.assign(app, { tracksPath, modDir, modSaved, data, sectionDefs, parts, final, artBase, cur: 0, undo: [], redo: [], savedText: text, play: null, images: new Map() });
+    // The editor opens on the mod tracks (the example, and any saved): the game's own four are for
+    // developing the game, listed only when asked for in the Development edition.
+    let remembered = false;
+    try { remembered = localStorage.getItem('trackEditor.showGame') === '1'; } catch {}
+    app.showGame = !final && remembered;
+    app.cur = firstShown();
     // A track with a section past the build boundary can't be raced: it is a draft until it is back inside.
     for (const t of data.tracks) if (!t.draft && boundaryCrossings(t).length) { t.draft = true; notes.push(`"${t.name}" has a section past the build boundary, so it is a draft again`); }
     deselect();
@@ -1927,6 +1938,7 @@ function setMode(mode) {
 }
 
 function refresh() {
+  if (track() && !shown(track())) { app.cur = firstShown(); deselect(); }
   const t = track();
   const has = !!app.data;
   for (const id of ['#btnNew', '#btnImport']) $(id).disabled = !has;
@@ -1978,6 +1990,7 @@ function renderTrackList() {
   const list = $('#trackList');
   list.innerHTML = '';
   app.data.tracks.forEach((t, i) => {
+    if (!shown(t)) return;
     const d = document.createElement('div');
     d.className = i === app.cur ? 'active' : '';
     const kind = app.parts.kinds.find((k) => k.id === (t.kind ?? 'outdoor'))?.name ?? t.kind;
@@ -1987,6 +2000,24 @@ function renderTrackList() {
     d.addEventListener('click', () => { app.cur = i; deselect(); stopPlay(); refresh(); });
     list.appendChild(d);
   });
+  // Development: the game's own tracks can be listed for working on the game itself. Modders never see them.
+  const hidden = app.data.tracks.filter((t) => !isMod(t)).length;
+  if (!app.final && hidden && app.data.tracks.some(isMod)) {
+    const row = document.createElement('label');
+    row.className = 'hint';
+    row.id = 'showGame';
+    row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:6px;cursor:pointer';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = app.showGame;
+    cb.addEventListener('change', () => {
+      app.showGame = cb.checked;
+      try { localStorage.setItem('trackEditor.showGame', cb.checked ? '1' : '0'); } catch {}
+      refresh();
+    });
+    row.append(cb, `Show the game's own ${hidden} track${hidden === 1 ? '' : 's'} (development)`);
+    list.appendChild(row);
+  }
 }
 
 function setOptions(listId, values) {
