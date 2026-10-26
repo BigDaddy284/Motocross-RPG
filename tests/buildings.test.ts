@@ -9,8 +9,8 @@ const lib = readPublic<BuildingsData>('data/buildings.json');
 const maps = loadMaps();
 const T = 64;
 
-/** The Home Town map file as it was before the building library was added. */
-const HOME_TOWN_SHA256 = '2a7ebdbc10b2bf2d7acfca8f028141cce1b855b32aba17ef606898e4dc1ede8c';
+/** The Home Town map file as it stands (Alpha v1: 2×2 road exits and the local racer outside the garage). */
+const HOME_TOWN_SHA256 = '215520c4dbd97a224b031f2c3e397a64112ea67d7bc608a3577ff08fc085331b';
 
 function pngSize(rel: string): [number, number] {
   const b = fs.readFileSync(`public/assets/${rel}`);

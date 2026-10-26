@@ -88,7 +88,7 @@
     "story.find_track": { "lines": [
       { "speaker": "npc", "text": "Got yourself a van? Then you're a proper racer now." },
       { "speaker": "npc", "text": "Try Farmland MX first. It's hard pack, flowing, and good for a first race. Take the west road out of town." },
-      { "speaker": "npc", "text": "There are two more tracks round here, but they're private. You'll need to do the owners a favour before they'll let you ride." },
+      { "speaker": "npc", "text": "There are two more down the same road: Riverside Arena by the river, and Longmoor Enduro out in the woods." },
       { "speaker": "npc", "text": "See you on the gate." }
     ] },
 

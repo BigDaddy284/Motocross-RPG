@@ -186,13 +186,14 @@ describe('race day (Spec 12, 14)', () => {
     expect(entryFee(content, farmland, { first_race_done: true })).toBe(2000);
   });
 
-  it('keeps Farmland shut until the local racer points you there, and opens Riverside Arena and Longmoor Enduro', () => {
+  it('keeps every race track shut until the tutorial ends (the local racer points you to Farmland), then opens all three', () => {
     const c = rider();
     expect(venueProblem(content, farmland, c, {})).not.toBeNull();
     expect(venueProblem(content, farmland, c, { 'found.venue-farmland': true })).toBeNull();
     for (const [id, track] of [['venue-quarry', 'arena-supercross'], ['venue-woodland', 'longmoor-endurance']]) {
       const v = content.tracks.venues.find((x) => x.id === id)!;
-      expect(venueProblem(content, v, c, {})).toBeNull();
+      expect(venueProblem(content, v, c, { van_loaded: true })).not.toBeNull();
+      expect(venueProblem(content, v, c, { 'found.venue-farmland': true })).toBeNull();
       // Same prices as Farmland, its own track official on its own map, and an official placed on the start straight.
       expect([v.track, v.class, v.field, v.practiceFeePct, v.firstRaceFree]).toEqual([track, farmland.class, farmland.field, farmland.practiceFeePct, farmland.firstRaceFree]);
       expect(content.npcs.find((n) => n.id === v.office)?.map).toBe(v.map);
