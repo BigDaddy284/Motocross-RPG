@@ -10,6 +10,7 @@ import { applyMapState, clearedPatches, hiddenSprites } from '../core/mapState';
 import { directions, guidesOn, routeArrival, waysOut } from '../core/guides';
 import { ROUTE, spawnTile, stepTriggerAt, type Arrival, type StepResult } from '../core/travel';
 import { DriveMap, FACING_OF, ensureVan, exitTile, footprint, inwardHeading, nearestFree, placeNear, planDrive, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
+import { MOD_PLACE, forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
 import { entryFee, practiceFee, venueProblem, type VenueDef } from '../core/raceDay';
 import { noteActivity, shopForAction, type ShopDef } from '../core/shops';
 import { CAREER_SLOT, services } from '../services';
@@ -604,7 +605,11 @@ export class WorldScene extends Phaser.Scene {
 
   // ---- tracks: the race office, practice and the backyard loop ----
 
-  private openVenue(venue: VenueDef, onClose: () => void = () => this.player.idle()): void {
+  /**
+   * A race office's choices. A mod track (raceOnly) has race day only, said by `intro`, and
+   * `extra` choices of its own.
+   */
+  private openVenue(venue: VenueDef, onClose: () => void = () => this.player.idle(), mod?: { intro: string; extra: { label: string; note?: string; onPick: () => void }[] }): void {
     const rc = services.content;
     const career = this.save.career;
     const problem = venueProblem(rc, venue, career, this.save.flags);
@@ -623,15 +628,96 @@ export class WorldScene extends Phaser.Scene {
     const field = (rc.riders.fields[venue.field ?? ''] ?? []).length + 1;
     const first = fee === 0 && venue.firstRaceFree;
     const text = [
-      first ? "First time here? Your first race day is on us." : 'Race office. What can I do for you?',
+      mod ? mod.intro : first ? "First time here? Your first race day is on us." : 'Race office. What can I do for you?',
       `${venue.class} race day: ${field} riders including the Local Champion, 2 motos of ${cls.laps} laps. Prize money to 10th in each moto.`,
     ].join('\n\n');
     const short = (p: number) => career.money < p;
     this.hud.choose(venue.name, text, [
       { label: 'Race day', note: first ? 'Entry: free (first race)' : `Entry: ${formatMoney(fee)}${short(fee) ? " — you can't afford it" : ''}`, enabled: !short(fee), onPick: () => this.ride('raceday', venue, fee, onClose) },
-      { label: 'Free practice', note: `${formatMoney(pFee)}: ride laps on your own until you stop.${short(pFee) ? " You can't afford it." : ''}`, enabled: !short(pFee), onPick: () => this.ride('practice', venue, pFee, onClose) },
+      ...(mod
+        ? mod.extra
+        : [{ label: 'Free practice', note: `${formatMoney(pFee)}: ride laps on your own until you stop.${short(pFee) ? " You can't afford it." : ''}`, enabled: !short(pFee), onPick: () => this.ride('practice', venue, pFee, onClose) }]),
       { label: 'Not now', onPick: onClose },
     ], onClose);
+  }
+
+  // ---- mod tracks: player-made tracks raced from the road (core/modTracks.ts) ----
+
+  /** The list of mod tracks, a few to a page, with importing one from this device. */
+  private openModTracks(page = 0): void {
+    const mods = services.modTracks;
+    const per = 3;
+    const pages = Math.max(1, Math.ceil(mods.length / per));
+    page = Math.min(page, pages - 1);
+    const done = () => this.player.idle();
+    const short = (name: string) => (name.length > 20 ? `${name.slice(0, 19)}…` : name);
+    const options: { label: string; note?: string; enabled?: boolean; onPick: () => void }[] = mods.slice(page * per, page * per + per).map((m) => ({
+      label: short(m.name),
+      note: `${m.file}${m.source === 'imported' ? ' (imported)' : ''}${m.problems.length ? "\nCan't be raced: pick it to see why." : ''}`,
+      onPick: () => this.pickModTrack(m, page),
+    }));
+    if (pages > 1) options.push({ label: page + 1 < pages ? 'More tracks' : 'Back to the first', note: `Page ${page + 1} of ${pages}`, onPick: () => this.openModTracks(page + 1 < pages ? page + 1 : 0) });
+    options.push({ label: 'Import track file', note: 'Add a .track.json from this device. It stays in this browser.', onPick: () => this.importModTrack() });
+    options.push({ label: 'Not now', onPick: done });
+    const text = mods.length
+      ? `Player-made tracks, raced like a 50cc race day at Farmland MX. ${mods.length} installed or imported.`
+      : "No mod tracks yet. Put .track.json files from the track editor in the game's mods/tracks folder, or import one.";
+    this.hud.choose('Mod Track', text, options, done);
+  }
+
+  private pickModTrack(m: ModTrack, page: number): void {
+    const remove = {
+      label: 'Remove it',
+      note: 'Take this imported track out of this browser.',
+      onPick: () => {
+        forgetImport(services.store, m.file);
+        this.reloadMods();
+        this.hud.toast(`Removed ${m.file}.`);
+        this.openModTracks(page);
+      },
+    };
+    if (!m.track) {
+      const back = { label: 'Back', onPick: () => this.openModTracks(page) };
+      this.hud.choose(m.name, `${m.file} can't be raced:\n${m.problems.slice(0, 4).join('\n')}`, m.source === 'imported' ? [remove, back] : [back], back.onPick);
+      return;
+    }
+    this.openVenue(modVenue(m, this.map.id), () => this.player.idle(), {
+      intro: `Mod track from ${m.file}${m.source === 'imported' ? ' (imported in this browser)' : ''}.`,
+      extra: m.source === 'imported' ? [remove] : [],
+    });
+  }
+
+  /** Reads a track file from this device, checks it, and keeps it in this browser if it can be raced. */
+  private importModTrack(): void {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.addEventListener('change', () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      void file.text().then((text) => {
+        const m = readModTrack(services.content, file.name, text, 'imported');
+        if (!m.track) {
+          this.hud.choose('Import track file', `${file.name} can't be raced, so it wasn't added:\n${m.problems.slice(0, 4).join('\n')}`, [{ label: 'OK', onPick: () => this.openModTracks() }], () => this.openModTracks());
+          return;
+        }
+        try {
+          keepImport(services.store, file.name, text);
+        } catch {
+          this.hud.toast("Couldn't keep it: this browser's storage is full or blocked.");
+          return;
+        }
+        this.reloadMods();
+        this.hud.toast(`Imported "${m.name}".`);
+        const i = services.modTracks.findIndex((x) => x.source === 'imported' && x.file === file.name);
+        this.openModTracks(Math.max(0, Math.floor(i / 3)));
+      });
+    });
+    input.click();
+  }
+
+  private reloadMods(): void {
+    services.modTracks = loadModTracks(services.content, services.modFolder, services.store);
   }
 
   /** Hands over to the race screen; the world sleeps until it is done. */
@@ -922,6 +1008,11 @@ export class WorldScene extends Phaser.Scene {
    */
   private routeTo(via: MapObject, go: (to: Arrival) => void): boolean {
     const pick = services.routePick?.map === this.map.id && services.routePick.exit === via.name ? services.routePick.to : null;
+    if (pick === MOD_PLACE) {
+      services.routePick = null;
+      this.openModTracks();
+      return false;
+    }
     const to = routeArrival(this.map, via, services.content.world, services.maps, pick);
     if (typeof to === 'string') {
       this.hud.toast(to);
@@ -936,7 +1027,7 @@ export class WorldScene extends Phaser.Scene {
     const options = [to.place, ...to.others].map((p) => ({
       label: p.name,
       note: p.note,
-      onPick: () => go({ map: p.map, tile: spawnTile(services.maps.get(p.map)!, p.spawn)! }),
+      onPick: () => (p.mods ? this.openModTracks() : go({ map: p.map, tile: spawnTile(services.maps.get(p.map)!, p.spawn!)! })),
     }));
     this.hud.choose('Where to?', `${route ? `${route.road[0].toUpperCase()}${route.road.slice(1)}` : 'This road'} goes to ${options.length} places.`, options, () => {});
     return false;

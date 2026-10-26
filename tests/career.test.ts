@@ -170,7 +170,7 @@ describe('roadworks and the venue route', () => {
   });
 
   it('every venue map has a road back out', () => {
-    for (const d of world.places) {
+    for (const d of world.places.filter((p) => !p.mods)) {
       const m = maps.get(d.map)!;
       if (m.id === 'area1-home-town') continue;
       const out = m.objects.find((o) => o.type === 'exit')!;

@@ -90,10 +90,14 @@ export interface JobDef {
 }
 
 export interface PlaceDef {
+  /** The map it arrives on, or "mod-tracks" for the mod track list (mods: true). */
   map: string;
-  spawn: string;
+  /** The spawn on that map; none for the mod track list. */
+  spawn?: string;
   name: string;
   note: string;
+  /** Not a map: picking it opens the list of mod tracks to race (core/modTracks.ts). */
+  mods?: boolean;
 }
 
 export interface RouteDef {

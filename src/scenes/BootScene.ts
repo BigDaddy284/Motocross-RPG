@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { CONTENT_FILES, checkContent, type Manifest, type RawContent } from '../core/content';
 import type { BakedMap } from '../core/mapTypes';
 import { newCareerState } from '../core/career';
+import { fetchFolder, loadModTracks } from '../core/modTracks';
 import type { VenueDef } from '../core/raceDay';
 import { SAVE_VERSION, type SaveData } from '../core/saves';
 import { Travel } from '../core/travel';
@@ -58,6 +59,15 @@ export class BootScene extends Phaser.Scene {
     services.content = content;
     services.maps = maps;
     services.travel = new Travel(maps, content.world.locks);
+    void fetchFolder(import.meta.env.BASE_URL).then((folder) => {
+      services.modFolder = folder;
+      services.modTracks = loadModTracks(content, folder, services.store);
+      this.startGame();
+    });
+  }
+
+  private startGame(): void {
+    const { content } = services;
     const params = new URLSearchParams(window.location.search);
     // The track editor's race view, in a frame inside the editor (TrackEditScene).
     if (params.has('editview')) return void this.scene.start('trackedit');

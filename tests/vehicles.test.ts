@@ -178,7 +178,7 @@ describe('map changes with the van', () => {
       if (r?.kind === 'travel') arrivals.push({ from: `${m.id} ${o.name}`, map: maps.get(r.to.map)!, tile: r.to.tile });
     }
   }
-  for (const d of content.world.places) arrivals.push({ from: `a route to ${d.name}`, map: maps.get(d.map)!, tile: spawnTile(maps.get(d.map)!, d.spawn)! });
+  for (const d of content.world.places.filter((p) => !p.mods)) arrivals.push({ from: `a route to ${d.name}`, map: maps.get(d.map)!, tile: spawnTile(maps.get(d.map)!, d.spawn!)! });
 
   it('every van has room at every arrival point, pointing into the map and clear of exits', () => {
     expect(arrivals.length).toBeGreaterThan(4);

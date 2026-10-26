@@ -10,6 +10,7 @@ import type { RidersData, TracksData } from './raceDay';
 import { SHOPS_SCHEMA, checkShopContent, type ShopsData } from './shops';
 import type { SkillsData } from './skills';
 import { VEHICLES_SCHEMA, checkVehicles, type VanSheet, type VehiclesData } from './vehicles';
+import { MOD_PLACE } from './modTracks';
 import { validate, type ContentError, type Schema } from './validate';
 
 // Game content loaded from public/data. Each file is checked against its schema, then the files
@@ -229,7 +230,7 @@ export const WORLD_SCHEMA: Schema = {
     },
     places: {
       type: 'array',
-      items: { type: 'object', fields: { map: { type: 'string', pattern: ID }, spawn: { type: 'string', pattern: ID }, name: { type: 'string', nonEmpty: true }, note: { type: 'string' } } },
+      items: { type: 'object', optional: ['spawn', 'mods'], fields: { map: { type: 'string', pattern: ID }, spawn: { type: 'string', pattern: ID }, name: { type: 'string', nonEmpty: true }, note: { type: 'string' }, mods: { type: 'boolean' } } },
     },
     routes: {
       type: 'array',
@@ -418,8 +419,11 @@ function checkCareerContent(c: Content, maps: Map<string, BakedMap>): ContentErr
   };
   world.locks.forEach((l, i) => objectOn(`locks[${i}].object`, l.map, l.object));
   world.places.forEach((d, i) => {
+    // The mod track list isn't a map: it opens a list of tracks to race from where you are.
+    if (d.mods) return void (d.map !== MOD_PLACE && err(CONTENT_FILES.world, `places[${i}].map`, `the mod track list is "${MOD_PLACE}"`));
     const m = maps.get(d.map);
-    if (!m) err(CONTENT_FILES.world, `places[${i}].map`, `no map "${d.map}"`);
+    if (!d.spawn) err(CONTENT_FILES.world, `places[${i}].spawn`, 'a place on a map needs a spawn to arrive on');
+    else if (!m) err(CONTENT_FILES.world, `places[${i}].map`, `no map "${d.map}"`);
     else if (!m.objects.some((o) => o.type === 'spawn' && o.name === d.spawn)) err(CONTENT_FILES.world, `places[${i}].spawn`, `no spawn "${d.spawn}" on ${d.map}`);
   });
   // Routes: an exit to "world_map" leads to a choice of places, so it needs its list here.

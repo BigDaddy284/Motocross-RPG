@@ -33,12 +33,16 @@ export function sideOf(map: BakedMap, o: MapObject): string {
   return 'over there';
 }
 
-/** The places a route really leads to: listed in places, on a map that exists, with the spawn to arrive on. */
+/**
+ * The places a route really leads to: listed in places, on a map that exists, with the spawn to
+ * arrive on; or the mod track list, which is raced from the road without going anywhere.
+ */
 export function routePlaces(world: WorldData, maps: Map<string, BakedMap>, route: RouteDef): PlaceDef[] {
   return route.to.flatMap((id) => {
     const place = world.places.find((p) => p.map === id);
+    if (place?.mods) return [place];
     const m = place && maps.get(place.map);
-    return place && m && spawnTile(m, place.spawn) && place.map !== route.map ? [place] : [];
+    return place?.spawn && m && spawnTile(m, place.spawn) && place.map !== route.map ? [place] : [];
   });
 }
 
@@ -89,11 +93,13 @@ export function guidesOn(npcs: NpcDef[], map: BakedMap): NpcDef[] {
 /**
  * Where a route exit takes you: the place picked with the marshal, or otherwise the first place it
  * goes (the marshal is there to ask, never in the way). A string is why it can't take you anywhere.
+ * The mod track list is never where a road takes you by itself: it is picked (WorldScene.routeTo).
  */
 export function routeArrival(map: BakedMap, exit: MapObject, world: WorldData, maps: Map<string, BakedMap>, pick: string | null): (Arrival & { place: PlaceDef; others: PlaceDef[] }) | string {
   const route = routeFor(world, map, exit);
   const places = route ? routePlaces(world, maps, route) : [];
-  if (!places.length) return "This road doesn't go anywhere yet.";
-  const place = places.find((p) => p.map === pick) ?? places[0];
-  return { map: place.map, tile: spawnTile(maps.get(place.map)!, place.spawn)!, place, others: places.filter((p) => p !== place) };
+  const real = places.filter((p) => !p.mods);
+  if (!real.length) return "This road doesn't go anywhere yet.";
+  const place = real.find((p) => p.map === pick) ?? real[0];
+  return { map: place.map, tile: spawnTile(maps.get(place.map)!, place.spawn!)!, place, others: places.filter((p) => p !== place) };
 }
