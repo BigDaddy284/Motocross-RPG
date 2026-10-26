@@ -54,20 +54,23 @@ Hold the phone sideways: the game is laid out for landscape, and asks you to tur
 
 Mod tracks are race tracks made with the game's track editor and raced in the game from **Mod Track** on the venue road. A mod race day plays exactly like Farmland MX: the same entry fee, field, AI riders, prize money, XP and parts wear. For now, picking a mod track goes straight to the gate pick, without a venue area to walk round, and race day is the only mode (no practice).
 
-**1. Build the track** on a computer: the track editor needs a mouse and keyboard and isn't usable on a phone (racing mod tracks on a phone works, through Import track file). Open the track editor: `tools/track-editor.html` on the published site, or http://localhost:5173/tools/track-editor.html when running `npm run dev`. Choose **New track**, draw the route, then add:
+**1. Build the track** on a computer: the track editor needs a mouse and keyboard and isn't usable on a phone (racing mod tracks on a phone works, through Import track file). Open the track editor: `tools/track-editor.html` on the published site, or http://localhost:5173/tools/track-editor.html when running `npm run dev`. Choose **New**, draw the route, then add:
 
 - a **start straight**, which needs its own gate and must join the lap;
 - a **finish line**;
 - a **start board official**, with a walk that ends clear of the track.
 
-Then use **Ready to race**, which runs the game's checks. If you're running `npm run dev`, **Race it in the game** lets you try it first; save before you use it.
+Then use **Ready to race**, which runs the game's checks.
 
-**2. Export it.** Use **Export**, which saves the track on its own as `<track id>.track.json`.
+**2. Save it.** Tracks made with **New**, **Duplicate** or **Import** are mod tracks. The first **Save** asks for the track's name, and the track is saved as its own file, `public/mods/tracks/<name>.track.json`, never into the game's `tracks.json`. It can't overwrite another track: a name already in use is refused.
 
-**3. Install it.** Either of these works:
+- With `npm run dev`, use the track editor at http://localhost:5173/tools/track-editor.html and **Load the tracks from this server**. Save then writes straight into `public/mods/tracks/`, and the game picks the track up on its next page load. Saved mod tracks are listed in the editor too, to carry on editing.
+- If you **Open folder…** on the project in Chrome or Edge, Save writes into the `public/mods/tracks/` folder there.
+- Anywhere else, Save downloads the file for you to put in `public/mods/tracks/`.
 
-- **Mods folder** (your own copy of the game): put the file in `public/mods/tracks/`, which becomes `mods/tracks/` in a built copy. With `npm run dev` it appears the next time the page loads. For a built copy, rebuild with `npm run build`, because the build writes the folder's `index.json` (a website can't list a folder by itself). `farmland-example.track.json` is there as an example.
-- **Import** (any copy, including the published site): in the game, open **Mod Track** and choose **Import track file**, then pick the `.track.json`. It is kept in that browser only, and can be removed from its race office.
+**Export** still saves any track as a `.track.json` to share.
+
+**3. Race it.** On your own copy, a track in `public/mods/tracks/` shows under **Mod Track** in the game. For a built copy, rebuild with `npm run build`, because the build writes the folder's `index.json` (a website can't list a folder by itself). With `npm run dev`, **Race it in the game** in the editor opens a race day on a saved mod track straight away. On any copy, including the published site, you can also use **Mod Track → Import track file** in the game to pick a `.track.json` from your device. It is kept in that browser only, and can be removed from its race office. `farmland-example.track.json` is in the folder as an example.
 
 **What a mod track must meet.** The game runs the same checks as on its own tracks:
 

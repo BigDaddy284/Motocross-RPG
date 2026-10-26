@@ -229,7 +229,7 @@ body.final .final-hide { display: none !important; }
     <label class="chk" style="background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:3px 8px"><input type="checkbox" id="snap" checked> Snap</label>
     <label class="chk" style="background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:3px 8px" title="Fade the ground and scenery to see the track"><input type="checkbox" id="showScene" checked> Scenery</label>
     <button id="btnPlay" title="Ride a dot round the lap (P). It slows down in the harder sections.">▶ Preview</button>
-    <button id="btnRide" title="Open a race day on this track in the game, with npm run dev running. Save first: the game reads the saved tracks.json.">Race it in the game</button>
+    <button id="btnRide" title="Open a race day on this track in the game, with npm run dev running. Save first: the game reads the saved files.">Race it in the game</button>
   </div>
   <div id="welcome">
     <div class="card">
@@ -241,6 +241,7 @@ body.final .final-hide { display: none !important; }
         <li><code>assets/art</code> for the ground and scenery tiles, the same art as the map editor.</li>
       </ul>
       <p>In Chrome or Edge, <b>Save</b> writes straight back into the folder. In other browsers, Save downloads <code>tracks.json</code> for you to copy into place.</p>
+      <p><b>New</b>, <b>Duplicate</b> and <b>Import</b> make <b>mod tracks</b>: the first Save asks for the track's name, and each one is saved as its own file in <code>public/mods/tracks/</code> (never into the game's <code>tracks.json</code>), to race from Mod Track in the game.</p>
       <div class="row"><button class="primary" id="btnOpen2">Open folder…</button><button id="btnHelp2">Help and shortcuts</button></div>
       <p id="serverHint" class="hint"></p>
     </div>
@@ -358,6 +359,7 @@ body.final .final-hide { display: none !important; }
     <li><b>Race view:</b> you edit in the game's own race camera and 3D scene with hills, jumps, scenery and ground as a race draws them, and the lap map in its corner. Click, drag and right-click on the 3D ground; the keys are the same in every mode. Mouse wheel or <kbd>+</kbd> <kbd>−</kbd> zoom, <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or a middle-button (or <kbd>Space</kbd>+drag) pan, <kbd>[</kbd> <kbd>]</kbd>, the <b>⟲ Turn left</b> and <b>⟳ Turn right</b> buttons (bottom left) or a <kbd>Shift</kbd>+middle-button drag turn the view round the track, to see it from any side; <kbd>0</kbd> or <b>Reset view</b> goes back to the race camera's angle. Turning only changes the editor's view: clicks still land where the pointer is, and races always use the fixed race camera. The selection is orange, problems red or dashed yellow. In Layout each section shows as a stripe in its kind's colour, with a cream line across the track where one section ends and the next begins. No race runs while you edit. Opened straight from disk, the race view runs the game from the published site (<code>bigdaddy284.github.io/Motocross-RPG</code>), so it needs an internet connection; with neither that nor <code>npm run dev</code>, the editor shows a plain map instead.</li>
     <li><b>Modes:</b> <kbd>1</kbd> Layout, <kbd>2</kbd> Surfaces, <kbd>3</kbd> Ground, <kbd>4</kbd> Scenery, <kbd>5</kbd> Height.</li>
     <li><b>Export / Import</b> save one track as a <code>.track.json</code> file and add one back.</li>
+    <li><b>Mod tracks</b>: New, Duplicate and Import make one. The first Save asks for its name; it is then saved as <code>public/mods/tracks/&lt;name&gt;.track.json</code> (through <code>npm run dev</code>, or into the opened folder), never into <code>tracks.json</code>, and raced from Mod Track in the game. The game's own tracks still save into <code>tracks.json</code>.</li>
     <li><b>Preview</b> <kbd>P</kbd> rides a dot round the lap, slower through the harder sections.</li>
     <li><b>Race it in the game</b> opens a race day on the track with the full field, with <code>npm run dev</code> running. Save first.</li>
     <li><b>Save</b> <kbd>Ctrl+S</kbd>. <b>Undo</b> <kbd>Ctrl+Z</kbd>, <b>Redo</b> <kbd>Ctrl+Y</kbd>. An unchanged file saves back byte for byte. After saving, run <code>npm test</code>; the game also checks the file when it starts.</li>
@@ -523,6 +525,22 @@ function exportTracks(d) {
   return `{\n${parts.join(',\n')}\n}\n`;
 }
 
+// Mod tracks (player-made, raced from Mod Track in the game) live in the editor's track list
+// beside the game's own, marked with modFile: their file in public/mods/tracks/ ('' until named).
+// They are saved there, one file each, and never into tracks.json.
+const MOD_DIR = 'mods/tracks';
+const isMod = (t) => t.modFile !== undefined;
+/** tracks.json as saved: the game's own tracks only. */
+function gameTracksText(d) { return exportTracks({ ...d, tracks: d.tracks.filter((t) => !isMod(t)) }); }
+/** A mod track's file, as the track editor's Export writes one. */
+function modText(t) {
+  const { modFile: _f, ...track } = t;
+  return `${JSON.stringify({ format: TRACK_FILE, version: 1, track }, null, 2)}\n`;
+}
+/** A file name from a track name: lower case letters, digits and dashes. */
+const modSlug = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+function modsDirty() { return app.data.tracks.some((t) => isMod(t) && (t.modFile === '' || app.modSaved[t.modFile] !== modText(t))); }
+
 // ---------------------------------------------------------------------------------------------
 // App state
 
@@ -584,7 +602,7 @@ function begin() {
 }
 function changed() {
   derive(track());
-  setDirty(exportTracks(app.data) !== app.savedText);
+  setDirty(gameTracksText(app.data) !== app.savedText || modsDirty());
   refresh();
 }
 function undo() { if (!app.undo.length) return; app.redo.push(snapshot()); restore(app.undo.pop()); changed(); }
@@ -651,7 +669,19 @@ async function useSource(src) {
     const assets = src.http ? '..' : dirOf(dataDir);
     const artBase = `${assets ? `${assets}/` : ''}${ART_DIR}/`;
     const final = parts.sectionEditor === false || new URLSearchParams(location.search).has('final');
-    Object.assign(app, { tracksPath, data, sectionDefs, parts, final, artBase, cur: 0, undo: [], redo: [], savedText: text, play: null, images: new Map() });
+    // The mods folder sits beside data/ (public/mods/tracks, or /mods/tracks on the dev server).
+    const pub = src.http ? null : dataDir.includes('/') || dataDir === 'data' ? dirOf(dataDir) : null;
+    const modDir = src.http ? `${src.base}../${MOD_DIR}/` : pub !== null ? `${pub ? `${pub}/` : ''}${MOD_DIR}` : null;
+    const modSaved = {};
+    for (const { file, raw } of await readMods(src, modDir)) {
+      const t = raw?.format === TRACK_FILE ? raw.track : raw;
+      if (!t || !Array.isArray(t.path) || !Array.isArray(t.sections)) { notes.push(`${MOD_DIR}/${file} isn't a track file`); continue; }
+      t.id = ID.test(t.id ?? '') && !data.tracks.some((x) => x.id === t.id) ? t.id : `${modSlug(file.replace(/\.track\.json$|\.json$/, '')) || 'mod'}-mod`;
+      t.modFile = file;
+      data.tracks.push(t);
+      modSaved[file] = modText(t);
+    }
+    Object.assign(app, { tracksPath, modDir, modSaved, data, sectionDefs, parts, final, artBase, cur: 0, undo: [], redo: [], savedText: text, play: null, images: new Map() });
     // A track with a section past the build boundary can't be raced: it is a draft until it is back inside.
     for (const t of data.tracks) if (!t.draft && boundaryCrossings(t).length) { t.draft = true; notes.push(`"${t.name}" has a section past the build boundary, so it is a draft again`); }
     deselect();
@@ -661,7 +691,7 @@ async function useSource(src) {
     document.body.classList.toggle('final', final);
     $('#edition').textContent = final ? 'Final v1' : 'Development';
     $('#edition').classList.toggle('final', final);
-    setDirty(exportTracks(data) !== text);
+    setDirty(gameTracksText(data) !== text);
     $('#welcome').style.display = 'none';
     $('#srcName').textContent = src.http ? `${src.base}tracks.json` : `${src.name}/${tracksPath}`;
     if (app.dirty) status(`Loaded. The file is laid out differently from how the editor saves it, so it shows as changed.${notes.length ? ` Also: ${notes.join('; ')}.` : ''}`, 'err');
@@ -675,6 +705,27 @@ async function useSource(src) {
     console.error(e);
     status(`Could not read ${tracksPath}: ${e.message}`, 'err');
   }
+}
+
+/** The mod track files in the mods folder, read as JSON (any that can't be read are left out). */
+async function readMods(src, modDir) {
+  if (modDir === null) return [];
+  const out = [];
+  try {
+    if (src.http) {
+      const r = await fetch(`${modDir}index.json`, { cache: 'no-store' });
+      const names = r.ok ? await r.json() : [];
+      for (const file of Array.isArray(names) ? names : []) {
+        try { const f = await fetch(`${modDir}${encodeURIComponent(file)}`, { cache: 'no-store' }); if (f.ok) out.push({ file, raw: JSON.parse(await f.text()) }); } catch { /* left out */ }
+      }
+    } else {
+      const prefix = `${modDir}/`;
+      for (const p of [...src.files.keys()].filter((k) => k.startsWith(prefix) && /^[^/]+\.json$/.test(k.slice(prefix.length)) && !k.endsWith('/index.json')).sort()) {
+        try { out.push({ file: p.slice(prefix.length), raw: JSON.parse(await src.text(p)) }); } catch { /* left out */ }
+      }
+    }
+  } catch { /* no mods folder */ }
+  return out;
 }
 
 /** Loads the ground and scenery tile art. Anything missing is drawn in its colour instead. */
@@ -1926,7 +1977,7 @@ function renderTrackList() {
     const kind = app.parts.kinds.find((k) => k.id === (t.kind ?? 'outdoor'))?.name ?? t.kind;
     d.innerHTML = '<b></b><br><small></small>';
     d.querySelector('b').textContent = t.name || t.id;
-    d.querySelector('small').textContent = `${t.id} · ${kind} · ${lapLength(t)} m${t.practiceOnly ? ' · practice' : ''}${t.draft ? ' · unfinished' : ''}${venuesUsing(t.id).length ? '' : ' · no venue'}`;
+    d.querySelector('small').textContent = `${isMod(t) ? `mod · ${t.modFile || 'not saved yet'}` : t.id} · ${kind} · ${lapLength(t)} m${t.practiceOnly ? ' · practice' : ''}${t.draft ? ' · unfinished' : ''}${isMod(t) || venuesUsing(t.id).length ? '' : ' · no venue'}`;
     d.addEventListener('click', () => { app.cur = i; deselect(); stopPlay(); refresh(); });
     list.appendChild(d);
   });
@@ -1961,7 +2012,9 @@ function renderProps() {
   setOptions('#surfaces', ['hard_pack', 'loam', 'sand', 'clay', 'mud', ...app.data.tracks.map((x) => x.surface)]);
   $('#kindInfo').textContent = app.parts.kinds.find((k) => k.id === (t.kind ?? 'outdoor'))?.desc ?? '';
   const used = venuesUsing(t.id);
-  $('#venueInfo').textContent = used.length ? `Used by: ${used.map((v) => v.name).join(', ')}.` : 'No venue uses this track yet. Add one to the venues list in tracks.json to ride it in the game.';
+  $('#venueInfo').textContent = isMod(t)
+    ? `Mod track: ${t.modFile ? `saved to public/${MOD_DIR}/${t.modFile}` : 'Save asks for its name and saves it to the mods folder'}, and raced from Mod Track on the venue road.`
+    : used.length ? `Used by: ${used.map((v) => v.name).join(', ')}.` : 'No venue uses this track yet. Add one to the venues list in tracks.json to ride it in the game.';
 }
 
 $('#fName').addEventListener('change', (e) => commit((t) => { t.name = e.target.value.trim(); }));
@@ -4525,6 +4578,7 @@ function newTrack() {
     path: [],
     sections: [],
     features: [],
+    modFile: '',
   });
   app.cur = app.data.tracks.length - 1;
   deselect();
@@ -4533,13 +4587,15 @@ function newTrack() {
   app.drawing = true;
   app.drawAt = null;
   changed();
-  status('A new, empty track: click the ground to draw the route point by point, and click the first point again to close it. Name the track under Track.', 'ok');
+  status('A new, empty mod track: click the ground to draw the route point by point, and click the first point again to close it. Save asks for its name and saves it to the mods/tracks folder.', 'ok');
 }
 function duplicateTrack() {
   begin();
   const t = clone(track());
   t.id = uniqueId(`${t.id}-copy`);
   t.name = `${t.name} (copy)`;
+  // A copy is a new mod track, named when it is saved.
+  t.modFile = '';
   app.data.tracks.splice(app.cur + 1, 0, t);
   app.cur++;
   deselect();
@@ -4549,7 +4605,7 @@ function deleteTrack() {
   const t = track();
   const used = venuesUsing(t.id);
   if (used.length) { status(`${used.map((v) => v.name).join(', ')} uses this track. Point the venue at another track in tracks.json first.`, 'err'); return; }
-  if (!confirm(`Delete the track "${t.name}"?`)) return;
+  if (!confirm(isMod(t) && t.modFile ? `Take "${t.name}" out of the list? Its file, ${MOD_DIR}/${t.modFile}, stays in the folder: delete it there to take it out of the game.` : `Delete the track "${t.name}"?`)) return;
   begin();
   app.data.tracks.splice(app.cur, 1);
   app.cur = Math.max(0, app.cur - 1);
@@ -4581,12 +4637,13 @@ async function importTrack(file) {
       if (s.height !== undefined) out.height = Number(s.height);
       return out;
     });
+    clean.modFile = '';
     begin();
     app.data.tracks.push(clean);
     app.cur = app.data.tracks.length - 1;
     deselect();
     changed();
-    status(`Imported "${clean.name}" as ${clean.id}. Check the Checks panel for anything this game doesn't have.`, 'ok');
+    status(`Imported "${clean.name}" as a mod track; Save names it and saves it to the mods/tracks folder. Check the Checks panel for anything this game doesn't have.`, 'ok');
   } catch (e) {
     status(`Could not import ${file.name}: ${e.message}`, 'err');
   }
@@ -4609,25 +4666,92 @@ function download(name, text) {
 async function save(forceDownload) {
   if (!app.data) return;
   if (hasErrors() && !confirm('Some tracks fail the game\'s checks (see Checks), so the game will refuse to start with this file. Save anyway?')) return;
-  const text = exportTracks(app.data);
-  if (source.canWrite && forceDownload !== true) {
+  if (forceDownload === true) {
+    const text = gameTracksText(app.data);
+    download('tracks.json', text);
+    status(`Downloaded tracks.json (the game's own tracks). Copy it over public/data/tracks.json.`, 'ok');
+    return;
+  }
+  // New mod tracks get a name, and a file of their own, before anything is written.
+  for (const t of app.data.tracks) if (t.modFile === '' && !nameModTrack(t)) return;
+  const said = [];
+  for (const t of app.data.tracks) {
+    if (!isMod(t)) continue;
+    const text = modText(t);
+    if (app.modSaved[t.modFile] === text) continue;
+    said.push(await writeMod(t.modFile, text));
+    app.modSaved[t.modFile] = text;
+  }
+  const text = gameTracksText(app.data);
+  if (text !== app.savedText) said.push(await writeTracks(text));
+  app.savedText = text;
+  setDirty(false);
+  refresh();
+  status(`${said.length ? said.join(' ') : 'Nothing to save.'} ${checkSummary()}`, checkAll().errors ? 'err' : 'ok');
+}
+
+/** The game's own tracks into tracks.json, or a download when the folder can't be written. Returns what it did. */
+async function writeTracks(text) {
+  if (source.canWrite) {
     try {
       await source.write(app.tracksPath, text);
-      app.savedText = text;
-      setDirty(false);
-      status(`Saved ${app.tracksPath}. ${checkSummary()}`, checkAll().errors ? 'err' : 'ok');
-      return;
+      return `Saved ${app.tracksPath}.`;
     } catch (e) {
       console.error(e);
-      status(`Saving into the folder failed (${e.message}); downloading instead.`, 'err');
+      download('tracks.json', text);
+      return `Saving into the folder failed (${e.message}), so tracks.json was downloaded: copy it over public/data/tracks.json.`;
     }
   }
   download('tracks.json', text);
-  app.savedText = text;
-  setDirty(false);
-  status(`Downloaded tracks.json. Copy it over public/data/tracks.json. ${checkSummary()}`, checkAll().errors ? 'err' : 'ok');
+  return 'Downloaded tracks.json: copy it over public/data/tracks.json.';
 }
 
+/** A mod track into the mods folder: through the dev server, into the opened folder, or as a download. Returns what it did. */
+async function writeMod(file, text) {
+  const where = `${MOD_DIR}/${file}`;
+  try {
+    if (source.http) {
+      const r = await fetch(`/__mods/tracks/${encodeURIComponent(file)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: text });
+      if (r.ok) return `Saved public/${where}.`;
+      throw new Error(r.status === 404 || r.status === 405 ? 'this server can\'t save files (run npm run dev)' : await r.text());
+    }
+    if (source.root && app.modDir !== null) {
+      let dir = source.root;
+      for (const part of app.modDir.split('/').filter(Boolean)) dir = await dir.getDirectoryHandle(part, { create: true });
+      const h = await dir.getFileHandle(file, { create: true });
+      if (h.requestPermission && (await h.requestPermission({ mode: 'readwrite' })) !== 'granted') throw new Error('the browser did not allow saving into the folder');
+      const w = await h.createWritable();
+      await w.write(text);
+      await w.close();
+      return `Saved ${app.modDir}/${file}.`;
+    }
+  } catch (e) {
+    console.error(e);
+    download(file, text);
+    return `Couldn't save ${where} (${e.message}), so ${file} was downloaded: put it in public/${MOD_DIR}.`;
+  }
+  download(file, text);
+  return `Downloaded ${file}: put it in public/${MOD_DIR}.`;
+}
+
+/** Asks for a new mod track's name, which also names its file. False if cancelled. */
+function nameModTrack(t) {
+  let suggest = t.name && t.name !== 'New track' ? t.name : '';
+  for (;;) {
+    const name = prompt(`Name this track. It is saved as its own file in ${MOD_DIR}, named after it, and listed by this name under Mod Track in the game.`, suggest);
+    if (name === null) { status('Not saved: the new track needs a name.', 'err'); return false; }
+    const slug = modSlug(name.trim());
+    const file = `${slug}.track.json`;
+    if (!slug || slug === 'new-track') { alert('Give the track a name of its own (letters or digits), not "New track".'); continue; }
+    const clash = app.data.tracks.find((x) => x !== t && (x.modFile === file || x.id === slug));
+    if (clash) { alert(`"${clash.name}" already uses that name. Pick another, so neither is saved over.`); suggest = name; continue; }
+    begin();
+    t.name = name.trim();
+    t.id = slug;
+    t.modFile = file;
+    return true;
+  }
+}
 // ---------------------------------------------------------------------------------------------
 // Preview: a dot rides the lap, spending time in each section by its length × difficulty.
 
@@ -5129,8 +5253,10 @@ $('#btnRide').addEventListener('click', () => {
       : 'This track is a draft, and the game leaves drafts out. Click Ready to race (it runs the checks first), then Save, to race it.');
     return;
   }
-  if (app.dirty && !confirm('You have unsaved changes. The game races the saved tracks.json, so it won\'t have them. Open the race anyway?')) return;
-  window.open(`/?testtrack=${encodeURIComponent(t.id)}`, '_blank');
+  if (t.modFile === '') { alert('Save the track first: it needs a name and its file in the mods folder before the game can race it.'); return; }
+  if (app.dirty && !confirm('You have unsaved changes. The game races the saved files, so it won\'t have them. Open the race anyway?')) return;
+  // The game gives a mod track the id mod.<file name>.
+  window.open(`/?testtrack=${encodeURIComponent(isMod(t) ? `mod.${t.modFile.replace(/\.track\.json$/, '')}` : t.id)}`, '_blank');
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -5327,7 +5453,7 @@ async function tryServer() {
       const b = document.createElement('button');
       b.textContent = 'Load the tracks from this server';
       b.addEventListener('click', () => useSource(new HttpSource(base)));
-      hint.append('Or: ', b, ' (saving downloads the file).');
+      hint.append('Or: ', b, ' (mod tracks save into public/mods/tracks; the game\'s own tracks.json downloads).');
       return;
     } catch { /* try the next */ }
   }
