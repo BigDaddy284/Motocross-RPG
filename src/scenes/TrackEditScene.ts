@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import * as THREE from 'three';
-import type { TrackDef } from '../core/race';
+import type { SceneryItem, TrackDef } from '../core/race';
 import { CHEER_ITEM } from '../core/cheer';
 import { OFFICIAL_ITEM, placedOfficial } from '../core/startOfficial';
 import { sectionBounds } from '../core/trackGeom';
@@ -47,6 +47,8 @@ export interface EditViewState {
   handles?: [number, number][];
   /** What is being placed (the start straight, the finish line or a feature): its points, whether it can go there, and the ring it snaps on at (x, y, radius). */
   ghost?: { pts: [number, number][]; level: 'ok' | 'warning' | 'error'; ring: [number, number, number] | null; /** The route being drawn: a thin dashed line from the last point to the pointer, not a piece. */ dashed?: boolean };
+  /** The scenery item the next click would place (Scenery): drawn see-through under the pointer, turned as it would be. */
+  ghostItem?: SceneryItem;
 }
 
 const GREEN = 0x34c759;
@@ -450,28 +452,52 @@ export class TrackEditScene extends Phaser.Scene {
           line(ring(hx, hz, 0.3), 0x8fd3ff, true, false, 0.08 * k, 10.9);
         }
       }
-      // The piece being placed, as wide as the track, and the ring at the end of the track it snaps on at.
-      const g = st.ghost;
-      if (g) {
-        if (g.ring) line(ring(g.ring[0], g.ring[1], g.ring[2]), 0xffffff, true, true, 0.08 * k, 11);
-        const w = (t.width ?? 3.4) / 2;
-        if (g.dashed) {
-          // Dashes are whole segments of the ribbon, so a long stretch is cut into short ones first.
-          const fine: { x: number; z: number }[] = [];
-          for (let i = 0; i < g.pts.length; i++) {
-            const [x, y] = g.pts[i];
-            if (i > 0) {
-              const [px, py] = g.pts[i - 1];
-              const n = Math.max(1, Math.ceil(Math.hypot(x - px, y - py) / 0.4));
-              for (let j = 1; j < n; j++) fine.push({ x: px + ((x - px) * j) / n, z: py + ((y - py) * j) / n });
-            }
-            fine.push({ x, z: y });
-          }
-          line(fine, 0xffffff, false, true, 0.12 * k, 11);
-        }
-        else line(g.pts.map(([x, y]) => ({ x, z: y })), g.level === 'error' ? RED : g.level === 'warning' ? YELLOW : GREEN, false, false, w, 11);
-      }
       (t.start?.path ?? []).forEach(([x, y], i) => line(rect(x, y, 0.6, 0.6, 0), i === st.sel.start ? SELECT : 0x4aa0ff, true));
+    }
+    // What is being placed, in any mode: a piece or the finish line (Layout) as wide as the track
+    // with the ring at the end of the track it snaps on at, the route being drawn, or the stretch
+    // the elevation tool would raise or lower (Height) with a ring at its centre.
+    const g = st.ghost;
+    if (g) {
+      const k = Math.max(0.5, Math.min(2, 0.8 / this.cam.zoom));
+      if (g.ring) line(ring(g.ring[0], g.ring[1], g.ring[2]), 0xffffff, true, true, 0.08 * k, 11);
+      const w = (t.width ?? 3.4) / 2;
+      if (g.dashed) {
+        // Dashes are whole segments of the ribbon, so a long stretch is cut into short ones first.
+        const fine: { x: number; z: number }[] = [];
+        for (let i = 0; i < g.pts.length; i++) {
+          const [x, y] = g.pts[i];
+          if (i > 0) {
+            const [px, py] = g.pts[i - 1];
+            const n = Math.max(1, Math.ceil(Math.hypot(x - px, y - py) / 0.4));
+            for (let j = 1; j < n; j++) fine.push({ x: px + ((x - px) * j) / n, z: py + ((y - py) * j) / n });
+          }
+          fine.push({ x, z: y });
+        }
+        line(fine, 0xffffff, false, true, 0.12 * k, 11);
+      }
+      else {
+        // Sampled finely so the band follows whoops and jumps instead of cutting through them.
+        const fine: { x: number; z: number }[] = [];
+        for (let i = 0; i < g.pts.length; i++) {
+          const [x, y] = g.pts[i];
+          if (i > 0) {
+            const [px, py] = g.pts[i - 1];
+            const n = Math.max(1, Math.ceil(Math.hypot(x - px, y - py) / 0.2));
+            for (let j = 1; j < n; j++) fine.push({ x: px + ((x - px) * j) / n, z: py + ((y - py) * j) / n });
+          }
+          fine.push({ x, z: y });
+        }
+        line(fine, g.level === 'error' ? RED : g.level === 'warning' ? YELLOW : GREEN, false, false, w, 11);
+      }
+    }
+    // The scenery item the next click would place: see-through, where and as turned it would stand, with its footprint outlined.
+    const gi = st.ghostItem;
+    if (gi) {
+      const def = parts.scenery.find((d) => d.id === gi.type);
+      const obj = v.ghostItem(gi);
+      if (obj) v.overlay.add(obj);
+      line(rect(gi.x, gi.y, (gi.w ?? def?.w ?? 2) + 0.3, (gi.h ?? def?.h ?? 2) + 0.3, ((gi.rot ?? 0) * Math.PI) / 180), SELECT, true, true, 0.09, 11);
     }
   }
 

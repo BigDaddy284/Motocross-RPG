@@ -988,6 +988,31 @@ export class RaceView {
     return tex;
   }
 
+  /**
+   * A scenery item as the track editor previews it before placing: built as it would stand, drawn
+   * see-through, casting no shadow. Null for the start official, who is built with the start.
+   */
+  ghostItem(it: SceneryItem): THREE.Object3D | null {
+    const obj = this.buildItem(it);
+    if (!obj) return null;
+    obj.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      m.castShadow = false;
+      m.receiveShadow = false;
+      const ghostly = (mat: THREE.Material) => {
+        const c = mat.clone();
+        c.transparent = true;
+        c.opacity = 0.55;
+        c.depthWrite = false;
+        return c;
+      };
+      m.material = Array.isArray(m.material) ? m.material.map(ghostly) : ghostly(m.material);
+      m.renderOrder = 11;
+    });
+    return obj;
+  }
+
   /** Builds one scenery item as 3D shapes standing on the ground. */
   private buildItem(it: SceneryItem): THREE.Object3D | null {
     // The start official placed as scenery is built with the start (startBoard).

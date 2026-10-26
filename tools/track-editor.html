@@ -316,7 +316,7 @@ body.final .final-hide { display: none !important; }
   </div>
 
   <div class="pane" id="pane-scenery">
-    <div class="hint">Pick an item, then click to place it. Click an item to select it, drag to move it, <kbd>Q</kbd> <kbd>E</kbd> turn it, <kbd>Del</kbd> removes it.</div>
+    <div class="hint">Pick an item: it follows the pointer, see-through, where a click would place it; <kbd>Q</kbd> <kbd>E</kbd> turn it first. Click an item to select it, drag to move it, <kbd>Q</kbd> <kbd>E</kbd> turn it 15°, with <kbd>Shift</kbd> 5°, with <kbd>Alt</kbd> 1° (or type any angle in Turn), <kbd>Del</kbd> removes it.</div>
     <div class="pal" id="sceneryPal"></div>
     <div class="box" id="sceneryDetail"></div>
   </div>
@@ -353,7 +353,7 @@ body.final .final-hide { display: none !important; }
     <li class="final-hide"><b>Gates</b> is the start bonus curve, in percent of start time, best gate first (Spec 10.4).</li>
     <li><b>Surfaces:</b> mud, sand, water and other patches along the lap, laid by clicking the track.</li>
     <li><b>Ground:</b> paint the ground round the track with the game's ground tiles.</li>
-    <li><b>Scenery:</b> banners (with your own words and colour), sponsor boards, start gates, tuff blocks, hay bales, tyre walls, stands, crowds, pits, trees and more. <kbd>Q</kbd> and <kbd>E</kbd> turn the selected item, <kbd>Ctrl+D</kbd> duplicates it. <b>Cheering fans</b> are people who stand trackside and react as bikes pass: pick a variant (body shape), an action (arms up, wave, clap, fist pump, celebrate) and a shirt colour, or leave them to be picked. <b>Draw route</b> gives a fan a walk in: when the track loads they walk from where placed along it, at walking pace, and cheer from its end, so a crowd can file in. A fan must never be on the track, where placed or where the walk ends (an error the game refuses); a walk that crosses the track is only a warning. Each fan reacts in their own time, with a rest between, so a crowd never moves as one.</li>
+    <li><b>Scenery:</b> banners (with your own words and colour), sponsor boards, start gates, tuff blocks, hay bales, tyre walls, stands, crowds, pits, trees and more. Pick an item and it follows the pointer, see-through, on the map and in the race view, where a click would place it, turned as <kbd>Q</kbd> and <kbd>E</kbd> have turned it (the turn is kept for the next item too). <kbd>Q</kbd> and <kbd>E</kbd> turn the selected item 15° a press, 5° with <kbd>Shift</kbd> and 1° with <kbd>Alt</kbd>, and the Turn box takes any whole number of degrees; <kbd>Ctrl+D</kbd> duplicates it. <b>Cheering fans</b> are people who stand trackside and react as bikes pass: pick a variant (body shape), an action (arms up, wave, clap, fist pump, celebrate) and a shirt colour, or leave them to be picked. <b>Draw route</b> gives a fan a walk in: when the track loads they walk from where placed along it, at walking pace, and cheer from its end, so a crowd can file in. A fan must never be on the track, where placed or where the walk ends (an error the game refuses); a walk that crosses the track is only a warning. Each fan reacts in their own time, with a rest between, so a crowd never moves as one.</li>
     <li><b>Start board official:</b> pick <b>Start board official</b> under Start and finish in Layout, or the last item in Scenery, and click where they wait with the board while the riders line up (one a track; without one the game picks their spot beside the start straight). Select them and click <b>Draw route</b>, then click the ground in order to where they end up (the red point), and <b>Done</b> or <kbd>Esc</kbd>; <b>Cancel</b> puts the old route back, <b>Reset route</b> clears it. Drag a route point to move it, right-click it or press <kbd>Del</kbd> to remove it; dragging the official moves only where they start. In the countdown they raise the board and set off at five, turn it sideways at three and lower it white side out at one as they arrive. The route can be at most <code>official.maxWalk</code> grid units (trackParts.json, 8), may cross the track ahead of the gate but not the riders lined up at the gate or solid scenery, and must end clear of the track; the race view runs the game's checks and they show under the official and in Checks. On a new track they stand where placed until there's a start straight; Checks says when a track has no official or an official has no route.</li>
     <li><b>Height:</b> <b>Raise the track</b> and <b>Lower the track</b> work along the track's length: hover the track and the stretch the tool would change is highlighted, the <b>Length</b> you set centred under the pointer and following the route round corners (cut at the end of an open route); a click raises it by the <b>Height</b> set, right-click lowers it, with the most at the centre easing to nothing at both ends, so the hill meets the track either side with no step and no kink. Nothing changes until you click; each click is one undo, and clicking the same stretch again steps its height instead of stacking another hill (back to level, it goes). Hills are saved with the track (<code>hills</code>), keep their place when the route is reshaped, and are drawn on the map as a band with their height. The track keeps its width, banking, berms and section types; the ground either side rises or sinks to meet it as a grass slope, never a wall. The <b>ground brush</b> (raise, lower, smooth, flatten; radius and strength) shapes the ground away from the track as before. Heights go from 36 m down to 36 m up; riders slow up climbs and run quicker down drops; ground steeper than 45° is refused as a wall, and a track climbing or dropping more than 35% along its length is a warning. Old tracks keep their ground as saved.</li>
     <li><b>Race view:</b> you edit in the game's own race camera and 3D scene with hills, jumps, scenery and ground as a race draws them, and the lap map in its corner. Click, drag and right-click on the 3D ground; the keys are the same in every mode. Mouse wheel or <kbd>+</kbd> <kbd>−</kbd> zoom, <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or a middle-button (or <kbd>Space</kbd>+drag) pan, <kbd>[</kbd> <kbd>]</kbd>, the <b>⟲ Turn left</b> and <b>⟳ Turn right</b> buttons (bottom left) or a <kbd>Shift</kbd>+middle-button drag turn the view round the track, to see it from any side; <kbd>0</kbd> or <b>Reset view</b> goes back to the race camera's angle. Turning only changes the editor's view: clicks still land where the pointer is, and races always use the fixed race camera. The selection is orange, problems red or dashed yellow. In Layout each section shows as a stripe in its kind's colour, with a cream line across the track where one section ends and the next begins. No race runs while you edit. Opened straight from disk, the race view runs the game from the published site (<code>bigdaddy284.github.io/Motocross-RPG</code>), so it needs an internet connection; with neither that nor <code>npm run dev</code>, the editor shows a plain map instead.</li>
@@ -574,6 +574,10 @@ const app = {
   surfaceBrush: null,
   groundBrush: null,
   sceneryBrush: null,
+  /** How the next scenery item placed is turned, in degrees (Q and E before placing). */
+  placeRot: 0,
+  /** Whether Alt was held on the last pointer move (no snapping), for the placing preview. */
+  hoverAlt: false,
   hoverBound: -1,
   hoverCell: null,
   hoverPt: null,
@@ -1738,6 +1742,8 @@ function draw() {
   const level = new Map();
   for (const p of sceneryIssues(t)) if (level.get(p.i) !== 'error') level.set(p.i, p.level);
   (t.scenery ?? []).forEach((it, i) => drawItem(it, app.mode === 'scenery' && i === app.selItem, level.get(i) ?? false));
+  const ghostItem = scene ? null : ghostItemForView(t);
+  if (ghostItem) { ctx.globalAlpha = 0.5; drawItem(ghostItem, true); }
   ctx.globalAlpha = 1;
   if (app.mode === 'scenery') drawRoute(t);
 
@@ -2902,7 +2908,9 @@ function placeItem(x, y, e) {
   }
   commit((t) => {
     if (!t.scenery) setKeyNear(t, 'scenery', [], 'ground' in t ? 'ground' : 'patches' in t ? 'patches' : 'sections');
-    t.scenery.push({ type: def.id, x: clamp(snapHalf(x, e), -SCENE_OUT, GRID_W + SCENE_OUT), y: clamp(snapHalf(y, e), -SCENE_OUT, GRID_H + SCENE_OUT) });
+    const it = { type: def.id, x: clamp(snapHalf(x, e), -SCENE_OUT, GRID_W + SCENE_OUT), y: clamp(snapHalf(y, e), -SCENE_OUT, GRID_H + SCENE_OUT) };
+    if (app.placeRot) it.rot = app.placeRot;
+    t.scenery.push(it);
     app.selItem = t.scenery.length - 1;
   });
 }
@@ -4043,7 +4051,9 @@ function ghostForView(t) {
     // The elevation tool's preview: the stretch of track it would raise or lower, as a band.
     if (!app.hoverPt) return undefined;
     const gh = hillGhost(t, app.hoverPt);
-    return gh.ok ? { pts: gh.pts, level: 'ok', ring: null } : undefined;
+    if (!gh.ok) return undefined;
+    const c = gh.pts[Math.floor(gh.pts.length / 2)];
+    return { pts: gh.pts, level: 'ok', ring: [c[0], c[1], 0.6] };
   }
   if (app.drawing && app.drawAt) {
     // Drawing the route: the stretch the next click would add, from the last point to the pointer.
@@ -4054,6 +4064,16 @@ function ghostForView(t) {
   if (!app.placing) return undefined;
   const gh = ghostOf(t, app.placing);
   return { pts: gh.pts, level: gh.level, ring: gh.ring ?? null };
+}
+/** The scenery item the next click would place (Scenery, nothing selected): where it would go and how it is turned. */
+function ghostItemForView(t) {
+  if (app.mode !== 'scenery' || !app.hoverPt || app.selItem >= 0 || app.routeDraw || drag) return undefined;
+  const def = sceneryDef(app.sceneryBrush);
+  if (!def) return undefined;
+  const e = { altKey: app.hoverAlt };
+  const it = { type: def.id, x: clamp(snapHalf(app.hoverPt.x, e), -SCENE_OUT, GRID_W + SCENE_OUT), y: clamp(snapHalf(app.hoverPt.y, e), -SCENE_OUT, GRID_H + SCENE_OUT) };
+  if (app.placeRot) it.rot = app.placeRot;
+  return it;
 }
 /**
  * The track as the race view is sent it. An open route is shown open: the way back from its last
@@ -5020,6 +5040,12 @@ function onPointerMove(e) {
       requestDraw();
       if (hillTool()) sendView();
     }
+    if (app.mode === 'scenery') {
+      // The placing preview follows the pointer while nothing is selected or dragged.
+      app.hoverPt = gp;
+      app.hoverAlt = !!e.altKey;
+      if (app.selItem < 0 && !app.routeDraw && !drag) { requestDraw(); sendView(); }
+    }
   }
   if (app.rect) { const c = cellAt(t, gp); app.rect.x1 = c.x; app.rect.y1 = c.y; requestDraw(); return; }
   if (app.placing && app.mode === 'layout' && !drag) {
@@ -5157,7 +5183,7 @@ function onPointerUp() {
   refresh();
 }
 canvas.addEventListener('pointerup', onPointerUp);
-canvas.addEventListener('pointerleave', () => { if (app.hoverCell || app.hoverPt) { app.hoverCell = null; app.hoverPt = null; requestDraw(); } });
+canvas.addEventListener('pointerleave', () => { if (app.hoverCell || app.hoverPt) { app.hoverCell = null; app.hoverPt = null; requestDraw(); if (app.mode === 'scenery' || app.mode === 'height') sendView(); } });
 function onDblClick(e) {
   const t = track();
   if (!t || app.mode !== 'layout' || app.drawing || app.placing) return;
@@ -5313,11 +5339,12 @@ function sendView() {
   const sel = { item: app.mode === 'scenery' ? app.selItem : -1, sec: app.selSec, pt: app.selPt, start: app.selStart, route: app.selRoute };
   const shown = trackForView(t);
   const ghost = app.mode === 'layout' || app.mode === 'height' ? ghostForView(t) : undefined;
+  const ghostItem = ghostItemForView(t);
   // The route's control points, and the selected point's curve handles, for Layout.
   const L = lpts(t);
   const P = L[app.selPt];
   const handles = app.mode === 'layout' && P && smooth(P) ? [hOut(P), hIn(P)].map((h) => [P[0] + h[0], P[1] + h[1]]) : undefined;
-  f.contentWindow.postMessage({ type: 'track', officialKey: officialKey(t), state: { track: shown.track, gapFrom: shown.gapFrom, gaps: shown.gaps, points: L.map((q) => [q[0], q[1]]), handles, ghost, parts: app.parts === FALLBACK_PARTS ? undefined : app.parts, mode: app.mode, sel, issues, brush, sectionColors: shown.track.sections.map((s) => colorOf(s.type)) } }, '*');
+  f.contentWindow.postMessage({ type: 'track', officialKey: officialKey(t), state: { track: shown.track, gapFrom: shown.gapFrom, gaps: shown.gaps, points: L.map((q) => [q[0], q[1]]), handles, ghost, ghostItem, parts: app.parts === FALLBACK_PARTS ? undefined : app.parts, mode: app.mode, sel, issues, brush, sectionColors: shown.track.sections.map((s) => colorOf(s.type)) } }, '*');
 }
 window.addEventListener('message', (e) => {
   const f = $('#view3d');
@@ -5394,8 +5421,13 @@ window.addEventListener('keydown', (e) => {
   if (app.mode === 'scenery') {
     if (del && app.selRoute > 0) { e.preventDefault(); deleteRoutePoint(app.selRoute); }
     else if (del) { e.preventDefault(); deleteItem(); }
-    else if (e.key.toLowerCase() === 'q') turnItem(-15);
-    else if (e.key.toLowerCase() === 'e') turnItem(15);
+    else if (e.key.toLowerCase() === 'q' || e.key.toLowerCase() === 'e') {
+      // 15° a press; Shift for 5°, Alt for 1°. With nothing selected, it turns the item about to be placed.
+      e.preventDefault();
+      const step = (e.altKey ? 1 : e.shiftKey ? 5 : 15) * (e.key.toLowerCase() === 'q' ? -1 : 1);
+      if (app.selItem >= 0) turnItem(step);
+      else { app.placeRot = (((app.placeRot + step) % 360) + 360) % 360; requestDraw(); sendView(); }
+    }
     else if (e.key.startsWith('Arrow') && app.selItem >= 0) {
       e.preventDefault();
       const d = e.shiftKey ? 2 : 0.5;
