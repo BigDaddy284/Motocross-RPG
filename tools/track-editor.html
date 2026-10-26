@@ -321,11 +321,13 @@ body.final .final-hide { display: none !important; }
   </div>
 
   <div class="pane" id="pane-height">
-    <div class="hint">Raise and lower the ground. Left-click or drag uses the tool, right-click does the opposite (Smooth and Flatten work both ways). Each stroke is one undo. The track is graded level across its width at the ground under its middle, and the ground eases out to it either side.</div>
-    <div class="field"><label for="hTool">Tool</label><select id="hTool"><option value="raise" selected>Raise</option><option value="lower">Lower</option><option value="smooth">Smooth</option><option value="flatten">Flatten to the height clicked</option></select></div>
-    <div class="field"><label for="hRadius">Radius</label><select id="hRadius"><option value="3">3 grid units</option><option value="5">5</option><option value="8" selected>8</option><option value="12">12</option><option value="18">18</option><option value="24">24</option></select></div>
-    <div class="field"><label for="hStrength">Strength</label><select id="hStrength"><option value="0.25" selected>0.25 m a dab</option><option value="0.5">0.5 m</option><option value="1">1 m</option><option value="2">2 m</option><option value="3">3 m</option></select></div>
-    <div class="row" style="margin-top:6px"><button id="btnClearHeight" title="Put all the ground back flat">Flatten all</button></div>
+    <div class="hint" id="hHint">Raise and lower the track along its length. Hover the track: the stretch the tool would change is highlighted (the length you set, centred under the pointer, following the route round corners). A click raises it by the height set, with the most at the centre easing to nothing at both ends; right-click lowers it instead. Nothing changes until you click, and each click is one undo. The track keeps its width, banking and berms, the ground either side rises or sinks to meet it as a grass slope, and riders slow up climbs and run quicker down drops.</div>
+    <div class="field"><label for="hTool">Tool</label><select id="hTool"><option value="track_raise" selected>Raise the track</option><option value="track_lower">Lower the track</option><option value="raise">Ground brush: raise</option><option value="lower">Ground brush: lower</option><option value="smooth">Ground brush: smooth</option><option value="flatten">Ground brush: flatten to the height clicked</option></select></div>
+    <div class="field hill-only"><label for="hLen">Length</label><select id="hLen"><option value="6">6 grid units (16 m)</option><option value="10">10 (27 m)</option><option value="16" selected>16 (43 m)</option><option value="24">24 (65 m)</option><option value="32">32 (86 m)</option><option value="48">48 (130 m)</option></select></div>
+    <div class="field hill-only"><label for="hLift">Height</label><select id="hLift"><option value="0.5">0.5 m a click</option><option value="1" selected>1 m</option><option value="2">2 m</option><option value="3">3 m</option><option value="5">5 m</option></select></div>
+    <div class="field ground-only"><label for="hRadius">Radius</label><select id="hRadius"><option value="3">3 grid units</option><option value="5">5</option><option value="8" selected>8</option><option value="12">12</option><option value="18">18</option><option value="24">24</option></select></div>
+    <div class="field ground-only"><label for="hStrength">Strength</label><select id="hStrength"><option value="0.25" selected>0.25 m a dab</option><option value="0.5">0.5 m</option><option value="1">1 m</option><option value="2">2 m</option><option value="3">3 m</option></select></div>
+    <div class="row" style="margin-top:6px"><button id="btnClearHeight" title="Take every hill and dip off the track and put all the ground back flat">Flatten all</button></div>
     <div class="box" id="heightInfo"></div>
   </div>
 
@@ -352,7 +354,7 @@ body.final .final-hide { display: none !important; }
     <li><b>Ground:</b> paint the ground round the track with the game's ground tiles.</li>
     <li><b>Scenery:</b> banners (with your own words and colour), sponsor boards, start gates, tuff blocks, hay bales, tyre walls, stands, crowds, pits, trees and more. <kbd>Q</kbd> and <kbd>E</kbd> turn the selected item, <kbd>Ctrl+D</kbd> duplicates it. <b>Cheering fans</b> are people who stand trackside and react as bikes pass: pick a variant (body shape), an action (arms up, wave, clap, fist pump, celebrate) and a shirt colour, or leave them to be picked. <b>Draw route</b> gives a fan a walk in: when the track loads they walk from where placed along it, at walking pace, and cheer from its end, so a crowd can file in. A fan must never be on the track, where placed or where the walk ends (an error the game refuses); a walk that crosses the track is only a warning. Each fan reacts in their own time, with a rest between, so a crowd never moves as one.</li>
     <li><b>Start board official:</b> pick <b>Start board official</b> under Start and finish in Layout, or the last item in Scenery, and click where they wait with the board while the riders line up (one a track; without one the game picks their spot beside the start straight). Select them and click <b>Draw route</b>, then click the ground in order to where they end up (the red point), and <b>Done</b> or <kbd>Esc</kbd>; <b>Cancel</b> puts the old route back, <b>Reset route</b> clears it. Drag a route point to move it, right-click it or press <kbd>Del</kbd> to remove it; dragging the official moves only where they start. In the countdown they raise the board and set off at five, turn it sideways at three and lower it white side out at one as they arrive. The route can be at most <code>official.maxWalk</code> grid units (trackParts.json, 8), may cross the track ahead of the gate but not the riders lined up at the gate or solid scenery, and must end clear of the track; the race view runs the game's checks and they show under the official and in Checks. On a new track they stand where placed until there's a start straight; Checks says when a track has no official or an official has no route.</li>
-    <li><b>Height:</b> raise and lower the ground with a soft round brush (radius and strength in metres per dab), smooth it, or flatten it to one height. The ground can go from 36 m down to 36 m up; a stroke that reaches either stops there and says so. The track follows the ground under its middle and stays level across its width; riders slow up climbs and run quicker down drops. Ground steeper than 45° is refused as a wall, and a track climbing or dropping more than 35% along its length is a warning. Old tracks without heights stay flat.</li>
+    <li><b>Height:</b> <b>Raise the track</b> and <b>Lower the track</b> work along the track's length: hover the track and the stretch the tool would change is highlighted, the <b>Length</b> you set centred under the pointer and following the route round corners (cut at the end of an open route); a click raises it by the <b>Height</b> set, right-click lowers it, with the most at the centre easing to nothing at both ends, so the hill meets the track either side with no step and no kink. Nothing changes until you click; each click is one undo, and clicking the same stretch again steps its height instead of stacking another hill (back to level, it goes). Hills are saved with the track (<code>hills</code>), keep their place when the route is reshaped, and are drawn on the map as a band with their height. The track keeps its width, banking, berms and section types; the ground either side rises or sinks to meet it as a grass slope, never a wall. The <b>ground brush</b> (raise, lower, smooth, flatten; radius and strength) shapes the ground away from the track as before. Heights go from 36 m down to 36 m up; riders slow up climbs and run quicker down drops; ground steeper than 45° is refused as a wall, and a track climbing or dropping more than 35% along its length is a warning. Old tracks keep their ground as saved.</li>
     <li><b>Race view:</b> you edit in the game's own race camera and 3D scene with hills, jumps, scenery and ground as a race draws them, and the lap map in its corner. Click, drag and right-click on the 3D ground; the keys are the same in every mode. Mouse wheel or <kbd>+</kbd> <kbd>−</kbd> zoom, <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or a middle-button (or <kbd>Space</kbd>+drag) pan, <kbd>[</kbd> <kbd>]</kbd>, the <b>⟲ Turn left</b> and <b>⟳ Turn right</b> buttons (bottom left) or a <kbd>Shift</kbd>+middle-button drag turn the view round the track, to see it from any side; <kbd>0</kbd> or <b>Reset view</b> goes back to the race camera's angle. Turning only changes the editor's view: clicks still land where the pointer is, and races always use the fixed race camera. The selection is orange, problems red or dashed yellow. In Layout each section shows as a stripe in its kind's colour, with a cream line across the track where one section ends and the next begins. No race runs while you edit. Opened straight from disk, the race view runs the game from the published site (<code>bigdaddy284.github.io/Motocross-RPG</code>), so it needs an internet connection; with neither that nor <code>npm run dev</code>, the editor shows a plain map instead.</li>
     <li><b>Modes:</b> <kbd>1</kbd> Layout, <kbd>2</kbd> Surfaces, <kbd>3</kbd> Ground, <kbd>4</kbd> Scenery, <kbd>5</kbd> Height.</li>
     <li><b>Export / Import</b> save one track as a <code>.track.json</code> file and add one back.</li>
@@ -494,7 +496,7 @@ function dump(v, holder, key) {
 }
 const isPlain = (v) => v === null || typeof v !== 'object';
 /** Lists written one item to a line. */
-const ROW_LISTS = new Set(['sections', 'patches', 'scenery']);
+const ROW_LISTS = new Set(['sections', 'patches', 'scenery', 'hills']);
 
 function trackText(t) {
   const plain = Object.keys(t).filter((k) => isPlain(t[k]));
@@ -1906,7 +1908,7 @@ function refresh() {
   if (app.mode === 'surface') renderPatches();
   if (app.mode === 'ground') renderGroundPane();
   if (app.mode === 'scenery') renderSceneryDetail();
-  if (app.mode === 'height') renderHeightPane();
+  if (app.mode === 'height') { renderHeightTools(); renderHeightPane(); }
   renderStats();
   renderChecks();
   requestDraw();
@@ -2420,6 +2422,87 @@ function elevAt(t, x, y) {
   const fy = gy - j;
   return (c(i, j) * (1 - fx) + c(i + 1, j) * fx) * (1 - fy) + (c(i, j + 1) * (1 - fx) + c(i + 1, j + 1) * fx) * fy;
 }
+// Hills and dips along the track (as src/core/elevation.ts TrackHill): centred `at` grid units
+// along the route, `len` long, `height` metres at the centre easing to nothing at both ends as a
+// raised cosine (no step and no kink where they meet the track). Hills that overlap add up.
+function hillProfile(d, len) {
+  const half = len / 2;
+  const a = Math.abs(d);
+  if (half <= 0 || a >= half) return 0;
+  return 0.5 * (1 + Math.cos((Math.PI * a) / half));
+}
+/** The hills' height in metres `u` grid units along the lap, counting round past the end on a closed route, cut at the ends of an open one. */
+function hillsAt(t, u, total = lapGeom(t).total) {
+  let m = 0;
+  for (const h of t.hills ?? []) {
+    let d = u - h.at;
+    if (!t.open && total > 0) {
+      d = ((d % total) + total) % total;
+      if (d > total / 2) d -= total;
+    }
+    m += h.height * hillProfile(d, h.len);
+  }
+  return m;
+}
+/** The track's level in metres at lap fraction f: the ground under its middle plus its hills there. */
+function trackLevelAt(t, f, g = lapGeom(t)) {
+  const p = pointAt(g, f);
+  return elevAt(t, p.x, p.y) + hillsAt(t, (((f % 1) + 1) % 1) * g.total, g.total);
+}
+const hillTool = () => $('#hTool').value.startsWith('track');
+/**
+ * The elevation tool's preview: the stretch of the track the length setting covers, centred under
+ * the pointer (where it is on the track), as lap fractions and the points along it for the views.
+ */
+function hillGhost(t, gp) {
+  const out = { ok: false, msg: '', pts: [] };
+  if (!t || t.path.length < 2) return Object.assign(out, { msg: 'Draw the route first.' });
+  const g = lapGeom(t);
+  const pr = project(g, gp.x, gp.y);
+  if (pr.dist > START_SNAP) return Object.assign(out, { msg: 'Bring the pointer onto the track to pick the stretch to raise or lower.' });
+  const len = Number($('#hLen').value);
+  const c = Math.round(pr.f * g.total * 2) / 2;
+  let a = c - len / 2;
+  let b = c + len / 2;
+  let cut = false;
+  if (t.open) {
+    // An open route ends where it ends: the stretch stops there, and so does the hill.
+    if (a < 0) { a = 0; cut = true; }
+    if (b > g.total) { b = g.total; cut = true; }
+  }
+  const steps = Math.max(2, Math.ceil((b - a) / 0.5));
+  for (let k = 0; k <= steps; k++) {
+    const u = a + ((b - a) * k) / steps;
+    const p = pointAt(g, u / g.total);
+    out.pts.push([round2(p.x), round2(p.y)]);
+  }
+  const lift = Number($('#hLift').value);
+  const here = hillsAt(t, c, g.total);
+  return Object.assign(out, { ok: true, g, c, a, b, len, lift, cut, here, msg: `${Math.round(len * PIECE_MPU)} m of track centred ${Math.round(c * PIECE_MPU)} m round the route${cut ? ', cut at the route\'s end' : ''}${Math.abs(here) >= 0.01 ? `, already ${here > 0 ? '+' : ''}${here.toFixed(1)} m there` : ''}. Click to raise it ${lift} m at the centre, right-click to lower it.` });
+}
+/**
+ * Applies the elevation tool: a hill (or a dip, with `down`) of the set length and height centred
+ * where the preview is. The same stretch again adds to the hill there instead of making another,
+ * so repeated clicks step the height and the data stays one entry; a hill back at nothing goes.
+ */
+function applyHill(t, gh, down) {
+  const height = (down ? -1 : 1) * gh.lift;
+  t.hills ??= [];
+  const same = t.hills.find((h) => Math.abs(h.at - gh.c) < 1e-6 && Math.abs(h.len - gh.len) < 1e-6);
+  if (same) same.height = Math.round((same.height + height) * 100) / 100;
+  else t.hills.push({ at: gh.c, len: gh.len, height });
+  t.hills = t.hills.filter((h) => Math.abs(h.height) >= 0.01);
+  if (!t.hills.length) delete t.hills;
+}
+/** The pane's fields for the tool in use: length and height for the track tool, radius and strength for the ground brush. */
+function renderHeightTools() {
+  const hill = hillTool();
+  for (const el of document.querySelectorAll('#pane-height .hill-only')) el.style.display = hill ? '' : 'none';
+  for (const el of document.querySelectorAll('#pane-height .ground-only')) el.style.display = hill ? 'none' : '';
+  $('#hHint').textContent = hill
+    ? 'Raise and lower the track along its length. Hover the track: the stretch the tool would change is highlighted (the length you set, centred under the pointer, following the route round corners). A click raises it by the height set, with the most at the centre easing to nothing at both ends; right-click lowers it instead. Nothing changes until you click, and each click is one undo. The track keeps its width, banking and berms, the ground either side rises or sinks to meet it as a grass slope, and riders slow up climbs and run quicker down drops.'
+    : 'The ground brush shapes the ground away from the track. Left-click or drag uses it, right-click does the opposite (Smooth and Flatten work both ways); each stroke is one undo. The track is graded level across its width at the ground under its middle (plus its hills), and the ground eases out to it either side.';
+}
 /** Stores heights back on the track, sorted, without zeros; no heights at all leaves no elevation key. */
 function setHeights(t, m, step) {
   const points = [...m].filter(([, h]) => Math.abs(h) >= 0.01).map(([k, h]) => { const [i, j] = k.split(',').map(Number); return [i * step, j * step, h]; });
@@ -2466,6 +2549,32 @@ function heightDab(t, gx, gy, back, level) {
 function elevationIssues(t) {
   const out = [];
   const e = t.elevation;
+  const g0 = t.path.length >= 2 ? lapGeom(t) : null;
+  for (const h of t.hills ?? []) {
+    if (!Number.isFinite(h.height) || Math.abs(h.height) > ELEV_MAX) {
+      const p = g0 ? pointAt(g0, h.at / g0.total) : { x: 0, y: 0 };
+      out.push({ level: 'error', message: `the hill ${Math.round(h.at)} units along the track is ${h.height} m; a hill or dip can be ${ELEV_MAX} m at most`, x: p.x, y: p.y });
+    }
+  }
+  if (!e && !t.hills?.length) return out;
+  if (g0) {
+    // Along the track: the worst stretch, once (the ground under the track and its hills together).
+    const mpu = lapLength(t) / g0.total;
+    const n = Math.max(40, Math.ceil(g0.total / 0.5));
+    let worst = { grade: 0, x: 0, y: 0 };
+    let prev = null;
+    for (let k = 0; k <= n; k++) {
+      const p = pointAt(g0, k / n);
+      const here = { x: p.x, y: p.y, m: trackLevelAt(t, k / n, g0) };
+      if (prev) {
+        const d = Math.hypot(here.x - prev.x, here.y - prev.y) * mpu;
+        const grade = d > 0 ? Math.abs(here.m - prev.m) / d : 0;
+        if (grade > worst.grade) worst = { grade, x: here.x, y: here.y };
+      }
+      prev = here;
+    }
+    if (worst.grade > STEEP_TRACK) out.push({ level: 'warning', message: `the track climbs or drops ${Math.round(worst.grade * 100)}% near ${worst.x.toFixed(0)}, ${worst.y.toFixed(0)}; past ${Math.round(STEEP_TRACK * 100)}% is steep for a 50cc`, x: worst.x, y: worst.y });
+  }
   if (!e) return out;
   for (const [x, y, m] of e.points) {
     if (!Number.isFinite(m) || Math.abs(m) > ELEV_MAX) out.push({ level: 'error', message: `the ground at ${x}, ${y} is ${m} m; it can be ${ELEV_MAX} m up or down at most`, x, y });
@@ -2490,22 +2599,6 @@ function elevationIssues(t) {
       }
     }
   }
-  const g = lapGeom(t);
-  const mpu = lapLength(t) / g.total;
-  const n = Math.max(40, Math.ceil(g.total / 0.5));
-  let worst = { grade: 0, x: 0, y: 0 };
-  let prev = null;
-  for (let k = 0; k <= n; k++) {
-    const p = pointAt(g, k / n);
-    const here = { x: p.x, y: p.y, m: elevAt(t, p.x, p.y) };
-    if (prev) {
-      const d = Math.hypot(here.x - prev.x, here.y - prev.y) * mpu;
-      const grade = d > 0 ? Math.abs(here.m - prev.m) / d : 0;
-      if (grade > worst.grade) worst = { grade, x: here.x, y: here.y };
-    }
-    prev = here;
-  }
-  if (worst.grade > STEEP_TRACK) out.push({ level: 'warning', message: `the track climbs or drops ${Math.round(worst.grade * 100)}% near ${worst.x.toFixed(0)}, ${worst.y.toFixed(0)}; past ${Math.round(STEEP_TRACK * 100)}% is steep for a 50cc`, x: worst.x, y: worst.y });
   return out;
 }
 /** The height pane: highest and lowest ground, and what is under the pointer. */
@@ -2517,8 +2610,11 @@ function renderHeightPane() {
   const top = hs.length ? Math.max(0, ...hs) : 0;
   const low = hs.length ? Math.min(0, ...hs) : 0;
   const under = app.hoverPt ? elevAt(t, app.hoverPt.x, app.hoverPt.y) : null;
-  box.textContent = `${hs.length ? `Highest ${top.toFixed(2)} m, lowest ${low.toFixed(2)} m, ${hs.length} heights set.` : 'All flat: no heights set.'} The ground can go from −${ELEV_MAX} m to +${ELEV_MAX} m.`;
-  if (under !== null) box.textContent += ` Under the pointer: ${under.toFixed(2)} m.`;
+  const hills = t.hills ?? [];
+  const up = hills.filter((h) => h.height > 0).length;
+  box.textContent = `${hills.length ? `${hills.length} hill${hills.length === 1 ? '' : 's'} on the track (${up} up, ${hills.length - up} down), the highest ${Math.max(0, ...hills.map((h) => h.height)).toFixed(1)} m and the lowest ${Math.min(0, ...hills.map((h) => h.height)).toFixed(1)} m. ` : 'No hills on the track. '}${hs.length ? `Ground: highest ${top.toFixed(2)} m, lowest ${low.toFixed(2)} m, ${hs.length} heights set.` : 'Ground: flat.'} Heights can go from −${ELEV_MAX} m to +${ELEV_MAX} m.`;
+  if (app.hoverPt && hillTool()) { const gh = hillGhost(t, app.hoverPt); box.textContent += ` ${gh.msg}`; }
+  else if (under !== null) box.textContent += ` Under the pointer: ${under.toFixed(2)} m.`;
 }
 /** The heights drawn over the map: warm for raised ground, blue for lowered, contour lines every metre, walls in red. */
 function drawHeights(t) {
@@ -2554,6 +2650,38 @@ function drawHeights(t) {
       ctx.beginPath(); ctx.arc(s.x, s.y, Math.max(6, step * k * 0.6), 0, Math.PI * 2); ctx.stroke();
     }
   }
+  // The hills on the track: a band along each in warm (up) or blue (down), labelled at its centre.
+  if (t.hills?.length && t.path.length >= 2) {
+    const g = lapGeom(t);
+    const width = (t.width ?? DEFAULT_WIDTH) * k;
+    for (const h of t.hills) {
+      const a = (h.at - h.len / 2) / g.total;
+      const b = (h.at + h.len / 2) / g.total;
+      const color = h.height > 0 ? 'rgba(255, 190, 80, 0.55)' : 'rgba(90, 150, 255, 0.55)';
+      if (t.open) strokeLap(g, clamp(a, 0, 1), clamp(b, 0, 1), color, width * 0.7, 'butt');
+      else if (a >= 0 && b <= 1) strokeLap(g, a, b, color, width * 0.7, 'butt');
+      else { strokeLap(g, ((a % 1) + 1) % 1, 1, color, width * 0.7, 'butt'); strokeLap(g, 0, ((b % 1) + 1) % 1, color, width * 0.7, 'butt'); }
+      const p = pointAt(g, (((h.at / g.total) % 1) + 1) % 1);
+      const sp = toScreen(p.x, p.y);
+      label(`${h.height > 0 ? '+' : ''}${h.height.toFixed(1)} m`, sp.x, sp.y - 6);
+    }
+  }
+  if (app.hoverPt && hillTool()) {
+    // The elevation tool's preview: the stretch under the pointer, with its centre marked.
+    const gh = hillGhost(t, app.hoverPt);
+    if (gh.ok) {
+      const width = (t.width ?? DEFAULT_WIDTH) * k;
+      strokeLap(gh.g, gh.a / gh.g.total, gh.b / gh.g.total, '#ffe066d0', width * 1.1, 'butt');
+      const p = pointAt(gh.g, gh.c / gh.g.total);
+      const sp = toScreen(p.x, p.y);
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#14141e';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(sp.x, sp.y, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      label(`${Math.round(gh.len * PIECE_MPU)} m, ${gh.lift > 0 ? '+' : ''}${gh.lift} m`, sp.x, sp.y - 10);
+    }
+    return;
+  }
   if (app.hoverPt) {
     const s = toScreen(app.hoverPt.x, app.hoverPt.y);
     const r = Number($('#hRadius').value) * k;
@@ -2564,8 +2692,8 @@ function drawHeights(t) {
     label(`${elevAt(t, app.hoverPt.x, app.hoverPt.y).toFixed(2)} m`, s.x, s.y - r - 4);
   }
 }
-$('#btnClearHeight').addEventListener('click', () => commit((t) => { delete t.elevation; }));
-for (const id of ['#hRadius', '#hTool', '#hStrength']) $(id).addEventListener('change', requestDraw);
+$('#btnClearHeight').addEventListener('click', () => commit((t) => { delete t.elevation; delete t.hills; }));
+for (const id of ['#hRadius', '#hTool', '#hStrength', '#hLen', '#hLift']) $(id).addEventListener('change', () => { renderHeightTools(); renderHeightPane(); requestDraw(); sendView(); });
 /** Paints the chosen ground under the track and a little either side, as a starting point. */
 $('#btnAutoGround').addEventListener('click', () => commit((t) => {
   const g = ensureGround(t);
@@ -3230,7 +3358,7 @@ function officialProblems(t) {
   const v = app.viewOfficial;
   return v && v.key === officialKey(t) ? v.problems : null;
 }
-const officialKey = (t) => JSON.stringify([t.path, t.start, t.width, t.elevation, t.scenery, t.sections.map((s) => s.length)]);
+const officialKey = (t) => JSON.stringify([t.path, t.start, t.width, t.elevation, t.hills, t.scenery, t.sections.map((s) => s.length)]);
 
 /** The official's route on the map: dashed, or with its points (the last red) when they are selected. */
 function drawRoute(t) {
@@ -3858,6 +3986,12 @@ function drawGhost() {
 }
 /** What the race view draws for what is being placed. */
 function ghostForView(t) {
+  if (app.mode === 'height' && hillTool()) {
+    // The elevation tool's preview: the stretch of track it would raise or lower, as a band.
+    if (!app.hoverPt) return undefined;
+    const gh = hillGhost(t, app.hoverPt);
+    return gh.ok ? { pts: gh.pts, level: 'ok', ring: null } : undefined;
+  }
   if (app.drawing && app.drawAt) {
     // Drawing the route: the stretch the next click would add, from the last point to the pointer.
     const L = lpts(t);
@@ -3932,21 +4066,23 @@ function keepJoined(t) {
  * length. followFeatures then moves each by how much the segments before its own have changed.
  */
 function featureAnchor(t, i) {
-  if (!t.features || t.path.length < 2) return null;
+  if ((!t.features && !t.hills) || t.path.length < 2) return null;
   const g = lapGeom(t);
   const idx = layoutIndices(t);
   const segLen = idx.map((k, j) => (j + 1 < idx.length ? g.cum[idx[j + 1]] - g.cum[k] : g.total - g.cum[k]));
-  const fseg = t.features.map((f) => { let j = 0; while (j + 1 < idx.length && g.cum[idx[j + 1]] <= f.at) j++; return j; });
-  return { i, segLen, fseg, at: t.features.map((f) => f.at) };
+  const segOf = (at) => { let j = 0; while (j + 1 < idx.length && g.cum[idx[j + 1]] <= at) j++; return j; };
+  const items = [...(t.features ?? []), ...(t.hills ?? [])];
+  return { i, segLen, fseg: items.map((f) => segOf(f.at)), at: items.map((f) => f.at) };
 }
+/** Keeps the features and hills where they are on the ground when a point or handle moves: each stays its distance into its own stretch of the route. */
 function followFeatures(t, anchor) {
-  if (!anchor || !t.features || t.path.length < 2) return;
+  if (!anchor || (!t.features && !t.hills) || t.path.length < 2) return;
   derive(t);
   const g = lapGeom(t);
   const idx = layoutIndices(t);
   if (idx.length !== anchor.segLen.length) return;
   const segLen = idx.map((k, j) => (j + 1 < idx.length ? g.cum[idx[j + 1]] - g.cum[k] : g.total - g.cum[k]));
-  t.features.forEach((f, k) => {
+  [...(t.features ?? []), ...(t.hills ?? [])].forEach((f, k) => {
     let d = 0;
     for (let j = 0; j < anchor.fseg[k]; j++) d += segLen[j] - anchor.segLen[j];
     f.at = Math.max(0, round1(anchor.at[k] + d));
@@ -4056,6 +4192,7 @@ function deleteSegment(i) {
       const units = g.cum[layoutIndices(t)[k]];
       const lap = lapLength(t);
       for (const f of t.features) f.at = round1((((f.at - units) % g.total) + g.total) % g.total);
+      for (const h of t.hills ?? []) h.at = round1((((h.at - units) % g.total) + g.total) % g.total);
       for (const p of t.patches ?? []) p.at = (((p.at - (units / g.total) * lap) % lap) + lap) % lap;
       const rot = [...L.slice(k), ...L.slice(0, k)];
       if (t.layout) t.layout.points = rot; else t.path = rot;
@@ -4112,10 +4249,11 @@ function deletePoint(i = app.selPt) {
     L.splice(i, 1);
     if (!t.open && L.length < 3) { t.open = true; t.draft = true; note = ' The route is open now (fewer than 3 points).'; }
     if (i === 0 && !t.open && t.finish !== false) note = ' Point 0 was the finish line; the next point is now the finish line.';
-    if (t.features && g) {
+    if ((t.features || t.hills) && g) {
       derive(t);
       const d = (t.path.length >= 2 ? lapGeom(t).total : 0) - total0;
-      for (const f of t.features) if (f.at > units + 1e-6) f.at = Math.max(0, round1(f.at + d));
+      for (const f of t.features ?? []) if (f.at > units + 1e-6) f.at = Math.max(0, round1(f.at + d));
+      for (const h of t.hills ?? []) if (h.at > units + 1e-6) h.at = Math.max(0, round1(h.at + d));
     }
     keepJoined(t);
     app.selPt = L.length ? Math.min(i, L.length - 1) : -1;
@@ -4326,6 +4464,7 @@ function reverse() {
       return p.length >= 6 ? [p[0], p[1], o[0], o[1], n[0], n[1]] : [p[0], p[1], o[0], o[1]];
     });
     if (t.layout) t.layout.points = rev; else t.path = rev;
+    for (const h of t.hills ?? []) h.at = Math.max(0, round1(total - h.at));
     if (t.features) for (const f of t.features) f.at = Math.max(0, round1(total - f.at - f.len));
     else {
       t.sections.reverse();
@@ -4356,6 +4495,7 @@ function fitToGrid() {
       for (const f of t.features) { f.at = round1(f.at * k); f.len = Math.max(0.5, round1(f.len * k)); }
       for (const p of t.patches ?? []) { p.at = Math.round(p.at * k); p.length = Math.max(1, Math.round(p.length * k)); }
     }
+    for (const h of t.hills ?? []) { h.at = round1(h.at * k); h.len = Math.max(0.5, round1(h.len * k)); }
     if (t.start) t.start.path = t.start.path.map(map);
     keepJoined(t);
     // Scenery moves with the track.
@@ -4418,7 +4558,7 @@ function deleteTrack() {
 }
 
 const TRACK_FILE = 'mxrpg-track';
-const TRACK_KEYS = ['id', 'name', 'size', 'surface', 'kind', 'width', 'practiceOnly', 'gates', 'path', 'layout', 'sections', 'features', 'start', 'patches', 'ground', 'elevation', 'scenery'];
+const TRACK_KEYS = ['id', 'name', 'size', 'surface', 'kind', 'width', 'practiceOnly', 'gates', 'path', 'layout', 'sections', 'features', 'start', 'patches', 'ground', 'elevation', 'hills', 'scenery'];
 function exportTrack() {
   const t = track();
   download(`${t.id}.track.json`, `${JSON.stringify({ format: TRACK_FILE, version: 1, track: t }, null, 2)}\n`);
@@ -4598,6 +4738,21 @@ function onPointerDown(e) {
   if (!t) return;
   const p = evPos(e);
   const gp = toGrid(p.x, p.y);
+  if (app.mode === 'height' && hillTool()) {
+    if (e.button !== 0 && e.button !== 2) return;
+    const gh = hillGhost(t, gp);
+    if (!gh.ok) { status(gh.msg, 'err'); return; }
+    const down = e.button === 2;
+    const to = gh.here + (down ? -gh.lift : gh.lift);
+    if (Math.abs(to) > ELEV_MAX + 1e-9) { status(`That would put the track ${to > 0 ? '+' : ''}${to.toFixed(1)} m at the centre; a hill or dip can be ${ELEV_MAX} m at most, so nothing was changed.`, 'err'); return; }
+    commit((t) => applyHill(t, gh, down));
+    const t2 = track();
+    const issues = elevationIssues(t2);
+    const steep = issues.find((p) => /climbs or drops/.test(p.message));
+    const hill = t2.hills?.find((h) => Math.abs(h.at - gh.c) < 1e-6 && Math.abs(h.len - gh.len) < 1e-6);
+    status(`${down ? 'Lowered' : 'Raised'} ${Math.round(gh.len * PIECE_MPU)} m of track centred ${Math.round(gh.c * PIECE_MPU)} m round the route: ${hill ? `${hill.height > 0 ? '+' : ''}${hill.height.toFixed(1)} m at the centre` : 'back to level'}, easing to the track's level at both ends. Undo takes it back.${steep ? ` Warning: ${steep.message} (yellow ring).` : ''}`, steep ? 'err' : 'ok');
+    return;
+  }
   if (app.mode === 'height') {
     if (e.button !== 0 && e.button !== 2) return;
     if (!e.synthetic) canvas.setPointerCapture(e.pointerId);
@@ -4739,6 +4894,7 @@ function onPointerMove(e) {
       $('#posLabel').textContent += ` · ground ${elevAt(t, gp.x, gp.y).toFixed(2)} m`;
       renderHeightPane();
       requestDraw();
+      if (hillTool()) sendView();
     }
   }
   if (app.rect) { const c = cellAt(t, gp); app.rect.x1 = c.x; app.rect.y1 = c.y; requestDraw(); return; }
@@ -4895,10 +5051,11 @@ function onDblClick(e) {
     const i = splitSegment(t, seg, u);
     // On a straight stretch the new point goes where the click was; a curve keeps its shape.
     if (straight) lpts(t)[i] = [clamp(snapGrid(gp.x, e), -BOUND_OUT, GRID_W + BOUND_OUT), clamp(snapGrid(gp.y, e), -BOUND_OUT, GRID_H + BOUND_OUT)];
-    if (t.features) {
+    if (t.features || t.hills) {
       derive(t);
       const dl = lapGeom(t).total - total0;
-      for (const f of t.features) if (f.at > d + 1e-6) f.at = Math.max(0, round1(f.at + dl));
+      for (const f of t.features ?? []) if (f.at > d + 1e-6) f.at = Math.max(0, round1(f.at + dl));
+      for (const h of t.hills ?? []) if (h.at > d + 1e-6) h.at = Math.max(0, round1(h.at + dl));
     }
     keepJoined(t);
     app.selPt = i;
@@ -5025,11 +5182,11 @@ function sendView() {
   if (!app.view3d || !t || !f.contentWindow) return;
   const issues = [...sceneryIssues(t).map((p) => ({ item: p.i, level: p.level })), ...cheerProblems(t).map((p) => ({ item: p.i, level: p.level })), ...elevationIssues(t).map((p) => ({ x: p.x, y: p.y, level: p.level })), ...boundaryCrossings(t).map((c) => ({ x: c.x, y: c.y, level: 'error' }))];
   let brush = null;
-  if (app.mode === 'height') brush = { shape: 'circle', r: Number($('#hRadius').value) };
+  if (app.mode === 'height' && !hillTool()) brush = { shape: 'circle', r: Number($('#hRadius').value) };
   else if (app.mode === 'ground') brush = { shape: 'cells', cell: t.ground?.cell ?? 2, n: Number($('#gBrush').value) };
   const sel = { item: app.mode === 'scenery' ? app.selItem : -1, sec: app.selSec, pt: app.selPt, start: app.selStart, route: app.selRoute };
   const shown = trackForView(t);
-  const ghost = app.mode === 'layout' ? ghostForView(t) : undefined;
+  const ghost = app.mode === 'layout' || app.mode === 'height' ? ghostForView(t) : undefined;
   // The route's control points, and the selected point's curve handles, for Layout.
   const L = lpts(t);
   const P = L[app.selPt];
@@ -5179,7 +5336,7 @@ async function tryServer() {
 setMode('layout');
 tryServer();
 openRaceView();
-window.trackEditor = { app, openRaceView, sendView, heightDab, elevAt, elevationIssues, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, findRef, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart, planWalk, alongStart, followStart, setOfficialAlong, trackRoom, walkRoom, undo, redo, trackForView, officialProblems, setFinish, finishGhost, addFinish, placeFinish, removeFinish, addStart, placeStart, placePiece, cancelPlacing, adjustPiece, readyToRace, tightCorners, keepJoined, startHere, lapLength, refresh, sectionBounds, boundaryCrossings, BOUND_OUT, SCENE_OUT, cheerProblems, routeDrawing, addRoutePoint, lpts, derive, rebuildPath, rebuildSections, splitSegment, segParam, layoutIndices, baseRuns, sectionFeats, featureProblems, featureTypes, featureAt, useFeatures, startFeature, featureGhost, placeFeature, deleteFeature, duplicateFeature, editFeature, startDrawing, stopDrawing, addLayoutPoint, closeRoute, deleteSegment, deletePoint, insertPoint, roundCorner, trackStatus, reverse, fitToGrid, newTrack, deleteSection, firstCornerSpan, inSpan }; // for tests
+window.trackEditor = { app, openRaceView, sendView, heightDab, elevAt, elevationIssues, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, findRef, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart, planWalk, alongStart, followStart, setOfficialAlong, trackRoom, walkRoom, undo, redo, trackForView, officialProblems, setFinish, finishGhost, addFinish, placeFinish, removeFinish, addStart, placeStart, placePiece, cancelPlacing, adjustPiece, readyToRace, tightCorners, keepJoined, startHere, lapLength, refresh, sectionBounds, boundaryCrossings, BOUND_OUT, SCENE_OUT, cheerProblems, routeDrawing, addRoutePoint, lpts, derive, rebuildPath, rebuildSections, splitSegment, segParam, layoutIndices, baseRuns, sectionFeats, featureProblems, featureTypes, featureAt, useFeatures, startFeature, featureGhost, placeFeature, deleteFeature, duplicateFeature, editFeature, startDrawing, stopDrawing, addLayoutPoint, closeRoute, deleteSegment, deletePoint, insertPoint, roundCorner, trackStatus, reverse, fitToGrid, newTrack, deleteSection, firstCornerSpan, inSpan, hillsAt, hillProfile, trackLevelAt, hillGhost, applyHill, hillTool }; // for tests
 </script>
 </body>
 </html>

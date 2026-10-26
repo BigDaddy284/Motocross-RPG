@@ -131,7 +131,7 @@ export const TRACKS_SCHEMA: Schema = {
       minItems: 1,
       items: {
         type: 'object',
-        optional: ['practiceOnly', 'gates', 'kind', 'width', 'patches', 'ground', 'scenery', 'start', 'elevation', 'layout', 'features'],
+        optional: ['practiceOnly', 'gates', 'kind', 'width', 'patches', 'ground', 'scenery', 'start', 'elevation', 'hills', 'layout', 'features'],
         fields: {
           id: IDS,
           name: S,
@@ -164,6 +164,8 @@ export const TRACKS_SCHEMA: Schema = {
               paint: { type: 'record', values: { type: 'array', items: { type: 'array', items: { type: 'number', integer: true, min: 0 }, minItems: 2, maxItems: 2 } } },
             },
           },
+          // The editor's hills and dips along the track (elevation.ts TrackHill).
+          hills: { type: 'array', items: { type: 'object', fields: { at: N0, len: { type: 'number', min: 0.5 }, height: N } } },
           elevation: {
             type: 'object',
             fields: {

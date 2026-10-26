@@ -1,5 +1,5 @@
 import type { TrackDef } from './race';
-import { Elevation } from './elevation';
+import { Elevation, hillsAt } from './elevation';
 import { DEFAULT_HEIGHTS } from './riderAI';
 import { headingAt, lapGeom, lapMetres, nearestOnLap, pointAt, sectionBounds, sectionTurns, startGeom, startHalfWidth, startHeadingAt, startPointAt, type LapGeom, type StartGeom } from './trackGeom';
 import { DEFAULT_TRACK_WIDTH } from './trackParts';
@@ -202,14 +202,17 @@ export class TrackSurface {
   }
 
   /**
-   * How far the editor's ground elevation (elevation.ts) lifts the track at lap fraction f, in grid
-   * units: the ground under the middle of the track. The track is graded level across its width,
-   * and the race view's terrain eases from that level out to the ground either side.
+   * How far the editor's elevation (elevation.ts) lifts the track at lap fraction f, in grid
+   * units: the ground under the middle of the track plus the hills and dips put on the track
+   * along its length. The track is graded level across its width, and the race view's terrain
+   * eases from that level out to the ground either side, which is what makes a raised track's
+   * sides.
    */
   lift(f: number): number {
-    if (this.elev.empty) return 0;
+    const hills = this.track.hills?.length ? hillsAt(this.track.hills, (((f % 1) + 1) % 1) * this.g.total, this.g.total) : 0;
+    if (this.elev.empty) return this.units(hills);
     const p = pointAt(this.g, f);
-    return this.units(this.elev.at(p.x, p.y));
+    return this.units(this.elev.at(p.x, p.y) + hills);
   }
 
   /** The editor's ground elevation at a point, in grid units. */
@@ -252,7 +255,7 @@ export class TrackSurface {
    * instead of one burying the other.
    */
   startGround(u: number, x?: number, z?: number): number {
-    if (this.elev.empty || this.start.total <= 0) return 0;
+    if ((this.elev.empty && !this.track.hills?.length) || this.start.total <= 0) return 0;
     const c = startPointAt(this.start, Math.max(0, Math.min(this.start.total, u)));
     const own = this.groundAt(c.x, c.y);
     // Skip the lap search where this stretch of the start straight is nowhere near the lap.

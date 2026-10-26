@@ -28,6 +28,11 @@ const CAM_EL = 38;
 const VIEW_UNITS: Record<string, number> = { stadium: 36, outdoor: 32, endurance: 32 };
 /** Ground drawn round the 100 × 60 grid, in grid units. */
 const MARGIN = 24;
+// The bank at each edge of the track runs a little past its foot and a little under the ground, so
+// where the ground slopes away from a raised track its triangles (drawn flat between lattice points)
+// never show through the bank.
+const FOOT_OUT = 1.25;
+const FOOT_BURY = 0.15;
 const TILE_PX = 32;
 const ART_DIR = 'assets/art/area-map/tiled/tiles';
 const SURFACES: Record<string, number> = { hard_pack: 0xb07a45, loam: 0x8a5a33, sand: 0xd8c07a, mud: 0x6b4a2b };
@@ -411,26 +416,64 @@ export class RaceView {
       const t = Math.max(0, Math.min(1, x));
       return t * t * (3 - 2 * t);
     };
-    // The editor's ground elevation: the painted ground, except by the track, which is graded level
-    // across its width at the ground under its middle, so the ground there eases from that level
-    // (right under the track, its lip and slope) out to the painted ground over a few grid units.
-    if (!s.elev.empty) {
-      const mid: { x: number; z: number; r: number; l: number }[] = [];
+    // The editor's elevation: the painted ground, except by the track, which is graded level across
+    // its width at its own level (the ground under its middle plus its hills), so the ground there
+    // eases from that level (right under the track, its lip and slope) out to the painted ground.
+    // That easing is a raised or sunk track's side: grass, as wide as it needs to be to stay a
+    // slope (SIDE_RUN grid units of run for each grid unit of rise), never a wall.
+    if (!s.elev.empty || s.track.hills?.length) {
+      // Bits of track in route order: the lap (seg 0) then the start straight (seg 1).
+      const mid: { x: number; z: number; r: number; l: number; seg: number; u?: number }[] = [];
       for (let i = 0; i < n; i++) {
         const f = i / n;
         if (!this.drawn(f)) continue;
         const p = s.spot(f, 0);
-        mid.push({ x: p.x, z: p.z, r: s.hw * (LIP_AT + Math.max(s.skirt(f, -1), s.skirt(f, 1))), l: s.lift(f) });
+        mid.push({ x: p.x, z: p.z, r: s.hw * (LIP_AT + Math.max(s.skirt(f, -1), s.skirt(f, 1))), l: s.lift(f), seg: 0 });
       }
+      const lapEnd = mid.length;
       for (let u = -START_PAD; u < s.start.total; u += 0.5) {
         const p = startPointAt(s.start, u);
-        mid.push({ x: p.x, z: p.y, r: s.startHw(u) * LIP_AT + 0.4, l: s.startGround(u) });
+        mid.push({ x: p.x, z: p.y, r: s.startHw(u) * LIP_AT + 0.4, l: s.startGround(u), seg: 1, u });
       }
+      // The level of the track at the bit of route nearest a point: interpolated along the route
+      // between the nearest bit and its neighbours, so under the track and at its foot the ground
+      // is exactly the track's level, with none of the smoothing below (which, on a hill's
+      // shoulders, would lift the ground into the riding surface).
+      const exact = (x: number, z: number, k: number) => {
+        const q = mid[k];
+        // The start straight's level is graded to the lap where they meet, so it is a function of
+        // the spot itself.
+        if (q.seg === 1) return s.startGround(q.u!, x, z);
+        const nb = (j: number) => {
+          if (q.seg === 0) return mid[((j % lapEnd) + lapEnd) % lapEnd];
+          return j >= lapEnd && j < mid.length ? mid[j] : undefined;
+        };
+        let bestD = Infinity;
+        let level = q.l;
+        for (const o of [nb(k - 1), nb(k + 1)]) {
+          if (!o || o === q) continue;
+          const dx = o.x - q.x;
+          const dz = o.z - q.z;
+          const len2 = dx * dx + dz * dz;
+          if (len2 < 1e-9) continue;
+          const t = Math.max(0, Math.min(1, ((x - q.x) * dx + (z - q.z) * dz) / len2));
+          const d = Math.hypot(x - (q.x + dx * t), z - (q.z + dz * t));
+          if (d < bestD) {
+            bestD = d;
+            level = q.l + (o.l - q.l) * t;
+          }
+        }
+        return level;
+      };
       const BLEND = 3;
-      // Only bits of track within reach can matter: nearer than BLEND past their own reach for the
-      // blend, and the soft weights below drop out (under 1e-4) past 2.28 beyond the nearest. So each
-      // point looks at the bits in its own and the neighbouring cells, in their original order.
-      const reach = BLEND + Math.max(0, ...mid.map((q) => q.r)) + 2.3;
+      const SIDE_RUN = 1.5;
+      const blendAt = (drop: number) => Math.max(BLEND, drop * SIDE_RUN);
+      const maxBlend = blendAt(Math.max(0, ...mid.map((q) => Math.abs(q.l - s.groundAt(q.x, q.z)))));
+      // Only bits of track within reach can matter: nearer than the widest blend past their own
+      // reach for the blend, and the soft weights below drop out (under 1e-4) past 2.28 beyond the
+      // nearest. So each point looks at the bits in its own and the neighbouring cells, in their
+      // original order.
+      const reach = maxBlend + Math.max(0, ...mid.map((q) => q.r)) + 2.3;
       const cw = Math.ceil(tw / reach);
       const ch = Math.ceil(th / reach);
       const cellOf = (x: number, z: number) => [Math.floor((x + MARGIN) / reach), Math.floor((z + MARGIN) / reach)];
@@ -439,14 +482,17 @@ export class RaceView {
         const [ci, cj] = cellOf(q.x, q.z);
         inCell[Math.max(0, Math.min(ch - 1, cj)) * cw + Math.max(0, Math.min(cw - 1, ci))].push(k);
       });
-      const nearby: (typeof mid)[] = [];
+      const nearby: number[][] = [];
       for (let cj = 0; cj < ch; cj++) {
         for (let ci = 0; ci < cw; ci++) {
           const ks: number[] = [];
           for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) if (ci + di >= 0 && ci + di < cw && cj + dj >= 0 && cj + dj < ch) ks.push(...inCell[(cj + dj) * cw + ci + di]);
-          nearby.push(ks.sort((a, b) => a - b).map((k) => mid[k]));
+          nearby.push(ks.sort((a, b) => a - b));
         }
       }
+      // Under the riding surface the ground sits a little below the track, so the track's mesh is
+      // never pushed up by the ground between the lattice's points; the gap closes at the foot.
+      const SINK = 0.05;
       for (let j = 0; j < th; j++) {
         for (let i = 0; i < tw; i++) {
           const x = i - MARGIN;
@@ -457,26 +503,39 @@ export class RaceView {
           // softly so the ground has no seam where two stretches at different levels come close.
           let best = Infinity;
           let near = Infinity;
-          for (const q of local) {
+          let nearest = -1;
+          for (const k of local) {
+            const q = mid[k];
             const dc = Math.hypot(x - q.x, z - q.z);
             best = Math.min(best, dc - q.r);
-            near = Math.min(near, dc);
+            if (dc < near) {
+              near = dc;
+              nearest = k;
+            }
           }
-          if (best >= BLEND) {
+          if (best >= maxBlend) {
             this.terrain[j * tw + i] = s.groundAt(x, z);
             continue;
           }
-          let sum = 0;
-          let wt = 0;
-          for (const q of local) {
-            const k = Math.exp(-(((Math.hypot(x - q.x, z - q.z) - near) / 0.75) ** 2));
-            if (k < 1e-4) continue;
-            sum += k * q.l;
-            wt += k;
+          let l = exact(x, z, nearest);
+          if (best < 0) {
+            l -= SINK * smooth(-best / 0.7);
+          } else {
+            let sum = 0;
+            let wt = 0;
+            for (const k of local) {
+              const q = mid[k];
+              const kw = Math.exp(-(((Math.hypot(x - q.x, z - q.z) - near) / 0.4) ** 2));
+              if (kw < 1e-4) continue;
+              sum += kw * q.l;
+              wt += kw;
+            }
+            // Out from the foot, over a grid unit and a half, the exact level gives way to the soft one.
+            l += (sum / wt - l) * smooth(best / 1.5);
           }
-          const l = sum / wt;
-          const w = smooth(best / BLEND);
-          this.terrain[j * tw + i] = l * (1 - w) + s.groundAt(x, z) * w;
+          const ground = s.groundAt(x, z);
+          const w = smooth(best / blendAt(Math.abs(l - ground)));
+          this.terrain[j * tw + i] = l * (1 - w) + ground * w;
         }
       }
     }
@@ -574,13 +633,13 @@ export class RaceView {
       const f = i / rows;
       const skL = s.skirt(f, -1);
       const skR = s.skirt(f, 1);
-      const lanes = [-(LIP_AT + skL), -(LIP_AT + skL * 0.45), -LIP_AT, ...inner, LIP_AT, LIP_AT + skR * 0.45, LIP_AT + skR];
+      const lanes = [-(LIP_AT + skL * FOOT_OUT), -(LIP_AT + skL * 0.45), -LIP_AT, ...inner, LIP_AT, LIP_AT + skR * 0.45, LIP_AT + skR * FOOT_OUT];
       const patch = this.patchAt(f);
       const grain = 0.94 + 0.1 * noise(i);
       lanes.forEach((lane, j) => {
         const p = s.spot(f, lane);
         const foot = j === 0 || j === cols - 1;
-        pos.push(p.x, foot ? this.terrainAt(p.x, p.z) : Math.max(s.height(f, lane), this.terrainAt(p.x, p.z) + 0.02), p.z);
+        pos.push(p.x, foot ? this.terrainAt(p.x, p.z) - FOOT_BURY : Math.max(s.height(f, lane), this.terrainAt(p.x, p.z) + 0.02), p.z);
         // The dirt texture runs along the lap, one repeat every 4 grid units.
         uv.push((f * s.g.total) / 4, (lane + 2) / 4);
         let color: number;
@@ -633,14 +692,14 @@ export class RaceView {
       const dip = 0.006 * Math.max(0, Math.min(1, (u - merge) / 0.5));
       const lip = s.startHeight(u, LIP_AT);
       const sk = Math.max(0.35, lip * 0.9) / s.startHw(u);
-      const lanes = [-(LIP_AT + sk), -(LIP_AT + sk * 0.45), -LIP_AT, ...inner, LIP_AT, LIP_AT + sk * 0.45, LIP_AT + sk];
+      const lanes = [-(LIP_AT + sk * FOOT_OUT), -(LIP_AT + sk * 0.45), -LIP_AT, ...inner, LIP_AT, LIP_AT + sk * 0.45, LIP_AT + sk * FOOT_OUT];
       const grain = 0.94 + 0.1 * noise(i + 977);
       // Concrete under the gate and the line-up, dirt from just past the gate.
       const pad = u < 0.9;
       lanes.forEach((lane, j) => {
         const p = s.startSpot(u, lane);
         const foot = j === 0 || j === cols - 1;
-        pos.push(p.x, foot ? this.terrainAt(p.x, p.z) : Math.max(s.startHeight(u, lane), this.terrainAt(p.x, p.z) + 0.02) - dip, p.z);
+        pos.push(p.x, foot ? this.terrainAt(p.x, p.z) - FOOT_BURY : Math.max(s.startHeight(u, lane), this.terrainAt(p.x, p.z) + 0.02) - dip, p.z);
         uv.push(u / 4, (lane + 2) / 4);
         let color: number;
         if (Math.abs(lane) <= 1) color = pad ? shade(0xa8a49a, 0.95 + 0.06 * noise(i * 7 + j)) : shade(base, grain * (0.97 + 0.06 * noise(i * 31 + j)));

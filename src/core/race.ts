@@ -1,7 +1,7 @@
 import { bikeStats, type Bike, type BikesData } from './career';
 import { firstCornerSpan, inSpan, lapGeom, lapPlan, sectionBounds, startGeom, type DrawnShape, type LapSpan, type StartGeom } from './trackGeom';
 import type { RiderStyle } from './riderProfile';
-import { sectionGrades, type TrackElevation } from './elevation';
+import { sectionGrades, type TrackElevation, type TrackHill } from './elevation';
 
 // The race simulation (Spec 10, GDD 11). Pure rules with no graphics: the race screen plays a
 // lap's results out section by section, and auto-complete just runs the laps straight through,
@@ -192,6 +192,8 @@ export interface TrackDef {
   scenery?: SceneryItem[];
   /** Raised and lowered ground under and round the track (elevation.ts); flat when left out. */
   elevation?: TrackElevation;
+  /** Hills and dips along the track from the editor's elevation tool (elevation.ts); none when left out. */
+  hills?: TrackHill[];
   /** The track editor's route: its control points ([x, y], with curve handles after), from which `path` is drawn. The next one after the start straight's join ends the first corner (trackGeom.firstCornerSpan). */
   layout?: { points: number[][] };
 }
