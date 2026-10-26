@@ -60,6 +60,13 @@ To resume: `npm install`, `npm test`, `npm run dev`, then open `/tools/track-edi
 
 ## What's in this build
 
+### Alpha v1: three race venues
+
+- **Riverside Arena and Longmoor Enduro are open.** The two tracks that were editor test tracks are now race venues in the game, on the maps that were Quarry MX and Woodland MX (the map and venue ids stay `area1-venue-quarry` / `venue-quarry` and `area1-venue-woodland` / `venue-woodland`, so saves carry over). Each has its own track official by the race office (`npc.track_official_quarry`, `npc.track_official_woodland`), the same 16-rider field, and the same prices as Farmland MX: £20 entry, practice at 25% of entry, and the first race day of a career free.
+- **The start official** stands on the start straight at all three tracks and walks off it before the drop, placed in each track's data (a `start_official` scenery item with its route).
+- **A natural line-up.** CPU riders pick gates they like (most want the inside, but each has a favourite spot), and riders roll up to the gate in pick order, front row first, so the start fills unevenly.
+- **Shift pay is 10× while testing** (`testPayMultiplier` in `public/data/world.json`; review before Final v1).
+
 ### Added to test build 0.3: your van on the map
 
 Following Boss's brief "Seven Vans, Vehicle Gameplay Integration and Bike Model Updates" (24 Oct 2026). Art and the full audit are in the shared art folder under `art/vehicles/`.

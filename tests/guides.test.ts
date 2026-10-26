@@ -36,17 +36,17 @@ describe('route marshals', () => {
   it('in Home Town, name both ways out: the venue road and the Industrial Zone', () => {
     const lines = directions(waysOut(map('area1-home-town'), world, maps, travel, OPEN));
     expect(lines).toEqual([
-      'Out to the west, the venue road goes to Farmland MX, Quarry MX and Woodland MX.',
+      'Out to the west, the venue road goes to Farmland MX, Riverside Arena and Longmoor Enduro.',
       "Farmland MX: Hard-pack local track. The local racer's favourite.",
-      "Quarry MX: Rocky, with big hills. Locked until its owner's tasks are done.",
-      "Woodland MX: Tight and rooty under the trees. Locked until its owner's tasks are done.",
+      'Riverside Arena: Supercross in the arena by the river: tight turns and tuff blocks.',
+      'Longmoor Enduro: A long loop under the trees.',
       'Out to the east, that road takes you to Industrial Zone.',
     ]);
   });
 
   it("say the venue road is shut, and why, until it's open", () => {
     const lines = directions(waysOut(map('area1-home-town'), world, maps, travel, {}));
-    expect(lines[0]).toBe("Out to the west, the venue road goes to Farmland MX, Quarry MX and Woodland MX. It's shut for you just now: You'll need a van, loaded with your bike, to get to the tracks.");
+    expect(lines[0]).toBe("Out to the west, the venue road goes to Farmland MX, Riverside Arena and Longmoor Enduro. It's shut for you just now: You'll need a van, loaded with your bike, to get to the tracks.");
     expect(lines).toHaveLength(2);
   });
 
@@ -70,7 +70,7 @@ describe('route marshals', () => {
     const w = structuredClone(world);
     w.places.push({ map: 'area1-nowhere', spawn: 'x', name: 'Nowhere', note: '' });
     w.routes[0].to.push('area1-nowhere');
-    expect(routePlaces(w, maps, w.routes[0]).map((p) => p.name)).toEqual(['Farmland MX', 'Quarry MX', 'Woodland MX']);
+    expect(routePlaces(w, maps, w.routes[0]).map((p) => p.name)).toEqual(['Farmland MX', 'Riverside Arena', 'Longmoor Enduro']);
     w.routes[0].to = ['area1-nowhere'];
     expect(directions(waysOut(map('area1-home-town'), w, maps, travel, OPEN))[0]).toBe("Out to the west, that road doesn't go anywhere yet.");
   });

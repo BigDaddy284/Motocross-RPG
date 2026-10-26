@@ -180,10 +180,10 @@ describe('roadworks and the venue route', () => {
 });
 
 describe('testing pay boost', () => {
-  it('triples shift pay while testing (review before Final v1)', () => {
+  it('pays 10× for shifts while testing (review before Final v1)', () => {
     const fab = world.jobs.find((j) => j.id === 'job.fabrication')!;
-    expect(world.testPayMultiplier).toBe(3);
-    expect(jobPay(world, fab)).toBe(225);
+    expect(world.testPayMultiplier).toBe(10);
+    expect(jobPay(world, fab)).toBe(750);
     expect(jobPay({ ...world, testPayMultiplier: undefined }, fab)).toBe(75);
   });
 });
