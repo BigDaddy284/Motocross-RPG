@@ -231,7 +231,7 @@ export class RaceScene extends Phaser.Scene {
       if (who) {
         const r = this.add.rectangle(x, y, gw - 8, 46, COLORS.inkLine).setStrokeStyle(2, COLORS.panelLight);
         this.screen.add(r);
-        this.text(x, y + 4, initials(this.names.get(who) ?? ''), 18, COLORS.muted).setOrigin(0.5);
+        this.text(x, y + 4, gateBadges(this.names).get(who) ?? '', 18, COLORS.muted).setOrigin(0.5);
       } else {
         const b = this.btn(x, y, bonus > 0 ? `+${bonus}%` : bonus < 0 ? `${bonus}%` : '0%', () => {
           chosen = g;
@@ -599,7 +599,7 @@ export class RaceScene extends Phaser.Scene {
     this.ui.me.setText(lines.join('\n'));
     this.ui.feed.setText(this.feed.slice(-5).join('\n'));
     this.ui.tower.setText(order.map((p, i) => {
-      const name = (this.names.get(p.id) ?? '').padEnd(14).slice(0, 14);
+      const name = (this.names.get(p.id) ?? '').padEnd(15).slice(0, 15);
       const g = p.out ? 'OUT' : i === 0 ? (p.finished ? formatTime(p.finishT) : 'Leader') : `+${gap(p).toFixed(1)}`;
       return `${String(i + 1).padStart(2)}  ${p.id === PLAYER_ID ? '▶ ' : '  '}${name} ${g.padStart(7)}`;
     }).join('\n'));
@@ -1011,4 +1011,16 @@ export function ordinal(n: number): string {
 function initials(name: string): string {
   if (name === 'You') return 'You';
   return name.split(' ').map((p) => p[0]).join('');
+}
+
+/** Each rider's gate badge: their initials, or, where two in the field share them, the first two letters of the first name and the surname's initial (Jason and Jordan Styles: JaS, JoS). */
+export function gateBadges(names: Map<string, string>): Map<string, string> {
+  const plain = new Map([...names].map(([id, n]) => [id, initials(n)]));
+  const count = new Map<string, number>();
+  for (const b of plain.values()) count.set(b, (count.get(b) ?? 0) + 1);
+  return new Map([...plain].map(([id, b]) => {
+    if (count.get(b)! < 2 || b === 'You') return [id, b];
+    const parts = names.get(id)!.split(' ');
+    return [id, `${parts[0].slice(0, 2)}${parts.slice(1).map((p) => p[0]).join('')}`];
+  }));
 }

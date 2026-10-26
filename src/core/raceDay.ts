@@ -20,7 +20,12 @@ export interface CpuRiderDef {
 
 export interface RidersData {
   riders: CpuRiderDef[];
+  /** Each field's pool of CPU riders. Without a size, everyone in it races. */
   fields: Record<string, string[]>;
+  /** How many CPU riders race from a field: its regulars, then the rest drawn at random from its pool each race day. */
+  fieldSize?: Record<string, number>;
+  /** Riders in a field who race every race day it is raced (the Local Champion). */
+  regulars?: Record<string, string[]>;
 }
 
 export interface VenueDef {
@@ -43,6 +48,8 @@ export interface VenueDef {
   area?: [number, number, number, number];
   /** While set, the venue stays shut with this message. */
   locked?: string;
+  /** Riders from the field's pool who race every race day here, on top of the field's own regulars. */
+  regulars?: string[];
 }
 
 export interface TracksData {
@@ -157,7 +164,7 @@ export class RaceDay {
     this.cls = venue.class ?? '50cc';
     this.laps = rc.racing.classes[this.cls].laps;
     this.rng = seededRng(seed);
-    const cpus = (rc.riders.fields[venue.field ?? ''] ?? []).map((id) => rc.riders.riders.find((r) => r.id === id)!).filter(Boolean);
+    const cpus = drawField(rc, venue, seed);
     this.field = [player, ...cpus.map((d) => cpuEntrant(rc, d, this.cls))];
     this.pickOrder = shuffle(this.field.map((e) => e.id), this.rng);
   }
@@ -326,6 +333,29 @@ export function sumXp(...sets: Record<string, number>[]): Record<string, number>
   const out: Record<string, number> = {};
   for (const s of sets) for (const [k, v] of Object.entries(s)) out[k] = (out[k] ?? 0) + v;
   return out;
+}
+
+/**
+ * The CPU riders on a race day: the field's regulars and the venue's, then riders drawn at random
+ * from the rest of the field's pool (seeded by the day) up to the field's size. A field without a
+ * size races its whole pool, in its listed order.
+ */
+export function drawField(rc: RaceContent, venue: VenueDef, seed: number): CpuRiderDef[] {
+  const id = venue.field ?? '';
+  const pool = (rc.riders.fields[id] ?? []).map((r) => rc.riders.riders.find((x) => x.id === r)!).filter(Boolean);
+  const size = rc.riders.fieldSize?.[id];
+  if (size === undefined || size >= pool.length) return pool;
+  const always = new Set([...(rc.riders.regulars?.[id] ?? []), ...(venue.regulars ?? [])]);
+  const regulars = pool.filter((r) => always.has(r.id));
+  const drawn = shuffle(pool.filter((r) => !always.has(r.id)), seededRng(mixSeed(seed, 0x6669656c)));
+  return [...regulars, ...drawn].slice(0, Math.max(size, regulars.length));
+}
+
+/** How many CPU riders race a race day here. */
+export function fieldCount(rc: RaceContent, venue: VenueDef): number {
+  const id = venue.field ?? '';
+  const pool = rc.riders.fields[id]?.length ?? 0;
+  return Math.min(pool, rc.riders.fieldSize?.[id] ?? pool);
 }
 
 function shuffle<T>(a: T[], rng: () => number): T[] {

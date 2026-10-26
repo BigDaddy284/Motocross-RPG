@@ -11,7 +11,7 @@ import { directions, guidesOn, routeArrival, waysOut } from '../core/guides';
 import { ROUTE, spawnTile, stepTriggerAt, type Arrival, type StepResult } from '../core/travel';
 import { DriveMap, FACING_OF, ensureVan, exitTile, footprint, inwardHeading, nearestFree, placeNear, planDrive, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { MOD_PLACE, forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
-import { entryFee, practiceFee, venueProblem, type VenueDef } from '../core/raceDay';
+import { entryFee, fieldCount, practiceFee, venueProblem, type VenueDef } from '../core/raceDay';
 import { noteActivity, shopForAction, type ShopDef } from '../core/shops';
 import { CAREER_SLOT, services } from '../services';
 import { Character, TILE } from '../world/Character';
@@ -625,7 +625,7 @@ export class WorldScene extends Phaser.Scene {
     }
     const fee = entryFee(rc, venue, this.save.flags);
     const cls = rc.racing.classes[venue.class ?? '50cc'];
-    const field = (rc.riders.fields[venue.field ?? ''] ?? []).length + 1;
+    const field = fieldCount(rc, venue) + 1;
     const first = fee === 0 && venue.firstRaceFree;
     const text = [
       mod ? mod.intro : first ? "First time here? Your first race day is on us." : 'Race office. What can I do for you?',
