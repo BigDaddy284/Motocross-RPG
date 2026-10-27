@@ -41,6 +41,10 @@ export interface SceneryDef {
   text?: string;
   /** Built to stand over the track (start gates, finish arches); everything else must stay off it. */
   overTrack?: boolean;
+  /** Paddock vehicles (paddock.ts): the designs, set-ups and colours an item can have, picked for it when it names none. */
+  variants?: [string, string][];
+  setups?: [string, string][];
+  colours?: string[];
 }
 
 export interface TrackPartsData {
@@ -59,6 +63,8 @@ const ID = /^[a-z0-9_.-]+$/;
 const IDS = { type: 'string', pattern: ID } as const;
 const S = { type: 'string', nonEmpty: true } as const;
 const COLOR = { type: 'string', pattern: /^#[0-9a-fA-F]{3,8}$/ } as const;
+/** Options an item can have: [id, name] pairs. */
+const OPTIONS = { type: 'array', minItems: 1, items: { type: 'array', minItems: 2, maxItems: 2, items: S } } as const;
 const ART = { type: 'string', pattern: /^[a-z0-9_-]+\/[a-z0-9_.-]+$/ } as const;
 
 export const TRACK_PARTS_SCHEMA: Schema = {
@@ -76,8 +82,8 @@ export const TRACK_PARTS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['art', 'text', 'overTrack'],
-        fields: { id: IDS, name: S, w: { type: 'number', min: 0.1 }, h: { type: 'number', min: 0.1 }, color: COLOR, art: ART, text: { type: 'string' }, overTrack: { type: 'boolean' } },
+        optional: ['art', 'text', 'overTrack', 'variants', 'setups', 'colours'],
+        fields: { id: IDS, name: S, w: { type: 'number', min: 0.1 }, h: { type: 'number', min: 0.1 }, color: COLOR, art: ART, text: { type: 'string' }, overTrack: { type: 'boolean' }, variants: OPTIONS, setups: OPTIONS, colours: { type: 'array', minItems: 1, items: COLOR } },
       },
     },
   },

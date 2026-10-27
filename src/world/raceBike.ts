@@ -154,10 +154,19 @@ const mid = (a: V3, b: V3): V3 => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] +
  * and the wheelbase `length` long. The models are in metres with x forward, y left and z up
  * (vehgen), turned here into the race view's x forward, y up.
  */
-export function raceBikeParts(look: RaceLook, length: number): THREE.Mesh[] {
+export type BrandColours = (typeof BRAND_COLOURS)[string];
+/** Brand colours for a bike in any one colour: plastics and frame in it, with white (or black on a light bike) accents. */
+export function brandFromColour(color: number): BrandColours {
+  const lum = (((color >> 16) & 0xff) * 0.3 + ((color >> 8) & 0xff) * 0.59 + (color & 0xff) * 0.11) / 255;
+  const accent = lum > 0.72 ? BLACK : BRIGHT_WHITE;
+  return { body: color, body2: accent, frame: color, frame2: BLACK, plate: accent };
+}
+
+/** The bike's meshes, and the rider's unless `rider` is false (a parked bike in the paddock); `colours` replaces the brand's. */
+export function raceBikeParts(look: RaceLook, length: number, opts: { rider?: boolean; colours?: BrandColours } = {}): THREE.Mesh[] {
   const M = MODELS[modelFor(look.cls)];
   const k = length / M.wb;
-  const brand = BRAND_COLOURS[look.brand] ?? BRAND_COLOURS.hondmoto;
+  const brand = opts.colours ?? BRAND_COLOURS[look.brand] ?? BRAND_COLOURS.hondmoto;
   const g = look.gear;
   const mats = new Map<number, THREE.MeshLambertMaterial>();
   const mat = (c: number) => mats.get(c) ?? mats.set(c, new THREE.MeshLambertMaterial({ color: c })).get(c)!;
@@ -243,6 +252,7 @@ export function raceBikeParts(look: RaceLook, length: number): THREE.Mesh[] {
   rod(add(bar, [0, -0.36, 0]), add(bar, [0, 0.36, 0]), 0.018, FIXED.bar);
   rod(add(head, [0.02, 0, 0.08]), bar, 0.022, FIXED.metal);
 
+  if (opts.rider === false) return out;
   // The chibi rider, seated: helmet about half the figure.
   const s = M.rider;
   const peg = add(eng, [-0.06, 0, -0.12]);
