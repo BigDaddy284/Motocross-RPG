@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BACKUP_COUNT, SAVE_VERSION, SaveManager, parseSave } from '../src/core/saves';
+import { BACKUP_COUNT, SAVE_FILE, SAVE_VERSION, SaveManager, parseSave, readSaveFile, saveFileName, saveFileText } from '../src/core/saves';
 import { MemoryStore } from '../src/core/storage';
 
 const sample = (x: number) => ({
@@ -93,5 +93,53 @@ describe('SaveManager', () => {
     saves.write('career-1', sample(2));
     saves.write('career-2', sample(1));
     expect(saves.slots()).toEqual(['career-1', 'career-2']);
+  });
+});
+
+describe('save files', () => {
+  const at = (iso: string) => () => new Date(iso);
+
+  it('round-trips a save through export and import into another browser', () => {
+    const exported = new SaveManager(new MemoryStore(), at('2026-10-27T10:00:00Z')).write('career-1', sample(7));
+    const text = saveFileText(exported);
+    expect(JSON.parse(text).format).toBe(SAVE_FILE);
+    const f = readSaveFile(text);
+    expect(f.ok).toBe(true);
+    if (!f.ok) return;
+    const other = new SaveManager(new MemoryStore(), at('2026-11-01T09:00:00Z'));
+    other.importSave('career-1', f.data);
+    const r = other.load('career-1');
+    expect(r.status).toBe('ok');
+    if (r.status === 'ok') expect(r.data).toEqual(exported);
+  });
+
+  it('keeps the replaced career as backup 1', () => {
+    const saves = new SaveManager(new MemoryStore());
+    saves.write('career-1', sample(1));
+    const f = readSaveFile(saveFileText(new SaveManager(new MemoryStore()).write('career-1', sample(9))));
+    if (!f.ok) throw new Error(f.reason);
+    saves.importSave('career-1', f.data);
+    expect(saves.restoreBackup('career-1', 1)?.position.x).toBe(1);
+  });
+
+  it('reads a bare stored save and upgrades an old one', () => {
+    const old = { version: 1, savedAt: '2026-01-01T00:00:00Z', rider: { name: 'Old', look: 'x' }, position: { map: 'm', x: 1, y: 2, facing: 'up' }, flags: {}, stats: { playSeconds: 3 } };
+    const f = readSaveFile(JSON.stringify({ format: SAVE_FILE, save: old }));
+    expect(f.ok).toBe(true);
+    if (f.ok) expect(f.data.version).toBe(SAVE_VERSION);
+    expect(readSaveFile(JSON.stringify({ ...sample(2), version: SAVE_VERSION, savedAt: 'x' })).ok).toBe(true);
+  });
+
+  it('says why a file cannot be imported', () => {
+    const reason = (t: string) => { const f = readSaveFile(t); return f.ok ? '' : f.reason; };
+    expect(reason('nope')).toMatch(/not valid JSON/);
+    expect(reason('{"format":"mxrpg-track","track":{}}')).toMatch(/not a save file/);
+    expect(reason(JSON.stringify({ format: SAVE_FILE, save: { ...sample(1), version: SAVE_VERSION + 1, savedAt: 'x' } }))).toMatch(/newer version/);
+    expect(reason(JSON.stringify({ format: SAVE_FILE, save: { ...sample(1), version: SAVE_VERSION, savedAt: 'x', career: {} } }))).toMatch(/damaged/);
+  });
+
+  it('names the file after the rider and the day', () => {
+    const d = new SaveManager(new MemoryStore(), at('2026-10-27T10:00:00Z')).write('career-1', { ...sample(1), rider: { name: 'Jo Smith!', look: 'x' } });
+    expect(saveFileName(d)).toBe('mxrpg-jo-smith-2026-10-27.save.json');
   });
 });
