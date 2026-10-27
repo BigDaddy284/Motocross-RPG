@@ -6,9 +6,9 @@ A single-player, offline motocross career RPG. Start as an unknown rider with a 
 | --- | --- |
 | ![Home Town, with the player standing next to the old rusty truck](docs/screenshots/alpha-v1-home-town-rusty-truck.png) | ![A race day at Farmland MX, with riders in the air over the double](docs/screenshots/alpha-v1-race-day-farmland-double.png) |
 
-This is **Alpha v1**: the first build with the whole career loop in place, from a broken bike to race days at three venues, plus player-made tracks. All art is placeholder art in the agreed style, imported from the project's art threads.
+This is **Alpha v1.1**: the whole career loop from a broken bike to race days at three venues, player-made tracks, and now the **Local Champion Championship** for the Area 1 badge. All art is placeholder art in the agreed style, imported from the project's art threads.
 
-## What Alpha v1 offers
+## What Alpha v1.1 offers
 
 The game loop: **earn money, keep the bike going, race, level up, repeat.**
 
@@ -17,8 +17,9 @@ The game loop: **earn money, keep the bike going, race, level up, repeat.**
 3. **Look after the bike.** Every lap wears its parts, and a part at 0% breaks. Buy new or better-grade parts at the general bike shop and the tyre shop in Home Town (fitted free, or kept as spares in your bag), and pay the local garage to repair or fit them.
 4. **Get a van** and load your bike to reach the tracks on the venue road.
 5. **Race.** Three venues are open: **Farmland MX**, **Riverside Arena** and **Longmoor Enduro**, each with a track official at the race office. A race day is two motos of 5 laps against 15 riders, including the Local Champion: £20 entry (your first race day is free), gate picks, a start official and a pit board, with prize money to 10th in each moto. Free practice is 25% of the entry, and the backyard loop at home is free.
-6. **Level up.** Racing and practice train your Rider Ability skills, and better skills and better parts make you faster.
-7. **Race your own tracks** with **Mod Track** on the venue road (see *Making and installing mod tracks* below).
+6. **Win the badge.** After your first race day, enter the **Local Champion Championship** at any race office: three rounds, one at each track, against the same 20 riders, with qualifying and points for every moto. Win it for the Area 1 badge, which opens the six-round **Area 1 Championship**.
+7. **Level up.** Racing and practice train your Rider Ability skills, and better skills and better parts make you faster.
+8. **Race your own tracks** with **Mod Track** on the venue road (see *Making and installing mod tracks* below).
 
 It runs in a browser on desktop or on a phone held sideways, and saves automatically.
 
@@ -114,6 +115,23 @@ Known limits: a finish line placed inside a bend splits that section, and a shor
 To resume: `npm install`, `npm test`, `npm run dev`, then open `/tools/track-editor.html` or `/tools/map-editor.html`.
 
 ## What's in this build
+
+### Alpha v1.1: championships
+
+Checked against the last open line of the "Starter career slice" checklist (Systems Specification section 22): the Local Champion championship (3 rounds, one per track, 20 riders with qualifying) awards the badge, and the main area championship (6 rounds) then unlocks.
+
+- **Two championships** in a new content file, `championships.json` (checked at start-up): the **Local Champion Championship** (rounds at Farmland MX, Riverside Arena and Longmoor Enduro) and the **Area 1 Championship** (two rounds at each, in the same order), both 50cc (Spec 12.5, 18.6).
+- **Entering.** Every race office has a **Championships** choice: enter one, see where you stand, **Start again** from round 1 against a new field, or **Give it up**. The Local Champion one opens after your first race day; the Area 1 one needs the badge. Entering is free; each round is entered at its own track's race office, where **Local Champion round N** replaces the local race day while your next round is on there (Spec 18.6, 6C). There is no calendar, so a championship waits until you ride its next round.
+- **The field.** 19 CPU riders drawn from the Area 1 pool when you enter, the same at every round: Dean Marsh the Local Champion and Kyle Brooks the local racer always, the rest at random.
+- **Qualifying** at every round (Spec 12.2): an untimed out lap from the gate, then 3 timed laps with the pit board as in a moto (or Auto-complete). The best timed lap sets the gate pick order for moto 1; it scores no points. The live tower shows the order of best timed laps. Qualifying wears the bike and gives the laps' XP (no finishing bonus), and counts as one step for the ruts (Round 111).
+- **Three-row start.** A field of 20 lines up 8, 8 and 4, each row straight behind the one in front, rolling up row by row. The line-up takes 8 seconds instead of 6 so nobody hurries. Gates past a track's bonus curve get a point less than its last gate.
+- **Money.** A round costs 1.5× the class entry (£30) and pays 1.8× the prize money (Spec 14.2). Final standings pay the top three: £150 and the Area 1 badge, £75, £40 for the Local Champion; £300 and the Area 1 Championship trophy, £150, £80 for the Area 1 Championship (provisional numbers). A championship you have already won pays half the XP, prize money and reward when you ride it again (Round 125).
+- **Points** for every moto on the usual table, DNF 0. Ties go to the most moto wins, then the better result in the latest moto (Spec 12.4). After each round the standings screen shows every rider's points by round, the gap to the leader, the next round, and whether the title is still possible. After the last round it shows the final result and the reward.
+- **The Task tab** lists each championship under way and the badges and trophies won, and the journal points you to the next one. Winning the Area 1 Championship says the next class and Area 2 come in a later build.
+- **Saves** keep the championships on the career (`career.champs`), added when you first enter one, so saves stay at version 4.
+- **Pavements:** the player now stands on the paving of one-tile pavements as the NPCs do, instead of looking as if they are on the kerb.
+
+### Alpha v1: three race venues
 
 ### Alpha v1: three race venues
 

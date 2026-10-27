@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { bikeStats, conditionFactor, formatMoney, type Bike } from '../core/career';
-import { formatTime, type LapTrace, type MotoSim, type RaceEvent, type RiderResult } from '../core/race';
+import { formatTime, gateBonus, type LapTrace, type MotoSim, type RaceEvent, type RiderResult } from '../core/race';
 import { PLAYER_ID, RaceDay, applyRide, playerEntrant, practiceSim, sumXp, type MotoRecord, type VenueDef } from '../core/raceDay';
+import { finishChampionship, nextRoundVenue, recordRound, roundOptions, standings, titlePossible, type ActiveChampionship, type ChampionshipDef } from '../core/championship';
 import { noteActivity } from '../core/shops';
 import type { SaveData } from '../core/saves';
 import { services } from '../services';
@@ -34,6 +35,8 @@ export interface RaceSceneData {
   save: SaveData;
   /** The entry or practice fee in pence, taken when the day is over. */
   fee: number;
+  /** A championship round: the championship whose next round this is (it must be active in the save). */
+  champ?: ChampionshipDef;
   onDone: (save: SaveData, message: string) => void;
 }
 
@@ -90,6 +93,8 @@ export class RaceScene extends Phaser.Scene {
   private wearAt: { t: number; parts: Bike['parts'] }[] = [];
   private detailTab: 'bike' | 'sections' = 'bike';
   private detailTabs: Button[] = [];
+  /** The live screen is showing qualifying, not a moto. */
+  private qualifying = false;
 
   constructor() {
     super('race');
@@ -102,6 +107,7 @@ export class RaceScene extends Phaser.Scene {
     this.sim = null;
     this.modal = null;
     this.onTick = null;
+    this.qualifying = false;
     this.explained = !!this.save.flags.first_race_done;
     this.realStart = performance.now();
   }
@@ -118,15 +124,32 @@ export class RaceScene extends Phaser.Scene {
     if (this.args.mode === 'practice') this.startPractice();
     else {
       const career = this.save.career;
-      this.day = new RaceDay(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name), (Math.random() * 2 ** 32) >>> 0, this.args.fee);
+      const champ = this.champ;
+      const round = champ ? roundOptions(services.content, champ.def, champ.active) : undefined;
+      this.day = new RaceDay(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name), (Math.random() * 2 ** 32) >>> 0, this.args.fee, round);
       this.day.field.forEach((e, i) => {
         this.names.set(e.id, e.player ? 'You' : e.name);
         const gear = GEAR_SETS[e.player ? 'player-default' : e.tag === 'Local Champion' ? 'cpu-champion' : CPU_GEAR[i % CPU_GEAR.length]];
         this.looks.set(e.id, { brand: e.bike.brand, cls: e.bike.class, gear });
         this.colors.set(e.id, e.player ? COLORS.accent : gearColour(gear));
       });
-      this.showGatePick();
+      if (this.day.qualifyingDue) this.showQualifyingStart();
+      else this.showGatePick();
     }
+  }
+
+  /** The championship this race day is a round of, with its state in this scene's save. */
+  private get champ(): { def: ChampionshipDef; active: ActiveChampionship; round: number } | null {
+    const def = this.args.champ;
+    const active = def && this.save.career.champs?.active[def.id];
+    return def && active ? { def, active, round: active.rounds.length + 1 } : null;
+  }
+
+  /** "Farmland MX · 50cc race day", or the championship and round. */
+  private dayTitle(): string {
+    const day = this.day!;
+    const c = this.champ;
+    return `${this.args.venue.name} · ${day.cls} ${c ? `${c.def.short} round ${c.round} of ${c.def.rounds.length}` : 'race day'}`;
   }
 
   private relayout(): void {
@@ -207,65 +230,131 @@ export class RaceScene extends Phaser.Scene {
     const day = this.day!;
     this.clear();
     const n = day.motoNumber;
-    this.header(`${this.args.venue.name} · 50cc race day`, `Moto ${n} of ${day.motoCount} · ${day.laps} laps · ${day.field.length} riders`);
+    this.header(this.dayTitle(), `Moto ${n} of ${day.motoCount} · ${day.laps} laps · ${day.field.length} riders`);
     const { taken, free } = day.gatesForPlayer();
-    const gates = day.track.gates ?? [];
     const myTurn = day.pickOrder.indexOf(PLAYER_ID) + 1;
-    const how = n === 1 ? 'Gate picks for moto 1 are drawn at random.' : 'Gate picks for moto 2 go in moto 1 finishing order.';
+    const how = n > 1 ? 'Gate picks for moto 2 go in moto 1 finishing order.' : day.qualifying ? 'Gate picks for moto 1 go in qualifying order.' : 'Gate picks for moto 1 are drawn at random.';
     this.text(W / 2, 108, `${how} You pick ${ordinal(myTurn)}. Inside gates get a better start.`, 22).setOrigin(0.5, 0);
 
     let chosen = free[0];
     // One gate per rider, laid out as the start is: gates 1 to 8 are the front row, 9 to 16 the
-    // second row, each straight behind the gate 8 before it.
+    // second row and 17 on the third, each straight behind the gate 8 before it.
     const count = day.field.length;
     const perRow = Math.min(count, ROW_SIZE);
+    const rows = Math.ceil(count / ROW_SIZE);
+    // A third row squeezes the rows up and moves the rest of the screen down a little.
+    const rowH = rows > 2 ? 46 : 60;
+    const gh = rows > 2 ? 38 : 46;
+    const y0 = rows > 2 ? 166 : 178;
+    const dy = rows > 2 ? 26 : 0;
     const gw = 70;
     const gx = W / 2 - (perRow * gw) / 2 + gw / 2;
     const gateButtons: Button[] = [];
     for (let g = 0; g < count; g++) {
       const row = Math.floor(g / ROW_SIZE);
       const x = gx + (g % ROW_SIZE) * gw;
-      const y = 178 + row * 60;
+      const y = y0 + row * rowH;
       const who = taken.get(g);
-      const bonus = gates[g] ?? 0;
+      const bonus = gateBonus(day.track, g);
       if (who) {
-        const r = this.add.rectangle(x, y, gw - 8, 46, COLORS.inkLine).setStrokeStyle(2, COLORS.panelLight);
+        const r = this.add.rectangle(x, y, gw - 8, gh, COLORS.inkLine).setStrokeStyle(2, COLORS.panelLight);
         this.screen.add(r);
         this.text(x, y + 4, gateBadges(this.names).get(who) ?? '', 18, COLORS.muted).setOrigin(0.5);
       } else {
         const b = this.btn(x, y, bonus > 0 ? `+${bonus}%` : bonus < 0 ? `${bonus}%` : '0%', () => {
           chosen = g;
           gateButtons.forEach((o) => o.setSelected(o === b));
-        }, gw - 8, 46);
+        }, gw - 8, gh);
         b.setSelected(g === chosen);
         gateButtons.push(b);
       }
       // The gate's number in its top corner, over the button.
-      this.text(x - gw / 2 + 7, y - 22, `${g + 1}`, 14, COLORS.muted).setOrigin(0, 0);
+      this.text(x - gw / 2 + 7, y - gh / 2 + 1, `${g + 1}`, 14, COLORS.muted).setOrigin(0, 0);
     }
-    for (let row = 0; row * ROW_SIZE < count; row++) this.text(gx - gw / 2 - 12, 178 + row * 60, row ? 'Second row' : 'Front row', 18, COLORS.muted).setOrigin(1, 0.5);
-    this.text(W / 2, 266, 'Taken gates show who has them. The % is the start bonus.', 18, COLORS.muted).setOrigin(0.5, 0);
+    for (let row = 0; row < rows; row++) this.text(gx - gw / 2 - 12, y0 + row * rowH, ['Front row', 'Second row', 'Third row'][row] ?? `Row ${row + 1}`, 18, COLORS.muted).setOrigin(1, 0.5);
+    this.text(W / 2, rows > 2 ? 282 : 266, 'Taken gates show who has them. The % is the start bonus.', 18, COLORS.muted).setOrigin(0.5, 0);
 
     // How to race it.
     const { racing } = services.content;
-    this.box(100, 286, 1080, 356);
-    this.text(130, 300, 'Starting message', 24, COLORS.accent);
+    this.box(100, 286 + dy, 1080, 356 - dy);
+    const message = this.messagePicker(300 + dy);
+    this.text(130, 462 + dy, `In a race, the pit board comes out when your message runs out (every lap, or the laps you set it for) and you can change your message ${racing.ink} times a moto. Auto-complete plays the same race out on screen with no pit board, holding your message all race. Either way, you retire at ${racing.sim.retireAtBroken} broken parts.`, 19, COLORS.cream, { wordWrap: { width: 1020 }, lineSpacing: 2 });
+    this.btn(W / 2 - 300, 600, 'Race', () => this.go(chosen, message(), false), 260, 52);
+    this.btn(W / 2, 600, 'Auto-complete', () => this.go(chosen, message(), true), 260, 52);
+    this.btn(W / 2 + 300, 600, 'Bike check', () => this.showBike(), 260, 52);
+    if (n > 1) this.btn(W / 2, 682, 'Leave early', () => this.confirmLeave(), 200, 44);
+  }
+
+  /** The starting message buttons, from y down: returns the message picked. */
+  private messagePicker(y: number): () => string {
+    const { racing } = services.content;
+    this.text(130, y, 'Starting message', 24, COLORS.accent);
     let message = 'steady';
     const msgButtons: Button[] = [];
     racing.messages.forEach((m, i) => {
-      const b = this.btn(250 + i * 280, 362, m.name, () => {
+      const b = this.btn(250 + i * 280, y + 62, m.name, () => {
         message = m.id;
         msgButtons.forEach((o, j) => o.setSelected(j === i));
       }, 240, 48);
       b.setSelected(m.id === message);
       msgButtons.push(b);
-      this.text(130 + i * 280, 394, m.desc, 18, COLORS.muted, { wordWrap: { width: 250 } });
+      this.text(130 + i * 280, y + 94, m.desc, 18, COLORS.muted, { wordWrap: { width: 250 } });
     });
-    this.text(130, 462, `In a race, the pit board comes out when your message runs out (every lap, or the laps you set it for) and you can change your message ${racing.ink} times a moto. Auto-complete plays the same race out on screen with no pit board, holding your message all race. Either way, you retire at ${racing.sim.retireAtBroken} broken parts.`, 19, COLORS.cream, { wordWrap: { width: 1020 }, lineSpacing: 2 });
-    this.btn(W / 2 - 300, 600, 'Race', () => this.go(chosen, message, false), 260, 52);
-    this.btn(W / 2, 600, 'Auto-complete', () => this.go(chosen, message, true), 260, 52);
+    return () => message;
+  }
+
+  // ---- championship rounds: qualifying (Spec 12.2) ----
+
+  private showQualifyingStart(): void {
+    const day = this.day!;
+    const laps = day.round!.qualifyingLaps;
+    this.clear();
+    this.header(this.dayTitle(), `Qualifying · an out lap and ${laps} timed laps · ${day.field.length} riders`);
+    this.text(W / 2, 108, 'Your best timed lap sets your place in the gate pick for moto 1. Qualifying scores no points.', 22).setOrigin(0.5, 0);
+    this.text(W / 2, 146, 'Everyone goes out together from a random spot on the start; the out lap from the gate is not timed.', 18, COLORS.muted).setOrigin(0.5, 0);
+    this.box(100, 286, 1080, 356);
+    const message = this.messagePicker(300);
+    const { racing } = services.content;
+    this.text(130, 462, `The pit board comes out each lap as in a moto, with ${racing.ink} message changes. Auto-complete holds your message all session. Parts wear as in a race, and there are no repairs at the track.`, 19, COLORS.cream, { wordWrap: { width: 1020 }, lineSpacing: 2 });
+    this.btn(W / 2 - 300, 600, 'Qualify', () => this.goQualifying(message(), false), 260, 52);
+    this.btn(W / 2, 600, 'Auto-complete', () => this.goQualifying(message(), true), 260, 52);
     this.btn(W / 2 + 300, 600, 'Bike check', () => this.showBike(), 260, 52);
-    if (n > 1) this.btn(W / 2, 682, 'Leave early', () => this.confirmLeave(), 200, 44);
+  }
+
+  private goQualifying(message: string, auto: boolean): void {
+    this.sim = this.day!.startQualifying(message);
+    this.auto = auto;
+    this.qualifying = true;
+    this.startLive();
+  }
+
+  private showQualifyingResults(): void {
+    const day = this.day!;
+    const rec = day.finishQualifying(this.sim!);
+    this.qualifying = false;
+    this.clear();
+    this.header('Qualifying results', this.dayTitle());
+    const rows = rec.results.map((r) => {
+      const name = (r.player ? `${this.save.rider.name} (you)` : r.name).padEnd(22).slice(0, 22);
+      const best = r.bestLap !== null ? formatTime(r.bestLap, 3) : '—';
+      return `${String(r.position).padStart(2)}  ${name} ${best.padStart(8)}  ${(r.position === 1 ? 'Pole' : r.gap).padStart(9)}`;
+    });
+    const t = this.text(40, 110, ['Pos Rider                      Best        Gap', ...rows].join('\n'), 16, COLORS.cream, { lineSpacing: 5 }).setFontFamily('Consolas, "Courier New", monospace');
+    const mine = rec.results.findIndex((r) => r.player);
+    const lh = t.height / (rows.length + 1);
+    this.screen.add(this.add.rectangle(34, 110 + lh * (mine + 1), 640, lh, COLORS.accentDark, 0.45).setOrigin(0, 0));
+    this.screen.bringToTop(t);
+    const me = rec.results[mine];
+    this.box(740, 110, 500, 470);
+    this.text(764, 126, 'Your qualifying', 24, COLORS.accent);
+    const xp = Object.values(rec.xp).reduce((a, b) => a + b, 0);
+    this.text(764, 170, [
+      me.bestLap === null ? 'No timed lap' : `${ordinal(me.position)} fastest${me.position === 1 ? ': pole position!' : ''}`,
+      `Best timed lap: ${me.bestLap !== null ? formatTime(me.bestLap, 3) : '—'}`,
+      `You pick your gate ${ordinal(me.position)} for moto 1.`,
+      `Rider XP: ${xp.toFixed(0)}`,
+    ].join('\n'), 20, COLORS.cream, { lineSpacing: 10, wordWrap: { width: 450 } });
+    this.btn(990, 640, 'Moto 1', () => this.showGatePick(), 260, 50);
   }
 
   private confirmLeave(): void {
@@ -552,11 +641,13 @@ export class RaceScene extends Phaser.Scene {
     const gap = (p: (typeof pos)[0]) => this.behind(leader, p);
     this.refreshDetail();
     const poses = this.director?.poses(this.clock) ?? [];
+    // In qualifying the numbers over the bikes are the order of best timed laps, as in the tower.
+    const labels = this.qualifying ? this.qualifyingOrder(pos).map((r) => r.p) : order;
     this.view?.update(poses.map((p) => ({
       pose: p,
       color: this.colors.get(p.id) ?? COLORS.accent,
       look: this.looks.get(p.id),
-      label: String(order.findIndex((o) => o.id === p.id) + 1),
+      label: String(labels.findIndex((o) => o.id === p.id) + 1),
       player: p.id === PLAYER_ID,
       startRow: this.director!.startRow(p.id),
     })), this.clock, this.frameDt, pos.find((p) => p.id === PLAYER_ID)?.out ? leader.id : PLAYER_ID);
@@ -577,6 +668,10 @@ export class RaceScene extends Phaser.Scene {
       return;
     }
     const total = sim.totalLaps!;
+    if (this.qualifying) {
+      this.renderQualifying(pos, me);
+      return;
+    }
     this.ui.title.setText(`${this.args.venue.name} · Moto ${this.day!.motoNumber} · Lap ${Math.max(1, Math.min(Math.floor(leader.dist) + 1, total))} of ${total}${this.auto ? ' · Auto-complete' : ''}`);
     const until = this.auto || this.boardAt === Infinity ? ' to the flag' : this.boardAt > this.myLaps ? ` to lap ${this.boardAt}` : '';
     this.ui.ink.setText(`${msg.name}${until}`);
@@ -603,6 +698,71 @@ export class RaceScene extends Phaser.Scene {
       const g = p.out ? 'OUT' : i === 0 ? (p.finished ? formatTime(p.finishT) : 'Leader') : `+${gap(p).toFixed(1)}`;
       return `${String(i + 1).padStart(2)}  ${p.id === PLAYER_ID ? '▶ ' : '  '}${name} ${g.padStart(7)}`;
     }).join('\n'));
+    this.ui.tower.setFontFamily('Consolas, "Courier New", monospace');
+    if (!this.skipButton && (me.out || me.finished)) {
+      this.skipButton = this.btn(1096, 548, 'Skip to results', () => {
+        while (!sim.finished) this.addLap(sim.nextLap());
+        this.live = false;
+        this.finishMoto();
+      }, 300, 40);
+    }
+  }
+
+  /**
+   * Each rider's best timed lap so far (the out lap, lap 1, isn't timed), from when they passed
+   * each finish line. Null until they have done one.
+   */
+  private bestTimed(id: string): number | null {
+    const cp = this.cps.get(id)!;
+    const ends = new Map<number, number>();
+    for (let i = 0; i < cp.t.length && cp.t[i] <= this.clock; i++) {
+      const d = cp.d[i];
+      if (d >= 1 && Math.abs(d - Math.round(d)) < 1e-9) ends.set(Math.round(d), cp.t[i]);
+    }
+    let best: number | null = null;
+    for (const [lap, t] of ends) {
+      const before = ends.get(lap - 1);
+      if (lap >= 2 && before !== undefined) best = best === null ? t - before : Math.min(best, t - before);
+    }
+    return best;
+  }
+
+  /** Riders by best timed lap so far, then those with no time yet furthest round first. */
+  private qualifyingOrder<T extends { id: string; dist: number }>(pos: T[]): { p: T; best: number | null }[] {
+    const rows = pos.map((p) => ({ p, best: this.bestTimed(p.id) }));
+    return rows.sort((a, b) => (a.best ?? Infinity) - (b.best ?? Infinity) || b.p.dist - a.p.dist);
+  }
+
+  /** The live screen in qualifying: the tower is the order of best timed laps. */
+  private renderQualifying(pos: ReturnType<RaceScene['positions']>, me: ReturnType<RaceScene['positions']>[number]): void {
+    const sim = this.sim!;
+    const total = sim.totalLaps!;
+    const myLap = Math.max(1, Math.min(Math.floor(me.dist) + 1, total));
+    const msg = services.content.racing.messages.find((m) => m.id === sim.playerMessage)!;
+    this.ui.title.setText(`${this.args.venue.name} · Qualifying · ${myLap === 1 ? 'Out lap' : `Timed lap ${myLap - 1} of ${total - 1}`}${this.auto ? ' · Auto-complete' : ''}`);
+    const until = this.auto || this.boardAt === Infinity ? ' to the flag' : this.boardAt > this.myLaps ? ` to lap ${this.boardAt}` : '';
+    this.ui.ink.setText(`${msg.name}${until}`);
+    this.pen?.setLevel(sim.ink);
+    const rows = this.qualifyingOrder(pos);
+    const pole = rows[0].best;
+    const mine = rows.findIndex((r) => r.p.id === PLAYER_ID);
+    const myBest = rows[mine].best;
+    const lines = [];
+    if (me.out) lines.push('You are out of qualifying.');
+    else {
+      lines.push(myBest === null ? 'No timed lap yet' : `Provisional: ${ordinal(mine + 1)} of ${rows.length}`);
+      lines.push(myLap === 1 ? 'Out lap: not timed' : `Timed lap ${myLap - 1} of ${total - 1}`);
+      lines.push(`Your best: ${myBest !== null ? formatTime(myBest, 3) : '—'}${myBest !== null && pole !== null && mine > 0 ? `  (+${(myBest - pole).toFixed(3)}s)` : ''}`);
+      const broken = this.brokenParts();
+      lines.push(broken.length ? `Broken: ${broken.join(', ')}` : 'Bike: nothing broken');
+    }
+    this.ui.me.setText(lines.join('\n'));
+    this.ui.feed.setText(this.feed.slice(-5).join('\n'));
+    this.ui.tower.setText(['Best timed laps', ...rows.map((r, i) => {
+      const name = (this.names.get(r.p.id) ?? '').padEnd(15).slice(0, 15);
+      const g = r.best === null ? (r.p.out ? 'OUT' : '—') : i === 0 ? formatTime(r.best, 3) : `+${(r.best - pole!).toFixed(3)}`;
+      return `${String(i + 1).padStart(2)}  ${r.p.id === PLAYER_ID ? '▶ ' : '  '}${name} ${g.padStart(7)}`;
+    })].join('\n'));
     this.ui.tower.setFontFamily('Consolas, "Courier New", monospace');
     if (!this.skipButton && (me.out || me.finished)) {
       this.skipButton = this.btn(1096, 548, 'Skip to results', () => {
@@ -819,7 +979,8 @@ export class RaceScene extends Phaser.Scene {
     // Nothing to retire from before the gate drops.
     if (this.retiredAt !== null || this.clock < 0) return;
     const c = this.openModal(560, 220);
-    c.add(this.add.text(0, -50, "It's over, bike blown?\nYou pull off and score a DNF for this moto.", textStyle(20, COLORS.cream, { align: 'center' })).setOrigin(0.5));
+    const what = this.qualifying ? 'You pull off and set no more times.' : 'You pull off and score a DNF for this moto.';
+    c.add(this.add.text(0, -50, `It's over, bike blown?\n${what}`, textStyle(20, COLORS.cream, { align: 'center' })).setOrigin(0.5));
     c.add(button(this, -120, 55, 'Retire', () => {
       this.closeModal();
       this.retireNow();
@@ -837,6 +998,7 @@ export class RaceScene extends Phaser.Scene {
   // ---- results ----
 
   private finishMoto(): void {
+    if (this.qualifying) return this.showQualifyingResults();
     const day = this.day!;
     const rec = day.finishMoto(this.sim!);
     this.showMotoResults(rec);
@@ -864,7 +1026,7 @@ export class RaceScene extends Phaser.Scene {
     const day = this.day!;
     this.clear();
     const n = day.motos.length;
-    this.header(`Moto ${n} results`, `${this.args.venue.name} · 50cc`);
+    this.header(`Moto ${n} results`, this.dayTitle());
     this.resultTable(rec.results, 40, 110);
     const me = rec.results.find((r) => r.player)!;
     this.box(740, 110, 500, 470);
@@ -890,7 +1052,7 @@ export class RaceScene extends Phaser.Scene {
     const day = this.day!;
     this.clear();
     const res = day.dayResult();
-    this.header('Race day results', `${this.args.venue.name} · 50cc · overall by combined moto finishes`);
+    this.header('Race day results', `${this.dayTitle()} · overall by combined moto finishes`);
     const rows = res.overall.map((r) => {
       const name = (r.player ? `${this.save.rider.name} (you)` : r.name).padEnd(22).slice(0, 22);
       const ps = r.positions.map((p) => (p === null ? 'DNF' : String(p))).map((s) => s.padStart(4)).join('');
@@ -906,7 +1068,7 @@ export class RaceScene extends Phaser.Scene {
     const career = this.save.career;
     const prizes = day.motos.reduce((a, m) => a + m.prize, 0);
     const money = prizes + res.podiumBonus - this.args.fee;
-    const xp = sumXp(...day.motos.map((m) => m.xp));
+    const xp = sumXp(...day.motos.map((m) => m.xp), day.qualifying?.xp ?? {});
     const payout = applyRide(services.content, career, day.player.bike, money, xp);
     const c = career.counters;
     const myRows = day.motos.map((m) => m.results.find((r) => r.player)!);
@@ -923,6 +1085,7 @@ export class RaceScene extends Phaser.Scene {
 
     this.box(580, 110, 680, 530);
     this.text(604, 124, `${ordinal(me.position)} overall`, 26, COLORS.accent);
+    const champ = this.champ;
     const lines = [
       `Entry: ${this.args.fee ? `−${formatMoney(this.args.fee)}` : 'free (first race)'}`,
       `Moto prizes: ${formatMoney(prizes)}`,
@@ -941,7 +1104,59 @@ export class RaceScene extends Phaser.Scene {
       y += t.height + 24;
     }
     this.text(930, y, ['Bike wear today', ...wear].join('\n'), 15, COLORS.muted, { lineSpacing: 4 });
+    if (champ) {
+      recordRound(champ.active, this.args.venue, day);
+      this.btn(W / 2 + 300, 670, 'Championship standings', () => this.showStandings(champ.def, champ.active), 300, 50);
+      return;
+    }
     this.btn(W / 2 + 300, 670, 'Back to the paddock', () => this.done(`Race day done: ${ordinal(me.position)} overall, ${money >= 0 ? '+' : ''}${formatMoney(money)}.`), 300, 50);
+  }
+
+  /** The championship table after a round, and the final result after the last one (Spec 12.5). */
+  private showStandings(def: ChampionshipDef, active: ActiveChampionship): void {
+    const { points } = services.content.racing;
+    this.clear();
+    const done = active.rounds.length;
+    const last = nextRoundVenue(def, active) === null;
+    this.header(`${def.name} · ${last ? 'final standings' : `after round ${done} of ${def.rounds.length}`}`, `${def.class} · points for every moto, the same ${active.field.length + 1} riders every round`);
+    const table = standings(points, active);
+    const name = (id: string) => (id === PLAYER_ID ? `${this.save.rider.name} (you)` : services.content.riders.riders.find((r) => r.id === id)?.name ?? id);
+    const rows = table.map((r) => `${String(r.position).padStart(2)}  ${name(r.id).padEnd(22).slice(0, 22)}${def.rounds.map((_, i) => String(r.byRound[i] ?? '').padStart(5)).join('')}${String(r.points).padStart(6)}`);
+    const head = `Pos Rider                 ${def.rounds.map((_, i) => `  R${i + 1}`.padStart(5)).join('')}   Pts`;
+    const t = this.text(40, 110, [head, ...rows].join('\n'), 15, COLORS.cream, { lineSpacing: 4 }).setFontFamily('Consolas, "Courier New", monospace');
+    const mine = table.findIndex((r) => r.player);
+    const lh = t.height / (rows.length + 1);
+    this.screen.add(this.add.rectangle(34, 110 + lh * (mine + 1), 330 + def.rounds.length * 42, lh, COLORS.accentDark, 0.45).setOrigin(0, 0));
+    this.screen.bringToTop(t);
+
+    const me = table[mine];
+    const leader = table[0];
+    this.box(740, 110, 500, 500);
+    const career = this.save.career;
+    if (!last) {
+      const venue = services.content.tracks.venues.find((v) => v.id === nextRoundVenue(def, active));
+      const possible = titlePossible(def, points, active);
+      this.text(764, 126, `You're ${ordinal(me.position)}`, 26, COLORS.accent);
+      this.text(764, 176, [
+        me.position === 1 ? `You lead by ${me.points - (table[1]?.points ?? 0)} points.` : `${leader.points - me.points} points behind ${name(leader.id)}.`,
+        `Next: round ${done + 1} at ${venue?.name ?? 'the next track'}. Sign on there at the race office.`,
+        '',
+        possible ? 'The title is still possible.' : "The title is out of reach now. Finish it for a top-three place, or start it again from any race office.",
+      ].join('\n'), 19, COLORS.cream, { lineSpacing: 6, wordWrap: { width: 450 } });
+      this.btn(W / 2 + 300, 670, 'Back to the paddock', () => this.done(`${def.short} round ${done}: ${ordinal(me.position)} in the championship.`), 300, 50);
+      return;
+    }
+    const fin = finishChampionship(career, this.save.flags, def, points);
+    this.text(764, 126, fin.position === 1 ? 'Champion!' : `${ordinal(fin.position)} in the championship`, 28, COLORS.accent);
+    const lines = [];
+    if (fin.position === 1) lines.push(fin.firstWin && def.won ? def.won : `You won the ${def.name} again.`);
+    else lines.push(`${name(leader.id)} won it with ${leader.points} points.`);
+    if (fin.title) lines.push('', `You earned ${fin.title}.`);
+    if (fin.money) lines.push(`Championship prize: ${formatMoney(fin.money)}`);
+    if (fin.position > 3) lines.push('', 'The top three win a prize. Enter again from any race office.');
+    lines.push('', `Money now: ${formatMoney(career.money)}`);
+    this.text(764, 176, lines.join('\n'), 19, COLORS.cream, { lineSpacing: 6, wordWrap: { width: 450 } });
+    this.btn(W / 2 + 300, 670, 'Back to the paddock', () => this.done(fin.position === 1 ? `${def.name}: champion!` : `${def.name}: ${ordinal(fin.position)}.`), 300, 50);
   }
 
   private xpLines(xp: Record<string, number>): string[] {

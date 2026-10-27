@@ -2,6 +2,7 @@
 // and shift work. Pure rules with no graphics, so they can be tested and reused by a later
 // standalone economy tool (GDD 2.2).
 
+import type { ChampionshipState } from './championship';
 import type { ShopState, SparePart } from './shops';
 import { newSkillState, type SkillState } from './skills';
 
@@ -151,6 +152,8 @@ export interface CareerState {
   skills: SkillState;
   /** Shop stock rotation, made on the first shop visit. */
   shops?: ShopState;
+  /** Championships entered and finished, made on entering the first one. */
+  champs?: ChampionshipState;
 }
 
 export const pence = (pounds: number) => Math.round(pounds * 100);

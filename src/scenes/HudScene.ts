@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { bikeProblem, bikeStats, formatMoney, journal, pence, statMax, type CareerState } from '../core/career';
 import { childLevel, childXp, leadLevel, leadXp, levelProgress } from '../core/skills';
+import { nextRoundVenue, standings } from '../core/championship';
 import {
   buyPart,
   dumpSpare,
@@ -521,8 +522,15 @@ export class HudScene extends Phaser.Scene {
       const names = Object.fromEntries(services.content.world.jobs.map((j) => [j.id, j.name]));
       shifts.forEach(([k, n], i) => body(left, y0 + 146 + i * 28, `${names[k] ?? k}s finished: ${n}`, 16, COLORS.muted));
       const c0 = career.counters;
+      let y = y0 + 160 + shifts.length * 28;
       if (c0['race.days']) {
-        body(left, y0 + 160 + shifts.length * 28, `Race days: ${c0['race.days']}   Moto wins: ${c0['race.wins'] ?? 0}   Podiums: ${c0['race.podiums'] ?? 0}`, 16, COLORS.muted);
+        body(left, y, `Race days: ${c0['race.days']}   Moto wins: ${c0['race.wins'] ?? 0}   Podiums: ${c0['race.podiums'] ?? 0}`, 16, COLORS.muted);
+        y += 28;
+      }
+      // Championships under way, then the badges and trophies won (Spec 12.5).
+      for (const line of champLines(services.content, career, this.flags)) {
+        body(left, y, line, 16, COLORS.muted);
+        y += 28;
       }
     } else {
       // Skills: each lead skill with its child skills, level and progress to the next level (GDD 6.1).
@@ -779,4 +787,19 @@ export class HudScene extends Phaser.Scene {
     this.pause = null;
     if (resumeWorld) this.scene.resume('world');
   }
+}
+
+/** The Task tab's championship lines: each one under way, then what has been won. */
+function champLines(c: typeof services.content, career: CareerState, flags: Record<string, boolean>): string[] {
+  const out: string[] = [];
+  for (const def of c.championships.championships) {
+    const active = career.champs?.active[def.id];
+    if (!active) continue;
+    const venue = c.tracks.venues.find((v) => v.id === nextRoundVenue(def, active));
+    const me = standings(c.racing.points, active).find((r) => r.player)!;
+    out.push(`${def.name}: round ${active.rounds.length + 1} of ${def.rounds.length} next at ${venue?.name ?? '?'}${active.rounds.length ? `, ${me.points} points (${me.position}${me.position === 1 ? 'st' : me.position === 2 ? 'nd' : me.position === 3 ? 'rd' : 'th'})` : ''}.`);
+  }
+  const won = c.championships.championships.flatMap((d) => d.rewards[0]?.flag && flags[d.rewards[0].flag] ? [d.rewards[0].title ?? d.name] : []);
+  if (won.length) out.push(`Won: ${won.map((t) => t.replace(/^the /, '')).join(', ')}.`);
+  return out;
 }

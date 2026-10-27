@@ -1,6 +1,6 @@
 import type { BakedMap } from '../core/mapTypes';
 
-// Where a standing NPC's feet go on a pavement tile. A character's feet are drawn at the bottom
+// Where a standing character's feet go on a pavement tile (NPCs, and the player as they walk). A character's feet are drawn at the bottom
 // of its tile, but on Home Town's one-tile pavements the paving is a band across the middle of
 // the tile, with the kerb and road (or a grass verge) below it, so an NPC standing there looked
 // as if they were in the road. These lifts, in pixels, put the feet a few pixels inside the

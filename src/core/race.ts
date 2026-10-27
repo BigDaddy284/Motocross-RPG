@@ -608,11 +608,11 @@ export class MotoSim {
     const perf = this.performance(r, def);
     const base = sec.length / this.cls.refSpeed;
     const pace = 1 - (msg.pace * me.pacePct) / 100 + (msg.consistency * me.consistencyTimePct) / 100;
-    const gateBonus = gate >= 0 ? 1 - (this.track.gates?.[gate] ?? 0) / 100 : 1;
+    const gateK = gate >= 0 ? 1 - gateBonus(this.track, gate) / 100 : 1;
     const cons = r.e.skills.consistency ?? 1;
     const sd = sim.noise * (1 - (sim.consistencyNoiseCut * cons) / 99) * Math.max(0.2, 1 - me.consistencyNoise * msg.consistency);
     const noise = Math.max(0.7, 1 + this.gauss() * sd);
-    return base * this.difficulty(sec, def) * (1 - sim.spread * (perf - 0.5)) * pace * gateBonus * noise;
+    return base * this.difficulty(sec, def) * (1 - sim.spread * (perf - 0.5)) * pace * gateK * noise;
   }
 
   private mistake(r: RiderState, def: SectionDef, share = 1): MistakeOutcome | null {
@@ -765,8 +765,19 @@ export class MotoSim {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-export function formatTime(s: number): string {
+/**
+ * A gate's start bonus in percent (Spec 10.4). Gates past the track's curve (a championship's
+ * third row on a track drawn for 16) get a point less than its last gate.
+ */
+export function gateBonus(track: Pick<TrackDef, 'gates'>, gate: number): number {
+  const curve = track.gates ?? [];
+  if (curve.length && gate >= curve.length) return curve[curve.length - 1] - 1;
+  return curve[gate] ?? 0;
+}
+
+/** A time as m:ss.s, or with more decimals (qualifying times to the thousandth). */
+export function formatTime(s: number, digits = 1): string {
   const m = Math.floor(s / 60);
   const sec = s - m * 60;
-  return `${m}:${sec.toFixed(1).padStart(4, '0')}`;
+  return `${m}:${sec.toFixed(digits).padStart(digits + 3, '0')}`;
 }

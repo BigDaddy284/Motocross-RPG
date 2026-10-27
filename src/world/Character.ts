@@ -41,6 +41,8 @@ export class Character {
   moving = false;
   /** Lowest depth to draw at, so the player can stay on top of an NPC they walk through. */
   depthFloor: (() => number) | null = null;
+  /** How far up a tile this character stands on it (standLift.ts), for one who walks the pavements. */
+  liftAt: ((t: Tile) => number) | null = null;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -65,7 +67,7 @@ export class Character {
   }
 
   /** Stands on a tile, `lift` pixels up from its bottom edge (on a pavement drawn across the middle of the tile, standLift.ts). */
-  placeAt(t: Tile, lift = 0): void {
+  placeAt(t: Tile, lift = this.liftAt?.(t) ?? 0): void {
     this.tile = { ...t };
     this.setPixel(t.x * TILE + TILE / 2, (t.y + 1) * TILE - lift);
   }
@@ -106,7 +108,7 @@ export class Character {
     this.moving = true;
     this.sprite.play(`${this.sheet}:walk-${this.facing}`, true);
     const from = { x: this.sprite.x, y: this.sprite.y };
-    const target = { x: to.x * TILE + TILE / 2, y: (to.y + 1) * TILE };
+    const target = { x: to.x * TILE + TILE / 2, y: (to.y + 1) * TILE - (this.liftAt?.(to) ?? 0) };
     this.tile = { ...to };
     return new Promise((resolve) => {
       this.scene.tweens.addCounter({

@@ -12,6 +12,7 @@ import { ROUTE, spawnTile, stepTriggerAt, type Arrival, type StepResult } from '
 import { DriveMap, FACING_OF, ensureVan, exitTile, footprint, inwardHeading, nearestFree, placeNear, planDrive, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { MOD_PLACE, forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
 import { entryFee, fieldCount, practiceFee, venueProblem, type VenueDef } from '../core/raceDay';
+import { champProblem, enter, nextRoundVenue, roundEntry, roundsHere, standings, titlePossible, withdraw, type ChampionshipDef } from '../core/championship';
 import { noteActivity, shopForAction, type ShopDef } from '../core/shops';
 import { CAREER_SLOT, services } from '../services';
 import { Character, TILE } from '../world/Character';
@@ -20,7 +21,7 @@ import { actionMessage } from '../world/messages';
 import { standLift } from '../world/standLift';
 import { VanView, type Driver } from '../world/VanView';
 import type { HudScene } from './HudScene';
-import type { RaceSceneData } from './RaceScene';
+import { ordinal, type RaceSceneData } from './RaceScene';
 
 // The walkable world: one map at a time, the player, NPCs, doors and exits, and the player's van.
 // Changing map restarts this scene with the arrival tile, so nothing from the old map lingers.
@@ -140,6 +141,8 @@ export class WorldScene extends Phaser.Scene {
       }
       return floor;
     };
+    // The player's feet go on the paving of a one-tile pavement too, as the NPCs' do.
+    this.player.liftAt = (t) => standLift(this.map, t.x, t.y);
     this.player.placeAt({ x, y });
 
     const cam = this.cameras.main;
@@ -635,13 +638,104 @@ export class WorldScene extends Phaser.Scene {
       `${venue.class} race day: ${field} riders including the Local Champion, 2 motos of ${cls.laps} laps. Prize money to 10th in each moto.`,
     ].join('\n\n');
     const short = (p: number) => career.money < p;
+    const champs = services.content.championships;
+    // A championship's next round here takes the place of a local race day (Spec 18.6, 6C).
+    const rounds = mod ? [] : roundsHere(champs, career, venue);
+    const roundOptions = rounds.map((def) => {
+      const f = roundEntry(rc, def);
+      const n = career.champs!.active[def.id].rounds.length + 1;
+      return { label: `${def.short} round ${n}`, note: `Entry: ${formatMoney(f)}${short(f) ? " — you can't afford it" : ''}. Qualifying, then 2 motos against the championship's ${def.size + 1} riders.`, enabled: !short(f), onPick: () => this.ride('raceday', venue, f, onClose, def) };
+    });
+    const hasChamps = !mod && champs.championships.some((d) => d.rounds.includes(venue.id));
     this.hud.choose(venue.name, text, [
-      { label: 'Race day', note: first ? 'Entry: free (first race)' : `Entry: ${formatMoney(fee)}${short(fee) ? " — you can't afford it" : ''}`, enabled: !short(fee), onPick: () => this.ride('raceday', venue, fee, onClose) },
+      ...roundOptions,
+      rounds.length
+        ? { label: 'Race day', note: 'Not today: your championship round is on here.', enabled: false, onPick: onClose }
+        : { label: 'Race day', note: first ? 'Entry: free (first race)' : `Entry: ${formatMoney(fee)}${short(fee) ? " — you can't afford it" : ''}`, enabled: !short(fee), onPick: () => this.ride('raceday', venue, fee, onClose) },
       ...(mod
         ? mod.extra
         : [{ label: 'Free practice', note: `${formatMoney(pFee)}: ride laps on your own until you stop.${short(pFee) ? " You can't afford it." : ''}`, enabled: !short(pFee), onPick: () => this.ride('practice', venue, pFee, onClose) }]),
+      ...(hasChamps ? [{ label: 'Championships', note: 'Enter one, see the standings, or give one up.', onPick: () => this.openChampionships(venue, onClose) }] : []),
       { label: 'Not now', onPick: onClose },
     ], onClose);
+  }
+
+  // ---- championships (core/championship.ts, Spec 12.5): entered and followed at any race office ----
+
+  private openChampionships(venue: VenueDef, onClose: () => void): void {
+    const rc = services.content;
+    const career = this.save.career;
+    const back = () => this.openVenue(venue, onClose);
+    const list = rc.championships.championships.filter((d) => d.rounds.includes(venue.id));
+    const venueName = (id: string | null) => rc.tracks.venues.find((v) => v.id === id)?.name ?? 'the next track';
+    const options = list.map((def) => {
+      const active = career.champs?.active[def.id];
+      const record = career.champs?.done[def.id];
+      const problem = active ? null : champProblem(rc, def, this.save.flags);
+      let note: string;
+      if (active) {
+        const me = standings(rc.racing.points, active).find((r) => r.player)!;
+        note = `Round ${active.rounds.length + 1} of ${def.rounds.length} next, at ${venueName(nextRoundVenue(def, active))}.${active.rounds.length ? ` You're ${ordinal(me.position)} on ${me.points} points.` : ''}`;
+      } else if (problem) note = problem;
+      else note = `${def.rounds.length} rounds, ${formatMoney(roundEntry(rc, def))} a round.${record?.wins ? ' Won before: half prize money and XP.' : record ? ` Best so far: ${ordinal(record.best)}.` : ''}`;
+      return { label: def.short, note, enabled: !!active || !problem, onPick: () => this.openChampionship(def, venue, onClose) };
+    });
+    this.hud.choose('Championships', 'Each round is entered separately at its track\'s race office, with qualifying and the same field of riders every round. There is no calendar: a championship waits for you.', [...options, { label: 'Back', onPick: back }], back);
+  }
+
+  private openChampionship(def: ChampionshipDef, venue: VenueDef, onClose: () => void): void {
+    const rc = services.content;
+    const career = this.save.career;
+    const active = career.champs?.active[def.id];
+    const back = () => this.openChampionships(venue, onClose);
+    const rounds = def.rounds.map((v, i) => `${i + 1}. ${rc.tracks.venues.find((x) => x.id === v)?.name ?? v}`).join('   ');
+    if (!active) {
+      const reward = def.rewards[0];
+      const text = [
+        `${def.class}. ${def.rounds.length} rounds: ${rounds}`,
+        `${def.size + 1} riders, the same at every round. Qualifying sets the gate pick for moto 1; points for every moto (25 for a win). Entry ${formatMoney(roundEntry(rc, def))} a round, with bigger prize money than a race day.`,
+        `The winner takes ${reward.title ?? 'the title'}${reward.money ? ` and £${reward.money}` : ''}; 2nd and 3rd win a smaller prize.`,
+      ].join('\n\n');
+      this.hud.choose(def.name, text, [
+        { label: 'Enter', note: 'Free to enter: you pay each round\'s entry when you ride it.', onPick: () => {
+          enter(career, rc, def, (Math.random() * 2 ** 32) >>> 0);
+          this.milestoneSave();
+          this.hud.toast(`Entered the ${def.name}. Round 1 is at ${rc.tracks.venues.find((v) => v.id === def.rounds[0])?.name}.`);
+          this.openVenue(venue, onClose);
+        } },
+        { label: 'Back', onPick: back },
+      ], back);
+      return;
+    }
+    const table = standings(rc.racing.points, active);
+    const name = (id: string) => (id === 'player' ? 'You' : rc.riders.riders.find((r) => r.id === id)?.name ?? id);
+    const me = table.find((r) => r.player)!;
+    const top = table.slice(0, 5).map((r) => `${r.position}. ${name(r.id)}  ${r.points}`);
+    if (me.position > 5) top.push(`${me.position}. You  ${me.points}`);
+    const next = rc.tracks.venues.find((v) => v.id === nextRoundVenue(def, active));
+    const text = [
+      `Rounds: ${rounds}`,
+      active.rounds.length ? `After round ${active.rounds.length}:\n${top.join('\n')}` : 'No rounds ridden yet.',
+      `Next: round ${active.rounds.length + 1} at ${next?.name}. ${active.rounds.length && !titlePossible(def, rc.racing.points, active) ? 'The title is out of reach now, but the top three still win a prize.' : ''}`,
+    ].join('\n\n');
+    const restart = () => this.hud.confirm(`Start the ${def.name} again from round 1?\nYour points so far are lost.`, 'Start again', () => {
+      withdraw(career, def);
+      enter(career, rc, def, (Math.random() * 2 ** 32) >>> 0);
+      this.milestoneSave();
+      this.hud.toast(`${def.name}: started again.`);
+      this.openChampionship(def, venue, onClose);
+    }, () => this.openChampionship(def, venue, onClose));
+    const giveUp = () => this.hud.confirm(`Give up the ${def.name}?\nYour points so far are lost. You can enter again later.`, 'Give it up', () => {
+      withdraw(career, def);
+      this.milestoneSave();
+      this.hud.toast(`You gave up the ${def.name}.`);
+      this.openChampionships(venue, onClose);
+    }, () => this.openChampionship(def, venue, onClose));
+    this.hud.choose(def.name, text, [
+      { label: 'Start again', note: 'Back to round 1 with no points, against a new field.', onPick: restart },
+      { label: 'Give it up', note: 'Leave the championship.', onPick: giveUp },
+      { label: 'Back', onPick: back },
+    ], back);
   }
 
   // ---- mod tracks: player-made tracks raced from the road (core/modTracks.ts) ----
@@ -724,7 +818,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /** Hands over to the race screen; the world sleeps until it is done. */
-  private ride(mode: 'practice' | 'raceday', venue: VenueDef, fee: number, onClose: () => void): void {
+  private ride(mode: 'practice' | 'raceday', venue: VenueDef, fee: number, onClose: () => void, champ?: ChampionshipDef): void {
     this.busy = true;
     this.path = [];
     this.player.stopWalking();
@@ -732,6 +826,7 @@ export class WorldScene extends Phaser.Scene {
       mode,
       venue,
       fee,
+      champ,
       save: this.snapshot(),
       onDone: (save, message) => {
         this.scene.wake('hud');

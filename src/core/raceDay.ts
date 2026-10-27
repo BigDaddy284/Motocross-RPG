@@ -1,5 +1,5 @@
 import { bikeProblem, pence, type BikesData, type Bike, type CareerState } from './career';
-import { MotoSim, mixSeed, seededRng, type Entrant, type RacingData, type RiderResult, type Tactic, type TrackDef } from './race';
+import { MotoSim, formatTime, gateBonus, mixSeed, seededRng, type Entrant, type RacingData, type RiderResult, type Tactic, type TrackDef } from './race';
 import { addXp, childLevels, type LevelUp, type SkillsData } from './skills';
 import type { RiderStyle } from './riderProfile';
 
@@ -141,9 +141,29 @@ function hashId(id: string): number {
   return h >>> 0;
 }
 
+/** A championship round's race day (Spec 12.2a, 12.5): its fixed field, qualifying and the tier's purse. */
+export interface RoundOptions {
+  /** The CPU riders, the same every round, in place of a field drawn for the day. */
+  cpus: CpuRiderDef[];
+  /** Timed laps in qualifying, after an out lap. */
+  qualifyingLaps: number;
+  /** Prize money times the class's (Spec 14.2 tier, with a replay's share). */
+  purseTimes: number;
+  /** XP times (a replay's share). */
+  xpTimes: number;
+}
+
+export interface QualifyingRecord {
+  /** Every rider, fastest timed lap first. bestLap is the best timed lap (the out lap isn't timed). */
+  results: RiderResult[];
+  xp: Record<string, number>;
+}
+
 export class RaceDay {
   readonly field: Entrant[];
   readonly motos: MotoRecord[] = [];
+  /** Qualifying, once it has been ridden (championship rounds only). */
+  qualifying: QualifyingRecord | null = null;
   readonly track: TrackDef;
   readonly cls: string;
   readonly laps: number;
@@ -159,12 +179,14 @@ export class RaceDay {
     readonly seed: number,
     /** The entry fee paid, in pence, for the prize maths (the first race still pays prizes on the normal fee). */
     readonly entry: number,
+    /** Set for a championship round. */
+    readonly round?: RoundOptions,
   ) {
     this.track = trackById(rc, venue.track!);
     this.cls = venue.class ?? '50cc';
     this.laps = rc.racing.classes[this.cls].laps;
     this.rng = seededRng(seed);
-    const cpus = drawField(rc, venue, seed);
+    const cpus = round?.cpus ?? drawField(rc, venue, seed);
     this.field = [player, ...cpus.map((d) => cpuEntrant(rc, d, this.cls))];
     this.pickOrder = shuffle(this.field.map((e) => e.id), this.rng);
   }
@@ -228,14 +250,13 @@ export class RaceDay {
   private cpuGatePick(id: string, taken: Map<number, string>, gates: number): number {
     const rng = seededRng(mixSeed(this.seed, hashId(id) + 7919 * this.motos.length));
     const favourite = rng() * gates;
-    const bonus = this.track.gates ?? [];
     let best = gates;
     let bestScore = -Infinity;
     for (let g = 0; g < gates; g++) {
       // One draw per gate, taken or not, so a rider's feel for a gate never depends on the others.
       const feel = (rng() - 0.5) * GATE_FEEL;
       if (taken.has(g)) continue;
-      const score = (bonus[g] ?? 0) - Math.abs(g - favourite) * GATE_FAVOURITE_PULL + feel;
+      const score = gateBonus(this.track, g) - Math.abs(g - favourite) * GATE_FAVOURITE_PULL + feel;
       if (score > bestScore) {
         bestScore = score;
         best = g;
@@ -244,11 +265,58 @@ export class RaceDay {
     return best;
   }
 
+  /** True while a championship round's qualifying is still to ride. */
+  get qualifyingDue(): boolean {
+    return !!this.round && !this.qualifying;
+  }
+
+  /**
+   * Qualifying (Spec 12.2): an out lap from the gate, then the timed laps. Riders line up in a
+   * random order (the day's first pick order); nobody picks a gate for it.
+   */
+  startQualifying(message: string): MotoSim {
+    const r = this.round!;
+    this.pickOrder.forEach((id, i) => (this.field.find((e) => e.id === id)!.gate = i));
+    return new MotoSim(this.rc.racing, this.rc.bikes, this.track, this.cls, this.field, {
+      laps: r.qualifyingLaps + 1,
+      motoIndex: 0,
+      seed: mixSeed(this.seed, 0x7175616c),
+      message,
+    });
+  }
+
+  /** Records qualifying: the order by best timed lap sets moto 1's gate pick order. No points or prize. */
+  finishQualifying(sim: MotoSim): QualifyingRecord {
+    const timed = (laps: number[]) => (laps.length > 1 ? Math.min(...laps.slice(1)) : null);
+    const rows = sim.riders.map((r) => ({ r, best: timed(r.lapTimes) }));
+    rows.sort((a, b) => (a.best ?? Infinity) - (b.best ?? Infinity) || b.r.laps - a.r.laps || a.r.time - b.r.time || a.r.e.gate - b.r.e.gate);
+    const pole = rows[0].best;
+    const results: RiderResult[] = rows.map(({ r, best }, i) => ({
+      id: r.e.id,
+      name: r.e.name,
+      tag: r.e.tag,
+      player: r.e.player,
+      position: i + 1,
+      laps: r.laps,
+      time: r.time,
+      bestLap: best,
+      retired: r.retired,
+      reason: r.reason,
+      gap: best === null ? 'No time' : i === 0 || pole === null ? formatTime(best, 3) : `+${(best - pole).toFixed(3)}s`,
+    }));
+    const xp = scaleXp(sim.xp, this.round!.xpTimes);
+    this.qualifying = { results, xp };
+    if (sim.playerBike) this.player.bike = sim.playerBike;
+    this.pickOrder = results.map((r) => r.id);
+    return this.qualifying;
+  }
+
   /** The moto simulation for the next moto. The caller runs it (live or auto-complete). */
   startMoto(message: string, retireAtBroken?: number): MotoSim {
     return new MotoSim(this.rc.racing, this.rc.bikes, this.track, this.cls, this.field, {
       laps: this.laps,
-      motoIndex: this.motos.length,
+      // Ruts deepen through the day, qualifying counting as one step (Spec 10, Round 111).
+      motoIndex: this.motos.length + (this.qualifying ? 1 : 0),
       seed: mixSeed(this.seed, this.motos.length + 1),
       message,
       retireAtBroken,
@@ -261,8 +329,9 @@ export class RaceDay {
     const me = results.find((r) => r.player)!;
     const points = me.retired ? 0 : (this.rc.racing.points[me.position - 1] ?? 0);
     const bonus = sim.finishBonus(me.position);
-    const xp: Record<string, number> = { ...sim.xp };
+    let xp: Record<string, number> = { ...sim.xp };
     for (const [k, v] of Object.entries(bonus)) xp[k] = (xp[k] ?? 0) + v;
+    if (this.round) xp = scaleXp(xp, this.round.xpTimes);
     const rec: MotoRecord = { results, points, prize: me.retired ? 0 : motoPrize(this.rc.racing, this.entryForPrize, me.position), xp, passes: sim.passes };
     this.motos.push(rec);
     // The player's bike comes off the track as it finished.
@@ -279,8 +348,9 @@ export class RaceDay {
     }
   }
 
+  /** The entry the prize maths works from: the class entry, times a championship's purse. */
   private get entryForPrize(): number {
-    return pence(this.rc.racing.classes[this.cls].entry);
+    return pence(this.rc.racing.classes[this.cls].entry * (this.round?.purseTimes ?? 1));
   }
 
   /** Day overall by lowest combined positions, ties to the last moto (Spec 12.4), plus the podium bonus. */
@@ -327,6 +397,10 @@ export function applyRide(rc: RaceContent, career: CareerState, bike: Bike | nul
   career.money += money;
   const levelUps = addXp(rc.skills, career.skills, xp);
   return { money, xp, levelUps };
+}
+
+export function scaleXp(xp: Record<string, number>, k: number): Record<string, number> {
+  return k === 1 ? { ...xp } : Object.fromEntries(Object.entries(xp).map(([s, v]) => [s, v * k]));
 }
 
 export function sumXp(...sets: Record<string, number>[]): Record<string, number> {

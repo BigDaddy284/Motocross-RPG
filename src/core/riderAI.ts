@@ -56,6 +56,11 @@ const ROOM = 5;
 export const START_HOLD = 5;
 /** Seconds the line-up takes, from the start procedure opening to the last rider stopping in their slot. */
 export const LINE_UP = 6;
+
+/** The line-up for a field: LINE_UP for up to two rows, half a second more for each rider on a third, so nobody hurries. */
+export function lineUpTime(riders: number): number {
+  return LINE_UP + 0.5 * Math.max(0, riders - 2 * ROW_SIZE);
+}
 /** How fast finishers ride their cool-down after the flag, in metres a second. */
 const COOL_DOWN = 4;
 /** How far apart finishers ride their cool-down in single file, in grid units: three bike lengths (BIKE_LENGTH, trackSurface), room for the inside of a hairpin. */
@@ -71,9 +76,9 @@ interface Finish {
   from: number;
   edge: number;
 }
-/** Gates in a start row, and the most riders the start takes (two rows). */
+/** Gates in a start row, and the most riders the start takes (three rows, for a championship's 20). */
 export const ROW_SIZE = 8;
-export const MAX_GRID = 16;
+export const MAX_GRID = 24;
 /** How far behind the front row the race view draws the second row, in grid units (RaceView: BIKE_LENGTH × 1.4). */
 const ROW_GAP = 1.1 * 1.4;
 
@@ -126,7 +131,7 @@ export class RaceDirector {
   readonly prep: number;
   /** Riders already in their slot when the start procedure begins. */
   readonly lined = new Set<string>();
-  /** The order riders reach their slots: the front row in pick order, then the second row in pick order. Empty in practice. */
+  /** The order riders reach their slots: the front row in pick order, then each row behind in pick order. Empty in practice. */
   readonly arrival: string[] = [];
   private readonly moves = new Map<string, LineUpMove>();
   private readonly lapUnits: number;
@@ -148,8 +153,8 @@ export class RaceDirector {
     this.lapUnits = g.total;
     this.start = startGeom(track, g);
     // Each rider's gate is their slot: gates 1 to 8 (0 to 7 here) are the front row, from the inside
-    // of the first corner outwards, and gates 9 to 16 the second row, each straight behind the gate
-    // eight before it. A field of 8 or fewer is one row spread across the start.
+    // of the first corner outwards, gates 9 to 16 the second row and 17 to 24 the third, each
+    // straight behind the gate eight before it. A field of 8 or fewer is one row spread across the start.
     const order = [...gates.entries()].sort((a, b) => a[1] - b[1]).map(([id]) => id);
     const firstTurn = this.turns.find((t) => t !== 0) || 1;
     const n = order.length;
@@ -162,7 +167,7 @@ export class RaceDirector {
     const perRow = n > ROW_SIZE ? ROW_SIZE : n;
     const step = perRow > 1 ? 1.8 / (perRow - 1) : 0;
     for (const [id, gate] of gates) {
-      this.gateRow.set(id, gate < ROW_SIZE ? 0 : 1);
+      this.gateRow.set(id, Math.floor(gate / ROW_SIZE));
       this.gateLane.set(id, firstTurn * (perRow > 1 ? 0.9 - step * (gate % ROW_SIZE) : 0));
     }
     for (const id of profiles.keys()) this.segs.set(id, []);
@@ -187,7 +192,8 @@ export class RaceDirector {
     // their lane rides through, so the second row rolls in once the front row is in.
     const picks = pickOrder?.filter((id) => gates.has(id)).length === n ? pickOrder.filter((id) => gates.has(id)) : shuffled(order, seed >>> 0);
     const arrival = this.arrival;
-    arrival.push(...picks.filter((id) => !this.startRow(id)), ...picks.filter((id) => this.startRow(id)));
+    const rows = Math.ceil(n / ROW_SIZE);
+    for (let row = 0; row < rows; row++) arrival.push(...picks.filter((id) => this.startRow(id) === row));
     for (const id of arrival.slice(0, k)) this.lined.add(id);
     // Riders drift onto their lane line from the same side, so neighbours never close up.
     const drift = rnd() < 0.5 ? -1 : 1;
@@ -214,13 +220,14 @@ export class RaceDirector {
       return { plan, prev };
     };
     // Tighten the gaps until it fits in LINE_UP without anyone hurrying (at most a fifth quicker).
+    const lineUp = lineUpTime(n);
     let { plan, prev } = build(1);
-    for (let tight = 0.8; prev > LINE_UP * 1.2 && tight >= 0; tight -= 0.2) ({ plan, prev } = build(tight));
+    for (let tight = 0.8; prev > lineUp * 1.2 && tight >= 0; tight -= 0.2) ({ plan, prev } = build(tight));
     // Stretch or squeeze the whole plan so the last rider stops at LINE_UP: every rider keeps their
     // order and the second row still waits on the front.
-    this.prep = plan.size ? LINE_UP : 0;
+    this.prep = plan.size ? lineUp : 0;
     this.prestart = this.prep + START_HOLD;
-    const scale = prev > 0 ? LINE_UP / prev : 1;
+    const scale = prev > 0 ? lineUp / prev : 1;
     for (const [id, m] of plan) this.moves.set(id, { ...m, t0: -this.prestart + m.t0 * scale, t1: Math.min(-START_HOLD, -this.prestart + m.t1 * scale) });
   }
 
@@ -245,7 +252,7 @@ export class RaceDirector {
     return [...this.moves.values()].every((m) => t >= m.t1);
   }
 
-  /** Which start row a rider lines up in: 0 at the gate, 1 just behind it. */
+  /** Which start row a rider lines up in: 0 at the gate, 1 just behind it, 2 behind that. */
   startRow(id: string): number {
     return this.gateRow.get(id) ?? 0;
   }

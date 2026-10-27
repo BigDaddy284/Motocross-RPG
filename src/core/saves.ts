@@ -205,6 +205,7 @@ function isCareer(v: unknown): boolean {
     Object.values(bike.parts).every((p) => Number.isInteger(p?.grade) && typeof p?.condition === 'number') &&
     Array.isArray(c.bag) && c.bag.every((b) => typeof b?.id === 'string' && (b.part === undefined || isSpare(b.part))) &&
     (c.shops === undefined || isShopState(c.shops)) &&
+    (c.champs === undefined || isChampState(c.champs)) &&
     !!story && Number.isInteger(story.step) && Array.isArray(story.used) &&
     typeof c.counters === 'object' && c.counters !== null &&
     isSkills(c.skills)
@@ -218,6 +219,21 @@ function isSpare(p: Record<string, unknown>): boolean {
 function isShopState(v: unknown): boolean {
   const s = v as Record<string, unknown>;
   return typeof s === 'object' && s !== null && [s.seed, s.refresh, s.raceDays, s.activities].every(Number.isInteger) && Array.isArray(s.sold);
+}
+
+function isChampState(v: unknown): boolean {
+  const s = v as Record<string, unknown>;
+  if (typeof s !== 'object' || s === null || typeof s.active !== 'object' || s.active === null || typeof s.done !== 'object' || s.done === null) return false;
+  const active = Object.values(s.active).every((a) => {
+    const x = a as Record<string, unknown>;
+    return typeof x === 'object' && x !== null && Number.isInteger(x.seed) && Array.isArray(x.field) && x.field.every((id) => typeof id === 'string') && typeof x.replay === 'boolean' &&
+      Array.isArray(x.rounds) && x.rounds.every((r) => typeof r?.venue === 'string' && Array.isArray(r.qualifying) && Array.isArray(r.motos));
+  });
+  const done = Object.values(s.done).every((d) => {
+    const x = d as Record<string, unknown>;
+    return typeof x === 'object' && x !== null && [x.runs, x.wins, x.best].every(Number.isInteger);
+  });
+  return active && done;
 }
 
 function isSkills(v: unknown): boolean {
