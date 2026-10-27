@@ -50,6 +50,10 @@ It runs in a browser on desktop or on a phone held sideways, and saves automatic
 
 Hold the phone sideways: the game is laid out for landscape, and asks you to turn the phone if it is upright. For the most room, use the browser's Add to Home Screen: the game then opens full screen with no browser bars. The game draws at the phone's full screen resolution, and panels shrink to fit a short screen.
 
+### Backing up and moving your career
+
+Your career is saved in the browser you play in, so another browser or device starts empty. **Load → Export save** gives you your career as a file (`mxrpg-<rider>-<date>.save.json`): a download on a computer, the share sheet on a phone or tablet (Save to Files on iPhone and iPad, Drive or Downloads on Android). **Load → Import save** on any browser or device picks that file and carries on the career there; Load is open even with no career saved, for this. Importing over a career keeps the one it replaces as Backup 1 under Load. A save from an older build is upgraded on import like any other; one from a newer build, or a damaged one, is refused with the reason. Export now and then as a backup: Safari can clear a website's storage after about a week without a visit (a Home Screen app is not affected). The code is in `src/core/saves.ts` (the file format) and `src/ui/files.ts`.
+
 ## Making and installing mod tracks
 
 Mod tracks are race tracks made with the game's track editor and raced in the game from **Mod Track** on the venue road. A mod race day plays exactly like Farmland MX: the same entry fee, field, AI riders, prize money, XP and parts wear. For now, picking a mod track goes straight to the gate pick, without a venue area to walk round, and race day is the only mode (no practice).

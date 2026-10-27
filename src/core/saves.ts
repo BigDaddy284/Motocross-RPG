@@ -128,6 +128,18 @@ export class SaveManager {
     return out;
   }
 
+  /**
+   * Makes an imported save the current one. The career it replaces moves into backup 1, as on any
+   * save, so an import by mistake can be undone from Load. The save keeps its own savedAt.
+   */
+  importSave(slot: string, data: SaveData): SaveData {
+    const { version: _version, savedAt, ...rest } = data;
+    const full = this.write(slot, rest);
+    full.savedAt = savedAt;
+    this.store.set(this.key(slot), JSON.stringify(full));
+    return full;
+  }
+
   delete(slot: string): void {
     this.store.remove(this.key(slot));
     for (let i = 1; i <= BACKUP_COUNT; i++) this.store.remove(this.key(slot, i));
@@ -212,4 +224,43 @@ function isSkills(v: unknown): boolean {
   const s = v as Record<string, unknown> | undefined;
   const numbers = (r: unknown) => typeof r === 'object' && r !== null && Object.values(r).every((x) => typeof x === 'number' && x >= 0);
   return !!s && typeof s === 'object' && numbers(s.xp) && numbers(s.bonus);
+}
+
+// Save files: a career taken out of this browser and brought into another (or into the desktop
+// app later). The file holds the save as it is stored, wrapped with a format tag, and is read back
+// through parseSave, so an exported save from an older build is upgraded on import like any other.
+
+/** The format tag written in a save file. */
+export const SAVE_FILE = 'mxrpg-save';
+
+/** The text of a save file for this save. */
+export function saveFileText(data: SaveData): string {
+  return JSON.stringify({ format: SAVE_FILE, save: data }, null, 1);
+}
+
+/** A file name for a save: mxrpg-<rider>-<date>.save.json. */
+export function saveFileName(data: SaveData): string {
+  const rider = data.rider.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'career';
+  const day = /^\d{4}-\d{2}-\d{2}/.exec(data.savedAt)?.[0] ?? 'save';
+  return `mxrpg-${rider}-${day}.save.json`;
+}
+
+export type SaveFileResult = { ok: true; data: SaveData } | { ok: false; reason: string };
+
+/** Reads a save file (or a bare save as stored). Never throws: says why a file can't be used. */
+export function readSaveFile(text: string): SaveFileResult {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    return { ok: false, reason: 'The file is not a save file (it is not valid JSON).' };
+  }
+  const wrapped = raw as { format?: unknown; save?: unknown } | null;
+  const save = (wrapped && typeof wrapped === 'object' && wrapped.format === SAVE_FILE ? wrapped.save : raw) as Record<string, unknown> | null;
+  if (!save || typeof save !== 'object' || typeof save.version !== 'number' || typeof save.rider !== 'object') {
+    return { ok: false, reason: 'The file is not a save file: export one from Load > Export save.' };
+  }
+  if (save.version > SAVE_VERSION) return { ok: false, reason: 'The save is from a newer version of the game. Update the game first.' };
+  const data = parseSave(JSON.stringify(save));
+  return data ? { ok: true, data } : { ok: false, reason: 'The save in the file is damaged and cannot be loaded.' };
 }
