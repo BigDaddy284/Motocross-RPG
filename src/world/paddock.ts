@@ -109,7 +109,14 @@ class Build {
     const n = Math.max(2, Math.ceil(l / 4.5) + 1);
     for (let i = 0; i < n; i++) this.box(x0 + 0.1 + (l - 0.2) * (i / (n - 1)), 0, z0 + out - 0.1, 0.06, hEdge - 0.1, 0.06, STEEL);
     if (sides) {
-      for (const x of [x0, x1]) this.box(x, 0, z0 + out / 2, 0.04, hEdge - 0.15, out - 0.15, CANVAS);
+      // End walls: canvas from the vehicle's side to the outer edge, cut to the roof's slope so nothing shows through.
+      const shape = new THREE.Shape([[0, 0], [out, 0], [out, hEdge - 0.04], [0, hWall - 0.04]].map(([u, y]) => new THREE.Vector2(u * U, y * U)));
+      for (const x of [x0, x1]) {
+        const wall = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 0.04 * U, bevelEnabled: false }), this.mat(CANVAS));
+        wall.rotation.y = -Math.PI / 2;
+        wall.position.set((x + 0.02) * U, 0, z0 * U);
+        this.parts.push(wall);
+      }
       this.box(xc, 0, z0 + out / 2, l, 0.03, out, MAT);
     }
   }
