@@ -43,6 +43,12 @@ const OVERRIDES = {
   'buildings/tiled/tiles/interior-furniture/bike_on_stand+shadow.png': 'vehicles/sheets/furniture/bike_on_stand+shadow.png',
 };
 
+/**
+ * Prop folders copied whole, whether or not a map uses them yet, so the map editor's palette offers
+ * them: the parked vehicles and bikes on stands (vehgen/paddockbuild.py, Boss's brief of 27 Oct 2026).
+ */
+const PALETTE_DIRS = ['area-map/tiled/tiles/vehicle-props', 'area-map/tiled/tiles/bike-props'];
+
 const copied = new Set();
 
 function readJson(file) {
@@ -266,6 +272,14 @@ function copyVehicles() {
   return out;
 }
 
+function copyPaletteDirs() {
+  for (const d of PALETTE_DIRS) {
+    const dir = path.join(ART, d);
+    if (!fs.existsSync(dir)) continue;
+    for (const f of fs.readdirSync(dir).filter((f) => f.endsWith('.png')).sort()) useImage(path.join(dir, f));
+  }
+}
+
 function main() {
   if (VEHICLES_ONLY) {
     const file = path.join(ROOT, 'public/assets/manifest.json');
@@ -301,6 +315,7 @@ function main() {
   }
   manifest.characters = copyCharacters();
   manifest.vehicles = copyVehicles();
+  copyPaletteDirs();
   fs.writeFileSync(path.join(ROOT, 'public/assets/manifest.json'), JSON.stringify(manifest, null, 1));
   console.log(`copied ${copied.size} images`);
 }
