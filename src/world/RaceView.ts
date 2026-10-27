@@ -9,6 +9,7 @@ import { pointAt, START_PAD, startPointAt } from '../core/trackGeom';
 import { GRID_H, GRID_W, trackKind, type TrackPartsData } from '../core/trackParts';
 import { BIKE_LENGTH, CAM_AZ, LIP_AT, TrackSurface } from '../core/trackSurface';
 import { COLORS, TEXT_RES } from '../ui/theme';
+import { paddockParts } from './paddock';
 import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
@@ -266,7 +267,7 @@ export class RaceView {
         const plain: THREE.Mesh[] = [];
         obj.traverse((o) => {
           const m = o as THREE.Mesh;
-          if (m.isMesh && !(m as THREE.InstancedMesh).isInstancedMesh && !Array.isArray(m.material) && !(m.material as THREE.MeshLambertMaterial).map) plain.push(m);
+          if (m.isMesh && !(m as THREE.InstancedMesh).isInstancedMesh && !Array.isArray(m.material) && !(m.material as THREE.MeshLambertMaterial).map && !(m.material as THREE.MeshLambertMaterial).vertexColors) plain.push(m);
         });
         for (const m of plain) {
           m.userData.world = m.matrixWorld.clone();
@@ -1104,6 +1105,11 @@ export class RaceView {
       case CHEER_ITEM:
         this.cheerFigure(g, it);
         break;
+      case 'rusty_truck': case 'rusty_van': case 'mx_van': case 'mx_van_long': case 'motorhome': case 'motorhome_long': case 'hauler': case 'bike_stand': {
+        // One vertex-coloured mesh a vehicle, so a full paddock costs a draw each.
+        if (def) add(this.mergeParts(paddockParts(def, it, (this.track.scenery ?? []).indexOf(it))));
+        break;
+      }
       case 'pit_tent': {
         for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) add(this.boxMesh(0.08, 1.9, 0.08, this.mat(0xcccccc), (sx * w) / 2.1, 0, (sz * d) / 2.1));
         const roof = new THREE.Mesh(new THREE.ConeGeometry(Math.hypot(w, d) / 2, 0.9, 4), this.mat(color));
