@@ -7,12 +7,12 @@ import { findPathToAny, findPathTowards, standingTiles } from '../core/pathfindi
 import type { SaveData } from '../core/saves';
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
 import { applyMapState, clearedPatches, hiddenSprites } from '../core/mapState';
-import { directions, guidesOn, routeArrival, sideOf, waysOut } from '../core/guides';
+import { routeArrival, sideOf } from '../core/guides';
 import { earning, goalObjects, nextHop, storyGoals } from '../core/waymarks';
 import { biggestBike, bikeImage, zoneFor } from '../core/worldMap';
 import { ROUTE, spawnTile, stepTriggerAt, type Arrival, type StepResult } from '../core/travel';
 import { DriveMap, FACING_OF, bayFor, ensureVan, exitTile, footprint, inwardHeading, nearestFree, placeNear, planDrive, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
-import { MOD_PLACE, forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
+import { forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
 import { entryFee, fieldCount, practiceFee, venueProblem, type VenueDef } from '../core/raceDay';
 import { champProblem, enter, nextRoundVenue, roundEntry, roundsHere, standings, titlePossible, withdraw, type ChampionshipDef } from '../core/championship';
 import { noteActivity, shopForAction, type ShopDef } from '../core/shops';
@@ -138,8 +138,7 @@ export class WorldScene extends Phaser.Scene {
       this.npcs.push({ placement: p, character });
     }
     this.drive = new DriveMap(map, this.grid, services.content.vehicles);
-    // Route marshals stand by the road to be asked, not in the way: the van drives past them too.
-    this.drive.setNpcTiles(this.npcs.filter((n) => !n.placement.npc.guide).map((n) => ({ x: n.placement.x, y: n.placement.y })));
+    this.drive.setNpcTiles(this.npcs.map((n) => ({ x: n.placement.x, y: n.placement.y })));
     this.setupVan();
     let { x, y } = this.save.position;
     const { facing } = this.save.position;
@@ -416,10 +415,9 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
     if (o.type === 'travel' && o.props.to === ROUTE) {
-      // Signs and stops for the roads out: the route marshal by the road says where it goes.
+      // Signs and stops for the roads out: the road itself asks where to.
       const lock = services.travel.lockFor(this.map, o, this.save.flags);
-      const guide = guidesOn(services.content.npcs, this.map)[0];
-      this.hud.toast(lock ? lock.message : `${o.name}: ${guide ? `the ${guide.name.toLowerCase()} by the road out knows where it goes.` : 'the roads out are marked at the edge of town.'}`);
+      this.hud.toast(lock ? lock.message : `${o.name}: walk out onto the road to pick where to go.`);
       return;
     }
     const msg = actionMessage(o, this.save.flags);
@@ -431,7 +429,9 @@ export class WorldScene extends Phaser.Scene {
     if (this.runStory({ talk: npc.id }, npc.name, () => this.faceBack(placement, character), () => this.faceNpc(character))) return;
     if (npc.quietUntil && !this.save.flags[npc.quietUntil]) {
       // GDD 4.2: NPCs outside the opening chain don't acknowledge the rider until it's done.
-      this.hud.toast(`The ${npc.name.toLowerCase()} doesn't look up.`);
+      // A racer goes by their name ("Louis Jonez doesn't look up"), anyone else by their job.
+      const named = services.content.riders.riders.some((r) => r.name === npc.name);
+      this.hud.toast(`${named ? npc.name : `The ${npc.name.toLowerCase()}`} doesn't look up.`);
       return;
     }
     this.faceNpc(character);
@@ -442,7 +442,6 @@ export class WorldScene extends Phaser.Scene {
     }
     const back = () => this.faceBack(placement, character);
     const rule = this.talkRule(npc);
-    if (npc.guide && !rule) return this.guideTalk(npc, back);
     const { challenges, errands } = services.content;
     const challenge = challenges.challenges.find((d) => d.npc === npc.id && (!d.needs || this.save.flags[d.needs]));
     if (challenge && !rule) return this.challengeTalk(npc, challenge, back);
@@ -1318,32 +1317,23 @@ export class WorldScene extends Phaser.Scene {
     applyMapState(map, grid, this.save.flags);
     const dm = new DriveMap(map, grid, services.content.vehicles);
     dm.setVanLength(length);
-    // Route marshals stand by the road to be asked, not in the way: the van drives past them.
-    dm.setNpcTiles(npcsOnMap(services.content, map).filter((p) => !p.npc.guide).map((p) => ({ x: p.x, y: p.y })));
+    dm.setNpcTiles(npcsOnMap(services.content, map).map((p) => ({ x: p.x, y: p.y })));
     return dm;
   }
 
-  // ---- routes and route marshals ----
+  // ---- routes ----
 
   /**
-   * Where a route exit takes the rider, then `go` there: the place picked with the marshal, or its
-   * only place, straight away; otherwise a quick "Where to?" at the road itself, so travel never
-   * waits on a word with the marshal. Returns true when it went straight away.
+   * Where a route exit takes the rider, then `go` there: its only place straight away, otherwise a
+   * quick "Where to?" at the road itself. Returns true when it went straight away.
    */
   private routeTo(via: MapObject, go: (to: Arrival) => void): boolean {
-    const pick = services.routePick?.map === this.map.id && services.routePick.exit === via.name ? services.routePick.to : null;
-    if (pick === MOD_PLACE) {
-      services.routePick = null;
-      this.openModTracks();
-      return false;
-    }
-    const to = routeArrival(this.map, via, services.content.world, services.maps, pick);
+    const to = routeArrival(this.map, via, services.content.world, services.maps, null);
     if (typeof to === 'string') {
       this.hud.toast(to);
       return false;
     }
-    services.routePick = null;
-    if (pick || !to.others.length) {
+    if (!to.others.length) {
       go({ map: to.map, tile: to.tile });
       return true;
     }
@@ -1355,30 +1345,6 @@ export class WorldScene extends Phaser.Scene {
     }));
     this.hud.choose('Where to?', `${route ? `${route.road[0].toUpperCase()}${route.road.slice(1)}` : 'This road'} goes to ${options.length} places.`, options, () => {});
     return false;
-  }
-
-  /** A route marshal: where each way out goes, then which route to take when there's a choice. */
-  private guideTalk(npc: NpcDef, done: () => void): void {
-    const ways = waysOut(this.map, services.content.world, services.maps, services.travel, this.save.flags);
-    const greeting = (services.content.dialogue[npc.dialogue]?.lines ?? []).map((l) => ({ ...l, text: fillText(l.text, { rider: this.save.rider.name }) }));
-    const lines: DialogueLine[] = [...greeting, ...directions(ways).map((text) => ({ speaker: 'npc' as const, text }))];
-    this.hud.openDialogue(npc.name, this.save.rider.name, lines, () => {
-      const choices = ways.filter((w) => w.route && !w.shut && w.places.length > 1);
-      if (!choices.length) return done();
-      const options = choices.flatMap((w) =>
-        w.places.map((p) => ({
-          label: p.name,
-          note: `${w.route!.road[0].toUpperCase()}${w.route!.road.slice(1)}, out to the ${w.side}. ${p.note}`,
-          onPick: () => {
-            services.routePick = { map: this.map.id, exit: w.exit.name, to: p.map };
-            this.hud.toast(`Heading for ${p.name}: take ${w.route!.road} out to the ${w.side}.`);
-            done();
-          },
-        })),
-      );
-      options.push({ label: 'Just asking', note: '', onPick: done });
-      this.hud.choose('Which way?', `Where are you heading, ${this.save.rider.name}?`, options, done);
-    });
   }
 
   /** A small ring where the player clicked, so a click always shows a response. */

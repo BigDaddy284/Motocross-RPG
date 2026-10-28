@@ -19,8 +19,6 @@ export const services = {
   content: null as unknown as Content,
   maps: new Map<string, BakedMap>(),
   travel: null as unknown as Travel,
-  /** The route picked with a route marshal: leaving this map by this exit goes to that place. */
-  routePick: null as { map: string; exit: string; to: string } | null,
   /** The track files installed in the mods folder, as fetched at start. */
   modFolder: [] as ImportedFile[],
   /** Every mod track, installed and imported, checked (core/modTracks.ts). */

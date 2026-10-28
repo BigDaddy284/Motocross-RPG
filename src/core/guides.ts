@@ -1,14 +1,10 @@
 import type { PlaceDef, RouteDef, WorldData } from './career';
-import type { NpcDef } from './content';
 import { objectTile, type BakedMap, type MapObject } from './mapTypes';
 import { ROUTE, spawnTile, type Arrival, type Travel } from './travel';
 
-// Route marshals: NPCs (npcs.json, guide: true) who stand by an area's way out and give
-// directions instead of a world map screen. What they say is read from the map they stand on:
-// each of its exits, where it goes (another map, or a route with a choice of places from
-// data/world.json), and whether it is open yet. So they can't promise a road that isn't there,
-// and a new area only needs its exits, its routes and a marshal in npcs.json.
-// Picking a place only chooses which way to go: you still walk (or drive) out by the exit.
+// The roads out of an area: each of its exits, where it goes (another map, or a route with a
+// choice of places from data/world.json, picked at the road), and whether it is open yet.
+// (Boss, 28 Oct 2026: the route marshals who gave directions are gone from the game.)
 
 export interface Way {
   exit: MapObject;
@@ -50,7 +46,7 @@ export function routeFor(world: WorldData, map: BakedMap, exit: MapObject): Rout
   return world.routes.find((r) => r.map === map.id && r.exit === exit.name);
 }
 
-/** Every way out of a map, one per exit name, as a marshal would describe it. */
+/** Every way out of a map, one per exit name. */
 export function waysOut(map: BakedMap, world: WorldData, maps: Map<string, BakedMap>, travel: Travel, flags: Record<string, boolean>): Way[] {
   const ways: Way[] = [];
   for (const exit of map.objects) {
@@ -68,31 +64,9 @@ export function waysOut(map: BakedMap, world: WorldData, maps: Map<string, Baked
   return ways;
 }
 
-const list = (names: string[]) => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`);
-
-/** What a marshal says: each way out, where it goes, and anything shut. */
-export function directions(ways: Way[]): string[] {
-  const lines: string[] = [];
-  for (const w of ways) {
-    const Side = w.side === 'over there' ? 'Over there' : `Out to the ${w.side}`;
-    if (w.to) lines.push(`${Side}, that road takes you to ${w.to.title}.${w.shut ? ` It's shut for you just now: ${w.shut}` : ''}`);
-    else if (w.route && w.places.length) {
-      lines.push(`${Side}, ${w.route.road} goes to ${list(w.places.map((p) => p.name))}.${w.shut ? ` It's shut for you just now: ${w.shut}` : ''}`);
-      if (!w.shut) for (const p of w.places) lines.push(`${p.name}: ${p.note}`);
-    } else lines.push(`${Side}, that road doesn't go anywhere yet.`);
-  }
-  if (!lines.length) lines.push("There's no road out of here.");
-  return lines;
-}
-
-/** The marshals on a map. */
-export function guidesOn(npcs: NpcDef[], map: BakedMap): NpcDef[] {
-  return npcs.filter((n) => n.guide && n.map === map.id);
-}
-
 /**
- * Where a route exit takes you: the place picked with the marshal, or otherwise the first place it
- * goes (the marshal is there to ask, never in the way). A string is why it can't take you anywhere.
+ * Where a route exit takes you: the place picked (`pick`), or otherwise the first place it goes.
+ * A string is why it can't take you anywhere.
  * The mod track list is never where a road takes you by itself: it is picked (WorldScene.routeTo).
  */
 export function routeArrival(map: BakedMap, exit: MapObject, world: WorldData, maps: Map<string, BakedMap>, pick: string | null): (Arrival & { place: PlaceDef; others: PlaceDef[] }) | string {

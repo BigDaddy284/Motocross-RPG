@@ -128,8 +128,7 @@ describe('the opening chain', () => {
   it('only the opening chain NPCs talk before it is done (GDD 4.2)', () => {
     const inChain = new Set(story.steps.slice(0, story.steps.findIndex((s) => s.id === 'tutorial_end') + 1).flatMap((s) => (s.on.talk ? [s.on.talk] : [])));
     for (const n of content.npcs) {
-      // Route marshals only give directions (they replace the world map screen), so they always answer.
-      if (inChain.has(n.id) || n.guide) expect(n.quietUntil, n.id).toBeUndefined();
+      if (inChain.has(n.id)) expect(n.quietUntil, n.id).toBeUndefined();
       else expect(n.quietUntil, n.id).toBe('tutorial_done');
     }
   });

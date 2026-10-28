@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { checkContent, npcsOnMap, type RawContent } from '../src/core/content';
-import { directions, guidesOn, routeArrival, routePlaces, waysOut } from '../src/core/guides';
+import { routeArrival, routePlaces, waysOut } from '../src/core/guides';
 import { Grid } from '../src/core/grid';
 import { ROUTE, spawnTile, stepTriggerAt, Travel } from '../src/core/travel';
 import { loadManifest, loadMaps, rawContent } from './helpers';
@@ -19,44 +19,13 @@ const errorsWith = (change: (raw: Record<string, any>) => void) => {
   return checkContent(raw, loadManifest(), maps).errors.map((e) => `${e.file}: ${e.field}: ${e.message}`);
 };
 
-describe('route marshals', () => {
-  it('stand by the way out of every area, off the exits, where you can walk', () => {
-    for (const m of maps.values()) {
-      if (m.kind !== 'area') continue;
-      const g = guidesOn(npcs, m);
-      expect(g.length, m.id).toBe(1);
-      const t = { x: g[0].tile![0], y: g[0].tile![1] };
-      expect(Grid.fromMap(m).isFree(t.x, t.y), m.id).toBe(true);
-      expect(stepTriggerAt(m, t), m.id).toBeUndefined();
-      // Within a few tiles of an exit.
-      const near = m.objects.filter((o) => o.type === 'exit').some((o) => Math.hypot(o.x / 64 - t.x, o.y / 64 - t.y) < 6);
-      expect(near, m.id).toBe(true);
-    }
+describe('the roads out', () => {
+  it('has no route marshals left (Boss, 28 Oct 2026)', () => {
+    expect(npcs.some((n) => /marshal/i.test(n.id) || /marshal/i.test(n.name))).toBe(false);
+    expect(Object.keys(content.dialogue).some((k) => k.startsWith('route_marshal'))).toBe(false);
   });
 
-  it('in Home Town, name both ways out: the venue road and the Industrial Zone', () => {
-    const lines = directions(waysOut(map('area1-home-town'), world, maps, travel, OPEN));
-    expect(lines).toEqual([
-      'Out to the west, the venue road goes to Farmland MX, Riverside Arena, Longmoor Enduro and Mod Track.',
-      "Farmland MX: Hard-pack local track. The local racer's favourite.",
-      'Riverside Arena: Supercross in the arena by the river: tight turns and tuff blocks.',
-      'Longmoor Enduro: A long loop under the trees.',
-      'Mod Track: Race a player-made track: pick one from the list and go straight to the gate.',
-      'Out to the east, that road takes you to Industrial Zone.',
-    ]);
-  });
-
-  it("say the venue road is shut, and why, until it's open", () => {
-    const lines = directions(waysOut(map('area1-home-town'), world, maps, travel, {}));
-    expect(lines[0]).toBe("Out to the west, the venue road goes to Farmland MX, Riverside Arena, Longmoor Enduro and Mod Track. It's shut for you just now: You'll need a van, loaded with your bike, to get to the tracks.");
-    expect(lines).toHaveLength(2);
-  });
-
-  it('in the Industrial Zone (one way out), name the road back to Home Town', () => {
-    expect(directions(waysOut(map('area1-industrial-zone'), world, maps, travel, {}))).toEqual(['Out to the west, that road takes you to Home Town.']);
-  });
-
-  it('at each venue, offer the other places the lane goes to, never the venue itself', () => {
+  it('at each venue, the lane goes to the other places, never the venue itself', () => {
     for (const id of ['area1-venue-farmland', 'area1-venue-riverside', 'area1-venue-longmoor']) {
       const ways = waysOut(map(id), world, maps, travel, {});
       expect(ways).toHaveLength(1);
@@ -74,8 +43,6 @@ describe('route marshals', () => {
     w.places.push({ map: 'area1-nowhere', spawn: 'x', name: 'Nowhere', note: '' });
     w.routes[0].to.push('area1-nowhere');
     expect(routePlaces(w, maps, w.routes[0]).map((p) => p.name)).toEqual(['Farmland MX', 'Riverside Arena', 'Longmoor Enduro', 'Mod Track']);
-    w.routes[0].to = ['area1-nowhere'];
-    expect(directions(waysOut(map('area1-home-town'), w, maps, travel, OPEN))[0]).toBe("Out to the west, that road doesn't go anywhere yet.");
   });
 });
 
@@ -83,7 +50,7 @@ describe('leaving by a route', () => {
   const home = map('area1-home-town');
   const road = exitOn('area1-home-town', 'To the venue route');
 
-  it('goes to the place picked with the marshal, through the exit', () => {
+  it('goes to the place picked, through the exit', () => {
     for (const id of ['area1-venue-farmland', 'area1-venue-riverside', 'area1-venue-longmoor']) {
       const to = routeArrival(home, road, world, maps, id);
       expect(typeof to).not.toBe('string');
@@ -92,7 +59,7 @@ describe('leaving by a route', () => {
     }
   });
 
-  it("doesn't need the marshal: without a pick it takes the road's first place, and says where else it goes", () => {
+  it("without a pick takes the road's first place, and says where else it goes", () => {
     for (const pick of [null, 'area1-industrial-zone']) {
       const to = routeArrival(home, road, world, maps, pick);
       expect(typeof to).not.toBe('string');
@@ -126,10 +93,6 @@ describe('route checks', () => {
     expect(errorsWith((r) => { r.world.routes[0].to.push('area1-industrial-zone'); })).toEqual([expect.stringMatching(/routes\[0\]\.to\[4\]: "area1-industrial-zone" isn't one of the places/)]);
     expect(errorsWith((r) => { r.world.routes[1].to.push('area1-venue-farmland'); })).toEqual([expect.stringMatching(/routes\[1\]\.to\[4\]: leads back to area1-venue-farmland/)]);
     expect(errorsWith((r) => { r.world.routes[0].exit = 'To the Industrial Zone'; })).toEqual(expect.arrayContaining([expect.stringMatching(/goes straight to area1-industrial-zone, not to a choice of places/)]));
-  });
-
-  it('refuse a marshal standing on an exit', () => {
-    expect(errorsWith((r) => { r.npcs.npcs.find((n: { id: string }) => n.id === 'npc.marshal_industrial').tile = [0, 13]; })).toEqual([expect.stringMatching(/npcs\[\d+\]\.tile: 0,13 is on a door or exit/)]);
   });
 });
 

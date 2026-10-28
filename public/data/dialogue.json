@@ -1,9 +1,6 @@
 {
   "note": "NPC lines and the opening chain's script. {rider} is the rider's name, {short} is how much money is missing. Speaker narrator has no name box.",
   "dialogue": {
-    "route_marshal.hello": { "lines": [
-      { "speaker": "npc", "text": "Lost? I keep an eye on the roads out of here. Here's where they go." }
-    ] },
     "story.intro": { "lines": [
       { "speaker": "narrator", "text": "Your first bike: a tired 50cc, bought with everything you had. You kick it over. Nothing." },
       { "speaker": "narrator", "text": "The garage on the high street fixes anything with an engine. Maybe the mechanic there can help." },

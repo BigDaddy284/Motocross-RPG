@@ -342,13 +342,15 @@ export class HudScene extends Phaser.Scene {
     // Size the box to the longest line at the chosen text size, so big text never spills out.
     const nameH = name.height;
     const tallest = Math.max(...lines.map((l) => body.setText(l.text).height));
-    const hintH = this.pts(14) + 8;
+    const hintH = this.pts(16) + 16;
     const h = Math.max(140, pad + nameH + 8 + tallest + hintH + pad / 2);
     const c = this.add.container((width / 2) * k, (height - h / 2 - 12) * k).setScale(k);
     const bg = panel(this, 0, 0, w, h).setInteractive({ useHandCursor: true });
     name.setPosition(-w / 2 + pad, -h / 2 + pad - 4);
-    const hint = this.add.text(w / 2 - 16, h / 2 - 10, '', textStyle(this.pts(14), COLORS.muted)).setOrigin(1, 1);
-    c.add([bg, name, body, hint]);
+    // Next and Close as a black-on-orange button in the corner, so it's plain where to click (Boss, 28 Oct 2026).
+    const hint = this.add.text(w / 2 - 22, h / 2 - 14, '', textStyle(this.pts(16), COLORS.ink, { fontStyle: 'bold' })).setOrigin(1, 1);
+    const hintBg = this.add.rectangle(0, 0, 10, 10, COLORS.accent).setOrigin(1, 1).setInteractive({ useHandCursor: true });
+    c.add([bg, name, body, hintBg, hint]);
     this.dialogue = c;
     let i = 0;
     const show = () => {
@@ -358,6 +360,8 @@ export class HudScene extends Phaser.Scene {
       body.setText(line.text).setFontStyle(narrator ? 'italic' : '').setColor(hex(narrator ? 0xcfc6b0 : COLORS.cream));
       body.setPosition(-w / 2 + pad, narrator ? -h / 2 + pad : -h / 2 + pad + nameH + 4);
       hint.setText(i < lines.length - 1 ? 'Next ▸' : 'Close ▸');
+      hintBg.setPosition(hint.x + 10, hint.y + 6).setSize(hint.width + 20, hint.height + 12);
+      hintBg.input?.hitArea.setTo(0, 0, hintBg.width, hintBg.height);
     };
     const close = () => {
       c.destroy();
@@ -375,6 +379,7 @@ export class HudScene extends Phaser.Scene {
       else show();
     };
     bg.on('pointerup', () => this.advance?.());
+    hintBg.on('pointerup', () => this.advance?.());
     show();
   }
 
