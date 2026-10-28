@@ -59,15 +59,15 @@
     ] },
     "story.paid_rebore": { "lines": [
       { "speaker": "npc", "text": "Perfect bore. That's £80." },
-      { "speaker": "npc", "text": "You'll want to get to the tracks next, and for that you need a van. Go and see the van seller, south of here." }
+      { "speaker": "npc", "text": "You'll want to get to the tracks next, and for that you need a motor. Go and see the van seller, south of here." }
     ] },
     "story.meet_van_seller": { "lines": [
-      { "speaker": "npc", "text": "The mechanic sent you? Then you'll want the old van out back." },
+      { "speaker": "npc", "text": "The mechanic sent you? Then you'll want the old second-hand motor out back." },
       { "speaker": "npc", "text": "It's high mileage, but it starts every time. It holds one bike, twenty parts and ten tools. Six hundred quid, no haggling." },
       { "speaker": "player", "text": "I'll come back when I've got the money." }
     ] },
     "story.tutorial_end": { "lines": [
-      { "speaker": "npc", "text": "Six hundred for the van? Fair price. Here's £40 extra for all your help today." },
+      { "speaker": "npc", "text": "Six hundred for the motor? Fair price. Here's £40 extra for all your help today." },
       { "speaker": "npc", "text": "If you're still short, the fabrication shop and the engine rebuilder always need shift workers." }
     ] },
     "story.buy_van.short": { "lines": [
@@ -82,7 +82,7 @@
       { "speaker": "narrator", "text": "Everything has its place. Ready to go racing." }
     ] },
     "story.find_track": { "lines": [
-      { "speaker": "npc", "text": "Got yourself a van? Then you're a proper racer now." },
+      { "speaker": "npc", "text": "Got yourself a motor, I see. Then you're a proper racer now." },
       { "speaker": "npc", "text": "Try Farmland MX first. It's hard pack, flowing, and good for a first race. Take the west road out of town." },
       { "speaker": "npc", "text": "The council's just finished the roadworks on it, so you're in luck." },
       { "speaker": "npc", "text": "There are two more down the same road: Riverside Arena by the river, and Longmoor Enduro out in the woods." },
@@ -96,7 +96,7 @@
       { "speaker": "npc", "text": "How's the 50 running? Bring it round if you need bench time." }
     ] },
     "van_seller.hello": { "lines": [
-      { "speaker": "npc", "text": "Treat that van right and it'll get you to every track in the area." }
+      { "speaker": "npc", "text": "Treat that motor right and it'll get you to every track in the area." }
     ] },
     "bike_shop_owner.hello": { "lines": [
       { "speaker": "npc", "text": "Parts for 50s and 65s, Grades 1 to 3. Have a look at the counter." }
@@ -112,7 +112,7 @@
       { "speaker": "npc", "text": "Do enough work for me and I might let you use the practice yard." }
     ] },
     "local_racer.hello": { "lines": [
-      { "speaker": "npc", "text": "You race? There are three local tracks round here, but you'll need a van to reach them." }
+      { "speaker": "npc", "text": "You race? There are three local tracks round here, but you'll need a motor to reach them." }
     ] },
     "local_racer.after": { "lines": [
       { "speaker": "npc", "text": "Farmland MX, west road. I'll see you on the gate." }
