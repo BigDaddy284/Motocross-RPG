@@ -353,7 +353,7 @@ body.final .final-hide { display: none !important; }
     <li class="final-hide"><b>Gates</b> is the start bonus curve, in percent of start time, best gate first (Spec 10.4).</li>
     <li><b>Surfaces:</b> mud, sand, water and other patches along the lap, laid by clicking the track.</li>
     <li><b>Ground:</b> paint the ground round the track with the game's ground tiles.</li>
-    <li><b>Scenery:</b> banners (with your own words and colour), sponsor boards, start gates, tuff blocks, hay bales, tyre walls, stands, crowds, pits, trees and more. <b>Paddock vehicles</b> are the game's own vans at the race bikes' scale: an old rusty truck (empty, or one or two bikes on the back), an old rusty van (doors shut or open, a bike beside it), the MX vans and sports motorhomes (closed up, awning out, or bikes on stands under it), the factory hauler (closed, or a three-sided awning the length of the trailer with bikes under it) and a bike on a stand. Each has a colour and a set-up picked for it, like a fan's shirt; select it to choose them, and the vehicle's body alone counts as solid (the awning side is the lower side on the map before turning). Pick an item and it follows the pointer, see-through, on the map and in the race view, where a click would place it, turned as <kbd>Q</kbd> and <kbd>E</kbd> have turned it (the turn is kept for the next item too). <kbd>Q</kbd> and <kbd>E</kbd> turn the selected item 15° a press, 5° with <kbd>Shift</kbd> and 1° with <kbd>Alt</kbd>, and the Turn box takes any whole number of degrees; <kbd>Ctrl+D</kbd> duplicates it. <b>Cheering fans</b> are people who stand trackside and react as bikes pass: pick a variant (body shape), an action (arms up, wave, clap, fist pump, celebrate) and a shirt colour, or leave them to be picked. <b>Draw route</b> gives a fan a walk in: when the track loads they walk from where placed along it, at walking pace, and cheer from its end, so a crowd can file in. A fan must never be on the track, where placed or where the walk ends (an error the game refuses); a walk that crosses the track is only a warning. Each fan reacts in their own time, with a rest between, so a crowd never moves as one.</li>
+    <li><b>Scenery:</b> banners (with your own words and colour), sponsor boards, start gates, tuff blocks, hay bales, tyre walls, stands, crowds, pits, trees and more. <b>Paddock vehicles</b> are the game's own vans at the race bikes' scale: an old rusty truck (empty, or one or two bikes on the back), an old rusty van (doors shut or open, a bike beside it), the MX vans and sports motorhomes (closed up, awning out, or bikes on stands under it), the factory hauler (closed, or a three-sided awning the length of the trailer with bikes under it) and a bike on a stand. Each has a colour and a set-up picked for it, like a fan's shirt; select it to choose them, and the vehicle's body alone counts as solid (the awning side is the lower side on the map before turning). <b>Trackside items</b> are built the same way, each with a colour, a design and a set-up picked for it unless chosen: the TV crew (camera operators standing or kneeling, a tripod camera, a camera van with a crew on its roof, a TV tower, a camera crane, a drone pilot, photographers standing, kneeling or lying in the dirt, a commentary box, a big screen, a press tent); the pits (a pit tent set up with bikes on stands, mechanics and riders, both, or the tool chest, generator and cans, with the team's name on its valance; a bike wash, a bike trailer with one or two bikes, pit clutter, a trade stand, a merchandise trailer, a catering van with a queue, a hospitality marquee, an enduro time check, a signing table); what stands over and beside the track (a pedestrian bridge over the track, empty or with fans crossing, its width set like a banner's and only its stair towers solid; a timing beam and a sponsor inflatable arch, over the track the same way; crowd barriers, cones, a marshal with a yellow, red, blue or chequered flag, the medics and their ambulance, a marshal quad, a track tractor pulling the harrow or towing the water bowser, a skid steer loader, portable toilets in ones, twos or fours, feather flags, a PA speaker pole, a VIP grandstand with a roof); and the fans (in camping chairs, taking pictures, round a lunch table under a parasol, on a picnic blanket, under a parasol, leaning on a fence). People face the track unless the item is turned; items with words take your own text. Pick an item and it follows the pointer, see-through, on the map and in the race view, where a click would place it, turned as <kbd>Q</kbd> and <kbd>E</kbd> have turned it (the turn is kept for the next item too). <kbd>Q</kbd> and <kbd>E</kbd> turn the selected item 15° a press, 5° with <kbd>Shift</kbd> and 1° with <kbd>Alt</kbd>, and the Turn box takes any whole number of degrees; <kbd>Ctrl+D</kbd> duplicates it. <b>Cheering fans</b> are people who stand trackside and react as bikes pass: pick a variant (body shape), an action (arms up, wave, clap, fist pump, celebrate) and a shirt colour, or leave them to be picked. <b>Draw route</b> gives a fan a walk in: when the track loads they walk from where placed along it, at walking pace, and cheer from its end, so a crowd can file in. A fan must never be on the track, where placed or where the walk ends (an error the game refuses); a walk that crosses the track is only a warning. Each fan reacts in their own time, with a rest between, so a crowd never moves as one.</li>
     <li><b>Start board official:</b> pick <b>Start board official</b> under Start and finish in Layout, or the last item in Scenery, and click where they wait with the board while the riders line up (one a track; without one the game picks their spot beside the start straight). Select them and click <b>Draw route</b>, then click the ground in order to where they end up (the red point), and <b>Done</b> or <kbd>Esc</kbd>; <b>Cancel</b> puts the old route back, <b>Reset route</b> clears it. Drag a route point to move it, right-click it or press <kbd>Del</kbd> to remove it; dragging the official moves only where they start. In the countdown they raise the board and set off at five, turn it sideways at three and lower it white side out at one as they arrive. The route can be at most <code>official.maxWalk</code> grid units (trackParts.json, 8), may cross the track ahead of the gate but not the riders lined up at the gate or solid scenery, and must end clear of the track; the race view runs the game's checks and they show under the official and in Checks. On a new track they stand where placed until there's a start straight; Checks says when a track has no official or an official has no route.</li>
     <li><b>Height:</b> <b>Raise the track</b> and <b>Lower the track</b> work along the track's length: hover the track and the stretch the tool would change is highlighted, the <b>Length</b> you set centred under the pointer and following the route round corners (cut at the end of an open route); a click raises it by the <b>Height</b> set, right-click lowers it, with the most at the centre easing to nothing at both ends, so the hill meets the track either side with no step and no kink. Nothing changes until you click; each click is one undo, and clicking the same stretch again steps its height instead of stacking another hill (back to level, it goes). Hills are saved with the track (<code>hills</code>), keep their place when the route is reshaped, and are drawn on the map as a band with their height. The track keeps its width, banking, berms and section types; the ground either side rises or sinks to meet it as a grass slope, never a wall. The <b>ground brush</b> (raise, lower, smooth, flatten; radius and strength) shapes the ground away from the track as before. Heights go from 36 m down to 36 m up; riders slow up climbs and run quicker down drops; ground steeper than 45° is refused as a wall, and a track climbing or dropping more than 35% along its length is a warning. Old tracks keep their ground as saved.</li>
     <li><b>Race view:</b> you edit in the game's own race camera and 3D scene with hills, jumps, scenery and ground as a race draws them, and the lap map in its corner. Click, drag and right-click on the 3D ground; the keys are the same in every mode. Mouse wheel or <kbd>+</kbd> <kbd>−</kbd> zoom, <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or a middle-button (or <kbd>Space</kbd>+drag) pan, <kbd>[</kbd> <kbd>]</kbd>, the <b>⟲ Turn left</b> and <b>⟳ Turn right</b> buttons (bottom left) or a <kbd>Shift</kbd>+middle-button drag turn the view round the track, to see it from any side; <kbd>0</kbd> or <b>Reset view</b> goes back to the race camera's angle. Turning only changes the editor's view: clicks still land where the pointer is, and races always use the fixed race camera. The selection is orange, problems red or dashed yellow. In Layout each section shows as a stripe in its kind's colour, with a cream line across the track where one section ends and the next begins. No race runs while you edit. Opened straight from disk, the race view runs the game from the published site (<code>bigdaddy284.github.io/Motocross-RPG</code>), so it needs an internet connection; with neither that nor <code>npm run dev</code>, the editor shows a plain map instead.</li>
@@ -1349,10 +1349,12 @@ function drawItem(it, sel, blocked = false) {
   ctx.save();
   ctx.translate(s.x, s.y);
   ctx.rotate(a);
-  const vehicle = VEHICLES[it.type] && isPaddock(def);
+  const vehicle = (VEHICLES[it.type] || TRACKSIDE[it.type]) && isPaddock(def);
   if (!vehicle) { ctx.fillStyle = '#00000040'; ctx.fillRect(-W / 2 + 2, -H / 2 + 3, W, H); }
   const img = artImage(def?.art);
-  if (vehicle) {
+  if (vehicle && TRACKSIDE[it.type]) {
+    drawTracksideMap(it, def);
+  } else if (vehicle) {
     drawVehicleMap(it, def, H);
   } else if (img) {
     ctx.imageSmoothingEnabled = false;
@@ -1474,11 +1476,12 @@ function drawItem(it, sel, blocked = false) {
  * Never changes the track. Returns [{ i, level, message }], and is remembered until the track changes.
  */
 const BIKE_HALF_WIDTH = 0.25;
-const SOLID = new Set(['hay_bale', 'tyre_wall', 'tuff_block', 'van', 'pit_tent', 'stand', 'light_tower', 'skip', 'barrels', 'tyre_stack', 'hedge', 'banner', 'sponsor_board', 'rusty_truck', 'rusty_van', 'mx_van', 'mx_van_long', 'motorhome', 'motorhome_long', 'hauler', 'bike_stand']);
+const SOLID = new Set(['hay_bale', 'tyre_wall', 'tuff_block', 'van', 'pit_tent', 'stand', 'light_tower', 'skip', 'barrels', 'tyre_stack', 'hedge', 'banner', 'sponsor_board', 'rusty_truck', 'rusty_van', 'mx_van', 'mx_van_long', 'motorhome', 'motorhome_long', 'hauler', 'bike_stand', 'tv_tripod', 'tv_van', 'tv_tower', 'commentary_box', 'big_screen', 'pit_setup', 'bike_wash', 'bike_trailer', 'pit_clutter', 'trade_stand', 'catering_van', 'marquee', 'time_check', 'foot_bridge', 'crowd_barrier', 'ambulance', 'quad', 'tractor', 'toilets', 'inflatable', 'lunch_table', 'fans_fence', 'camera_crane', 'press_tent', 'signing_table', 'pa_speaker', 'timing_beam', 'skid_steer', 'merch_trailer', 'vip_stand']);
 const issueCache = new WeakMap();
 function colliders(f) {
   const along = (off, w, d) => ({ ...f, x: f.x + off * Math.cos(f.a), y: f.y + off * Math.sin(f.a), w, d });
   // A vehicle's body alone (its awning and the bikes under it are not solid), across from the footprint's centre.
+  if (TRACKSIDE[f.type]) return tracksideSolid(f);
   const v = VEHICLES[f.type];
   if (v) return v.parts.map(([x0, x1, bw]) => {
     const u = ((x0 + x1) / 2) * PADDOCK_U;
@@ -1537,7 +1540,7 @@ function sceneryIssues(t) {
   const st = startGeom(t, g);
   if (st && st.total > 0) for (let u = -START_PAD; u <= st.total; u += 0.25) pts.push({ ...startPointAt(st, u), hw: startHalfWidth(st, u, hw) });
   const off = (x, y) => { let best = Infinity; for (const p of pts) { const d = Math.hypot(p.x - x, p.y - y) - p.hw; if (d < best) best = d; } return best; };
-  const items = (t.scenery ?? []).map((it, i) => { const { w, h, a } = itemBox(it); return { i, type: it.type, x: it.x, y: it.y, w, d: h, a }; });
+  const items = (t.scenery ?? []).map((it, i) => { const { w, h, a } = itemBox(it); return { i, it, type: it.type, x: it.x, y: it.y, w, d: h, a }; });
   const name = (f) => `the ${(sceneryDef(f.type)?.name ?? f.type).toLowerCase()} at ${f.x}, ${f.y}`;
   const out = [];
   for (const f of items) {
@@ -2379,6 +2382,7 @@ function buildPalettes() {
     if (it.id === OFFICIAL) { drawOfficialIcon(g); return; }
     if (it.id === CHEER) { drawCheerIcon(g); return; }
     if (VEHICLES[it.id] && isPaddock(it)) { drawVehicleIcon(g, it); return; }
+    if (TRACKSIDE[it.id] && isPaddock(it)) { drawTracksideIcon(g, it); return; }
     const img = artImage(it.art);
     g.imageSmoothingEnabled = false;
     if (img) { const r = Math.min(40 / img.width, 40 / img.height); g.drawImage(img, 22 - (img.width * r) / 2, 22 - (img.height * r) / 2, img.width * r, img.height * r); return; }
@@ -3430,6 +3434,124 @@ function drawVehicleIcon(g, def) {
   if (v.cab) { g.fillStyle = '#223344'; g.fillRect(cx + v.cab[0] * k + 1, oy - (bodyW / 2) * k + 1, Math.max(2, (v.cab[1] - v.cab[0]) * k - 2), bodyW * k - 2); }
   if (def.id.startsWith('rusty')) { g.fillStyle = '#7a4a28'; for (let i = 0; i < 4; i++) g.fillRect(cx + (v.parts[0][0] + 0.5 + i * 1.1) * k, oy + (i % 2 ? 0.3 : -0.5) * k, 2, 2); }
 }
+// ---- trackside items (src/world/trackside.ts: this mirrors its layouts) ----
+/** Shirts for the people, picked as the race view picks them. */
+const SHIRTS = ['#e04040', '#4080e0', '#f0c030', '#40b060', '#f0f0f0', '#e07030', '#9060c0', '#30b0c0', '#202428'];
+const shirtOf = (k) => SHIRTS[Math.floor(paddockHash(k * 13 + 5) * SHIRTS.length)];
+const BIKE_COLS = ['#c21c15', '#3b86da', '#a0c33e', '#ecbe2a', '#ef6c18'];
+const STEEL_C = '#8a8c90', BLACK_C = '#202428', WHITE_C = '#f0f0f0', TABLE_C = '#d8d8d0', CANVAS_C = '#e2ded4', CHASSIS_C = '#2a2a30', WOOD_C = '#9a7a4a', MAT_C = '#3a3a3e';
+/** Items whose length is set by their width, like a banner's. */
+const STRETCH = new Set(['foot_bridge', 'crowd_barrier', 'cones', 'fans_fence', 'timing_beam', 'vip_stand']);
+/** Items whose people face the track in the race view unless the item is turned by hand. */
+const FACES_TRACK = new Set(['tv_camera_op', 'tv_tripod', 'tv_van', 'tv_tower', 'photographer', 'commentary_box', 'marshal', 'camp_chairs', 'fan_photo', 'fan_parasol', 'fans_fence', 'camera_crane', 'drone_pilot', 'vip_stand']);
+/**
+ * Each item from above, in metres in its frame (centred on its footprint, x along, z down the map;
+ * the people face +z): `draw` gives its shapes for the given look, length and depth, and `solid`
+ * the boxes [x0, x1, z0, z1] that count as solid (left out: the whole footprint; []: none).
+ * Shapes: ['r', x, z, l, w, colour] a box, ['d', x, z, r, colour] a disc, ['b', x, z, colour, across]
+ * a bike, ['p', x, z, k] a person (shirt by k), ['t', x0, x1, z0, z1, colour] a pitched roof.
+ */
+const ROWN = (n, gap) => Array.from({ length: n }, (_, k) => (k - (n - 1) / 2) * gap);
+const TRACKSIDE = {
+  tv_camera_op: { draw: (lk, L, D, i) => [['p', 0, -0.1, i, lk.colour], ['r', 0, 0.35, 0.28, 0.5, BLACK_C]] },
+  tv_tripod: { draw: (lk, L, D, i) => [['r', 0, 0.2, 0.42, 0.75, BLACK_C], ['p', 0, -0.65, i, lk.colour]], solid: () => [[-0.5, 0.5, -0.3, 0.7]] },
+  tv_van: { draw: (lk, L, D, i) => { const bz = -(D - 1.8) / 2; return [['r', -0.05, bz, 4.3, 1.8, lk.colour], ['r', 1.6, bz, 1.0, 1.75, '#223344'], ['r', -0.55, bz, 3.2, 1.9, '#9a9ca0'], ...(lk.setup === 'parked' ? [] : [['r', 0.2, bz + 0.3, 0.28, 0.5, BLACK_C], ['p', 0.2, bz - 0.35, i, BLACK_C]])]; }, solid: (lk, L, D) => { const bz = -(D - 1.8) / 2; return [[-2.2, 2.1, bz - 0.9, bz + 0.9]]; } },
+  tv_tower: { draw: (lk, L, D, i) => [['r', 0, 0, 3.0, 3.0, lk.colour], ['r', 0.3, 0.3, 0.42, 0.75, BLACK_C], ['p', 0.3, -0.3, i, BLACK_C], ['p', -0.8, 0.2, i + 1, BLACK_C]], solid: () => [[-1.3, 1.3, -1.3, 1.3]] },
+  photographer: { draw: (lk, L, D, i) => lk.variant === 'lying' ? [['r', 0, -0.2, 0.5, 1.9, shirtOf(i)], ['d', 0, 0.3, 0.14, '#e0b090'], ['r', 0, 0.75, 0.1, 0.4, BLACK_C]] : [['p', 0, 0, i, lk.colour], ['r', 0, 0.42, 0.1, 0.4, BLACK_C]] },
+  commentary_box: { draw: (lk) => [['r', 0, 0, 4.0, 3.0, lk.colour], ['r', 0, 0.81, 3.4, 0.12, '#223344']], solid: () => [[-1.8, 1.8, -1.3, 1.3]] },
+  big_screen: { draw: (lk) => [['r', 0, -0.4, 5.8, 2.0, CHASSIS_C], ['r', 0, -0.6, 5.6, 0.6, lk.colour], ['r', 0, -0.28, 5.2, 0.08, '#4a7ad0']], solid: () => [[-2.9, 3.8, -1.4, 0.6]] },
+  pit_setup: { draw: (lk, L, D, i) => { const s = lk.setup; const out = [['r', 0, -0.8, 6.0, 3.6, MAT_C], ['t', -3, 3, -2.6, 1.0, lk.colour], ['r', 0, 1.03, 6.0, 0.1, '#00000080']]; if (s === 'bikes' || s === 'both') out.push(['b', -1.6, 0, BIKE_COLS[i % 5], true], ['b', 1.6, 0, BIKE_COLS[(i + 1) % 5], true]); if (s === 'people' || s === 'both') out.push(['p', -1.6, 1.6, i, lk.colour], ['p', 0.3, 1.9, i + 1, lk.colour], ['p', 2.4, 1.5, i + 2, BIKE_COLS[(i + 1) % 5]]); if (s === 'tools' || s === 'both') out.push(['r', -1.2, -2.0, 0.9, 0.5, lk.colour], ['r', -0.4, -2.1, 0.35, 0.25, '#c02020'], ['r', 0, -2.1, 0.35, 0.25, '#2a4aa0']); if (s === 'tools') out.push(['r', 1.6, -1.8, 0.7, 0.5, '#c02020'], ['r', 1.8, 0.2, 1.2, 0.7, TABLE_C], ['p', -0.5, 1.7, i + 3, lk.colour]); return out; }, solid: () => [[-3, 3, -2.6, 1.0]] },
+  bike_wash: { draw: (lk, L, D, i) => [['d', 0, 0.2, 1.1, '#5a6a70'], ['b', 0, 0, lk.colour, true], ['r', 0.95, -0.5, 0.45, 0.35, '#e8c020'], ['p', -0.9, 0.9, i, '#3a5a3a']], solid: () => [[-0.4, 0.4, -1.1, 1.1]] },
+  bike_trailer: { draw: (lk) => [['r', -0.3, 0, 2.2, 1.5, lk.colour], ['r', 1.2, 0, 0.9, 0.1, CHASSIS_C], ...(lk.variant === 'two' ? [['b', -0.3, -0.38, BIKE_COLS[0]], ['b', -0.3, 0.38, BIKE_COLS[1]]] : [['b', -0.3, 0, BIKE_COLS[0]]])], solid: () => [[-1.4, 1.7, -0.75, 0.75]] },
+  pit_clutter: { draw: (lk) => [['r', -0.4, 0, 0.9, 0.5, lk.colour], ['r', 0.4, -0.1, 0.35, 0.25, '#c02020'], ['r', 0.8, -0.1, 0.35, 0.25, '#2a4aa0'], ['d', 0.65, 0.35, 0.33, '#1c1c22'], ['d', -0.9, 0.1, 0.32, '#1c1c22']] },
+  trade_stand: { draw: (lk, L, D, i) => [['t', -1.5, 1.5, -2.0, 1.0, lk.colour], ['r', 0, 1.02, 3.0, 0.08, '#00000080'], ['r', 0, 0.5, 2.6, 0.7, TABLE_C], ['r', 0, -1.6, 2.8, 0.1, lk.colour], ['p', 0.3, -0.5, i, lk.colour]], solid: () => [[-1.5, 1.5, -2.0, 1.0]] },
+  catering_van: { draw: (lk, L, D, i) => { const z = -0.9; const out = [['r', -0.3, z, 4.2, 2.2, lk.colour], ['r', -0.3, z + 1.5, 2.9, 0.9, '#00000030'], ['r', -0.3, z + 1.15, 2.9, 0.3, TABLE_C], ['r', 2.2, z, 0.7, 0.12, CHASSIS_C], ['r', 1.6, z + 1.4, 0.6, 0.08, BLACK_C], ['p', -0.3, z + 0.5, i + 9, WHITE_C]]; if (lk.setup === 'queue') for (let k = 0; k < 3; k++) out.push(['p', -0.6 + k * 0.1, z + 2.1 + k * 0.75, i + k]); return out; }, solid: () => [[-2.4, 2.6, -2.0, 0.2]] },
+  marquee: { draw: (lk) => { const out = [['r', 0, 0, 10, 6, CANVAS_C], ['r', 0, 0, 10.1, 0.12, STEEL_C], ['r', 0, 2.97, 10, 0.1, lk.colour]]; for (let k = 0; k < 4; k++) out.push(['d', -3.6 + k * 2.4, -0.8, 0.6, TABLE_C]); return out; }, solid: () => [[-5, 5, -3, 3]] },
+  time_check: { draw: (lk, L, D, i) => [['t', -1.5, 1.5, -1.5, 1.5, lk.colour], ['r', 0, 1.52, 3.0, 0.08, '#00000080'], ['r', 0.3, 0.2, 1.2, 0.7, TABLE_C], ['r', -1.0, -0.9, 0.5, 0.5, BLACK_C], ['p', 0.3, -0.5, i, '#f0a020'], ['p', 1.3, 1.4, i + 1, '#f0a020']], solid: () => [[-1.5, 1.5, -1.5, 1.5]] },
+  foot_bridge: { draw: (lk, L, D, i) => { const out = [['r', 0, 0, L - 4.2, 1.6, lk.colour], ['r', -(L / 2 - 1.1), 0, 2.2, 1.6, '#6a6a70'], ['r', L / 2 - 1.1, 0, 2.2, 1.6, '#6a6a70']]; if (lk.setup === 'fans') { const span = L - 4.2; const n = Math.max(2, Math.min(8, Math.round(span / 2.5))); for (let k = 0; k < n; k++) out.push(['p', -span / 2 + 1.2 + (span - 2.4) * (k / Math.max(1, n - 1)), (paddockHash(i * 3 + k) - 0.5) * 0.7, i + k]); } return out; }, solid: (lk, L) => [[-L / 2, -L / 2 + 2.2, -0.9, 0.9], [L / 2 - 2.2, L / 2, -0.9, 0.9]] },
+  crowd_barrier: { draw: (lk, L) => { const n = Math.max(1, Math.round(L / 2.3)); const seg = L / n; const out = [['r', 0, 0, L, 0.1, lk.colour]]; for (let k = 0; k <= n; k++) out.push(['r', -L / 2 + seg * k, 0, 0.1, 0.5, lk.colour]); return out; } },
+  marshal: { draw: (lk, L, D, i) => [['p', 0, 0, i, lk.colour], ['r', 0.67, 0, 0.7, 0.06, { yellow: '#f0c020', red: '#d02020', blue: '#2060e0', checkered: '#ffffff' }[lk.variant] ?? '#f0c020']] },
+  ambulance: { draw: (lk, L, D, i) => { const bz = -(D - 1.8) / 2; const out = [['r', -0.05, bz, 4.3, 1.8, '#f4f4f0'], ['r', 1.6, bz, 1.0, 1.75, '#223344'], ['r', -0.3, bz, 1.2, 0.3, '#2050e0']]; for (let k = 0; k < 10; k++) for (const s of [-1, 1]) out.push(['r', -2.0 + k * 0.36, bz + s * 0.9, 0.34, 0.08, k % 2 ? '#2fb02a' : '#f0e020']); if (lk.setup === 'crew') out.push(['p', -1.2, bz + 1.5, i, '#2fb02a'], ['p', 0.4, bz + 1.7, i + 1, '#2fb02a']); return out; }, solid: (lk, L, D) => { const bz = -(D - 1.8) / 2; return [[-2.2, 2.1, bz - 0.9, bz + 0.9]]; } },
+  quad: { draw: (lk, L, D, i) => [['r', 0, 0, 1.8, 0.7, CHASSIS_C], ['r', -0.1, 0, 1.3, 0.9, lk.colour], ['r', -0.5, 0, 0.7, 0.45, BLACK_C], ...[[0.65, -0.5], [0.65, 0.5], [-0.65, -0.5], [-0.65, 0.5]].map(([x, z]) => ['r', x, z, 0.6, 0.25, '#1c1c22']), ...(lk.variant === 'rider' ? [['p', -0.5, 0, i, '#f0a020']] : [])] },
+  tractor: { draw: (lk, L, D, i) => { const x0 = 2.1; const out = [['r', x0, 0, 1.8, 0.8, lk.colour], ['r', x0 - 0.6, 0, 1.5, 1.3, '#223344'], ['r', x0 - 1.1, -0.85, 1.7, 0.55, '#1c1c22'], ['r', x0 - 1.1, 0.85, 1.7, 0.55, '#1c1c22'], ['r', x0 + 0.9, -0.95, 1.0, 0.3, '#1c1c22'], ['r', x0 + 0.9, 0.95, 1.0, 0.3, '#1c1c22']]; if (lk.variant === 'bowser') { const t = x0 - 4.6; out.push(['r', t + 1.6, 0, 1.6, 0.1, CHASSIS_C], ['r', t, 0, 3.0, 1.6, lk.colour], ['r', t - 1.7, 0, 0.1, 2.4, STEEL_C]); } else { const t = x0 - 2.9; out.push(['r', t - 0.6, 0, 0.6, 0.1, CHASSIS_C], ['r', t, 0, 0.4, 2.2, CHASSIS_C], ['r', t - 0.6, 0, 0.4, 2.2, CHASSIS_C]); } return out; }, solid: (lk) => lk.variant === 'bowser' ? [[-4.1, 3.1, -1.2, 1.2]] : [[-1.6, 3.1, -1.1, 1.1]] },
+  toilets: { draw: (lk) => ROWN(lk.variant === 'four' ? 4 : lk.variant === 'two' ? 2 : 1, 1.25).flatMap((x) => [['r', x, 0, 1.15, 1.15, lk.colour], ['r', x, 0.555, 0.7, 0.06, '#00000060']]), solid: (lk) => { const n = lk.variant === 'four' ? 4 : lk.variant === 'two' ? 2 : 1; return [[-((n - 1) / 2 * 1.25 + 0.6), (n - 1) / 2 * 1.25 + 0.6, -0.6, 0.6]]; } },
+  feather_flags: { draw: (lk) => ROWN(lk.variant === 'three' ? 3 : 1, 1.4).flatMap((x) => [['d', x, 0, 0.3, BLACK_C], ['r', x + 0.33, 0, 0.62, 0.08, lk.colour]]) },
+  inflatable: { draw: (lk, L) => lk.variant === 'column' ? [['d', 0, 0, 0.75, lk.colour]] : [['r', 0, 0, L, 1.2, lk.colour], ['d', -(L / 2 - 0.6), 0, 0.65, lk.colour], ['d', L / 2 - 0.6, 0, 0.65, lk.colour]], solid: (lk, L) => lk.variant === 'column' ? [[-0.75, 0.75, -0.75, 0.75]] : [[-L / 2, -L / 2 + 1.2, -0.65, 0.65], [L / 2 - 1.2, L / 2, -0.65, 0.65]] },
+  cones: { draw: (lk, L) => { const n = Math.max(1, Math.round(L / 1.5)); return Array.from({ length: n }, (_, k) => ['d', n === 1 ? 0 : -L / 2 + 0.3 + (L - 0.6) * (k / (n - 1)), 0, 0.2, lk.colour]); } },
+  camp_chairs: { draw: (lk, L, D, i) => { const n = lk.variant === 'three' ? 3 : lk.variant === 'two' ? 2 : 1; const out = ROWN(n, 0.85).flatMap((x, k) => [['r', x, 0, 0.5, 0.5, lk.colour], ['p', x, 0, i + k]]); out.push(['r', (n - 1) / 2 * 0.85 + 0.7, 0.1, 0.55, 0.4, '#2a5ab0']); return out; } },
+  fan_photo: { draw: (lk, L, D, i) => [['p', 0, 0, i, lk.colour]] },
+  lunch_table: { draw: (lk, L, D, i) => { const out = lk.setup === 'parasol' ? [['d', 0, 0, 1.5, lk.colour]] : []; out.push(['r', 0, 0, 1.6, 0.8, TABLE_C]); for (const [x, z] of [[-0.4, 0.9], [0.4, 0.9], [-0.4, -0.9], [0.4, -0.9]]) out.push(['r', x, z, 0.5, 0.5, '#3a3a40'], ['p', x, z, i + Math.round(x * 10 + z * 3)]); return out; }, solid: () => [[-0.8, 0.8, -0.4, 0.4]] },
+  picnic: { draw: (lk, L, D, i) => [['r', 0, 0, 2.2, 2.2, lk.colour], ['r', 0.7, -0.6, 0.5, 0.35, WOOD_C], ['p', -0.5, -0.5, i], ['p', -0.1, 0.6, i + 1], ...(lk.variant === 'three' ? [['p', 0.7, 0.4, i + 2]] : [])] },
+  fan_parasol: { draw: (lk, L, D, i) => [['d', 0.25, 0, 0.9, lk.colour], ['p', -0.15, 0, i, WHITE_C]] },
+  fans_fence: { draw: (lk, L, D, i) => { const out = [['r', 0, 0, L, 0.1, lk.colour]]; const fans = Math.max(1, Math.round(L / 1.3)); for (let k = 0; k < fans; k++) out.push(['p', -L / 2 + 0.65 + (L - 1.3) * (fans === 1 ? 0.5 : k / (fans - 1)), -0.3, i + k]); return out; }, solid: (lk, L) => [[-L / 2, L / 2, -0.05, 0.05]] },
+  camera_crane: { draw: (lk, L, D, i) => [['r', -2.3, -0.3, 1.6, 1.6, CHASSIS_C], ['r', 0.4, -0.3, 6.0, 0.16, lk.colour], ['r', 3.1, -0.3, 0.42, 0.75, BLACK_C], ['r', -3.6, -0.3, 0.6, 0.5, '#4a4a50'], ['p', -2.3, 0.6, i, BLACK_C]], solid: () => [[-3.1, -1.5, -1.1, 0.5]] },
+  drone_pilot: { draw: (lk, L, D, i) => [['p', 0, 0, i, lk.colour], ['r', 0.3, 0.6, 0.7, 0.7, '#00000040'], ['r', 0.3, 0.6, 0.3, 0.3, BLACK_C]] },
+  press_tent: { draw: (lk, L, D, i) => { const out = [['t', -2, 2, -2, 2, lk.colour], ['r', 0, 2.02, 4.0, 0.08, '#00000080']]; for (const z of [-1.0, 0.8]) { out.push(['r', 0, z, 3.6, 0.7, TABLE_C]); for (let k = 0; k < 3; k++) out.push(['p', -1.2 + k * 1.2, z + 0.55, i + k + (z > 0 ? 3 : 0)]); } return out; }, solid: () => [[-2, 2, -2, 2]] },
+  signing_table: { draw: (lk, L, D, i) => { const out = [['r', 0, -1.4, 2.8, 0.1, lk.colour], ['r', 0, -0.3, 2.4, 0.7, TABLE_C], ['p', -0.4, -0.95, i, BIKE_COLS[i % 5]], ['p', 0.5, -0.95, i + 1, BIKE_COLS[(i + 2) % 5]]]; for (let k = 0; k < 3; k++) out.push(['p', -0.3 + k * 0.1, 0.4 + k * 0.7, i + 3 + k]); return out; }, solid: () => [[-1.4, 1.4, -1.45, 0.05]] },
+  pa_speaker: { draw: (lk) => [['r', 0, 0, 0.6, 0.6, CHASSIS_C], ['r', -0.3, 0.1, 0.4, 0.5, lk.colour], ['r', 0.3, 0.1, 0.4, 0.5, lk.colour]], solid: () => [[-0.3, 0.3, -0.3, 0.3]] },
+  timing_beam: { draw: (lk, L) => [['r', 0, 0, L - 0.6, 0.12, '#3a3a40'], ['r', -(L / 2 - 0.3), 0, 0.5, 0.5, lk.colour], ['r', L / 2 - 0.3, 0, 0.5, 0.5, lk.colour]], solid: (lk, L) => [[-L / 2, -L / 2 + 0.6, -0.3, 0.3], [L / 2 - 0.6, L / 2, -0.3, 0.3]] },
+  skid_steer: { draw: (lk, L, D, i) => [['r', -0.3, 0, 1.9, 1.3, lk.colour], ['r', -0.4, 0, 1.2, 1.0, '#223344'], ['r', 1.5, 0, 0.6, 1.7, STEEL_C], ...[[0.3, -0.75], [0.3, 0.75], [-0.9, -0.75], [-0.9, 0.75]].map(([x, z]) => ['r', x, z, 0.76, 0.25, '#1c1c22']), ['p', -0.4, -0.2, i, '#f0a020']], solid: () => [[-1.3, 1.8, -0.9, 0.9]] },
+  merch_trailer: { draw: (lk, L, D, i) => { const z = -0.9; const out = [['r', 0, z - 0.3, 5.6, 1.6, lk.colour], ['r', 0, z + 1.9, 5.6, 1.8, CANVAS_C], ['r', 0, z + 1.0, 5.2, 0.35, TABLE_C], ['r', 3.1, z, 0.7, 0.1, CHASSIS_C], ['p', -1.2, z + 0.6, i, lk.colour], ['p', 1.6, z + 2.0, i + 1]]; for (let k = 0; k < 6; k++) out.push(['r', -2.25 + k * 0.9, z + 0.55, 0.5, 0.1, SHIRTS[(i + k) % SHIRTS.length]]); return out; }, solid: () => [[-2.85, 3.5, -2.0, 0.3]] },
+  vip_stand: { draw: (lk, L, D, i) => { const Dm = 5.0; const out = []; for (let k = 0; k < 4; k++) { const z = -Dm / 2 + (Dm / 4) * (k + 0.5); out.push(['r', 0, z, L, Dm / 4, k % 2 ? shadeHex(lk.colour, 1.12) : lk.colour]); const seats = Math.max(1, Math.floor(L / 0.6)); for (let s = 0; s < seats; s++) if (paddockHash(i * 7 + s * 3 + k) > 0.3) out.push(['d', -L / 2 + 0.3 + (s + 0.5) * ((L - 0.6) / seats), z + 0.08, 0.16, SHIRTS[Math.floor(paddockHash(i + s * 11 + k * 5) * SHIRTS.length)]]); } out.push(['r', 0, 0, L + 0.4, Dm + 0.4, '#00000030']); return out; }, solid: (lk, L) => [[-L / 2, L / 2, -2.5, 2.5]] },
+};
+function shadeHex(hex, k) {
+  const c = parseInt(normHex(hex).slice(1), 16);
+  const ch = (s) => Math.min(255, Math.round(((c >> s) & 0xff) * k));
+  return `#${((ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).padStart(6, '0')}`;
+}
+/** Draws one item's shapes with the metres-to-pixels scale m, the frame's origin at the footprint's centre. */
+function drawShapes(g, shapes, m) {
+  for (const s of shapes) {
+    if (s[0] === 'r') { g.fillStyle = s[5]; g.fillRect(m(s[1]) - m(s[3]) / 2, m(s[2]) - m(s[4]) / 2, Math.max(1, m(s[3])), Math.max(1, m(s[4]))); }
+    else if (s[0] === 'd') { g.fillStyle = s[4]; g.beginPath(); g.arc(m(s[1]), m(s[2]), Math.max(1, m(s[3])), 0, Math.PI * 2); g.fill(); }
+    else if (s[0] === 'b') {
+      const [, x, z, col, across] = s;
+      g.save(); g.translate(m(x), m(z)); if (across) g.rotate(Math.PI / 2);
+      g.fillStyle = col; g.fillRect(-m(1.1), -m(0.22), m(2.2), m(0.44));
+      g.fillStyle = '#1c1c22'; g.fillRect(-m(1.1), -m(0.12), m(0.55), m(0.24)); g.fillRect(m(0.55), -m(0.12), m(0.55), m(0.24));
+      g.restore();
+    } else if (s[0] === 'p') {
+      g.fillStyle = s[4] ?? shirtOf(s[3]); g.fillRect(m(s[1]) - m(0.23), m(s[2]) - m(0.13), Math.max(2, m(0.46)), Math.max(2, m(0.26)));
+      g.fillStyle = '#e0b090'; g.beginPath(); g.arc(m(s[1]), m(s[2]), Math.max(1, m(0.12)), 0, Math.PI * 2); g.fill();
+    } else if (s[0] === 't') {
+      const [, x0, x1, z0, z1, col] = s;
+      g.fillStyle = col; g.fillRect(m(x0), m(z0), m(x1 - x0), m(z1 - z0));
+      g.strokeStyle = '#00000050'; g.lineWidth = 1; g.beginPath();
+      g.moveTo(m(x0), m(z0)); g.lineTo(m(x1), m(z1)); g.moveTo(m(x1), m(z0)); g.lineTo(m(x0), m(z1)); g.stroke();
+    }
+  }
+}
+/** The item's shapes for its look and size: length and depth in metres from its footprint. */
+function tracksideShapes(it, def, i) {
+  const { w, h } = itemBox(it);
+  return TRACKSIDE[it.type].draw(vehicleLook(it, def, i), w / PADDOCK_U, h / PADDOCK_U, i);
+}
+function drawTracksideMap(it, def) {
+  const i = (track()?.scenery ?? []).indexOf(it);
+  drawShapes(ctx, tracksideShapes(it, def, i), (x) => x * PADDOCK_U * view.k);
+}
+/** The palette picture: the item from above at its default size, in its first colour, with its first options. */
+function drawTracksideIcon(g, def) {
+  g.clearRect(0, 0, 44, 44);
+  const it = { type: def.id, x: 0, y: 0, color: def.colours?.[0] ?? def.color, variant: def.variants?.[0]?.[0], action: def.setups?.[0]?.[0] };
+  const k = Math.min(40 / def.w, 40 / def.h) * PADDOCK_U;
+  g.save(); g.translate(22, 22);
+  drawShapes(g, TRACKSIDE[def.id].draw(vehicleLook(it, def, 0), def.w / PADDOCK_U, def.h / PADDOCK_U, 0), (x) => x * k);
+  g.restore();
+}
+/** The solid boxes of a trackside item, in grid units in the item's frame (colliders turns them to the grid). */
+function tracksideSolid(f) {
+  const def = sceneryDef(f.type);
+  const spec = TRACKSIDE[f.type];
+  const it = f.it ?? track()?.scenery?.[f.i] ?? { type: f.type };
+  const boxes = spec.solid ? spec.solid(vehicleLook(it, def, f.i ?? 0), f.w / PADDOCK_U, f.d / PADDOCK_U) : null;
+  if (!boxes) return [f];
+  return boxes.map(([x0, x1, z0, z1]) => {
+    const u = ((x0 + x1) / 2) * PADDOCK_U;
+    const v = ((z0 + z1) / 2) * PADDOCK_U;
+    return { ...f, x: f.x + u * Math.cos(f.a) - v * Math.sin(f.a), y: f.y + u * Math.sin(f.a) + v * Math.cos(f.a), w: (x1 - x0) * PADDOCK_U, d: (z1 - z0) * PADDOCK_U };
+  });
+}
 /** A paddock vehicle: its design and set-up (picked for it unless chosen), its colour, and the turn. */
 function renderVehicleDetail(box, t, it, def, field, editItem) {
   const i = app.selItem;
@@ -3445,6 +3567,13 @@ function renderVehicleDetail(box, t, it, def, field, editItem) {
   };
   if (def.variants) field('Design', sel(def.variants, it.variant, (v) => editItem((x) => { if (v) x.variant = v; else delete x.variant; }), `Picked for it (${name(def.variants, look.variant)})`));
   if (def.setups) field('Set-up', sel(def.setups, it.action, (v) => editItem((x) => { if (v) x.action = v; else delete x.action; }), `Picked for it (${name(def.setups, look.setup)})`));
+  if (def.text !== undefined) {
+    const txt = document.createElement('input');
+    txt.type = 'text';
+    txt.value = it.text ?? def.text;
+    txt.addEventListener('change', () => editItem((x) => { const v = txt.value.trim(); if (v && v !== def.text) x.text = v; else delete x.text; }));
+    field('Text', txt);
+  }
   const colours = document.createElement('div');
   colours.className = 'row';
   const auto = document.createElement('button');
@@ -3472,13 +3601,20 @@ function renderVehicleDetail(box, t, it, def, field, editItem) {
   own.addEventListener('change', () => editItem((x) => { x.color = own.value; }));
   colours.appendChild(own);
   field('Colour', colours);
+  if (STRETCH.has(it.type)) {
+    const w = field('Width', (() => { const n = document.createElement('input'); n.type = 'number'; n.step = '0.5'; n.min = '0'; n.value = it.w === undefined ? '' : String(it.w); n.placeholder = String(def.w); return n; })());
+    w.addEventListener('change', () => editItem((x) => { const v = Number(w.value); if (w.value === '' || v === def.w) delete x.w; else if (v > 0) x.w = round1(v); }));
+  }
   const rot = field('Turn', (() => { const n = document.createElement('input'); n.type = 'number'; n.step = '15'; n.value = String(it.rot ?? 0); return n; })());
   rot.addEventListener('change', () => editItem((x) => { const v = ((Math.round(Number(rot.value)) % 360) + 360) % 360; if (v) x.rot = v; else delete x.rot; }));
   const info = document.createElement('div');
   info.className = 'hint';
+  const picked = 'The dashed swatch and "Picked for it" leave the choice to the track, the same each time it loads.';
   info.textContent = VEHICLES[it.type]?.awning
-    ? 'The dashed swatch and "Picked for it" leave the choice to the track, the same each time it loads. The body stands at the back of the footprint; the awning and the bikes under it fill the rest and are not solid.'
-    : 'The dashed swatch and "Picked for it" leave the choice to the track, the same each time it loads.';
+    ? `${picked} The body stands at the back of the footprint; the awning and the bikes under it fill the rest and are not solid.`
+    : FACES_TRACK.has(it.type) ? `${picked} Its people face the track (the bottom edge of the footprint on the map) unless you turn it.`
+    : STRETCH.has(it.type) ? `${picked} Width sets how far it runs, like a banner's.`
+    : picked;
   box.appendChild(info);
   const btns = document.createElement('div');
   btns.className = 'row';
@@ -5701,7 +5837,7 @@ async function tryServer() {
 setMode('layout');
 tryServer();
 openRaceView();
-window.trackEditor = { app, openRaceView, sendView, heightDab, elevAt, elevationIssues, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, findRef, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart, planWalk, alongStart, followStart, setOfficialAlong, trackRoom, walkRoom, undo, redo, trackForView, officialProblems, setFinish, finishGhost, addFinish, placeFinish, removeFinish, addStart, placeStart, placePiece, cancelPlacing, adjustPiece, readyToRace, tightCorners, keepJoined, startHere, lapLength, refresh, sectionBounds, boundaryCrossings, BOUND_OUT, SCENE_OUT, cheerProblems, routeDrawing, addRoutePoint, lpts, derive, rebuildPath, rebuildSections, splitSegment, segParam, layoutIndices, baseRuns, sectionFeats, featureProblems, featureTypes, featureAt, useFeatures, startFeature, featureGhost, placeFeature, deleteFeature, duplicateFeature, editFeature, startDrawing, stopDrawing, addLayoutPoint, closeRoute, deleteSegment, deletePoint, insertPoint, roundCorner, trackStatus, reverse, fitToGrid, newTrack, deleteSection, firstCornerLeg, hillsAt, hillProfile, trackLevelAt, hillGhost, applyHill, hillTool }; // for tests
+window.trackEditor = { app, openRaceView, sendView, heightDab, elevAt, elevationIssues, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, findRef, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart, planWalk, alongStart, followStart, setOfficialAlong, trackRoom, walkRoom, undo, redo, trackForView, officialProblems, setFinish, finishGhost, addFinish, placeFinish, removeFinish, addStart, placeStart, placePiece, cancelPlacing, adjustPiece, readyToRace, tightCorners, keepJoined, startHere, lapLength, refresh, sectionBounds, boundaryCrossings, BOUND_OUT, SCENE_OUT, cheerProblems, routeDrawing, addRoutePoint, lpts, derive, rebuildPath, rebuildSections, splitSegment, segParam, layoutIndices, baseRuns, sectionFeats, featureProblems, featureTypes, featureAt, useFeatures, startFeature, featureGhost, placeFeature, deleteFeature, duplicateFeature, editFeature, startDrawing, stopDrawing, addLayoutPoint, closeRoute, deleteSegment, deletePoint, insertPoint, roundCorner, trackStatus, reverse, fitToGrid, newTrack, deleteSection, firstCornerLeg, colliders, hillsAt, hillProfile, trackLevelAt, hillGhost, applyHill, hillTool }; // for tests
 </script>
 </body>
 </html>

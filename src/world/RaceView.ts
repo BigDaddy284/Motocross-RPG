@@ -9,7 +9,9 @@ import { pointAt, START_PAD, startPointAt } from '../core/trackGeom';
 import { GRID_H, GRID_W, trackKind, type TrackPartsData } from '../core/trackParts';
 import { BIKE_LENGTH, CAM_AZ, LIP_AT, TrackSurface } from '../core/trackSurface';
 import { COLORS, TEXT_RES } from '../ui/theme';
-import { paddockParts } from './paddock';
+import { isPaddock } from '../core/paddock';
+import { paddockParts, U as METRE } from './paddock';
+import { FACES_TRACK, tracksideParts, type Label } from './trackside';
 import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
@@ -967,7 +969,7 @@ export class RaceView {
     return mesh;
   }
 
-  private textTexture(text: string, bg: number, fg = '#ffffff', w = 256, h = 48): THREE.CanvasTexture {
+  private textTexture(text: string, bg: number, fg = '#ffffff', w = 256, h = 48, vertical = false): THREE.CanvasTexture {
     const cv = document.createElement('canvas');
     cv.width = w;
     cv.height = h;
@@ -975,12 +977,15 @@ export class RaceView {
     ctx.fillStyle = `#${bg.toString(16).padStart(6, '0')}`;
     ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = fg;
-    ctx.font = `bold ${Math.round(h * 0.62)}px Trebuchet MS, sans-serif`;
+    // Vertical: the words read upwards along a tall face (a feather flag, an inflatable column).
+    const [tw, th] = vertical ? [h, w] : [w, h];
+    ctx.font = `bold ${Math.round(th * 0.62)}px Trebuchet MS, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const fit = Math.min(1, (w * 0.92) / Math.max(1, ctx.measureText(text).width));
+    const fit = Math.min(1, (tw * 0.92) / Math.max(1, ctx.measureText(text).width));
     ctx.save();
     ctx.translate(w / 2, h / 2);
+    if (vertical) ctx.rotate(-Math.PI / 2);
     ctx.scale(fit, 1);
     ctx.fillText(text, 0, 2);
     ctx.restore();
@@ -1028,6 +1033,25 @@ export class RaceView {
     g.position.set(it.x, this.terrainAt(it.x, it.y), it.y);
     g.rotation.y = -(((it.rot ?? 0) * Math.PI) / 180);
     const add = (o: THREE.Object3D) => g.add(o);
+    if (def && isPaddock(def)) {
+      // A paddock vehicle or a trackside item (paddock.ts, trackside.ts): one vertex-coloured mesh
+      // each, so a full paddock costs a draw an item, plus a textured box for each label with words on.
+      const index = (this.track.scenery ?? []).indexOf(it);
+      const built = tracksideParts(def, it, index) ?? { parts: paddockParts(def, it, index), labels: [] as Label[] };
+      if (built.parts.length) add(this.mergeParts(built.parts));
+      for (const l of built.labels) {
+        const face = this.mat(0xffffff, { map: this.textTexture(l.text, l.bg, l.fg, l.vertical ? 48 : 256, l.vertical ? 256 : 48, l.vertical) });
+        const side = this.mat(l.bg);
+        const back = l.both ? face : side;
+        const box = this.boxMesh(l.l * METRE, l.h * METRE, l.w * METRE, [side, side, side, side, face, back], l.x * METRE, l.y * METRE, l.z * METRE);
+        box.rotation.y = l.ry ?? 0;
+        box.receiveShadow = false;
+        add(box);
+      }
+      // People face the track unless the item is turned by hand.
+      if (it.rot === undefined && FACES_TRACK.has(def.id) && this.awayFromTrack(it) === 1) g.rotation.y += Math.PI;
+      return g;
+    }
     switch (it.type) {
       case 'banner':
       case 'sponsor_board': {
@@ -1106,16 +1130,10 @@ export class RaceView {
       case CHEER_ITEM:
         this.cheerFigure(g, it);
         break;
-      case 'rusty_truck': case 'rusty_van': case 'mx_van': case 'mx_van_long': case 'motorhome': case 'motorhome_long': case 'hauler': case 'bike_stand': {
-        // One vertex-coloured mesh a vehicle, so a full paddock costs a draw each.
-        if (def) add(this.mergeParts(paddockParts(def, it, (this.track.scenery ?? []).indexOf(it))));
-        break;
-      }
       case 'pit_tent': {
         for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) add(this.boxMesh(0.08, 1.9, 0.08, this.mat(0xcccccc), (sx * w) / 2.1, 0, (sz * d) / 2.1));
-        const roof = new THREE.Mesh(new THREE.ConeGeometry(Math.hypot(w, d) / 2, 0.9, 4), this.mat(color));
-        roof.rotation.y = Math.PI / 4;
-        roof.scale.set(w / Math.hypot(w, d) * 1.414, 1, d / Math.hypot(w, d) * 1.414);
+        // Turned and stretched in the geometry so the corners sit on the legs (a mesh scales before it turns).
+        const roof = new THREE.Mesh(new THREE.ConeGeometry(Math.hypot(w, d) / 2, 0.9, 4).rotateY(Math.PI / 4).scale(w / Math.hypot(w, d) * Math.SQRT2, 1, d / Math.hypot(w, d) * Math.SQRT2), this.mat(color));
         roof.position.set(0, 2.35, 0);
         roof.castShadow = true;
         add(roof);
