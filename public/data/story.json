@@ -68,7 +68,7 @@
       "effects": { "take": ["task.cylinder_rebored"], "money": 80 }
     },
     {
-      "id": "meet_van_seller", "journal": "Go and see the van seller about getting to the tracks.",
+      "id": "meet_van_seller", "journal": "Go and see the used motor seller about getting to the tracks.",
       "on": { "talk": "npc.van_seller" }, "lines": "story.meet_van_seller"
     },
     {
@@ -78,15 +78,15 @@
       "toast": "Everyone in town has time for you now."
     },
     {
-      "id": "buy_van", "journal": "Buy the used van for £600. Shifts at the fabrication shop or engine rebuilder will cover the gap.",
+      "id": "buy_van", "journal": "Buy the used motor for £600. Shifts at the fabrication shop or engine rebuilder will cover the gap.",
       "on": { "talk": "npc.van_seller" },
       "needs": { "money": 600 }, "notReady": "story.buy_van.short", "earn": { "use": "job.shift", "maps": ["int-iz-fabrication-shop", "int-iz-engine-rebuilder"] },
-      "confirm": "Buy the used van for £600?",
+      "confirm": "Buy the used motor for £600?",
       "lines": "story.buy_van",
       "effects": { "money": -600, "flags": ["van_owned"] }
     },
     {
-      "id": "load_van", "journal": "Load your bike, spares and tools into the van. Your spares are in the chest in your rented room.",
+      "id": "load_van", "journal": "Load your bike, spares and tools into the motor. Your spares are in the chest in your rented room.",
       "on": { "use": "storage.parts", "map": "int-home-rented-room" }, "markVan": "van_driven", "lines": "story.load_van",
       "effects": { "flags": ["van_loaded"] },
       "toast": "The motor's loaded. Ask the local champion outside the local garage where to race."

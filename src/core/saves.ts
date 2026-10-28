@@ -8,7 +8,7 @@ import { HEADINGS, type VanState } from './vehicles';
 // - a save from an older build loads through the migration steps below;
 // - a save that cannot be read is kept under a "corrupt" key and the newest good backup is offered.
 
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 export const BACKUP_COUNT = 5;
 
 export interface SaveData {
@@ -52,6 +52,11 @@ const MIGRATIONS: Record<number, Migration> = {
   3: (old) => ({ ...old, van: null, driving: false }),
   // Alpha v1.1 named the Quarry and Woodland venues after their tracks, Riverside and Longmoor.
   4: (old) => renameIds(old, RENAMED_V5) as Record<string, unknown>,
+  // Alpha v1.1 calls the vans motors (Boss, 28 Oct 2026): van-1 to van-7 are motor-1 to motor-7.
+  5: (old) => {
+    const van = old.van as { design?: unknown } | null | undefined;
+    return van && typeof van.design === 'string' ? { ...old, van: { ...van, design: van.design.replace(/^van-(\d+)$/, 'motor-$1') } } : old;
+  },
 };
 
 /** Old id to new id, wherever an id turns up in a save: positions, the van, championships, counters. */

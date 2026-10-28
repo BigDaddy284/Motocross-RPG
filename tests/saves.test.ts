@@ -97,6 +97,8 @@ describe('SaveManager', () => {
     expect(data.van?.map).toBe('area1-venue-longmoor');
     expect(data.flags).toEqual({ 'found.venue-farmland': true });
     expect(data.career.counters).toEqual({ 'races.venue-riverside': 2 });
+    // And the van is a motor now (Boss, 28 Oct 2026).
+    expect(data.van?.design).toBe('motor-1');
   });
 
   it('a quick update keeps the rider\'s spot without pushing out backups', () => {

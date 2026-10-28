@@ -1,5 +1,6 @@
 {
-  "note": "The player's van (Boss, 24 Oct 2026): one van at a time, part-exchanged when a new one is bought. Seven designs drawn from Boss's reference photos (art/reference/vans). length is the footprint in 64 px tiles along the heading (one tile wide), from the real length at 28 px per metre. drivable lists the ground art a van can use. verges (Boss, 28 Oct 2026, the black lines): on these maps the van keeps off the green car park verges and sticks to the road, going into a car park only by an entrance or a crossing laid over the verge. carParks (Boss, 28 Oct 2026): car parks a van longer than maxLength tiles can't go into, as it couldn't turn round to get out; the Factory Hauler stays on the road. bays (Boss, 28 Oct 2026): where a van of minLength tiles or more is parked on arriving at a map too tight for it to turn on, cab at x, y; it leaves straight out by the map's exit. starter is the van the opening chain sells and where it is parked when bought. name is the in-game name, from Boss's reference file names (the text after \"Van N = \"); van-1 to van-7 are only the model numbers.",
+  "note": "The player's van (Boss, 24 Oct 2026): one van at a time, part-exchanged when a new one is bought. Seven designs drawn from Boss's reference photos (art/reference/vans). length is the footprint in 64 px tiles along the heading (one tile wide), from the real length at 28 px per metre. drivable lists the ground art a van can use. verges (Boss, 28 Oct 2026, the black lines): on these maps the van keeps off the green car park verges and sticks to the road, going into a car park only by an entrance or a crossing laid over the verge. carParks (Boss, 28 Oct 2026): car parks a van longer than maxLength tiles can't go into, as it couldn't turn round to get out; the Factory Hauler stays on the road. bays (Boss, 28 Oct 2026): where a van of minLength tiles or more is parked on arriving at a map too tight for it to turn on, cab at x, y; it leaves straight out by the map's exit. starter is the van the opening chain sells and where it is parked when bought. name is the in-game name, from Boss's reference file names (the text after \"Van N = \"); motor-1 to motor-7 are only the model numbers (Boss, 28 Oct 2026: motors, not vans), and art names the model's van sheets (art/vehicles/sheets/map/map-van-N), which keep their names.",
+  "kerbs": ["roads/street"],
   "drivable": ["roads/street", "terrain-common/road", "gravel", "concrete"],
   "verges": { "maps": ["area1-home-town", "area1-venue-riverside"], "ground": ["grass-gravel"] },
   "carParks": [
@@ -8,14 +9,14 @@
   "bays": [
     { "map": "area1-venue-riverside", "name": "Riverside West car park", "x": 10, "y": 17, "heading": "east", "minLength": 7 }
   ],
-  "starter": { "design": "van-1", "map": "area1-home-town", "x": 30, "y": 20, "heading": "north" },
+  "starter": { "design": "motor-1", "map": "area1-home-town", "x": 30, "y": 20, "heading": "north" },
   "designs": [
-    { "id": "van-1", "name": "Old Rusty Truck Short", "reference": "Van 1  Old Rusty Truck Short.png", "length": 2, "lengthM": 4.9, "stepMs": 130 },
-    { "id": "van-2", "name": "Old Rusty Van", "reference": "Van 2  Old Rusty Van.png", "length": 2, "lengthM": 4.4, "stepMs": 130 },
-    { "id": "van-3", "name": "MX Van Short", "reference": "Van 3  MX Van Short.png", "length": 2, "lengthM": 5.0, "stepMs": 120 },
-    { "id": "van-4", "name": "MX Van Medium", "reference": "Van 4  MX Van Medium.png", "length": 3, "lengthM": 6.9, "stepMs": 120 },
-    { "id": "van-5", "name": "MX Sports Motorhome Medium", "reference": "Van 5  MX Sports Motorhome Medium .png", "length": 3, "lengthM": 7.0, "stepMs": 130 },
-    { "id": "van-6", "name": "MX Sports Motorhome Long", "reference": "Van 6  MX Sports Motorhome Long.png", "length": 5, "lengthM": 12.0, "stepMs": 140 },
-    { "id": "van-7", "name": "Factory Hauler", "reference": "Van 7  Factory Hauler Extra Long.png", "length": 9, "lengthM": 21.0, "stepMs": 150 }
+    { "id": "motor-1", "art": "van-1", "name": "Old Rusty Truck Short", "reference": "Motor 1  Old Rusty Truck Short.png", "length": 2, "lengthM": 4.9, "stepMs": 130 },
+    { "id": "motor-2", "art": "van-2", "name": "Old Rusty Van", "reference": "Motor 2  Old Rusty Van.png", "length": 2, "lengthM": 4.4, "stepMs": 130 },
+    { "id": "motor-3", "art": "van-3", "name": "MX Van Short", "reference": "Motor 3  MX Van Short.png", "length": 2, "lengthM": 5.0, "stepMs": 120 },
+    { "id": "motor-4", "art": "van-4", "name": "MX Van Medium", "reference": "Motor 4  MX Van Medium.png", "length": 3, "lengthM": 6.9, "stepMs": 120 },
+    { "id": "motor-5", "art": "van-5", "name": "MX Sports Motorhome Medium", "reference": "Motor 5  MX Sports Motorhome Medium .png", "length": 3, "lengthM": 7.0, "stepMs": 130 },
+    { "id": "motor-6", "art": "van-6", "name": "MX Sports Motorhome Long", "reference": "Motor 6  MX Sports Motorhome Long.png", "length": 5, "lengthM": 12.0, "stepMs": 140 },
+    { "id": "motor-7", "art": "van-7", "name": "Factory Hauler", "reference": "Motor 7  Factory Hauler Extra Long.png", "length": 9, "lengthM": 21.0, "stepMs": 150 }
   ]
 }

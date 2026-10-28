@@ -549,7 +549,7 @@ export class HudScene extends Phaser.Scene {
       const px = 20;
       line(left, y0, `${brand?.starter ?? bike.brand}  ·  ${bike.class}`, 22, COLORS.accent, px - 16 - left);
       const problem = bikeProblem(bikes, bike);
-      const note = body(left, y0 + 32, problem ?? 'Runs. Ready for the backyard, and for the tracks once you have a van.', 16, problem ? COLORS.accent : COLORS.muted, w / 2 - 40);
+      const note = body(left, y0 + 32, problem ?? 'Runs. Ready for the backyard, and for the tracks once you have a motor.', 16, problem ? COLORS.accent : COLORS.muted, w / 2 - 40);
       const stats = bikeStats(bikes, bike);
       const max = statMax(bikes, bike.class);
       // The stats start below the note, however many lines it takes.

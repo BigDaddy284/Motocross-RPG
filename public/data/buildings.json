@@ -77,7 +77,7 @@
       "returns": [{"tile": [4,4]}]
     },
     {
-      "id": "bld.home.van_office", "name": "Van seller's office", "zone": "Home Town", "npc": "Van seller",
+      "id": "bld.home.van_office", "name": "Used Motors", "zone": "Home Town", "npc": "Used Motor Seller",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [1024,320,320,256], "at": [0,0]}],
       "footprint": [
         "####",

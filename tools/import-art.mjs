@@ -262,12 +262,14 @@ function copyVehicles() {
   const out = {};
   for (const d of data.designs) {
     const dir = path.join(ART, 'vehicles/sheets/map');
-    const sheet = readJson(path.join(dir, `map-${d.id}.json`));
-    if (sheet.footprintTiles[0] !== d.length) throw new Error(`map-${d.id}.json: footprint ${sheet.footprintTiles[0]} tiles, but vehicles.json says ${d.length}`);
-    out[d.id] = { image: useImage(path.join(dir, `map-${d.id}.png`)), views: sheet.views };
+    // The sheets keep their van names (art), the designs are motors (Boss, 28 Oct 2026).
+    const art = d.art ?? d.id;
+    const sheet = readJson(path.join(dir, `map-${art}.json`));
+    if (sheet.footprintTiles[0] !== d.length) throw new Error(`map-${art}.json: footprint ${sheet.footprintTiles[0]} tiles, but vehicles.json says ${d.length}`);
+    out[d.id] = { image: useImage(path.join(dir, `map-${art}.png`)), views: sheet.views };
     // The turning frames (vehgen/vanrot.py), when drawn.
-    const turnJson = path.join(dir, `map-${d.id}-turn.json`);
-    if (fs.existsSync(turnJson)) out[d.id].turn = { image: useImage(path.join(dir, `map-${d.id}-turn.png`)), frames: readJson(turnJson).frames };
+    const turnJson = path.join(dir, `map-${art}-turn.json`);
+    if (fs.existsSync(turnJson)) out[d.id].turn = { image: useImage(path.join(dir, `map-${art}-turn.png`)), frames: readJson(turnJson).frames };
   }
   return out;
 }

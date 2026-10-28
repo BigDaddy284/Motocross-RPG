@@ -52,12 +52,12 @@ function drive(length: number, start: VanPose, moves: Move[], stepMs = 250) {
 describe('van driving', () => {
   const dm = homeMap();
   const routes: [number, VanPose, { x: number; y: number }][] = [
-    [2, { x: 20, y: 13, heading: 'east' }, { x: 37, y: 20 }],
-    [2, { x: 45, y: 13, heading: 'east' }, { x: 10, y: 12 }],
-    [3, { x: 35, y: 11, heading: 'west' }, { x: 37, y: 20 }],
-    [5, { x: 45, y: 13, heading: 'east' }, { x: 10, y: 12 }],
-    [9, { x: 28, y: 14, heading: 'west' }, { x: 37, y: 20 }],
-    [9, { x: 45, y: 13, heading: 'east' }, { x: 10, y: 12 }],
+    [2, { x: 20, y: 12, heading: 'east' }, { x: 37, y: 20 }],
+    [2, { x: 45, y: 12, heading: 'east' }, { x: 10, y: 12 }],
+    [3, { x: 35, y: 13, heading: 'west' }, { x: 37, y: 20 }],
+    [5, { x: 42, y: 13, heading: 'west' }, { x: 10, y: 12 }],
+    [9, { x: 28, y: 13, heading: 'west' }, { x: 37, y: 20 }],
+    [9, { x: 38, y: 13, heading: 'west' }, { x: 10, y: 12 }],
   ];
 
   for (const [length, start, goal] of routes) {

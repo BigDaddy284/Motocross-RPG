@@ -10,7 +10,8 @@ const maps = loadMaps();
 const T = 64;
 
 /** The Home Town map file as it stands (Alpha v1: 2×2 road exits and the local racer outside the garage). */
-const HOME_TOWN_SHA256 = 'a8f4a7df727d85d7db2531a9567531c1ff245663f1830a42362dead12a332e37';
+// Updated for the Used Motors building and its seller (Boss, 28 Oct 2026).
+const HOME_TOWN_SHA256 = '6ffd58afb02ae813291c22b5e3d5d1497c218b611696fdc065b6ebf3d1682b86';
 
 function pngSize(rel: string): [number, number] {
   const b = fs.readFileSync(`public/assets/${rel}`);

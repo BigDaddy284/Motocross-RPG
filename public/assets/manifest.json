@@ -239,7 +239,7 @@
   }
  },
  "vehicles": {
-  "van-1": {
+  "motor-1": {
    "image": "art/vehicles/sheets/map/map-van-1.png",
    "views": {
     "east": {
@@ -921,7 +921,7 @@
     ]
    }
   },
-  "van-2": {
+  "motor-2": {
    "image": "art/vehicles/sheets/map/map-van-2.png",
    "views": {
     "east": {
@@ -1598,7 +1598,7 @@
     ]
    }
   },
-  "van-3": {
+  "motor-3": {
    "image": "art/vehicles/sheets/map/map-van-3.png",
    "views": {
     "east": {
@@ -2275,7 +2275,7 @@
     ]
    }
   },
-  "van-4": {
+  "motor-4": {
    "image": "art/vehicles/sheets/map/map-van-4.png",
    "views": {
     "east": {
@@ -2952,7 +2952,7 @@
     ]
    }
   },
-  "van-5": {
+  "motor-5": {
    "image": "art/vehicles/sheets/map/map-van-5.png",
    "views": {
     "east": {
@@ -3624,7 +3624,7 @@
     ]
    }
   },
-  "van-6": {
+  "motor-6": {
    "image": "art/vehicles/sheets/map/map-van-6.png",
    "views": {
     "east": {
@@ -4301,7 +4301,7 @@
     ]
    }
   },
-  "van-7": {
+  "motor-7": {
    "image": "art/vehicles/sheets/map/map-van-7.png",
    "views": {
     "east": {

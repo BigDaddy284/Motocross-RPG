@@ -616,7 +616,7 @@ export class WorldScene extends Phaser.Scene {
     const marks: Mark[] = [];
     const points: { x: number; y: number; label: string; sub?: string }[] = [];
     const here = goals.filter((g) => g.map === this.map.id);
-    const nameOf = (goal: (typeof goals)[number]) => (goal.kind === 'npc' ? goal.name : goal.kind === 'van' ? (this.van?.design.name ?? 'Your van') : actionName(goal.action));
+    const nameOf = (goal: (typeof goals)[number]) => (goal.kind === 'npc' ? goal.name : goal.kind === 'van' ? (this.van?.design.name ?? 'Your motor') : actionName(goal.action));
     for (const goal of here) {
       const what = nameOf(goal);
       if (goal.kind === 'van') {

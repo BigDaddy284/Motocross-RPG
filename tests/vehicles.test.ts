@@ -6,7 +6,7 @@ import type { BakedMap } from '../src/core/mapTypes';
 import { SAVE_VERSION, parseSave } from '../src/core/saves';
 import { Travel, spawnTile, stepTriggerAt } from '../src/core/travel';
 import {
-  DriveMap, HEADINGS, bayFor, OPPOSITE, centre, ensureVan, exitTile, footprint, forward, inwardHeading, placeNear, planDrive, reverse, steer, turn,
+  DriveMap, HEADINGS, bayFor, OPPOSITE, centre, ensureVan, exitTile, footprint, forward, inwardHeading, overhang, placeNear, planDrive, reverse, steer, turn,
   type Heading, type Move, type VanPose, type VehiclesData,
 } from '../src/core/vehicles';
 import { loadManifest, loadMaps, publicFileExists, rawContent } from './helpers';
@@ -60,7 +60,7 @@ describe('van sheets and footprints', () => {
     for (const d of data.designs) expect(d.length, d.id).toBe(Math.round((d.lengthM * 28) / 64));
     const byLength = [...data.designs].sort((a, b) => a.lengthM - b.lengthM);
     for (let i = 1; i < byLength.length; i++) expect(byLength[i].length).toBeGreaterThanOrEqual(byLength[i - 1].length);
-    expect(data.designs.find((d) => d.id === 'van-7')!.length).toBe(9);
+    expect(data.designs.find((d) => d.id === 'motor-7')!.length).toBe(9);
   });
 
   it('a footprint is one tile wide, front first, and its centre is the middle of its tiles', () => {
@@ -70,32 +70,43 @@ describe('van sheets and footprints', () => {
   });
 
   it('the starter van is Van 1 and fits its spot behind the van seller', () => {
-    expect(data.starter.design).toBe('van-1');
+    expect(data.starter.design).toBe('motor-1');
     expect(driveMap(HOME).fits(data.starter, 2)).toBe(true);
   });
 });
 
 describe('driving', () => {
-  it('drives both ways along the main road, in either lane', () => {
+  it('drives on the left along the main road: east in the top lane, west in the bottom one (Boss, 28 Oct 2026)', () => {
     const dm = driveMap(HOME);
-    for (const lane of [12, 13]) {
-      for (const heading of ['east', 'west'] as Heading[]) {
-        let p: VanPose = { x: 30, y: lane, heading };
-        for (let i = 0; i < 8; i++) {
-          const m = forward(dm, p);
-          expect(m, `${heading} in row ${lane}`).not.toBeNull();
-          p = m!.to;
-        }
-        expect(p.y).toBe(lane);
-        expect(p.x).toBe(heading === 'east' ? 38 : 22);
+    for (const [lane, heading] of [[12, 'east'], [13, 'west']] as [number, Heading][]) {
+      let p: VanPose = { x: heading === 'east' ? 28 : 33, y: lane, heading };
+      for (let i = 0; i < 6; i++) {
+        const m = forward(dm, p, 2);
+        expect(m, `${heading} in row ${lane}`).not.toBeNull();
+        p = m!.to;
       }
+      expect(p.y).toBe(lane);
+      expect(dm.fits({ x: 30, y: 25 - lane, heading }, 2), `${heading} in the other lane`).toBe(false);
     }
+  });
+
+  it('keeps the body off the pavement: only an end pokes over it, two tiles for the Factory Hauler', () => {
+    const dm = driveMap(HOME);
+    // Along the pavement above the main road: never.
+    expect(dm.fits({ x: 30, y: 11, heading: 'east' }, 2)).toBe(false);
+    // Nose onto the pavement across the road (lanes don't count across a road), or tail on it.
+    expect(dm.fits({ x: 30, y: 11, heading: 'north' }, 3)).toBe(true);
+    expect(dm.fits({ x: 30, y: 13, heading: 'south' }, 3)).toBe(true);
+    // On the south pavement, two tiles deep, only a long van's end may stand.
+    expect(dm.fits({ x: 8, y: 15, heading: 'south' }, 4)).toBe(false);
+    expect(overhang(4)).toBe(1);
+    expect(overhang(9)).toBe(2);
   });
 
   it('reverses, and turns round into the other lane', () => {
     const dm = driveMap(HOME);
-    const p: VanPose = { x: 20, y: 13, heading: 'east' };
-    expect(reverse(dm, p, 2)!.to).toEqual({ x: 19, y: 13, heading: 'east' });
+    const p: VanPose = { x: 30, y: 12, heading: 'east' };
+    expect(reverse(dm, p, 2)!.to).toEqual({ x: 29, y: 12, heading: 'east' });
     const u = steer(dm, p, 2, 'west')!;
     expect(u.kind).toBe('uturn');
     expect(u.to.heading).toBe('west');
@@ -120,7 +131,9 @@ describe('driving', () => {
       // Factory Hauler is too long for the town car park, so it is moved to the road beside it.
       dm.setVanLength(d.length);
       const start = placeNear(dm, data.starter, d.length, data.starter.heading)!;
-      for (const g of goals.filter((g) => dm.isDrivable(g.x, g.y) || d.length <= 6)) {
+      // The Factory Hauler can't turn round on the south road's two lanes (Boss, 28 Oct 2026: it
+      // has a little less control), so its west end is out of reach heading west.
+      for (const g of goals.filter((g) => (dm.isDrivable(g.x, g.y) || d.length <= 6) && !(d.length > 6 && g.y >= 23))) {
         const plan = planDrive(dm, start, d.length, g);
         expect(plan, `${d.id} to ${g.x},${g.y}`).not.toBeNull();
         const end = play(dm, start, d.length, plan!);
@@ -135,8 +148,9 @@ describe('driving', () => {
     for (let x = 25; x <= 35; x++) expect(home.isDrivable(x, 15), `${x},15`).toBe(false);
     for (let y = 15; y <= 21; y++) for (const x of [25, 35]) expect(home.isDrivable(x, y), `${x},${y}`).toBe(false);
     for (let x = 29; x <= 35; x++) expect(home.isDrivable(x, 22), `${x},22`).toBe(false);
-    // The entrance at the bottom left, and the car park itself.
-    for (let x = 25; x <= 28; x++) expect(home.isDrivable(x, 22), `${x},22`).toBe(true);
+    // The entrance at the bottom left (between the pavements either side of it), and the car park itself.
+    for (let x = 26; x <= 27; x++) expect(home.isDrivable(x, 22), `${x},22`).toBe(true);
+    for (const x of [25, 28]) expect(home.isDrivable(x, 22), `${x},22`).toBe(false);
     expect(home.isDrivable(30, 18)).toBe(true);
     const river = driveMap('area1-venue-riverside', ALL_FLAGS);
     // Both sides of the central road, with the crossings into the car parks by the P signs.
@@ -156,7 +170,8 @@ describe('driving', () => {
     // Parked in the car park by a swap, it is moved out onto the road, and can drive away.
     const start = placeNear(dm, data.starter, hauler.length, data.starter.heading)!;
     expect(footprint(start, hauler.length).every((t) => t.x >= 36 || t.y >= 23 || t.y <= 14)).toBe(true);
-    expect(planDrive(dm, start, hauler.length, { x: 4, y: 25 })).not.toBeNull();
+    // Too long to turn round on the two-lane roads, it gets to both ways out of town.
+    for (const g of [{ x: 46, y: 12 }, { x: 2, y: 13 }]) expect(planDrive(dm, start, hauler.length, g), `${g.x},${g.y}`).not.toBeNull();
     // Every other van still uses it.
     dm.setVanLength(6);
     expect(dm.isDrivable(30, 18)).toBe(true);
@@ -202,7 +217,7 @@ describe('NPCs and the van', () => {
     const dm = driveMap(HOME);
     const p: VanPose = { x: 20, y: 13, heading: 'east' };
     dm.setNpcTiles([{ x: 21, y: 13 }]);
-    expect(forward(dm, p)).toBeNull();
+    expect(forward(dm, p, 2)).toBeNull();
     expect(steer(dm, p, 2, 'east')).toBeNull();
     expect(dm.fits({ x: 22, y: 13, heading: 'east' }, 2)).toBe(false);
     // Walking: NPCs are not occupants of the walking grid.
@@ -259,7 +274,7 @@ describe('map changes with the van', () => {
     const dm = driveMap(HOME);
     const pose = placeNear(dm, spawn, 2, inwardHeading(map, spawn), 12, (t) => !!stepTriggerAt(map, t))!;
     expect(pose.heading).toBe('west');
-    expect(forward(dm, pose)).not.toBeNull();
+    expect(forward(dm, pose, 2)).not.toBeNull();
   });
 });
 
@@ -292,7 +307,7 @@ describe('the one van in the save', () => {
   });
 
   it('a parked van stays where it was left: loading never moves it or adds another', () => {
-    const s = { flags: { van_owned: true }, van: { design: 'van-1', map: 'area1-industrial-zone', x: 10, y: 17, heading: 'west' as Heading } };
+    const s = { flags: { van_owned: true }, van: { design: 'motor-1', map: 'area1-industrial-zone', x: 10, y: 17, heading: 'west' as Heading } };
     const before = structuredClone(s.van);
     ensureVan(s, data);
     ensureVan(s, data);
@@ -301,10 +316,10 @@ describe('the one van in the save', () => {
 
   it('the dev option swaps the design but keeps the spot', () => {
     const s = { flags: { van_owned: true }, van: { ...data.starter } };
-    ensureVan(s, data, 'van-7');
-    expect(s.van).toMatchObject({ design: 'van-7', map: data.starter.map, x: data.starter.x, y: data.starter.y });
-    ensureVan(s, data, 'van-99');
-    expect(s.van.design).toBe('van-7');
+    ensureVan(s, data, 'motor-7');
+    expect(s.van).toMatchObject({ design: 'motor-7', map: data.starter.map, x: data.starter.x, y: data.starter.y });
+    ensureVan(s, data, 'motor-99');
+    expect(s.van.design).toBe('motor-7');
   });
 
   const v3 = {
@@ -322,11 +337,11 @@ describe('the one van in the save', () => {
     expect(s.version).toBe(SAVE_VERSION);
     expect(s.van).toBeNull();
     expect(s.driving).toBe(false);
-    expect(ensureVan(s, data)?.design).toBe('van-1');
+    expect(ensureVan(s, data)?.design).toBe('motor-1');
   });
 
   it('keeps the van\'s map, tile and heading through a save and load', () => {
-    const van = { design: 'van-4', map: 'area1-venue-farmland', x: 20, y: 16, heading: 'north' };
+    const van = { design: 'motor-4', map: 'area1-venue-farmland', x: 20, y: 16, heading: 'north' };
     const s = parseSave(JSON.stringify({ ...v3, version: SAVE_VERSION, van, driving: true }))!;
     expect(s.van).toEqual(van);
     expect(s.driving).toBe(true);
@@ -337,7 +352,7 @@ describe('the one van in the save', () => {
   it('vehicles.json problems are caught by name', () => {
     const r = rawContent() as ReturnType<typeof rawContent> & { vehicles: VehiclesData };
     r.vehicles.starter = { ...r.vehicles.starter, x: 5, y: 16 };
-    r.vehicles.designs[1].id = 'van-1';
+    r.vehicles.designs[1].id = 'motor-1';
     const { errors } = checkContent(r, manifest, maps);
     expect(errors.map((e) => `${e.file}: ${e.field}`)).toEqual(expect.arrayContaining(['data/vehicles.json: designs[1].id', 'data/vehicles.json: starter']));
   });
