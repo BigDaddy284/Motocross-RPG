@@ -352,7 +352,7 @@ body.final .final-hide { display: none !important; }
     <li><b>Layout:</b> the route is the shape the race screen shows: control points on a 100 × 60 grid, joined in order and back to the first point, where the finish line goes. Drag a point to move it (snaps to whole grid units; untick <b>Snap</b> or hold <kbd>Alt</kbd> for tenths). Double-click the route to add a point, right-click a point or press <kbd>Del</kbd> to delete it (the route joins up across it), arrow keys nudge it. <b>Round corner</b> <kbd>R</kbd> gives the selected point curve handles (blue squares): drag one to shape the curve, its mirror follows, <kbd>Alt</kbd> drags one side on its own; <b>Sharp corner</b> takes them off. <b>− Segment</b> takes out the stretch after the selected point, so the route is open there. The drawing the game races is generated from the route; between the features it rides as plain track whatever its shape, and Undo and Redo cover every step, each point placed included.</li>
     <li><b>New tracks</b> start empty and as a draft, drawing their route: click the ground point by point, and click the first point (the green ring) to close the route; <kbd>Enter</kbd> or <kbd>Esc</kbd> stops drawing, <kbd>Backspace</kbd> takes the last point off, and <b>Draw route</b> carries on from the last point of an open route. <b>Close the route</b> joins the last point back to the first; <b>Open the route</b> takes the closing stretch out again. Nothing else is laid for you: the start straight and the finish line are placed on their own under <b>Start and finish</b>, before or after. <b>Features</b> (corners, hairpins, berms, ruts, jumps, whoops, sand and the like) go on top of the route, and only where you put them: nothing is typed from the route's shape, so a route with no features rides as plain track. Pick one and it follows the pointer along the route, <kbd>,</kbd> <kbd>.</kbd> make it shorter or longer, a click places it; drag it along the route, drag its white diamonds to stretch it, <kbd>Del</kbd> removes it, and its line and jump height are under Sections. A feature rides as its type whatever shape it is drawn (a hairpin at 90° or wide open), and moving or reshaping it never changes its type. Two that overlap are allowed with a warning in Checks that names them (click it to select the feature). A draft saves at any time, with one point, an open route, no start or finish, or errors; the Route box says <b>Draft</b>, <b>Draft with warnings</b>, <b>Ready for validation</b> or <b>Race-ready</b>, and the game leaves drafts out until <b>Ready to race</b> passes the game's checks. Tracks made before features keep their sections as saved; <b>Use features</b> (Sections), or placing a feature, keeps their corners, jumps and special sections as features, with their types, and lets the route between them ride as plain track.</li>
     <li><b>Start straight:</b> every track starts from a gate on its own start straight that joins the route, as on a real track. Its points are the blue squares: the first is the gate (the black bar, with the yellow line-up behind it), the white one is where it joins the route and stays on the route when dragged. To add one, pick <b>Start straight</b> under <b>Start and finish</b> (or <b>+ Start straight</b> above the view): it follows the pointer, its end (the ring) snapping onto the route where the pointer is near it, green where it can go and red with the reason where it can't; <kbd>Q</kbd> <kbd>E</kbd> turn it, <kbd>F</kbd> brings it in from the other side, <kbd>,</kbd> <kbd>.</kbd> make it shorter or longer, a click or <kbd>Enter</kbd> places it and <kbd>Esc</kbd> cancels. On an empty track it can go first, anywhere, and be joined on later by dragging its white end onto the route (anywhere on it, just before or after the finish line included). It turns red when it is off the route. <b>Move start straight</b> places it again, and <b>Remove start straight</b> takes it off. Riders ride it once, then the lap from the join round to the finish line, which ends lap 1. <b>The first corner</b> is the start straight's end: the stretch between its last two blue points, drawn blue and labelled, which the race rides with the first corner's own rules (difficulty, skills, lap 1's first-corner incident). It is not a section: there is none to place or pick, and a First corner section on an older track rides as a flat corner. Select a blue point for <b>+ Point</b> and <b>− Point</b>. The checks ask for it to be at least 12 grid units long, clear of the route until it joins, meeting the route at 75° or less.</li>
-    <li><b>Finish line:</b> its own part of the track, placed by you and never for you: closing the lap or joining the start straight makes no finish line. Pick <b>Finish line</b> under <b>Start and finish</b> (or <b>+ Finish line</b> above the view) once the lap is closed and a chequered bar follows the pointer, snapping across the lap; a click or <kbd>Enter</kbd> places it. It becomes the lap's first point (a point is added there if there was none), and the sections are split and turned round to start there, so the lap is laid out exactly as before. <b>Finish here</b> puts it on the selected point, dragging point 0 moves it along the lap, and <b>Remove finish line</b> takes it off (the track is then unfinished until one is placed again). A track without one is a valid draft; it is listed under the checks as still needed to race.</li>
+    <li><b>Finish line:</b> its own part of the track, placed by you and never for you: closing the lap or joining the start straight makes no finish line. Pick <b>Finish line</b> under <b>Start and finish</b> (or <b>+ Finish line</b> above the view) once the lap is closed and a chequered bar follows the pointer, snapping across the lap; a click or <kbd>Enter</kbd> places it. It becomes the lap's first point (a point is added there if there was none), and the sections are split and turned round to start there, so the lap is laid out exactly as before. <b>Finish here</b> puts it on the selected point, dragging point 0 moves it along the lap, and <b>Remove finish line</b> takes it off (the track is then unfinished until one is placed again). A track without one is a valid draft; it is listed under the checks as still needed to race. The <b>finish arch</b> (Scenery) always spans the track's width, its posts just outside the lips, and belongs on the finish line: placing the line moves it there, square to the track, its panel has <b>Put on the finish line</b>, and the checks say when it is off.</li>
     <li><b>Kind</b> sets how the race screen shows the track: a stadium track fits on one screen; outdoor and endurance tracks use a camera that follows the riders, with a map of the whole lap. <b>Width</b> is the track width on the race screen.</li>
     <li class="final-hide"><b>Sections</b> are what the race simulation rides, in order. Each is placed on the drawing by its share of the lap length and ridden as its type whatever shape is drawn there; the panel says what the shape reads as (straight, sweeper, corner or hairpin). On a track from before features, <b>From drawing</b> replaces the sections with straights and corners that suit the drawing, if you ask for it. Click the track to pick the section under the pointer. Drag a white diamond to move metres between two sections. The section box sets the line riders take through it and the height of jumps and hills. <b>Supercross jumps:</b> a Triple (three peaks, flown from the first's lip to the third's top), a Step-down (a tall deck dropping to a lower landing), a Step-on step-off (a low table ridden as two hops) and a Dragon's back (five humps ridden rolling). <b>Tunnels:</b> a tabletop, step-up or step-on has a <b>Tunnel</b> choice: <i>The track passes under it</i> when another part of the route is drawn across its deck (the flat top in the middle), so riders there go through the tunnel while the rest jump over, or <i>A pedestrian tunnel</i>. Both sides of the deck become concrete walls with the opening and a portal frame, and the map draws the hole as a dark band. Choosing the track tunnel makes the feature at least 22 grid units long and 3.5 m high; the checks say when nothing passes under the deck, when the deck is too short for the lower track, or when the jump is too low.</li>
     <li class="final-hide"><b>Gates</b> is the start bonus curve, in percent of start time, best gate first (Spec 10.4).</li>
@@ -1341,7 +1341,30 @@ function patchAt(t, metres) {
 }
 function itemBox(it) {
   const def = sceneryDef(it.type);
-  return { w: it.w ?? def?.w ?? 2, h: it.h ?? def?.h ?? 2, a: ((it.rot ?? 0) * Math.PI) / 180 };
+  const w = it.type === 'finish_arch' ? archSpan((track()?.width ?? DEFAULT_WIDTH)) : it.w ?? def?.w ?? 2;
+  return { w, h: it.h ?? def?.h ?? 2, a: ((it.rot ?? 0) * Math.PI) / 180 };
+}
+/** How wide the finish arch stands for a track width: its posts just outside the lips (src/core/trackClearance.ts archSpan). */
+function archSpan(width) { return width * LIP_AT + 1.3; }
+/** Where the finish arch belongs: on the finish line, square to the track there (trackClearance.ts archPlace). */
+function archPlace(t) {
+  if (t.path.length < 2) return null;
+  const g = lapGeom(t);
+  const deg = (headingAt(g, 0) * 180) / Math.PI;
+  return { x: t.path[0][0], y: t.path[0][1], rot: ((Math.round(deg) + 90) % 360 + 360) % 360 };
+}
+/** True when a finish arch stands on the finish line, square to the track (within half a grid unit and 5°). */
+function archOnLine(t, it) {
+  const at = archPlace(t);
+  if (!at) return true;
+  const dr = Math.abs(((((it.rot ?? 0) - at.rot) % 180) + 270) % 180 - 90);
+  return Math.hypot(it.x - at.x, it.y - at.y) <= 0.5 && dr <= 5;
+}
+/** Puts every finish arch on the finish line, square to the track: when the line is placed, and from the arch's panel. */
+function snapFinishArches(t) {
+  const at = archPlace(t);
+  if (!at || t.finish === false) return;
+  for (const it of t.scenery ?? []) if (it.type === 'finish_arch') { it.x = at.x; it.y = at.y; it.rot = at.rot; delete it.w; }
 }
 function itemHit(it, x, y) {
   const { w, h, a } = itemBox(it);
@@ -2978,10 +3001,23 @@ function renderSceneryDetail() {
     field('Colour', col);
   }
   const num = (v, ph, step) => { const i = document.createElement('input'); i.type = 'number'; i.step = String(step); i.min = '0'; i.value = v === undefined ? '' : String(v); i.placeholder = ph; return i; };
-  const w = field('Width', num(it.w, String(def?.w ?? ''), 0.5));
-  w.addEventListener('change', () => editItem((x) => { const v = Number(w.value); if (w.value === '' || v === def?.w) delete x.w; else if (v > 0) x.w = round1(v); }));
-  const h = field('Depth', num(it.h, String(def?.h ?? ''), 0.5));
-  h.addEventListener('change', () => editItem((x) => { const v = Number(h.value); if (h.value === '' || v === def?.h) delete x.h; else if (v > 0) x.h = round1(v); }));
+  if (it.type === 'finish_arch') {
+    const note = document.createElement('div');
+    note.className = 'hint';
+    note.textContent = `Spans the track's width (${archSpan(t.width ?? DEFAULT_WIDTH).toFixed(1)} grid units for this track), its posts just outside the lips, and belongs on the finish line, square to the track.`;
+    box.appendChild(note);
+    const snap = document.createElement('button');
+    snap.textContent = 'Put on the finish line';
+    snap.title = 'Moves the arch onto the finish line (the lap\'s first point) and turns it square to the track there. Placing the finish line does this too.';
+    snap.disabled = t.finish === false || t.path.length < 2 || archOnLine(t, it);
+    snap.addEventListener('click', () => { commit((t) => snapFinishArches(t)); status('The finish arch is on the finish line, square to the track.', 'ok'); });
+    box.appendChild(snap);
+  } else {
+    const w = field('Width', num(it.w, String(def?.w ?? ''), 0.5));
+    w.addEventListener('change', () => editItem((x) => { const v = Number(w.value); if (w.value === '' || v === def?.w) delete x.w; else if (v > 0) x.w = round1(v); }));
+    const h = field('Depth', num(it.h, String(def?.h ?? ''), 0.5));
+    h.addEventListener('change', () => editItem((x) => { const v = Number(h.value); if (h.value === '' || v === def?.h) delete x.h; else if (v > 0) x.h = round1(v); }));
+  }
   const rot = field('Turn', num(it.rot ?? 0, '0', 15));
   rot.addEventListener('change', () => editItem((x) => { const v = ((Math.round(Number(rot.value)) % 360) + 360) % 360; if (v) x.rot = v; else delete x.rot; }));
   const btns = document.createElement('div');
@@ -3269,6 +3305,13 @@ function checkTrack(t, all, strict = false) {
   }
   for (const m of officialNotes(t)) { warn.push(m.text); if (m.i >= 0) refs.set(m.text, { item: m.i }); }
   for (const p of [...cheerProblems(t), ...marshalProblems(t)]) { (p.level === 'error' ? bad : warn).push(p.message); refs.set(p.message, { item: p.i }); }
+  if (t.finish !== false && t.path.length >= 2) (t.scenery ?? []).forEach((it, i) => {
+    if (it.type !== 'finish_arch' || archOnLine(t, it)) return;
+    const at = archPlace(t);
+    const text = `Scenery item ${i + 1}: the finish arch at ${it.x}, ${it.y} is not on the finish line at ${at.x}, ${at.y}, square to the track. Select it and click Put on the finish line (click here to find it).`;
+    warn.push(text);
+    refs.set(text, { item: i });
+  });
   if (!t.practiceOnly && !t.gates?.length) warn.push('No gate curve: every gate starts the same.');
   // Two segments that cross make a figure of eight on screen, which the race screen can't show as a bridge.
   const g = lapGeom(t);
@@ -5003,6 +5046,10 @@ function snapFinishF(t, f) {
  * route does not change, so the lap is laid out as before.
  */
 function setFinish(t, f) {
+  setFinishCore(t, f);
+  snapFinishArches(t);
+}
+function setFinishCore(t, f) {
   const g = lapGeom(t);
   const d = snapFinishF(t, f) * g.total;
   const idx = layoutIndices(t);

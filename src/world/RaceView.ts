@@ -6,7 +6,8 @@ import { START_HOLD, type RiderPose, type RiderState } from '../core/riderAI';
 import { CHEER_ITEM, CHEER_RANGE, CHEER_WALK, cheerAction, cheerColour, cheerRoute, cheerTiming, cheerVariant, REACT_SECONDS, VARIANT_SCALE, type CheerAction } from '../core/cheer';
 import { alongRoute, OFFICIAL_ITEM, OFFICIAL_SCALE, officialPlan, placedOfficial, routeLength, walkProgress, BOARD_MOVE, BOARD_SIDEWAYS, WALK_FROM, WALK_TO, type OfficialSpot } from '../core/startOfficial';
 import { pointAt, START_PAD, startPointAt } from '../core/trackGeom';
-import { GRID_H, GRID_W, trackKind, type SceneryDef, type TrackPartsData } from '../core/trackParts';
+import { DEFAULT_TRACK_WIDTH, GRID_H, GRID_W, trackKind, type SceneryDef, type TrackPartsData } from '../core/trackParts';
+import { archSpan } from '../core/trackClearance';
 import { BIKE_LENGTH, CAM_AZ, LIP_AT, TrackSurface } from '../core/trackSurface';
 import { COLORS, TEXT_RES } from '../ui/theme';
 import { isPaddock } from '../core/paddock';
@@ -1087,7 +1088,8 @@ export class RaceView {
     // The start official placed as scenery is built with the start (startBoard).
     if (it.type === OFFICIAL_ITEM) return null;
     const def = this.parts.scenery.find((s) => s.id === it.type);
-    const w = it.w ?? def?.w ?? 2;
+    // The finish arch always spans the track (trackClearance.ts archSpan), whatever width it was saved with.
+    const w = it.type === 'finish_arch' ? archSpan(this.track.width ?? DEFAULT_TRACK_WIDTH) : it.w ?? def?.w ?? 2;
     const d = it.h ?? def?.h ?? 2;
     const color = hex(it.color ?? def?.color, 0x888888);
     const text = it.text ?? def?.text ?? '';

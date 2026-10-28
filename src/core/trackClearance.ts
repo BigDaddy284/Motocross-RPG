@@ -1,6 +1,6 @@
 import type { SceneryItem, TrackDef } from './race';
-import type { TrackPartsData } from './trackParts';
-import { pointAt, START_PAD, startGeom, startHalfWidth, startPointAt } from './trackGeom';
+import { DEFAULT_TRACK_WIDTH, type TrackPartsData } from './trackParts';
+import { headingAt, lapGeom, pointAt, START_PAD, startGeom, startHalfWidth, startPointAt } from './trackGeom';
 import { LIP_AT, LIP_H, TrackSurface } from './trackSurface';
 
 // How far things are from where bikes go: the racing surface (the lap, the start straight and the
@@ -111,8 +111,27 @@ export interface Footprint {
 export function footprints(parts: TrackPartsData, track: TrackDef): Footprint[] {
   return (track.scenery ?? []).map((it: SceneryItem, i) => {
     const def = parts.scenery.find((s) => s.id === it.type);
-    return { i, type: it.type, x: it.x, y: it.y, w: it.w ?? def?.w ?? 2, d: it.h ?? def?.h ?? 2, a: ((it.rot ?? 0) * Math.PI) / 180 };
+    const w = it.type === 'finish_arch' ? archSpan(track.width ?? DEFAULT_TRACK_WIDTH) : it.w ?? def?.w ?? 2;
+    return { i, type: it.type, x: it.x, y: it.y, w, d: it.h ?? def?.h ?? 2, a: ((it.rot ?? 0) * Math.PI) / 180 };
   });
+}
+
+/**
+ * How wide the finish arch stands, in grid units, for a track of the given width: its posts
+ * (0.5 wide, centred 0.25 in from each end) stand just outside the lips, whatever width the item
+ * was saved with (Boss, 28 Oct 2026: the arch to match the track width).
+ */
+export function archSpan(width: number): number {
+  return width * LIP_AT + 1.3;
+}
+
+/** Where the finish arch belongs: on the finish line (the lap's first point), square to the track there. */
+export function archPlace(track: TrackDef): { x: number; y: number; rot: number } | null {
+  if (track.path.length < 2) return null;
+  const g = lapGeom(track.path);
+  const [x, y] = track.path[0];
+  const deg = (headingAt(g, 0) * 180) / Math.PI;
+  return { x, y, rot: ((Math.round(deg) + 90) % 360 + 360) % 360 };
 }
 
 /** Distance from a point to a footprint's turned rectangle (0 inside it). */
