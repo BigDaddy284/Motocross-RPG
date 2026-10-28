@@ -102,7 +102,7 @@
         "passing": 0.6
       },
       {
-        "type": "first_corner",
+        "type": "flat_corner",
         "length": 78,
         "passing": 0.8
       },

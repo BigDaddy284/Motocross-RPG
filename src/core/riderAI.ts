@@ -59,6 +59,8 @@ export const LINE_UP = 6;
 /** How fast finishers ride their cool-down after the flag, in metres a second. */
 const COOL_DOWN = 4;
 /** How far apart finishers ride their cool-down in single file, in grid units: three bike lengths (BIKE_LENGTH, trackSurface), room for the inside of a hairpin. */
+/** Seconds after the flag in which finishers heading for different edges are still crossing each other's path. */
+const COOL_SIDE = 3;
 const COOL_GAP = 1.1 * 3;
 
 /** A finisher's cool-down: when and where they took the flag, how fast, and the edge they ride down. */
@@ -297,7 +299,7 @@ export class RaceDirector {
   poses(t: number): RiderPose[] {
     const poses: RiderPose[] = [];
     for (const [id, list] of this.segs) poses.push(this.pose(id, list, t));
-    this.coolDown(poses);
+    this.coolDown(poses, t);
     this.keepApart(poses);
     return poses;
   }
@@ -431,7 +433,7 @@ export class RaceDirector {
    * Each is held at the lesser of where they would be and where the rider ahead allows, but never
    * back over the line, so nobody ever rolls backwards.
    */
-  private coolDown(poses: RiderPose[]): void {
+  private coolDown(poses: RiderPose[], t: number): void {
     const plan = this.finishes();
     const gap = COOL_GAP / this.lapUnits;
     const done = poses.filter((q) => q.state === 'finished' && plan.has(q.id)).sort((a, b) => plan.get(a.id)!.t1 - plan.get(b.id)!.t1);
@@ -440,6 +442,11 @@ export class RaceDirector {
       const f = plan.get(q.id)!;
       const lead = ahead.get(f.edge);
       if (lead) q.dist = Math.min(q.dist, Math.max(f.d1, lead.dist - gap));
+      // One who took the flag just before, heading for the other edge, is still beside this one
+      // while they both pull over: hold behind them for those seconds too, so they never ride
+      // through each other on the way to their edges.
+      const other = ahead.get(-f.edge);
+      if (other && f.t1 - plan.get(other.id)!.t1 < COOL_SIDE && t - f.t1 < COOL_SIDE) q.dist = Math.min(q.dist, Math.max(f.d1, other.dist - gap));
       ahead.set(f.edge, q);
     }
   }
@@ -483,9 +490,9 @@ export class RaceDirector {
     return 0;
   }
 
-  /** The section ridden in a stretch; -1 is the start straight, ridden as a start. */
+  /** The section ridden in a stretch; -1 is the start straight, ridden as a start, -2 its end, the first corner. */
   private section(si: number): Pick<TrackSection, 'type' | 'height' | 'line'> {
-    return si < 0 ? { type: 'start_gate' } : this.track.sections[si];
+    return si === -2 ? { type: 'first_corner' } : si < 0 ? { type: 'start_gate' } : this.track.sections[si];
   }
 
   private turn(si: number): number {

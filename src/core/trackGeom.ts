@@ -256,11 +256,11 @@ export function startHeadingAt(s: StartGeom, u: number, span = 1.5): number {
 
 /**
  * What a lap is made of. `marks` are race distances in laps where the referee times the riders,
- * `secs` the section ridden between each pair (-1 is the start straight) and `metres` each
- * stretch's length. Lap 1 is the start straight, then the lap from where it joins (part of a
+ * `secs` the section ridden between each pair (-1 is the start straight, -2 its end, the first
+ * corner) and `metres` each stretch's length. Lap 1 is the start straight, then the lap from where it joins (part of a
  * section, if it joins part way through one) to the finish line; later laps are the whole loop.
  */
-export function lapPlan(track: TrackDef, lap: number, bounds: number[] = sectionBounds(track), start: StartGeom = startGeom(track), cuts: number[] = []): { marks: number[]; secs: number[]; metres: number[]; spans: [number, number][] } {
+export function lapPlan(track: TrackDef, lap: number, bounds: number[] = sectionBounds(track), start: StartGeom = startGeom(track)): { marks: number[]; secs: number[]; metres: number[]; spans: [number, number][] } {
   const lapM = lapMetres(track);
   const n = track.sections.length;
   // Each stretch as it is ridden: the section, the lap fractions it covers and the race distance at its end.
@@ -268,10 +268,15 @@ export function lapPlan(track: TrackDef, lap: number, bounds: number[] = section
   if (lap > 1 || start.metres <= 0) {
     track.sections.forEach((s, i) => legs.push({ si: i, a: bounds[i], b: bounds[i + 1], end: lap - 1 + bounds[i + 1], metres: s.length }));
   } else {
-    // From the join to the end of the lap's drawing; a start joining in the second half of the lap
-    // counts that stretch as the lap before (race distances below 0), then the whole lap follows.
+    // The start straight in two: the run from the gate, then its last leg as the first corner
+    // (firstCorner); then from the join to the end of the lap's drawing. A start joining in the
+    // second half of the lap counts that stretch as the lap before (race distances below 0), then
+    // the whole lap follows.
     const off = start.joinAt - start.join;
-    legs.push({ si: -1, a: start.join, b: start.join, end: start.joinAt, metres: start.metres });
+    const fc = firstCorner(start);
+    const fcM = fc?.metres ?? 0;
+    legs.push({ si: -1, a: start.join, b: start.join, end: start.joinAt - fcM / lapM, metres: start.metres - fcM });
+    if (fc) legs.push({ si: -2, a: start.join, b: start.join, end: start.joinAt, metres: fcM });
     let si = 0;
     while (si < n - 1 && bounds[si + 1] <= start.join + 1e-9) si++;
     for (let i = si; i < n; i++) {
@@ -281,55 +286,33 @@ export function lapPlan(track: TrackDef, lap: number, bounds: number[] = section
     }
     if (off < 0) track.sections.forEach((s, i) => legs.push({ si: i, a: bounds[i], b: bounds[i + 1], end: bounds[i + 1], metres: s.length }));
   }
-  // A stretch is timed in two where a cut (a lap fraction) falls inside it, so what starts there
-  // (the first corner) has its own stretch.
-  for (const cut of cuts) {
-    const c = ((cut % 1) + 1) % 1;
-    for (let k = legs.length - 1; k >= 0; k--) {
-      const l = legs[k];
-      if (l.si < 0 || c <= l.a + 1e-9 || c >= l.b - 1e-9) continue;
-      const share = (c - l.a) / (l.b - l.a);
-      const first = { si: l.si, a: l.a, b: c, end: l.end - (l.b - c), metres: l.metres * share };
-      legs.splice(k, 1, first, { si: l.si, a: c, b: l.b, end: l.end, metres: l.metres - first.metres });
-    }
-  }
   const marks = [legs.length ? legs[0].si < 0 ? start.from : lap - 1 : lap - 1];
   for (const l of legs) marks.push(l.end);
   return { marks, secs: legs.map((l) => l.si), metres: legs.map((l) => l.metres), spans: legs.map((l) => [l.a, l.b]) };
 }
 
-/** A stretch of the lap as fractions from the finish line; `to` may pass 1 where it runs on over the line. */
-export interface LapSpan {
+/** The first corner: the end of the start straight, from `from` grid units up it to its join with the lap. */
+export interface FirstCorner {
   from: number;
-  to: number;
+  /** Its length in metres, on the lap's scale. */
+  metres: number;
+  /** Its share of the start straight's length. */
+  share: number;
 }
 
-/** Shortest first corner, in grid units: a route point closer to the join than this is passed over for the next. */
-export const FIRST_CORNER_MIN = 1;
+/** On a start straight of only two points, the first corner is this much of its end. */
+export const FIRST_CORNER_SHARE = 0.25;
 
 /**
- * The first corner: the lap from where the start straight joins to the route's next control point
- * (the layout's, or the path's own on a track drawn point by point), where the first-corner
- * rules apply (race.ts). Null on a track without a start straight, and on one drawn with its own
- * first-corner section, which keeps it.
+ * The first corner is the start straight's end: the leg between its last two points, which bends
+ * onto the lap (on a straight of two points, its last quarter). It is not a section of its own:
+ * the race times it as its own stretch of lap 1 (lapPlan's -2) and rides it with the first
+ * corner's rules and lap 1's first-corner incident (race.ts). Null without a start straight.
  */
-export function firstCornerSpan(track: TrackDef, g: LapGeom = lapGeom(track.path), start: StartGeom = startGeom(track, g)): LapSpan | null {
-  if (start.total <= 0 || track.path.length < 2) return null;
-  if (track.sections.some((s) => s.type === 'first_corner')) return null;
-  const ctrl = track.layout?.points ?? track.path;
-  const min = FIRST_CORNER_MIN / g.total;
-  let best = Infinity;
-  for (const p of ctrl) {
-    let d = nearestOnLap(g, p[0], p[1]).f - start.join;
-    if (d < min) d += 1;
-    if (d < best) best = d;
-  }
-  if (!Number.isFinite(best)) return null;
-  return { from: start.join, to: start.join + best };
-}
-
-/** True when the middle of the stretch [a, b] (lap fractions) lies in the span, counting round past the finish line. */
-export function inSpan(span: LapSpan, [a, b]: [number, number]): boolean {
-  const mid = (((a + b) / 2 - span.from) % 1 + 1) % 1;
-  return mid < span.to - span.from - 1e-9;
+export function firstCorner(start: StartGeom): FirstCorner | null {
+  if (start.total <= 0) return null;
+  const n = start.pts.length;
+  const from = n >= 3 ? start.cum[n - 2] : start.total * (1 - FIRST_CORNER_SHARE);
+  const share = (start.total - from) / start.total;
+  return { from, metres: start.metres * share, share };
 }

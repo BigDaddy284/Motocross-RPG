@@ -1,5 +1,5 @@
 import { bikeStats, type Bike, type BikesData } from './career';
-import { firstCornerSpan, inSpan, lapGeom, lapPlan, sectionBounds, startGeom, type DrawnShape, type LapSpan, type StartGeom } from './trackGeom';
+import { firstCorner, lapPlan, sectionBounds, startGeom, type DrawnShape, type FirstCorner, type StartGeom } from './trackGeom';
 import type { RiderStyle } from './riderProfile';
 import { sectionGrades, type TrackElevation, type TrackHill } from './elevation';
 
@@ -194,7 +194,7 @@ export interface TrackDef {
   elevation?: TrackElevation;
   /** Hills and dips along the track from the editor's elevation tool (elevation.ts); none when left out. */
   hills?: TrackHill[];
-  /** The track editor's route: its control points ([x, y], with curve handles after), from which `path` is drawn. The next one after the start straight's join ends the first corner (trackGeom.firstCornerSpan). */
+  /** The track editor's route: its control points ([x, y], with curve handles after), from which `path` is drawn. */
   layout?: { points: number[][] };
 }
 
@@ -324,8 +324,8 @@ export class MotoSim {
   /** How the ground's climbs and drops stretch or shorten each section's time (elevation.ts). */
   private readonly grades: number[];
   private readonly start: StartGeom;
-  /** The first corner: the lap from the start straight's join to the route's next point (trackGeom.firstCornerSpan), or null on a track with its own first-corner section or no start straight. */
-  readonly firstCorner: LapSpan | null;
+  /** The first corner: the start straight's end, between its last two points (trackGeom.firstCorner), or null with no start straight. */
+  readonly firstCorner: FirstCorner | null;
   /** Everything a lap changes, as it was before the latest lap, so it can be run again (redoLap). */
   private before: LapStart | null = null;
 
@@ -341,7 +341,7 @@ export class MotoSim {
     this.bounds = sectionBounds(track);
     this.grades = sectionGrades(track);
     this.start = startGeom(track);
-    this.firstCorner = firstCornerSpan(track, lapGeom(track.path), this.start);
+    this.firstCorner = firstCorner(this.start);
     this.cls = racing.classes[classId];
     this.ceiling = bikes.classes.find((c) => c.id === classId)?.ceiling ?? 1;
     this.ink = racing.ink;
@@ -429,7 +429,7 @@ export class MotoSim {
     const active = this.riders.filter((r) => !r.retired);
     // Each rider's own draws for this lap.
     const draws = new Map(this.riders.map((r, i) => [r, seededRng(mixSeed(this.opts.seed, lap * 256 + i))]));
-    const plan = lapPlan(this.track, lap, this.bounds, this.start, this.firstCorner ? [this.firstCorner.from, this.firstCorner.to] : []);
+    const plan = lapPlan(this.track, lap, this.bounds, this.start);
     const trace: LapTrace = { lap, marks: plan.marks, secs: plan.secs, times: {}, events: [] };
     for (const r of active) {
       trace.times[r.e.id] = [r.time];
@@ -445,15 +445,9 @@ export class MotoSim {
     const lapRng = seededRng(mixSeed(this.opts.seed, lap * 256 + 255));
     const incident = new Set<RiderState>();
     const fc = sim.firstCorner;
-    // The first corner: the stretch from the start straight's join to the route's next point when
-    // the track has one, else (a track drawn with its own first-corner section) the lap's first
-    // corner section. The route's own surface rides there as a first corner; a feature placed
-    // there (a berm, a rutted corner) rides as itself.
-    const span = this.firstCorner;
-    const inFirstCorner = (leg: number) => !!span && plan.secs[leg] >= 0 && inSpan(span, plan.spans[leg]);
-    const firstCornerLeg = lap === 1 && fc && !this.opts.practice
-      ? (span ? plan.secs.findIndex((si, leg) => si >= 0 && inFirstCorner(leg)) : plan.secs.findIndex((si) => si >= 0 && this.racing.sections[this.track.sections[si].type]?.damage === 'corner'))
-      : -1;
+    // The first corner is the start straight's end (lapPlan's stretch -2): the incident happens
+    // there, on lap 1 of a race. A track without a start straight has no first corner.
+    const firstCornerLeg = lap === 1 && fc && !this.opts.practice ? plan.secs.indexOf(-2) : -1;
     if (firstCornerLeg >= 0 && fc && lapRng() < fc.chance) {
       const pool = [...active];
       const n = Math.min(pool.length, fc.riders[0] + Math.floor(lapRng() * (fc.riders[1] - fc.riders[0] + 1)));
@@ -461,11 +455,15 @@ export class MotoSim {
     }
 
     plan.secs.forEach((si, leg) => {
-      // The start straight rides as a start (gate bonus, start skills) in a race; in practice it's a straight.
-      const full = si < 0 ? { type: 'start_gate', length: plan.metres[leg], passing: this.track.start?.passing ?? 0.6 } : this.track.sections[si];
+      // The start straight rides as a start (gate bonus, start skills) in a race, in practice as a
+      // straight; its end rides as the first corner. A lap section left as a first corner from
+      // before (the first corner is no longer a section) rides as a flat corner.
+      const full = si === -2
+        ? { type: 'first_corner', length: plan.metres[leg], passing: this.track.start?.passing ?? 0.6 }
+        : si < 0 ? { type: 'start_gate', length: plan.metres[leg], passing: this.track.start?.passing ?? 0.6 } : this.track.sections[si];
       const sec = { ...full, length: plan.metres[leg] };
-      const isStart = si < 0 && !this.opts.practice;
-      const def = this.racing.sections[sec.type === 'start_gate' && !isStart ? 'straight' : sec.type === 'straight' && inFirstCorner(leg) && this.racing.sections.first_corner ? 'first_corner' : sec.type];
+      const isStart = si === -1 && !this.opts.practice;
+      const def = this.racing.sections[sec.type === 'start_gate' && !isStart ? 'straight' : sec.type === 'first_corner' && si >= 0 && this.racing.sections.flat_corner ? 'flat_corner' : sec.type];
       // A section joined part way through on lap 1 is only partly ridden, with fewer chances to slip.
       const share = Math.min(1, sec.length / Math.max(1e-9, full.length));
       const done: RiderState[] = [];

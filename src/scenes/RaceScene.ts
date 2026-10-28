@@ -639,7 +639,7 @@ export class RaceScene extends Phaser.Scene {
       };
       const mine = dur(PLAYER_ID);
       const best = Math.min(...Object.keys(done.times).map(dur));
-      const name = si < 0 ? 'Start straight' : (services.content.racing.sections[sim.track.sections[si].type]?.name ?? sim.track.sections[si].type);
+      const name = si === -2 ? 'First corner' : si < 0 ? 'Start straight' : (services.content.racing.sections[sim.track.sections[si].type]?.name ?? sim.track.sections[si].type);
       lines.push(`${name.padEnd(15).slice(0, 15)} ${mine.toFixed(1).padStart(5)} ${mine - best > 0.05 ? `+${(mine - best).toFixed(1)}` : ' best'}`);
     });
     t.setText(lines.join('\n'));
