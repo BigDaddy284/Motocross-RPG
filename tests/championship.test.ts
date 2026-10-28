@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { newCareerState, type CareerState } from '../src/core/career';
-import { checkChampionships, champById, champProblem, drawChampField, enter, finishChampionship, nextRoundVenue, recordRound, roundEntry, roundOptions, roundsHere, standings, titlePossible, withdraw, type ActiveChampionship } from '../src/core/championship';
+import { checkChampionships, champById, champRiders, champProblem, drawChampField, enter, finishChampionship, nextRoundVenue, recordRound, roundEntry, roundOptions, roundsHere, standings, titlePossible, withdraw, type ActiveChampionship } from '../src/core/championship';
 import { checkContent } from '../src/core/content';
 import { PLAYER_ID, RaceDay, playerEntrant } from '../src/core/raceDay';
 import { directorFor } from '../src/core/riderAI';
-import { gateBonus } from '../src/core/race';
 import { SAVE_VERSION, parseSave } from '../src/core/saves';
 import { loadManifest, loadMaps, publicFileExists, rawContent } from './helpers';
 
@@ -67,11 +66,11 @@ describe('championships (Spec 12.5, 18.6)', () => {
     expect(champProblem(content, main, flags)).toBeNull();
   });
 
-  it('draws the same 19 CPU riders for every round, Louis Jonez always among them and Dean Marsh left to the Area 1 Championship', () => {
+  it('draws the same 15 CPU riders for every round, Louis Jonez always among them and Dean Marsh left to the Area 1 Championship', () => {
     for (const seed of [1, 2, 3, 99]) {
       const f = drawChampField(content, local, seed);
-      expect(f).toHaveLength(19);
-      expect(new Set(f).size).toBe(19);
+      expect(f).toHaveLength(15);
+      expect(new Set(f).size).toBe(15);
       expect(f).not.toContain('cpu.local_champion');
       expect(f).toContain('cpu.local_racer');
       expect(drawChampField(content, main, seed)).toEqual(expect.arrayContaining(['cpu.local_champion', 'cpu.local_racer']));
@@ -105,7 +104,7 @@ describe('championships (Spec 12.5, 18.6)', () => {
     const active = enter(career, content, local, 7);
     const day = new RaceDay(content, venue('venue-farmland'), playerEntrant(content, career, 'Test'), 5, 3000, roundOptions(content, local, active));
     const plain = new RaceDay(content, venue('venue-farmland'), playerEntrant(content, career, 'Test'), 5, 2000);
-    expect(day.field).toHaveLength(20);
+    expect(day.field).toHaveLength(16);
     expect(plain.field).toHaveLength(16);
     const q = day.startQualifying('steady');
     q.runToEnd();
@@ -140,26 +139,17 @@ describe('championships (Spec 12.5, 18.6)', () => {
     expect(day.startMoto('steady').opts.motoIndex).toBe(1);
   });
 
-  it('gives a field of 20 a full back row of 8 to pick from, its start bonus falling off towards the outside (Boss, 28 Oct 2026)', () => {
+  it('races a field saved at the old 19 CPU riders as 15, the main rider kept', () => {
     const career = rider();
     const active = enter(career, content, local, 3);
-    const day = new RaceDay(content, venue('venue-longmoor'), playerEntrant(content, career, 'Test'), 8, 3000, roundOptions(content, local, active));
-    expect(day.field).toHaveLength(20);
-    expect(day.gateCount).toBe(24);
-    const back = [16, 17, 18, 19, 20, 21, 22, 23].map((g) => gateBonus(day.track, g));
-    const last = day.track.gates!.at(-1)!;
-    expect(back).toEqual([1, 1, 1, 2, 2, 2, 3, 3].map((d) => last - d));
-    // The player can take any of the spare gates; the rest of the field still fits on the start.
-    day.pickOrder = [...day.pickOrder.filter((id) => id !== PLAYER_ID), PLAYER_ID];
-    expect(day.gatesForPlayer().free).toHaveLength(5);
-    day.assignGates(23);
-    const sim = day.startMoto('steady');
-    const dir = directorFor(sim, content.bikes, content.racing.messages, day.pickOrder);
-    expect(dir.startRow(PLAYER_ID)).toBe(2);
-    expect(sim.runToEnd().length).toBe(day.laps);
+    active.field = [...active.field.filter((id) => id !== local.main), ...content.riders.fields[local.field].filter((id) => !active.field.includes(id) && !local.without?.includes(id)).slice(0, 4), local.main!];
+    expect(active.field).toHaveLength(19);
+    const riders = champRiders(content, local, active);
+    expect(riders).toHaveLength(15);
+    expect(riders.map((r) => r.id)).toContain(local.main);
   });
 
-  it('lines a field of 20 up in three rows', () => {
+  it('lines its field of 16 up in two rows of 8, as a race day (Boss, 28 Oct 2026)', () => {
     const career = rider();
     const active = enter(career, content, local, 3);
     const day = new RaceDay(content, venue('venue-longmoor'), playerEntrant(content, career, 'Test'), 8, 3000, roundOptions(content, local, active));
@@ -170,8 +160,8 @@ describe('championships (Spec 12.5, 18.6)', () => {
     const sim = day.startMoto('steady');
     const dir = directorFor(sim, content.bikes, content.racing.messages, day.pickOrder);
     const rows = day.field.map((e) => dir.startRow(e.id));
-    expect(Math.max(...rows)).toBe(2);
-    expect(rows.filter((r) => r === 2).length).toBeGreaterThanOrEqual(4);
+    expect(Math.max(...rows)).toBe(1);
+    expect(rows.filter((r) => r === 1)).toHaveLength(8);
     expect(sim.runToEnd().length).toBe(day.laps);
   });
 
@@ -183,7 +173,7 @@ describe('championships (Spec 12.5, 18.6)', () => {
     const days = [rideRound(career, active, 100), rideRound(career, active, 200)];
     expect(nextRoundVenue(local, active)).toBe('venue-longmoor');
     const table = standings(points, active);
-    expect(table).toHaveLength(20);
+    expect(table).toHaveLength(16);
     for (const row of table) {
       const expected = days.reduce((a, d) => a + d.motos.reduce((b, m) => {
         const r = m.results.find((x) => x.id === row.id)!;

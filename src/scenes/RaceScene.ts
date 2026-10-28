@@ -319,16 +319,14 @@ export class RaceScene extends Phaser.Scene {
     this.text(W / 2, 108, `${how} You pick ${ordinal(myTurn)}. Inside gates get a better start.`, 22).setOrigin(0.5, 0);
 
     let chosen = free[0];
-    // Laid out as the start is: gates 1 to 8 are the front row, 9 to 16 the second row and 17 to 24
-    // the third (a championship's, with 4 spare), each straight behind the gate 8 before it.
+    // One gate per rider, laid out as the start is: gates 1 to 8 are the front row and 9 to 16 the
+    // second row, each straight behind the gate 8 before it.
     const count = day.gateCount;
     const perRow = Math.min(count, ROW_SIZE);
     const rows = Math.ceil(count / ROW_SIZE);
-    // A third row squeezes the rows up and moves the rest of the screen down a little.
-    const rowH = rows > 2 ? 46 : 60;
-    const gh = rows > 2 ? 38 : 46;
-    const y0 = rows > 2 ? 166 : 178;
-    const dy = rows > 2 ? 26 : 0;
+    const rowH = 60;
+    const gh = 46;
+    const y0 = 178;
     const gw = 70;
     const gx = W / 2 - (perRow * gw) / 2 + gw / 2;
     const gateButtons: Button[] = [];
@@ -353,14 +351,14 @@ export class RaceScene extends Phaser.Scene {
       // The gate's number in its top corner, over the button.
       this.text(x - gw / 2 + 7, y - gh / 2 + 1, `${g + 1}`, 14, COLORS.muted).setOrigin(0, 0);
     }
-    for (let row = 0; row < rows; row++) this.text(gx - gw / 2 - 12, y0 + row * rowH, ['Front row', 'Second row', 'Third row'][row] ?? `Row ${row + 1}`, 18, COLORS.muted).setOrigin(1, 0.5);
-    this.text(W / 2, rows > 2 ? 282 : 266, 'Taken gates show who has them. The % is the start bonus.', 18, COLORS.muted).setOrigin(0.5, 0);
+    for (let row = 0; row < rows; row++) this.text(gx - gw / 2 - 12, y0 + row * rowH, ['Front row', 'Second row'][row], 18, COLORS.muted).setOrigin(1, 0.5);
+    this.text(W / 2, 266, 'Taken gates show who has them. The % is the start bonus.', 18, COLORS.muted).setOrigin(0.5, 0);
 
     // How to race it.
     const { racing } = services.content;
-    this.box(100, 286 + dy, 1080, 356 - dy);
-    const message = this.messagePicker(300 + dy);
-    this.text(130, 462 + dy, `In a race, the pit board comes out when your message runs out (every lap, or the laps you set it for) and you can change your message ${racing.ink} times a moto. Auto-complete plays the same race out on screen with no pit board, holding your message all race. Either way, you retire at ${racing.sim.retireAtBroken} broken parts.`, 19, COLORS.cream, { wordWrap: { width: 1020 }, lineSpacing: 2 });
+    this.box(100, 286, 1080, 356);
+    const message = this.messagePicker(300);
+    this.text(130, 462, `In a race, the pit board comes out when your message runs out (every lap, or the laps you set it for) and you can change your message ${racing.ink} times a moto. Auto-complete plays the same race out on screen with no pit board, holding your message all race. Either way, you retire at ${racing.sim.retireAtBroken} broken parts.`, 19, COLORS.cream, { wordWrap: { width: 1020 }, lineSpacing: 2 });
     this.btn(W / 2 - 300, 600, 'Race', () => this.go(chosen, message(), false), 260, 52);
     this.btn(W / 2, 600, 'Auto-complete', () => this.go(chosen, message(), true), 260, 52);
     this.btn(W / 2 + 300, 600, 'Bike check', () => this.showBike(), 260, 52);

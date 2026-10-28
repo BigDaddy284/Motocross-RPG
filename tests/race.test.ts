@@ -217,7 +217,7 @@ describe('race day (Spec 12, 14)', () => {
     expect(inOrder).toBe(0);
   });
 
-  it('the first three pickers always take the three best gates, and no CPU rider takes a gate 2% worse than one left', () => {
+  it('the first three pickers always take the three best gates, and no CPU rider takes a gate more than 2% worse than one left', () => {
     for (let seed = 1; seed <= 40; seed++) {
       const d = day(seed);
       d.pickOrder = [...d.pickOrder.filter((id) => id !== PLAYER_ID), PLAYER_ID];
@@ -225,15 +225,42 @@ describe('race day (Spec 12, 14)', () => {
       const { taken, free } = d.gatesForPlayer();
       const best = [...Array(d.gateCount).keys()].sort((a, b) => gateBonus(d.track, b) - gateBonus(d.track, a) || a - b).slice(0, 3);
       for (const g of best) expect(taken.has(g)).toBe(true);
-      // Gates taken in pick order: each pick is within 2% of the best gate free at the time.
+      // Gates taken in pick order: each pick is at most 2% worse than the best gate free at the time.
       const left = new Set([...Array(d.gateCount).keys()]);
       for (const id of d.pickOrder.slice(0, d.pickOrder.indexOf(PLAYER_ID))) {
         const g = [...taken].find(([, who]) => who === id)![0];
         const top = Math.max(...[...left].map((x) => gateBonus(d.track, x)));
-        expect(gateBonus(d.track, g)).toBeGreaterThan(top - 2);
+        expect(gateBonus(d.track, g)).toBeGreaterThanOrEqual(top - 2);
         left.delete(g);
       }
       expect(free.length).toBe(d.gateCount - taken.size);
+    }
+  });
+
+  it('never shows the gates filled in a neat line from gate 1 to a player picking 6th to 13th, at any venue (Boss, 28 Oct 2026)', () => {
+    for (const vid of ['venue-farmland', 'venue-riverside', 'venue-longmoor']) {
+      const v = content.tracks.venues.find((x) => x.id === vid)!;
+      for (let pos = 6; pos <= 13; pos++) {
+        for (let seed = 1; seed <= 60; seed++) {
+          const d = new RaceDay(content, v, playerEntrant(content, rider(), 'Test'), seed, 2000);
+          const order = d.pickOrder.filter((id) => id !== PLAYER_ID);
+          order.splice(pos - 1, 0, PLAYER_ID);
+          d.pickOrder = order;
+          const { taken } = d.gatesForPlayer();
+          expect([...taken.keys()].some((g) => g >= taken.size)).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('never fills the start in a neat line, in either moto (Boss, 28 Oct 2026)', () => {
+    for (let seed = 1; seed <= 60; seed++) {
+      const d = day(seed);
+      // The player picks last, so every CPU pick shows on the gate screen.
+      d.pickOrder = [...d.pickOrder.filter((id) => id !== PLAYER_ID), PLAYER_ID];
+      const { taken } = d.gatesForPlayer();
+      const inPickOrder = d.pickOrder.slice(0, -1).map((id) => [...taken].find(([, who]) => who === id)![0]);
+      expect(inPickOrder.every((g, i) => i === 0 || g > inPickOrder[i - 1])).toBe(false);
     }
   });
 

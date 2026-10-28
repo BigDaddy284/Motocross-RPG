@@ -4,7 +4,7 @@ import { PLAYER_ID, type CpuRiderDef, type RaceContent, type RaceDay, type Venue
 import type { ContentError, Schema } from './validate';
 
 // Championships (Spec 12.5, 18.6): a series of rounds at the area's venues, each entered
-// separately at the race office, with qualifying, the same field of 20 every round, points for
+// separately at the race office, with qualifying, the same field of 16 every round, points for
 // every moto and a reward for the top three. No calendar: one stays active until it is finished,
 // started again or given up. Pure rules with no graphics.
 
@@ -84,7 +84,7 @@ export const CHAMPIONSHIPS_SCHEMA: Schema = {
           short: { type: 'string', nonEmpty: true },
           class: { type: 'string', nonEmpty: true },
           field: { type: 'string', nonEmpty: true },
-          size: { type: 'number', integer: true, min: 1, max: 23 },
+          size: { type: 'number', integer: true, min: 1, max: 15 },
           regulars: { type: 'array', items: { type: 'string', nonEmpty: true } },
           without: { type: 'array', items: { type: 'string', nonEmpty: true } },
           main: { type: 'string', nonEmpty: true },
@@ -180,9 +180,15 @@ export function buffRider(r: CpuRiderDef, by: number): CpuRiderDef {
   };
 }
 
-/** The championship's CPU riders as they race it: everyone but the main rider buffed. */
+/**
+ * The championship's CPU riders as they race it: everyone but the main rider buffed. A field saved
+ * bigger than the championship is now (19 before Boss cut it to 15, 28 Oct 2026) keeps its main
+ * rider and the first of the rest.
+ */
 export function champRiders(rc: Pick<RaceContent, 'riders'>, def: ChampionshipDef, active: ActiveChampionship): CpuRiderDef[] {
-  return active.field
+  const others = active.field.filter((id) => id !== def.main);
+  const ids = active.field.length > def.size ? [...(def.main && active.field.includes(def.main) ? [def.main] : []), ...others].slice(0, def.size) : active.field;
+  return ids
     .map((id) => rc.riders.riders.find((r) => r.id === id))
     .filter((r): r is CpuRiderDef => !!r)
     .map((r) => (r.id === def.main ? r : buffRider(r, def.buff ?? 0)));

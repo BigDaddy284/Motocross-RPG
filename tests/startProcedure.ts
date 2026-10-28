@@ -10,9 +10,9 @@ import { arrivals, content, race } from './raceHelpers';
 /** The start procedure on one track, over field sizes and gate draws. */
 export function startProcedureTest(trackId: string): void {
   describe(`rider AI start procedure (GDD 11.1) on ${trackId}`, () => {
-    it(`runs the start procedure on ${trackId}: riders reach their slots in pick order over six seconds (eight for 20), never through a slot, then hold for five`, () => {
+    it(`runs the start procedure on ${trackId}: riders reach their slots in pick order over six seconds, never through a slot, then hold for five`, () => {
       let shuffledStarts = 0;
-      for (const n of [20, 16, 12, 10, 8]) {
+      for (const n of [16, 12, 10, 8]) {
         for (const seed of [4, 21, 300, 5151, 77777, 123456]) {
           const { dir } = race(trackId, seed, true, n);
           const track = content.tracks.tracks.find((t) => t.id === trackId)!;
@@ -95,7 +95,7 @@ export function startProcedureTest(trackId: string): void {
           if (dir.arrival.some((id, i) => gate.get(id) !== i)) shuffledStarts++;
         }
       }
-      expect(shuffledStarts).toBe(30);
+      expect(shuffledStarts).toBe(24);
     }, 60000);
   });
 }

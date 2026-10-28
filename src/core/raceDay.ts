@@ -3,7 +3,6 @@ import { lapMetres } from './trackGeom';
 import { MotoSim, formatTime, gateBonus, mixSeed, seededRng, type Entrant, type RacingData, type RiderResult, type Tactic, type TrackDef } from './race';
 import { addXp, childLevels, type LevelUp, type SkillsData } from './skills';
 import type { RiderStyle } from './riderProfile';
-import { startGates } from './riderAI';
 
 // Race days, practice and venues (Spec 12.2a, 14): who is in the field, gate picks, prize money,
 // points, and putting the XP and wear back on the career. Pure rules with no graphics.
@@ -154,6 +153,19 @@ const GATE_FAVOURITE_REACH = 3;
 const GATE_FEEL = 1;
 /** The first picks in the order always take the best gate left: the best gates never go begging. */
 const GATE_SURE_PICKS = 3;
+/**
+ * A few riders each moto go wide: they pass over the gates in for the outside one at most 2% worse
+ * than the best left (a rut they like), so the start never fills in a neat line from gate 1 (Boss,
+ * 28 Oct 2026). One of picks 4 and 5, one of 7 to 9, 10 and 11, and 12 and 13, and pick 14, as
+ * [first pick, how many picks it could be].
+ */
+const GATE_WIDE: [number, number][] = [
+  [3, 2],
+  [6, 3],
+  [9, 2],
+  [11, 2],
+  [13, 1],
+];
 
 /** A stable number for a rider id, to seed their gate preferences. */
 function hashId(id: string): number {
@@ -259,9 +271,9 @@ export class RaceDay {
     for (const [g, id] of taken) this.field.find((e) => e.id === id)!.gate = g;
   }
 
-  /** Gates on the start (startGates): one per rider, plus a championship's spare back-row gates. Gate 1 is the inside of the first corner. */
+  /** One gate per rider in the field (two rows of 8): gate 1 is the inside of the first corner. */
   get gateCount(): number {
-    return startGates(this.field.length);
+    return this.field.length;
   }
 
   /**
@@ -269,7 +281,8 @@ export class RaceDay {
    * the best gate left (the inside one of a tie). After them, most want the inside gates and their
    * start bonus, but each rider has a favourite spot this moto (a rut they like, a line round the
    * first corner) and their own feel for each gate, so the field fills the start unevenly instead
-   * of from gate 1 up; neither ever beats a gate 2% better. Worked out from the day's seed, the
+   * of from gate 1 up; neither ever beats a gate 2% better. A few riders after them go wide
+   * for a spot further out (GATE_WIDE). Worked out from the day's seed, the
    * rider and the moto, never from what is already taken, so the gate screen and the start always agree.
    */
   private cpuGatePick(id: string, taken: Map<number, string>, gates: number): number {
@@ -277,6 +290,18 @@ export class RaceDay {
       let best = -1;
       for (let g = 0; g < gates; g++) if (!taken.has(g) && (best < 0 || gateBonus(this.track, g) > gateBonus(this.track, best))) best = g;
       return best;
+    }
+    const free = [...Array(gates).keys()].filter((g) => !taken.has(g));
+    const top = Math.max(...free.map((g) => gateBonus(this.track, g)));
+    const moto = seededRng(mixSeed(this.seed, 104729 + 7919 * this.motos.length));
+    const pick = this.pickOrder.indexOf(id);
+    for (const [from, spread] of GATE_WIDE) {
+      const wide = from + Math.floor(moto() * spread);
+      const inOne = moto() < 0.4;
+      if (pick !== wide) continue;
+      // The outside gate in reach, or sometimes the one in from it.
+      const reach = free.filter((g) => gateBonus(this.track, g) >= top - 2);
+      if (reach.length > 2) return reach[reach.length - (inOne ? 2 : 1)];
     }
     const rng = seededRng(mixSeed(this.seed, hashId(id) + 7919 * this.motos.length));
     const favourite = rng() * gates;
