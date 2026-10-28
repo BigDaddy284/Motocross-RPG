@@ -10,7 +10,7 @@ const maps = loadMaps();
 const T = 64;
 
 /** The Home Town map file as it stands (Alpha v1: 2×2 road exits and the local racer outside the garage). */
-const HOME_TOWN_SHA256 = '2ccebe1f8ef7a6d3d8d69f8715a70416894868d232f714b61fab9274742a9bfb';
+const HOME_TOWN_SHA256 = 'a8f4a7df727d85d7db2531a9567531c1ff245663f1830a42362dead12a332e37';
 
 function pngSize(rel: string): [number, number] {
   const b = fs.readFileSync(`public/assets/${rel}`);
