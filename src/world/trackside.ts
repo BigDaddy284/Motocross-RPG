@@ -4,6 +4,7 @@
 // built in metres in its own frame, centred on its footprint with x along the footprint's length and
 // z its depth; the people face +z. Its design (variant), set-up (action) and colour come from
 // core/paddock.ts, picked for it unless chosen in the editor, which mirrors the layouts here.
+import * as THREE from 'three';
 import type { SceneryItem } from '../core/race';
 import { paddockColour, paddockSetup, paddockVariant } from '../core/paddock';
 import type { SceneryDef } from '../core/trackParts';
@@ -258,9 +259,18 @@ const builders: Record<string, (c: Ctx) => void> = {
     b.box(0, 0, -D / 2 + 0.03, L, h, 0.06, CANVAS);
     for (const x of [-L / 2 + 0.03, L / 2 - 0.03]) b.box(x, 0, 0, 0.06, h, D, CANVAS);
     b.box(0, h - 0.4, D / 2 - 0.03, L, 0.4, 0.06, col);
-    for (const s of [-1, 1]) b.box(0, h + 0.7, s * D / 4, L + 0.1, 0.08, Math.hypot(D / 2, 1.5), CANVAS, 0, -s * Math.atan2(1.5, D / 2));
+    // Each slope leans down towards its own side, so the two meet at a ridge, not a valley.
+    for (const s of [-1, 1]) b.box(0, h + 0.7, s * D / 4, L + 0.1, 0.08, Math.hypot(D / 2, 1.5), CANVAS, 0, s * Math.atan2(1.5, D / 2));
     b.box(0, h, 0, L + 0.1, 0.25, 0.1, STEEL);
     b.box(0, h - 0.15, 0, L + 0.12, 0.15, D + 0.12, col);
+    // Canvas gable ends under the ridge.
+    const gable = new THREE.Shape([[-D / 2, h - 0.02], [D / 2, h - 0.02], [0, h + 1.5]].map(([z, y]) => new THREE.Vector2(z * U, y * U)));
+    for (const x of [-L / 2 - 0.03, L / 2 + 0.03]) {
+      const end = new THREE.Mesh(new THREE.ExtrudeGeometry(gable, { depth: 0.06 * U, bevelEnabled: false }), b.mat(CANVAS));
+      end.rotation.y = -Math.PI / 2;
+      end.position.set(x * U, 0, 0);
+      b.parts.push(end);
+    }
     for (let k = 0; k < 4; k++) {
       const x = -3.6 + k * 2.4;
       b.cyl(x, 0.7, -0.8, 0.6, 0.05, TABLE, 12);
