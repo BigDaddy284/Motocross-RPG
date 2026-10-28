@@ -134,7 +134,7 @@
         "passing": 0.6
       },
       {
-        "type": "first_corner",
+        "type": "concrete_corner",
         "length": 60,
         "passing": 0.8
       },
