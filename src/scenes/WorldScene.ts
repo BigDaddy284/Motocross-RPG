@@ -648,7 +648,8 @@ export class WorldScene extends Phaser.Scene {
     const cam = this.cameras.main;
     const v = cam.worldView;
     const m = TILE / 2;
-    if (!p || this.busy || this.hud.isDialogueOpen() || (p.x > v.x + m && p.x < v.right - m && p.y > v.y + m && p.y < v.bottom - m)) {
+    // Not inside a building: the arrow on the way out is enough there (Boss, 28 Oct 2026).
+    if (!p || this.map.kind === 'interior' || this.busy || this.hud.isDialogueOpen() || (p.x > v.x + m && p.x < v.right - m && p.y > v.y + m && p.y < v.bottom - m)) {
       this.hud.showWayArrow(null);
       return;
     }
