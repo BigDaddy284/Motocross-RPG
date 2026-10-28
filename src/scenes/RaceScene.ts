@@ -18,7 +18,9 @@ import { CPU_GEAR, GEAR_SETS, gearColour, type RaceLook } from '../world/raceBik
 
 // Race day and practice: gate pick, the live race screen with its pit board, auto-complete,
 // moto and day results, and practice laps. The simulation does the racing; this screen only
-// plays it back (GDD 11.1). Laid out on a 1280 × 720 design and scaled to fit the window.
+// plays it back (GDD 11.1). Laid out on a 1280 × 720 design, scaled to fit the window and
+// widened (or heightened) to the window's shape: the live race screen stretches its track view,
+// panels and buttons to fill the screen, and the other screens sit in the middle (Boss, 28 Oct 2026).
 
 const W = 1280;
 const H = 720;
@@ -81,6 +83,10 @@ export class RaceScene extends Phaser.Scene {
   private pen: PenMeter | null = null;
   private modal: Phaser.GameObjects.Container | null = null;
   private skipButton: Button | null = null;
+  /** The design's size: 1280 × 720 widened or heightened to the window's shape (fit). */
+  private dw = W;
+  private dh = H;
+  private bg!: Phaser.GameObjects.Rectangle;
   private detail = false;
   private onTick: (() => void) | null = null;
   private explained = false;
@@ -124,11 +130,11 @@ export class RaceScene extends Phaser.Scene {
 
   create(): void {
     const { width, height } = view(this);
-    this.add.rectangle(0, 0, width, height, COLORS.ink).setOrigin(0);
-    const k = Math.min(width / W, height / H);
-    this.root = this.add.container((width - W * k) / 2, (height - H * k) / 2).setScale(k);
+    this.bg = this.add.rectangle(0, 0, width, height, COLORS.ink).setOrigin(0);
+    this.root = this.add.container(0, 0);
     this.screen = this.add.container(0, 0);
     this.root.add(this.screen);
+    this.fit();
     this.scale.on('resize', this.relayout, this);
     this.events.once('shutdown', () => this.scale.off('resize', this.relayout, this));
     if (this.args.mode === 'practice') this.startPractice();
@@ -169,10 +175,24 @@ export class RaceScene extends Phaser.Scene {
     return `${this.args.venue.name} · ${day.cls} ${c ? `${c.def.short} round ${c.round} of ${c.def.rounds.length}` : 'race day'}`;
   }
 
-  private relayout(): void {
+  /** Sizes the design to the window's shape: at least 1280 × 720, as wide or tall as the window allows. */
+  private fit(): void {
     const { width, height } = view(this);
     const k = Math.min(width / W, height / H);
-    this.root.setScale(k).setPosition((width - W * k) / 2, (height - H * k) / 2);
+    this.dw = width / k;
+    this.dh = height / k;
+    this.root.setScale(k).setPosition(0, 0);
+    this.bg.setSize(width, height);
+    // Screens laid out on 1280 × 720 sit in the middle; the live race screen fills it all (startLive).
+    this.screen.setPosition((this.dw - W) / 2, (this.dh - H) / 2);
+  }
+
+  /** The window changed size: the screen showing keeps its layout, scaled to fit; the next one fills it again. */
+  private relayout(): void {
+    const { width, height } = view(this);
+    const k = Math.min(width / this.dw, height / this.dh);
+    this.root.setScale(k).setPosition((width - this.dw * k) / 2, (height - this.dh * k) / 2);
+    this.bg.setSize(width, height);
   }
 
   update(_t: number, dt: number): void {
@@ -195,6 +215,7 @@ export class RaceScene extends Phaser.Scene {
 
   private clear(): void {
     this.screen.removeAll(true);
+    this.fit();
     this.ui = {};
     this.pen = null;
     this.view = null;
@@ -223,8 +244,8 @@ export class RaceScene extends Phaser.Scene {
 
   private openModal(w: number, h: number): Phaser.GameObjects.Container {
     this.modal?.destroy();
-    const c = this.add.container(W / 2, H / 2);
-    c.add(this.add.rectangle(0, 0, W, H, 0, 0.55).setInteractive());
+    const c = this.add.container(this.dw / 2, this.dh / 2);
+    c.add(this.add.rectangle(0, 0, this.dw, this.dh, 0, 0.55).setInteractive());
     c.add(panel(this, 0, 0, w, h).setInteractive());
     this.root.add(c);
     this.modal = c;
@@ -455,26 +476,32 @@ export class RaceScene extends Phaser.Scene {
     this.detail = false;
 
     const practice = this.args.mode === 'practice';
-    this.box(16, 16, 900, 54);
+    // The whole window: the track view takes the room past 1280 × 720, the side column stays on the right.
+    this.screen.setPosition(0, 0);
+    const { dw, dh } = this;
+    const vw = dw - 380;
+    const right = dw - 350;
+    this.box(16, 16, vw, 54);
     this.ui.title = this.text(32, 30, '', 20, COLORS.cream);
     // Your message, then the pen: one section of ink per message change (racing data's ink).
-    this.ui.ink = this.text(900 - PEN_W - 14, 30, '', 20, COLORS.accent).setOrigin(1, 0);
-    this.pen = penMeter(this, 900 - PEN_W, 43, services.content.racing.ink, PEN_W);
+    this.ui.ink = this.text(vw - PEN_W - 14, 30, '', 20, COLORS.accent).setOrigin(1, 0);
+    this.pen = penMeter(this, vw - PEN_W, 43, services.content.racing.ink, PEN_W);
     this.screen.add(this.pen);
     this.pen.setVisible(!practice);
     // Riders ride up to the start in the order they picked their gates.
     this.director = directorFor(sim, services.content.bikes, services.content.racing.messages, this.day?.pickOrder);
-    this.view = new RaceView(this, this.screen, sim.track, services.content.trackParts, 16, 82, 900, 440);
+    // The view keeps the 1280 × 720 layout's scale (900 wide), so a wider one shows more track, not bigger bikes.
+    this.view = new RaceView(this, this.screen, sim.track, services.content.trackParts, 16, 82, vw, dh - 280, undefined, { scaleWidth: 900 });
     this.view.hasStart = !practice;
-    this.box(16, 534, 900, 170);
-    this.ui.me = this.text(32, 546, '', 18, COLORS.cream, { lineSpacing: 6 });
-    this.ui.feed = this.text(400, 546, '', 16, COLORS.cream, { lineSpacing: 7, wordWrap: { width: 500 } });
-    this.box(930, 16, 334, 560);
-    this.ui.tower = this.text(946, 30, '', 16, COLORS.cream, { lineSpacing: 7 });
-    this.ui.detail = this.text(946, 76, '', 15, COLORS.cream, { lineSpacing: 5 }).setVisible(false);
+    this.box(16, dh - 186, vw, 170);
+    this.ui.me = this.text(32, dh - 174, '', 18, COLORS.cream, { lineSpacing: 6 });
+    this.ui.feed = this.text(400, dh - 174, '', 16, COLORS.cream, { lineSpacing: 7, wordWrap: { width: vw - 400 } });
+    this.box(right, 16, 334, dh - 160);
+    this.ui.tower = this.text(right + 16, 30, '', 16, COLORS.cream, { lineSpacing: 7 });
+    this.ui.detail = this.text(right + 16, 76, '', 15, COLORS.cream, { lineSpacing: 5 }).setVisible(false);
     // Details: the bike's parts, or section times.
     this.detailTabs = (['bike', 'sections'] as const).map((tab, i) => {
-      const b = this.btn(1015 + i * 160, 46, tab === 'bike' ? 'Bike' : 'Section times', () => {
+      const b = this.btn(right + 85 + i * 160, 46, tab === 'bike' ? 'Bike' : 'Section times', () => {
         this.detailTab = tab;
         this.detailTabs.forEach((o, j) => o.setSelected(j === i));
         this.renderDetail();
@@ -485,18 +512,18 @@ export class RaceScene extends Phaser.Scene {
     });
 
     // Speed buttons and actions.
-    const speedButtons = SPEED_LABELS.map((l, i) => this.btn(962 + i * 64, 604, l, () => {
+    const speedButtons = SPEED_LABELS.map((l, i) => this.btn(right + 32 + i * 64, dh - 116, l, () => {
       this.speed = i;
       this.paused = false;
       speedButtons.forEach((b, j) => b.setSelected(j === i));
     }, 60, 40));
     speedButtons[this.speed].setSelected(true);
     if (practice) {
-      this.btn(1022, 660, 'Stop riding', () => this.stopPractice(), 170, 44);
-      this.btn(1190, 660, 'Details', () => this.toggleDetail(), 130, 44);
+      this.btn(right + 92, dh - 60, 'Stop riding', () => this.stopPractice(), 170, 44);
+      this.btn(right + 260, dh - 60, 'Details', () => this.toggleDetail(), 130, 44);
     } else {
-      this.btn(1012, 660, 'Retire', () => this.confirmRetire(), 150, 44);
-      this.btn(1180, 660, 'Details', () => this.toggleDetail(), 150, 44);
+      this.btn(right + 82, dh - 60, 'Retire', () => this.confirmRetire(), 150, 44);
+      this.btn(right + 250, dh - 60, 'Details', () => this.toggleDetail(), 150, 44);
     }
     this.addLap(sim.nextLap());
     // A race opens with the start procedure: the line-up, then the board and the five-second
@@ -720,7 +747,7 @@ export class RaceScene extends Phaser.Scene {
     }).join('\n'));
     this.ui.tower.setFontFamily('Consolas, "Courier New", monospace');
     if (!this.skipButton && (me.out || me.finished)) {
-      this.skipButton = this.btn(1096, 548, 'Skip to results', () => {
+      this.skipButton = this.btn(this.dw - 184, this.dh - 172, 'Skip to results', () => {
         while (!sim.finished) this.addLap(sim.nextLap());
         this.live = false;
         this.finishMoto();
@@ -785,7 +812,7 @@ export class RaceScene extends Phaser.Scene {
     })].join('\n'));
     this.ui.tower.setFontFamily('Consolas, "Courier New", monospace');
     if (!this.skipButton && (me.out || me.finished)) {
-      this.skipButton = this.btn(1096, 548, 'Skip to results', () => {
+      this.skipButton = this.btn(this.dw - 184, this.dh - 172, 'Skip to results', () => {
         while (!sim.finished) this.addLap(sim.nextLap());
         this.live = false;
         this.finishMoto();

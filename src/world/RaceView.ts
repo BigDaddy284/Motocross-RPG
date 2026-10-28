@@ -177,14 +177,15 @@ export class RaceView {
     /** The track editor's race view passes the last view's renderer on, so a rebuild reuses its WebGL context and compiled shaders. */
     renderer?: THREE.WebGLRenderer,
     /** The track editor's race view, for an unfinished track: see gapFrom, and gaps between its pieces (fractions of the drawing). */
-    opts: { gapFrom?: number; gaps?: [number, number][] } = {},
+    opts: { gapFrom?: number; gaps?: [number, number][]; scaleWidth?: number } = {},
   ) {
     this.gapFrom = opts.gapFrom ?? 1;
     this.gaps = [...(opts.gaps ?? []), ...(this.gapFrom < 1 ? [[this.gapFrom, 1] as [number, number]] : [])];
     this.surface = new TrackSurface(track);
     const kind = trackKind(parts, track);
     this.follow = true;
-    this.viewUnits = VIEW_UNITS[kind.id] ?? 32;
+    // A view wider than scaleWidth shows more track at the same scale, rather than the same track bigger.
+    this.viewUnits = (VIEW_UNITS[kind.id] ?? 32) * (opts.scaleWidth ? w / opts.scaleWidth : 1);
     const lap = this.surface.mpu * this.surface.g.total;
     this.patchSpans = (track.patches ?? []).map((p) => ({ from: p.at / lap, to: (p.at + p.length) / lap, color: hex(parts.surfaces.find((s) => s.id === p.surface)?.color, 0x888888) }));
     const ground = track.ground ?? { base: parts.ground[0]?.id ?? 'grass', cell: 2, paint: {} };
