@@ -100,6 +100,8 @@ export class RaceScene extends Phaser.Scene {
   private pen: PenMeter | null = null;
   private modal: Phaser.GameObjects.Container | null = null;
   private towerRows = 16;
+  /** Set by clear(): the next frame fits the new menu screen to the window. */
+  private fitDirty = false;
   private skipButton: Button | null = null;
   /** The design's size: 1280 × 720 widened or heightened to the window's shape (fit). */
   private dw = W;
@@ -205,6 +207,24 @@ export class RaceScene extends Phaser.Scene {
     this.screen.setPosition((this.dw - W) / 2, (this.dh - H) / 2);
   }
 
+  /**
+   * Scales a menu screen (gate pick, results, standings) up to fill the window, as far as its own
+   * content reaches rather than the whole 1280 × 720 it is laid out on, so it uses the room on a
+   * wide phone screen (Boss, 28 Oct 2026). Never smaller than it was laid out, and at most 1.6×.
+   */
+  private fitContent(): void {
+    this.screen.setScale(1).setPosition(0, 0);
+    const k = this.root.scaleX;
+    const b = this.screen.getBounds();
+    if (!b.width || !b.height) return this.fit();
+    const x = b.x / k;
+    const y = b.y / k;
+    const w = b.width / k;
+    const h = b.height / k;
+    const s = Math.max(1, Math.min((this.dw - 40) / w, (this.dh - 40) / h, 1.6));
+    this.screen.setScale(s).setPosition(this.dw / 2 - (x + w / 2) * s, this.dh / 2 - (y + h / 2) * s);
+  }
+
   /** The window changed size: the screen showing keeps its layout, scaled to fit; the next one fills it again. */
   private relayout(): void {
     const { width, height } = view(this);
@@ -214,6 +234,11 @@ export class RaceScene extends Phaser.Scene {
   }
 
   update(_t: number, dt: number): void {
+    // A menu screen is built after clear(): grow it to fill the window, once it is all there.
+    if (this.fitDirty) {
+      this.fitDirty = false;
+      if (!this.live) this.fitContent();
+    }
     if (!this.live || this.paused || this.modal) return;
     // The real time since the last frame, so 1× is real time even when frames come slowly (the
     // game loop smooths and trims its own delta), capped so a stalled tab doesn't leap ahead.
@@ -234,6 +259,7 @@ export class RaceScene extends Phaser.Scene {
   private clear(): void {
     this.screen.removeAll(true);
     this.fit();
+    this.fitDirty = true;
     this.ui = {};
     this.pen = null;
     this.view = null;
