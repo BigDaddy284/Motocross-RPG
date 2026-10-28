@@ -7,7 +7,8 @@ import { findPathToAny, findPathTowards, standingTiles } from '../core/pathfindi
 import type { SaveData } from '../core/saves';
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
 import { applyMapState, clearedPatches, hiddenSprites } from '../core/mapState';
-import { directions, guidesOn, routeArrival, waysOut } from '../core/guides';
+import { directions, guidesOn, routeArrival, sideOf, waysOut } from '../core/guides';
+import { goalObjects, nextHop, storyGoal } from '../core/waymarks';
 import { ROUTE, spawnTile, stepTriggerAt, type Arrival, type StepResult } from '../core/travel';
 import { DriveMap, FACING_OF, ensureVan, exitTile, footprint, inwardHeading, nearestFree, placeNear, planDrive, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { MOD_PLACE, forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
@@ -20,7 +21,9 @@ import { challengeWins } from '../core/records';
 import { CAREER_SLOT, services } from '../services';
 import { Character, TILE } from '../world/Character';
 import { MapView, OVERHEAD_DEPTH, isMapCached, loadMapImages } from '../world/MapView';
-import { actionMessage } from '../world/messages';
+import { actionMessage, actionName } from '../world/messages';
+import { Waymarks, clusters, middle, type Mark } from '../world/Waymarks';
+import { DPR } from '../ui/view';
 import { standLift } from '../world/standLift';
 import { VanView, type Driver } from '../world/VanView';
 import type { HudScene } from './HudScene';
@@ -84,6 +87,9 @@ export class WorldScene extends Phaser.Scene {
   /** E was pressed on the move: get out once the van has pulled up. */
   private outWhenStopped = false;
   private lastBumpToast = 0;
+  private waymarks!: Waymarks;
+  /** The tutorial marker the screen-edge arrow points to while it is off screen, in world pixels. */
+  private markPoint: { x: number; y: number; label: string; sub?: string } | null = null;
 
   constructor() {
     super('world');
@@ -101,6 +107,7 @@ export class WorldScene extends Phaser.Scene {
     this.busy = true;
     this.van = null;
     this.moves = [];
+    this.markPoint = null;
   }
 
   async create(): Promise<void> {
@@ -165,6 +172,10 @@ export class WorldScene extends Phaser.Scene {
       this.scale.off('resize', this.applyZoom, this);
     });
 
+    this.waymarks = new Waymarks(this, services.settings.get().accessibility.reducedEffects);
+    this.refreshWaymarks();
+    this.events.once('shutdown', () => this.hud.showWayArrow(null));
+
     this.setupInput();
     this.time.addEvent({ delay: AUTOSAVE_MS, loop: true, callback: () => this.autosave('timer') });
     this.hud.showMapTitle(map.title);
@@ -194,6 +205,7 @@ export class WorldScene extends Phaser.Scene {
 
   update(_time: number, delta: number): void {
     if (!this.player) return;
+    this.updateWayArrow();
     if (!this.busy && !this.hud.isDialogueOpen()) this.save.stats.playSeconds += delta / 1000;
     // The van drives every frame, whatever else is going on, on real time (Phaser's smoothed
     // delta runs slow when frames are long, which would make the van crawl on a slow device).
@@ -562,6 +574,7 @@ export class WorldScene extends Phaser.Scene {
       this.hud.showCareer(career, this.save.flags);
       const show = () => {
         onClose();
+        this.refreshWaymarks();
         if (!completed) return;
         if (step.effects?.money) this.hud.toast(step.toast ?? `${step.effects.money > 0 ? '+' : ''}${formatMoney(pence(step.effects.money))}`);
         else if (step.toast) this.hud.toast(step.toast);
@@ -574,6 +587,77 @@ export class WorldScene extends Phaser.Scene {
     if (m.step.confirm) this.hud.confirm(m.step.confirm, 'Yes', finish, onClose);
     else finish();
     return true;
+  }
+
+  // ---- tutorial markers (Boss, 28 Oct 2026) ----
+
+  /** Marks the current story step's NPC or equipment here, or the door or exit on the way to it. */
+  private refreshWaymarks(): void {
+    this.waymarks.clear();
+    this.markPoint = null;
+    const goal = storyGoal(services.content, services.maps, this.save.career);
+    if (!goal) return;
+    const ts = this.map.tileSize;
+    const what = goal.kind === 'npc' ? goal.name : actionName(goal.action);
+    const nearest = (points: { x: number; y: number }[]) => {
+      const { x, y } = this.player.sprite;
+      return points.reduce((a, b) => (Math.hypot(b.x - x, b.y - y) < Math.hypot(a.x - x, a.y - y) ? b : a));
+    };
+    if (goal.map === this.map.id) {
+      if (goal.kind === 'npc') {
+        const n = this.npcs.find((c) => c.placement.npc.id === goal.npc);
+        if (!n) return;
+        const { x, y } = n.character.sprite;
+        this.waymarks.show([{ kind: 'npc', x, y }]);
+        this.markPoint = { x, y: y - TILE, label: what };
+      } else {
+        const objs = goalObjects(this.map, goal.action, this.save.career.story.used).map((o) => objectTiles(o, ts));
+        if (!objs.length) return;
+        this.waymarks.show(objs.map((tiles): Mark => ({ kind: 'object', tiles })));
+        this.markPoint = { ...nearest(objs.map(middle)), label: what };
+      }
+      return;
+    }
+    const hop = nextHop(services.maps, services.content.world, services.travel, this.save.flags, this.map.id, goal.map);
+    if (!hop) return;
+    // One arrow per doorway: a building's side door (its own spawn inside) is a doorway of its own.
+    const doorways = new Map<string, Tile[]>();
+    for (const o of hop.via) {
+      const k = String(o.props.spawn ?? '');
+      doorways.set(k, [...(doorways.get(k) ?? []), ...objectTiles(o, ts)]);
+    }
+    const groups = [...doorways.values()].flatMap(clusters);
+    const side = sideOf(this.map, hop.via[0]);
+    this.waymarks.show(groups.map((tiles): Mark => (hop.kind === 'door' ? { kind: 'door', tiles } : { kind: 'exit', tiles, side })));
+    const label = hop.kind === 'door' ? hop.via[0].name : (services.maps.get(hop.to)?.title ?? hop.via[0].name);
+    this.markPoint = { ...nearest(groups.map(middle)), label, sub: what.toLowerCase() === label.toLowerCase() ? undefined : what };
+  }
+
+  /** 4A: while the marker is off screen, an arrow at the screen edge points the way to it. */
+  private updateWayArrow(): void {
+    const p = this.markPoint;
+    const cam = this.cameras.main;
+    const v = cam.worldView;
+    const m = TILE / 2;
+    if (!p || this.busy || this.hud.isDialogueOpen() || (p.x > v.x + m && p.x < v.right - m && p.y > v.y + m && p.y < v.bottom - m)) {
+      this.hud.showWayArrow(null);
+      return;
+    }
+    // From the middle of the screen towards the marker, stopped inside the edge, clear of the HUD text and buttons.
+    const w = this.scale.width / DPR;
+    const h = this.scale.height / DPR;
+    const dx = p.x - v.centerX;
+    const dy = p.y - v.centerY;
+    const left = 56;
+    const right = w - 120;
+    const top = 150;
+    const bottom = h - 64;
+    const cx = w / 2;
+    const cy = h / 2;
+    const tx = dx > 0 ? (right - cx) / dx : dx < 0 ? (left - cx) / dx : Infinity;
+    const ty = dy > 0 ? (bottom - cy) / dy : dy < 0 ? (top - cy) / dy : Infinity;
+    const t = Math.min(tx, ty);
+    this.hud.showWayArrow({ x: cx + dx * t, y: cy + dy * t, angle: Phaser.Math.RadToDeg(Math.atan2(dy, dx)), label: p.label, sub: p.sub });
   }
 
   /** Flags such as cleared roadworks change the map: reload it in place. */

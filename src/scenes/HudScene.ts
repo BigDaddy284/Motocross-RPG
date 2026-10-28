@@ -118,6 +118,7 @@ export class HudScene extends Phaser.Scene {
     this.toastText = this.add.text(0, 0, '', textStyle(this.ts(18), COLORS.cream, { align: 'center' })).setOrigin(0.5).setVisible(false).setDepth(11);
     this.saveText = this.add.text(0, 0, '', textStyle(this.ts(16), COLORS.muted, { stroke: '#14141e', strokeThickness: 3 })).setOrigin(1, 0).setAlpha(0);
     this.zoomPop = null;
+    this.wayArrow = null;
     this.layout();
     this.scale.on('resize', this.layout, this);
     // Keep the slider in step when the mouse wheel or + and - change the zoom, and swap the
@@ -240,6 +241,46 @@ export class HudScene extends Phaser.Scene {
     this.flags = flags;
     this.moneyText.setText(formatMoney(career.money));
     this.taskText.setText(`Task: ${journal(services.content.story, career, flags)}`);
+  }
+
+  private wayArrow: Phaser.GameObjects.Container | null = null;
+
+  /**
+   * 4A (Boss, 28 Oct 2026): an arrow at the screen edge pointing to the tutorial marker while it is
+   * off screen, with where it leads. x and y are on screen in CSS pixels, angle in degrees (0 points right).
+   */
+  showWayArrow(a: { x: number; y: number; angle: number; label: string; sub?: string } | null): void {
+    if (!a) {
+      this.wayArrow?.setVisible(false);
+      return;
+    }
+    if (!this.wayArrow) {
+      const g = this.add.graphics();
+      const pts = (k: number) => [[-14 - k, -8 - k], [4, -8 - k], [4, -20 - k * 1.6], [28 + k * 1.8, 0], [4, 20 + k * 1.6], [4, 8 + k], [-14 - k, 8 + k]].map(([x, y]) => new Phaser.Math.Vector2(x, y));
+      g.fillStyle(COLORS.ink, 1).fillPoints(pts(3), true);
+      g.fillStyle(COLORS.accent, 1).fillPoints(pts(0), true);
+      const outline = { stroke: '#14141e', strokeThickness: 4 };
+      const label = this.add.text(0, 0, '', textStyle(this.ts(17), 0xffffff, { ...outline, fontStyle: 'bold' })).setName('label');
+      const sub = this.add.text(0, 0, '', textStyle(this.ts(14), COLORS.cream, outline)).setName('sub');
+      this.wayArrow = this.add.container(0, 0, [g, label, sub]).setDepth(5);
+      if (!services.settings.get().accessibility.reducedEffects) this.tweens.add({ targets: g, x: 6, duration: 420, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    }
+    const [g, label, sub] = this.wayArrow.list as [Phaser.GameObjects.Graphics, Phaser.GameObjects.Text, Phaser.GameObjects.Text];
+    g.setRotation(Phaser.Math.DegToRad(a.angle));
+    label.setText(a.label);
+    sub.setText(a.sub ?? '');
+    // The words sit on the side of the arrow away from the edge it points at.
+    const rad = Phaser.Math.DegToRad(a.angle);
+    const dx = -Math.cos(rad);
+    const dy = -Math.sin(rad);
+    const ox = dx * 40;
+    const oy = dy * 40;
+    const ax = Math.abs(dx) > 0.5 ? (dx > 0 ? 0 : 1) : 0.5;
+    const ay = Math.abs(dy) > 0.5 ? (dy > 0 ? 0 : 1) : 0.5;
+    const h = label.height + (a.sub ? sub.height : 0);
+    label.setOrigin(ax, 0).setPosition(ox, oy - h * ay);
+    sub.setOrigin(ax, 0).setPosition(ox, oy - h * ay + label.height);
+    this.wayArrow.setPosition(a.x, a.y).setVisible(true);
   }
 
   showShift(text: string | null): void {

@@ -33,6 +33,9 @@ const ACTIONS: Record<string, string> = {
 
 const pretty = (s: string) => s.replace(/[_-]+/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
 
+/** What an object's action is called, for markers and messages. */
+export const actionName = (action: string): string => ACTIONS[action] ?? pretty(action);
+
 /** Objects that already do something in this build, with what they say outside the story. */
 const NOW: Record<string, (flags: Record<string, boolean>) => string> = {
   'shop.van': (f) => (f.van_owned ? "The van's yours. It's parked outside your room." : 'Used van: £600, no haggling. Talk to the van seller.'),

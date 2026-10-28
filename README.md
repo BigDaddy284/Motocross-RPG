@@ -137,6 +137,17 @@ Checked against the last open line of the "Starter career slice" checklist (Syst
 - **NPC name tags:** every NPC shows their name over their head in white with a dark outline (Boss's design A), indoors and out.
 - **Pavements:** the player now stands on the paving of one-tile pavements as the NPCs do, instead of looking as if they are on the kerb.
 
+#### Tutorial markers (Boss, 28 Oct 2026)
+
+Every step of the opening chain shows where to go next (`src/core/waymarks.ts`, drawn by `src/world/Waymarks.ts`):
+
+- **The NPC to talk to** has an orange "!" bubble over their head.
+- **The equipment to use** has a glowing orange outline with sparkles. On a step that needs two, like the two customer bikes, only the ones still to do are marked.
+- **The building to go into** has a big orange arrow over each of its doors and a glow on the doormat.
+- **The way to go** is an arrow on the exit, or out of a building, that leads there. While the marker is off screen, an arrow at the screen edge points to it with the place's name, such as "Industrial Zone, Engine rebuilder".
+
+Markers come from `story.json` and the maps' doors and exits, so a new step needs no marker data. They never point down a road that is still shut. Reduced effects (Settings) keeps them still.
+
 #### After the tutorial: challenges, errands and records (Boss, 28 Oct 2026)
 
 - **Story after the tutorial.** The garage mechanic gives a word of advice the first time you talk to him after the opening chain: level up your skills, watch your parts wear and upgrade them, and how repairs work (one grade down at 100%; Grade 1 and broken parts can't be repaired). Then he points you to Mickey Alington by the practice track gate. The fabrication shop boss tells you about Dan Smyth by the Industrial Zone practice yard. Both are in the Task journal until you've heard them (a `talk` rule with `sets` in `npcs.json` is said once).
