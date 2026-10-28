@@ -8,7 +8,7 @@ import { paddockColour, paddockSetup, paddockVariant } from '../core/paddock';
 import type { SceneryItem } from '../core/race';
 import type { SceneryDef } from '../core/trackParts';
 import { BIKE_LENGTH } from '../core/trackSurface';
-import { brandFromColour, modelFor, raceBikeParts } from './raceBike';
+import { brandFromColour, modelFor, MODELS, raceBikeParts } from './raceBike';
 
 /** Grid units per metre: the adult race bike's 1.46 m wheelbase is BIKE_LENGTH apart. */
 export const U = BIKE_LENGTH / 1.46;
@@ -154,24 +154,30 @@ export class Build {
       this.box(x + (t - 0.5) * 2.2 + ((i * 3) % 2) * 0.3, y + ((i * 5) % 3) * 0.25, z + side * 0.012, s * 1.4, s, 0.02, RUST[i % RUST.length]);
     }
   }
-  /** A race bike with no rider, in one colour, standing on the ground at (x, y, z) facing +x (turned by ry). */
-  bike(x: number, y: number, z: number, colour: number, cls = '250cc', ry = 0): void {
+  /**
+   * A race bike with no rider, in one colour, standing on the ground at (x, y, z) facing +x (turned by
+   * ry). `model` is one of raceBike's MODELS (adult, youth, mini, pitbike, enduro, twinshock) or a
+   * racing class, which picks the adult or youth model as a race does.
+   */
+  bike(x: number, y: number, z: number, colour: number, model = 'adult', ry = 0): void {
     const q = new THREE.Quaternion().setFromAxisAngle(Y, ry);
-    // The youth model's wheelbase is 1.3 m to the adult's 1.46 m, so a youth bike is built that much shorter.
-    const length = BIKE_LENGTH * (modelFor(cls) === 'youth' ? 1.3 / 1.46 : 1);
-    for (const m of raceBikeParts({ brand: 'hondmoto', cls, gear: null as never }, length, { rider: false, colours: brandFromColour(colour) })) {
+    const key = MODELS[model] ? model : modelFor(model);
+    // Each model is built to its own wheelbase (the adult's 1.46 m is BIKE_LENGTH), so a mini is a mini.
+    const length = BIKE_LENGTH * (MODELS[key].wb / 1.46);
+    for (const m of raceBikeParts({ brand: 'hondmoto', cls: '250cc', gear: null as never }, length, { rider: false, colours: brandFromColour(colour), model: key })) {
       m.position.applyQuaternion(q).add(new THREE.Vector3(x * U, y * U, z * U));
       m.quaternion.premultiply(q);
       this.parts.push(m);
     }
   }
   /** A bike lifted on a paddock stand under its engine. */
-  bikeOnStand(x: number, z: number, colour: number, cls = '250cc', ry = 0): void {
+  bikeOnStand(x: number, z: number, colour: number, model = 'adult', ry = 0): void {
     const q = new THREE.Quaternion().setFromAxisAngle(Y, ry);
     const p = new THREE.Vector3(-0.05 * U, 0, 0).applyQuaternion(q);
-    const m = this.box(x + p.x / U, 0, z + p.z / U, 0.45, 0.33, 0.3, STEEL);
+    const lift = MODELS[model]?.wb && MODELS[model].wb < 1.2 ? 0.26 : 0.33;
+    const m = this.box(x + p.x / U, 0, z + p.z / U, 0.45, lift, 0.3, STEEL);
     m.rotation.y = ry;
-    this.bike(x, 0.33, z, colour, cls, ry);
+    this.bike(x, lift, z, colour, model, ry);
   }
   /** A folding table with two chairs beside it. */
   table(x: number, z: number): void {
@@ -375,7 +381,7 @@ export function paddockParts(def: SceneryDef, it: SceneryItem, i: number): THREE
     case 'motorhome': motorhome(b, col, setup, bz(2.25), false); break;
     case 'motorhome_long': motorhome(b, col, setup, bz(2.4), true); break;
     case 'hauler': hauler(b, col, setup, bz(2.55)); break;
-    case 'bike_stand': b.bikeOnStand(0, 0, col, variant === 'youth' ? '65cc' : '250cc'); break;
+    case 'bike_stand': b.bikeOnStand(0, 0, col, variant ?? 'adult'); break;
     default: break;
   }
   return b.parts;

@@ -144,12 +144,35 @@ export function bikeColours(color: number, player: boolean, look?: RaceLook): Bi
   return { plastics: b.body, frame: b.frame, plate: b.plate, legs: g.pants, torso: g.jersey, arms: g.jersey, helmet: g.helmet, visor: g.visor };
 }
 
-const MODELS = {
+interface Model {
+  /** Wheelbase, front and rear wheel radius and seat height in metres. */
+  wb: number; fr: number; rr: number; seat: number;
+  twostroke: boolean;
+  /** The rider's and the plastics' scale against the adult bike's. */
+  rider: number; plastics: number;
+  /** Lights and a number board: the enduro bike. */
+  lights?: boolean;
+  /** Two shocks on the swingarm and steel mudguards: the vintage bike. */
+  twinshock?: boolean;
+  /** A horizontal engine and a low tank: the pit bike. */
+  pit?: boolean;
+}
+/**
+ * The bike models. Races ride the youth model (50 to 85 cc) or the adult one (modelFor); the rest are
+ * for the scenery bikes placed round a track (Boss, 28 Oct 2026) and never ride in a race.
+ */
+export const MODELS: Record<string, Model> = {
   youth: { wb: 1.3, fr: 0.34, rr: 0.32, seat: 0.86, twostroke: true, rider: 0.9, plastics: 1.0 },
   adult: { wb: 1.46, fr: 0.37, rr: 0.35, seat: 0.96, twostroke: false, rider: 1.0, plastics: 1.08 },
+  mini: { wb: 0.95, fr: 0.25, rr: 0.25, seat: 0.6, twostroke: true, rider: 0.72, plastics: 0.75 },
+  pitbike: { wb: 1.12, fr: 0.28, rr: 0.26, seat: 0.74, twostroke: false, rider: 0.85, plastics: 0.82, pit: true },
+  enduro: { wb: 1.48, fr: 0.37, rr: 0.35, seat: 0.97, twostroke: false, rider: 1.0, plastics: 1.08, lights: true },
+  twinshock: { wb: 1.42, fr: 0.37, rr: 0.36, seat: 0.88, twostroke: true, rider: 1.0, plastics: 0.9, twinshock: true },
 };
+/** The models the editor offers for a scenery bike, with their names. */
+export const BIKE_MODELS: [string, string][] = [['adult', 'Adult MX bike'], ['youth', 'Youth MX bike'], ['mini', '50cc mini'], ['pitbike', 'Pit bike'], ['enduro', 'Enduro bike'], ['twinshock', 'Vintage twin-shock']];
 
-export function modelFor(cls: string): keyof typeof MODELS {
+export function modelFor(cls: string): 'youth' | 'adult' {
   const cc = parseInt(cls, 10);
   return Number.isFinite(cc) && cc <= 85 ? 'youth' : 'adult';
 }
@@ -172,8 +195,8 @@ export function brandFromColour(color: number): BrandColours {
 }
 
 /** The bike's meshes, and the rider's unless `rider` is false (a parked bike in the paddock); `colours` replaces the brand's. */
-export function raceBikeParts(look: RaceLook, length: number, opts: { rider?: boolean; colours?: BrandColours } = {}): THREE.Mesh[] {
-  const M = MODELS[modelFor(look.cls)];
+export function raceBikeParts(look: RaceLook, length: number, opts: { rider?: boolean; colours?: BrandColours; model?: string } = {}): THREE.Mesh[] {
+  const M = MODELS[opts.model ?? ''] ?? MODELS[modelFor(look.cls)];
   const k = length / M.wb;
   const brand = opts.colours ?? BRAND_COLOURS[look.brand] ?? BRAND_COLOURS.hondmoto;
   const g = look.gear;
@@ -226,10 +249,17 @@ export function raceBikeParts(look: RaceLook, length: number, opts: { rider?: bo
   rod(head, add(swing, [0.02, 0, 0.06]), 0.032, brand.frame);
   rod(head, [swing[0] - 0.08, 0, seat - 0.12], 0.03, brand.frame);
   rod([swing[0] - 0.08, 0, seat - 0.12], [rx + 0.25, 0, seat - 0.02], 0.022, brand.frame);
-  const eng: V3 = [swing[0] + 0.2, 0, 0.44];
+  const eng: V3 = [swing[0] + 0.2, 0, M.pit ? 0.36 : 0.44];
   box(add(eng, [0, 0, -0.03]), [0.34, 0.2, 0.24], FIXED.engine);
-  box(add(eng, [0.06, 0, 0.17]), [0.16, 0.15, 0.15], FIXED.engine2);
-  if (M.twostroke) {
+  if (M.pit) box(add(eng, [0.26, 0, 0.0]), [0.2, 0.14, 0.14], FIXED.engine2);
+  else box(add(eng, [0.06, 0, 0.17]), [0.16, 0.15, 0.15], FIXED.engine2);
+  if (M.pit) {
+    // The pit bike's pipe runs up from the horizontal cylinder to a stubby silencer under the seat.
+    const p0 = add(eng, [0.36, -0.03, 0.02]);
+    rod(p0, add(eng, [0.1, -0.15, 0.2]), 0.028, FIXED.metal);
+    rod(add(eng, [0.1, -0.15, 0.2]), [rx + 0.36, -0.15, seat - 0.1], 0.03, FIXED.metal);
+    rod([rx + 0.36, -0.15, seat - 0.1], [rx + 0.1, -0.15, seat - 0.05], 0.05, FIXED.metal, false);
+  } else if (M.twostroke) {
     // Expansion chamber under the frame, silencer under the side panel.
     const p0 = add(eng, [0.14, -0.02, 0.14]);
     const pts: V3[] = [p0, add(p0, [0.12, -0.06, -0.1]), add(eng, [0.1, -0.16, -0.12]), add(eng, [-0.25, -0.17, 0.02]), [rx + 0.32, -0.15, seat - 0.12]];
@@ -244,7 +274,8 @@ export function raceBikeParts(look: RaceLook, length: number, opts: { rider?: bo
   }
   box([swing[0] - 0.02, 0.03, seat - 0.17], [0.14, 0.14, 0.12], brand.frame2);
   for (const y of [-0.11, 0.11]) rod(swing, [rx, y, rr], 0.032, FIXED.metal);
-  rod([swing[0] - 0.12, 0, seat - 0.1], [swing[0] - 0.2, 0, 0.36], 0.045, FIXED.shock);
+  if (M.twinshock) for (const y of [-0.15, 0.15]) rod([rx + 0.3, y, seat - 0.04], [rx + 0.12, y, rr + 0.02], 0.03, FIXED.shock);
+  else rod([swing[0] - 0.12, 0, seat - 0.1], [swing[0] - 0.2, 0, 0.36], 0.045, FIXED.shock);
   rod(add(eng, [-0.06, 0.13, -0.04]), [rx, 0.13, rr], 0.016, FIXED.chain);
   // Bodywork: the big plastics carry the brand colour.
   ell([head[0] - 0.2, 0, seat + 0.03], [0.26 * pl, 0.16 * pl, 0.11 * pl], brand.body);
@@ -254,9 +285,19 @@ export function raceBikeParts(look: RaceLook, length: number, opts: { rider?: bo
     box([rx * 0.48, y * 0.14, seat - 0.11], [0.3 * pl, 0.03, 0.19 * pl], brand.plate);
   }
   box([rx * 0.42 - 0.05, 0, seat + 0.01], [wb * 0.54, 0.22, 0.07], FIXED.seat);
-  box([rx - 0.1, 0, seat - 0.02], [0.42 * pl, 0.16, 0.04], brand.body);
-  box([fx + 0.04, 0, fr * 2 + 0.06], [0.4 * pl, 0.15, 0.04], brand.body2);
-  box([head[0] + 0.1, 0, head[2] + 0.02], [0.035, 0.26 * pl, 0.24 * pl], brand.plate);
+  // Mudguards: plastics, or steel on the vintage bike, whose front one sits high on the forks.
+  const guard = M.twinshock ? FIXED.metal : brand.body;
+  box([rx - 0.1, 0, seat - 0.02], [0.42 * pl, 0.16, 0.04], guard);
+  box([fx + 0.04, 0, fr * 2 + (M.twinshock ? 0.1 : 0.06)], [0.4 * pl, 0.15, 0.04], M.twinshock ? FIXED.metal : brand.body2);
+  if (M.lights) {
+    // The enduro bike's headlight in its cowl and the tail light on the rear guard.
+    box([head[0] + 0.1, 0, head[2] + 0.02], [0.05, 0.26 * pl, 0.26 * pl], brand.plate);
+    box([head[0] + 0.14, 0, head[2] + 0.03], [0.03, 0.14, 0.12], 0xfff6c0);
+    box([rx - 0.3, 0, seat - 0.05], [0.03, 0.08, 0.05], RED);
+  } else if (M.twinshock) {
+    // Oval number boards at the sides instead of a front plate.
+    for (const y of [-1, 1]) ell([rx * 0.5, y * 0.16, seat - 0.1], [0.14, 0.01, 0.1], brand.plate);
+  } else box([head[0] + 0.1, 0, head[2] + 0.02], [0.035, 0.26 * pl, 0.24 * pl], brand.plate);
   const bar = add(head, [-0.06, 0, 0.21]);
   rod(add(bar, [0, -0.36, 0]), add(bar, [0, 0.36, 0]), 0.018, FIXED.bar);
   rod(add(head, [0.02, 0, 0.08]), bar, 0.022, FIXED.metal);

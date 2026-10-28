@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { BIKE_LENGTH } from '../src/core/trackSurface';
-import { BRAND_COLOURS, bikeColours, CPU_GEAR, GEAR_SETS, modelFor, raceBikeParts, type RaceLook } from '../src/world/raceBike';
+import { BIKE_MODELS, BRAND_COLOURS, bikeColours, CPU_GEAR, GEAR_SETS, MODELS, modelFor, raceBikeParts, type RaceLook } from '../src/world/raceBike';
 import { readPublic } from './helpers';
 
 const colours = (parts: THREE.Mesh[]) => new Set(parts.map((p) => (p.material as THREE.MeshLambertMaterial).color.getHex()));
@@ -49,6 +49,24 @@ describe('race-day bikes (Race day bike colours.png)', () => {
 
   it('youth classes ride the youth model, bigger classes the adult model', () => {
     expect(['50cc', '65cc', '85cc', '125cc', '250cc', 'open'].map(modelFor)).toEqual(['youth', 'youth', 'youth', 'adult', 'adult', 'adult']);
+  });
+
+  it('the scenery models (mini, pit bike, enduro, twin-shock) build to their own wheelbase and never ride in a race', () => {
+    expect(BIKE_MODELS.map(([id]) => id)).toEqual(['adult', 'youth', 'mini', 'pitbike', 'enduro', 'twinshock']);
+    for (const [id] of BIKE_MODELS) {
+      const wb = (MODELS[id].wb / 1.46) * BIKE_LENGTH;
+      const parts = raceBikeParts(look('hondmoto', '250cc'), wb, { rider: false, model: id });
+      expect(parts.length).toBeGreaterThan(20);
+      for (const x of [-wb / 2, wb / 2]) {
+        const t = tyreBottom(parts, x);
+        expect(t.y).toBeCloseTo(0, 2);
+        expect(t.x).toBeCloseTo(x, 2);
+      }
+    }
+    expect(MODELS.mini.wb).toBeLessThan(MODELS.pitbike.wb);
+    expect(colours(raceBikeParts(look('hondmoto', '250cc'), BIKE_LENGTH, { rider: false, model: 'enduro' })).has(0xfff6c0)).toBe(true);
+    // Races only ever pick the youth or adult model from the class.
+    expect(new Set(['50cc', '65cc', '85cc', '125cc', '250cc', 'open'].map(modelFor))).toEqual(new Set(['youth', 'adult']));
   });
 
   it('the tyres touch the ground exactly where the old bike\'s wheels did, so riders go round the track the same', () => {
