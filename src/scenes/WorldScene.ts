@@ -8,7 +8,7 @@ import type { SaveData } from '../core/saves';
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
 import { applyMapState, clearedPatches, hiddenSprites } from '../core/mapState';
 import { directions, guidesOn, routeArrival, sideOf, waysOut } from '../core/guides';
-import { goalObjects, nextHop, storyGoal } from '../core/waymarks';
+import { earning, goalObjects, nextHop, storyGoals } from '../core/waymarks';
 import { biggestBike, bikeImage, zoneFor } from '../core/worldMap';
 import { ROUTE, spawnTile, stepTriggerAt, type Arrival, type StepResult } from '../core/travel';
 import { DriveMap, FACING_OF, bayFor, ensureVan, exitTile, footprint, inwardHeading, nearestFree, placeNear, planDrive, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
@@ -92,6 +92,7 @@ export class WorldScene extends Phaser.Scene {
   private waymarks!: Waymarks;
   /** The tutorial marker the screen-edge arrow points to while it is off screen, in world pixels. */
   private markPoint: { x: number; y: number; label: string; sub?: string } | null = null;
+  private markEarning = false;
 
   constructor() {
     super('world');
@@ -604,46 +605,69 @@ export class WorldScene extends Phaser.Scene {
   private refreshWaymarks(): void {
     this.waymarks.clear();
     this.markPoint = null;
-    const goal = storyGoal(services.content, services.maps, this.save.career);
-    if (!goal) return;
+    const career = this.save.career;
+    this.markEarning = earning(services.content, career);
+    const goals = storyGoals(services.content, services.maps, career);
+    if (!goals.length) return;
     const ts = this.map.tileSize;
-    const what = goal.kind === 'npc' ? goal.name : actionName(goal.action);
-    const nearest = (points: { x: number; y: number }[]) => {
+    const nearest = <P extends { x: number; y: number }>(points: P[]) => {
       const { x, y } = this.player.sprite;
       return points.reduce((a, b) => (Math.hypot(b.x - x, b.y - y) < Math.hypot(a.x - x, a.y - y) ? b : a));
     };
-    if (goal.map === this.map.id) {
+    const marks: Mark[] = [];
+    const points: { x: number; y: number; label: string; sub?: string }[] = [];
+    const here = goals.filter((g) => g.map === this.map.id);
+    for (const goal of here) {
+      const what = goal.kind === 'npc' ? goal.name : actionName(goal.action);
       if (goal.kind === 'npc') {
         const n = this.npcs.find((c) => c.placement.npc.id === goal.npc);
-        if (!n) return;
+        if (!n) continue;
         const { x, y } = n.character.sprite;
-        this.waymarks.show([{ kind: 'npc', x, y }]);
-        this.markPoint = { x, y: y - TILE, label: what };
+        marks.push({ kind: 'npc', x, y });
+        points.push({ x, y: y - TILE, label: what });
       } else {
-        const objs = goalObjects(this.map, goal.action, this.save.career.story.used).map((o) => objectTiles(o, ts));
-        if (!objs.length) return;
-        this.waymarks.show(objs.map((tiles): Mark => ({ kind: 'object', tiles })));
-        this.markPoint = { ...nearest(objs.map(middle)), label: what };
+        const objs = goalObjects(this.map, goal.action, career.story.used).map((o) => objectTiles(o, ts));
+        marks.push(...objs.map((tiles): Mark => ({ kind: 'object', tiles })));
+        points.push(...objs.map((tiles) => ({ ...middle(tiles), label: what })));
       }
-      return;
     }
-    const hop = nextHop(services.maps, services.content.world, services.travel, this.save.flags, this.map.id, goal.map);
-    if (!hop) return;
-    // One arrow per doorway: a building's side door (its own spawn inside) is a doorway of its own.
-    const doorways = new Map<string, Tile[]>();
-    for (const o of hop.via) {
-      const k = String(o.props.spawn ?? '');
-      doorways.set(k, [...(doorways.get(k) ?? []), ...objectTiles(o, ts)]);
+    if (!here.length) {
+      // The way to each goal: goals behind the same door or exit share its arrows (Boss, 28 Oct
+      // 2026: one road to the Industrial Zone, then both work buildings' doors).
+      const seen = new Set<MapObject>();
+      for (const goal of goals) {
+        const what = goal.kind === 'npc' ? goal.name : actionName(goal.action);
+        const hop = nextHop(services.maps, services.content.world, services.travel, this.save.flags, this.map.id, goal.map);
+        if (!hop || hop.via.every((o) => seen.has(o))) continue;
+        for (const o of hop.via) seen.add(o);
+        // One arrow per doorway: a building's side door (its own spawn inside) is a doorway of its own.
+        const doorways = new Map<string, Tile[]>();
+        for (const o of hop.via) {
+          const k = String(o.props.spawn ?? '');
+          doorways.set(k, [...(doorways.get(k) ?? []), ...objectTiles(o, ts)]);
+        }
+        const groups = [...doorways.values()].flatMap(clusters);
+        const side = sideOf(this.map, hop.via[0]);
+        marks.push(...groups.map((tiles): Mark => (hop.kind === 'door' ? { kind: 'door', tiles } : { kind: 'exit', tiles, side })));
+        const label = hop.kind === 'door' ? hop.via[0].name : (services.maps.get(hop.to)?.title ?? hop.via[0].name);
+        // Several goals through one exit: no single thing to name under it.
+        const sub = goals.length > 1 && hop.kind === 'exit' ? undefined : what.toLowerCase() === label.toLowerCase() ? undefined : what;
+        points.push(...groups.map((tiles) => ({ ...middle(tiles), label, sub })));
+      }
     }
-    const groups = [...doorways.values()].flatMap(clusters);
-    const side = sideOf(this.map, hop.via[0]);
-    this.waymarks.show(groups.map((tiles): Mark => (hop.kind === 'door' ? { kind: 'door', tiles } : { kind: 'exit', tiles, side })));
-    const label = hop.kind === 'door' ? hop.via[0].name : (services.maps.get(hop.to)?.title ?? hop.via[0].name);
-    this.markPoint = { ...nearest(groups.map(middle)), label, sub: what.toLowerCase() === label.toLowerCase() ? undefined : what };
+    if (!points.length) return;
+    this.waymarks.show(marks);
+    this.markPoint = nearest(points);
+  }
+
+  /** Redraws the markers when the money for an earning step comes in, or runs out. */
+  private checkMarkEarning(): void {
+    if (earning(services.content, this.save.career) !== this.markEarning) this.refreshWaymarks();
   }
 
   /** 4A: while the marker is off screen, an arrow at the screen edge points the way to it. */
   private updateWayArrow(): void {
+    this.checkMarkEarning();
     const p = this.markPoint;
     const cam = this.cameras.main;
     const v = cam.worldView;

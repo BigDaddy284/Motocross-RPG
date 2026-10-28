@@ -63,6 +63,8 @@ export interface StoryStep {
   needs?: { money?: number; items?: string[] };
   /** Lines shown when the needs are not met. */
   notReady?: string;
+  /** While the rider is short of needs.money, the tutorial markers point here to earn it (Boss, 28 Oct 2026). */
+  earn?: { use: string; maps: string[] };
   confirm?: string;
   lines?: string;
   effects?: StoryEffects;

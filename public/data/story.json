@@ -1,5 +1,5 @@
 {
-  "note": "The opening chain (GDD 4.2, Spec 14.1 and 18.8), played in order. Money is in pounds. Start £150; the chain pays £460 and fitting costs £90, so you reach the van £80 short.",
+  "note": "The opening chain (GDD 4.2, Spec 14.1 and 18.8), played in order. Money is in pounds. Start £150; the chain pays £460 and fitting costs £90, so you reach the van £80 short. earn (Boss, 28 Oct 2026): while you're short of a step's money, the tutorial markers point to these maps' equipment to earn it instead (the shift benches) and back to the step once you have it.",
   "startMoney": 150,
   "intro": "story.intro",
   "steps": [
@@ -80,7 +80,7 @@
     {
       "id": "buy_van", "journal": "Buy the used van for £600. Shifts at the fabrication shop or engine rebuilder will cover the gap.",
       "on": { "talk": "npc.van_seller" },
-      "needs": { "money": 600 }, "notReady": "story.buy_van.short",
+      "needs": { "money": 600 }, "notReady": "story.buy_van.short", "earn": { "use": "job.shift", "maps": ["int-iz-fabrication-shop", "int-iz-engine-rebuilder"] },
       "confirm": "Buy the used van for £600?",
       "lines": "story.buy_van",
       "effects": { "money": -600, "flags": ["van_owned"] }

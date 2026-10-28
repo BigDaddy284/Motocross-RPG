@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { newCareerState } from '../src/core/career';
+import { newCareerState, pence } from '../src/core/career';
 import { checkContent } from '../src/core/content';
 import { Travel } from '../src/core/travel';
-import { goalObjects, nextHop, storyGoal } from '../src/core/waymarks';
+import { earning, goalObjects, nextHop, storyGoal, storyGoals } from '../src/core/waymarks';
 import { loadManifest, loadMaps, rawContent } from './helpers';
 
 const maps = loadMaps();
@@ -47,6 +47,30 @@ describe('tutorial markers (Boss, 28 Oct 2026)', () => {
   it("doesn't send the rider down a road that is still shut", () => {
     expect(hop('area1-home-town', 'area1-venue-farmland')).toBeNull();
     expect(hop('area1-home-town', 'area1-venue-farmland', { van_loaded: true })).toMatchObject({ kind: 'exit', to: 'area1-venue-farmland' });
+  });
+
+  it('points to the work benches while short of the van money, then back to the van seller at £600 (Boss, 28 Oct 2026)', () => {
+    const c = newCareerState(content.bikes, content.story, 'hondmoto', () => 0.5);
+    c.story = { step: content.story.steps.findIndex((s) => s.id === 'buy_van'), used: [] };
+    const flags = { tutorial_done: true, roadworks_done: true };
+    c.money = pence(520);
+    expect(earning(content, c)).toBe(true);
+    const goals = storyGoals(content, maps, c);
+    expect(goals.map((g) => g.map).sort()).toEqual(['int-iz-engine-rebuilder', 'int-iz-fabrication-shop']);
+    for (const g of goals) {
+      expect(g).toMatchObject({ kind: 'object', action: 'job.shift' });
+      expect(goalObjects(maps.get(g.map)!, 'job.shift', []).length).toBeGreaterThan(0);
+    }
+    // From town, both are through the road to the Industrial Zone; there, each has its own door.
+    const fromTown = goals.map((g) => hop('area1-home-town', g.map, flags)!);
+    expect(fromTown.every((h) => h.kind === 'exit' && h.to === 'area1-industrial-zone')).toBe(true);
+    expect(fromTown[0].via).toEqual(fromTown[1].via);
+    const inZone = goals.map((g) => hop('area1-industrial-zone', g.map, flags)!);
+    expect(inZone.map((h) => h.kind)).toEqual(['door', 'door']);
+    expect(inZone[0].via).not.toEqual(inZone[1].via);
+    c.money = pence(600);
+    expect(earning(content, c)).toBe(false);
+    expect(storyGoals(content, maps, c)).toEqual([{ kind: 'npc', map: storyGoal(content, maps, c)!.map, npc: 'npc.van_seller', name: expect.any(String) }]);
   });
 
   it('marks only the stands still to do on a step that needs two', () => {

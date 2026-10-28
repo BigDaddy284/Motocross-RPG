@@ -1,4 +1,4 @@
-import { currentStep, type CareerState, type WorldData } from './career';
+import { currentStep, pence, type CareerState, type WorldData } from './career';
 import type { Content } from './content';
 import { routeFor, routePlaces } from './guides';
 import type { BakedMap, MapObject } from './mapTypes';
@@ -29,6 +29,27 @@ function npcMap(content: Content, maps: Map<string, BakedMap>, id: string): stri
   if (npc?.map) return npc.map;
   for (const m of maps.values()) if (m.objects.some((o) => o.type === 'npc' && o.props.npc === id)) return m.id;
   return null;
+}
+
+/**
+ * Everything to mark for the current step: its NPC or equipment, or while the rider is short of
+ * the step's money, the places to earn it (Boss, 28 Oct 2026: the shift benches at the
+ * fabrication shop and engine rebuilder until there's £600 for the van). Empty once the opening
+ * chain is over.
+ */
+export function storyGoals(content: Content, maps: Map<string, BakedMap>, career: CareerState): Goal[] {
+  const step = currentStep(content.story, career);
+  if (step?.earn && career.money < pence(step.needs?.money ?? 0)) {
+    return step.earn.maps.filter((m) => maps.has(m)).map((map) => ({ kind: 'object', map, action: step.earn!.use }));
+  }
+  const goal = storyGoal(content, maps, career);
+  return goal ? [goal] : [];
+}
+
+/** True while the current step's markers point to earning its money, not the step itself. */
+export function earning(content: Content, career: CareerState): boolean {
+  const step = currentStep(content.story, career);
+  return !!step?.earn && career.money < pence(step.needs?.money ?? 0);
 }
 
 /** The current step's NPC or equipment, or null once the opening chain is over. */
