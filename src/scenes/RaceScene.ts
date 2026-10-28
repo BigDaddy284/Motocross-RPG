@@ -319,9 +319,9 @@ export class RaceScene extends Phaser.Scene {
     this.text(W / 2, 108, `${how} You pick ${ordinal(myTurn)}. Inside gates get a better start.`, 22).setOrigin(0.5, 0);
 
     let chosen = free[0];
-    // One gate per rider, laid out as the start is: gates 1 to 8 are the front row, 9 to 16 the
-    // second row and 17 on the third, each straight behind the gate 8 before it.
-    const count = day.field.length;
+    // Laid out as the start is: gates 1 to 8 are the front row, 9 to 16 the second row and 17 to 24
+    // the third (a championship's, with 4 spare), each straight behind the gate 8 before it.
+    const count = day.gateCount;
     const perRow = Math.min(count, ROW_SIZE);
     const rows = Math.ceil(count / ROW_SIZE);
     // A third row squeezes the rows up and moves the rest of the screen down a little.

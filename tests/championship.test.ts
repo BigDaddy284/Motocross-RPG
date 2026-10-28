@@ -4,6 +4,7 @@ import { checkChampionships, champById, champProblem, drawChampField, enter, fin
 import { checkContent } from '../src/core/content';
 import { PLAYER_ID, RaceDay, playerEntrant } from '../src/core/raceDay';
 import { directorFor } from '../src/core/riderAI';
+import { gateBonus } from '../src/core/race';
 import { SAVE_VERSION, parseSave } from '../src/core/saves';
 import { loadManifest, loadMaps, publicFileExists, rawContent } from './helpers';
 
@@ -139,6 +140,25 @@ describe('championships (Spec 12.5, 18.6)', () => {
     expect(day.startMoto('steady').opts.motoIndex).toBe(1);
   });
 
+  it('gives a field of 20 a full back row of 8 to pick from, its start bonus falling off towards the outside (Boss, 28 Oct 2026)', () => {
+    const career = rider();
+    const active = enter(career, content, local, 3);
+    const day = new RaceDay(content, venue('venue-longmoor'), playerEntrant(content, career, 'Test'), 8, 3000, roundOptions(content, local, active));
+    expect(day.field).toHaveLength(20);
+    expect(day.gateCount).toBe(24);
+    const back = [16, 17, 18, 19, 20, 21, 22, 23].map((g) => gateBonus(day.track, g));
+    const last = day.track.gates!.at(-1)!;
+    expect(back).toEqual([1, 1, 1, 2, 2, 2, 3, 3].map((d) => last - d));
+    // The player can take any of the spare gates; the rest of the field still fits on the start.
+    day.pickOrder = [...day.pickOrder.filter((id) => id !== PLAYER_ID), PLAYER_ID];
+    expect(day.gatesForPlayer().free).toHaveLength(5);
+    day.assignGates(23);
+    const sim = day.startMoto('steady');
+    const dir = directorFor(sim, content.bikes, content.racing.messages, day.pickOrder);
+    expect(dir.startRow(PLAYER_ID)).toBe(2);
+    expect(sim.runToEnd().length).toBe(day.laps);
+  });
+
   it('lines a field of 20 up in three rows', () => {
     const career = rider();
     const active = enter(career, content, local, 3);
@@ -151,7 +171,7 @@ describe('championships (Spec 12.5, 18.6)', () => {
     const dir = directorFor(sim, content.bikes, content.racing.messages, day.pickOrder);
     const rows = day.field.map((e) => dir.startRow(e.id));
     expect(Math.max(...rows)).toBe(2);
-    expect(rows.filter((r) => r === 2)).toHaveLength(4);
+    expect(rows.filter((r) => r === 2).length).toBeGreaterThanOrEqual(4);
     expect(sim.runToEnd().length).toBe(day.laps);
   });
 

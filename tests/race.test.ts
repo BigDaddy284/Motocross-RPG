@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { newCareerState, type CareerState } from '../src/core/career';
 import { checkContent } from '../src/core/content';
-import { MotoSim, mixSeed } from '../src/core/race';
+import { MotoSim, gateBonus, mixSeed } from '../src/core/race';
 import { PLAYER_ID, RaceDay, applyRide, cpuEntrant, drawField, entryFee, motoPrize, playerEntrant, practiceSim, venueProblem } from '../src/core/raceDay';
 import { addXp, childLevel, leadLevel, levelForXp, newSkillState, xpForLevel } from '../src/core/skills';
 import { loadManifest, loadMaps, rawContent } from './helpers';
@@ -215,6 +215,26 @@ describe('race day (Spec 12, 14)', () => {
       if (gates.every((g, i) => i === 0 || g > gates[i - 1] || d.pickOrder[i] === PLAYER_ID)) inOrder++;
     }
     expect(inOrder).toBe(0);
+  });
+
+  it('the first three pickers always take the three best gates, and no CPU rider takes a gate 2% worse than one left', () => {
+    for (let seed = 1; seed <= 40; seed++) {
+      const d = day(seed);
+      d.pickOrder = [...d.pickOrder.filter((id) => id !== PLAYER_ID), PLAYER_ID];
+      d.pickOrder.splice(3 + (seed % 10), 0, d.pickOrder.pop()!);
+      const { taken, free } = d.gatesForPlayer();
+      const best = [...Array(d.gateCount).keys()].sort((a, b) => gateBonus(d.track, b) - gateBonus(d.track, a) || a - b).slice(0, 3);
+      for (const g of best) expect(taken.has(g)).toBe(true);
+      // Gates taken in pick order: each pick is within 2% of the best gate free at the time.
+      const left = new Set([...Array(d.gateCount).keys()]);
+      for (const id of d.pickOrder.slice(0, d.pickOrder.indexOf(PLAYER_ID))) {
+        const g = [...taken].find(([, who]) => who === id)![0];
+        const top = Math.max(...[...left].map((x) => gateBonus(d.track, x)));
+        expect(gateBonus(d.track, g)).toBeGreaterThan(top - 2);
+        left.delete(g);
+      }
+      expect(free.length).toBe(d.gateCount - taken.size);
+    }
   });
 
   it('runs two motos, sets moto 2 gate picks by moto 1 order, and totals the day', () => {

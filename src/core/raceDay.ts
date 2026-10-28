@@ -3,6 +3,7 @@ import { lapMetres } from './trackGeom';
 import { MotoSim, formatTime, gateBonus, mixSeed, seededRng, type Entrant, type RacingData, type RiderResult, type Tactic, type TrackDef } from './race';
 import { addXp, childLevels, type LevelUp, type SkillsData } from './skills';
 import type { RiderStyle } from './riderProfile';
+import { startGates } from './riderAI';
 
 // Race days, practice and venues (Spec 12.2a, 14): who is in the field, gate picks, prize money,
 // points, and putting the XP and wear back on the career. Pure rules with no graphics.
@@ -147,8 +148,12 @@ export interface DayResult {
  */
 /** How strongly a CPU rider is drawn to their favourite spot on the start, in start bonus % per gate away. */
 const GATE_FAVOURITE_PULL = 0.3;
-/** The spread of a CPU rider's own feel for each gate, in start bonus %. */
-const GATE_FEEL = 1.6;
+/** The pull stops growing this many gates from the favourite, so it never outweighs a much better gate. */
+const GATE_FAVOURITE_REACH = 3;
+/** The spread of a CPU rider's own feel for each gate, in start bonus %. With the capped pull, a gate 2% better always wins. */
+const GATE_FEEL = 1;
+/** The first picks in the order always take the best gate left: the best gates never go begging. */
+const GATE_SURE_PICKS = 3;
 
 /** A stable number for a rider id, to seed their gate preferences. */
 function hashId(id: string): number {
@@ -224,7 +229,7 @@ export class RaceDay {
 
   /** Gates still free when the player's turn comes, after the riders ahead of them in the pick order take the best ones. */
   gatesForPlayer(): { taken: Map<number, string>; free: number[] } {
-    const gates = this.gateCount();
+    const gates = this.gateCount;
     const taken = new Map<number, string>();
     for (const id of this.pickOrder) {
       if (id === PLAYER_ID) break;
@@ -240,7 +245,7 @@ export class RaceDay {
    * already taken, is an error, never quietly swapped for another.
    */
   assignGates(playerGate: number): void {
-    const gates = this.gateCount();
+    const gates = this.gateCount;
     if (this.field.some((e) => e.id === PLAYER_ID)) {
       const { taken } = this.gatesForPlayer();
       if (!Number.isInteger(playerGate) || playerGate < 0 || playerGate >= gates) throw new RangeError(`Gate ${playerGate + 1} is not on this start: ${gates} riders, gates 1 to ${gates}`);
@@ -254,19 +259,25 @@ export class RaceDay {
     for (const [g, id] of taken) this.field.find((e) => e.id === id)!.gate = g;
   }
 
-  /** One gate per rider in the field (at most two rows of 8): gate 1 is the inside of the first corner. */
-  private gateCount(): number {
-    return this.field.length;
+  /** Gates on the start (startGates): one per rider, plus a championship's spare back-row gates. Gate 1 is the inside of the first corner. */
+  get gateCount(): number {
+    return startGates(this.field.length);
   }
 
   /**
-   * A CPU rider's pick: the free gate they like best. Most want the inside gates and their start
-   * bonus, but each rider has a favourite spot this moto (a rut they like, a line round the first
-   * corner) and their own feel for each gate, so the field fills the start unevenly instead of
-   * from gate 1 up. Worked out from the day's seed, the rider and the moto, never from what is
-   * already taken, so the gate screen and the start always agree.
+   * A CPU rider's pick: the free gate they like best. The first GATE_SURE_PICKS in the order take
+   * the best gate left (the inside one of a tie). After them, most want the inside gates and their
+   * start bonus, but each rider has a favourite spot this moto (a rut they like, a line round the
+   * first corner) and their own feel for each gate, so the field fills the start unevenly instead
+   * of from gate 1 up; neither ever beats a gate 2% better. Worked out from the day's seed, the
+   * rider and the moto, never from what is already taken, so the gate screen and the start always agree.
    */
   private cpuGatePick(id: string, taken: Map<number, string>, gates: number): number {
+    if (this.pickOrder.indexOf(id) < GATE_SURE_PICKS) {
+      let best = -1;
+      for (let g = 0; g < gates; g++) if (!taken.has(g) && (best < 0 || gateBonus(this.track, g) > gateBonus(this.track, best))) best = g;
+      return best;
+    }
     const rng = seededRng(mixSeed(this.seed, hashId(id) + 7919 * this.motos.length));
     const favourite = rng() * gates;
     let best = gates;
@@ -275,7 +286,7 @@ export class RaceDay {
       // One draw per gate, taken or not, so a rider's feel for a gate never depends on the others.
       const feel = (rng() - 0.5) * GATE_FEEL;
       if (taken.has(g)) continue;
-      const score = gateBonus(this.track, g) - Math.abs(g - favourite) * GATE_FAVOURITE_PULL + feel;
+      const score = gateBonus(this.track, g) - Math.min(Math.abs(g - favourite), GATE_FAVOURITE_REACH) * GATE_FAVOURITE_PULL + feel;
       if (score > bestScore) {
         bestScore = score;
         best = g;

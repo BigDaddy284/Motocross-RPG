@@ -79,6 +79,14 @@ interface Finish {
 /** Gates in a start row, and the most riders the start takes (three rows, for a championship's 20). */
 export const ROW_SIZE = 8;
 export const MAX_GRID = 24;
+
+/**
+ * Gates on the start for a field of n: one per rider up to two rows, then the rest of the last row
+ * filled out (a championship's 20 get a full third row of 8, 4 of them left empty to pick from).
+ */
+export function startGates(n: number): number {
+  return n > 2 * ROW_SIZE ? Math.ceil(n / ROW_SIZE) * ROW_SIZE : n;
+}
 /** How far behind the front row the race view draws the second row, in grid units (RaceView: BIKE_LENGTH × 1.4). */
 const ROW_GAP = 1.1 * 1.4;
 
@@ -161,7 +169,7 @@ export class RaceDirector {
     if (n > MAX_GRID) throw new Error(`${n} riders, but the start has ${MAX_GRID} gates`);
     const used = new Set<number>();
     for (const [id, gate] of gates) {
-      if (!Number.isInteger(gate) || gate < 0 || gate >= Math.max(n, 1) || used.has(gate)) throw new Error(`${id} has gate ${gate + 1}, which is not a free gate of the ${n}`);
+      if (!Number.isInteger(gate) || gate < 0 || gate >= Math.max(startGates(n), 1) || used.has(gate)) throw new Error(`${id} has gate ${gate + 1}, which is not a free gate of the ${startGates(n)}`);
       used.add(gate);
     }
     const perRow = n > ROW_SIZE ? ROW_SIZE : n;

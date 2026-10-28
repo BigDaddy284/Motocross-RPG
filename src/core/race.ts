@@ -776,11 +776,12 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /**
  * A gate's start bonus in percent (Spec 10.4). Gates past the track's curve (a championship's
- * third row on a track drawn for 16) get a point less than its last gate.
+ * third row of 8 on a track drawn for 16) run on down from its last gate: 1 to 3 points less,
+ * worse towards the outside.
  */
 export function gateBonus(track: Pick<TrackDef, 'gates'>, gate: number): number {
   const curve = track.gates ?? [];
-  if (curve.length && gate >= curve.length) return curve[curve.length - 1] - 1;
+  if (curve.length && gate >= curve.length) return curve[curve.length - 1] - 1 - Math.floor(((gate - curve.length) * 3) / 8);
   return curve[gate] ?? 0;
 }
 
