@@ -250,6 +250,12 @@ Checked against the first-build checklist in the Systems Specification, section 
 - Versioned saves with 5 rotating backups. A damaged save is kept and the newest good backup is offered.
 - Autosave every 5 minutes, plus Save now in the pause menu.
 
+## Before release
+
+Testing aids to take out before the final release:
+
+- **Money cheat** (Boss, 28 Oct 2026). A new career with the rider name `moneymoneymoney` starts with £50,000. It's in `src/scenes/careerFlow.ts`, marked `TEST ONLY, REMOVE BEFORE RELEASE`.
+
 ## How the project is laid out
 
 | Path | What it holds |
