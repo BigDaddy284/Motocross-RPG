@@ -33,6 +33,8 @@ export interface NpcDef {
   talk?: { if?: string; unless?: string; dialogue: string; sets?: string }[];
   /** The NPC ignores the rider until this flag is set (GDD 4.2: only the opening chain's NPCs talk at first). */
   quietUntil?: string;
+  /** The CPU rider this NPC is (riders.json): their name is shown over the NPC's head in place of name. */
+  rider?: string;
 }
 
 export interface DialogueLine {
@@ -86,7 +88,7 @@ export const NPCS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['map', 'tile', 'facing', 'talk', 'quietUntil'],
+        optional: ['map', 'tile', 'facing', 'talk', 'quietUntil', 'rider'],
         fields: {
           id: { type: 'string', pattern: ID },
           name: { type: 'string', nonEmpty: true },
@@ -100,6 +102,7 @@ export const NPCS_SCHEMA: Schema = {
             items: { type: 'object', optional: ['if', 'unless', 'sets'], fields: { if: { type: 'string', pattern: ID }, unless: { type: 'string', pattern: ID }, dialogue: { type: 'string', pattern: ID }, sets: { type: 'string', pattern: ID } } },
           },
           quietUntil: { type: 'string', pattern: ID },
+          rider: { type: 'string', pattern: ID },
         },
       },
     },
@@ -408,6 +411,13 @@ function checkCareerContent(c: Content, maps: Map<string, BakedMap>): ContentErr
     if (item.part && !slotIds.has(item.part.slot)) err(CONTENT_FILES.items, `items.${id}.part.slot`, `no slot "${item.part.slot}"`);
   }
 
+  // An NPC who is a CPU rider goes by that rider's current name (Boss, 28 Oct 2026: the Area Champion).
+  c.npcs.forEach((n, i) => {
+    if (!n.rider) return;
+    const r = c.riders.riders.find((x) => x.id === n.rider);
+    if (r) n.name = r.name;
+    else err(CONTENT_FILES.npcs, `npcs[${i}].rider`, `no rider "${n.rider}" in ${CONTENT_FILES.riders}`);
+  });
   const npcIds = new Set(c.npcs.map((n) => n.id));
   const item = (field: string, id: string) => !c.items[id] && err(CONTENT_FILES.story, field, `no item "${id}" in ${CONTENT_FILES.items}`);
   const lines = (field: string, id: string | undefined) => id && !c.dialogue[id] && err(CONTENT_FILES.story, field, `no dialogue "${id}" in ${CONTENT_FILES.dialogue}`);
