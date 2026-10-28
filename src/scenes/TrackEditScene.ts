@@ -46,9 +46,15 @@ export interface EditViewState {
   /** The selected control point's curve handles, as the spots they are at. */
   handles?: [number, number][];
   /** What is being placed (the start straight, the finish line or a feature): its points, whether it can go there, and the ring it snaps on at (x, y, radius). */
-  ghost?: { pts: [number, number][]; level: 'ok' | 'warning' | 'error'; ring: [number, number, number] | null; /** The route being drawn: a thin dashed line from the last point to the pointer, not a piece. */ dashed?: boolean };
+  ghost?: { pts: [number, number][]; level: 'ok' | 'warning' | 'error'; ring: [number, number, number] | null; /** The route being drawn: a thin dashed line from the last point to the pointer, not a piece. */ dashed?: boolean; /** Drawn in this colour ('#rrggbb') instead of the level's: the surface a patch would lay. */ colour?: string };
   /** The scenery item the next click would place (Scenery): drawn see-through under the pointer, turned as it would be. */
   ghostItem?: SceneryItem;
+  /**
+   * The index of the scenery item being dragged: ghostItem is that item where it is now, drawn
+   * solid, and the track's own copy of it (as it was picked up) is left out of the build, so the
+   * view follows the drag without rebuilding.
+   */
+  ghostSolid?: number;
 }
 
 const GREEN = 0x34c759;
@@ -284,14 +290,14 @@ export class TrackEditScene extends Phaser.Scene {
     const st = this.state;
     if (!st || this.scale.width < 50 || this.scale.height < 50) return;
     const parts = st.parts ?? services.content.trackParts;
-    const key = JSON.stringify([st.track, st.gapFrom, st.gaps, parts === services.content.trackParts ? null : parts, this.scale.width, this.scale.height]);
+    const key = JSON.stringify([st.track, st.gapFrom, st.gaps, parts === services.content.trackParts ? null : parts, this.scale.width, this.scale.height, st.ghostSolid ?? -1]);
     if (key !== this.built) {
       const first = !this.built;
       this.built = key;
       // The new view takes over the old one's renderer (its WebGL context and shaders), then the old one goes.
       const old = this.view;
       const was = [...this.holder.list];
-      this.view = new RaceView(this, this.holder, structuredClone(st.track), parts, 0, 0, this.scale.width, this.scale.height, old?.gl, { gapFrom: st.gapFrom, gaps: st.gaps });
+      this.view = new RaceView(this, this.holder, structuredClone(st.track), parts, 0, 0, this.scale.width, this.scale.height, old?.gl, { gapFrom: st.gapFrom, gaps: st.gaps, skipItem: st.ghostSolid });
       old?.destroy(true);
       for (const o of was) o.destroy();
       this.view.editCam = this.cam;
@@ -382,7 +388,8 @@ export class TrackEditScene extends Phaser.Scene {
         if (f) line(rect(f.x, f.z, f.w + 0.2, f.d + 0.2, f.a), color, true, p.level === 'warning');
       } else if (p.x !== undefined && p.y !== undefined) line(ring(p.x, p.y, 1.2), color, true, p.level === 'warning');
     }
-    if (st.sel.item >= 0) {
+    // The selected item's outline; while it is dragged, round the moving copy (ghostItem), not the track's.
+    if (st.sel.item >= 0 && st.sel.item !== st.ghostSolid) {
       const f = size(st.sel.item);
       if (f) line(rect(f.x, f.z, f.w + 0.45, f.d + 0.45, f.a), SELECT, true);
     }
@@ -488,16 +495,16 @@ export class TrackEditScene extends Phaser.Scene {
           }
           fine.push({ x, z: y });
         }
-        line(fine, g.level === 'error' ? RED : g.level === 'warning' ? YELLOW : GREEN, false, false, w, 11);
+        line(fine, g.colour ? hexColor(g.colour) : g.level === 'error' ? RED : g.level === 'warning' ? YELLOW : GREEN, false, false, w, 11);
       }
     }
     // The scenery item the next click would place: see-through, where and as turned it would stand, with its footprint outlined.
     const gi = st.ghostItem;
     if (gi) {
       const def = parts.scenery.find((d) => d.id === gi.type);
-      const obj = v.ghostItem(gi);
+      const obj = v.ghostItem(gi, st.ghostSolid);
       if (obj) v.overlay.add(obj);
-      line(rect(gi.x, gi.y, (gi.w ?? def?.w ?? 2) + 0.3, (gi.h ?? def?.h ?? 2) + 0.3, ((gi.rot ?? 0) * Math.PI) / 180), SELECT, true, true, 0.09, 11);
+      line(rect(gi.x, gi.y, (gi.w ?? def?.w ?? 2) + 0.3, (gi.h ?? def?.h ?? 2) + 0.3, ((gi.rot ?? 0) * Math.PI) / 180), SELECT, true, st.ghostSolid === undefined, 0.09, 11);
     }
   }
 

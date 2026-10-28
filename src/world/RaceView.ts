@@ -193,7 +193,7 @@ export class RaceView {
     /** The track editor's race view passes the last view's renderer on, so a rebuild reuses its WebGL context and compiled shaders. */
     renderer?: THREE.WebGLRenderer,
     /** The track editor's race view, for an unfinished track: see gapFrom, and gaps between its pieces (fractions of the drawing). */
-    opts: { gapFrom?: number; gaps?: [number, number][]; scaleWidth?: number } = {},
+    opts: { gapFrom?: number; gaps?: [number, number][]; scaleWidth?: number; /** A scenery item (by index) not built: the one the track editor is dragging, which it draws itself (ghostItem). */ skipItem?: number } = {},
   ) {
     this.gapFrom = opts.gapFrom ?? 1;
     this.gaps = [...(opts.gaps ?? []), ...(this.gapFrom < 1 ? [[this.gapFrom, 1] as [number, number]] : [])];
@@ -273,7 +273,8 @@ export class RaceView {
     if (this.track.finish !== false) this.scene3.add(this.startLine());
     // Low scenery that never needs fading is baked into one mesh; textured parts stay separate.
     const low: THREE.Mesh[] = [];
-    for (const it of track.scenery ?? []) {
+    for (const [i, it] of (track.scenery ?? []).entries()) {
+      if (i === opts.skipItem) continue;
       const obj = this.buildItem(it);
       if (!obj) continue;
       this.scene3.add(obj);
@@ -1060,11 +1061,21 @@ export class RaceView {
 
   /**
    * A scenery item as the track editor previews it before placing: built as it would stand, drawn
-   * see-through, casting no shadow. Null for the start official, who is built with the start.
+   * see-through, casting no shadow. Null for the start official, who is built with the start. With
+   * an index it is the track's item of that index being dragged (built as that one, so a fan or a
+   * tree keeps its look), drawn solid.
    */
-  ghostItem(it: SceneryItem): THREE.Object3D | null {
+  ghostItem(it: SceneryItem, index?: number): THREE.Object3D | null {
+    // Built outside the track's list, so a marshal or fans here are not kept to animate.
+    const marshals = this.marshals.length;
+    const cheers = this.cheers.length;
+    this.ghostIndex = index ?? -1;
     const obj = this.buildItem(it);
+    this.ghostIndex = -1;
+    this.marshals.length = marshals;
+    this.cheers.length = cheers;
     if (!obj) return null;
+    if (index !== undefined) return obj;
     obj.traverse((o) => {
       const m = o as THREE.Mesh;
       if (!m.isMesh) return;
@@ -1081,6 +1092,14 @@ export class RaceView {
       m.renderOrder = 11;
     });
     return obj;
+  }
+
+  /** The index a scenery item built as a ghost stands for (ghostItem), or -1. */
+  private ghostIndex = -1;
+  /** A scenery item's index in the track, which picks its variant; a ghost's is the index it stands for. */
+  private itemIndex(it: SceneryItem): number {
+    const i = (this.track.scenery ?? []).indexOf(it);
+    return i >= 0 ? i : this.ghostIndex;
   }
 
   /** Builds one scenery item as 3D shapes standing on the ground. */
@@ -1104,7 +1123,7 @@ export class RaceView {
     if (def && isPaddock(def)) {
       // A paddock vehicle or a trackside item (paddock.ts, trackside.ts): one vertex-coloured mesh
       // each, so a full paddock costs a draw an item, plus a textured box for each label with words on.
-      const index = (this.track.scenery ?? []).indexOf(it);
+      const index = this.itemIndex(it);
       const built = tracksideParts(def, it, index) ?? { parts: paddockParts(def, it, index), labels: [] as Label[] };
       if (built.parts.length) add(this.mergeParts(built.parts));
       for (const l of built.labels) {
@@ -1281,7 +1300,7 @@ export class RaceView {
 
   /** A marshal: the stand as one mesh, the figure and its flag arm as two more the view animates, facing the middle of their watch unless turned. */
   private marshalFigure(g: THREE.Group, it: SceneryItem, def: SceneryDef): void {
-    const i = (this.track.scenery ?? []).indexOf(it);
+    const i = this.itemIndex(it);
     const built = marshalParts(def, it, i);
     if (built.base.length) g.add(this.mergeParts(built.base));
     const figure = new THREE.Group();
@@ -1341,7 +1360,7 @@ export class RaceView {
    * facing the track.
    */
   private cheerFigure(g: THREE.Group, it: SceneryItem): void {
-    const i = (this.track.scenery ?? []).indexOf(it);
+    const i = this.itemIndex(it);
     const variant = cheerVariant(it, i);
     const sc = VARIANT_SCALE[variant];
     const figure = new THREE.Group();
