@@ -4,6 +4,7 @@ import type { BakedMap } from '../core/mapTypes';
 import { newCareerState } from '../core/career';
 import { fetchFolder, loadModTracks } from '../core/modTracks';
 import type { VenueDef } from '../core/raceDay';
+import { rewardTexture, type ChampionshipsData } from '../core/championship';
 import { SAVE_VERSION, type SaveData } from '../core/saves';
 import { Travel } from '../core/travel';
 import { formatError } from '../core/validate';
@@ -42,6 +43,9 @@ export class BootScene extends Phaser.Scene {
       this.load.image(vanTexture(id), `assets/${sheet.image}`);
       if (sheet.turn) this.load.image(vanTurnTexture(id), `assets/${sheet.turn.image}`);
     }
+    // Badges and trophies (championships.json rewards).
+    const champs = this.cache.json.get('content:championships') as ChampionshipsData | undefined;
+    for (const c of champs?.championships ?? []) for (const r of c.rewards) if (r.image) this.load.image(rewardTexture(r.image), `assets/${r.image}`);
     this.load.once('complete', () => this.finish(manifest));
     this.load.start();
   }

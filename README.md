@@ -129,9 +129,9 @@ Checked against the last open line of the "Starter career slice" checklist (Syst
 - **Points** for every moto on the usual table, DNF 0. Ties go to the most moto wins, then the better result in the latest moto (Spec 12.4). After each round the standings screen shows every rider's points by round, the gap to the leader, the next round, and whether the title is still possible. After the last round it shows the final result and the reward.
 - **The Task tab** lists each championship under way and the badges and trophies won, and the journal points you to the next one. Winning the Area 1 Championship says the next class and Area 2 come in a later build.
 - **Saves** keep the championships on the career (`career.champs`), added when you first enter one, so saves stay at version 4.
+- **The Area 1 badge** is a knobbly motocross tyre with a gold rim and an orange "AREA 1" centre (`public/assets/art/ui/badge-area1.png`, drawn by `tools/art/badge-area1.py` in the reference palette). It shows on the final standings when you win the Local Champion Championship, and in the Task tab once won. A reward can name its picture with `image` in `championships.json`.
+- **Riders in free practice.** Practice at Farmland MX, Riverside Arena and Longmoor Enduro now has 10 riders from the area's pool out on track with you, spread round the lap, each with their own name and colours (`practiceRiders` on a venue in `tracks.json`). The backyard loop stays yours alone. The lap counter, XP and wear on the practice screen follow the clock, so stopping early counts only the laps you have ridden.
 - **Pavements:** the player now stands on the paving of one-tile pavements as the NPCs do, instead of looking as if they are on the kerb.
-
-### Alpha v1: three race venues
 
 ### Alpha v1: three race venues
 

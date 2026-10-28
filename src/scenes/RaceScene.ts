@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { bikeStats, conditionFactor, formatMoney, type Bike } from '../core/career';
 import { formatTime, gateBonus, type LapTrace, type MotoSim, type RaceEvent, type RiderResult } from '../core/race';
 import { PLAYER_ID, RaceDay, applyRide, playerEntrant, practiceSim, sumXp, type MotoRecord, type VenueDef } from '../core/raceDay';
-import { finishChampionship, nextRoundVenue, recordRound, roundOptions, standings, titlePossible, type ActiveChampionship, type ChampionshipDef } from '../core/championship';
+import { finishChampionship, nextRoundVenue, rewardTexture, recordRound, roundOptions, standings, titlePossible, type ActiveChampionship, type ChampionshipDef } from '../core/championship';
 import { noteActivity } from '../core/shops';
 import type { SaveData } from '../core/saves';
 import { services } from '../services';
@@ -91,6 +91,12 @@ export class RaceScene extends Phaser.Scene {
   private detailKey = '';
   /** The player's bike after each lap the simulation has run, by the race time the player finished that lap. */
   private wearAt: { t: number; parts: Bike['parts'] }[] = [];
+  /**
+   * Practice: your XP and bike after each lap the simulation has run, by when you finish it. With
+   * other riders out, the simulation runs laps as the first of them crosses the line, so it can be
+   * a lap ahead of you: laps, XP and wear count as far as the lap you are on.
+   */
+  private practiceAt: { end: number; xp: Record<string, number>; parts: Bike['parts'] }[] = [];
   private detailTab: 'bike' | 'sections' = 'bike';
   private detailTabs: Button[] = [];
   /** The live screen is showing qualifying, not a moto. */
@@ -420,11 +426,13 @@ export class RaceScene extends Phaser.Scene {
     const sim = this.sim!;
     this.clear();
     const from = startGeom(sim.track).from;
-    this.cps = new Map(sim.riders.map((r) => [r.e.id, { t: [0], d: [from] }]));
+    // Riders already out in practice set off before 0 (MotoSim's startAt).
+    this.cps = new Map(sim.riders.map((r) => [r.e.id, { t: [r.time], d: [from] }]));
     this.boardLaps = 1;
     this.boardAt = 0;
     this.myLaps = 0;
     this.wearAt = sim.playerBike ? [{ t: 0, parts: structuredClone(sim.playerBike.parts) }] : [];
+    this.practiceAt = [];
     this.detailTab = 'bike';
     this.traces = [];
     this.raceEvents = [];
@@ -508,6 +516,7 @@ export class RaceScene extends Phaser.Scene {
     // The bike as the simulation left it after this lap, shown once the player has ridden it.
     const mine = trace.times[PLAYER_ID];
     if (sim.playerBike && mine) this.wearAt.push({ t: mine[mine.length - 1], parts: structuredClone(sim.playerBike.parts) });
+    if (this.args.mode === 'practice' && sim.playerBike && mine) this.practiceAt.push({ end: mine[mine.length - 1], xp: { ...sim.xp }, parts: structuredClone(sim.playerBike.parts) });
     this.traces.push(trace);
     this.director?.addLap(trace);
     this.raceEvents.push(...trace.events);
@@ -658,7 +667,7 @@ export class RaceScene extends Phaser.Scene {
     if (practice) {
       this.ui.title.setText(`${this.args.venue.name} · Practice · Lap ${myLap}`);
       this.ui.ink.setText('');
-      const p = sim.player!;
+      const p = { lapTimes: this.practiceLaps() };
       const best = p.lapTimes.length ? Math.min(...p.lapTimes) : null;
       const xp = Object.values(this.practiceXpNow()).reduce((a, b) => a + b, 0);
       this.ui.me.setText([`Laps done: ${p.lapTimes.length}`, `Last lap: ${p.lapTimes.length ? formatTime(p.lapTimes.at(-1)!) : '—'}`, `Best lap: ${best !== null ? formatTime(best) : '—'}`, `Practice XP: ${xp.toFixed(1)}`].join('\n'));
@@ -1156,6 +1165,9 @@ export class RaceScene extends Phaser.Scene {
     if (fin.position > 3) lines.push('', 'The top three win a prize. Enter again from any race office.');
     lines.push('', `Money now: ${formatMoney(career.money)}`);
     this.text(764, 176, lines.join('\n'), 19, COLORS.cream, { lineSpacing: 6, wordWrap: { width: 450 } });
+    // The badge or trophy won, as it shows in the Task tab.
+    const image = fin.title ? def.rewards[fin.position - 1]?.image : undefined;
+    if (image && this.textures.exists(rewardTexture(image))) this.screen.add(this.add.image(990, 500, rewardTexture(image)).setDisplaySize(160, 160));
     this.btn(W / 2 + 300, 670, 'Back to the paddock', () => this.done(fin.position === 1 ? `${def.name}: champion!` : `${def.name}: ${ordinal(fin.position)}.`), 300, 50);
   }
 
@@ -1177,25 +1189,43 @@ export class RaceScene extends Phaser.Scene {
 
   private startPractice(): void {
     const career = this.save.career;
-    this.names.set(PLAYER_ID, 'You');
-    this.colors.set(PLAYER_ID, COLORS.accent);
-    this.looks.set(PLAYER_ID, { brand: career.bike.brand, cls: career.bike.class, gear: GEAR_SETS['player-default'] });
     this.sim = practiceSim(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name), (Math.random() * 2 ** 32) >>> 0);
+    // You, and any riders already out on track (practiceRiders on the venue).
+    this.sim.riders.forEach(({ e }, i) => {
+      this.names.set(e.id, e.player ? 'You' : e.name);
+      const gear = GEAR_SETS[e.player ? 'player-default' : e.tag === 'Local Champion' ? 'cpu-champion' : CPU_GEAR[i % CPU_GEAR.length]];
+      this.looks.set(e.id, { brand: e.bike.brand, cls: e.bike.class, gear });
+      this.colors.set(e.id, e.player ? COLORS.accent : gearColour(gear));
+    });
     this.startLive();
   }
 
   private practiceXpNow(): Record<string, number> {
-    return this.sim?.xp ?? {};
+    return this.practiceNow()?.xp ?? this.sim?.xp ?? {};
+  }
+
+  /** Where your practice has got to: the lap you are on (or the last one run), with its XP and wear. */
+  private practiceNow(): { end: number; xp: Record<string, number>; parts: Bike['parts'] } | undefined {
+    return this.practiceAt.find((s) => s.end > this.clock + 1e-6) ?? this.practiceAt.at(-1);
+  }
+
+  /** Your lap times so far, as far as the clock has got. */
+  private practiceLaps(): number[] {
+    const done = this.practiceAt.filter((s) => s.end <= this.clock + 1e-6).length;
+    return this.sim!.player!.lapTimes.slice(0, done);
   }
 
   private stopPractice(forced = false): void {
     if (!this.live && !forced) return;
     this.live = false;
     const sim = this.sim!;
-    const p = sim.player!;
     const career = this.save.career;
     const before = structuredClone(career.bike.parts);
-    const payout = applyRide(services.content, career, sim.playerBike, -this.args.fee, sim.xp);
+    // Stopping counts the lap you are on, as riding alone always has; a broken bike counts every lap run.
+    const now = forced ? null : this.practiceNow();
+    const laps = forced ? sim.player!.lapTimes : this.practiceLaps();
+    const payout = applyRide(services.content, career, now ? { ...sim.playerBike!, parts: now.parts } : sim.playerBike, -this.args.fee, now?.xp ?? sim.xp);
+    const p = { lapTimes: laps };
     if (p.lapTimes.length) noteActivity(services.content.shops, career, 'activity');
     const c = this.openModal(760, 520);
     c.add(this.add.text(0, -220, forced ? 'Practice over: your bike is broken' : 'Practice done', textStyle(26, COLORS.accent)).setOrigin(0.5));

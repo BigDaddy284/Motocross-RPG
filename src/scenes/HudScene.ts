@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { bikeProblem, bikeStats, formatMoney, journal, pence, statMax, type CareerState } from '../core/career';
 import { childLevel, childXp, leadLevel, leadXp, levelProgress } from '../core/skills';
-import { nextRoundVenue, standings } from '../core/championship';
+import { nextRoundVenue, rewardTexture, standings } from '../core/championship';
 import {
   buyPart,
   dumpSpare,
@@ -532,6 +532,11 @@ export class HudScene extends Phaser.Scene {
         body(left, y, line, 16, COLORS.muted);
         y += 28;
       }
+      // The badges and trophies themselves, in a row.
+      const won = services.content.championships.championships.map((d) => d.rewards[0]).filter((r) => r?.image && r.flag && this.flags[r.flag]);
+      won.forEach((r, i) => {
+        if (this.textures.exists(rewardTexture(r.image!))) c.add(this.add.image(left + 48 + i * 108, y + 56, rewardTexture(r.image!)).setDisplaySize(96, 96));
+      });
     } else {
       // Skills: each lead skill with its child skills, level and progress to the next level (GDD 6.1).
       const { skills } = services.content;

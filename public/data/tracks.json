@@ -1,5 +1,5 @@
 {
-  "note": "Tracks and venues (Spec 9.3, 18.5). A venue with a track can be ridden: needs is the flag that opens it, office is the NPC who takes entries, area is the tiles [x, y, w, h] on its map you click to ride (for venues without a race office), and locked is the message while it stays shut. Sections run in order from the finish line back to it; lengths in metres along the racing line. path is the shape drawn on the race screen, as points on a 100 x 60 grid, starting at the finish line; each section's type must match the shape drawn under it (racing.json shapes). start is the start straight: the gate first, its last point on the lap where it joins; lap 1 is the start straight and the lap from there to the finish line. gates is the gate bonus curve in percent of start time, best gate first (Spec 10.4).",
+  "note": "Tracks and venues (Spec 9.3, 18.5). A venue with a track can be ridden: needs is the flag that opens it, office is the NPC who takes entries, area is the tiles [x, y, w, h] on its map you click to ride (for venues without a race office), practiceRiders is how many riders from the field's pool are out on track in free practice, and locked is the message while it stays shut. Sections run in order from the finish line back to it; lengths in metres along the racing line. path is the shape drawn on the race screen, as points on a 100 x 60 grid, starting at the finish line; each section's type must match the shape drawn under it (racing.json shapes). start is the start straight: the gate first, its last point on the lap where it joins; lap 1 is the start straight and the lap from there to the finish line. gates is the gate bonus curve in percent of start time, best gate first (Spec 10.4).",
   "tracks": [
     {
       "id": "backyard", "name": "Backyard loop", "size": "practice", "surface": "hard_pack", "practiceOnly": true,
@@ -384,9 +384,9 @@
     }
   ],
   "venues": [
-    {"id": "venue-farmland", "name": "Farmland MX", "map": "area1-venue-farmland", "track": "farmland", "class": "50cc", "field": "area1.local", "regulars": ["cpu.local_racer"], "office": "npc.track_official", "needs": "found.venue-farmland", "practiceFeePct": 25, "firstRaceFree": true},
-    {"id": "venue-quarry", "name": "Riverside Arena", "map": "area1-venue-quarry", "track": "arena-supercross", "class": "50cc", "field": "area1.local", "office": "npc.track_official_quarry", "needs": "found.venue-farmland", "practiceFeePct": 25, "firstRaceFree": true},
-    {"id": "venue-woodland", "name": "Longmoor Enduro", "map": "area1-venue-woodland", "track": "longmoor-endurance", "class": "50cc", "field": "area1.local", "office": "npc.track_official_woodland", "needs": "found.venue-farmland", "practiceFeePct": 25, "firstRaceFree": true},
+    {"id": "venue-farmland", "name": "Farmland MX", "map": "area1-venue-farmland", "track": "farmland", "class": "50cc", "field": "area1.local", "regulars": ["cpu.local_racer"], "office": "npc.track_official", "needs": "found.venue-farmland", "practiceFeePct": 25, "practiceRiders": 10, "firstRaceFree": true},
+    {"id": "venue-quarry", "name": "Riverside Arena", "map": "area1-venue-quarry", "track": "arena-supercross", "class": "50cc", "field": "area1.local", "office": "npc.track_official_quarry", "needs": "found.venue-farmland", "practiceFeePct": 25, "practiceRiders": 10, "firstRaceFree": true},
+    {"id": "venue-woodland", "name": "Longmoor Enduro", "map": "area1-venue-woodland", "track": "longmoor-endurance", "class": "50cc", "field": "area1.local", "office": "npc.track_official_woodland", "needs": "found.venue-farmland", "practiceFeePct": 25, "practiceRiders": 10, "firstRaceFree": true},
     {"id": "backyard", "name": "Backyard loop", "map": "area1-home-town", "area": [3, 10, 6, 4], "track": "backyard", "class": "50cc", "practiceOnly": true}
   ]
 }

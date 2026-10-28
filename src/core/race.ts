@@ -218,6 +218,11 @@ export interface Entrant {
   gate: number;
   /** How they ride on the race screen (riderProfile.ts); never changes a result. */
   style?: RiderStyle;
+  /**
+   * Practice only: when the rider set off from the gate, in seconds from the session's start. A
+   * rider already out on track when you arrive set off before 0.
+   */
+  startAt?: number;
 }
 
 /** Events name the section by index; -1 is the start straight. */
@@ -351,7 +356,7 @@ export class MotoSim {
       const bike = e.player ? this.playerBike! : e.bike;
       return {
         e: { ...e, bike },
-        time: 0,
+        time: opts.practice ? (e.startAt ?? 0) : 0,
         laps: 0,
         lapTimes: [],
         message: e.player ? (opts.message ?? 'steady') : e.tactic.message,
@@ -372,7 +377,8 @@ export class MotoSim {
   }
 
   get finished(): boolean {
-    return (this.opts.laps !== null && this.lapNo >= this.opts.laps) || this.riders.every((r) => r.retired);
+    // Practice is over for everyone once the rider's own bike gives out, whoever else is still out.
+    return (this.opts.laps !== null && this.lapNo >= this.opts.laps) || this.riders.every((r) => r.retired) || (!!this.opts.practice && !!this.player?.retired);
   }
 
   get playerMessage(): string {
@@ -435,8 +441,9 @@ export class MotoSim {
       trace.times[r.e.id] = [r.time];
       if (!r.e.player) r.message = this.cpuMessage(r);
     }
-    // Riding order entering the lap: the gate order on lap 1, then race order.
-    let order = [...active].sort((a, b) => (lap === 1 ? a.e.gate - b.e.gate : a.time - b.time));
+    // Riding order entering the lap: the gate order on lap 1, then race order (in practice, the
+    // order riders set off in, then the gate).
+    let order = [...active].sort((a, b) => (lap === 1 ? a.time - b.time || a.e.gate - b.e.gate : a.time - b.time));
     const air = new Map<RiderState, number>();
     const startTimes = new Map(active.map((r) => [r, r.time]));
     const cur = new Map(active.map((r) => [r, r.time]));

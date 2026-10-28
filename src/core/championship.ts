@@ -29,7 +29,7 @@ export interface ChampionshipDef {
   /** Flags that open it. */
   needs?: string[];
   /** By final position: prize money in pounds, a flag to set and what it is called. */
-  rewards: { money: number; flag?: string; title?: string }[];
+  rewards: { money: number; flag?: string; title?: string; image?: string }[];
   /** XP and purse share once it has been won before (Round 125). */
   replay: number;
   /** Said when it is won for the first time. */
@@ -88,7 +88,7 @@ export const CHAMPIONSHIPS_SCHEMA: Schema = {
           rewards: {
             type: 'array',
             minItems: 1,
-            items: { type: 'object', optional: ['flag', 'title'], fields: { money: { type: 'number', min: 0 }, flag: { type: 'string', nonEmpty: true }, title: { type: 'string', nonEmpty: true } } },
+            items: { type: 'object', optional: ['flag', 'title', 'image'], fields: { money: { type: 'number', min: 0 }, flag: { type: 'string', nonEmpty: true }, title: { type: 'string', nonEmpty: true }, image: { type: 'string', pattern: /^art\/[\w./-]+\.png$/ } } },
           },
           replay: { type: 'number', min: 0, max: 1 },
           won: { type: 'string', nonEmpty: true },
@@ -97,6 +97,9 @@ export const CHAMPIONSHIPS_SCHEMA: Schema = {
     },
   },
 };
+
+/** The texture key of a reward's picture (loaded by BootScene). */
+export const rewardTexture = (image: string) => `reward:${image}`;
 
 /** Cross-checks: every venue, field, rider and class named exists, and the field fits the start. */
 export function checkChampionships(data: ChampionshipsData, rc: Pick<RaceContent, 'tracks' | 'riders' | 'racing'>): ContentError[] {

@@ -188,7 +188,7 @@ export const TRACKS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['track', 'class', 'field', 'office', 'needs', 'practiceFeePct', 'firstRaceFree', 'practiceOnly', 'area', 'locked', 'regulars'],
+        optional: ['track', 'class', 'field', 'office', 'needs', 'practiceFeePct', 'firstRaceFree', 'practiceOnly', 'area', 'locked', 'regulars', 'practiceRiders'],
         fields: {
           id: IDS,
           name: S,
@@ -204,6 +204,7 @@ export const TRACKS_SCHEMA: Schema = {
           practiceOnly: { type: 'boolean' },
           area: { type: 'array', items: { type: 'number', integer: true, min: 0 }, minItems: 4, maxItems: 4 },
           locked: S,
+          practiceRiders: { type: 'number', integer: true, min: 0, max: 15 },
         },
       },
     },

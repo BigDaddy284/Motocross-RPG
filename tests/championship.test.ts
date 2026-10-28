@@ -5,7 +5,7 @@ import { checkContent } from '../src/core/content';
 import { PLAYER_ID, RaceDay, playerEntrant } from '../src/core/raceDay';
 import { directorFor } from '../src/core/riderAI';
 import { SAVE_VERSION, parseSave } from '../src/core/saves';
-import { loadManifest, loadMaps, rawContent } from './helpers';
+import { loadManifest, loadMaps, publicFileExists, rawContent } from './helpers';
 
 const content = checkContent(rawContent(), loadManifest(), loadMaps()).content!;
 const local = champById(content.championships, 'area1.local_champion')!;
@@ -43,6 +43,11 @@ describe('championships (Spec 12.5, 18.6)', () => {
     for (const v of ['venue-farmland', 'venue-quarry', 'venue-woodland']) expect(main.rounds.filter((r) => r === v)).toHaveLength(2);
     expect(main.needs).toContain(local.rewards[0].flag);
     expect(checkChampionships(content.championships, content)).toEqual([]);
+  });
+
+  it('has a picture for the Area 1 badge, the knobbly tyre', () => {
+    expect(local.rewards[0].image).toBe('art/ui/badge-area1.png');
+    for (const c of content.championships.championships) for (const r of c.rewards) if (r.image) expect(publicFileExists(`assets/${r.image}`), r.image).toBe(true);
   });
 
   it('rejects a round at a venue that has no race day, and a field bigger than its pool', () => {

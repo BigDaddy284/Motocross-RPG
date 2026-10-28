@@ -1,4 +1,5 @@
 import { bikeProblem, pence, type BikesData, type Bike, type CareerState } from './career';
+import { lapMetres } from './trackGeom';
 import { MotoSim, formatTime, gateBonus, mixSeed, seededRng, type Entrant, type RacingData, type RiderResult, type Tactic, type TrackDef } from './race';
 import { addXp, childLevels, type LevelUp, type SkillsData } from './skills';
 import type { RiderStyle } from './riderProfile';
@@ -48,6 +49,8 @@ export interface VenueDef {
   area?: [number, number, number, number];
   /** While set, the venue stays shut with this message. */
   locked?: string;
+  /** CPU riders out on track in free practice, drawn from the field's pool. */
+  practiceRiders?: number;
   /** Riders from the field's pool who race every race day here, on top of the field's own regulars. */
   regulars?: string[];
 }
@@ -440,7 +443,20 @@ function shuffle<T>(a: T[], rng: () => number): T[] {
   return a;
 }
 
-/** A practice session: the rider alone, unlimited laps until they stop (Spec 12.2). */
+/**
+ * A practice session: unlimited laps until the rider stops (Spec 12.2). At a venue with
+ * practiceRiders, that many riders from its field's pool are already out on track, spread round
+ * the lap: each set off from the gate a share of a lap before the session starts, so the nearest is
+ * well clear of the gate when you set off.
+ */
 export function practiceSim(rc: RaceContent, venue: VenueDef, player: Entrant, seed: number): MotoSim {
-  return new MotoSim(rc.racing, rc.bikes, trackById(rc, venue.track!), venue.class ?? '50cc', [player], { laps: null, motoIndex: 0, seed, practice: true });
+  const track = trackById(rc, venue.track!);
+  const cls = venue.class ?? '50cc';
+  const pool = (rc.riders.fields[venue.field ?? ''] ?? []).map((id) => rc.riders.riders.find((r) => r.id === id)).filter((r): r is CpuRiderDef => !!r);
+  const n = Math.min(venue.practiceRiders ?? 0, pool.length);
+  const drawn = shuffle(pool, seededRng(mixSeed(seed, 0x70726163))).slice(0, n);
+  // A rough lap time: the lap's length at the class's reference speed.
+  const lapSeconds = lapMetres(track) / rc.racing.classes[cls].refSpeed;
+  const others = drawn.map((d, i) => ({ ...cpuEntrant(rc, d, cls, i + 1), startAt: -((i + 1) * lapSeconds) / (n + 1) }));
+  return new MotoSim(rc.racing, rc.bikes, track, cls, [{ ...player, gate: 0, startAt: 0 }, ...others], { laps: null, motoIndex: 0, seed, practice: true });
 }
