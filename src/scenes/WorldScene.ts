@@ -135,7 +135,7 @@ export class WorldScene extends Phaser.Scene {
       character.showName(p.npc.name);
       this.npcs.push({ placement: p, character });
     }
-    this.drive = new DriveMap(map, this.grid, services.content.vehicles.drivable);
+    this.drive = new DriveMap(map, this.grid, services.content.vehicles);
     // Route marshals stand by the road to be asked, not in the way: the van drives past them too.
     this.drive.setNpcTiles(this.npcs.filter((n) => !n.placement.npc.guide).map((n) => ({ x: n.placement.x, y: n.placement.y })));
     this.setupVan();
@@ -1037,6 +1037,7 @@ export class WorldScene extends Phaser.Scene {
     }
     const design = this.designOf(state.design);
     state.design = design.id;
+    this.drive.setVanLength(design.length);
     let pose: VanPose = { x: state.x, y: state.y, heading: state.heading };
     // A design swap or a map change can leave the van where it no longer fits: move it to the nearest spot that does.
     if (!this.drive.fits(pose, design.length)) {
@@ -1245,7 +1246,7 @@ export class WorldScene extends Phaser.Scene {
   private driveTo(to: Arrival): boolean {
     const van = this.van!;
     const target = services.maps.get(to.map);
-    const pose = target && placeNear(this.driveMapFor(target), to.tile, van.design.length, inwardHeading(target, to.tile), 12, (t) => !!stepTriggerAt(target, t));
+    const pose = target && placeNear(this.driveMapFor(target, van.design.length), to.tile, van.design.length, inwardHeading(target, to.tile), 12, (t) => !!stepTriggerAt(target, t));
     if (!target || !pose) {
       this.hud.toast(`There's no room for the ${van.design.name} over there.`);
       return false;
@@ -1256,10 +1257,11 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /** Where a van can go on another map, with its story changes and NPCs, as the scene would build it. */
-  private driveMapFor(map: BakedMap): DriveMap {
+  private driveMapFor(map: BakedMap, length: number): DriveMap {
     const grid = Grid.fromMap(map);
     applyMapState(map, grid, this.save.flags);
-    const dm = new DriveMap(map, grid, services.content.vehicles.drivable);
+    const dm = new DriveMap(map, grid, services.content.vehicles);
+    dm.setVanLength(length);
     // Route marshals stand by the road to be asked, not in the way: the van drives past them.
     dm.setNpcTiles(npcsOnMap(services.content, map).filter((p) => !p.npc.guide).map((p) => ({ x: p.x, y: p.y })));
     return dm;

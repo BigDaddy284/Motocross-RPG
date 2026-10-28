@@ -23,7 +23,7 @@ function driveMap(id: string, flags: Record<string, boolean> = {}): DriveMap {
   const map = maps.get(id)!;
   const grid = Grid.fromMap(map);
   applyMapState(map, grid, flags);
-  const dm = new DriveMap(map, grid, data.drivable);
+  const dm = new DriveMap(map, grid, data);
   dm.setNpcTiles(npcsOnMap(content, map).map((p) => ({ x: p.x, y: p.y })));
   return dm;
 }
@@ -116,15 +116,62 @@ describe('driving', () => {
     const dm = driveMap(HOME, ALL_FLAGS);
     const goals = [{ x: 46, y: 12 }, { x: 37, y: 20 }, { x: 4, y: 25 }, { x: 27, y: 17 }];
     for (const d of data.designs) {
-      // The world moves a longer design (the dev swap) to the nearest spot it fits, as here.
+      // The world moves a longer design (the dev swap) to the nearest spot it fits, as here. The
+      // Factory Hauler is too long for the town car park, so it is moved to the road beside it.
+      dm.setVanLength(d.length);
       const start = placeNear(dm, data.starter, d.length, data.starter.heading)!;
-      for (const g of goals) {
+      for (const g of goals.filter((g) => dm.isDrivable(g.x, g.y) || d.length <= 6)) {
         const plan = planDrive(dm, start, d.length, g);
         expect(plan, `${d.id} to ${g.x},${g.y}`).not.toBeNull();
         const end = play(dm, start, d.length, plan!);
         expect(footprint(end, d.length).some((t) => t.x === g.x && t.y === g.y)).toBe(true);
       }
     }
+  });
+
+  it('keeps off the car park verges in Home Town and Riverside, in only by an entrance (Boss, 28 Oct 2026)', () => {
+    const home = driveMap(HOME, ALL_FLAGS);
+    // The green verge round the town car park: left, top, right, and the bottom from the P sign on.
+    for (let x = 25; x <= 35; x++) expect(home.isDrivable(x, 15), `${x},15`).toBe(false);
+    for (let y = 15; y <= 21; y++) for (const x of [25, 35]) expect(home.isDrivable(x, y), `${x},${y}`).toBe(false);
+    for (let x = 29; x <= 35; x++) expect(home.isDrivable(x, 22), `${x},22`).toBe(false);
+    // The entrance at the bottom left, and the car park itself.
+    for (let x = 25; x <= 28; x++) expect(home.isDrivable(x, 22), `${x},22`).toBe(true);
+    expect(home.isDrivable(30, 18)).toBe(true);
+    const river = driveMap('area1-venue-riverside', ALL_FLAGS);
+    // Both sides of the central road, with the crossings into the car parks by the P signs.
+    for (const y of [13, 18, 19, 20]) expect(river.isDrivable(11, y), `11,${y}`).toBe(false);
+    for (const y of [14, 18, 19, 20]) expect(river.isDrivable(16, y), `16,${y}`).toBe(false);
+    for (const y of [14, 15, 16, 17]) expect(river.isDrivable(11, y), `11,${y}`).toBe(true);
+    for (const y of [15, 16, 17]) expect(river.isDrivable(16, y), `16,${y}`).toBe(true);
+  });
+
+  it('keeps the Factory Hauler out of the town car park, too long to turn round in it (Boss, 28 Oct 2026)', () => {
+    const dm = driveMap(HOME, ALL_FLAGS);
+    const hauler = data.designs.find((d) => d.length > 6)!;
+    dm.setVanLength(hauler.length);
+    expect(dm.isDrivable(30, 18)).toBe(false);
+    expect(dm.isDrivable(26, 22)).toBe(false);
+    expect(dm.isDrivable(37, 18)).toBe(true);
+    // Parked in the car park by a swap, it is moved out onto the road, and can drive away.
+    const start = placeNear(dm, data.starter, hauler.length, data.starter.heading)!;
+    expect(footprint(start, hauler.length).every((t) => t.x >= 36 || t.y >= 23 || t.y <= 14)).toBe(true);
+    expect(planDrive(dm, start, hauler.length, { x: 4, y: 25 })).not.toBeNull();
+    // Every other van still uses it.
+    dm.setVanLength(6);
+    expect(dm.isDrivable(30, 18)).toBe(true);
+  });
+
+  it('drives the starter van out of each car park and back in by the entrance', () => {
+    const van = data.designs.find((d) => d.id === data.starter.design)!;
+    const home = driveMap(HOME, ALL_FLAGS);
+    const out = planDrive(home, data.starter, van.length, { x: 37, y: 20 })!;
+    expect(out).not.toBeNull();
+    const end = play(home, data.starter, van.length, out);
+    expect(planDrive(home, end, van.length, { x: 30, y: 17 })).not.toBeNull();
+    const river = driveMap('area1-venue-riverside', ALL_FLAGS);
+    const road: VanPose = { x: 13, y: 20, heading: 'north' };
+    for (const g of [{ x: 5, y: 17 }, { x: 22, y: 17 }]) expect(planDrive(river, road, van.length, g), `${g.x},${g.y}`).not.toBeNull();
   });
 
   it('never leaves the road: grass, buildings and doors are off limits', () => {

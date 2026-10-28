@@ -20,7 +20,7 @@ function homeMap(): DriveMap {
   const map = maps.get(HOME)!;
   const grid = Grid.fromMap(map);
   applyMapState(map, grid, { van_owned: true, van_loaded: true, tutorial_done: true, roadworks_done: true });
-  return new DriveMap(map, grid, content.vehicles.drivable);
+  return new DriveMap(map, grid, content.vehicles);
 }
 
 /** Drives a list of moves frame by frame and reports the worst frame-to-frame change. */

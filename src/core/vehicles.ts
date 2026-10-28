@@ -77,6 +77,14 @@ export interface VehiclesData {
   note?: string;
   /** Ground tiles a van can use, matched against the ground image paths. */
   drivable: string[];
+  /**
+   * Verges vans keep off on some maps (Boss, 28 Oct 2026: the van sticks to the road and goes
+   * into a car park by its entrance): a tile whose top ground art matches is not drivable there
+   * (like grass, a long van's body may still swing over a corner of one on a turn), so a crossing laid over a verge stays open. From the art, so it holds when a map is re-imported.
+   */
+  verges?: { maps: string[]; ground: string[] };
+  /** Car parks too small for the longest vans (Boss, 28 Oct 2026): a van longer than maxLength tiles can't go in. */
+  carParks?: { map: string; name: string; area: [number, number, number, number]; maxLength: number }[];
   /** The van the opening chain sells, and where it is parked when bought. */
   starter: { design: string; map: string; x: number; y: number; heading: Heading };
   designs: VanDesign[];
@@ -87,10 +95,29 @@ const HEADING_ENUM = { type: 'string', enum: HEADINGS } as const;
 
 export const VEHICLES_SCHEMA: Schema = {
   type: 'object',
-  optional: ['note'],
+  optional: ['note', 'verges', 'carParks'],
   fields: {
     note: { type: 'string' },
     drivable: { type: 'array', minItems: 1, items: { type: 'string', nonEmpty: true } },
+    verges: {
+      type: 'object',
+      fields: {
+        maps: { type: 'array', minItems: 1, items: { type: 'string', pattern: ID } },
+        ground: { type: 'array', minItems: 1, items: { type: 'string', nonEmpty: true } },
+      },
+    },
+    carParks: {
+      type: 'array',
+      items: {
+        type: 'object',
+        fields: {
+          map: { type: 'string', pattern: ID },
+          name: { type: 'string', nonEmpty: true },
+          area: { type: 'array', minItems: 4, maxItems: 4, items: { type: 'number', integer: true, min: 0 } },
+          maxLength: { type: 'number', integer: true, min: 1 },
+        },
+      },
+    },
     starter: {
       type: 'object',
       fields: { design: { type: 'string', pattern: ID }, map: { type: 'string', pattern: ID }, x: { type: 'number', integer: true }, y: { type: 'number', integer: true }, heading: HEADING_ENUM },
@@ -130,6 +157,14 @@ export function centre(p: VanPose, length: number): { x: number; y: number } {
 
 const key = (x: number, y: number) => `${x},${y}`;
 
+/** True when a ground layer above the first lays drivable ground on a tile, such as a crossing over a verge. */
+function laidOver(map: BakedMap, x: number, y: number, drivable: string[]): boolean {
+  return map.ground.slice(1).some((l) => {
+    const img = map.images[l.cells[y * map.width + x]] ?? '';
+    return drivable.some((d) => img.includes(d));
+  });
+}
+
 /**
  * Where vans may go on one map. Built from the map's ground art, its blocked tiles and edge walls
  * (after story changes such as cleared roadworks), and its doors. NPC tiles are set separately,
@@ -144,20 +179,37 @@ export class DriveMap {
   constructor(
     readonly map: BakedMap,
     readonly grid: Grid,
-    drivable: string[],
+    private readonly rules: Pick<VehiclesData, 'drivable' | 'verges' | 'carParks'>,
   ) {
     this.width = map.width;
     this.height = map.height;
     const base = map.ground[0]?.cells ?? [];
+    const verges = rules.verges?.maps.includes(map.id) ? rules.verges.ground : [];
     const doors = new Set<string>();
     for (const o of map.objects) if (o.type === 'door') for (const t of objectTiles(o, map.tileSize)) doors.add(key(t.x, t.y));
     this.ok = [];
     for (let y = 0; y < map.height; y++) {
       for (let x = 0; x < map.width; x++) {
         const img = map.images[base[y * map.width + x]] ?? '';
-        const surface = drivable.some((d) => img.includes(d));
-        this.ok.push(surface && !grid.isBlocked(x, y) && !doors.has(key(x, y)));
+        const surface = rules.drivable.some((d) => img.includes(d));
+        const verge = verges.some((v) => img.includes(v)) && !laidOver(map, x, y, rules.drivable);
+        this.ok.push(surface && !verge && !grid.isBlocked(x, y) && !doors.has(key(x, y)));
       }
+    }
+  }
+
+  private readonly tooSmall = new Set<string>();
+  private vanLength = 0;
+
+  /** The van that is driving: car parks too small for it are off limits. */
+  setVanLength(length: number): void {
+    if (length === this.vanLength) return;
+    this.vanLength = length;
+    this.tooSmall.clear();
+    for (const c of this.rules.carParks ?? []) {
+      if (c.map !== this.map.id || length <= c.maxLength) continue;
+      const [ax, ay, w, h] = c.area;
+      for (let y = ay; y < ay + h; y++) for (let x = ax; x < ax + w; x++) this.tooSmall.add(key(x, y));
     }
   }
 
@@ -172,7 +224,7 @@ export class DriveMap {
 
   /** Ground a van can stand on, ignoring NPCs. */
   isDrivable(x: number, y: number): boolean {
-    return x >= 0 && y >= 0 && x < this.width && y < this.height && this.ok[y * this.width + x];
+    return x >= 0 && y >= 0 && x < this.width && y < this.height && this.ok[y * this.width + x] && !this.tooSmall.has(key(x, y));
   }
 
   /** Somewhere no part of a van may pass over, even cutting a corner: buildings, walls, solid objects, people, off the map. */
@@ -502,13 +554,21 @@ export function checkVehicles(file: string, raw: unknown, maps: Map<string, Bake
     if (ids.has(d.id)) errors.push({ file, field: `designs[${i}].id`, message: `"${d.id}" is used twice` });
     ids.add(d.id);
   });
+  data.carParks?.forEach((c, i) => {
+    const m = maps.get(c.map);
+    if (!m) errors.push({ file, field: `carParks[${i}].map`, message: `no map "${c.map}"` });
+    else if (c.area[0] + c.area[2] > m.width || c.area[1] + c.area[3] > m.height) errors.push({ file, field: `carParks[${i}].area`, message: 'runs off the map' });
+  });
+  data.verges?.maps.forEach((id, i) => {
+    if (!maps.has(id)) errors.push({ file, field: `verges.maps[${i}]`, message: `no map "${id}"` });
+  });
   const s = data.starter;
   const design = data.designs.find((d) => d.id === s.design);
   if (!design) errors.push({ file, field: 'starter.design', message: `no design "${s.design}"` });
   const m = maps.get(s.map);
   if (!m) errors.push({ file, field: 'starter.map', message: `no map "${s.map}"` });
   else if (design) {
-    const dm = new DriveMap(m, Grid.fromMap(m), data.drivable);
+    const dm = new DriveMap(m, Grid.fromMap(m), data);
     if (!dm.fits(s, design.length)) errors.push({ file, field: 'starter', message: `the ${design.name} doesn't fit at ${s.x},${s.y} heading ${s.heading} on ${s.map}` });
   }
   return { data, errors };
