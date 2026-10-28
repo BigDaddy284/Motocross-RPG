@@ -385,8 +385,8 @@
   ],
   "venues": [
     {"id": "venue-farmland", "name": "Farmland MX", "map": "area1-venue-farmland", "track": "farmland", "class": "50cc", "field": "area1.local", "regulars": ["cpu.local_racer"], "office": "npc.track_official", "needs": "found.venue-farmland", "practiceFeePct": 25, "practiceRiders": 10, "firstRaceFree": true},
-    {"id": "venue-quarry", "name": "Riverside Arena", "map": "area1-venue-quarry", "track": "arena-supercross", "class": "50cc", "field": "area1.local", "office": "npc.track_official_quarry", "needs": "found.venue-farmland", "practiceFeePct": 25, "practiceRiders": 10, "firstRaceFree": true},
-    {"id": "venue-woodland", "name": "Longmoor Enduro", "map": "area1-venue-woodland", "track": "longmoor-endurance", "class": "50cc", "field": "area1.local", "office": "npc.track_official_woodland", "needs": "found.venue-farmland", "practiceFeePct": 25, "practiceRiders": 10, "firstRaceFree": true},
-    {"id": "backyard", "name": "Backyard loop", "map": "area1-home-town", "area": [3, 10, 6, 4], "track": "backyard", "class": "50cc", "practiceOnly": true}
+    {"id": "venue-riverside", "name": "Riverside Arena", "map": "area1-venue-riverside", "track": "arena-supercross", "class": "50cc", "field": "area1.local", "office": "npc.track_official_riverside", "needs": "found.venue-farmland", "practiceFeePct": 25, "practiceRiders": 10, "firstRaceFree": true},
+    {"id": "venue-longmoor", "name": "Longmoor Enduro", "map": "area1-venue-longmoor", "track": "longmoor-endurance", "class": "50cc", "field": "area1.local", "office": "npc.track_official_longmoor", "needs": "found.venue-farmland", "practiceFeePct": 25, "practiceRiders": 10, "firstRaceFree": true},
+    {"id": "backyard", "name": "Backyard loop", "map": "area1-home-town", "area": [1, 2, 6, 4], "track": "backyard", "class": "50cc", "practiceOnly": true}
   ]
 }

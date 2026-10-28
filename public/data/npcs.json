@@ -10,14 +10,14 @@
     {"id": "npc.local_racer", "name": "Local racer", "sprite": "npc-07-local-racer", "dialogue": "local_racer.hello", "quietUntil": "tutorial_done", "talk": [{"if": "found.venue-farmland", "dialogue": "local_racer.after"}]},
     {"id": "npc.modifier_owner", "name": "Modifier machine owner", "sprite": "npc-11-modifier-machine-owner", "map": "int-iz-modifier-unit", "tile": [5, 3], "facing": "up", "dialogue": "modifier_owner.hello", "quietUntil": "tutorial_done"},
     {"id": "npc.track_official", "name": "Track official", "sprite": "npc-10-practice-track-owner", "map": "area1-venue-farmland", "tile": [16, 13], "facing": "down", "dialogue": "track_official.hello", "quietUntil": "tutorial_done"},
-    {"id": "npc.track_official_quarry", "name": "Track official", "sprite": "npc-10-practice-track-owner", "map": "area1-venue-quarry", "tile": [16, 13], "facing": "down", "dialogue": "track_official.hello", "quietUntil": "tutorial_done"},
-    {"id": "npc.track_official_woodland", "name": "Track official", "sprite": "npc-10-practice-track-owner", "map": "area1-venue-woodland", "tile": [16, 13], "facing": "down", "dialogue": "track_official.hello", "quietUntil": "tutorial_done"},
+    {"id": "npc.track_official_riverside", "name": "Track official", "sprite": "npc-10-practice-track-owner", "map": "area1-venue-riverside", "tile": [16, 13], "facing": "down", "dialogue": "track_official.hello", "quietUntil": "tutorial_done"},
+    {"id": "npc.track_official_longmoor", "name": "Track official", "sprite": "npc-10-practice-track-owner", "map": "area1-venue-longmoor", "tile": [16, 13], "facing": "down", "dialogue": "track_official.hello", "quietUntil": "tutorial_done"},
     {"id": "npc.local_champion", "name": "Local Champion", "sprite": "npc-08-local-champion", "map": "area1-venue-farmland", "tile": [19, 13], "facing": "left", "dialogue": "local_champion.hello", "quietUntil": "tutorial_done", "talk": [{"if": "first_race_done", "dialogue": "local_champion.after"}]},
     {"id": "npc.neighbour", "name": "Neighbour", "sprite": "npc-12-neighbour-pc", "map": "int-home-neighbour", "tile": [8, 5], "facing": "down", "dialogue": "neighbour.hello", "quietUntil": "tutorial_done"},
-    {"id": "npc.marshal_home", "name": "Route marshal", "sprite": "npc-09-running-coach", "map": "area1-home-town", "tile": [3, 19], "facing": "down", "dialogue": "route_marshal.hello", "guide": true},
-    {"id": "npc.marshal_industrial", "name": "Route marshal", "sprite": "npc-09-running-coach", "map": "area1-industrial-zone", "tile": [1, 19], "facing": "up", "dialogue": "route_marshal.hello", "guide": true},
+    {"id": "npc.marshal_home", "name": "Route marshal", "sprite": "npc-09-running-coach", "map": "area1-home-town", "tile": [3, 15], "facing": "up", "dialogue": "route_marshal.hello", "guide": true},
+    {"id": "npc.marshal_industrial", "name": "Route marshal", "sprite": "npc-09-running-coach", "map": "area1-industrial-zone", "tile": [1, 16], "facing": "up", "dialogue": "route_marshal.hello", "guide": true},
     {"id": "npc.marshal_farmland", "name": "Route marshal", "sprite": "npc-09-running-coach", "map": "area1-venue-farmland", "tile": [15, 20], "facing": "left", "dialogue": "route_marshal.hello", "guide": true},
-    {"id": "npc.marshal_quarry", "name": "Route marshal", "sprite": "npc-09-running-coach", "map": "area1-venue-quarry", "tile": [15, 20], "facing": "left", "dialogue": "route_marshal.hello", "guide": true},
-    {"id": "npc.marshal_woodland", "name": "Route marshal", "sprite": "npc-09-running-coach", "map": "area1-venue-woodland", "tile": [15, 20], "facing": "left", "dialogue": "route_marshal.hello", "guide": true}
+    {"id": "npc.marshal_riverside", "name": "Route marshal", "sprite": "npc-09-running-coach", "map": "area1-venue-riverside", "tile": [15, 20], "facing": "left", "dialogue": "route_marshal.hello", "guide": true},
+    {"id": "npc.marshal_longmoor", "name": "Route marshal", "sprite": "npc-09-running-coach", "map": "area1-venue-longmoor", "tile": [15, 20], "facing": "left", "dialogue": "route_marshal.hello", "guide": true}
   ]
 }

@@ -190,7 +190,7 @@ describe('race day (Spec 12, 14)', () => {
     const c = rider();
     expect(venueProblem(content, farmland, c, {})).not.toBeNull();
     expect(venueProblem(content, farmland, c, { 'found.venue-farmland': true })).toBeNull();
-    for (const [id, track] of [['venue-quarry', 'arena-supercross'], ['venue-woodland', 'longmoor-endurance']]) {
+    for (const [id, track] of [['venue-riverside', 'arena-supercross'], ['venue-longmoor', 'longmoor-endurance']]) {
       const v = content.tracks.venues.find((x) => x.id === id)!;
       expect(venueProblem(content, v, c, { van_loaded: true })).not.toBeNull();
       expect(venueProblem(content, v, c, { 'found.venue-farmland': true })).toBeNull();
@@ -307,7 +307,7 @@ describe('the race day field: regulars plus a random draw from the pool', () => 
 
   it('races 15 CPU riders, the Local Champion every time and Kyle Brooks every time at Farmland', () => {
     for (let seed = 1; seed <= 40; seed++) {
-      for (const v of ['venue-farmland', 'venue-quarry', 'venue-woodland']) {
+      for (const v of ['venue-farmland', 'venue-riverside', 'venue-longmoor']) {
         const f = ids(v, seed);
         expect(f, `${v} ${seed}`).toHaveLength(15);
         expect(new Set(f).size).toBe(15);
@@ -319,13 +319,13 @@ describe('the race day field: regulars plus a random draw from the pool', () => 
   });
 
   it('draws the rest at random each race day, the same draw for the same day, from the whole pool', () => {
-    expect(ids('venue-quarry', 5)).toEqual(ids('venue-quarry', 5));
-    const fields = new Set([...Array(20).keys()].map((s) => ids('venue-quarry', s + 1).join()));
+    expect(ids('venue-riverside', 5)).toEqual(ids('venue-riverside', 5));
+    const fields = new Set([...Array(20).keys()].map((s) => ids('venue-riverside', s + 1).join()));
     expect(fields.size).toBeGreaterThan(15);
-    const seen = new Set([...Array(200).keys()].flatMap((s) => ids('venue-quarry', s + 1)));
+    const seen = new Set([...Array(200).keys()].flatMap((s) => ids('venue-riverside', s + 1)));
     expect([...seen].sort()).toEqual([...content.riders.fields['area1.local']].sort());
     // Kyle is in the pool away from Farmland, so some days he isn't there.
-    expect([...Array(40).keys()].some((s) => !ids('venue-quarry', s + 1).includes('cpu.local_racer'))).toBe(true);
+    expect([...Array(40).keys()].some((s) => !ids('venue-riverside', s + 1).includes('cpu.local_racer'))).toBe(true);
   });
 
   it('includes every new rider by name, with average stats', () => {

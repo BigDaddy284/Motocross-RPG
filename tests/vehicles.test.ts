@@ -78,7 +78,7 @@ describe('van sheets and footprints', () => {
 describe('driving', () => {
   it('drives both ways along the main road, in either lane', () => {
     const dm = driveMap(HOME);
-    for (const lane of [20, 21]) {
+    for (const lane of [12, 13]) {
       for (const heading of ['east', 'west'] as Heading[]) {
         let p: VanPose = { x: 30, y: lane, heading };
         for (let i = 0; i < 8; i++) {
@@ -94,8 +94,8 @@ describe('driving', () => {
 
   it('reverses, and turns round into the other lane', () => {
     const dm = driveMap(HOME);
-    const p: VanPose = { x: 20, y: 21, heading: 'east' };
-    expect(reverse(dm, p, 2)!.to).toEqual({ x: 19, y: 21, heading: 'east' });
+    const p: VanPose = { x: 20, y: 13, heading: 'east' };
+    expect(reverse(dm, p, 2)!.to).toEqual({ x: 19, y: 13, heading: 'east' });
     const u = steer(dm, p, 2, 'west')!;
     expect(u.kind).toBe('uturn');
     expect(u.to.heading).toBe('west');
@@ -105,7 +105,7 @@ describe('driving', () => {
   it('turns at the junction into the side road, for every van', () => {
     const dm = driveMap(HOME);
     for (const d of data.designs) {
-      const p: VanPose = { x: 30, y: 21, heading: 'east' };
+      const p: VanPose = { x: 37, y: 13, heading: 'east' };
       const t = turn(dm, p, d.length, 'south');
       expect(t, d.id).not.toBeNull();
       expect(t!.to.heading).toBe('south');
@@ -114,7 +114,7 @@ describe('driving', () => {
 
   it('drives anywhere on the town roads by click, for every van', () => {
     const dm = driveMap(HOME, ALL_FLAGS);
-    const goals = [{ x: 58, y: 20 }, { x: 31, y: 32 }, { x: 10, y: 35 }, { x: 43, y: 26 }];
+    const goals = [{ x: 46, y: 12 }, { x: 37, y: 20 }, { x: 4, y: 25 }, { x: 27, y: 17 }];
     for (const d of data.designs) {
       // The world moves a longer design (the dev swap) to the nearest spot it fits, as here.
       const start = placeNear(dm, data.starter, d.length, data.starter.heading)!;
@@ -130,9 +130,9 @@ describe('driving', () => {
   it('never leaves the road: grass, buildings and doors are off limits', () => {
     const dm = driveMap(HOME);
     const map = maps.get(HOME)!;
-    expect(dm.isDrivable(5, 18)).toBe(false); // the rented room's door
-    expect(dm.isDrivable(10, 23)).toBe(false); // grass verge
-    expect(dm.isDrivable(6, 16)).toBe(false); // a building
+    expect(dm.isDrivable(3, 10)).toBe(false); // the rented room's door
+    expect(dm.isDrivable(10, 15)).toBe(false); // grass verge
+    expect(dm.isDrivable(4, 8)).toBe(false); // a building
     expect(map.objects.some((o) => o.type === 'door' && dm.isDrivable(Math.floor(o.x / 64), Math.floor(o.y / 64)))).toBe(false);
   });
 });
@@ -140,22 +140,22 @@ describe('driving', () => {
 describe('NPCs and the van', () => {
   it('a van cannot drive into an NPC, but the rider still walks through them', () => {
     const dm = driveMap(HOME);
-    const p: VanPose = { x: 20, y: 21, heading: 'east' };
-    dm.setNpcTiles([{ x: 21, y: 21 }]);
+    const p: VanPose = { x: 20, y: 13, heading: 'east' };
+    dm.setNpcTiles([{ x: 21, y: 13 }]);
     expect(forward(dm, p)).toBeNull();
     expect(steer(dm, p, 2, 'east')).toBeNull();
-    expect(dm.fits({ x: 22, y: 21, heading: 'east' }, 2)).toBe(false);
+    expect(dm.fits({ x: 22, y: 13, heading: 'east' }, 2)).toBe(false);
     // Walking: NPCs are not occupants of the walking grid.
-    expect(dm.grid.canStep({ x: 20, y: 21 }, { x: 21, y: 21 })).toBe(true);
+    expect(dm.grid.canStep({ x: 20, y: 13 }, { x: 21, y: 13 })).toBe(true);
   });
 
   it('click-driving goes round an NPC standing in the lane', () => {
     const dm = driveMap(HOME);
-    dm.setNpcTiles([{ x: 25, y: 21 }]);
-    const start: VanPose = { x: 20, y: 21, heading: 'east' };
-    const plan = planDrive(dm, start, 2, { x: 30, y: 21 })!;
+    dm.setNpcTiles([{ x: 25, y: 13 }]);
+    const start: VanPose = { x: 20, y: 13, heading: 'east' };
+    const plan = planDrive(dm, start, 2, { x: 30, y: 13 })!;
     expect(plan).not.toBeNull();
-    for (const m of plan) expect(footprint(m.to, 2).some((t) => t.x === 25 && t.y === 21)).toBe(false);
+    for (const m of plan) expect(footprint(m.to, 2).some((t) => t.x === 25 && t.y === 13)).toBe(false);
   });
 
   it('every NPC on the area maps stands where the van cannot go', () => {
@@ -206,11 +206,11 @@ describe('map changes with the van', () => {
 describe('getting in and out', () => {
   it('the rider steps out on the driver\'s side when it is clear', () => {
     const grid = Grid.fromMap(maps.get(HOME)!);
-    const p: VanPose = { x: 20, y: 21, heading: 'east' };
+    const p: VanPose = { x: 20, y: 13, heading: 'east' };
     for (const t of footprint(p, 2)) grid.setOccupied(t, true);
     // Heading east, the driver (right-hand drive) is on the south side.
-    expect(exitTile(grid, p, 2)).toEqual({ x: 20, y: 22 });
-    expect(exitTile(grid, { x: 20, y: 21, heading: 'west' }, 2)).toEqual({ x: 20, y: 20 });
+    expect(exitTile(grid, p, 2)).toEqual({ x: 20, y: 14 });
+    expect(exitTile(grid, { x: 20, y: 13, heading: 'west' }, 2)).toEqual({ x: 20, y: 12 });
   });
 
   it('a parked van is solid to walkers', () => {

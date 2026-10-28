@@ -27,8 +27,8 @@ const AREA_MAPS = [
   'area-map/tiled/maps/area1-home-town.tmj',
   'area-map/tiled/maps/area1-industrial-zone.tmj',
   'area-map/tiled/maps/area1-venue-farmland.tmj',
-  'area-map/tiled/maps/area1-venue-woodland.tmj',
-  'area-map/tiled/maps/area1-venue-quarry.tmj',
+  'area-map/tiled/maps/area1-venue-longmoor.tmj',
+  'area-map/tiled/maps/area1-venue-riverside.tmj',
 ];
 const INTERIOR_DIR = 'buildings/tiled/maps/interiors';
 const BUILDINGS_DATA = 'buildings/data/area1-buildings-v3.json';

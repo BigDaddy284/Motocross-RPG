@@ -52,12 +52,12 @@ function drive(length: number, start: VanPose, moves: Move[], stepMs = 250) {
 describe('van driving', () => {
   const dm = homeMap();
   const routes: [number, VanPose, { x: number; y: number }][] = [
-    [2, { x: 20, y: 21, heading: 'east' }, { x: 31, y: 31 }],
-    [2, { x: 57, y: 21, heading: 'east' }, { x: 10, y: 20 }],
-    [3, { x: 35, y: 19, heading: 'west' }, { x: 31, y: 31 }],
-    [5, { x: 57, y: 21, heading: 'east' }, { x: 10, y: 20 }],
-    [9, { x: 28, y: 22, heading: 'west' }, { x: 31, y: 31 }],
-    [9, { x: 57, y: 21, heading: 'east' }, { x: 10, y: 20 }],
+    [2, { x: 20, y: 13, heading: 'east' }, { x: 37, y: 20 }],
+    [2, { x: 45, y: 13, heading: 'east' }, { x: 10, y: 12 }],
+    [3, { x: 35, y: 11, heading: 'west' }, { x: 37, y: 20 }],
+    [5, { x: 45, y: 13, heading: 'east' }, { x: 10, y: 12 }],
+    [9, { x: 28, y: 14, heading: 'west' }, { x: 37, y: 20 }],
+    [9, { x: 45, y: 13, heading: 'east' }, { x: 10, y: 12 }],
   ];
 
   for (const [length, start, goal] of routes) {
@@ -76,8 +76,8 @@ describe('van driving', () => {
 
   it('drives forward, then backs round a corner into a side road without a jump', () => {
     // Forward a tile, then back the Factory Hauler round into the side road.
-    const start: VanPose = { x: 24, y: 22, heading: 'west' };
-    const ahead: Move = { kind: 'forward', to: { x: 23, y: 22, heading: 'west' } };
+    const start: VanPose = { x: 30, y: 13, heading: 'west' };
+    const ahead: Move = { kind: 'forward', to: { x: 29, y: 13, heading: 'west' } };
     // The back leads south into the side road, so the van ends up facing north out of it.
     const back = backTurnOptions(dm, ahead.to, 9, 'south', 1)[0];
     expect(back?.kind).toBe('backturn');

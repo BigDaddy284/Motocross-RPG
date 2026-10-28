@@ -77,6 +77,28 @@ describe('SaveManager', () => {
     expect(data?.career.skills).toEqual({ xp: {}, bonus: {} });
   });
 
+  it('upgrades an Alpha v1.1 save to the Riverside and Longmoor ids', () => {
+    const s = sample(6);
+    const v4 = {
+      ...s,
+      position: { ...s.position, map: 'area1-venue-quarry' },
+      flags: { 'found.venue-farmland': true },
+      van: { design: 'van-1', map: 'area1-venue-woodland', x: 14, y: 18, heading: 'north' },
+      career: {
+        ...s.career,
+        counters: { 'races.venue-quarry': 2 },
+      },
+      version: 4,
+      savedAt: '2026-10-27T10:00:00.000Z',
+    };
+    const data = parseSave(JSON.stringify(v4))!;
+    expect(data.version).toBe(SAVE_VERSION);
+    expect(data.position.map).toBe('area1-venue-riverside');
+    expect(data.van?.map).toBe('area1-venue-longmoor');
+    expect(data.flags).toEqual({ 'found.venue-farmland': true });
+    expect(data.career.counters).toEqual({ 'races.venue-riverside': 2 });
+  });
+
   it('a quick update keeps the rider\'s spot without pushing out backups', () => {
     const saves = new SaveManager(new MemoryStore());
     saves.write('career-1', sample(1));

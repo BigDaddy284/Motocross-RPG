@@ -38,9 +38,9 @@ function rideRound(career: CareerState, active: ActiveChampionship, seed: number
 
 describe('championships (Spec 12.5, 18.6)', () => {
   it('loads both Area 1 championships: 3 Local Champion rounds, one a track, then 6 for the area', () => {
-    expect(local.rounds).toEqual(['venue-farmland', 'venue-quarry', 'venue-woodland']);
+    expect(local.rounds).toEqual(['venue-farmland', 'venue-riverside', 'venue-longmoor']);
     expect(main.rounds).toHaveLength(6);
-    for (const v of ['venue-farmland', 'venue-quarry', 'venue-woodland']) expect(main.rounds.filter((r) => r === v)).toHaveLength(2);
+    for (const v of ['venue-farmland', 'venue-riverside', 'venue-longmoor']) expect(main.rounds.filter((r) => r === v)).toHaveLength(2);
     expect(main.needs).toContain(local.rewards[0].flag);
     expect(checkChampionships(content.championships, content)).toEqual([]);
   });
@@ -101,7 +101,7 @@ describe('championships (Spec 12.5, 18.6)', () => {
   it('qualifies on the best timed lap, after an untimed out lap, and sets moto 1 gate picks in that order', () => {
     const career = rider();
     const active = enter(career, content, local, 11);
-    const day = new RaceDay(content, venue('venue-quarry'), playerEntrant(content, career, 'Test'), 21, 3000, roundOptions(content, local, active));
+    const day = new RaceDay(content, venue('venue-riverside'), playerEntrant(content, career, 'Test'), 21, 3000, roundOptions(content, local, active));
     expect(day.qualifyingDue).toBe(true);
     const sim = day.startQualifying('steady');
     expect(sim.totalLaps).toBe(local.qualifyingLaps + 1);
@@ -122,7 +122,7 @@ describe('championships (Spec 12.5, 18.6)', () => {
   it('lines a field of 20 up in three rows', () => {
     const career = rider();
     const active = enter(career, content, local, 3);
-    const day = new RaceDay(content, venue('venue-woodland'), playerEntrant(content, career, 'Test'), 8, 3000, roundOptions(content, local, active));
+    const day = new RaceDay(content, venue('venue-longmoor'), playerEntrant(content, career, 'Test'), 8, 3000, roundOptions(content, local, active));
     const q = day.startQualifying('steady');
     q.runToEnd();
     day.finishQualifying(q);
@@ -139,9 +139,9 @@ describe('championships (Spec 12.5, 18.6)', () => {
     const career = rider();
     const active = enter(career, content, local, 5);
     expect(roundsHere(content.championships, career, venue('venue-farmland')).map((d) => d.id)).toEqual([local.id]);
-    expect(roundsHere(content.championships, career, venue('venue-quarry'))).toEqual([]);
+    expect(roundsHere(content.championships, career, venue('venue-riverside'))).toEqual([]);
     const days = [rideRound(career, active, 100), rideRound(career, active, 200)];
-    expect(nextRoundVenue(local, active)).toBe('venue-woodland');
+    expect(nextRoundVenue(local, active)).toBe('venue-longmoor');
     const table = standings(points, active);
     expect(table).toHaveLength(20);
     for (const row of table) {
@@ -172,7 +172,7 @@ describe('championships (Spec 12.5, 18.6)', () => {
       { venue: 'venue-farmland', qualifying: [], motos: [{ a: 1, [PLAYER_ID]: null }, { a: 1, [PLAYER_ID]: null }] },
     ] };
     expect(titlePossible(local, points, active)).toBe(true);
-    active.rounds.push({ venue: 'venue-quarry', qualifying: [], motos: [{ a: 1, [PLAYER_ID]: 20 }, { a: 1, [PLAYER_ID]: 20 }] });
+    active.rounds.push({ venue: 'venue-riverside', qualifying: [], motos: [{ a: 1, [PLAYER_ID]: 20 }, { a: 1, [PLAYER_ID]: 20 }] });
     expect(titlePossible(local, points, active)).toBe(false);
   });
 

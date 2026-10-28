@@ -57,7 +57,7 @@ describe('route marshals', () => {
   });
 
   it('at each venue, offer the other places the lane goes to, never the venue itself', () => {
-    for (const id of ['area1-venue-farmland', 'area1-venue-quarry', 'area1-venue-woodland']) {
+    for (const id of ['area1-venue-farmland', 'area1-venue-riverside', 'area1-venue-longmoor']) {
       const ways = waysOut(map(id), world, maps, travel, {});
       expect(ways).toHaveLength(1);
       expect(ways[0].side).toBe('south');
@@ -84,7 +84,7 @@ describe('leaving by a route', () => {
   const road = exitOn('area1-home-town', 'To the venue route');
 
   it('goes to the place picked with the marshal, through the exit', () => {
-    for (const id of ['area1-venue-farmland', 'area1-venue-quarry', 'area1-venue-woodland']) {
+    for (const id of ['area1-venue-farmland', 'area1-venue-riverside', 'area1-venue-longmoor']) {
       const to = routeArrival(home, road, world, maps, id);
       expect(typeof to).not.toBe('string');
       if (typeof to === 'string') continue;
@@ -98,7 +98,7 @@ describe('leaving by a route', () => {
       expect(typeof to).not.toBe('string');
       if (typeof to === 'string') continue;
       expect(to.map).toBe('area1-venue-farmland');
-      expect(to.others.map((p) => p.map)).toEqual(['area1-venue-quarry', 'area1-venue-woodland', 'mod-tracks']);
+      expect(to.others.map((p) => p.map)).toEqual(['area1-venue-riverside', 'area1-venue-longmoor', 'mod-tracks']);
     }
   });
 
@@ -129,7 +129,7 @@ describe('route checks', () => {
   });
 
   it('refuse a marshal standing on an exit', () => {
-    expect(errorsWith((r) => { r.npcs.npcs.find((n: { id: string }) => n.id === 'npc.marshal_industrial').tile = [0, 17]; })).toEqual([expect.stringMatching(/npcs\[\d+\]\.tile: 0,17 is on a door or exit/)]);
+    expect(errorsWith((r) => { r.npcs.npcs.find((n: { id: string }) => n.id === 'npc.marshal_industrial').tile = [0, 13]; })).toEqual([expect.stringMatching(/npcs\[\d+\]\.tile: 0,13 is on a door or exit/)]);
   });
 });
 

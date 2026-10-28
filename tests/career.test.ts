@@ -153,13 +153,13 @@ describe('roadworks and the venue route', () => {
   it('block the west road until the opening chain clears them', () => {
     const blocked = Grid.fromMap(home);
     applyMapState(home, blocked, {});
-    expect(blocked.isFree(1, 20)).toBe(false);
+    expect(blocked.isFree(1, 12)).toBe(false);
     expect(hiddenSprites(home, {}).size).toBe(0);
 
     const flags = { roadworks_done: true };
     const open = Grid.fromMap(home);
     applyMapState(home, open, flags);
-    for (const [x, y] of [[1, 20], [2, 20], [1, 21], [2, 21]]) expect(open.isFree(x, y), `${x},${y}`).toBe(true);
+    for (const [x, y] of [[1, 12], [2, 12], [1, 13], [2, 13]]) expect(open.isFree(x, y), `${x},${y}`).toBe(true);
     const gone = [...hiddenSprites(home, flags)].map((s) => home.images[s.img]);
     expect(gone.length).toBeGreaterThan(0);
     expect(gone.every((p) => p.includes('/roadworks/'))).toBe(true);

@@ -50,10 +50,10 @@ describe('Area 1 maps', () => {
     const inside = maps.get('int-home-local-garage')!;
     const exit = inside.objects.find((o) => o.type === 'exit' && o.props.return === 'side_door')!;
     const back = travel.resolve(inside, exit);
-    expect(back?.kind === 'travel' && back.to).toEqual({ map: 'area1-home-town', tile: { x: 36, y: 19 } });
-    for (const x of [36, 37]) expect(Grid.fromMap(home).isFree(x, 18), 'door tile').toBe(true);
+    expect(back?.kind === 'travel' && back.to).toEqual({ map: 'area1-home-town', tile: { x: 28, y: 11 } });
+    for (const x of [28, 29]) expect(Grid.fromMap(home).isFree(x, 10), 'door tile').toBe(true);
     const front = travel.resolve(inside, inside.objects.find((o) => o.type === 'exit' && !o.props.return)!);
-    expect(front?.kind === 'travel' && front.to.tile).toEqual({ x: 34, y: 19 });
+    expect(front?.kind === 'travel' && front.to.tile).toEqual({ x: 26, y: 11 });
   });
 
   it('the road between Home Town and the Industrial Zone works both ways', () => {

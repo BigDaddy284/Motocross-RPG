@@ -16,7 +16,7 @@ function player() {
 
 describe('free practice with other riders out (Boss, 28 Oct 2026)', () => {
   it('puts 10 riders from the pool on track at every venue, and none on the backyard loop', () => {
-    for (const id of ['venue-farmland', 'venue-quarry', 'venue-woodland']) {
+    for (const id of ['venue-farmland', 'venue-riverside', 'venue-longmoor']) {
       const sim = practiceSim(content, venue(id), player(), 42);
       const cpus = sim.riders.filter((r) => !r.e.player);
       expect(cpus, id).toHaveLength(10);
@@ -36,7 +36,7 @@ describe('free practice with other riders out (Boss, 28 Oct 2026)', () => {
   });
 
   it('runs laps for everyone, gives XP only to you at the practice rate, and plays back on the race view', () => {
-    const sim = practiceSim(content, venue('venue-quarry'), player(), 7);
+    const sim = practiceSim(content, venue('venue-riverside'), player(), 7);
     const dir = directorFor(sim, content.bikes, content.racing.messages);
     for (let i = 0; i < 4; i++) dir.addLap(sim.nextLap());
     expect(sim.finished).toBe(false);

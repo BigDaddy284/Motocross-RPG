@@ -8,7 +8,7 @@ import { HEADINGS, type VanState } from './vehicles';
 // - a save from an older build loads through the migration steps below;
 // - a save that cannot be read is kept under a "corrupt" key and the newest good backup is offered.
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 export const BACKUP_COUNT = 5;
 
 export interface SaveData {
@@ -50,7 +50,25 @@ const MIGRATIONS: Record<number, Migration> = {
   2: (old) => ({ ...old, career: { ...(old.career as Record<string, unknown>), skills: { xp: {}, bonus: {} } } }),
   // Test build 3 had no van on the map: a bought van turns up at the starter spot on loading.
   3: (old) => ({ ...old, van: null, driving: false }),
+  // Alpha v1.1 named the Quarry and Woodland venues after their tracks, Riverside and Longmoor.
+  4: (old) => renameIds(old, RENAMED_V5) as Record<string, unknown>,
 };
+
+/** Old id to new id, wherever an id turns up in a save: positions, the van, championships, counters. */
+const RENAMED_V5: [RegExp, string][] = [
+  [/\b(area1-)?venue-quarry\b/g, '$1venue-riverside'],
+  [/\b(area1-)?venue-woodland\b/g, '$1venue-longmoor'],
+  [/\b(npc\.(?:track_official|marshal))_quarry\b/g, '$1_riverside'],
+  [/\b(npc\.(?:track_official|marshal))_woodland\b/g, '$1_longmoor'],
+];
+
+function renameIds(value: unknown, rules: [RegExp, string][]): unknown {
+  const fix = (s: string) => rules.reduce((t, [re, to]) => t.replace(re, to), s);
+  if (typeof value === 'string') return fix(value);
+  if (Array.isArray(value)) return value.map((v) => renameIds(v, rules));
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [fix(k), renameIds(v, rules)]));
+  return value;
+}
 
 export type LoadResult =
   | { status: 'ok'; data: SaveData; fromBackup?: number }

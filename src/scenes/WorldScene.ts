@@ -129,6 +129,9 @@ export class WorldScene extends Phaser.Scene {
     this.setupVan();
     let { x, y } = this.save.position;
     const { facing } = this.save.position;
+    // A save from before a map was cut down can sit past its new edge: bring it back onto the map.
+    x = Math.min(Math.max(x, 0), map.width - 1);
+    y = Math.min(Math.max(y, 0), map.height - 1);
     // Arriving on foot where the van is parked: step off to the nearest clear tile.
     if (!this.driving && !this.grid.isFree(x, y)) ({ x, y } = nearestFree(this.grid, { x, y }) ?? { x, y });
     this.player = new Character(this, this.save.rider.look, { x, y }, facing);
