@@ -178,8 +178,8 @@ export class HudScene extends Phaser.Scene {
   private layout(): void {
     const { width, height } = view(this);
     for (const b of this.uiButtons) b.destroy();
-    // One row of small buttons along the bottom right (Boss, 28 Oct 2026: the column down the
-    // right side was in the way of east exits on phones), laid out from the right edge in.
+    // Small buttons along the bottom (Boss, 28 Oct 2026: the column down the right side was in
+    // the way of east exits on phones), the right-hand ones laid out from the right edge in.
     const y = height - HUD_BAR / 2;
     const bh = HUD_BAR - 14;
     const fs = 16;
@@ -190,7 +190,9 @@ export class HudScene extends Phaser.Scene {
       return b;
     };
     const free = (f: () => void) => () => !this.modal && !this.dialogue && f();
-    this.uiButtons = [add('☰', 42, () => this.world.openPause())];
+    // The menu in the bottom-left corner, the rest at the right, leaving the middle clear for the
+    // venues' south exits (Boss, 28 Oct 2026).
+    this.uiButtons = [button(this, 8 + 21, y, '☰', () => this.world.openPause(), 42, bh, fs)];
     // The zoom control is a Zoom button with a pop-out slider, or + and − buttons (Settings > Display).
     if (services.settings.get().display.zoomControl === 'buttons') {
       this.uiButtons.push(add('+', 38, () => this.world.zoomBy(ZOOM_STEP)), add('−', 38, () => this.world.zoomBy(-ZOOM_STEP)));

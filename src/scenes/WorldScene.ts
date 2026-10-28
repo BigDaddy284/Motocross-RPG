@@ -287,12 +287,9 @@ export class WorldScene extends Phaser.Scene {
     const mh = this.map.height * TILE;
     const vw = width / zoom;
     const vh = height / zoom;
-    // Past the bottom edge, room for the HUD's button row: dark runoff the camera can show as the
-    // rider heads south, so a south exit is never under the buttons (Boss, 28 Oct 2026).
-    const run = (HUD_BAR * DPR) / zoom;
     const bx = mw < vw ? (mw - vw) / 2 : 0;
-    const by = mh + run < vh ? (mh + run - vh) / 2 : 0;
-    cam.setBounds(bx, by, Math.max(mw, vw), Math.max(mh + run, vh));
+    const by = mh < vh ? (mh - vh) / 2 : 0;
+    cam.setBounds(bx, by, Math.max(mw, vw), Math.max(mh, vh));
   }
 
   // ---- clicks and interaction ----
