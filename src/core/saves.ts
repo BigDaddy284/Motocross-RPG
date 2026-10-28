@@ -224,6 +224,7 @@ function isCareer(v: unknown): boolean {
     Array.isArray(c.bag) && c.bag.every((b) => typeof b?.id === 'string' && (b.part === undefined || isSpare(b.part))) &&
     (c.shops === undefined || isShopState(c.shops)) &&
     (c.champs === undefined || isChampState(c.champs)) &&
+    (c.errands === undefined || isErrandState(c.errands)) &&
     !!story && Number.isInteger(story.step) && Array.isArray(story.used) &&
     typeof c.counters === 'object' && c.counters !== null &&
     isSkills(c.skills)
@@ -231,7 +232,15 @@ function isCareer(v: unknown): boolean {
 }
 
 function isSpare(p: Record<string, unknown>): boolean {
-  return typeof p.slot === 'string' && typeof p.class === 'string' && Number.isInteger(p.grade) && typeof p.condition === 'number';
+  const o = p.owner as Record<string, unknown> | undefined;
+  return typeof p.slot === 'string' && typeof p.class === 'string' && Number.isInteger(p.grade) && typeof p.condition === 'number' &&
+    (o === undefined || (typeof o === 'object' && o !== null && typeof o.errand === 'string' && typeof o.name === 'string'));
+}
+
+function isErrandState(v: unknown): boolean {
+  const s = v as Record<string, unknown>;
+  return typeof s === 'object' && s !== null && (s.active === null || typeof s.active === 'string') &&
+    typeof s.done === 'object' && s.done !== null && Object.values(s.done).every(Number.isInteger);
 }
 
 function isShopState(v: unknown): boolean {

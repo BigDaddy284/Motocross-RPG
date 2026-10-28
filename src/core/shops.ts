@@ -1,4 +1,5 @@
 import { bikeStats, formatMoney, pence, type BikesData, type CareerState, type Part } from './career';
+import type { PartOwner } from './errands';
 import type { BakedMap } from './mapTypes';
 import { seededRng } from './race';
 import type { ContentError, Schema } from './validate';
@@ -58,7 +59,12 @@ export interface ShopsData {
 export interface SparePart extends Part {
   slot: string;
   class: string;
+  /** Lent by an NPC for an errand (core/errands.ts): not the rider's to fit, sell or dump. */
+  owner?: PartOwner;
 }
+
+/** The rider's own words when they try to fit, sell or dump a part that isn't theirs. */
+export const notMine = (part: SparePart) => `I don't own this part. I'm trusted to fix it and take it back to ${part.owner!.name}.`;
 
 /** Stock rotation and what has sold since the last refresh. Kept on the career, made on first use. */
 export interface ShopState {
@@ -146,7 +152,7 @@ export function demand(data: ShopsData, shop: ShopDef, career: CareerState): num
 
 /** Pence this shop pays for a spare, or null when it can't buy it. Broken parts can't be sold (Round 125). */
 export function resaleValue(data: ShopsData, shop: ShopDef, career: CareerState, part: SparePart): number | null {
-  if (!shop.sells || part.condition <= 0) return null;
+  if (!shop.sells || part.condition <= 0 || part.owner) return null;
   const r = data.resale;
   const factor = shop.sells.slots.includes(part.slot) ? 1 : r.otherShop;
   return Math.round(partPrice(data, part.slot, part.grade, part.class) * (r.base + r.perCondition * part.condition) * factor * demand(data, shop, career));
@@ -215,6 +221,7 @@ export function buyPart(data: ShopsData, bikes: BikesData, career: CareerState, 
 export function sellSpare(data: ShopsData, shop: ShopDef, career: CareerState, index: number): Result {
   const part = career.bag[index]?.part;
   if (!part) return { ok: false, message: 'Nothing to sell.' };
+  if (part.owner) return { ok: false, message: notMine(part) };
   const value = resaleValue(data, shop, career, part);
   if (value === null) return { ok: false, message: "This shop can't buy that." };
   career.bag.splice(index, 1);
@@ -224,7 +231,8 @@ export function sellSpare(data: ShopsData, shop: ShopDef, career: CareerState, i
 
 /** Sends a spare to the dump: deleted, no resale (Spec 7.2). */
 export function dumpSpare(career: CareerState, index: number): boolean {
-  if (!career.bag[index]?.part) return false;
+  const part = career.bag[index]?.part;
+  if (!part || part.owner) return false;
   career.bag.splice(index, 1);
   return true;
 }
@@ -245,6 +253,7 @@ export function repairPart(data: ShopsData, bikes: BikesData, career: CareerStat
 export function fitSpare(data: ShopsData, bikes: BikesData, shop: ShopDef, career: CareerState, index: number): Result {
   const part = career.bag[index]?.part;
   if (!part) return { ok: false, message: 'Nothing to fit.' };
+  if (part.owner) return { ok: false, message: notMine(part) };
   if (part.class !== career.bike.class) return { ok: false, message: `That part is for a ${part.class}.` };
   const fee = pence(shop.fitFee ?? 0);
   if (career.money < fee) return { ok: false, message: "You can't afford the bench fee." };

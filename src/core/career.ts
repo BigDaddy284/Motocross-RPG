@@ -3,6 +3,7 @@
 // standalone economy tool (GDD 2.2).
 
 import type { ChampionshipState } from './championship';
+import type { ErrandState } from './errands';
 import type { ShopState, SparePart } from './shops';
 import { newSkillState, type SkillState } from './skills';
 
@@ -154,6 +155,8 @@ export interface CareerState {
   shops?: ShopState;
   /** Championships entered and finished, made on entering the first one. */
   champs?: ChampionshipState;
+  /** Errands for NPCs (core/errands.ts), made on taking the first one. */
+  errands?: ErrandState;
 }
 
 export const pence = (pounds: number) => Math.round(pounds * 100);

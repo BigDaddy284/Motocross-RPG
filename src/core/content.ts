@@ -12,6 +12,8 @@ import { SHOPS_SCHEMA, checkShopContent, type ShopsData } from './shops';
 import type { SkillsData } from './skills';
 import { VEHICLES_SCHEMA, checkVehicles, type VanSheet, type VehiclesData } from './vehicles';
 import { MOD_PLACE } from './modTracks';
+import { ERRANDS_SCHEMA, checkErrands, type ErrandsData } from './errands';
+import { CHALLENGES_SCHEMA, checkChallenges, type ChallengesData } from './challenge';
 import { validate, type ContentError, type Schema } from './validate';
 
 // Game content loaded from public/data. Each file is checked against its schema, then the files
@@ -26,8 +28,8 @@ export interface NpcDef {
   map?: string;
   tile?: [number, number];
   facing?: Facing;
-  /** Line sets picked by flag before falling back to dialogue: the first whose if is set, or whose unless is not. */
-  talk?: { if?: string; unless?: string; dialogue: string }[];
+  /** Line sets picked by flag before falling back to dialogue: the first whose if is set, or whose unless is not. A rule with sets is said once: the flag is set when its lines close. */
+  talk?: { if?: string; unless?: string; dialogue: string; sets?: string }[];
   /** The NPC ignores the rider until this flag is set (GDD 4.2: only the opening chain's NPCs talk at first). */
   quietUntil?: string;
   /** A route marshal: gives directions from the map's exits and helps pick a route (core/guides.ts). */
@@ -55,6 +57,8 @@ export interface Content {
   vehicles: VehiclesData;
   buildings: BuildingsData;
   championships: ChampionshipsData;
+  errands: ErrandsData;
+  challenges: ChallengesData;
 }
 
 export interface Manifest {
@@ -94,7 +98,7 @@ export const NPCS_SCHEMA: Schema = {
           facing: { type: 'string', oneOf: FACING },
           talk: {
             type: 'array',
-            items: { type: 'object', optional: ['if', 'unless'], fields: { if: { type: 'string', pattern: ID }, unless: { type: 'string', pattern: ID }, dialogue: { type: 'string', pattern: ID } } },
+            items: { type: 'object', optional: ['if', 'unless', 'sets'], fields: { if: { type: 'string', pattern: ID }, unless: { type: 'string', pattern: ID }, dialogue: { type: 'string', pattern: ID }, sets: { type: 'string', pattern: ID } } },
           },
           quietUntil: { type: 'string', pattern: ID },
           guide: { type: 'boolean' },
@@ -279,6 +283,8 @@ export const CONTENT_FILES = {
   vehicles: 'data/vehicles.json',
   buildings: 'data/buildings.json',
   championships: 'data/championships.json',
+  errands: 'data/errands.json',
+  challenges: 'data/challenges.json',
 } as const;
 
 export type RawContent = Record<keyof typeof CONTENT_FILES, unknown>;
@@ -299,6 +305,8 @@ const SCHEMAS: Record<keyof typeof CONTENT_FILES, Schema> = {
   vehicles: VEHICLES_SCHEMA,
   buildings: BUILDINGS_SCHEMA,
   championships: CHAMPIONSHIPS_SCHEMA,
+  errands: ERRANDS_SCHEMA,
+  challenges: CHALLENGES_SCHEMA,
 };
 
 /** Checks raw file contents and returns the typed content, or every problem found. */
@@ -331,6 +339,8 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
     vehicles: raw.vehicles as VehiclesData,
     buildings: raw.buildings as BuildingsData,
     championships: raw.championships as ChampionshipsData,
+    errands: raw.errands as ErrandsData,
+    challenges: raw.challenges as ChallengesData,
   };
   const file = CONTENT_FILES.npcs;
   const seen = new Set<string>();
@@ -356,6 +366,8 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
   });
   errors.push(...checkRaceContent(content, maps));
   errors.push(...checkChampionships(content.championships, content));
+  errors.push(...checkErrands(CONTENT_FILES.errands, content.errands, content));
+  errors.push(...checkChallenges(CONTENT_FILES.challenges, content.challenges, content, new Set(maps.keys())));
   // Tile art isn't listed at run time; tests check it exists (tests/tracks.test.ts).
   errors.push(...checkTrackParts(content.trackParts, content.tracks.tracks, () => true));
   errors.push(...checkShopContent(CONTENT_FILES.shops, content.shops, content.bikes, seen, maps));

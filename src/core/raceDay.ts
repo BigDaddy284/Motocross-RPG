@@ -170,7 +170,7 @@ export class RaceDay {
   readonly track: TrackDef;
   readonly cls: string;
   readonly laps: number;
-  readonly motoCount = 2;
+  readonly motoCount: number;
   /** The order riders pick gates for the next moto. */
   pickOrder: string[];
   private readonly rng: () => number;
@@ -184,12 +184,15 @@ export class RaceDay {
     readonly entry: number,
     /** Set for a championship round. */
     readonly round?: RoundOptions,
+    /** A challenge's own shape (core/challenge.ts): its motos, laps and riders. */
+    custom?: { motos: number; laps: number; cpus: CpuRiderDef[] },
   ) {
     this.track = trackById(rc, venue.track!);
     this.cls = venue.class ?? '50cc';
-    this.laps = rc.racing.classes[this.cls].laps;
+    this.laps = custom?.laps ?? rc.racing.classes[this.cls].laps;
+    this.motoCount = custom?.motos ?? 2;
     this.rng = seededRng(seed);
-    const cpus = round?.cpus ?? drawField(rc, venue, seed);
+    const cpus = custom?.cpus ?? round?.cpus ?? drawField(rc, venue, seed);
     this.field = [player, ...cpus.map((d) => cpuEntrant(rc, d, this.cls))];
     this.pickOrder = shuffle(this.field.map((e) => e.id), this.rng);
   }

@@ -36,7 +36,7 @@ const FOOT_OUT = 1.25;
 const FOOT_BURY = 0.15;
 const TILE_PX = 32;
 const ART_DIR = 'assets/art/area-map/tiled/tiles';
-const SURFACES: Record<string, number> = { hard_pack: 0xb07a45, loam: 0x8a5a33, sand: 0xd8c07a, mud: 0x6b4a2b };
+const SURFACES: Record<string, number> = { hard_pack: 0xb07a45, loam: 0x8a5a33, sand: 0xd8c07a, mud: 0x6b4a2b, concrete: 0x9c9c96 };
 const CROWD = [0xc0607a, 0xe0c060, 0x60a0e0, 0xf0f0f0, 0x80c080, 0xe08040, 0x9070c0];
 
 let counter = 0;

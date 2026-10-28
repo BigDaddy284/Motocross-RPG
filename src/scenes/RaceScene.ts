@@ -4,6 +4,8 @@ import { formatTime, gateBonus, type LapTrace, type MotoSim, type RaceEvent, typ
 import { PLAYER_ID, RaceDay, applyRide, playerEntrant, practiceSim, sumXp, type MotoRecord, type VenueDef } from '../core/raceDay';
 import { finishChampionship, nextRoundVenue, rewardTexture, recordRound, roundOptions, standings, titlePossible, type ActiveChampionship, type ChampionshipDef } from '../core/championship';
 import { noteActivity } from '../core/shops';
+import { challengePrize, rigChallenge, type ChallengeDef } from '../core/challenge';
+import { challengeRuns, challengeWins, venueDays, venueWins } from '../core/records';
 import type { SaveData } from '../core/saves';
 import { services } from '../services';
 import { COLORS, textStyle } from '../ui/theme';
@@ -30,13 +32,15 @@ const BOARD_LAPS = [1, 2, 3, 0];
 const PEN_W = 116;
 
 export interface RaceSceneData {
-  mode: 'practice' | 'raceday';
+  mode: 'practice' | 'raceday' | 'challenge';
   venue: VenueDef;
   save: SaveData;
   /** The entry or practice fee in pence, taken when the day is over. */
   fee: number;
   /** A championship round: the championship whose next round this is (it must be active in the save). */
   champ?: ChampionshipDef;
+  /** A challenge race (core/challenge.ts): one moto against the challenger, for their stake. */
+  challenge?: ChallengeDef;
   onDone: (save: SaveData, message: string) => void;
 }
 
@@ -128,20 +132,26 @@ export class RaceScene extends Phaser.Scene {
     this.scale.on('resize', this.relayout, this);
     this.events.once('shutdown', () => this.scale.off('resize', this.relayout, this));
     if (this.args.mode === 'practice') this.startPractice();
+    else if (this.args.challenge) this.showChallengeStart(this.args.challenge);
     else {
       const career = this.save.career;
       const champ = this.champ;
       const round = champ ? roundOptions(services.content, champ.def, champ.active) : undefined;
       this.day = new RaceDay(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name), (Math.random() * 2 ** 32) >>> 0, this.args.fee, round);
-      this.day.field.forEach((e, i) => {
-        this.names.set(e.id, e.player ? 'You' : e.name);
-        const gear = GEAR_SETS[e.player ? 'player-default' : e.tag === 'Local Champion' ? 'cpu-champion' : CPU_GEAR[i % CPU_GEAR.length]];
-        this.looks.set(e.id, { brand: e.bike.brand, cls: e.bike.class, gear });
-        this.colors.set(e.id, e.player ? COLORS.accent : gearColour(gear));
-      });
+      this.setupField();
       if (this.day.qualifyingDue) this.showQualifyingStart();
       else this.showGatePick();
     }
+  }
+
+  /** Names, bikes and gear colours for the day's field. */
+  private setupField(): void {
+    this.day!.field.forEach((e, i) => {
+      this.names.set(e.id, e.player ? 'You' : e.name);
+      const gear = GEAR_SETS[e.player ? 'player-default' : e.tag === 'Local Champion' ? 'cpu-champion' : CPU_GEAR[i % CPU_GEAR.length]];
+      this.looks.set(e.id, { brand: e.bike.brand, cls: e.bike.class, gear });
+      this.colors.set(e.id, e.player ? COLORS.accent : gearColour(gear));
+    });
   }
 
   /** The championship this race day is a round of, with its state in this scene's save. */
@@ -154,6 +164,7 @@ export class RaceScene extends Phaser.Scene {
   /** "Farmland MX · 50cc race day", or the championship and round. */
   private dayTitle(): string {
     const day = this.day!;
+    if (this.args.challenge) return `${this.args.challenge.name} · ${day.laps} laps`;
     const c = this.champ;
     return `${this.args.venue.name} · ${day.cls} ${c ? `${c.def.short} round ${c.round} of ${c.def.rounds.length}` : 'race day'}`;
   }
@@ -1010,7 +1021,8 @@ export class RaceScene extends Phaser.Scene {
     if (this.qualifying) return this.showQualifyingResults();
     const day = this.day!;
     const rec = day.finishMoto(this.sim!);
-    this.showMotoResults(rec);
+    if (this.args.challenge) this.showChallengeResults(this.args.challenge, rec);
+    else this.showMotoResults(rec);
   }
 
   private resultTable(results: RiderResult[], x: number, y: number, points = true): void {
@@ -1087,6 +1099,10 @@ export class RaceScene extends Phaser.Scene {
     c['race.wins'] = (c['race.wins'] ?? 0) + myRows.filter((r) => !r.retired && r.position === 1).length;
     const me = res.overall.find((r) => r.player)!;
     if (me.position <= 3) c['race.podiums'] = (c['race.podiums'] ?? 0) + 1;
+    // Records: wins out of race days at each track (core/records.ts).
+    const vid = this.args.venue.id;
+    c[venueDays(vid)] = (c[venueDays(vid)] ?? 0) + 1;
+    if (me.position === 1) c[venueWins(vid)] = (c[venueWins(vid)] ?? 0) + 1;
     const finishedBoth = me.positions.every((p) => p !== null);
     const firstDay = !this.save.flags.first_race_done;
     this.save.flags.first_race_done = true;
@@ -1183,6 +1199,67 @@ export class RaceScene extends Phaser.Scene {
       .sort((x, y) => y.b - y.a - (x.b - x.a))
       .slice(0, 7)
       .map((x) => `${x.s.name}: ${Math.round(x.b * 100)}% → ${x.a <= 0 ? 'Broken' : `${Math.round(x.a * 100)}%`}`);
+  }
+
+  // ---- challenges (Boss, 28 Oct 2026) ----
+
+  /** The start screen: the stake, the field and the starting message. The gate is drawn. */
+  private showChallengeStart(def: ChallengeDef): void {
+    this.clear();
+    const solo = !def.others;
+    const challenger = services.content.riders.riders.find((r) => r.id === def.challenger);
+    this.header(`${def.name} · ${def.laps} laps`, solo ? `One on one against ${challenger?.name ?? 'the challenger'}` : `${def.others + 2} riders · one moto`);
+    this.text(W / 2, 108, `Entry ${formatMoney(this.args.fee)}. Win and you get it back plus ${formatMoney(this.args.fee)} more. Anything but first wins nothing.`, 22).setOrigin(0.5, 0);
+    this.text(W / 2, 146, 'Gates are drawn for a challenge. Parts wear as in a race, and there are no repairs at the track.', 18, COLORS.muted).setOrigin(0.5, 0);
+    this.box(100, 286, 1080, 356);
+    const message = this.messagePicker(300);
+    const { racing } = services.content;
+    this.text(130, 462, `The pit board comes out each lap, with ${racing.ink} message changes. Auto-complete holds your message all race. You retire at ${racing.sim.retireAtBroken} broken parts.`, 19, COLORS.cream, { wordWrap: { width: 1020 }, lineSpacing: 2 });
+    this.btn(W / 2 - 300, 600, 'Race', () => this.goChallenge(def, message(), false), 260, 52);
+    this.btn(W / 2, 600, 'Auto-complete', () => this.goChallenge(def, message(), true), 260, 52);
+    this.btn(W / 2 + 300, 600, 'Bike check', () => this.showBike(), 260, 52);
+  }
+
+  private goChallenge(def: ChallengeDef, message: string, auto: boolean): void {
+    const rig = rigChallenge(services.content, def, playerEntrant(services.content, this.save.career, this.save.rider.name), message);
+    this.day = rig.day;
+    this.setupField();
+    this.sim = this.day.startMoto(message);
+    this.auto = auto;
+    this.explained = true;
+    this.startLive();
+  }
+
+  private showChallengeResults(def: ChallengeDef, rec: MotoRecord): void {
+    this.clear();
+    this.header('Challenge result', this.dayTitle());
+    this.resultTable(rec.results, 40, 110, false);
+    const me = rec.results.find((r) => r.player)!;
+    const career = this.save.career;
+    const prize = challengePrize(def, me.position, me.retired);
+    const money = prize - this.args.fee;
+    const payout = applyRide(services.content, career, this.day!.player.bike, money, rec.xp);
+    const c = career.counters;
+    c[challengeRuns(def.id)] = (c[challengeRuns(def.id)] ?? 0) + 1;
+    if (prize) c[challengeWins(def.id)] = (c[challengeWins(def.id)] ?? 0) + 1;
+    noteActivity(services.content.shops, career, 'activity');
+    this.box(740, 110, 500, 530);
+    this.text(764, 126, me.retired ? `DNF: ${me.reason ?? 'retired'}` : prize ? `You won!` : `Finished ${ordinal(me.position)}`, 26, COLORS.accent);
+    const lines = [
+      `Entry: −${formatMoney(this.args.fee)}`,
+      `Winnings: ${formatMoney(prize)}`,
+      `Net: ${money >= 0 ? '+' : ''}${formatMoney(money)}`,
+      `Money now: ${formatMoney(career.money)}`,
+      '',
+      'Rider XP',
+      ...this.xpLines(payout.xp),
+      ...payout.levelUps.map((u) => `Level up! ${u.name} → level ${u.level}`),
+      '',
+      'Bike wear',
+      ...this.wearLines(this.args.save.career.bike.parts, career.bike.parts).slice(0, 5),
+    ];
+    this.text(764, 172, lines.join('\n'), 17, COLORS.cream, { lineSpacing: 4, wordWrap: { width: 450 } });
+    this.btn(990, 670, 'Back', () => this.done(prize ? `${def.name}: you won ${formatMoney(prize)}!` : `${def.name}: ${me.retired ? 'DNF' : ordinal(me.position)}, no winnings this time.`), 260, 50);
   }
 
   // ---- practice ----

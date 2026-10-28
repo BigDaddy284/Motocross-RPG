@@ -90,10 +90,15 @@ describe('the opening chain', () => {
     for (const step of story.steps.slice(vanStep)) play(state, flags, step);
     expect(state.money).toBe(0);
     expect(flags.van_owned && flags.van_loaded).toBe(true);
+    // After the chain: the mechanic's advice, the fabrication boss's tip, then the racing goals.
     expect(journal(story, state, flags)).toBe(story.after![0].text);
-    expect(journal(story, state, { ...flags, first_race_done: true })).toBe(story.after![1].text);
-    expect(journal(story, state, { ...flags, first_race_done: true, first_race_finished: true })).toBe(story.after![2].text);
-    expect(journal(story, state, { ...flags, first_race_done: true, first_race_finished: true, 'badge.area1': true })).toBe(story.after![3].text);
+    const told = { ...flags, 'told.bike_care': true };
+    expect(journal(story, state, told)).toBe(story.after![1].text);
+    Object.assign(flags, told, { 'told.iz_challenge': true });
+    expect(journal(story, state, flags)).toBe(story.after![2].text);
+    expect(journal(story, state, { ...flags, first_race_done: true })).toBe(story.after![3].text);
+    expect(journal(story, state, { ...flags, first_race_done: true, first_race_finished: true })).toBe(story.after![4].text);
+    expect(journal(story, state, { ...flags, first_race_done: true, first_race_finished: true, 'badge.area1': true })).toBe(story.after![5].text);
     expect(journal(story, state, { ...flags, first_race_done: true, first_race_finished: true, 'badge.area1': true, 'trophy.area1.main': true })).toBe(story.done);
   });
 

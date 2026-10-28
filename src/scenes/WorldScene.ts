@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { advanceStory, fillText, formatMoney, jobPay, matchStory, pence, type JobDef, type StoryEvent, type StoryStep } from '../core/career';
+import { advanceStory, bikeProblem, fillText, formatMoney, jobPay, matchStory, pence, type JobDef, type StoryEvent, type StoryStep } from '../core/career';
 import { npcsOnMap, type DialogueLine, type NpcDef, type NpcPlacement } from '../core/content';
 import { Grid, STEPS } from '../core/grid';
 import { objectTiles, type BakedMap, type Facing, type MapObject, type Tile } from '../core/mapTypes';
@@ -14,6 +14,9 @@ import { MOD_PLACE, forgetImport, keepImport, loadModTracks, modVenue, readModTr
 import { entryFee, fieldCount, practiceFee, venueProblem, type VenueDef } from '../core/raceDay';
 import { champProblem, enter, nextRoundVenue, roundEntry, roundsHere, standings, titlePossible, withdraw, type ChampionshipDef } from '../core/championship';
 import { noteActivity, shopForAction, type ShopDef } from '../core/shops';
+import { errandStage, finishErrand, takeErrand, type ErrandDef } from '../core/errands';
+import { challengeReady, challengeVenue, type ChallengeDef } from '../core/challenge';
+import { challengeWins } from '../core/records';
 import { CAREER_SLOT, services } from '../services';
 import { Character, TILE } from '../world/Character';
 import { MapView, OVERHEAD_DEPTH, isMapCached, loadMapImages } from '../world/MapView';
@@ -422,10 +425,77 @@ export class WorldScene extends Phaser.Scene {
       this.openVenue(office, () => this.faceBack(placement, character));
       return;
     }
-    if (npc.guide && !this.talkRule(npc)) return this.guideTalk(npc, () => this.faceBack(placement, character));
+    const back = () => this.faceBack(placement, character);
+    const rule = this.talkRule(npc);
+    if (npc.guide && !rule) return this.guideTalk(npc, back);
+    const { challenges, errands } = services.content;
+    const challenge = challenges.challenges.find((d) => d.npc === npc.id && (!d.needs || this.save.flags[d.needs]));
+    if (challenge && !rule) return this.challengeTalk(npc, challenge, back);
+    const errand = errands.errands.find((d) => d.npc === npc.id && (!d.needs || this.save.flags[d.needs]));
+    if (errand && !rule) return this.errandTalk(npc, errand, back);
     const shop = services.content.shops.shops.find((s) => s.npc === npc.id);
-    if (shop && !this.talkRule(npc) && this.openShop(shop, 'buy', () => this.faceBack(placement, character))) return;
-    this.say(npc.name, this.dialogueFor(npc), () => this.faceBack(placement, character));
+    if (shop && !rule && this.openShop(shop, 'buy', back)) return;
+    this.say(npc.name, rule?.dialogue ?? npc.dialogue, () => {
+      // A one-off talk (the mechanic's advice after the opening chain): said once, then the NPC's usual lines.
+      if (rule?.sets && !this.save.flags[rule.sets]) {
+        this.save.flags[rule.sets] = true;
+        this.hud.showCareer(this.save.career, this.save.flags);
+        this.milestoneSave();
+      }
+      back();
+    });
+  }
+
+  /**
+   * A challenger by a practice track (core/challenge.ts): the track isn't built yet, or they offer
+   * a race for their stake. Win or lose, they race again straight away.
+   */
+  private challengeTalk(npc: NpcDef, def: ChallengeDef, back: () => void): void {
+    const career = this.save.career;
+    if (!challengeReady(services.content, def)) return this.say(npc.name, def.building, back);
+    const fee = pence(def.entry);
+    this.say(npc.name, def.offer, () => {
+      this.hud.confirm(`Race ${npc.name} for ${formatMoney(fee)}?\nWin and you get ${formatMoney(fee * 2)} back.`, 'Race', () => {
+        if (career.money < fee) return this.say(npc.name, def.short, back);
+        const problem = bikeProblem(services.content.bikes, career.bike);
+        if (problem) {
+          this.hud.toast(problem);
+          return back();
+        }
+        const wins = career.counters[challengeWins(def.id)] ?? 0;
+        this.ride('challenge', challengeVenue(def), fee, () => {
+          const won = (this.save.career.counters[challengeWins(def.id)] ?? 0) > wins;
+          this.say(npc.name, won ? def.won : def.lost, back);
+        }, undefined, def);
+      }, back);
+    });
+  }
+
+  /** An errand (core/errands.ts): offered, under way, or the repaired part handed back. */
+  private errandTalk(npc: NpcDef, def: ErrandDef, back: () => void): void {
+    const { shops, bikes } = services.content;
+    const career = this.save.career;
+    const saved = (message: string) => {
+      this.hud.toast(message);
+      this.hud.showCareer(career, this.save.flags);
+      this.milestoneSave();
+      back();
+    };
+    const stage = errandStage(career, def);
+    if (stage === 'waiting') return this.say(npc.name, def.waiting, back);
+    if (stage === 'ready') {
+      return this.say(npc.name, def.thanks, () => saved(finishErrand(career, def).message));
+    }
+    this.say(npc.name, def.offer, () => {
+      this.hud.confirm(`Take ${def.owner}'s part to the garage for repair?\nYou pay for the repair and get it back on return, plus ${formatMoney(pence(def.reward))}.`, 'Take it', () => {
+        const r = takeErrand(shops, bikes, career, def);
+        if (!r.ok) {
+          this.hud.toast(r.message);
+          return back();
+        }
+        saved(r.message);
+      }, back);
+    });
   }
 
   /**
@@ -450,12 +520,8 @@ export class WorldScene extends Phaser.Scene {
     character.face(placement.facing);
   }
 
-  /** The NPC's line set for the current flags (npcs.json talk), or their default dialogue. */
-  private dialogueFor(npc: NpcDef): string {
-    return this.talkRule(npc)?.dialogue ?? npc.dialogue;
-  }
-
-  private talkRule(npc: NpcDef): { dialogue: string } | undefined {
+  /** The NPC's line set for the current flags (npcs.json talk), if any; otherwise their default dialogue is said. */
+  private talkRule(npc: NpcDef): NonNullable<NpcDef['talk']>[number] | undefined {
     const f = this.save.flags;
     return npc.talk?.find((t) => (t.if === undefined || f[t.if]) && (t.unless === undefined || !f[t.unless]));
   }
@@ -822,7 +888,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /** Hands over to the race screen; the world sleeps until it is done. */
-  private ride(mode: 'practice' | 'raceday', venue: VenueDef, fee: number, onClose: () => void, champ?: ChampionshipDef): void {
+  private ride(mode: RaceSceneData['mode'], venue: VenueDef, fee: number, onClose: () => void, champ?: ChampionshipDef, challenge?: ChallengeDef): void {
     this.busy = true;
     this.path = [];
     this.player.stopWalking();
@@ -831,6 +897,7 @@ export class WorldScene extends Phaser.Scene {
       venue,
       fee,
       champ,
+      challenge,
       save: this.snapshot(),
       onDone: (save, message) => {
         this.scene.wake('hud');

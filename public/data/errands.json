@@ -1,0 +1,36 @@
+{
+  "note": "Errands (Boss, 28 Oct 2026): an NPC lends a worn part (never broken, Grade 2 or better) to repair at the garage and bring back. The rider pays the repair and gets it back on return, plus reward pounds (to be balanced later). The part is tagged as theirs: it can't be fitted, sold or dumped. One at a time, repeatable.",
+  "errands": [
+    {
+      "id": "scrapyard.repair",
+      "npc": "npc.scrapyard_owner",
+      "owner": "the scrapyard owner",
+      "reward": 5,
+      "class": "50cc",
+      "slots": [
+        "frame",
+        "top_end",
+        "bottom_end",
+        "intake_exhaust",
+        "drivetrain",
+        "forks",
+        "shock",
+        "wheels_tyres",
+        "brakes",
+        "bodywork"
+      ],
+      "grades": [
+        2,
+        3
+      ],
+      "condition": [
+        0.3,
+        0.7
+      ],
+      "needs": "tutorial_done",
+      "offer": "scrapyard_owner.offer",
+      "waiting": "scrapyard_owner.waiting",
+      "thanks": "scrapyard_owner.thanks"
+    }
+  ]
+}

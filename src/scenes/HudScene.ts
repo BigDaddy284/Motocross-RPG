@@ -6,6 +6,7 @@ import {
   buyPart,
   dumpSpare,
   fitSpare,
+  notMine,
   repairPart,
   repairQuote,
   resaleValue,
@@ -20,6 +21,8 @@ import {
   type StockItem,
 } from '../core/shops';
 import type { DialogueLine } from '../core/content';
+import { repairLent } from '../core/errands';
+import { careerRecords, recordText } from '../core/records';
 import { services } from '../services';
 import { COLORS, hex, textStyle } from '../ui/theme';
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
@@ -31,7 +34,7 @@ import { cssSize, view } from '../ui/view';
 // bike / bag / task panel, confirm boxes, the work progress bar, the pause menu and
 // touch buttons. Runs alongside the world scene at a fixed zoom.
 
-type PanelTab = 'bike' | 'bag' | 'task' | 'skills';
+type PanelTab = 'bike' | 'bag' | 'task' | 'skills' | 'records';
 export type ShopTab = 'buy' | 'sell' | 'repair' | 'fit';
 
 /** The smallest page panels are laid out on (see page()). */
@@ -433,8 +436,8 @@ export class HudScene extends Phaser.Scene {
     this.backdrop(c, w, h, true);
     const left = -w / 2 + 28;
     const top = -h / 2 + 24;
-    const tabNames: Record<PanelTab, string> = { bike: 'Bike', bag: 'Bag', task: 'Task', skills: 'Skills' };
-    (['bike', 'bag', 'task', 'skills'] as PanelTab[]).forEach((t, i) => {
+    const tabNames: Record<PanelTab, string> = { bike: 'Bike', bag: 'Bag', task: 'Task', skills: 'Skills', records: 'Records' };
+    (['bike', 'bag', 'task', 'skills', 'records'] as PanelTab[]).forEach((t, i) => {
       const b = button(this, left + 60 + i * 130, top + 22, tabNames[t], () => this.openPanel(t), 120, 40);
       b.setSelected(t === tab);
       c.add(b);
@@ -494,8 +497,17 @@ export class HudScene extends Phaser.Scene {
         if (b.part) {
           const p = b.part;
           const name = bikes.slots.find((s) => s.id === p.slot)?.name ?? p.slot;
+          const cond = p.condition <= 0 ? 'Broken' : `${Math.round(p.condition * 100)}%`;
+          if (p.owner) {
+            // Lent for an errand (core/errands.ts): not the rider's to fit, sell or dump.
+            body(left, y, `G${p.grade} ${name} (${p.owner.name}'s)`, 17);
+            body(left, y + 24, `${cond} · ${p.owner.repaired ? `Repaired: take it back to ${p.owner.name}.` : `Get it repaired at the garage, then take it back to ${p.owner.name}.`}`, 14, COLORS.muted, w - 220);
+            c.add(button(this, w / 2 - 90, y + 20, 'Dump', () => this.toast(notMine(p)), 110, 36));
+            y += 52;
+            continue;
+          }
           body(left, y, `G${p.grade} ${name} (spare)`, 17);
-          body(left, y + 24, `${p.condition <= 0 ? 'Broken' : `${Math.round(p.condition * 100)}%`} · ${p.class}. Fit it at the garage bench, or sell it at a parts shop.`, 14, COLORS.muted, w - 220);
+          body(left, y + 24, `${cond} · ${p.class}. Fit it at the garage bench, or sell it at a parts shop.`, 14, COLORS.muted, w - 220);
           c.add(button(this, w / 2 - 90, y + 20, 'Dump', () => {
             this.confirm(`Send your G${p.grade} ${name.toLowerCase()} to the dump?\nIt's gone for good, with nothing back.`, 'Dump it', () => {
               dumpSpare(career, i);
@@ -537,6 +549,21 @@ export class HudScene extends Phaser.Scene {
       won.forEach((r, i) => {
         if (this.textures.exists(rewardTexture(r.image!))) c.add(this.add.image(left + 48 + i * 108, y + 56, rewardTexture(r.image!)).setDisplaySize(96, 96));
       });
+    } else if (tab === 'records') {
+      // Wins out of attempts at everything that can be raced again (core/records.ts).
+      body(left, y0, 'Records', 22, COLORS.accent);
+      const groups = careerRecords(services.content, career);
+      if (!groups.length) body(left, y0 + 40, 'Nothing yet. Race days, championships and challenges are counted here, wins out of attempts.', 16, COLORS.muted);
+      let y = y0 + 40;
+      for (const g of groups) {
+        body(left, y, g.title, 18, COLORS.cream);
+        y += 28;
+        for (const r of g.lines) {
+          line(left + 16, y, recordText(r), 16, COLORS.muted, w - 72);
+          y += 26;
+        }
+        y += 10;
+      }
     } else {
       // Skills: each lead skill with its child skills, level and progress to the next level (GDD 6.1).
       const { skills } = services.content;
@@ -689,6 +716,10 @@ export class HudScene extends Phaser.Scene {
         const special = shop.sells!.slots.includes(p.slot);
         line(left, y + 6, `G${p.grade} ${bikes.slots.find((s) => s.id === p.slot)?.name ?? p.slot}`, 16, COLORS.cream, 260);
         line(left + 270, y + 6, `${Math.round(p.condition * 100)}%${special ? '' : ' · not their line, half price'}`, 14, COLORS.muted, w / 2 - 200 - (left + 270));
+        if (p.owner) {
+          c.add(button(this, w / 2 - 110, y + 16, 'Not yours', () => this.toast(notMine(p)), 170, 38));
+          return;
+        }
         const b = button(this, w / 2 - 110, y + 16, value === null ? "Won't buy" : `Sell ${formatMoney(value)}`, () => {
           const sell = () => done(sellSpare(shops, shop, career, i), 'sell', pg);
           // Small sales are one click; bigger ones ask first (GDD 8.3).
@@ -722,6 +753,27 @@ export class HudScene extends Phaser.Scene {
         c.add(b);
         line(left + 520, y + 4, `→ G${q.grade} at 100%`, 14, COLORS.muted, w / 2 - 20 - (left + 520));
       });
+      // Parts lent for an errand are repaired from the bag, the same way (core/errands.ts).
+      spareRows.filter((r) => r.part!.owner).forEach(({ part, i }, k) => {
+        const p = part!;
+        const y = y0 - 12 + (bikes.slots.length + 0.5 + k) * 34;
+        const name = slotName(bikes, p.slot);
+        line(left, y + 4, `${p.owner!.name[0].toUpperCase()}${p.owner!.name.slice(1)}'s ${name.toLowerCase()}`, 15, COLORS.cream, 320);
+        if (p.owner!.repaired) return void line(left + 330, y + 4, `Repaired: take it back.`, 14, COLORS.muted, w / 2 - 20 - (left + 330));
+        const q = repairQuote(shops, p.slot, p, p.class);
+        if (!q.ok) return void line(left + 330, y + 4, q.reason, 14, COLORS.muted, w / 2 - 20 - (left + 330));
+        const b = button(this, left + 420, y + 12, `Repair ${formatMoney(q.cost)}`, () => inner(() => {
+          this.confirm(
+            `Repair ${p.owner!.name}'s G${p.grade} ${name.toLowerCase()} (${Math.round(p.condition * 100)}%)?\nIt goes back as G${q.grade} at 100%, for ${formatMoney(q.cost)}. You get the cost back when you return it.`,
+            'Repair',
+            () => done(repairLent(shops, bikes, career, i)),
+            () => reopen(),
+          );
+        }), 170, 32);
+        b.setEnabled(career.money >= q.cost);
+        c.add(b);
+        line(left + 520, y + 4, `→ G${q.grade} at 100%`, 14, COLORS.muted, w / 2 - 20 - (left + 520));
+      });
     } else {
       const fee = pence(shop.fitFee ?? 0);
       if (!spareRows.length) text(left, y0, 'You have no spare parts to fit. Buy one as a spare at a parts shop.', 16, COLORS.muted);
@@ -732,7 +784,7 @@ export class HudScene extends Phaser.Scene {
         line(left, y + 6, `G${p.grade} ${bikes.slots.find((s) => s.id === p.slot)?.name ?? p.slot} · ${Math.round(p.condition * 100)}%`, 16, COLORS.cream, 300);
         line(left + 310, y + 6, `Replaces your ${yours(p.slot)}`, 14, COLORS.muted, w / 2 - 200 - (left + 310));
         const b = button(this, w / 2 - 110, y + 16, fee ? `Fit ${formatMoney(fee)}` : 'Fit', () => done(fitSpare(shops, bikes, shop, career, i), 'fit', pg), 170, 38);
-        b.setEnabled(career.money >= fee && p.class === cls);
+        b.setEnabled(!!p.owner || (career.money >= fee && p.class === cls));
         c.add(b);
       });
     }

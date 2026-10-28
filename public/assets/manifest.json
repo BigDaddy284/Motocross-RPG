@@ -181,6 +181,26 @@
     "walk": "art/characters/npcs/npc-12-neighbour-pc.png",
     "act": "art/characters/npcs/npc-12-neighbour-pc.act.png"
    },
+   "npc-13-scrapyard-owner": {
+    "name": "Scrapyard owner",
+    "walk": "art/characters/npcs/npc-13-scrapyard-owner.png",
+    "act": "art/characters/npcs/npc-13-scrapyard-owner.act.png"
+   },
+   "npc-14-home-challenger": {
+    "name": "Home Town challenger",
+    "walk": "art/characters/npcs/npc-14-home-challenger.png",
+    "act": "art/characters/npcs/npc-14-home-challenger.act.png"
+   },
+   "npc-15-iz-challenger": {
+    "name": "Industrial Zone challenger",
+    "walk": "art/characters/npcs/npc-15-iz-challenger.png",
+    "act": "art/characters/npcs/npc-15-iz-challenger.act.png"
+   },
+   "npc-16-pro-racer": {
+    "name": "Pro racer",
+    "walk": "art/characters/npcs/npc-16-pro-racer.png",
+    "act": "art/characters/npcs/npc-16-pro-racer.act.png"
+   },
    "player-m-start-a": {
     "name": "player-m-start-a",
     "walk": "art/characters/player/player-m-start-a.png",
