@@ -250,6 +250,10 @@ Checked against the first-build checklist in the Systems Specification, section 
 - Versioned saves with 5 rotating backups. A damaged save is kept and the newest good backup is offered.
 - Autosave every 5 minutes, plus Save now in the pause menu.
 
+### Tyres are only ever replaced (Boss, 28 Oct 2026)
+
+Wheels and tyres can't be repaired or sold to any shop (`consumables` in `shops.json`). Ride them until they hit 0% and break, then buy a new set. Tyres you take off are still put in your bag if they aren't worn out, so you can fit them again or dump them. The scrapyard owner's repair errand no longer lends tyres.
+
 ## Before release
 
 Testing aids to take out before the final release:

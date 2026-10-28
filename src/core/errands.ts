@@ -144,7 +144,7 @@ export const ERRANDS_SCHEMA: Schema = {
 };
 
 /** Checks errands.json against the NPCs, bike slots, classes and dialogue. */
-export function checkErrands(file: string, data: ErrandsData, c: { npcs: { id: string }[]; bikes: BikesData; dialogue: Record<string, unknown> }): ContentError[] {
+export function checkErrands(file: string, data: ErrandsData, c: { npcs: { id: string }[]; bikes: BikesData; dialogue: Record<string, unknown>; consumables?: string[] }): ContentError[] {
   const errors: ContentError[] = [];
   const err = (field: string, message: string) => errors.push({ file, field, message });
   const slots = new Set(c.bikes.slots.map((s) => s.id));
@@ -156,6 +156,7 @@ export function checkErrands(file: string, data: ErrandsData, c: { npcs: { id: s
     if (!c.npcs.some((n) => n.id === e.npc)) err(at('npc'), `no NPC "${e.npc}"`);
     if (!c.bikes.classes.some((k) => k.id === e.class)) err(at('class'), `no class "${e.class}"`);
     e.slots.forEach((s, j) => !slots.has(s) && err(at(`slots[${j}]`), `no slot "${s}"`));
+    e.slots.forEach((s, j) => c.consumables?.includes(s) && err(at(`slots[${j}]`), `"${s}" can't be repaired (shops.json consumables)`));
     if (e.grades[0] > e.grades[1]) err(at('grades'), 'the lowest grade is above the highest');
     if (e.condition[0] > e.condition[1]) err(at('condition'), 'the lowest condition is above the highest');
     for (const k of ['offer', 'waiting', 'thanks'] as const) if (!c.dialogue[e[k]]) err(at(k), `no dialogue "${e[k]}"`);

@@ -126,11 +126,24 @@ describe('buying, fitting and selling', () => {
     expect(c.money).toBe(1000);
   });
 
+  it("never buys or repairs tyres: they're used until they break (Boss, 28 Oct 2026)", () => {
+    const c = career();
+    const tyres = { slot: 'wheels_tyres', class: '50cc', grade: 2, condition: 0.9 };
+    for (const s of [tyreShop, bikeShop]) expect(resaleValue(shops, s, c, tyres)).toBeNull();
+    c.bag.push({ id: SPARE, part: tyres });
+    expect(sellSpare(shops, tyreShop, c, 0)).toEqual({ ok: false, message: 'Nobody buys used tyres.' });
+    expect(c.bag).toHaveLength(1);
+    expect(repairQuote(shops, 'wheels_tyres', { grade: 3, condition: 0.5 }, '50cc').ok).toBe(false);
+    c.bike.parts.wheels_tyres = { grade: 3, condition: 0.5 };
+    expect(repairPart(shops, bikes, c, 'wheels_tyres').ok).toBe(false);
+    expect(c.bike.parts.wheels_tyres).toEqual({ grade: 3, condition: 0.5 });
+  });
+
   it('pays full resale at a specialist and half elsewhere, and never for broken parts (Spec 14.5)', () => {
     const c = career();
-    const part = { slot: 'wheels_tyres', class: '50cc', grade: 2, condition: 0.5 };
+    const part = { slot: 'brakes', class: '50cc', grade: 2, condition: 0.5 };
     const tyreValue = resaleValue(shops, tyreShop, c, part)!;
-    const base = 5000 * (0.2 + 0.4 * 0.5);
+    const base = partPrice(shops, 'brakes', 2, '50cc') * (0.2 + 0.4 * 0.5);
     expect(tyreValue).toBeGreaterThanOrEqual(Math.round(base * 0.9));
     expect(tyreValue).toBeLessThanOrEqual(Math.round(base * 1.1));
     const bikeShopValue = resaleValue(shops, bikeShop, c, part)!;

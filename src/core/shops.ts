@@ -46,6 +46,8 @@ export interface ShopsData {
   gradeFactor: number;
   /** A repair costs this share of a new part at the grade it drops to (Round 125, 1C). */
   repairShare: number;
+  /** Slots that wear out and are only ever replaced: no repairs and no resale (Boss, 28 Oct 2026: tyres). */
+  consumables?: string[];
   /** Spec 14.5: price × (base + perCondition × condition) × shop factor × demand. */
   resale: { base: number; perCondition: number; otherShop: number; demand: [number, number] };
   /** Spec 14.6: stock refreshes after this many race days, or this many other activities (shift batches, practice sessions). */
@@ -152,7 +154,7 @@ export function demand(data: ShopsData, shop: ShopDef, career: CareerState): num
 
 /** Pence this shop pays for a spare, or null when it can't buy it. Broken parts can't be sold (Round 125). */
 export function resaleValue(data: ShopsData, shop: ShopDef, career: CareerState, part: SparePart): number | null {
-  if (!shop.sells || part.condition <= 0 || part.owner) return null;
+  if (!shop.sells || part.condition <= 0 || part.owner || data.consumables?.includes(part.slot)) return null;
   const r = data.resale;
   const factor = shop.sells.slots.includes(part.slot) ? 1 : r.otherShop;
   return Math.round(partPrice(data, part.slot, part.grade, part.class) * (r.base + r.perCondition * part.condition) * factor * demand(data, shop, career));
@@ -162,6 +164,7 @@ export type RepairQuote = { ok: true; grade: number; cost: number } | { ok: fals
 
 /** Spec 7.4: one grade lower at 100% for 70% of a new part at that grade. Grade 1 and broken parts can't be repaired. */
 export function repairQuote(data: ShopsData, slot: string, part: Part, cls: string): RepairQuote {
+  if (data.consumables?.includes(slot)) return { ok: false, reason: "Tyres can't be repaired. Ride them until they wear out, then fit a new set." };
   if (part.condition <= 0) return { ok: false, reason: 'Broken: it can only be replaced.' };
   if (part.grade <= 1) return { ok: false, reason: "Grade 1 can't be repaired. Replace it when it wears out." };
   if (part.condition >= 1) return { ok: false, reason: 'Like new: nothing to repair.' };
@@ -222,6 +225,7 @@ export function sellSpare(data: ShopsData, shop: ShopDef, career: CareerState, i
   const part = career.bag[index]?.part;
   if (!part) return { ok: false, message: 'Nothing to sell.' };
   if (part.owner) return { ok: false, message: notMine(part) };
+  if (data.consumables?.includes(part.slot)) return { ok: false, message: 'Nobody buys used tyres.' };
   const value = resaleValue(data, shop, career, part);
   if (value === null) return { ok: false, message: "This shop can't buy that." };
   career.bag.splice(index, 1);
@@ -286,13 +290,14 @@ const GRADE = { type: 'number', integer: true, min: 1, max: 10 } as const;
 
 export const SHOPS_SCHEMA: Schema = {
   type: 'object',
-  optional: ['note'],
+  optional: ['note', 'consumables'],
   fields: {
     note: { type: 'string' },
     slotBase: { type: 'record', values: N0 },
     classPriceFactor: { type: 'record', values: N0 },
     gradeFactor: { type: 'number', min: 1 },
     repairShare: { type: 'number', min: 0, max: 1 },
+    consumables: { type: 'array', items: { type: 'string', nonEmpty: true } },
     resale: {
       type: 'object',
       fields: { base: N0, perCondition: N0, otherShop: { type: 'number', min: 0, max: 1 }, demand: { type: 'array', items: N0, minItems: 2, maxItems: 2 } },

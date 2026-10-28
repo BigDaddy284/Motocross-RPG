@@ -370,7 +370,7 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
   });
   errors.push(...checkRaceContent(content, maps));
   errors.push(...checkChampionships(content.championships, content));
-  errors.push(...checkErrands(CONTENT_FILES.errands, content.errands, content));
+  errors.push(...checkErrands(CONTENT_FILES.errands, content.errands, { ...content, consumables: content.shops.consumables }));
   errors.push(...checkChallenges(CONTENT_FILES.challenges, content.challenges, content, new Set(maps.keys())));
   if (content.world.worldMap) errors.push(...checkWorldMap(CONTENT_FILES.world, content.world.worldMap, maps));
   // Tile art isn't listed at run time; tests check it exists (tests/tracks.test.ts).
