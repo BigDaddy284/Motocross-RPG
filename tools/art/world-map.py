@@ -118,7 +118,6 @@ def draw(HERE, OUT):
     d.ellipse([x-R+12, y-R+12, x+R-12, y+R-12], fill=INK, outline=INK0)
     d.ellipse([x-R+16, y-R+16, x+R-16, y+R-16], outline=YEL, width=2)
     d.ellipse([x-R+20, y-R+20, x+R-20, y+R-20], fill=INK0)
-    for yy in (y-R+3, y+R-12): d.rectangle([x-12, yy, x+12, yy+9], fill=YEL)
     # tracks badges
     def badge(cx, cy):
         x, y = h((cx, cy)); r = 30
@@ -139,7 +138,7 @@ def draw(HERE, OUT):
         ctext((x0+x1), (y1-15)*2, 'COMING SOON', FB(22), WHITE)
     x, y = P['home']; ctext(x, y - 44, 'HOME TOWN', FB(50), WHITE, 3, GREEN_D)
     x, y = P['iz']; ctext(x, y - 66, 'INDUSTRIAL', FB(22), WHITE); ctext(x, y - 42, 'ZONE', FB(22), WHITE)
-    x, y = P['hub']; ctext(x, y - 150, 'MX', FB(22), INK0); ctext(x, y + 150, 'MX', FB(22), INK0)
+    x, y = P['hub']
     ctext(x, y - 98, 'RACE HUB', FB(46), WHITE, 3, INK0)
     D.line([(x-76, y-72), (x+76, y-72)], fill=YEL, width=3)
     items = [('FARMLAND', G1), ('RIVERSIDE', WATER), ('LONGMOOR', ORANGE), ('MOD TRACKS', RED)]
