@@ -17,6 +17,7 @@ import {
   shopStock,
   shopState,
   spareCount,
+  tradeIn,
   type ShopDef,
 } from '../src/core/shops';
 import { formatError } from '../src/core/validate';
@@ -105,18 +106,20 @@ describe('shop stock', () => {
 
 describe('buying, fitting and selling', () => {
   const tyres = (c: CareerState) => shopStock(shops, tyreShop, c, '50cc').find((s) => s.slot === 'wheels_tyres' && s.grade === 1)!;
+  // Brakes from the same shop: an ordinary part, kept as a spare when taken off (tyres are traded in).
+  const brakes = (c: CareerState) => shopStock(shops, tyreShop, c, '50cc').find((s) => s.slot === 'brakes' && s.grade === 1)!;
 
   it('buy and fit puts the old part in the bag, and sends a broken one to the dump', () => {
     const c = career();
-    c.bike.parts.wheels_tyres = { grade: 1, condition: 0.18 };
-    const r = buyPart(shops, bikes, c, tyres(c), true);
+    c.bike.parts.brakes = { grade: 1, condition: 0.18 };
+    const r = buyPart(shops, bikes, c, brakes(c), true);
     expect(r.ok).toBe(true);
-    expect(c.money).toBe(100000 - 2500);
-    expect(c.bike.parts.wheels_tyres).toEqual({ grade: 1, condition: 1 });
-    expect(c.bag).toEqual([{ id: SPARE, part: { slot: 'wheels_tyres', class: '50cc', grade: 1, condition: 0.18 } }]);
+    expect(c.money).toBe(100000 - brakes(c).price);
+    expect(c.bike.parts.brakes).toEqual({ grade: 1, condition: 1 });
+    expect(c.bag).toEqual([{ id: SPARE, part: { slot: 'brakes', class: '50cc', grade: 1, condition: 0.18 } }]);
 
-    c.bike.parts.wheels_tyres.condition = 0;
-    expect(buyPart(shops, bikes, c, tyres(c), true).message).toMatch(/dump/);
+    c.bike.parts.brakes.condition = 0;
+    expect(buyPart(shops, bikes, c, brakes(c), true).message).toMatch(/dump/);
     expect(spareCount(c)).toBe(1);
   });
 
@@ -137,6 +140,32 @@ describe('buying, fitting and selling', () => {
     c.bike.parts.wheels_tyres = { grade: 3, condition: 0.5 };
     expect(repairPart(shops, bikes, c, 'wheels_tyres').ok).toBe(false);
     expect(c.bike.parts.wheels_tyres).toEqual({ grade: 3, condition: 0.5 });
+  });
+
+  it('takes money off new tyres for the set on the bike, less for a lower grade (Boss, 28 Oct 2026)', () => {
+    const c = career();
+    const item = (grade: number) => ({ key: `t${grade}`, slot: 'wheels_tyres', grade, price: partPrice(shops, 'wheels_tyres', grade, '50cc'), always: true, soldOut: false });
+    const off = (old: number, cond: number, grade: number) => {
+      c.bike.parts.wheels_tyres = { grade: old, condition: cond };
+      return tradeIn(shops, c, item(grade)) / item(grade).price;
+    };
+    expect(off(1, 1, 2)).toBeCloseTo(0.5);
+    expect(off(2, 1, 3)).toBeCloseTo(0.5);
+    expect(off(1, 1, 3)).toBeLessThan(off(2, 1, 3));
+    expect(off(2, 0.5, 3)).toBeCloseTo(0.25);
+    for (let g = 1; g <= 4; g++) expect(off(g, 1, 8), `G${g} on G8`).toBe(0);
+    expect(off(5, 1, 8)).toBeGreaterThan(0);
+    expect(off(3, 1, 3)).toBeCloseTo(0.5);
+    expect(off(2, 0, 3)).toBe(0);
+    // Buying it fitted: the old set is gone, for the money off; as a spare, no trade-in.
+    c.bike.parts.wheels_tyres = { grade: 1, condition: 1 };
+    const before = c.money;
+    const bag = c.bag.length;
+    expect(buyPart(shops, bikes, c, item(2), true).ok).toBe(true);
+    expect(c.money).toBe(before - item(2).price / 2);
+    expect(c.bag.length).toBe(bag);
+    expect(c.bike.parts.wheels_tyres).toEqual({ grade: 2, condition: 1 });
+    expect(tradeIn(shops, c, { ...item(2), slot: 'brakes' })).toBe(0);
   });
 
   it('pays full resale at a specialist and half elsewhere, and never for broken parts (Spec 14.5)', () => {
@@ -176,9 +205,11 @@ describe('buying, fitting and selling', () => {
   it(`holds at most ${shops.spareLimit} spares`, () => {
     const c = career();
     for (let i = 0; i < shops.spareLimit; i++) c.bag.push({ id: SPARE, part: { slot: 'brakes', class: '50cc', grade: 1, condition: 0.5 } });
-    expect(buyPart(shops, bikes, c, tyres(c), false).ok).toBe(false);
-    expect(buyPart(shops, bikes, c, tyres(c), true).ok).toBe(false);
-    c.bike.parts.wheels_tyres.condition = 0;
+    expect(buyPart(shops, bikes, c, brakes(c), false).ok).toBe(false);
+    expect(buyPart(shops, bikes, c, brakes(c), true).ok).toBe(false);
+    c.bike.parts.brakes.condition = 0;
+    expect(buyPart(shops, bikes, c, brakes(c), true).ok).toBe(true);
+    // Tyres traded in take no bag space.
     expect(buyPart(shops, bikes, c, tyres(c), true).ok).toBe(true);
   });
 });

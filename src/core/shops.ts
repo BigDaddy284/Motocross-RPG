@@ -205,17 +205,44 @@ function roomFor(data: ShopsData, career: CareerState, slot: string | null, free
 
 const fullMessage = (data: ShopsData) => `Your spares are full (${data.spareLimit} parts). Sell or dump some first.`;
 
+/**
+ * Pence off a new set of tyres for trading in the set on the bike (Boss, 28 Oct 2026): what the
+ * old set cost new times its condition, faded with every grade the new set is above it past the
+ * first (G1 to G4 tyres take nothing off G8), and never more than half the new price. With prices
+ * doubling each grade, a G1 at 100% is half off a G2, a G2 at 100% half off a G3, and a G1 at 100%
+ * a sixth off a G3. Only for consumables, bought and fitted in the shop; a broken set is worth nothing.
+ */
+export function tradeIn(data: ShopsData, career: CareerState, item: StockItem): number {
+  const old = career.bike.parts[item.slot];
+  if (!data.consumables?.includes(item.slot) || !old || old.condition <= 0) return 0;
+  const gap = item.grade - old.grade;
+  const fade = Math.max(0, Math.min(1, 1 - (gap - 1) / (TRADE_IN_GRADES - 1)));
+  const value = partPrice(data, item.slot, old.grade, career.bike.class) * Math.min(1, old.condition) * fade;
+  return Math.round(Math.min(value, item.price * 0.5));
+}
+
+/** A trade-in fades to nothing at this many grades below the new set. */
+const TRADE_IN_GRADES = 4;
+
 /** Buys a stock item, either fitted in the shop or carried away as a spare. */
 export function buyPart(data: ShopsData, bikes: BikesData, career: CareerState, item: StockItem, fit: boolean): Result {
   if (item.soldOut) return { ok: false, message: 'Sold out until the stock changes.' };
-  if (career.money < item.price) return { ok: false, message: "You can't afford it." };
-  if (!roomFor(data, career, fit ? item.slot : null)) return { ok: false, message: fullMessage(data) };
-  career.money -= item.price;
+  const off = fit ? tradeIn(data, career, item) : 0;
+  const price = item.price - off;
+  if (career.money < price) return { ok: false, message: "You can't afford it." };
+  if (!off && !roomFor(data, career, fit ? item.slot : null)) return { ok: false, message: fullMessage(data) };
+  career.money -= price;
   if (!item.always) shopState(career).sold.push(item.key);
   const name = `G${item.grade} ${slotName(bikes, item.slot)}`;
   if (!fit) {
     career.bag.push({ id: SPARE, part: { slot: item.slot, class: career.bike.class, grade: item.grade, condition: 1 } });
     return { ok: true, message: `Bought a new ${name}. It's in your bag.` };
+  }
+  if (off) {
+    // The old set is traded in: gone, for money off.
+    const old = career.bike.parts[item.slot]!;
+    career.bike.parts[item.slot] = { grade: item.grade, condition: 1 };
+    return { ok: true, message: `New ${name} fitted. Your G${old.grade} set (${Math.round(old.condition * 100)}%) was traded in for ${formatMoney(off)} off.` };
   }
   return { ok: true, message: `New ${name} fitted.${swapIn(bikes, career, item.slot, { grade: item.grade, condition: 1 })}` };
 }

@@ -10,6 +10,7 @@ import {
   repairPart,
   repairQuote,
   resaleValue,
+  tradeIn,
   sellSpare,
   sellsFor,
   shopStock,
@@ -782,7 +783,7 @@ export class HudScene extends Phaser.Scene {
           const item = stock.find((s) => s.slot === slot && s.grade === g);
           const label = !item ? `G${g}: none in` : item.soldOut ? `G${g}: sold out` : `G${g}  ${formatMoney(item.price)}`;
           const b = button(this, left + 400 + (g - lo) * 160, y + 18, label, () => item && inner(() => this.offerPart(shop, item, () => reopen(), (r) => done(r))), 150, 40);
-          b.setEnabled(!!item && !item.soldOut && career.money >= item.price);
+          b.setEnabled(!!item && !item.soldOut && career.money >= item.price - tradeIn(shops, career, item));
           c.add(b);
         }
       });
@@ -884,9 +885,11 @@ export class HudScene extends Phaser.Scene {
       old ? `On your bike now: G${old.grade}, ${old.condition <= 0 ? 'broken' : `${Math.round(old.condition * 100)}%`}.` : '',
       change.length ? `Fitted: ${change.map((s) => `${s.name} ${s.from} → ${s.to}`).join(', ')}.` : '',
     ].filter(Boolean);
-    const oldGoes = !old ? '' : old.condition <= 0 ? 'Your broken one goes to the dump.' : 'Your old one goes in your bag.';
+    const off = tradeIn(shops, career, item);
+    if (off) lines.splice(1, 0, `Trade in your set on the bike: ${formatMoney(off)} off, ${formatMoney(item.price - off)} fitted.`);
+    const oldGoes = !old ? '' : off ? 'Your old set is traded in.' : old.condition <= 0 ? 'Your broken one goes to the dump.' : 'Your old one goes in your bag.';
     this.choose(`G${item.grade} ${name}`, lines.join('\n'), [
-      { label: 'Buy and fit', note: `${shop.name} fits it free. ${oldGoes}`, onPick: () => done(buyPart(shops, bikes, career, item, true)) },
+      { label: off ? `Buy and fit ${formatMoney(item.price - off)}` : 'Buy and fit', note: `${shop.name} fits it free. ${oldGoes}`, onPick: () => done(buyPart(shops, bikes, career, item, true)) },
       { label: 'Buy as a spare', note: 'Carry it in your bag. The garage fits spares on its bench.', onPick: () => done(buyPart(shops, bikes, career, item, false)) },
       { label: 'Not now', onPick: back },
     ], back);

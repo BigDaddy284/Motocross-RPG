@@ -252,7 +252,7 @@ Checked against the first-build checklist in the Systems Specification, section 
 
 ### Tyres are only ever replaced (Boss, 28 Oct 2026)
 
-Wheels and tyres can't be repaired or sold to any shop (`consumables` in `shops.json`). Ride them until they hit 0% and break, then buy a new set. Tyres you take off are still put in your bag if they aren't worn out, so you can fit them again or dump them. The scrapyard owner's repair errand no longer lends tyres.
+Wheels and tyres can't be repaired or sold to any shop (`consumables` in `shops.json`). Ride them until they hit 0% and break, then buy a new set. Buying and fitting a new set in the shop **trades in** the set on the bike for money off: the old set's new price × its condition, the full amount one grade up and a third less for each grade beyond, nothing from 4 grades up, and never more than half the new price (`tradeIn` in `src/core/shops.ts`; table in `alpha-v1.1/tyres/tyre-trade-in.md` in the project files). A set bought as a spare and fitted later at the garage still puts the old set in your bag. The scrapyard owner's repair errand no longer lends tyres.
 
 ## Before release
 
