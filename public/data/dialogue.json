@@ -140,7 +140,7 @@
       { "speaker": "npc", "text": "Ride, train and race to level up your skills. Every lap teaches you something." },
       { "speaker": "npc", "text": "Parts wear out as you ride. Keep an eye on them in your bike panel, and upgrade to better grades when you can afford it." },
       { "speaker": "npc", "text": "I can repair a worn part here. It comes back one grade lower, but good as new. Grade 1 parts and broken parts can't be repaired, though. Those have to be replaced." },
-      { "speaker": "npc", "text": "Oh, and there's a cocky lad by the practice track gate, Micky Alington. He says nobody in town can beat him. Fancy proving him wrong?" }
+      { "speaker": "npc", "text": "Oh, and there's a cocky lad by the practice track gate, Mickey Alington. He says nobody in town can beat him. Fancy proving him wrong?" }
     ] },
     "fabricator.challenge": { "lines": [
       { "speaker": "npc", "text": "Heard you've been helping out round town. Good on you." },

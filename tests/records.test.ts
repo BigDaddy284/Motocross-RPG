@@ -19,6 +19,6 @@ describe('records (Boss, 28 Oct 2026)', () => {
     expect(groups.map((g) => g.title)).toEqual(['Race days', 'Championships', 'Challenges']);
     expect(recordText(groups[0].lines[0])).toBe('Riverside Arena: wins 3/26');
     expect(groups[1].lines[0]).toMatchObject({ wins: 35, attempts: 35 });
-    expect(recordText(groups[2].lines[0])).toBe("Micky's challenge: wins 1/4");
+    expect(recordText(groups[2].lines[0])).toBe("Mickey's challenge: wins 1/4");
   });
 });

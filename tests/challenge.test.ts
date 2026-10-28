@@ -21,7 +21,7 @@ function rider(condition: number): CareerState {
 const onFarmland = (def: ChallengeDef): ChallengeDef => ({ ...def, track: 'farmland', map: 'area1-venue-farmland' });
 
 describe('challenges (Boss, 28 Oct 2026)', () => {
-  it('Micky is £50 against 7 others over 3 laps, Dan is £70 one on one', () => {
+  it('Mickey is £50 against 7 others over 3 laps, Dan is £70 one on one', () => {
     expect(home).toMatchObject({ npc: 'npc.challenger_home', entry: 50, laps: 3, others: 6 });
     expect(challengeField(content, home, 1)).toHaveLength(7);
     expect(challengeField(content, home, 1)[0].id).toBe(home.challenger);

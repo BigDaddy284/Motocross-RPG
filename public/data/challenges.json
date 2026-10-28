@@ -4,7 +4,7 @@
     {
       "id": "home",
       "npc": "npc.challenger_home",
-      "name": "Micky's challenge",
+      "name": "Mickey's challenge",
       "track": "challenge-home",
       "map": "area1-home-town",
       "class": "50cc",

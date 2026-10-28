@@ -27,7 +27,7 @@ export interface ChallengeDef {
   id: string;
   /** The NPC who offers it. */
   npc: string;
-  /** "Micky's challenge", for screens and messages. */
+  /** "Mickey's challenge", for screens and messages. */
   name: string;
   /** The challenge's own track: until it is in tracks.json (and not a draft), the NPC says building. */
   track: string;

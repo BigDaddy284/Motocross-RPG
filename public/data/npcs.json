@@ -20,7 +20,7 @@
     {"id": "npc.marshal_riverside", "name": "Route marshal", "sprite": "npc-09-running-coach", "map": "area1-venue-riverside", "tile": [15, 20], "facing": "left", "dialogue": "route_marshal.hello", "guide": true},
     {"id": "npc.marshal_longmoor", "name": "Route marshal", "sprite": "npc-09-running-coach", "map": "area1-venue-longmoor", "tile": [15, 20], "facing": "left", "dialogue": "route_marshal.hello", "guide": true},
     {"id": "npc.scrapyard_owner", "name": "Scrapyard owner", "sprite": "npc-13-scrapyard-owner", "dialogue": "scrapyard_owner.offer", "quietUntil": "tutorial_done"},
-    {"id": "npc.challenger_home", "name": "Micky Alington", "sprite": "npc-14-home-challenger", "map": "area1-home-town", "tile": [5, 26], "facing": "down", "dialogue": "challenger_home.building", "quietUntil": "tutorial_done"},
+    {"id": "npc.challenger_home", "name": "Mickey Alington", "sprite": "npc-14-home-challenger", "map": "area1-home-town", "tile": [5, 26], "facing": "down", "dialogue": "challenger_home.building", "quietUntil": "tutorial_done"},
     {"id": "npc.challenger_iz", "name": "Dan Smyth", "sprite": "npc-15-iz-challenger", "map": "area1-industrial-zone", "tile": [24, 19], "facing": "left", "dialogue": "challenger_iz.building", "quietUntil": "tutorial_done"},
     {"id": "npc.pro_racer", "name": "Neal Gizard", "sprite": "npc-16-pro-racer", "map": "area1-home-town", "tile": [20, 27], "facing": "up", "dialogue": "pro_racer.hello", "quietUntil": "tutorial_done"}
   ]

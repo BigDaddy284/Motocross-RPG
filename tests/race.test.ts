@@ -314,7 +314,7 @@ describe('the race day field: regulars plus a random draw from the pool', () => 
   const venue = (id: string) => content.tracks.venues.find((v) => v.id === id)!;
   const ids = (v: string, seed: number) => drawField(content, venue(v), seed).map((r) => r.id);
 
-  it('races 15 CPU riders, the Local Champion every time and Kyle Brooks every time at Farmland', () => {
+  it('races 15 CPU riders, the Local Champion every time and Louis Jonez every time at Farmland', () => {
     for (let seed = 1; seed <= 40; seed++) {
       for (const v of ['venue-farmland', 'venue-riverside', 'venue-longmoor']) {
         const f = ids(v, seed);
@@ -333,7 +333,7 @@ describe('the race day field: regulars plus a random draw from the pool', () => 
     expect(fields.size).toBeGreaterThan(15);
     const seen = new Set([...Array(200).keys()].flatMap((s) => ids('venue-riverside', s + 1)));
     expect([...seen].sort()).toEqual([...content.riders.fields['area1.local']].sort());
-    // Kyle is in the pool away from Farmland, so some days he isn't there.
+    // Louis is in the pool away from Farmland, so some days he isn't there.
     expect([...Array(40).keys()].some((s) => !ids('venue-riverside', s + 1).includes('cpu.local_racer'))).toBe(true);
   });
 
