@@ -158,8 +158,8 @@
       { "speaker": "npc", "text": "Come and see me again. There's always something here that needs fixing." }
     ] },
     "challenger_home.building": { "lines": [
-      { "speaker": "npc", "text": "You? Race me? Ha! I would, but they're building a brand new track here." },
-      { "speaker": "npc", "text": "Come back when it's ready and I'll race you. Bring £50, and don't cry when you lose!" }
+      { "speaker": "npc", "text": "You? Race me? I might be stuck kicking my bike over now and then, but once she gets going, she's a rocket." },
+      { "speaker": "npc", "text": "They're building a brand new track here. Soon as it opens, I'll race you for £50 and show you what she can do." }
     ] },
     "challenger_home.offer": { "lines": [
       { "speaker": "npc", "text": "Back for more? It's £50 to race me. Eight of us, three laps." },
