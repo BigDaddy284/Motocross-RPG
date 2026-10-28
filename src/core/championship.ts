@@ -20,6 +20,12 @@ export interface ChampionshipDef {
   size: number;
   /** Riders from the pool always in it, on top of the field's own regulars. */
   regulars?: string[];
+  /** Riders from the pool never in it, a field regular too (Dean Marsh stays out of the Local Championship). */
+  without?: string[];
+  /** The championship's main rider, the one to beat: raced as they are, the best rider in it on skill (Boss, 28 Oct 2026). */
+  main?: string;
+  /** How much better every other CPU rider races in it: 0.1 is 10% higher skills and bike condition (Boss, 28 Oct 2026). */
+  buff?: number;
   /** Venue ids, in round order. */
   rounds: string[];
   /** Entry and prize money, times the class's (Spec 14.2 event tiers). */
@@ -71,7 +77,7 @@ export const CHAMPIONSHIPS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['regulars', 'needs', 'won'],
+        optional: ['regulars', 'without', 'main', 'buff', 'needs', 'won'],
         fields: {
           id: { type: 'string', pattern: /^[a-z0-9_.-]+$/ },
           name: { type: 'string', nonEmpty: true },
@@ -80,6 +86,9 @@ export const CHAMPIONSHIPS_SCHEMA: Schema = {
           field: { type: 'string', nonEmpty: true },
           size: { type: 'number', integer: true, min: 1, max: 23 },
           regulars: { type: 'array', items: { type: 'string', nonEmpty: true } },
+          without: { type: 'array', items: { type: 'string', nonEmpty: true } },
+          main: { type: 'string', nonEmpty: true },
+          buff: { type: 'number', min: 0, max: 1 },
           rounds: { type: 'array', minItems: 1, items: { type: 'string', nonEmpty: true } },
           entryTimes: { type: 'number', min: 0 },
           purseTimes: { type: 'number', min: 0 },
@@ -114,6 +123,16 @@ export function checkChampionships(data: ChampionshipsData, rc: Pick<RaceContent
     if (!pool) err('field', `no field "${c.field}" in data/riders.json`);
     else if (pool.length < c.size) err('size', `${c.size} riders, but the ${c.field} pool has ${pool.length}`);
     c.regulars?.forEach((id, j) => pool && !pool.includes(id) && err(`regulars[${j}]`, `"${id}" isn't in the ${c.field} pool`));
+    c.without?.forEach((id, j) => pool && !pool.includes(id) && err(`without[${j}]`, `"${id}" isn't in the ${c.field} pool`));
+    if (pool && c.without && pool.length - c.without.length < c.size) err('size', `${c.size} riders, but only ${pool.length - c.without.length} of the ${c.field} pool can race it`);
+    if (c.main && !c.regulars?.includes(c.main) && !rc.riders.regulars?.[c.field]?.includes(c.main)) err('main', `"${c.main}" isn't a regular, so isn't always in it`);
+    if (c.main && c.without?.includes(c.main)) err('main', `"${c.main}" is left out of it`);
+    if (c.main && pool) {
+      // The main rider is the one to beat on skill, with everyone else buffed.
+      const main = rc.riders.riders.find((r) => r.id === c.main);
+      const best = pool.filter((id) => id !== c.main && !c.without?.includes(id)).map((id) => rc.riders.riders.find((r) => r.id === id)!).map((r) => buffRider(r, c.buff ?? 0).level);
+      if (main && best.some((l) => l >= main.level)) err('main', `${main.name} (level ${main.level}) isn't the best rider in it once the others are buffed (up to level ${Math.max(...best)})`);
+    }
     if (!rc.racing.classes[c.class]) err('class', `no class "${c.class}" in data/racing.json`);
     c.rounds.forEach((v, j) => {
       const venue = rc.tracks.venues.find((x) => x.id === v);
@@ -137,9 +156,10 @@ export function champById(data: ChampionshipsData, id: string): ChampionshipDef 
 /** The championship's CPU riders: the field's and its own regulars, then drawn from the pool by the seed. */
 export function drawChampField(rc: Pick<RaceContent, 'riders'>, def: ChampionshipDef, seed: number): string[] {
   const pool = rc.riders.fields[def.field] ?? [];
+  const out = new Set(def.without ?? []);
   const always = new Set([...(rc.riders.regulars?.[def.field] ?? []), ...(def.regulars ?? [])]);
-  const regulars = pool.filter((id) => always.has(id));
-  const rest = pool.filter((id) => !always.has(id));
+  const regulars = pool.filter((id) => always.has(id) && !out.has(id));
+  const rest = pool.filter((id) => !always.has(id) && !out.has(id));
   const rng = seededRng(mixSeed(seed, 0x63686d70));
   for (let i = rest.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
@@ -148,8 +168,24 @@ export function drawChampField(rc: Pick<RaceContent, 'riders'>, def: Championshi
   return [...regulars, ...rest].slice(0, Math.max(def.size, regulars.length));
 }
 
-export function champRiders(rc: Pick<RaceContent, 'riders'>, active: ActiveChampionship): CpuRiderDef[] {
-  return active.field.map((id) => rc.riders.riders.find((r) => r.id === id)).filter((r): r is CpuRiderDef => !!r);
+/** A CPU rider made better by a share: 0.1 is 10% higher skills and bike condition (condition up to 100%). */
+export function buffRider(r: CpuRiderDef, by: number): CpuRiderDef {
+  if (!by) return r;
+  const up = (n: number) => Math.min(99, Math.round(n * (1 + by)));
+  return {
+    ...r,
+    level: up(r.level),
+    skills: r.skills && Object.fromEntries(Object.entries(r.skills).map(([k, v]) => [k, up(v)])),
+    bike: { ...r.bike, condition: Math.min(1, r.bike.condition * (1 + by)) },
+  };
+}
+
+/** The championship's CPU riders as they race it: everyone but the main rider buffed. */
+export function champRiders(rc: Pick<RaceContent, 'riders'>, def: ChampionshipDef, active: ActiveChampionship): CpuRiderDef[] {
+  return active.field
+    .map((id) => rc.riders.riders.find((r) => r.id === id))
+    .filter((r): r is CpuRiderDef => !!r)
+    .map((r) => (r.id === def.main ? r : buffRider(r, def.buff ?? 0)));
 }
 
 /** Why the rider can't enter, or null. */
@@ -197,7 +233,7 @@ export function roundEntry(rc: Pick<RaceContent, 'racing'>, def: ChampionshipDef
 /** What a round's race day runs with: the fixed field, qualifying and the purse (a replay's share). */
 export function roundOptions(rc: Pick<RaceContent, 'riders'>, def: ChampionshipDef, active: ActiveChampionship) {
   const share = active.replay ? def.replay : 1;
-  return { cpus: champRiders(rc, active), qualifyingLaps: def.qualifyingLaps, purseTimes: def.purseTimes * share, xpTimes: share };
+  return { cpus: champRiders(rc, def, active), qualifyingLaps: def.qualifyingLaps, purseTimes: def.purseTimes * share, xpTimes: share };
 }
 
 /** Puts a finished round's results on the championship. */

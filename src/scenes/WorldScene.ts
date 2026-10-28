@@ -17,7 +17,8 @@ import { entryFee, fieldCount, practiceFee, venueProblem, type VenueDef } from '
 import { champProblem, enter, nextRoundVenue, roundEntry, roundsHere, standings, titlePossible, withdraw, type ChampionshipDef } from '../core/championship';
 import { noteActivity, shopForAction, type ShopDef } from '../core/shops';
 import { errandStage, finishErrand, takeErrand, type ErrandDef } from '../core/errands';
-import { challengeReady, challengeVenue, type ChallengeDef } from '../core/challenge';
+import { challengeReady, challengeVenue, lossHint, type ChallengeDef } from '../core/challenge';
+import { leadLevel } from '../core/skills';
 import { challengeWins } from '../core/records';
 import { CAREER_SLOT, services } from '../services';
 import { Character, TILE } from '../world/Character';
@@ -478,7 +479,14 @@ export class WorldScene extends Phaser.Scene {
         const wins = career.counters[challengeWins(def.id)] ?? 0;
         this.ride('challenge', challengeVenue(def), fee, () => {
           const won = (this.save.career.counters[challengeWins(def.id)] ?? 0) > wins;
-          this.say(npc.name, won ? def.won : def.lost, back);
+          if (won) return this.say(npc.name, def.won, back);
+          // The walk-off: a general hint at what to improve (Boss, 28 Oct 2026).
+          const { challenges, bikes, skills, riders } = services.content;
+          const state = this.save.career.skills;
+          const lead = (id: string) => leadLevel(skills, state, skills.leads.find((l) => l.id === id)!);
+          const level = riders.riders.find((r) => r.id === def.challenger)?.level ?? 1;
+          const hint = lossHint(challenges, def, bikes, this.save.career.bike, { riding: lead('rider'), fitness: lead('fitness') }, level);
+          this.say(npc.name, def.lost, () => this.say(npc.name, hint, back));
         }, undefined, def);
       }, back);
     });

@@ -66,16 +66,36 @@ describe('championships (Spec 12.5, 18.6)', () => {
     expect(champProblem(content, main, flags)).toBeNull();
   });
 
-  it('draws the same 19 CPU riders for every round, the Local Champion and the local racer always among them', () => {
+  it('draws the same 19 CPU riders for every round, Louis Jonez always among them and Dean Marsh left to the Area 1 Championship', () => {
     for (const seed of [1, 2, 3, 99]) {
       const f = drawChampField(content, local, seed);
       expect(f).toHaveLength(19);
       expect(new Set(f).size).toBe(19);
-      expect(f).toContain('cpu.local_champion');
+      expect(f).not.toContain('cpu.local_champion');
       expect(f).toContain('cpu.local_racer');
+      expect(drawChampField(content, main, seed)).toEqual(expect.arrayContaining(['cpu.local_champion', 'cpu.local_racer']));
       expect(drawChampField(content, local, seed)).toEqual(f);
     }
     expect(drawChampField(content, local, 1)).not.toEqual(drawChampField(content, local, 2));
+  });
+
+  it('races everyone but the main rider 10% better, and the main rider is still the best (Boss, 28 Oct 2026)', () => {
+    for (const def of [local, main]) {
+      const active = enter(rider(), content, def, 7);
+      const raced = roundOptions(content, def, active).cpus;
+      for (const r of raced) {
+        const base = content.riders.riders.find((x) => x.id === r.id)!;
+        if (r.id === def.main) expect(r).toEqual(base);
+        else {
+          expect(r.level, r.id).toBe(Math.round(base.level * 1.1));
+          expect(r.bike.condition).toBeCloseTo(Math.min(1, base.bike.condition * 1.1));
+        }
+      }
+      const top = raced.find((r) => r.id === def.main)!;
+      expect(raced.every((r) => r === top || r.level < top.level), def.id).toBe(true);
+    }
+    expect(local.main).toBe('cpu.local_racer');
+    expect(main.main).toBe('cpu.local_champion');
   });
 
   it('charges 1.5× the entry and pays 1.8× the prize money', () => {

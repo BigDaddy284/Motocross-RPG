@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { newCareerState, pence, type CareerState } from '../src/core/career';
-import { averageCondition, challengeField, challengePrize, challengeReady, payChallenge, rigChallenge, winChance, type ChallengeDef } from '../src/core/challenge';
+import { averageCondition, challengeField, lossHint, challengePrize, challengeReady, payChallenge, rigChallenge, winChance, type ChallengeDef } from '../src/core/challenge';
 import { checkContent } from '../src/core/content';
 import { seededRng } from '../src/core/race';
 import { playerEntrant } from '../src/core/raceDay';
@@ -21,6 +21,25 @@ function rider(condition: number): CareerState {
 const onFarmland = (def: ChallengeDef): ChallengeDef => ({ ...def, track: 'farmland', map: 'area1-venue-farmland' });
 
 describe('challenges (Boss, 28 Oct 2026)', () => {
+  it('walks off with a general hint after a loss: the bike in Area 1, or just unlucky when it is in good shape', () => {
+    const h = (cond: number, def = home, skills = { riding: 1, fitness: 1 }) => lossHint(content.challenges, def, content.bikes, rider(cond).bike, skills, 10);
+    expect(h(0.5)).toBe('challenge_hint.bike');
+    expect(h(0.74)).toBe('challenge_hint.bike');
+    expect(h(0.75)).toBe('challenge_hint.unlucky');
+    expect(h(1)).toBe('challenge_hint.unlucky');
+    // From Area 2, riding and then fitness count once the bike is fine.
+    const area2 = { ...home, area: 2 };
+    expect(h(0.5, area2)).toBe('challenge_hint.bike');
+    expect(h(0.9, area2)).toBe('challenge_hint.riding');
+    expect(h(0.9, area2, { riding: 12, fitness: 1 })).toBe('challenge_hint.fitness');
+    expect(h(0.9, area2, { riding: 12, fitness: 12 })).toBe('challenge_hint.unlucky');
+    // General: never names a part.
+    for (const k of ['bike', 'riding', 'fitness', 'unlucky'] as const) {
+      const text = content.dialogue[content.challenges.hints[k]].lines.map((l) => l.text).join(' ');
+      for (const slot of content.bikes.slots) expect(text.toLowerCase()).not.toContain(slot.name.toLowerCase());
+    }
+  });
+
   it('Mickey is £50 against 7 others over 3 laps, Dan is £70 one on one', () => {
     expect(home).toMatchObject({ npc: 'npc.challenger_home', entry: 50, laps: 3, others: 6 });
     expect(challengeField(content, home, 1)).toHaveLength(7);

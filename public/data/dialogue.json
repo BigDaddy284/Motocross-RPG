@@ -177,6 +177,18 @@
     "challenger_home.lost": { "lines": [
       { "speaker": "npc", "text": "Told you I'm the fastest round here! Come back and try again whenever you like." }
     ] },
+    "challenge_hint.bike": { "lines": [
+      { "speaker": "npc", "text": "Your bike sounded a bit tired out there. Look after it and you'll give me a proper race." }
+    ] },
+    "challenge_hint.riding": { "lines": [
+      { "speaker": "npc", "text": "Your bike's quick enough. It's your riding that needs a bit more practice." }
+    ] },
+    "challenge_hint.fitness": { "lines": [
+      { "speaker": "npc", "text": "Your bike's quick enough, but you looked worn out by the end. Get a bit fitter and you'll be right there." }
+    ] },
+    "challenge_hint.unlucky": { "lines": [
+      { "speaker": "npc", "text": "Your bike's definitely quick enough. You were just unlucky today. Have another go!" }
+    ] },
     "challenger_iz.building": { "lines": [
       { "speaker": "npc", "text": "Looking for trouble? I'd race you, but they're still building the new track in the yard." },
       { "speaker": "npc", "text": "Come back when it's done. Just you and me, £70, winner takes it all." }

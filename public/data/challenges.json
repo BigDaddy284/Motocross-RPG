@@ -1,5 +1,13 @@
 {
-  "note": "Challenges (Boss, 28 Oct 2026): an NPC races the rider for a stake. First place gets the entry back plus the same again; anything else wins nothing. Repeatable straight away, with normal wear and XP. Each needs its own track: until track is in tracks.json the NPC says the building line. Win chance: odds.classes[bike class].at75 with every part at 75% (averaged across the bike), plus perCondition per 100% above or below, between floor and cap (never 100%). Rider skill doesn't count in Area 1. Classes not in the game yet (65cc, 85cc) are listed ready for later; balance with Boss.",
+  "note": "Challenges (Boss, 28 Oct 2026): an NPC races the rider for a stake. First place gets the entry back plus the same again; anything else wins nothing. Repeatable straight away, with normal wear and XP. Each needs its own track: until track is in tracks.json the NPC says the building line. Win chance: odds.classes[bike class].at75 with every part at 75% (averaged across the bike), plus perCondition per 100% above or below, between floor and cap (never 100%). Rider skill doesn't count in Area 1. Classes not in the game yet (65cc, 85cc) are listed ready for later; balance with Boss. hints (Boss, 28 Oct 2026): after a loss the challenger walks off with a general hint, never naming a part: below bikeAt average condition it's the bike; otherwise, in an area from fromArea on, riding then fitness when that skill is below the challenger's level (to agree with Boss for Area 2); otherwise they were just unlucky. area is the challenge's area.",
+  "hints": {
+    "bikeAt": 0.75,
+    "fromArea": 2,
+    "bike": "challenge_hint.bike",
+    "riding": "challenge_hint.riding",
+    "fitness": "challenge_hint.fitness",
+    "unlucky": "challenge_hint.unlucky"
+  },
   "challenges": [
     {
       "id": "home",
@@ -7,6 +15,7 @@
       "name": "Mickey's challenge",
       "track": "challenge-home",
       "map": "area1-home-town",
+      "area": 1,
       "class": "50cc",
       "entry": 50,
       "laps": 3,
@@ -44,6 +53,7 @@
       "name": "Dan's challenge",
       "track": "challenge-industrial",
       "map": "area1-industrial-zone",
+      "area": 1,
       "class": "50cc",
       "entry": 70,
       "laps": 3,

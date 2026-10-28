@@ -33,6 +33,8 @@ export interface ChallengeDef {
   track: string;
   /** The map the challenge is raced from, for the race screen's venue. */
   map: string;
+  /** The area it is in: from hints.fromArea on, the loss hints take in riding and fitness. */
+  area: number;
   class: string;
   /** Pounds to race. A win pays it back plus the same again. */
   entry: number;
@@ -53,8 +55,36 @@ export interface ChallengeDef {
   lost: string;
 }
 
+/**
+ * The challenger's walk-off line after a loss (Boss, 28 Oct 2026): a general hint at what to
+ * improve, never naming a part, so the rider learns what to upgrade. Below bikeAt average
+ * condition it's the bike; otherwise, from fromArea on, riding then fitness when the rider's
+ * skill is below the challenger's level; otherwise just unlucky. Dialogue keys.
+ */
+export interface LossHints {
+  bikeAt: number;
+  /** The first area whose challenges hint at riding and fitness (to agree with Boss for Area 2). */
+  fromArea: number;
+  bike: string;
+  riding: string;
+  fitness: string;
+  unlucky: string;
+}
+
 export interface ChallengesData {
+  hints: LossHints;
   challenges: ChallengeDef[];
+}
+
+/** The walk-off hint after losing a challenge: a dialogue key. */
+export function lossHint(data: ChallengesData, def: ChallengeDef, bikes: BikesData, bike: Bike, skills: { riding: number; fitness: number }, challengerLevel: number): string {
+  const h = data.hints;
+  if (averageCondition(bikes, bike) < h.bikeAt) return h.bike;
+  if (def.area >= h.fromArea) {
+    if (skills.riding < challengerLevel) return h.riding;
+    if (skills.fitness < challengerLevel) return h.fitness;
+  }
+  return h.unlucky;
 }
 
 /** Every part's condition averaged across the bike (a broken part counts as 0). */
@@ -173,6 +203,17 @@ export const CHALLENGES_SCHEMA: Schema = {
   optional: ['note'],
   fields: {
     note: { type: 'string' },
+    hints: {
+      type: 'object',
+      fields: {
+        bikeAt: { type: 'number', min: 0, max: 1 },
+        fromArea: { type: 'number', integer: true, min: 1 },
+        bike: { type: 'string', pattern: ID },
+        riding: { type: 'string', pattern: ID },
+        fitness: { type: 'string', pattern: ID },
+        unlucky: { type: 'string', pattern: ID },
+      },
+    },
     challenges: {
       type: 'array',
       items: {
@@ -184,6 +225,7 @@ export const CHALLENGES_SCHEMA: Schema = {
           name: { type: 'string', nonEmpty: true },
           track: { type: 'string', pattern: ID },
           map: { type: 'string', pattern: ID },
+          area: { type: 'number', integer: true, min: 1 },
           class: { type: 'string', nonEmpty: true },
           entry: { type: 'number', min: 0 },
           laps: { type: 'number', integer: true, min: 1, max: 20 },
@@ -215,6 +257,7 @@ export function checkChallenges(file: string, data: ChallengesData, c: { npcs: {
   const errors: ContentError[] = [];
   const err = (field: string, message: string) => errors.push({ file, field, message });
   const seen = new Set<string>();
+  for (const k of ['bike', 'riding', 'fitness', 'unlucky'] as const) if (!c.dialogue[data.hints[k]]) err(`hints.${k}`, `no dialogue "${data.hints[k]}"`);
   data.challenges.forEach((d, i) => {
     const at = (f: string) => `challenges[${i}].${f}`;
     if (seen.has(d.id)) err(at('id'), `"${d.id}" is used twice`);
