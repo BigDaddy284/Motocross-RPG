@@ -884,7 +884,9 @@ export class WorldScene extends Phaser.Scene {
         note = `Round ${active.rounds.length + 1} of ${def.rounds.length} next, at ${venueName(nextRoundVenue(def, active))}.${active.rounds.length ? ` You're ${ordinal(me.position)} on ${me.points} points.` : ''}`;
       } else if (problem) note = problem;
       else note = `${def.rounds.length} rounds, ${formatMoney(roundEntry(rc, def))} a round.${record?.wins ? ' Won before: half prize money and XP.' : record ? ` Best so far: ${ordinal(record.best)}.` : ''}`;
-      return { label: def.short, note, enabled: !!active || !problem, onPick: () => this.openChampionship(def, venue, onClose) };
+      // A locked one can still be picked, to say why it's locked (Boss, 28 Oct 2026).
+      const onPick = problem ? () => { this.hud.toast(problem); this.openChampionships(venue, onClose); } : () => this.openChampionship(def, venue, onClose);
+      return { label: problem ? `${def.short} (locked)` : def.short, note, onPick };
     });
     this.hud.choose('Championships', 'Each round is entered separately at its track\'s race office, with qualifying and the same field of riders every round. There is no calendar: a championship waits for you.', [...options, { label: 'Back', onPick: back }], back);
   }
