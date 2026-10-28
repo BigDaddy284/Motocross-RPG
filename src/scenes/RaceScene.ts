@@ -24,10 +24,13 @@ import { gearColour, kitFor, type RaceLook } from '../world/raceBike';
 
 const W = 1280;
 const H = 720;
-/** Race seconds per real second at each speed button (Pause, 1×, 2×, 4×, 8×). */
-const SPEEDS = [0, 1, 2, 4, 8];
+/**
+ * Race seconds per real second at each speed button (Pause, 1×, 2×, 4×, 8×). Boss, 28 Oct 2026: 1×
+ * is the old 2×, 8× is unchanged, and 2× and 4× sit evenly between, so the labels are names, not multiples.
+ */
+const SPEEDS = [0, 2, 3, 5, 8];
 const SPEED_LABELS = ['Pause', '1×', '2×', '4×', '8×'];
-const DEFAULT_SPEED = 2;
+const DEFAULT_SPEED = 1;
 /** How many laps a pit board message can be set for; 0 is to the flag. */
 const BOARD_LAPS = [1, 2, 3, 0];
 /** Width of the pen meter in the race bar and on the pit board. */
