@@ -300,11 +300,11 @@ describe('race content checks', () => {
     expect(errors.some((e) => e.file === 'data/riders.json' && /cpu\.local_champion/.test(e.message))).toBe(true);
   });
 
-  it("puts riders in the pools of the areas they race in, and Neal Gizard in none yet (Boss, 28 Oct 2026)", () => {
+  it("puts riders in the pools of the areas they race in, and Neal Gizard in Area 8 only (Boss, 28 Oct 2026)", () => {
     const pool = content.riders.fields['area1.local'];
     expect(pool).toEqual(content.riders.riders.filter((r) => r.areas.includes(1)).map((r) => r.id));
     const neal = content.riders.riders.find((r) => r.name === 'Neal Gizard')!;
-    expect(neal.areas).toEqual([]);
+    expect(neal.areas).toEqual([8]);
     expect(pool).not.toContain(neal.id);
     for (const n of ['Lee Stocky', 'Brandon Stocky']) expect(pool).toContain(content.riders.riders.find((r) => r.name === n)?.id);
   });

@@ -220,7 +220,7 @@ Checked against the rest of the "Starter career slice" checklist (Systems Specif
 - **Testing only:** shift pay is tripled (`testPayMultiplier: 3` in `world.json`), so a fabrication bracket pays £2.25 and a piston £3.75. Set it back to 1 before Final v1.
 - Saves are now version 3; a test build 0.2 save upgrades with every skill at level 1.
 - New content files, all checked at start-up: `skills.json`, `racing.json` (every race rule and tuning number), `tracks.json` (track sections and venues) and `riders.json` (the CPU riders and the local field). `npx vite-node tools/sim/balance.ts 300 1` runs 300 race days and prints the spread of results, crashes, money, XP and wear, for tuning.
-- Which areas each CPU rider races in is their `areas` list in `riders.json`: a field (such as `area1.local`) names its area, and its pool is every rider with that area. A rider with no areas, like Neal Gizard the pro, doesn't race yet.
+- Which areas each CPU rider races in is their `areas` list in `riders.json`: a field (such as `area1.local`) names its area, and its pool is every rider with that area. Neal Gizard, the pro, races only in Area 8.
 
 ### New in test build 0.2: the starter career slice
 
