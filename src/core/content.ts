@@ -7,7 +7,7 @@ import type { RacingData } from './race';
 import { TRACK_PARTS_SCHEMA, checkTrackParts, type TrackPartsData } from './trackParts';
 import { CHAMPIONSHIPS_SCHEMA, checkChampionships, type ChampionshipsData } from './championship';
 import { RACING_SCHEMA, RIDERS_SCHEMA, SKILLS_SCHEMA, TRACKS_SCHEMA, checkRaceContent } from './raceContent';
-import type { RidersData, TracksData } from './raceDay';
+import { riderPools, type RidersData, type RidersFile, type TracksData } from './raceDay';
 import { SHOPS_SCHEMA, checkShopContent, type ShopsData } from './shops';
 import type { SkillsData } from './skills';
 import { VEHICLES_SCHEMA, checkVehicles, type VanSheet, type VehiclesData } from './vehicles';
@@ -333,7 +333,7 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
     skills: raw.skills as SkillsData,
     racing: raw.racing as RacingData,
     tracks: raw.tracks as TracksData,
-    riders: raw.riders as RidersData,
+    riders: riderPools(raw.riders as RidersFile),
     trackParts: raw.trackParts as TrackPartsData,
     shops: raw.shops as ShopsData,
     vehicles: raw.vehicles as VehiclesData,

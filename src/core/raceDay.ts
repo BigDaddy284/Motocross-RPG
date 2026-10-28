@@ -11,6 +11,8 @@ export interface CpuRiderDef {
   id: string;
   name: string;
   tag?: string;
+  /** The areas they race in (Boss, 28 Oct 2026): they're in the pool of every field in these areas, and no other. */
+  areas: number[];
   /** Sets every Rider Ability skill. */
   level: number;
   skills?: Record<string, number>;
@@ -21,12 +23,21 @@ export interface CpuRiderDef {
 
 export interface RidersData {
   riders: CpuRiderDef[];
-  /** Each field's pool of CPU riders. Without a size, everyone in it races. */
+  /** Each field's pool of CPU riders: every rider racing in its area (riderPools). Without a size, everyone in it races. */
   fields: Record<string, string[]>;
   /** How many CPU riders race from a field: its regulars, then the rest drawn at random from its pool each race day. */
   fieldSize?: Record<string, number>;
   /** Riders in a field who race every race day it is raced (the Local Champion). */
   regulars?: Record<string, string[]>;
+}
+
+/** riders.json as written: each field names its area, and the riders say which areas they race in. */
+export type RidersFile = Omit<RidersData, 'fields'> & { fields: Record<string, { area: number }> };
+
+/** Each field's pool from the riders' areas, in the riders' listed order. */
+export function riderPools(file: RidersFile): RidersData {
+  const fields = Object.fromEntries(Object.entries(file.fields).map(([id, f]) => [id, file.riders.filter((r) => r.areas.includes(f.area)).map((r) => r.id)]));
+  return { ...file, fields };
 }
 
 export interface VenueDef {

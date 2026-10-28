@@ -293,11 +293,20 @@ describe('race content checks', () => {
     expect(errors).toContainEqual(expect.objectContaining({ file: 'data/tracks.json', field: 'tracks[1].sections[2].type' }));
   });
 
-  it('rejects a rider in a field who does not exist', () => {
+  it("rejects a field regular who doesn't race in the field's area", () => {
     const raw = rawContent();
-    (raw.riders as { fields: Record<string, string[]> }).fields['area1.local'].push('cpu.nobody');
+    (raw.riders as { riders: { id: string; areas: number[] }[] }).riders.find((r) => r.id === 'cpu.local_champion')!.areas = [2];
     const { errors } = checkContent(raw, loadManifest(), maps);
-    expect(errors.some((e) => e.file === 'data/riders.json' && /cpu\.nobody/.test(e.message))).toBe(true);
+    expect(errors.some((e) => e.file === 'data/riders.json' && /cpu\.local_champion/.test(e.message))).toBe(true);
+  });
+
+  it("puts riders in the pools of the areas they race in, and Neal Gizard in none yet (Boss, 28 Oct 2026)", () => {
+    const pool = content.riders.fields['area1.local'];
+    expect(pool).toEqual(content.riders.riders.filter((r) => r.areas.includes(1)).map((r) => r.id));
+    const neal = content.riders.riders.find((r) => r.name === 'Neal Gizard')!;
+    expect(neal.areas).toEqual([]);
+    expect(pool).not.toContain(neal.id);
+    for (const n of ['Lee Stocky', 'Brandon Stocky']) expect(pool).toContain(content.riders.riders.find((r) => r.name === n)?.id);
   });
 });
 
@@ -329,7 +338,7 @@ describe('the race day field: regulars plus a random draw from the pool', () => 
   });
 
   it('includes every new rider by name, with average stats', () => {
-    const names = ['Neal Gizard', 'Harvey Gizard', 'Louie Gizard', 'Kate Gizard', 'Aidan Gizard', 'Taylor Heart', 'Jason Styles', 'Jordan Styles', 'James Nestor', 'Mickey Alington', 'Louis Jonez', 'Andy McLaren', 'Justin Smyth', 'Dan Smyth'];
+    const names = ['Harvey Gizard', 'Louie Gizard', 'Kate Gizard', 'Aidan Gizard', 'Taylor Heart', 'Jason Styles', 'Jordan Styles', 'James Nestor', 'Mickey Alington', 'Louis Jonez', 'Andy McLaren', 'Justin Smyth', 'Dan Smyth'];
     const champ = content.riders.riders.find((r) => r.id === 'cpu.local_champion')!;
     for (const n of names) {
       const r = content.riders.riders.find((x) => x.name === n)!;
