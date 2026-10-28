@@ -42,9 +42,10 @@ describe('a start straight joining just before or after the finish line', () => 
     expect(s.joinAt).toBeCloseTo(s.join - 1, 9);
     expect(s.from).toBeLessThan(s.joinAt);
     const one = lapPlan(t, 1);
-    expect(one.secs[0]).toBe(-1);
+    // The start straight, then its end as the first corner, then the lap from the join.
+    expect(one.secs.slice(0, 2)).toEqual([-1, -2]);
     expect(one.marks[0]).toBeCloseTo(s.from, 9);
-    expect(one.marks[1]).toBeCloseTo(s.joinAt, 9);
+    expect(one.marks[2]).toBeCloseTo(s.joinAt, 9);
     expect(one.marks.at(-1)).toBeCloseTo(1, 9);
     for (let i = 1; i < one.marks.length; i++) expect(one.marks[i]).toBeGreaterThan(one.marks[i - 1]);
     // Every section is ridden on lap 1, in order, after the sliver before the line.
@@ -62,9 +63,10 @@ describe('a start straight joining just before or after the finish line', () => 
     expect(s.join).toBeLessThan(0.01);
     expect(s.joinAt).toBe(s.join);
     const one = lapPlan(t, 1);
-    expect(one.marks[1]).toBeCloseTo(s.join, 9);
+    expect(one.secs.slice(0, 2)).toEqual([-1, -2]);
+    expect(one.marks[2]).toBeCloseTo(s.join, 9);
     expect(one.marks.at(-1)).toBeCloseTo(1, 9);
-    expect(one.secs).toEqual([-1, ...t.sections.map((_, i) => i)]);
+    expect(one.secs).toEqual([-1, -2, ...t.sections.map((_, i) => i)]);
   });
 
   for (const units of [-1 / 2.7, 1 / 2.7, -40]) {

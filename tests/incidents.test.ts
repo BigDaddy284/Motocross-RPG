@@ -34,11 +34,11 @@ describe('first-corner incidents', () => {
       sizes.add(fc.length);
       expect(fc.length).toBeGreaterThanOrEqual(riders[0]);
       expect(fc.length).toBeLessThanOrEqual(riders[1]);
-      // In the lap's first corner, as crashes.
+      // In the first corner, the start straight's end (lapPlan's stretch -2), as crashes.
       for (const e of fc) {
         if (e.kind !== 'mistake') continue;
         expect(['minor_crash', 'serious_crash']).toContain(e.outcome);
-        expect(farm.sections[e.section].type).toBe('first_corner');
+        expect(e.section).toBe(-2);
         if (e.rider === field[0].id) playerDown++;
       }
     }
