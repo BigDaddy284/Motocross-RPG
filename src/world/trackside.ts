@@ -21,7 +21,7 @@ export interface Built { parts: Build['parts']; labels: Label[] }
 /** Items whose people face the track when the item is not turned by hand. */
 export const FACES_TRACK = new Set(['tv_camera_op', 'tv_tripod', 'tv_van', 'tv_tower', 'photographer', 'commentary_box', 'camp_chairs', 'fan_photo', 'fan_parasol', 'fans_fence', 'camera_crane', 'drone_pilot', 'vip_stand']);
 /** Items whose length is set by their width (like a banner's), so they can run as far as wanted. */
-export const STRETCH = new Set(['foot_bridge', 'crowd_barrier', 'cones', 'fans_fence', 'timing_beam', 'vip_stand']);
+export const STRETCH = new Set(['foot_bridge', 'crowd_barrier', 'cones', 'fans_fence', 'timing_beam', 'vip_stand', 'pyro', 'truss_arch']);
 
 const HIVIS = 0xf0a020;
 const BLACK = 0x202428;
@@ -627,6 +627,112 @@ const builders: Record<string, (c: Ctx) => void> = {
     for (const x of [-L / 2 + 0.2, 0, L / 2 - 0.2]) for (const z of [-D / 2 + 0.3, D / 2 - 0.3]) b.pole(x, 0.6 + (z < 0 ? (tiers - 1) * 0.5 : 0), z, z < 0 ? 2.6 : 4.0, STEEL, 0.14);
     b.box(0, 4.2, 0, L + 0.4, 0.15, D + 0.4, shade(col, 0.6), 0, -0.1);
     for (const x of [-L / 2, L / 2]) b.box(x, 0.6 + (tiers - 1) * 0.5, 0, 0.06, 1.0, D, STEEL);
+  },
+  // ---- supercross (Boss, 28 Oct 2026: podiums and the stadium's own kit) ----
+  podium({ b, col, variant, setup, i, text, labels }) {
+    const sx = variant === 'supercross';
+    const dark = shade(col, 0.7);
+    // The stage: supercross raises the whole podium on a staged floor with steps and a lit backdrop.
+    const floor = sx ? 0.6 : 0;
+    if (sx) {
+      b.box(0, 0, -0.4, 7.0, floor, 3.6, 0x3a3a40);
+      for (let k = 0; k < 3; k++) b.box(0, k * 0.2, 1.4 + 0.3 * (2 - k), 2.0, 0.2, 0.3, 0x4a4a50);
+      for (const x of [-3.4, 3.4]) { b.pole(x, 0, -2.1, 4.6, STEEL, 0.08); b.box(x, 4.4, -2.1, 0.5, 0.3, 0.3, BLACK); }
+      b.box(0, 4.5, -2.1, 7.0, 0.16, 0.16, STEEL);
+      for (let k = -2; k <= 2; k++) { b.box(k * 1.4, 4.2, -1.9, 0.3, 0.3, 0.3, BLACK); b.box(k * 1.4, 4.05, -1.75, 0.22, 0.05, 0.22, 0xfff6c0); }
+    }
+    // The backdrop board with the sponsor's name.
+    const bw = sx ? 7.0 : 5.0;
+    const bh = sx ? 3.6 : 2.4;
+    b.box(0, floor, -2.0, bw, bh, 0.1, col);
+    for (const x of [-bw / 2 + 0.1, bw / 2 - 0.1]) b.pole(x, floor, -2.0, bh + 0.2, dark, 0.06);
+    labels.push({ x: 0, y: floor + bh * 0.62, z: -1.94, l: bw - 0.4, h: bh * 0.32, w: 0.02, text, bg: col });
+    b.box(0, floor + bh * 0.1, -1.94, bw - 0.4, bh * 0.32, 0.02, WHITE);
+    // The three steps: 1 in the middle and tallest, 2 on its right (the viewer's left), 3 on its left.
+    const steps: [number, number, string][] = [[0, 0.9, '1'], [-1.3, 0.6, '2'], [1.3, 0.4, '3']];
+    for (const [x, h, n] of steps) {
+      b.box(x, floor, -0.6, 1.2, h, 1.2, sx ? 0xf0f0f0 : WOOD);
+      b.box(x, floor + h, -0.6, 1.2, 0.03, 1.2, sx ? col : shade(WOOD, 1.15));
+      labels.push({ x, y: floor + h * 0.25, z: 0.01, l: 0.9, h: h * 0.5, w: 0.02, text: n, bg: sx ? col : dark, fg: '#ffffff' });
+      if (setup === 'riders' || setup === 'champagne') {
+        const n0 = b.parts.length;
+        b.person(x, -0.6, 0, i + Number(n), { shirt: BIKES[(i + Number(n)) % 5], trousers: BIKES[(i + Number(n) + 2) % 5], arms: setup === 'champagne' || n === '1' ? 'up' : 'down' });
+        for (const m of b.parts.slice(n0)) m.position.y += (floor + h) * U;
+        if (setup === 'champagne') { b.cyl(x + 0.3, floor + h + 2.15, -0.6, 0.05, 0.3, 0x205030, 8); b.cyl(x + 0.3, floor + h + 2.45, -0.6, 0.03, 0.1, 0xe0c060, 8); }
+      }
+    }
+    if (setup === 'champagne') { b.person(-2.6, 1.6, Math.PI, i + 9, { arms: 'up', shirt: BLACK }); b.box(-2.6, 2.0, 1.4, 0.1, 0.4, 0.1, BLACK); }
+  },
+  holeshot_board({ b, col, text, labels }) {
+    for (const x of [-1.4, 1.4]) b.pole(x, 0, 0, 2.6, STEEL, 0.05);
+    b.box(0, 1.5, 0, 3.0, 1.1, 0.06, col);
+    labels.push({ x: 0, y: 1.75, z: 0.04, l: 2.8, h: 0.6, w: 0.02, text, bg: col, both: true });
+    // The arrow pointing down at the holeshot line.
+    b.box(0, 1.0, 0.04, 0.5, 0.4, 0.02, WHITE);
+    b.box(0, 2.4, 0, 3.2, 0.12, 0.12, shade(col, 0.7));
+  },
+  pyro({ b, col, setup, L }) {
+    const n = Math.max(1, Math.round(L / 2.0));
+    for (let k = 0; k < n; k++) {
+      const x = n === 1 ? 0 : -L / 2 + 0.5 + (L - 1.0) * (k / (n - 1));
+      b.box(x, 0, 0, 0.7, 0.4, 0.7, BLACK);
+      b.cyl(x, 0.4, 0, 0.12, 0.3, 0x4a4a50, 8);
+      if (setup === 'firing') {
+        b.cyl(x, 0.7, 0, 0.28, 2.2, col, 8, 0.06);
+        b.cyl(x, 2.2, 0, 0.14, 1.4, 0xfff0a0, 8, 0.02);
+      }
+    }
+  },
+  truss_arch({ b, col, L, text, labels }) {
+    const h = 6.0;
+    const truss = (x: number, y: number, z: number, l: number, hh: number, w: number, vertical: boolean) => {
+      // A lattice truss: four chords with braces, drawn as thin boxes.
+      if (vertical) {
+        for (const dx of [-w / 2, w / 2]) for (const dz of [-w / 2, w / 2]) b.pole(x + dx, y, z + dz, hh, STEEL, 0.04);
+        for (let k = 0.5; k < hh; k += 0.8) b.box(x, y + k, z, w, 0.04, w, STEEL);
+      } else {
+        for (const dy of [-w / 2, w / 2]) for (const dz of [-w / 2, w / 2]) b.box(x, y + dy, z + dz, l, 0.06, 0.06, STEEL);
+        for (let k = -l / 2 + 0.4; k < l / 2; k += 0.8) b.box(x + k, y - w / 2, z, 0.04, w, w, STEEL);
+      }
+    };
+    for (const s of [-1, 1]) { b.box(s * (L / 2 - 0.4), 0, 0, 1.0, 0.1, 1.0, BLACK); truss(s * (L / 2 - 0.4), 0.1, 0, 0, h, 0.5, true); }
+    truss(0, h + 0.25, 0, L, 0, 0.5, false);
+    // Stage lights hung under the beam, pointing down at the track.
+    const n = Math.max(2, Math.floor((L - 2) / 1.2));
+    for (let k = 0; k < n; k++) {
+      const x = -L / 2 + 1 + ((L - 2) * (k + 0.5)) / n;
+      b.box(x, h - 0.35, 0, 0.3, 0.4, 0.3, BLACK);
+      b.box(x, h - 0.37, 0, 0.24, 0.02, 0.24, 0xfff6c0);
+    }
+    if (text) labels.push({ x: 0, y: h + 0.6, z: 0, l: Math.max(1, L - 3), h: 0.7, w: 0.52, text, bg: col, both: true });
+  },
+  stadium_tunnel({ b, col, text, labels }) {
+    // The riders' way onto the floor: a stadium wall with an arched opening, the seating rising behind.
+    const W = 9.0;
+    const H = 4.0;
+    const open = 3.2;
+    for (const s of [-1, 1]) b.box(s * ((W + open) / 4), 0, 0, (W - open) / 2, H, 0.6, 0x9a9a98);
+    b.box(0, H - 0.8, 0, open + 0.2, 0.8, 0.6, 0x9a9a98);
+    b.box(0, 0.02, -1.6, open, 0.05, 3.8, 0x3a3a40);
+    for (const s of [-1, 1]) b.box(s * (open / 2 + 0.02), 0, -1.6, 0.3, H - 0.8, 3.0, 0x6a6a68);
+    b.box(0, H - 0.85, -1.6, open + 0.6, 0.1, 3.0, 0x5a5a58);
+    for (let k = 0; k < 4; k++) b.box(0, H + k * 0.6, -1.8 - k * 0.8, W, 0.6, 0.8, k % 2 ? col : shade(col, 1.15));
+    labels.push({ x: 0, y: H - 0.4, z: 0.31, l: open + 0.2, h: 0.5, w: 0.02, text, bg: BLACK });
+    b.box(0, H + 2.4, -4.4, W, 0.2, 0.3, STEEL);
+  },
+  trophy_table({ b, col, i }) {
+    b.box(0, 0.75, 0, 2.4, 0.05, 0.8, TABLE);
+    b.box(0, 0.05, 0.4, 2.4, 0.7, 0.03, col);
+    for (const sx of [-1.1, 1.1]) b.pole(sx, 0, 0, 0.75, STEEL, 0.04);
+    // Three cups, the winner's tallest, and the champagne.
+    const cups: [number, number, number][] = [[0, 0.9, 0xe8c020], [-0.7, 0.7, 0xd0d0d8], [0.7, 0.55, 0xc08040]];
+    for (const [x, h, c] of cups) {
+      b.box(x, 0.8, 0, 0.3, 0.08, 0.3, BLACK);
+      b.cyl(x, 0.88, 0, 0.04, h * 0.4, c, 8);
+      b.cyl(x, 0.88 + h * 0.4, 0, 0.16, h * 0.6, c, 10, -0.08);
+    }
+    for (const x of [-1.05, 1.05]) { b.cyl(x, 0.8, 0.15, 0.05, 0.3, 0x205030, 8); b.cyl(x, 1.1, 0.15, 0.03, 0.1, 0xe0c060, 8); }
+    b.person(0, -0.7, 0, i, { arms: 'down', shirt: BLACK });
   },
 };
 

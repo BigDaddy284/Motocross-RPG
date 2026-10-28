@@ -44,9 +44,9 @@ interface Seg {
 }
 
 const CORNERS = new Set(['first_corner', 'flat_corner', 'berm', 'rutted_corner', 'hairpin', 'fast_sweeper']);
-const BIG_JUMPS = new Set(['tabletop', 'double', 'step_up']);
+const BIG_JUMPS = new Set(['tabletop', 'double', 'step_up', 'triple', 'step_down']);
 /** Default jump face and hill heights in metres, when a section doesn't set one. */
-export const DEFAULT_HEIGHTS: Record<string, number> = { tabletop: 2.5, double: 3.5, step_up: 3, rhythm: 1.5, whoops: 0.6, uphill: 6, downhill: 6 };
+export const DEFAULT_HEIGHTS: Record<string, number> = { tabletop: 2.5, double: 3.5, step_up: 3, triple: 3.5, step_down: 3, step_on: 2, rhythm: 1.5, whoops: 0.6, dragon_back: 1.2, uphill: 6, downhill: 6 };
 /** Where on a big jump the bike is in the air, as a share of the section. */
 const TAKEOFF = 0.3;
 const LANDING = 0.72;
@@ -493,7 +493,7 @@ export class RaceDirector {
     if (CORNERS.has(type)) return -(type === 'hairpin' ? 0.6 : type === 'fast_sweeper' ? 0.25 : 0.5) * (1 - 0.6 * p.cornerSpeed);
     if (type === 'straight' || type === 'start_gate' || type === 'downhill') return 0.15 + 0.35 * p.drive;
     if (type === 'uphill') return -0.1 * (1 - p.drive);
-    if (type === 'whoops' || type === 'braking_bumps') return -0.2 * (1 - p.skim);
+    if (type === 'whoops' || type === 'braking_bumps' || type === 'dragon_back') return -0.2 * (1 - p.skim);
     return 0;
   }
 
@@ -526,7 +526,11 @@ export class RaceDirector {
         // Three jumps in a row.
         const x = (u * 3) % 1;
         if (x > 0.1 && x < 0.75) air = h * (1 - 0.4 * p.scrub) * 4 * ((x - 0.1) / 0.65) * (1 - (x - 0.1) / 0.65);
-      } else if (type === 'whoops') air = h * (1 - p.skim) * Math.abs(Math.sin(u * Math.PI * 10));
+      } else if (type === 'step_on') {
+        // Two hops: onto the deck and off it again.
+        for (const [a, b] of [[0.2, 0.36], [0.56, 0.74]]) if (u > a && u < b) { const x = (u - a) / (b - a); air = h * 0.35 * (1 - 0.4 * p.scrub) * 4 * x * (1 - x); }
+      } else if (type === 'dragon_back') air = h * 0.5 * (1 - p.skim) * Math.abs(Math.sin(u * Math.PI * 5));
+      else if (type === 'whoops') air = h * (1 - p.skim) * Math.abs(Math.sin(u * Math.PI * 10));
       else if (type === 'braking_bumps') air = 0.15 * (1 - p.skim) * Math.abs(Math.sin(u * Math.PI * 14));
     }
     if (type === 'uphill' || type === 'downhill') elev = h * Math.sin(Math.PI * u);

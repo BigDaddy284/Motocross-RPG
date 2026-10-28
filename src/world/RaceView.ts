@@ -257,7 +257,7 @@ export class RaceView {
     this.groundTex.anisotropy = 4;
     this.drawGround();
     this.buildTerrain();
-    this.ground.push(this.terrainMesh(), this.buildTrack());
+    this.ground.push(this.terrainMesh(), this.buildTrack(), ...this.buildPortals());
     if (this.surface.start.total > 0) this.ground.push(this.buildStart());
     this.scene3.add(...this.ground);
     this.scene3.add(this.overlay);
@@ -653,6 +653,7 @@ export class RaceView {
       const lanes = [-(LIP_AT + skL * FOOT_OUT), -(LIP_AT + skL * 0.45), -LIP_AT, ...inner, LIP_AT, LIP_AT + skR * 0.45, LIP_AT + skR * FOOT_OUT];
       const patch = this.patchAt(f);
       const grain = 0.94 + 0.1 * noise(i);
+      const wall = !!s.tunnelAt(f);
       lanes.forEach((lane, j) => {
         const p = s.spot(f, lane);
         const foot = j === 0 || j === cols - 1;
@@ -663,6 +664,7 @@ export class RaceView {
         const open = s.mouth(f, lane < 0 ? -1 : 1);
         if (Math.abs(lane) <= 1 || open > 0.5) color = shade(patch ?? base, grain * (0.97 + 0.06 * noise(i * 31 + j)));
         else if (Math.abs(lane) <= LIP_AT + 1e-6) color = shade(patch ?? base, 0.82 * grain);
+        else if (wall) color = foot ? 0x7a7a78 : 0x9a9a98;
         else color = shade(base, foot ? 0.62 : 0.72);
         c.setHex(color);
         col.push(c.r, c.g, c.b);
@@ -673,7 +675,12 @@ export class RaceView {
       if (!this.drawn((i + 0.5) / rows)) continue;
       const a = i * cols;
       const b = ((i + 1) % rows) * cols;
-      for (let j = 0; j < cols - 1; j++) idx.push(a + j, b + j, a + j + 1, a + j + 1, b + j, b + j + 1);
+      // Through a tunnel's hole the walls (the two outer columns each side) are left out.
+      const hole = s.inHole((i + 0.5) / rows);
+      for (let j = 0; j < cols - 1; j++) {
+        if (hole && (j < 2 || j >= cols - 3)) continue;
+        idx.push(a + j, b + j, a + j + 1, a + j + 1, b + j, b + j + 1);
+      }
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -685,6 +692,48 @@ export class RaceView {
     mesh.receiveShadow = true;
     mesh.castShadow = true;
     return mesh;
+  }
+
+  /** Concrete portal frames round each tunnel's holes: a lintel along the deck's edge and a jamb at each end, both sides. */
+  private buildPortals(): THREE.Mesh[] {
+    const s = this.surface;
+    const out: THREE.Mesh[] = [];
+    const mat = new THREE.MeshLambertMaterial({ color: 0xb8b8b4 });
+    const dark = new THREE.MeshLambertMaterial({ color: 0x2a2a2e });
+    const bar = (ax: number, ay: number, az: number, bx: number, by: number, bz: number, w: number): THREE.Mesh => {
+      const len = Math.hypot(bx - ax, by - ay, bz - az);
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, w, len), mat);
+      m.position.set((ax + bx) / 2, (ay + by) / 2, (az + bz) / 2);
+      m.lookAt(bx, by, bz);
+      m.castShadow = true;
+      m.receiveShadow = true;
+      return m;
+    };
+    for (const t of s.tunnels) {
+      for (const side of [-1, 1]) {
+        const lane = side * LIP_AT;
+        const a = s.spot(t.h0, lane);
+        const b = s.spot(t.h1, lane);
+        const ya = s.height(t.h0, lane);
+        const yb = s.height(t.h1, lane);
+        const ga = this.terrainAt(a.x, a.z);
+        const gb = this.terrainAt(b.x, b.z);
+        out.push(bar(a.x, ya + 0.05, a.z, b.x, yb + 0.05, b.z, 0.5));
+        out.push(bar(a.x, ga - 0.1, a.z, a.x, ya + 0.1, a.z, 0.55));
+        out.push(bar(b.x, gb - 0.1, b.z, b.x, yb + 0.1, b.z, 0.55));
+      }
+      // The dark of the tunnel's throat under the deck, so the hole reads as a hole from the race camera.
+      const mid = (t.h0 + t.h1) / 2;
+      const c = s.spot(mid, 0);
+      const top = s.height(mid, 0) - 0.08;
+      const len = Math.max(0.3, (t.h1 - t.h0) * s.g.total);
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(s.hw * 2 * LIP_AT, 0.05, len), dark);
+      roof.position.set(c.x, top, c.z);
+      roof.rotation.y = Math.PI / 2 - c.ang;
+      roof.receiveShadow = false;
+      out.push(roof);
+    }
+    return out;
   }
 
   /**

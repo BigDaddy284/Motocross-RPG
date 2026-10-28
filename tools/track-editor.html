@@ -103,6 +103,8 @@ label.chk { display: flex; gap: 6px; align-items: center; color: var(--dim); }
 .sec .n { color: var(--dim); font-size: 11px; text-align: right; }
 .sec.off { border-color: #c03030; }
 .sec.off .n { color: #ff7070; font-weight: 700; }
+.sec.warn { border-color: #b08a20; }
+.sec.warn .n { color: #f0c040; font-weight: 700; }
 .sec select, .sec input { width: 100%; }
 .sec select { padding: 3px 2px; }
 .btns { display: flex; gap: 1px; }
@@ -352,11 +354,11 @@ body.final .final-hide { display: none !important; }
     <li><b>Start straight:</b> every track starts from a gate on its own start straight that joins the route, as on a real track. Its points are the blue squares: the first is the gate (the black bar, with the yellow line-up behind it), the white one is where it joins the route and stays on the route when dragged. To add one, pick <b>Start straight</b> under <b>Start and finish</b> (or <b>+ Start straight</b> above the view): it follows the pointer, its end (the ring) snapping onto the route where the pointer is near it, green where it can go and red with the reason where it can't; <kbd>Q</kbd> <kbd>E</kbd> turn it, <kbd>F</kbd> brings it in from the other side, <kbd>,</kbd> <kbd>.</kbd> make it shorter or longer, a click or <kbd>Enter</kbd> places it and <kbd>Esc</kbd> cancels. On an empty track it can go first, anywhere, and be joined on later by dragging its white end onto the route (anywhere on it, just before or after the finish line included). It turns red when it is off the route. <b>Move start straight</b> places it again, and <b>Remove start straight</b> takes it off. Riders ride it once, then the lap from the join round to the finish line, which ends lap 1. <b>The first corner</b> is the start straight's end: the stretch between its last two blue points, drawn blue and labelled, which the race rides with the first corner's own rules (difficulty, skills, lap 1's first-corner incident). It is not a section: there is none to place or pick, and a First corner section on an older track rides as a flat corner. Select a blue point for <b>+ Point</b> and <b>− Point</b>. The checks ask for it to be at least 12 grid units long, clear of the route until it joins, meeting the route at 75° or less.</li>
     <li><b>Finish line:</b> its own part of the track, placed by you and never for you: closing the lap or joining the start straight makes no finish line. Pick <b>Finish line</b> under <b>Start and finish</b> (or <b>+ Finish line</b> above the view) once the lap is closed and a chequered bar follows the pointer, snapping across the lap; a click or <kbd>Enter</kbd> places it. It becomes the lap's first point (a point is added there if there was none), and the sections are split and turned round to start there, so the lap is laid out exactly as before. <b>Finish here</b> puts it on the selected point, dragging point 0 moves it along the lap, and <b>Remove finish line</b> takes it off (the track is then unfinished until one is placed again). A track without one is a valid draft; it is listed under the checks as still needed to race.</li>
     <li><b>Kind</b> sets how the race screen shows the track: a stadium track fits on one screen; outdoor and endurance tracks use a camera that follows the riders, with a map of the whole lap. <b>Width</b> is the track width on the race screen.</li>
-    <li class="final-hide"><b>Sections</b> are what the race simulation rides, in order. Each is placed on the drawing by its share of the lap length and ridden as its type whatever shape is drawn there; the panel says what the shape reads as (straight, sweeper, corner or hairpin). On a track from before features, <b>From drawing</b> replaces the sections with straights and corners that suit the drawing, if you ask for it. Click the track to pick the section under the pointer. Drag a white diamond to move metres between two sections. The section box sets the line riders take through it and the height of jumps and hills.</li>
+    <li class="final-hide"><b>Sections</b> are what the race simulation rides, in order. Each is placed on the drawing by its share of the lap length and ridden as its type whatever shape is drawn there; the panel says what the shape reads as (straight, sweeper, corner or hairpin). On a track from before features, <b>From drawing</b> replaces the sections with straights and corners that suit the drawing, if you ask for it. Click the track to pick the section under the pointer. Drag a white diamond to move metres between two sections. The section box sets the line riders take through it and the height of jumps and hills. <b>Supercross jumps:</b> a Triple (three peaks, flown from the first's lip to the third's top), a Step-down (a tall deck dropping to a lower landing), a Step-on step-off (a low table ridden as two hops) and a Dragon's back (five humps ridden rolling). <b>Tunnels:</b> a tabletop, step-up or step-on has a <b>Tunnel</b> choice: <i>The track passes under it</i> when another part of the route is drawn across its deck (the flat top in the middle), so riders there go through the tunnel while the rest jump over, or <i>A pedestrian tunnel</i>. Both sides of the deck become concrete walls with the opening and a portal frame, and the map draws the hole as a dark band. Choosing the track tunnel makes the feature at least 22 grid units long and 3.5 m high; the checks say when nothing passes under the deck, when the deck is too short for the lower track, or when the jump is too low.</li>
     <li class="final-hide"><b>Gates</b> is the start bonus curve, in percent of start time, best gate first (Spec 10.4).</li>
     <li><b>Surfaces:</b> mud, sand, water and other patches along the lap, laid by clicking the track.</li>
     <li><b>Ground:</b> paint the ground round the track with the game's ground tiles.</li>
-    <li><b>Scenery:</b> banners (with your own words and colour), sponsor boards, start gates, tuff blocks, hay bales, tyre walls, stands, crowds, pits, trees and more. <b>Paddock vehicles</b> are the game's own vans at the race bikes' scale: an old rusty truck (empty, or one or two bikes on the back), an old rusty van (doors shut or open, a bike beside it), the MX vans and sports motorhomes (closed up, awning out, or bikes on stands under it), the factory hauler (closed, or a three-sided awning the length of the trailer with bikes under it) and a bike on a stand. Each has a colour and a set-up picked for it, like a fan's shirt; select it to choose them, and the vehicle's body alone counts as solid (the awning side is the lower side on the map before turning). <b>Trackside items</b> are built the same way, each with a colour, a design and a set-up picked for it unless chosen: the TV crew (camera operators standing or kneeling, a tripod camera, a camera van with a crew on its roof, a TV tower, a camera crane, a drone pilot, photographers standing, kneeling or lying in the dirt, a commentary box, a big screen, a press tent); the pits (a pit tent set up with bikes on stands, mechanics and riders, both, or the tool chest, generator and cans, with the team's name on its valance; a bike wash, a bike trailer with one or two bikes, pit clutter, a trade stand, a merchandise trailer, a catering van with a queue, a hospitality marquee, an enduro time check, a signing table); what stands over and beside the track (a pedestrian bridge over the track, empty or with fans crossing, its width set like a banner's and only its stair towers solid; a timing beam and a sponsor inflatable arch, over the track the same way; crowd barriers, cones, marshals (standing trackside, on a pallet stand, in a roofed tower, a pair with an extinguisher, or behind hay bales: each watches a stretch of track and keeps the yellow flag down until a rider goes down there, then leans out and waves it until the rider is away; <b>Set watch</b> then a click on the track sets how far along the lap they watch, at most 36 grid units, drawn as a yellow band, and with no end set they watch the next 18 units), the medics and their ambulance, a marshal quad, a track tractor pulling the harrow or towing the water bowser, a skid steer loader, portable toilets in ones, twos or fours, feather flags, a PA speaker pole, a VIP grandstand with a roof); and the fans (in camping chairs, taking pictures, round a lunch table under a parasol, on a picnic blanket, under a parasol, leaning on a fence). People face the track unless the item is turned; items with words take your own text. Pick an item and it follows the pointer, see-through, on the map and in the race view, where a click would place it, turned as <kbd>Q</kbd> and <kbd>E</kbd> have turned it (the turn is kept for the next item too). <kbd>Q</kbd> and <kbd>E</kbd> turn the selected item 15° a press, 5° with <kbd>Shift</kbd> and 1° with <kbd>Alt</kbd>, and the Turn box takes any whole number of degrees; <kbd>Ctrl+D</kbd> duplicates it. <b>Cheering fans</b> are people who stand trackside and react as bikes pass: pick a variant (body shape), an action (arms up, wave, clap, fist pump, celebrate) and a shirt colour, or leave them to be picked. <b>Draw route</b> gives a fan a walk in: when the track loads they walk from where placed along it, at walking pace, and cheer from its end, so a crowd can file in. A fan must never be on the track, where placed or where the walk ends (an error the game refuses); a walk that crosses the track is only a warning. Each fan reacts in their own time, with a rest between, so a crowd never moves as one.</li>
+    <li><b>Scenery:</b> banners (with your own words and colour), sponsor boards, start gates, tuff blocks, hay bales, tyre walls, stands, crowds, pits, trees and more. <b>Paddock vehicles</b> are the game's own vans at the race bikes' scale: an old rusty truck (empty, or one or two bikes on the back), an old rusty van (doors shut or open, a bike beside it), the MX vans and sports motorhomes (closed up, awning out, or bikes on stands under it), the factory hauler (closed, or a three-sided awning the length of the trailer with bikes under it) and a bike on a stand. Each has a colour and a set-up picked for it, like a fan's shirt; select it to choose them, and the vehicle's body alone counts as solid (the awning side is the lower side on the map before turning). <b>Trackside items</b> are built the same way, each with a colour, a design and a set-up picked for it unless chosen: the TV crew (camera operators standing or kneeling, a tripod camera, a camera van with a crew on its roof, a TV tower, a camera crane, a drone pilot, photographers standing, kneeling or lying in the dirt, a commentary box, a big screen, a press tent); the pits (a pit tent set up with bikes on stands, mechanics and riders, both, or the tool chest, generator and cans, with the team's name on its valance; a bike wash, a bike trailer with one or two bikes, pit clutter, a trade stand, a merchandise trailer, a catering van with a queue, a hospitality marquee, an enduro time check, a signing table); what stands over and beside the track (a pedestrian bridge over the track, empty or with fans crossing, its width set like a banner's and only its stair towers solid; a timing beam and a sponsor inflatable arch, over the track the same way; crowd barriers, cones, marshals (standing trackside, on a pallet stand, in a roofed tower, a pair with an extinguisher, or behind hay bales: each watches a stretch of track and keeps the yellow flag down until a rider goes down there, then leans out and waves it until the rider is away; <b>Set watch</b> then a click on the track sets how far along the lap they watch, at most 36 grid units, drawn as a yellow band, and with no end set they watch the next 18 units), the medics and their ambulance, a marshal quad, a track tractor pulling the harrow or towing the water bowser, a skid steer loader, portable toilets in ones, twos or fours, feather flags, a PA speaker pole, a VIP grandstand with a roof; and the supercross kit: a podium (motocross boxes and a board, or a lit supercross stage; empty, the top three, or champagne), a holeshot board, pyro flame pods, a lighting truss over the track, a stadium tunnel and a trophy table); and the fans (in camping chairs, taking pictures, round a lunch table under a parasol, on a picnic blanket, under a parasol, leaning on a fence). People face the track unless the item is turned; items with words take your own text. Pick an item and it follows the pointer, see-through, on the map and in the race view, where a click would place it, turned as <kbd>Q</kbd> and <kbd>E</kbd> have turned it (the turn is kept for the next item too). <kbd>Q</kbd> and <kbd>E</kbd> turn the selected item 15° a press, 5° with <kbd>Shift</kbd> and 1° with <kbd>Alt</kbd>, and the Turn box takes any whole number of degrees; <kbd>Ctrl+D</kbd> duplicates it. <b>Cheering fans</b> are people who stand trackside and react as bikes pass: pick a variant (body shape), an action (arms up, wave, clap, fist pump, celebrate) and a shirt colour, or leave them to be picked. <b>Draw route</b> gives a fan a walk in: when the track loads they walk from where placed along it, at walking pace, and cheer from its end, so a crowd can file in. A fan must never be on the track, where placed or where the walk ends (an error the game refuses); a walk that crosses the track is only a warning. Each fan reacts in their own time, with a rest between, so a crowd never moves as one.</li>
     <li><b>Start board official:</b> pick <b>Start board official</b> under Start and finish in Layout, or the last item in Scenery, and click where they wait with the board while the riders line up (one a track; without one the game picks their spot beside the start straight). Select them and click <b>Draw route</b>, then click the ground in order to where they end up (the red point), and <b>Done</b> or <kbd>Esc</kbd>; <b>Cancel</b> puts the old route back, <b>Reset route</b> clears it. Drag a route point to move it, right-click it or press <kbd>Del</kbd> to remove it; dragging the official moves only where they start. In the countdown they raise the board and set off at five, turn it sideways at three and lower it white side out at one as they arrive. The route can be at most <code>official.maxWalk</code> grid units (trackParts.json, 8), may cross the track ahead of the gate but not the riders lined up at the gate or solid scenery, and must end clear of the track; the race view runs the game's checks and they show under the official and in Checks. On a new track they stand where placed until there's a start straight; Checks says when a track has no official or an official has no route.</li>
     <li><b>Height:</b> <b>Raise the track</b> and <b>Lower the track</b> work along the track's length: hover the track and the stretch the tool would change is highlighted, the <b>Length</b> you set centred under the pointer and following the route round corners (cut at the end of an open route); a click raises it by the <b>Height</b> set, right-click lowers it, with the most at the centre easing to nothing at both ends, so the hill meets the track either side with no step and no kink. Nothing changes until you click; each click is one undo, and clicking the same stretch again steps its height instead of stacking another hill (back to level, it goes). Hills are saved with the track (<code>hills</code>), keep their place when the route is reshaped, and are drawn on the map as a band with their height. The track keeps its width, banking, berms and section types; the ground either side rises or sinks to meet it as a grass slope, never a wall. The <b>ground brush</b> (raise, lower, smooth, flatten; radius and strength) shapes the ground away from the track as before. Heights go from 36 m down to 36 m up; riders slow up climbs and run quicker down drops; ground steeper than 45° is refused as a wall, and a track climbing or dropping more than 35% along its length is a warning. Old tracks keep their ground as saved.</li>
     <li><b>Race view:</b> you edit in the game's own race camera and 3D scene with hills, jumps, scenery and ground as a race draws them, and the lap map in its corner. Click, drag and right-click on the 3D ground; the keys are the same in every mode. Mouse wheel or <kbd>+</kbd> <kbd>−</kbd> zoom, <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or a middle-button (or <kbd>Space</kbd>+drag) pan, <kbd>[</kbd> <kbd>]</kbd>, the <b>⟲ Turn left</b> and <b>⟳ Turn right</b> buttons (bottom left) or a <kbd>Shift</kbd>+middle-button drag turn the view round the track, to see it from any side; <kbd>0</kbd> or <b>Reset view</b> goes back to the race camera's angle. Turning only changes the editor's view: clicks still land where the pointer is, and races always use the fixed race camera. The selection is orange, problems red or dashed yellow. In Layout each section shows as a stripe in its kind's colour, with a cream line across the track where one section ends and the next begins. No race runs while you edit. Opened straight from disk, the race view runs the game from the published site (<code>bigdaddy284.github.io/Motocross-RPG</code>), so it needs an internet connection; with neither that nor <code>npm run dev</code>, the editor shows a plain map instead.</li>
@@ -380,8 +382,18 @@ const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', '.vite', 'coverage', 
 const ART_DIR = 'assets/art/area-map/tiled/tiles';
 const ID = /^[a-z0-9_.-]+$/;
 // Mirrors src/world/TrackView.ts.
-const JUMPS = new Set(['tabletop', 'double', 'step_up', 'rhythm', 'whoops']);
+const JUMPS = new Set(['tabletop', 'double', 'step_up', 'triple', 'step_down', 'step_on', 'rhythm', 'whoops', 'dragon_back']);
 const HEIGHTS = new Set([...JUMPS, 'uphill', 'downhill']);
+// Mirrors src/core/trackSurface.ts DECKS and WALK_HOLE: the flat top of each jump that can carry a tunnel.
+const DECKS = { tabletop: [0.32, 0.6], step_on: [0.32, 0.6], step_up: [0.7, 0.84] };
+const WALLS = { tabletop: [0.2, 0.76], step_on: [0.2, 0.76], step_up: [0.6, 0.92] };
+const WALK_HOLE = 1.2;
+// Mirrors src/core/riderAI.ts DEFAULT_HEIGHTS.
+const DEFAULT_HEIGHTS_ED = { tabletop: 2.5, double: 3.5, step_up: 3, triple: 3.5, step_down: 3, step_on: 2, rhythm: 1.5, whoops: 0.6, dragon_back: 1.2, uphill: 6, downhill: 6 };
+/** The lowest height (metres) a jump with the track under it should have, so a bike clears it. */
+const TUNNEL_MIN_HEIGHT = 3.5;
+/** The shortest feature (grid units) whose deck can take the lower track with its lips and banks through it. */
+const TUNNEL_MIN_LEN = 22;
 const DIRT = '#c98a4b';
 const DIRT_EDGE = '#8a5a2b';
 // Section colours by the kind of riding: starts, corners, jumps, fast ground, rough ground.
@@ -389,8 +401,8 @@ const KINDS = [
   { name: 'Start', color: '#ffffff', types: ['start_gate'] },
   { name: 'Corners', color: '#3a8fd8', types: ['first_corner', 'flat_corner', 'berm', 'rutted_corner', 'hairpin'] },
   { name: 'Fast', color: '#4fb36b', types: ['straight', 'fast_sweeper', 'uphill', 'downhill'] },
-  { name: 'Jumps', color: '#e05252', types: ['tabletop', 'double', 'step_up', 'rhythm'] },
-  { name: 'Rough', color: '#b06ad8', types: ['whoops', 'braking_bumps', 'sand', 'mud'] },
+  { name: 'Jumps', color: '#e05252', types: ['tabletop', 'double', 'step_up', 'triple', 'step_down', 'step_on', 'rhythm'] },
+  { name: 'Rough', color: '#b06ad8', types: ['whoops', 'dragon_back', 'braking_bumps', 'sand', 'mud'] },
   { name: 'Concrete', color: '#9c9c96', types: ['concrete_straight', 'concrete_corner', 'surface_change'] },
 ];
 const OTHER_COLOR = '#f0a020';
@@ -1175,7 +1187,7 @@ function rebuildSections(t) {
     const b = Math.min(total, f.at + f.len);
     if (b - a < 1e-6) continue;
     if (a > cursor + 1e-6) fill(cursor, a);
-    cuts.push({ type: f.type, from: a, to: b, passing: f.passing, line: f.line, height: f.height, feat: f.k });
+    cuts.push({ type: f.type, from: a, to: b, passing: f.passing, line: f.line, height: f.height, tunnel: f.tunnel, feat: f.k });
     cursor = b;
   }
   if (cursor < total - 1e-6) fill(cursor, total);
@@ -1195,9 +1207,74 @@ function rebuildSections(t) {
     const sec = { type: c.type, length: Math.max(1, metres(c.to) - metres(c.from)), passing: c.passing };
     if (c.line) sec.line = c.line;
     if (c.height !== undefined) sec.height = c.height;
+    if (c.tunnel && DECKS[c.type]) sec.tunnel = c.tunnel;
     return sec;
   });
   SECFEAT.set(t, cuts.map((c) => c.feat));
+}
+/**
+ * The tunnels through jump decks, as the race view builds them (trackSurface.ts findTunnels):
+ * for each section with `tunnel`, its deck as lap fractions and, for a track tunnel, where the
+ * lap crosses under it (null when it doesn't: the editor warns).
+ */
+function tunnelsOf(t) {
+  if (t.path.length < 3 || t.open) return [];
+  const g = lapGeom(t);
+  const bounds = sectionBounds(t);
+  const feats = sectionFeats(t);
+  const hw = (t.width ?? DEFAULT_WIDTH) / 2;
+  const out = [];
+  t.sections.forEach((sec, si) => {
+    const deck = sec.tunnel ? DECKS[sec.type] : undefined;
+    if (!deck) return;
+    const span = bounds[si + 1] - bounds[si];
+    const d0 = bounds[si] + span * deck[0];
+    const d1 = bounds[si] + span * deck[1];
+    const f0 = bounds[si] + span * WALLS[sec.type][0];
+    const f1 = bounds[si] + span * WALLS[sec.type][1];
+    const k = feats[si];
+    if (sec.tunnel === 'walk') {
+      const mid = (d0 + d1) / 2;
+      const half = Math.min((d1 - d0) / 2, WALK_HOLE / 2 / g.total);
+      out.push({ si, k, f0, f1, h0: mid - half, h1: mid + half, walk: true, under: null });
+      return;
+    }
+    const c = crossingUnder(g, d0, d1);
+    if (!c) { out.push({ si, k, f0, f1, h0: d0, h1: d1, walk: false, under: null }); return; }
+    // The hole takes the lower track with its lips and banks (trackSurface.ts skirt on level ground), wider at a slant.
+    const wide = hw * 1.22 + Math.max(0.35, 0.22 * 0.9) + 0.3;
+    const need = wide / Math.max(0.35, Math.abs(Math.sin(c.angle))) / g.total;
+    const half = Math.min((d1 - d0) / 2, need);
+    out.push({ si, k, f0, f1, h0: Math.max(d0, c.f - half), h1: Math.min(d1, c.f + half), walk: false, under: c.under, at: pointAt(g, c.f), short: need > (d1 - d0) / 2 - 0.4 / g.total });
+  });
+  return out;
+}
+/** Where another part of the lap crosses the stretch from f0 to f1 (trackSurface.ts crossingUnder). */
+function crossingUnder(g, f0, f1) {
+  const n = Math.max(2, Math.ceil((f1 - f0) * g.total / 0.25));
+  const o = (p, q, r) => Math.sign((q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x));
+  for (let k = 0; k < n; k++) {
+    const fa = f0 + ((f1 - f0) * k) / n;
+    const fb = f0 + ((f1 - f0) * (k + 1)) / n;
+    const a = pointAt(g, fa);
+    const b = pointAt(g, fb);
+    for (let j = 0; j < g.pts.length - 1; j++) {
+      const fj0 = g.cum[j] / g.total;
+      const fj1 = g.cum[j + 1] / g.total;
+      if (fj1 > f0 - 2 / g.total && fj0 < f1 + 2 / g.total) continue;
+      const c = g.pts[j];
+      const d = g.pts[j + 1];
+      if (!(o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0)) continue;
+      const den = (b.x - a.x) * (d.y - c.y) - (b.y - a.y) * (d.x - c.x);
+      if (Math.abs(den) < 1e-9) continue;
+      const tt = ((c.x - a.x) * (d.y - c.y) - (c.y - a.y) * (d.x - c.x)) / den;
+      const u = ((c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x)) / den;
+      const f = fa + (fb - fa) * tt;
+      const under = fj0 + (fj1 - fj0) * u;
+      return { f, under, angle: headingAt(g, f) - headingAt(g, under) };
+    }
+  }
+  return null;
 }
 /** Which feature each section comes from (-1 for the route's own straights and bends). */
 function sectionFeats(t) {
@@ -1479,7 +1556,7 @@ function drawItem(it, sel, blocked = false) {
  * Never changes the track. Returns [{ i, level, message }], and is remembered until the track changes.
  */
 const BIKE_HALF_WIDTH = 0.25;
-const SOLID = new Set(['hay_bale', 'tyre_wall', 'tuff_block', 'van', 'pit_tent', 'stand', 'light_tower', 'skip', 'barrels', 'tyre_stack', 'hedge', 'banner', 'sponsor_board', 'rusty_truck', 'rusty_van', 'mx_van', 'mx_van_long', 'motorhome', 'motorhome_long', 'hauler', 'bike_stand', 'marshal', 'tv_tripod', 'tv_van', 'tv_tower', 'commentary_box', 'big_screen', 'pit_setup', 'bike_wash', 'bike_trailer', 'pit_clutter', 'trade_stand', 'catering_van', 'marquee', 'time_check', 'foot_bridge', 'crowd_barrier', 'ambulance', 'quad', 'tractor', 'toilets', 'inflatable', 'lunch_table', 'fans_fence', 'camera_crane', 'press_tent', 'signing_table', 'pa_speaker', 'timing_beam', 'skid_steer', 'merch_trailer', 'vip_stand']);
+const SOLID = new Set(['hay_bale', 'tyre_wall', 'tuff_block', 'van', 'pit_tent', 'stand', 'light_tower', 'skip', 'barrels', 'tyre_stack', 'hedge', 'banner', 'sponsor_board', 'rusty_truck', 'rusty_van', 'mx_van', 'mx_van_long', 'motorhome', 'motorhome_long', 'hauler', 'bike_stand', 'marshal', 'tv_tripod', 'tv_van', 'tv_tower', 'commentary_box', 'big_screen', 'pit_setup', 'bike_wash', 'bike_trailer', 'pit_clutter', 'trade_stand', 'catering_van', 'marquee', 'time_check', 'foot_bridge', 'crowd_barrier', 'ambulance', 'quad', 'tractor', 'toilets', 'inflatable', 'lunch_table', 'fans_fence', 'camera_crane', 'press_tent', 'signing_table', 'pa_speaker', 'timing_beam', 'skid_steer', 'merch_trailer', 'vip_stand', 'podium', 'holeshot_board', 'truss_arch', 'stadium_tunnel', 'trophy_table']);
 const issueCache = new WeakMap();
 function colliders(f) {
   const along = (off, w, d) => ({ ...f, x: f.x + off * Math.cos(f.a), y: f.y + off * Math.sin(f.a), w, d });
@@ -1676,7 +1753,7 @@ function draw() {
   bounds.slice(0, -1).forEach((b0, i) => {
     const s = t.sections[i];
     if (!JUMPS.has(s.type)) return;
-    const n = s.type === 'rhythm' || s.type === 'whoops' ? 3 : 1;
+    const n = s.type === 'dragon_back' ? 5 : s.type === 'rhythm' || s.type === 'whoops' || s.type === 'triple' ? 3 : s.type === 'step_on' || s.type === 'double' || s.type === 'step_up' || s.type === 'step_down' ? 2 : 1;
     for (let j = 0; j < n; j++) {
       const p = pointAt(g, b0 + ((bounds[i + 1] - b0) * (j + 1)) / (n + 1));
       const sp = toScreen(p.x, p.y);
@@ -1690,6 +1767,21 @@ function draw() {
     }
   });
 
+  // Tunnels: the hole through the deck as a dark band with a pale edge, the walls as grey lines along the deck.
+  for (const tn of tunnelsOf(t)) {
+    const hwG = (t.width ?? DEFAULT_WIDTH) / 2;
+    const poly = (fa, fb, lane) => { const pts = []; const n = Math.max(2, Math.ceil((fb - fa) * g.total / 0.5)); for (let k = 0; k <= n; k++) { const f = fa + ((fb - fa) * k) / n; const p = pointAt(g, f); const a = p.ang + Math.PI / 2; pts.push(toScreen(p.x + Math.cos(a) * lane * hwG, p.y + Math.sin(a) * lane * hwG)); } return pts; };
+    for (const side of [-1.22, 1.22]) {
+      const w = poly(tn.f0, tn.f1, side);
+      ctx.strokeStyle = '#b8b8b4'; ctx.lineWidth = 2.5; ctx.beginPath(); w.forEach((p, k) => (k ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.stroke();
+    }
+    if (!tn.walk && tn.under === null) continue;
+    const l = poly(tn.h0, tn.h1, -1.22);
+    const r = poly(tn.h0, tn.h1, 1.22).reverse();
+    ctx.fillStyle = tn.walk ? '#20202880' : '#202028c0';
+    ctx.strokeStyle = '#f0f0f0'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); [...l, ...r].forEach((p, k) => (k ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
   // Direction arrows.
   for (let f = 0.04; f < 1; f += 0.08) {
     const p = pointAt(g, f);
@@ -2126,6 +2218,7 @@ function renderSections() {
   const shapes = sectionShapes(t);
   const feats = sectionFeats(t);
   const bounds = sectionBounds(t);
+  const marks = sectionMarks(t);
   $('#secHint').textContent = t.features
     ? 'Sections run in order from the finish line: the route itself rides as plain track, and the corners, jumps and the rest are the features placed on it (edit those here or on the route), each ridden as its type whatever shape it is drawn. The first corner is not a section: it is the start straight\'s end, between its last two points. Pass is the chance of a pass being on in that section (0 to 1).'
     : 'Sections run in order from the finish line, each ridden as its type whatever shape it is drawn. Drag the white diamonds on the track to move metres between neighbouring sections. Pass is the chance of a pass being on in that section (0 to 1). The first corner is not a section: it is the start straight\'s end, between its last two points. Use features keeps the corners, jumps and special sections as features on the route, with their types, and lets the route between them ride as plain track.';
@@ -2134,8 +2227,8 @@ function renderSections() {
     const fk = feats[i];
     const f = fk >= 0 ? t.features[fk] : null;
     const base = !!t.features && !f;
-    row.className = `sec${i === app.selSec ? ' active' : ''}${base ? ' base' : ''}`;
-    row.title = `${base ? 'The route itself, plain track. ' : f ? `Feature ${fk + 1}. ` : ''}Drawn as ${shapeText(shapes[i])}.`;
+    row.className = `sec${i === app.selSec ? ' active' : ''}${base ? ' base' : ''}${marks.get(i) ? ` ${marks.get(i).level}` : ''}`;
+    row.title = `${base ? 'The route itself, plain track. ' : f ? `Feature ${fk + 1}. ` : ''}Drawn as ${shapeText(shapes[i])}.${marks.get(i) ? ` ${marks.get(i).text}` : ''}`;
     const sw = document.createElement('div');
     sw.className = 'sw';
     sw.style.background = colorOf(s.type);
@@ -2178,6 +2271,19 @@ function renderSections() {
     row.addEventListener('mousedown', () => { if (app.selSec !== i || app.selFeat !== fk) { app.selSec = i; app.selFeat = fk; refreshLight(); } });
     box.appendChild(row);
   });
+}
+/** The sections the checks name, by index: red (off) for an error, amber (warn) for a warning, with the check's words. */
+function sectionMarks(t) {
+  const out = new Map();
+  const { bad, warn, refs } = checkTrack(t, app.data.tracks);
+  for (const [text, ref0] of refs) {
+    const ref = ref0?.feat !== undefined && ref0.sec === undefined ? { ...ref0, sec: sectionOfFeature(t, ref0.feat) } : ref0;
+    if (ref?.sec === undefined || ref.sec < 0) continue;
+    const level = bad.includes(text) ? 'off' : warn.includes(text) ? 'warn' : null;
+    if (!level || (out.get(ref.sec)?.level === 'off')) continue;
+    out.set(ref.sec, { level, text });
+  }
+  return out;
 }
 /** Re-highlights the selected section without rebuilding the inputs being typed in. */
 function refreshLight() {
@@ -2287,6 +2393,25 @@ function renderFeatureDetail(t, k) {
     inp.title = 'Height in metres of the jump face or hill, for the race screen';
     inp.addEventListener('change', () => editFeature(k, (x) => { const v = Number(inp.value); if (inp.value !== '' && v >= 0) x.height = v; else delete x.height; }));
     field('Height', inp);
+  }
+  if (DECKS[f.type]) {
+    const tun = document.createElement('select');
+    fillSelect(tun, [{ id: '', name: 'None' }, { id: 'track', name: 'The track passes under it' }, { id: 'walk', name: 'A pedestrian tunnel' }], f.tunnel ?? '');
+    tun.title = `A tunnel through the deck (the flat top in the middle of it): with the track under it, draw the route across this feature's deck and riders go through the tunnel while others jump over; a pedestrian tunnel is a walkway through. Both sides of the deck become concrete walls with the opening in them. The track under it needs the jump ${TUNNEL_MIN_HEIGHT} m high.`;
+    tun.addEventListener('change', () => editFeature(k, (x) => {
+      if (tun.value) x.tunnel = tun.value; else delete x.tunnel;
+      if (tun.value === 'track' && (x.height ?? DEFAULT_HEIGHTS_ED[x.type] ?? 0) < TUNNEL_MIN_HEIGHT) x.height = TUNNEL_MIN_HEIGHT;
+      // The deck has to be long enough for the lower track to pass through: the feature grows about its middle.
+      if (tun.value === 'track' && x.len < TUNNEL_MIN_LEN) { x.at = Math.max(0, x.at - (TUNNEL_MIN_LEN - x.len) / 2); x.len = TUNNEL_MIN_LEN; }
+    }));
+    field('Tunnel', tun);
+    const tn = tunnelsOf(t).find((x) => x.k === k);
+    if (tn) {
+      const note = document.createElement('div');
+      note.className = tn.walk || tn.under !== null ? 'hint' : 'warn';
+      note.textContent = tn.walk ? 'A walkway through the deck, with a concrete portal each side.' : tn.under !== null ? `The lap crosses under the deck at ${tn.at.x.toFixed(0)}, ${tn.at.y.toFixed(0)}: riders there ride through the tunnel.` : 'No other part of the lap passes under the deck yet: drag the feature along the route, or the route across its deck.';
+      box.appendChild(note);
+    }
   }
   const row = document.createElement('div');
   row.className = 'row';
@@ -3152,10 +3277,42 @@ function checkTrack(t, all, strict = false) {
     const o = (p, q, r) => Math.sign((q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x));
     return o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0;
   };
+  const tunnels = tunnelsOf(t);
+  // A crossing under a tunnel's deck is the tunnel; any other is the two stretches drawn through each other.
+  const underTunnel = (i) => tunnels.some((tn) => tn.under !== null && Math.abs(tn.under - (g.cum[i] + g.cum[i + 1]) / 2 / g.total) < (g.cum[i + 1] - g.cum[i]) / 2 / g.total + 1e-9);
   let crossings = 0;
-  for (let i = 0; i < n; i++) for (let j = i + 2; j < n; j++) if (!(i === 0 && j === n - 1) && cross(g.pts[i], g.pts[i + 1], g.pts[j], g.pts[j + 1])) crossings++;
-  if (crossings) warn.push(`Geometry: the drawing crosses itself ${crossings === 1 ? 'once' : `${crossings} times`}. That's fine for a crossover, but riders will pass through each other there.`);
-  for (const c of tightCorners(t)) warn.push(`Geometry: the corner at ${c.x.toFixed(0)}, ${c.y.toFixed(0)} is tighter than the track's edge can follow (about ${(c.r * PIECE_MPU).toFixed(1)} m round against a half-width of ${((t.width ?? DEFAULT_WIDTH) / 2 * PIECE_MPU).toFixed(1)} m), so the race view mitres its inside edge to a point there. Select the point and Round corner, or widen the bend.`);
+  for (let i = 0; i < n; i++) for (let j = i + 2; j < n; j++) if (!(i === 0 && j === n - 1) && cross(g.pts[i], g.pts[i + 1], g.pts[j], g.pts[j + 1]) && !underTunnel(i) && !underTunnel(j)) crossings++;
+  if (crossings) warn.push(`Geometry: the drawing crosses itself ${crossings === 1 ? 'once' : `${crossings} times`} with no tunnel there. That's fine for a crossover, but riders will pass through each other there; a tabletop, step-up or step-on with Tunnel set carries the track over the crossing.`);
+  for (const tn of tunnels) {
+    const sec = t.sections[tn.si];
+    const name = `${tn.k >= 0 ? `Feature ${tn.k + 1}` : `Section ${tn.si + 1}`} (${app.sectionDefs[sec.type]?.name ?? sec.type})`;
+    if (!tn.walk && tn.under === null) {
+      const text = `${name} has Tunnel set to the track, but no other part of the lap passes under its deck (the flat top in the middle of it). Move it along the route until the deck sits over the crossing, or set Tunnel to none (click here to find it).`;
+      warn.push(text);
+      refs.set(text, tn.k >= 0 ? { feat: tn.k } : { sec: tn.si });
+    }
+    if (!tn.walk && tn.under !== null && tn.short) {
+      const text = `${name} carries the track over a tunnel but its deck is too short to take the lower track through: make it at least ${TUNNEL_MIN_LEN} grid units long (longer where the track crosses at a slant), by dragging its ends or in the sections list (click here to find it).`;
+      warn.push(text);
+      refs.set(text, tn.k >= 0 ? { feat: tn.k } : { sec: tn.si });
+    }
+    const h = sec.height ?? DEFAULT_HEIGHTS_ED[sec.type] ?? 0;
+    if (!tn.walk && tn.under !== null && h < TUNNEL_MIN_HEIGHT - 1e-9) {
+      const text = `${name} carries the track over a tunnel but is only ${h} m high: a bike needs ${TUNNEL_MIN_HEIGHT} m under the deck. Set its Height (click here to find it).`;
+      warn.push(text);
+      refs.set(text, tn.k >= 0 ? { feat: tn.k } : { sec: tn.si });
+    }
+  }
+  for (const c of tightCorners(t)) {
+    const si = sectionAt(t, c.f);
+    const sec = t.sections[si];
+    const L = lpts(t);
+    let pt = -1;
+    L.forEach(([x, y], k) => { if (pt < 0 || Math.hypot(x - c.x, y - c.y) < Math.hypot(L[pt][0] - c.x, L[pt][1] - c.y)) pt = k; });
+    const text = `Geometry: the corner at ${c.x.toFixed(0)}, ${c.y.toFixed(0)}${sec ? ` (section ${si + 1}, ${app.sectionDefs[sec.type]?.name ?? sec.type})` : ''} turns tighter than the track can follow, about ${(c.r * PIECE_MPU).toFixed(1)} m round on a track ${((t.width ?? DEFAULT_WIDTH) * PIECE_MPU).toFixed(1)} m wide, so the inside of the racing surface folds to a point and riders on the inside line bunch there. Round the corner (select the point and Round corner), move the point out, or narrow the track (click here to find it).`;
+    warn.push(text);
+    refs.set(text, { pt, sec: si });
+  }
   // What is in place, so the groups read as a whole.
   const good = [];
   if (t.path.length >= 3 && !t.open) good.push(`Circuit: a closed route of ${lpts(t).length} points and ${t.sections.length} section${t.sections.length === 1 ? '' : 's'}, ${lap} m${t.features ? `, with ${t.features.length} feature${t.features.length === 1 ? '' : 's'}` : ''}.`);
@@ -3165,14 +3322,21 @@ function checkTrack(t, all, strict = false) {
     if (sg) good.push(`Race start: a start straight ${Math.round(sg.total * PIECE_MPU)} m from the gate, joining ${Math.round(sg.join * lap)} m into the lap.${fc ? ` The first corner is its end, ${fc.metres} m between ${fc.points}: the race rides it with the first corner's rules, and lap 1's first-corner incident happens there.` : ''}`);
   }
   if (t.finish !== false && t.path.length) good.push(`Finish line: at ${t.path[0][0]}, ${t.path[0][1]}, the lap's first point; every lap starts and ends there.`);
+  for (const tn of tunnels) {
+    if (tn.walk) good.push(`Tunnel: a pedestrian tunnel through ${tn.k >= 0 ? `feature ${tn.k + 1}` : `section ${tn.si + 1}`}'s deck.`);
+    else if (tn.under !== null) good.push(`Tunnel: ${tn.k >= 0 ? `feature ${tn.k + 1}` : `section ${tn.si + 1}`}'s deck carries the track over the lap at ${tn.at.x.toFixed(0)}, ${tn.at.y.toFixed(0)}; riders go through the tunnel under it.`);
+  }
   return { bad, warn, refs, good };
 }
 /**
- * Corners drawn tighter than half the track's width: the lap's turn rate (as the game measures
- * it, over a grid unit each way of the smoothed heading) against the track's half-width. Inside
- * such a corner the race view's surface is mitred to a point, so the inside edge is pinched there.
+ * Corners drawn tighter than the racing surface can follow: the lap's turn rate (as the game
+ * measures it, over a grid unit each way of the smoothed heading) against the inside line's
+ * distance from the centre (0.9 of the half-width, as far in as riders go). Inside such a corner
+ * the racing surface folds and the race view mitres it to a point, so the inside line is pinched
+ * there. The lip and bank outside the surface fold sooner, and that is drawn cleanly, so it is
+ * not reported (Boss, 28 Oct 2026: the yellow warnings on corners that looked fine).
  */
-const TIGHT_LANE = 1.22;
+const TIGHT_LANE = 0.9;
 /** A boundary crossing worded for the checks: which stretch of the route, where, and what to do. */
 function boundaryText(t, c, drafting) {
   const n = lpts(t).length;
@@ -3199,7 +3363,7 @@ function tightCorners(t) {
     else if (tight && k > run.k) run = { k, f };
     else if (!tight && run) {
       const p = pointAt(g, run.f);
-      out.push({ x: p.x, y: p.y, r: 1 / run.k });
+      out.push({ x: p.x, y: p.y, r: 1 / run.k, f: run.f });
       run = null;
     }
   }
@@ -3249,10 +3413,14 @@ function findRef(ref) {
     lookAt(p.x, p.y);
   } else if (ref.pt !== undefined && lpts(t)[ref.pt]) {
     app.selPt = ref.pt;
-    app.selFeat = -1;
-    app.selSec = -1;
+    app.selSec = ref.sec ?? -1;
+    app.selFeat = ref.sec !== undefined ? sectionFeats(t)[ref.sec] ?? -1 : -1;
     const [x, y] = lpts(t)[ref.pt];
     lookAt(x, y);
+  } else if (ref.sec !== undefined && t.sections[ref.sec]) {
+    app.selSec = ref.sec;
+    app.selFeat = sectionFeats(t)[ref.sec] ?? -1;
+    app.selPt = -1;
   }
   refresh();
 }
@@ -3446,7 +3614,7 @@ const shirtOf = (k) => SHIRTS[Math.floor(paddockHash(k * 13 + 5) * SHIRTS.length
 const BIKE_COLS = ['#c21c15', '#3b86da', '#a0c33e', '#ecbe2a', '#ef6c18'];
 const STEEL_C = '#8a8c90', BLACK_C = '#202428', WHITE_C = '#f0f0f0', TABLE_C = '#d8d8d0', CANVAS_C = '#e2ded4', CHASSIS_C = '#2a2a30', WOOD_C = '#9a7a4a', MAT_C = '#3a3a3e';
 /** Items whose length is set by their width, like a banner's. */
-const STRETCH = new Set(['foot_bridge', 'crowd_barrier', 'cones', 'fans_fence', 'timing_beam', 'vip_stand']);
+const STRETCH = new Set(['foot_bridge', 'crowd_barrier', 'cones', 'fans_fence', 'timing_beam', 'vip_stand', 'pyro', 'truss_arch']);
 /** Items whose people face the track in the race view unless the item is turned by hand. */
 const FACES_TRACK = new Set(['tv_camera_op', 'tv_tripod', 'tv_van', 'tv_tower', 'photographer', 'commentary_box', 'camp_chairs', 'fan_photo', 'fan_parasol', 'fans_fence', 'camera_crane', 'drone_pilot', 'vip_stand']);
 /**
@@ -3497,6 +3665,12 @@ const TRACKSIDE = {
   timing_beam: { draw: (lk, L) => [['r', 0, 0, L - 0.6, 0.12, '#3a3a40'], ['r', -(L / 2 - 0.3), 0, 0.5, 0.5, lk.colour], ['r', L / 2 - 0.3, 0, 0.5, 0.5, lk.colour]], solid: (lk, L) => [[-L / 2, -L / 2 + 0.6, -0.3, 0.3], [L / 2 - 0.6, L / 2, -0.3, 0.3]] },
   skid_steer: { draw: (lk, L, D, i) => [['r', -0.3, 0, 1.9, 1.3, lk.colour], ['r', -0.4, 0, 1.2, 1.0, '#223344'], ['r', 1.5, 0, 0.6, 1.7, STEEL_C], ...[[0.3, -0.75], [0.3, 0.75], [-0.9, -0.75], [-0.9, 0.75]].map(([x, z]) => ['r', x, z, 0.76, 0.25, '#1c1c22']), ['p', -0.4, -0.2, i, '#f0a020']], solid: () => [[-1.3, 1.8, -0.9, 0.9]] },
   merch_trailer: { draw: (lk, L, D, i) => { const z = -0.9; const out = [['r', 0, z - 0.3, 5.6, 1.6, lk.colour], ['r', 0, z + 1.9, 5.6, 1.8, CANVAS_C], ['r', 0, z + 1.0, 5.2, 0.35, TABLE_C], ['r', 3.1, z, 0.7, 0.1, CHASSIS_C], ['p', -1.2, z + 0.6, i, lk.colour], ['p', 1.6, z + 2.0, i + 1]]; for (let k = 0; k < 6; k++) out.push(['r', -2.25 + k * 0.9, z + 0.55, 0.5, 0.1, SHIRTS[(i + k) % SHIRTS.length]]); return out; }, solid: () => [[-2.85, 3.5, -2.0, 0.3]] },
+  podium: { draw: (lk, L, D, i) => { const sx = lk.variant === 'supercross'; const out = []; if (sx) out.push(['r', 0, -0.4, 7.0, 3.6, '#3a3a40']); out.push(['r', 0, -2.0, sx ? 7.0 : 5.0, 0.12, lk.colour]); for (const [x, c] of [[0, '#f0f0f0'], [-1.3, '#e8e8e8'], [1.3, '#e0e0e0']]) out.push(['r', x, -0.6, 1.2, 1.2, sx ? c : WOOD_C]); if (lk.setup !== 'empty') for (const [x, k] of [[0, 1], [-1.3, 2], [1.3, 3]]) out.push(['p', x, -0.6, i + k, BIKE_COLS[(i + k) % 5]]); return out; }, solid: (lk) => lk.variant === 'supercross' ? [[-3.5, 3.5, -2.2, 1.4]] : [[-2.5, 2.5, -2.1, 0]] },
+  holeshot_board: { draw: (lk) => [['r', 0, 0, 3.0, 0.12, lk.colour], ['d', -1.4, 0, 0.08, STEEL_C], ['d', 1.4, 0, 0.08, STEEL_C]], solid: () => [[-1.6, 1.6, -0.15, 0.15]] },
+  pyro: { draw: (lk, L) => { const n = Math.max(1, Math.round(L / 2.0)); const out = []; for (let k = 0; k < n; k++) { const x = n === 1 ? 0 : -L / 2 + 0.5 + (L - 1.0) * (k / (n - 1)); out.push(['r', x, 0, 0.7, 0.7, BLACK_C]); if (lk.setup === 'firing') out.push(['d', x, 0, 0.26, lk.colour]); } return out; } },
+  truss_arch: { draw: (lk, L) => [['r', 0, 0, L, 0.5, STEEL_C], ['r', -(L / 2 - 0.4), 0, 1.0, 1.0, BLACK_C], ['r', L / 2 - 0.4, 0, 1.0, 1.0, BLACK_C]], solid: (lk, L) => [[-L / 2 - 0.1, -L / 2 + 0.9, -0.5, 0.5], [L / 2 - 0.9, L / 2 + 0.1, -0.5, 0.5]] },
+  stadium_tunnel: { draw: (lk) => { const out = [['r', 0, -3.4, 9.0, 3.2, lk.colour], ['r', 0, 0, 9.0, 0.6, '#9a9a98'], ['r', 0, 0, 3.2, 0.6, '#3a3a40'], ['r', 0, -1.6, 3.2, 3.8, '#3a3a40']]; return out; }, solid: () => [[-4.5, -1.6, -5.0, 0.3], [1.6, 4.5, -5.0, 0.3], [-1.6, 1.6, -5.0, -3.0]] },
+  trophy_table: { draw: (lk, L, D, i) => [['r', 0, 0, 2.4, 0.8, TABLE_C], ['d', 0, 0, 0.16, '#e8c020'], ['d', -0.7, 0, 0.14, '#d0d0d8'], ['d', 0.7, 0, 0.14, '#c08040'], ['p', 0, -0.7, i, BLACK_C]], solid: () => [[-1.2, 1.2, -0.45, 0.45]] },
   vip_stand: { draw: (lk, L, D, i) => { const Dm = 5.0; const out = []; for (let k = 0; k < 4; k++) { const z = -Dm / 2 + (Dm / 4) * (k + 0.5); out.push(['r', 0, z, L, Dm / 4, k % 2 ? shadeHex(lk.colour, 1.12) : lk.colour]); const seats = Math.max(1, Math.floor(L / 0.6)); for (let s = 0; s < seats; s++) if (paddockHash(i * 7 + s * 3 + k) > 0.3) out.push(['d', -L / 2 + 0.3 + (s + 0.5) * ((L - 0.6) / seats), z + 0.08, 0.16, SHIRTS[Math.floor(paddockHash(i + s * 11 + k * 5) * SHIRTS.length)]]); } out.push(['r', 0, 0, L + 0.4, Dm + 0.4, '#00000030']); return out; }, solid: (lk, L) => [[-L / 2, L / 2, -2.5, 2.5]] },
 };
 function shadeHex(hex, k) {
@@ -4164,7 +4338,7 @@ function renderOfficialDetail(box, t, it) {
 /** Metres a grid unit, as for sections from the drawing (about the game's tracks). */
 const PIECE_MPU = 2.7;
 /** A feature's length in grid units when first placed, by type (others 12). */
-const PIECE_LEN = { straight: 14, tabletop: 12, double: 12, step_up: 10, rhythm: 14, whoops: 12, braking_bumps: 8, sand: 10, mud: 10, uphill: 12, downhill: 12 };
+const PIECE_LEN = { straight: 14, tabletop: 12, double: 12, step_up: 10, triple: 16, step_down: 12, step_on: 12, rhythm: 14, whoops: 12, dragon_back: 14, braking_bumps: 8, sand: 10, mud: 10, uphill: 12, downhill: 12 };
 const PIECE_PASS = { straight: 0.6, sweeper: 0.5, corner: 0.6, hairpin: 0.7 };
 
 /** A point of the drawing by index, counting round past the end on a closed lap. */

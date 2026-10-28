@@ -126,6 +126,11 @@ export interface TrackSection {
   line?: string;
   /** Height in metres of the jump face or hill, for the race view. */
   height?: number;
+  /**
+   * A tunnel through a jump's deck (tabletop, step-up, step-on): 'track' where another part of
+   * the lap passes under it, 'walk' for a pedestrian tunnel through it (trackSurface.ts).
+   */
+  tunnel?: 'track' | 'walk';
 }
 
 /** A stretch of the lap with a different surface, in metres from the start line (race view only). */

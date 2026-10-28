@@ -28,7 +28,7 @@ export const CAM_AZ = 40;
 /** Length of a bike, wheel to wheel, in grid units (drawn a little large, for readability). */
 export const BIKE_LENGTH = 1.1;
 
-const BIG_JUMPS = new Set(['tabletop', 'double', 'step_up']);
+const BIG_JUMPS = new Set(['tabletop', 'double', 'step_up', 'triple', 'step_down']);
 /** Grid units between the start straight's graded levels, and over how far it eases from the lap's level back to its own ground. */
 const START_STEP = 0.25;
 const START_BLEND = 4;
@@ -49,6 +49,30 @@ interface Lobe {
 export const TAKEOFF = 0.3;
 export const LANDING = 0.72;
 
+/**
+ * A tunnel through a jump's deck (Boss, 28 Oct 2026): where the deck stands, the banks either
+ * side are vertical concrete walls instead, each with a hole where the lower track (or a walkway)
+ * passes under. Lap fractions along the upper track.
+ */
+export interface Tunnel {
+  si: number;
+  /** The deck: the walls stand from f0 to f1. */
+  f0: number;
+  f1: number;
+  /** The hole in each wall. */
+  h0: number;
+  h1: number;
+  /** Where the lap passes under, as its own lap fraction (track tunnels only). */
+  under?: number;
+  walk: boolean;
+}
+/** The flat top of each jump that can carry a tunnel, as shares of the section: the hole is cut within it. */
+export const DECKS: Record<string, [number, number]> = { tabletop: [0.32, 0.6], step_on: [0.32, 0.6], step_up: [0.7, 0.84] };
+/** How far along each such jump its sides are concrete walls (part way up the faces either side of the deck). */
+export const WALLS: Record<string, [number, number]> = { tabletop: [0.2, 0.76], step_on: [0.2, 0.76], step_up: [0.6, 0.92] };
+/** The width of a pedestrian tunnel's hole, in grid units. */
+export const WALK_HOLE = 1.2;
+
 const smooth = (x: number) => {
   const t = Math.max(0, Math.min(1, x));
   return t * t * (3 - 2 * t);
@@ -64,6 +88,16 @@ export function sectionShape(type: string, u: number): number {
       return Math.max(ramp(u, 0.16, TAKEOFF) * (1 - ramp(u, TAKEOFF, 0.37)), 0.95 * ramp(u, 0.58, 0.68) * (1 - ramp(u, 0.68, 0.86)));
     case 'step_up':
       return Math.max(0.55 * ramp(u, 0.16, TAKEOFF) * (1 - ramp(u, TAKEOFF, 0.36)), ramp(u, 0.58, 0.68) * (1 - ramp(u, 0.86, 0.98)));
+    case 'triple':
+      // Three peaks the same height: the bike flies from the first's lip to the third's top.
+      return Math.max(ramp(u, 0.16, TAKEOFF) * (1 - ramp(u, 0.34, 0.4)), ramp(u, 0.44, 0.5) * (1 - ramp(u, 0.54, 0.6)), ramp(u, 0.62, 0.68) * (1 - ramp(u, LANDING, 0.86)));
+    case 'step_down':
+      // A tall deck to take off from, dropping to a lower landing hump.
+      return Math.max(ramp(u, 0.16, TAKEOFF) * (1 - ramp(u, 0.5, 0.58)), 0.4 * ramp(u, 0.62, 0.7) * (1 - ramp(u, LANDING, 0.9)));
+    case 'step_on':
+      return ramp(u, 0.16, TAKEOFF) * (1 - ramp(u, 0.62, 0.84));
+    case 'dragon_back':
+      return 0.5 * (1 - Math.cos(2 * Math.PI * 5 * u)) * ramp(u, 0, 0.05) * (1 - ramp(u, 0.95, 1));
     case 'rhythm': {
       const x = (u * 3) % 1;
       return x > 0.08 && x < 0.78 ? Math.sin((Math.PI * (x - 0.08)) / 0.7) : 0;
@@ -101,6 +135,8 @@ export class TrackSurface {
   readonly joinSide: number;
   /** The editor's ground elevation under and round the track. */
   readonly elev: Elevation;
+  /** The tunnels through jump decks (sections with `tunnel`). */
+  readonly tunnels: Tunnel[];
 
   constructor(readonly track: TrackDef) {
     this.g = lapGeom(track.path);
@@ -121,6 +157,81 @@ export class TrackSurface {
       const at = this.spot(this.start.join, 0);
       this.joinSide = (back.x - at.x) * -Math.sin(at.ang) + (back.y - at.z) * Math.cos(at.ang) >= 0 ? 1 : -1;
     }
+    this.tunnels = this.findTunnels();
+  }
+
+  // ---- tunnels ----
+
+  /** The tunnels: a wall along each side of the deck, with a hole over the crossing (or in the middle for a walkway). */
+  private findTunnels(): Tunnel[] {
+    const out: Tunnel[] = [];
+    this.track.sections.forEach((sec, si) => {
+      const deck = sec.tunnel ? DECKS[sec.type] : undefined;
+      if (!deck) return;
+      const span = this.bounds[si + 1] - this.bounds[si];
+      const d0 = this.bounds[si] + span * deck[0];
+      const d1 = this.bounds[si] + span * deck[1];
+      const wall = WALLS[sec.type];
+      const f0 = this.bounds[si] + span * wall[0];
+      const f1 = this.bounds[si] + span * wall[1];
+      if (sec.tunnel === 'walk') {
+        const mid = (d0 + d1) / 2;
+        const half = Math.min((d1 - d0) / 2, WALK_HOLE / 2 / this.g.total);
+        out.push({ si, f0, f1, h0: mid - half, h1: mid + half, walk: true });
+        return;
+      }
+      const c = this.crossingUnder(d0, d1);
+      if (!c) return;
+      // The hole takes the lower track with its lips and banks, wider where it crosses at a slant.
+      const wide = this.hw * (LIP_AT + Math.max(this.skirt(c.under, -1), this.skirt(c.under, 1))) + 0.3;
+      const half = Math.min((d1 - d0) / 2, wide / Math.max(0.35, Math.abs(Math.sin(c.angle))) / this.g.total);
+      out.push({ si, f0, f1, h0: Math.max(d0, c.f - half), h1: Math.min(d1, c.f + half), under: c.under, walk: false });
+    });
+    return out;
+  }
+
+  /** Where another part of the lap crosses the deck between lap fractions f0 and f1: the crossing's fraction on the deck, on the lap below, and the angle between them. */
+  crossingUnder(f0: number, f1: number): { f: number; under: number; angle: number } | null {
+    const g = this.g;
+    const n = Math.max(2, Math.ceil((f1 - f0) * g.total / 0.25));
+    const o = (p: { x: number; y: number }, q: { x: number; y: number }, r: { x: number; y: number }) => Math.sign((q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x));
+    for (let k = 0; k < n; k++) {
+      const fa = f0 + ((f1 - f0) * k) / n;
+      const fb = f0 + ((f1 - f0) * (k + 1)) / n;
+      const a = pointAt(g, fa);
+      const b = pointAt(g, fb);
+      for (let j = 0; j < g.pts.length - 1; j++) {
+        const fj0 = g.cum[j] / g.total;
+        const fj1 = g.cum[j + 1] / g.total;
+        // Not the deck's own stretch of the drawing, nor its neighbours.
+        if (fj1 > f0 - 2 / g.total && fj0 < f1 + 2 / g.total) continue;
+        const c = g.pts[j];
+        const d = g.pts[j + 1];
+        if (!(o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0)) continue;
+        // Where along each the crossing is.
+        const den = (b.x - a.x) * (d.y - c.y) - (b.y - a.y) * (d.x - c.x);
+        if (Math.abs(den) < 1e-9) continue;
+        const t = ((c.x - a.x) * (d.y - c.y) - (c.y - a.y) * (d.x - c.x)) / den;
+        const u = ((c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x)) / den;
+        const f = fa + (fb - fa) * t;
+        const under = fj0 + (fj1 - fj0) * u;
+        return { f, under, angle: headingAt(g, f) - headingAt(g, under) };
+      }
+    }
+    return null;
+  }
+
+  /** The tunnel whose walls stand at lap fraction f, if any. */
+  tunnelAt(f: number): Tunnel | null {
+    const x = f - Math.floor(f);
+    for (const t of this.tunnels) if (x >= t.f0 && x <= t.f1) return t;
+    return null;
+  }
+
+  /** True where a tunnel's walls have their hole: no bank is drawn there. */
+  inHole(f: number): boolean {
+    const x = f - Math.floor(f);
+    return this.tunnels.some((t) => x >= t.h0 && x <= t.h1);
   }
 
   /**
@@ -325,6 +436,8 @@ export class TrackSurface {
   /** Where lap fraction f and a lane are on the ground (grid x and y; three.js calls the second z). */
   spot(f: number, lane: number): { x: number; z: number; ang: number } {
     const ang = headingAt(this.g, f);
+    // Along a tunnel's deck the banks are vertical walls: every lane outside the lip stands at the lip.
+    if (Math.abs(lane) > LIP_AT && this.tunnelAt(f)) lane = Math.sign(lane) * LIP_AT;
     const m = this.miter(f, lane);
     if (m) return { x: m.x, z: m.y, ang };
     const p = pointAt(this.g, f);
@@ -477,6 +590,8 @@ export class TrackSurface {
     // Over rhythm jumps the bike hops from top to top; through whoops it skims along the crests.
     if (type === 'rhythm' && hop > 0.05) return Math.max(ground, this.lift(f) + this.heights[si] * 0.85 + this.units(hop) * 0.6);
     if (type === 'whoops') return Math.max(ground, this.lift(f) + this.heights[si] * 0.55);
+    if (type === 'dragon_back') return Math.max(ground, this.lift(f) + this.heights[si] * 0.7 + this.units(hop) * 0.5);
+    if (type === 'step_on' && hop > 0.05) return ground + this.units(hop);
     return ground;
   }
 
