@@ -154,7 +154,7 @@ export class RaceScene extends Phaser.Scene {
   private setupField(): void {
     this.day!.field.forEach((e, i) => {
       this.names.set(e.id, e.player ? 'You' : e.name);
-      const gear = GEAR_SETS[e.player ? 'player-default' : e.tag === 'Local Champion' ? 'cpu-champion' : CPU_GEAR[i % CPU_GEAR.length]];
+      const gear = GEAR_SETS[e.player ? 'player-default' : e.tag?.endsWith('Champion') ? 'cpu-champion' : CPU_GEAR[i % CPU_GEAR.length]];
       this.looks.set(e.id, { brand: e.bike.brand, cls: e.bike.class, gear });
       this.colors.set(e.id, e.player ? COLORS.accent : gearColour(gear));
     });
@@ -1087,8 +1087,9 @@ export class RaceScene extends Phaser.Scene {
       `Passes: ${rec.passes}`,
       `Rider XP: ${xp.toFixed(0)}`,
     ].join('\n'), 20, COLORS.cream, { lineSpacing: 10 });
-    const champ = rec.results.find((r) => r.tag === 'Local Champion');
-    if (champ && !champ.player) this.text(764, 380, `The Local Champion, ${champ.name}, was ${champ.retired ? 'out' : ordinal(champ.position)}.`, 16, COLORS.muted, { wordWrap: { width: 450 } });
+    // The best-placed champion racing (the Area 1 and Local Champions can both be there).
+    const champ = rec.results.find((r) => r.tag?.endsWith('Champion') && !r.player);
+    if (champ) this.text(764, 380, `The ${champ.tag}, ${champ.name}, was ${champ.retired ? 'out' : ordinal(champ.position)}.`, 16, COLORS.muted, { wordWrap: { width: 450 } });
     if (day.done) this.btn(990, 640, 'Day results', () => this.showDayResults(), 260, 50);
     else {
       this.btn(860, 640, `Moto ${n + 1}`, () => this.showGatePick(), 220, 50);
@@ -1297,7 +1298,7 @@ export class RaceScene extends Phaser.Scene {
     // You, and any riders already out on track (practiceRiders on the venue).
     this.sim.riders.forEach(({ e }, i) => {
       this.names.set(e.id, e.player ? 'You' : e.name);
-      const gear = GEAR_SETS[e.player ? 'player-default' : e.tag === 'Local Champion' ? 'cpu-champion' : CPU_GEAR[i % CPU_GEAR.length]];
+      const gear = GEAR_SETS[e.player ? 'player-default' : e.tag?.endsWith('Champion') ? 'cpu-champion' : CPU_GEAR[i % CPU_GEAR.length]];
       this.looks.set(e.id, { brand: e.bike.brand, cls: e.bike.class, gear });
       this.colors.set(e.id, e.player ? COLORS.accent : gearColour(gear));
     });
