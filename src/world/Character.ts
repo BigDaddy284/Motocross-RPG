@@ -6,8 +6,8 @@ import { FONT, TEXT_RES } from '../ui/theme';
 export const TILE = 64;
 /** Walking speed: milliseconds per tile (4 tiles a second). */
 export const STEP_MS = 250;
-/** Name tags draw over the map, its roofs and trees included. */
-const NAME_DEPTH = 1e6;
+/** Name tags draw over the map, its roofs, trees and arches (overhead art, from OVERHEAD_DEPTH up) included. */
+const NAME_DEPTH = 1e7;
 
 const FACINGS: Facing[] = ['down', 'left', 'right', 'up'];
 
