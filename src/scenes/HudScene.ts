@@ -28,7 +28,7 @@ import { COLORS, hex, textStyle } from '../ui/theme';
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
 import { button, panel, slider, statBar } from '../ui/widgets';
 import type { WorldScene } from './WorldScene';
-import { cssSize, view } from '../ui/view';
+import { HUD_BAR, cssSize, view } from '../ui/view';
 import { worldMapTexture, type WorldMapData, type WorldMapZone } from '../core/worldMap';
 
 // Screen-space layer over the world: map name, money and task, messages, the dialogue box, the
@@ -178,25 +178,31 @@ export class HudScene extends Phaser.Scene {
   private layout(): void {
     const { width, height } = view(this);
     for (const b of this.uiButtons) b.destroy();
+    // One row of small buttons along the bottom right (Boss, 28 Oct 2026: the column down the
+    // right side was in the way of east exits on phones), laid out from the right edge in.
+    const y = height - HUD_BAR / 2;
+    const bh = HUD_BAR - 14;
+    const fs = 16;
+    let right = width - 8;
+    const add = (label: string, w: number, onClick: () => void) => {
+      const b = button(this, right - w / 2, y, label, onClick, w, bh, fs);
+      right -= w + 6;
+      return b;
+    };
+    const free = (f: () => void) => () => !this.modal && !this.dialogue && f();
+    this.uiButtons = [add('☰', 42, () => this.world.openPause())];
     // The zoom control is a Zoom button with a pop-out slider, or + and − buttons (Settings > Display).
-    const zoom = services.settings.get().display.zoomControl === 'buttons'
-      ? [
-        button(this, width - 86, 92, '−', () => this.world.zoomBy(-ZOOM_STEP), 48, 48),
-        button(this, width - 34, 92, '+', () => this.world.zoomBy(ZOOM_STEP), 48, 48),
-      ]
-      : [button(this, width - 50, 92, 'Zoom', () => (this.zoomPop ? this.closeZoom() : this.openZoom()), 80, 48)];
-    this.uiButtons = [
-      button(this, width - 34, 34, '☰', () => this.world.openPause(), 48, 48),
-      ...zoom,
-      button(this, width - 50, 150, 'Bike', () => !this.modal && !this.dialogue && this.openPanel('bike'), 80, 48),
-      ...(services.content.world.worldMap ? [button(this, width - 50, 208, 'Map', () => !this.modal && !this.dialogue && this.world.openWorldMap(), 80, 48)] : []),
-      ...(this.driving ? [button(this, width - 60, 266, 'Get out', () => !this.modal && !this.dialogue && this.world.getOut(), 100, 48)] : []),
-    ];
+    if (services.settings.get().display.zoomControl === 'buttons') {
+      this.uiButtons.push(add('+', 38, () => this.world.zoomBy(ZOOM_STEP)), add('−', 38, () => this.world.zoomBy(-ZOOM_STEP)));
+    } else this.uiButtons.push(add('Zoom', 62, () => (this.zoomPop ? this.closeZoom() : this.openZoom())));
+    this.uiButtons.push(add('Bike', 56, free(() => this.openPanel('bike'))));
+    if (services.content.world.worldMap) this.uiButtons.push(add('Map', 52, free(() => this.world.openWorldMap())));
+    if (this.driving) this.uiButtons.push(add('Get out', 78, free(() => this.world.getOut())));
     if (this.zoomPop) this.openZoom();
     this.saveText.setPosition(width - 70, 18);
     this.shiftText.setPosition(width / 2, 14);
     this.taskText.setWordWrapWidth(Math.min(520, width - 140));
-    this.toastText.setPosition(width / 2, height - 60);
+    this.toastText.setPosition(width / 2, height - HUD_BAR - 30);
     this.toastText.setWordWrapWidth(Math.min(700, width - 60));
     this.fitToast();
   }
@@ -204,9 +210,10 @@ export class HudScene extends Phaser.Scene {
   /** A draggable zoom slider beside the Zoom button. Mouse wheel and + and - still zoom too. */
   private openZoom(): void {
     this.zoomPop?.destroy();
-    const { width } = view(this);
+    const { width, height } = view(this);
     const w = 300;
-    const c = this.add.container(width - 100 - w / 2, 92);
+    // Just above the button row, at the right.
+    const c = this.add.container(width - 8 - w / 2, height - HUD_BAR - 34);
     c.add(panel(this, 0, 0, w, 56).setInteractive());
     c.add(this.add.text(-w / 2 + 14, 0, 'Zoom', textStyle(this.ts(16))).setOrigin(0, 0.5));
     this.zoomPop = c;

@@ -17,3 +17,10 @@ export function view(scene: Phaser.Scene): { width: number; height: number } {
 export function cssSize(scene: Phaser.Scene): { width: number; height: number } {
   return { width: scene.scale.width / DPR, height: scene.scale.height / DPR };
 }
+
+/**
+ * The height of the HUD's button row along the bottom of the world screen, in CSS pixels (Boss,
+ * 28 Oct 2026). The world lets the camera run this far past a map's bottom edge, so a south exit
+ * is never stuck under the buttons.
+ */
+export const HUD_BAR = 52;

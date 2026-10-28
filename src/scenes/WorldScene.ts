@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { advanceStory, bikeProblem, fillText, formatMoney, jobPay, matchStory, pence, type JobDef, type StoryEvent, type StoryStep } from '../core/career';
+import { advanceStory, bikeProblem, currentStep, fillText, formatMoney, jobPay, matchStory, pence, type JobDef, type StoryEvent, type StoryStep } from '../core/career';
 import { npcsOnMap, type DialogueLine, type NpcDef, type NpcPlacement } from '../core/content';
 import { Grid, STEPS } from '../core/grid';
 import { objectTiles, type BakedMap, type Facing, type MapObject, type Tile } from '../core/mapTypes';
@@ -25,7 +25,7 @@ import { Character, TILE } from '../world/Character';
 import { MapView, OVERHEAD_DEPTH, isMapCached, loadMapImages } from '../world/MapView';
 import { actionMessage, actionName } from '../world/messages';
 import { Waymarks, clusters, middle, type Mark } from '../world/Waymarks';
-import { DPR } from '../ui/view';
+import { DPR, HUD_BAR } from '../ui/view';
 import { standLift } from '../world/standLift';
 import { VanView, type Driver } from '../world/VanView';
 import type { HudScene } from './HudScene';
@@ -287,9 +287,12 @@ export class WorldScene extends Phaser.Scene {
     const mh = this.map.height * TILE;
     const vw = width / zoom;
     const vh = height / zoom;
+    // Past the bottom edge, room for the HUD's button row: dark runoff the camera can show as the
+    // rider heads south, so a south exit is never under the buttons (Boss, 28 Oct 2026).
+    const run = (HUD_BAR * DPR) / zoom;
     const bx = mw < vw ? (mw - vw) / 2 : 0;
-    const by = mh < vh ? (mh - vh) / 2 : 0;
-    cam.setBounds(bx, by, Math.max(mw, vw), Math.max(mh, vh));
+    const by = mh + run < vh ? (mh + run - vh) / 2 : 0;
+    cam.setBounds(bx, by, Math.max(mw, vw), Math.max(mh + run, vh));
   }
 
   // ---- clicks and interaction ----
@@ -607,7 +610,7 @@ export class WorldScene extends Phaser.Scene {
     this.markPoint = null;
     const career = this.save.career;
     this.markEarning = earning(services.content, career);
-    const goals = storyGoals(services.content, services.maps, career);
+    const goals = storyGoals(services.content, services.maps, career, this.save.flags, this.save.van ?? null);
     if (!goals.length) return;
     const ts = this.map.tileSize;
     const nearest = <P extends { x: number; y: number }>(points: P[]) => {
@@ -617,9 +620,15 @@ export class WorldScene extends Phaser.Scene {
     const marks: Mark[] = [];
     const points: { x: number; y: number; label: string; sub?: string }[] = [];
     const here = goals.filter((g) => g.map === this.map.id);
+    const nameOf = (goal: (typeof goals)[number]) => (goal.kind === 'npc' ? goal.name : goal.kind === 'van' ? (this.van?.design.name ?? 'Your van') : actionName(goal.action));
     for (const goal of here) {
-      const what = goal.kind === 'npc' ? goal.name : actionName(goal.action);
-      if (goal.kind === 'npc') {
+      const what = nameOf(goal);
+      if (goal.kind === 'van') {
+        if (!this.van) continue;
+        const tiles = footprint(this.van.pose, this.van.design.length);
+        marks.push({ kind: 'object', tiles });
+        points.push({ ...middle(tiles), label: what });
+      } else if (goal.kind === 'npc') {
         const n = this.npcs.find((c) => c.placement.npc.id === goal.npc);
         if (!n) continue;
         const { x, y } = n.character.sprite;
@@ -636,7 +645,7 @@ export class WorldScene extends Phaser.Scene {
       // 2026: one road to the Industrial Zone, then both work buildings' doors).
       const seen = new Set<MapObject>();
       for (const goal of goals) {
-        const what = goal.kind === 'npc' ? goal.name : actionName(goal.action);
+        const what = nameOf(goal);
         const hop = nextHop(services.maps, services.content.world, services.travel, this.save.flags, this.map.id, goal.map);
         if (!hop || hop.via.every((o) => seen.has(o))) continue;
         for (const o of hop.via) seen.add(o);
@@ -683,9 +692,9 @@ export class WorldScene extends Phaser.Scene {
     const dx = p.x - v.centerX;
     const dy = p.y - v.centerY;
     const left = 56;
-    const right = w - 120;
+    const right = w - 56;
     const top = 150;
-    const bottom = h - 64;
+    const bottom = h - HUD_BAR - 40;
     const cx = w / 2;
     const cy = h / 2;
     const tx = dx > 0 ? (right - cx) / dx : dx < 0 ? (left - cx) / dx : Infinity;
@@ -1132,6 +1141,11 @@ export class WorldScene extends Phaser.Scene {
     this.save.driving = true;
     this.player.stopWalking();
     this.sitInVan();
+    const step = currentStep(services.content.story, this.save.career);
+    if (step?.markVan && !this.save.flags[step.markVan]) {
+      this.save.flags[step.markVan] = true;
+      this.refreshWaymarks();
+    }
     this.quickSave();
   }
 

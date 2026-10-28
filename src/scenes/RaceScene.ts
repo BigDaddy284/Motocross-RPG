@@ -14,7 +14,7 @@ import { directorFor, ROW_SIZE, type RaceDirector } from '../core/riderAI';
 import { startGeom } from '../core/trackGeom';
 import { RaceView } from '../world/RaceView';
 import { view } from '../ui/view';
-import { CPU_GEAR, GEAR_SETS, gearColour, type RaceLook } from '../world/raceBike';
+import { gearColour, kitFor, type RaceLook } from '../world/raceBike';
 
 // Race day and practice: gate pick, the live race screen with its pit board, auto-complete,
 // moto and day results, and practice laps. The simulation does the racing; this screen only
@@ -154,7 +154,7 @@ export class RaceScene extends Phaser.Scene {
   private setupField(): void {
     this.day!.field.forEach((e, i) => {
       this.names.set(e.id, e.player ? 'You' : e.name);
-      const gear = GEAR_SETS[e.player ? 'player-default' : e.tag?.endsWith('Champion') ? 'cpu-champion' : CPU_GEAR[i % CPU_GEAR.length]];
+      const gear = kitFor(e, i);
       this.looks.set(e.id, { brand: e.bike.brand, cls: e.bike.class, gear });
       this.colors.set(e.id, e.player ? COLORS.accent : gearColour(gear));
     });
@@ -1298,7 +1298,7 @@ export class RaceScene extends Phaser.Scene {
     // You, and any riders already out on track (practiceRiders on the venue).
     this.sim.riders.forEach(({ e }, i) => {
       this.names.set(e.id, e.player ? 'You' : e.name);
-      const gear = GEAR_SETS[e.player ? 'player-default' : e.tag?.endsWith('Champion') ? 'cpu-champion' : CPU_GEAR[i % CPU_GEAR.length]];
+      const gear = kitFor(e, i);
       this.looks.set(e.id, { brand: e.bike.brand, cls: e.bike.class, gear });
       this.colors.set(e.id, e.player ? COLORS.accent : gearColour(gear));
     });

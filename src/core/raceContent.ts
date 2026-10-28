@@ -220,11 +220,12 @@ export const RIDERS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['tag', 'skills', 'style'],
+        optional: ['tag', 'skills', 'style', 'kit'],
         fields: {
           id: IDS,
           name: S,
           tag: S,
+          kit: S,
           areas: { type: 'array', items: { type: 'number', integer: true, min: 1, max: 8 } },
           level: LEVEL,
           skills: { type: 'record', values: LEVEL },

@@ -209,6 +209,8 @@ export interface Entrant {
   id: string;
   name: string;
   tag?: string;
+  /** Their own race kit on the race screen (CpuRiderDef.kit). */
+  kit?: string;
   player: boolean;
   /** Child skill levels. */
   skills: Record<string, number>;

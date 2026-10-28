@@ -73,6 +73,14 @@ describe('tutorial markers (Boss, 28 Oct 2026)', () => {
     expect(storyGoals(content, maps, c)).toEqual([{ kind: 'npc', map: storyGoal(content, maps, c)!.map, npc: 'npc.van_seller', name: expect.any(String) }]);
   });
 
+  it('points to the new van until the rider gets in, then on to the spares chest (Boss, 28 Oct 2026)', () => {
+    const c = newCareerState(content.bikes, content.story, 'hondmoto', () => 0.5);
+    c.story = { step: content.story.steps.findIndex((s) => s.id === 'load_van'), used: [] };
+    const van = { map: content.vehicles.starter.map };
+    expect(storyGoals(content, maps, c, {}, van)).toEqual([{ kind: 'van', map: 'area1-home-town' }]);
+    expect(storyGoals(content, maps, c, { van_driven: true }, van)).toEqual([{ kind: 'object', map: 'int-home-rented-room', action: 'storage.parts' }]);
+  });
+
   it('marks only the stands still to do on a step that needs two', () => {
     const map = maps.get('int-home-local-garage')!;
     const both = goalObjects(map, 'workshop.bike', []);

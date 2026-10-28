@@ -13,7 +13,8 @@ import type { Travel } from './travel';
 /** What the current story step wants the player to reach, and the map it is on. */
 export type Goal =
   | { kind: 'npc'; map: string; npc: string; name: string }
-  | { kind: 'object'; map: string; action: string };
+  | { kind: 'object'; map: string; action: string }
+  | { kind: 'van'; map: string };
 
 /** The first door or exit on the way to another map: every object with that name leading there. */
 export interface Hop {
@@ -34,11 +35,14 @@ function npcMap(content: Content, maps: Map<string, BakedMap>, id: string): stri
 /**
  * Everything to mark for the current step: its NPC or equipment, or while the rider is short of
  * the step's money, the places to earn it (Boss, 28 Oct 2026: the shift benches at the
- * fabrication shop and engine rebuilder until there's £600 for the van). Empty once the opening
+ * fabrication shop and engine rebuilder until there's £600 for the van), or on a markVan step
+ * until the rider has got in, the van. Empty once the opening
  * chain is over.
  */
-export function storyGoals(content: Content, maps: Map<string, BakedMap>, career: CareerState): Goal[] {
+export function storyGoals(content: Content, maps: Map<string, BakedMap>, career: CareerState, flags: Record<string, boolean> = {}, van: { map: string } | null = null): Goal[] {
   const step = currentStep(content.story, career);
+  // Just bought: first to the van to get in, then on with the step (Boss, 28 Oct 2026).
+  if (step?.markVan && !flags[step.markVan] && van && maps.has(van.map)) return [{ kind: 'van', map: van.map }];
   if (step?.earn && career.money < pence(step.needs?.money ?? 0)) {
     return step.earn.maps.filter((m) => maps.has(m)).map((map) => ({ kind: 'object', map, action: step.earn!.use }));
   }
@@ -53,7 +57,7 @@ export function earning(content: Content, career: CareerState): boolean {
 }
 
 /** The current step's NPC or equipment, or null once the opening chain is over. */
-export function storyGoal(content: Content, maps: Map<string, BakedMap>, career: CareerState): Goal | null {
+export function storyGoal(content: Content, maps: Map<string, BakedMap>, career: CareerState): Exclude<Goal, { kind: 'van' }> | null {
   const step = currentStep(content.story, career);
   if (!step) return null;
   if (step.on.talk) {

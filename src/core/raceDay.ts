@@ -19,6 +19,8 @@ export interface CpuRiderDef {
   bike: { brand: string; grade: number; condition: number };
   tactic: Tactic;
   style?: RiderStyle;
+  /** Their own race kit, a gear set on the race screen (Neal Gizard's blue and black); left out, the field's kits in turn. */
+  kit?: string;
 }
 
 export interface RidersData {
@@ -108,7 +110,7 @@ export function cpuEntrant(rc: RaceContent, def: CpuRiderDef, cls: string, gate 
   const skills: Record<string, number> = {};
   for (const lead of rc.skills.leads) for (const c of lead.children) skills[c.id] = lead.id === 'rider' ? def.level : 1;
   Object.assign(skills, def.skills);
-  return { id: def.id, name: def.name, tag: def.tag, player: false, skills, bike: cpuBike(rc.bikes, def, cls), tactic: def.tactic, gate, ...(def.style ? { style: def.style } : {}) };
+  return { id: def.id, name: def.name, tag: def.tag, player: false, skills, bike: cpuBike(rc.bikes, def, cls), tactic: def.tactic, gate, ...(def.style ? { style: def.style } : {}), ...(def.kit ? { kit: def.kit } : {}) };
 }
 
 export function playerEntrant(rc: RaceContent, career: CareerState, name: string, gate = 0): Entrant {

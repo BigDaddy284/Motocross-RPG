@@ -1,5 +1,5 @@
 {
-  "note": "The opening chain (GDD 4.2, Spec 14.1 and 18.8), played in order. Money is in pounds. Start £150; the chain pays £460 and fitting costs £90, so you reach the van £80 short. earn (Boss, 28 Oct 2026): while you're short of a step's money, the tutorial markers point to these maps' equipment to earn it instead (the shift benches) and back to the step once you have it.",
+  "note": "The opening chain (GDD 4.2, Spec 14.1 and 18.8), played in order. Money is in pounds. Start £150; the chain pays £460 and fitting costs £90, so you reach the van £80 short. earn (Boss, 28 Oct 2026): while you're short of a step's money, the tutorial markers point to these maps' equipment to earn it instead (the shift benches) and back to the step once you have it. markVan: until that flag is set (the first time you get in the van), the markers point to the van.",
   "startMoney": 150,
   "intro": "story.intro",
   "steps": [
@@ -87,7 +87,7 @@
     },
     {
       "id": "load_van", "journal": "Load your bike, spares and tools into the van. Your spares are in the chest in your rented room.",
-      "on": { "use": "storage.parts", "map": "int-home-rented-room" }, "lines": "story.load_van",
+      "on": { "use": "storage.parts", "map": "int-home-rented-room" }, "markVan": "van_driven", "lines": "story.load_van",
       "effects": { "flags": ["van_loaded"] },
       "toast": "The venue route is open. Head west out of Home Town to reach the tracks."
     },

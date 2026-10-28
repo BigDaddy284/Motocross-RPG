@@ -65,6 +65,8 @@ export interface StoryStep {
   notReady?: string;
   /** While the rider is short of needs.money, the tutorial markers point here to earn it (Boss, 28 Oct 2026). */
   earn?: { use: string; maps: string[] };
+  /** Until this flag is set (on first getting in), the tutorial markers point to the van (Boss, 28 Oct 2026). */
+  markVan?: string;
   confirm?: string;
   lines?: string;
   effects?: StoryEffects;

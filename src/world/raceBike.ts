@@ -82,7 +82,16 @@ export const GEAR_SETS: Record<string, Gear> = {
   'cpu-camo': gear('black', 'white', 'white', 'camo', 'camo', 'camo'),
   'cpu-black': gear('black', 'orange', 'black', 'black', 'black', 'black'),
   'cpu-champion': gear('hivis', 'hivis', 'hivis', 'black', 'black', 'black'),
+  // Neal Gizard, the pro: blue with black (Boss, 28 Oct 2026).
+  'cpu-neal': gear('blue', 'black', 'blue', 'black', 'blue', 'black'),
 };
+
+/** A rider's race kit: the player's, a rider's own, the champions' hi-vis, or the field's kits in turn. */
+export function kitFor(e: { player?: boolean; tag?: string; kit?: string }, i: number): Gear {
+  if (e.player) return GEAR_SETS['player-default'];
+  if (e.kit && GEAR_SETS[e.kit]) return GEAR_SETS[e.kit];
+  return GEAR_SETS[e.tag?.endsWith('Champion') ? 'cpu-champion' : CPU_GEAR[i % CPU_GEAR.length]];
+}
 
 /** CPU kits in the order the field is dressed. The Local Champion wears hi-vis. */
 export const CPU_GEAR = ['cpu-red', 'cpu-blue', 'cpu-pink', 'cpu-camo', 'cpu-black', 'cpu-hivis'];

@@ -207,7 +207,7 @@ export const STORY_SCHEMA: Schema = {
       minItems: 1,
       items: {
         type: 'object',
-        optional: ['times', 'needs', 'notReady', 'earn', 'confirm', 'lines', 'effects', 'toast'],
+        optional: ['times', 'needs', 'notReady', 'earn', 'markVan', 'confirm', 'lines', 'effects', 'toast'],
         fields: {
           id: { type: 'string', pattern: ID },
           journal: { type: 'string', nonEmpty: true },
@@ -215,6 +215,7 @@ export const STORY_SCHEMA: Schema = {
           times: { type: 'number', integer: true, min: 1 },
           needs: { type: 'object', optional: ['money', 'items'], fields: { money: { type: 'number', min: 0 }, items: IDS } },
           notReady: { type: 'string', pattern: ID },
+          markVan: { type: 'string', pattern: ID },
           earn: { type: 'object', fields: { use: { type: 'string', pattern: ID }, maps: { type: 'array', minItems: 1, items: { type: 'string', pattern: ID } } } },
           confirm: { type: 'string', nonEmpty: true },
           lines: { type: 'string', pattern: ID },
