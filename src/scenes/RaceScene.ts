@@ -204,7 +204,7 @@ export class RaceScene extends Phaser.Scene {
     this.root.setScale(k).setPosition(0, 0);
     this.bg.setSize(width, height);
     // Screens laid out on 1280 × 720 sit in the middle; the live race screen fills it all (startLive).
-    this.screen.setPosition((this.dw - W) / 2, (this.dh - H) / 2);
+    this.screen.setScale(1).setPosition((this.dw - W) / 2, (this.dh - H) / 2);
   }
 
   /**
