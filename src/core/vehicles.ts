@@ -85,6 +85,12 @@ export interface VehiclesData {
   verges?: { maps: string[]; ground: string[] };
   /** Car parks too small for the longest vans (Boss, 28 Oct 2026): a van longer than maxLength tiles can't go in. */
   carParks?: { map: string; name: string; area: [number, number, number, number]; maxLength: number }[];
+  /**
+   * Where the longest vans are parked on arriving at a map they can't turn round on (Boss, 28 Oct
+   * 2026: the Factory Hauler in the Riverside West car park). A van of minLength tiles or more is
+   * parked here, cab at x, y, and leaves straight out by the map's exit.
+   */
+  bays?: { map: string; name: string; x: number; y: number; heading: Heading; minLength: number }[];
   /** The van the opening chain sells, and where it is parked when bought. */
   starter: { design: string; map: string; x: number; y: number; heading: Heading };
   designs: VanDesign[];
@@ -95,7 +101,7 @@ const HEADING_ENUM = { type: 'string', enum: HEADINGS } as const;
 
 export const VEHICLES_SCHEMA: Schema = {
   type: 'object',
-  optional: ['note', 'verges', 'carParks'],
+  optional: ['note', 'verges', 'carParks', 'bays'],
   fields: {
     note: { type: 'string' },
     drivable: { type: 'array', minItems: 1, items: { type: 'string', nonEmpty: true } },
@@ -115,6 +121,20 @@ export const VEHICLES_SCHEMA: Schema = {
           name: { type: 'string', nonEmpty: true },
           area: { type: 'array', minItems: 4, maxItems: 4, items: { type: 'number', integer: true, min: 0 } },
           maxLength: { type: 'number', integer: true, min: 1 },
+        },
+      },
+    },
+    bays: {
+      type: 'array',
+      items: {
+        type: 'object',
+        fields: {
+          map: { type: 'string', pattern: ID },
+          name: { type: 'string', nonEmpty: true },
+          x: { type: 'number', integer: true, min: 0 },
+          y: { type: 'number', integer: true, min: 0 },
+          heading: HEADING_ENUM,
+          minLength: { type: 'number', integer: true, min: 1 },
         },
       },
     },
@@ -139,6 +159,12 @@ export const VEHICLES_SCHEMA: Schema = {
     },
   },
 };
+
+/** The bay a van this long is parked in on arriving at a map, if it has one. */
+export function bayFor(data: Pick<VehiclesData, 'bays'>, mapId: string, length: number): (VanPose & { name: string }) | null {
+  const b = data.bays?.find((c) => c.map === mapId && length >= c.minLength);
+  return b ? { x: b.x, y: b.y, heading: b.heading, name: b.name } : null;
+}
 
 /** Tiles of a footprint, front first. */
 export function footprint(p: VanPose, length: number): Tile[] {
@@ -558,6 +584,19 @@ export function checkVehicles(file: string, raw: unknown, maps: Map<string, Bake
     const m = maps.get(c.map);
     if (!m) errors.push({ file, field: `carParks[${i}].map`, message: `no map "${c.map}"` });
     else if (c.area[0] + c.area[2] > m.width || c.area[1] + c.area[3] > m.height) errors.push({ file, field: `carParks[${i}].area`, message: 'runs off the map' });
+  });
+  data.bays?.forEach((b, i) => {
+    const m = maps.get(b.map);
+    const van = data.designs.filter((d) => d.length >= b.minLength);
+    if (!m) errors.push({ file, field: `bays[${i}].map`, message: `no map "${b.map}"` });
+    else if (!van.length) errors.push({ file, field: `bays[${i}].minLength`, message: 'no van is that long' });
+    else {
+      const dm = new DriveMap(m, Grid.fromMap(m), data);
+      for (const d of van) {
+        dm.setVanLength(d.length);
+        if (!dm.fits(b, d.length)) errors.push({ file, field: `bays[${i}]`, message: `the ${d.name} doesn't fit at ${b.x},${b.y} heading ${b.heading} on ${b.map}` });
+      }
+    }
   });
   data.verges?.maps.forEach((id, i) => {
     if (!maps.has(id)) errors.push({ file, field: `verges.maps[${i}]`, message: `no map "${id}"` });

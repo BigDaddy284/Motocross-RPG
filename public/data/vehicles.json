@@ -1,9 +1,12 @@
 {
-  "note": "The player's van (Boss, 24 Oct 2026): one van at a time, part-exchanged when a new one is bought. Seven designs drawn from Boss's reference photos (art/reference/vans). length is the footprint in 64 px tiles along the heading (one tile wide), from the real length at 28 px per metre. drivable lists the ground art a van can use. verges (Boss, 28 Oct 2026, the black lines): on these maps the van keeps off the green car park verges and sticks to the road, going into a car park only by an entrance or a crossing laid over the verge. carParks (Boss, 28 Oct 2026): car parks a van longer than maxLength tiles can't go into, as it couldn't turn round to get out; the Factory Hauler stays on the road. starter is the van the opening chain sells and where it is parked when bought. name is the in-game name, from Boss's reference file names (the text after \"Van N = \"); van-1 to van-7 are only the model numbers.",
+  "note": "The player's van (Boss, 24 Oct 2026): one van at a time, part-exchanged when a new one is bought. Seven designs drawn from Boss's reference photos (art/reference/vans). length is the footprint in 64 px tiles along the heading (one tile wide), from the real length at 28 px per metre. drivable lists the ground art a van can use. verges (Boss, 28 Oct 2026, the black lines): on these maps the van keeps off the green car park verges and sticks to the road, going into a car park only by an entrance or a crossing laid over the verge. carParks (Boss, 28 Oct 2026): car parks a van longer than maxLength tiles can't go into, as it couldn't turn round to get out; the Factory Hauler stays on the road. bays (Boss, 28 Oct 2026): where a van of minLength tiles or more is parked on arriving at a map too tight for it to turn on, cab at x, y; it leaves straight out by the map's exit. starter is the van the opening chain sells and where it is parked when bought. name is the in-game name, from Boss's reference file names (the text after \"Van N = \"); van-1 to van-7 are only the model numbers.",
   "drivable": ["roads/street", "terrain-common/road", "gravel", "concrete"],
   "verges": { "maps": ["area1-home-town", "area1-venue-riverside"], "ground": ["grass-gravel"] },
   "carParks": [
     { "map": "area1-home-town", "name": "Town car park", "area": [25, 15, 11, 8], "maxLength": 6 }
+  ],
+  "bays": [
+    { "map": "area1-venue-riverside", "name": "Riverside West car park", "x": 10, "y": 17, "heading": "east", "minLength": 7 }
   ],
   "starter": { "design": "van-1", "map": "area1-home-town", "x": 30, "y": 20, "heading": "north" },
   "designs": [

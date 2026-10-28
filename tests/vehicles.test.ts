@@ -6,7 +6,7 @@ import type { BakedMap } from '../src/core/mapTypes';
 import { SAVE_VERSION, parseSave } from '../src/core/saves';
 import { Travel, spawnTile, stepTriggerAt } from '../src/core/travel';
 import {
-  DriveMap, HEADINGS, OPPOSITE, centre, ensureVan, exitTile, footprint, forward, inwardHeading, placeNear, planDrive, reverse, steer, turn,
+  DriveMap, HEADINGS, bayFor, OPPOSITE, centre, ensureVan, exitTile, footprint, forward, inwardHeading, placeNear, planDrive, reverse, steer, turn,
   type Heading, type Move, type VanPose, type VehiclesData,
 } from '../src/core/vehicles';
 import { loadManifest, loadMaps, publicFileExists, rawContent } from './helpers';
@@ -160,6 +160,19 @@ describe('driving', () => {
     // Every other van still uses it.
     dm.setVanLength(6);
     expect(dm.isDrivable(30, 18)).toBe(true);
+  });
+
+  it('parks the Factory Hauler in the Riverside West car park on arrival (Boss, 28 Oct 2026)', () => {
+    const hauler = data.designs.find((d) => d.length > 6)!;
+    const bay = bayFor(data, 'area1-venue-riverside', hauler.length)!;
+    expect(bay.name).toBe('Riverside West car park');
+    const dm = driveMap('area1-venue-riverside', ALL_FLAGS);
+    dm.setVanLength(hauler.length);
+    expect(dm.fits(bay, hauler.length)).toBe(true);
+    expect(footprint(bay, hauler.length).every((t) => t.x <= 10 && t.y >= 15 && t.y <= 19)).toBe(true);
+    // Every other van drives in and finds its own spot.
+    for (const d of data.designs.filter((v) => v.length <= 6)) expect(bayFor(data, 'area1-venue-riverside', d.length), d.id).toBeNull();
+    expect(bayFor(data, HOME, hauler.length)).toBeNull();
   });
 
   it('drives the starter van out of each car park and back in by the entrance', () => {

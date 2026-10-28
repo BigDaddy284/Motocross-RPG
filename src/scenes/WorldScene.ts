@@ -11,7 +11,7 @@ import { directions, guidesOn, routeArrival, sideOf, waysOut } from '../core/gui
 import { goalObjects, nextHop, storyGoal } from '../core/waymarks';
 import { biggestBike, bikeImage, zoneFor } from '../core/worldMap';
 import { ROUTE, spawnTile, stepTriggerAt, type Arrival, type StepResult } from '../core/travel';
-import { DriveMap, FACING_OF, ensureVan, exitTile, footprint, inwardHeading, nearestFree, placeNear, planDrive, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
+import { DriveMap, FACING_OF, bayFor, ensureVan, exitTile, footprint, inwardHeading, nearestFree, placeNear, planDrive, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { MOD_PLACE, forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
 import { entryFee, fieldCount, practiceFee, venueProblem, type VenueDef } from '../core/raceDay';
 import { champProblem, enter, nextRoundVenue, roundEntry, roundsHere, standings, titlePossible, withdraw, type ChampionshipDef } from '../core/championship';
@@ -1204,6 +1204,13 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
     const plan = planDrive(this.drive, van.pose, van.design.length, via?.type === 'exit' ? objectTiles(via, this.map.tileSize) : tile);
+    // Parked in a bay it can't turn out of (the Factory Hauler at Riverside): out straight by the exit.
+    const bay = bayFor(services.content.vehicles, this.map.id, van.design.length);
+    if (!plan && via?.type === 'exit' && bay && bay.x === van.pose.x && bay.y === van.pose.y && bay.heading === van.pose.heading) {
+      const r = services.travel.resolve(this.map, via, this.save.flags);
+      if (r) this.vanThrough(r);
+      return;
+    }
     if (!plan) {
       this.hud.toast(`The ${van.design.name} can't get there.`);
       return;
@@ -1246,7 +1253,10 @@ export class WorldScene extends Phaser.Scene {
   private driveTo(to: Arrival): boolean {
     const van = this.van!;
     const target = services.maps.get(to.map);
-    const pose = target && placeNear(this.driveMapFor(target, van.design.length), to.tile, van.design.length, inwardHeading(target, to.tile), 12, (t) => !!stepTriggerAt(target, t));
+    const bay = target && bayFor(services.content.vehicles, target.id, van.design.length);
+    const pose = bay
+      ? { x: bay.x, y: bay.y, heading: bay.heading }
+      : target && placeNear(this.driveMapFor(target, van.design.length), to.tile, van.design.length, inwardHeading(target, to.tile), 12, (t) => !!stepTriggerAt(target, t));
     if (!target || !pose) {
       this.hud.toast(`There's no room for the ${van.design.name} over there.`);
       return false;
