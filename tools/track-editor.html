@@ -1345,7 +1345,7 @@ function itemBox(it) {
   return { w, h: it.h ?? def?.h ?? 2, a: ((it.rot ?? 0) * Math.PI) / 180 };
 }
 /** How wide the finish arch stands for a track width: its posts just outside the lips (src/core/trackClearance.ts archSpan). */
-function archSpan(width) { return width * LIP_AT + 1.3; }
+function archSpan(width) { return width * LIP_AT + 2.4; }
 /** Where the finish arch belongs: on the finish line, square to the track there (trackClearance.ts archPlace). */
 function archPlace(t) {
   if (t.path.length < 2) return null;

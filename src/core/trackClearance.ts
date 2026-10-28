@@ -118,11 +118,11 @@ export function footprints(parts: TrackPartsData, track: TrackDef): Footprint[] 
 
 /**
  * How wide the finish arch stands, in grid units, for a track of the given width: its posts
- * (0.5 wide, centred 0.25 in from each end) stand just outside the lips, whatever width the item
+ * (0.5 wide, centred 0.25 in from each end) stand clear of the banks either side, whatever width the item
  * was saved with (Boss, 28 Oct 2026: the arch to match the track width).
  */
 export function archSpan(width: number): number {
-  return width * LIP_AT + 1.3;
+  return width * LIP_AT + 2.4;
 }
 
 /** Where the finish arch belongs: on the finish line (the lap's first point), square to the track there. */

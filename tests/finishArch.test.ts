@@ -15,7 +15,7 @@ describe('finish arch', () => {
     for (const w of [2.6, 3.0, 3.4]) {
       const inner = archSpan(w) - 1.0;
       expect(inner).toBeGreaterThan(w * LIP_AT);
-      expect(inner - w * LIP_AT).toBeLessThan(1);
+      expect(inner - w * LIP_AT).toBeLessThan(2);
     }
     const farmland = content.tracks.tracks.find((t) => t.id === 'farmland')!;
     const arch = footprints(parts, farmland).find((f) => f.type === 'finish_arch')!;
