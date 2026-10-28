@@ -113,7 +113,7 @@ Tests: `npm test` (232 tests) and `npx tsc --noEmit` pass. For the elevation too
 
 Known limits: a finish line placed inside a bend splits that section, and a short remainder may then need retyping (the ghost warns; a straight is the usual place). Bikes drawn right on the edge of a knife-edge corner swing round its centre of curvature, a few centimetres back for a moment, while the surface there is a mitred point; the Geometry check names such corners. In deep valleys the fixed race camera can lose riders behind nearer high ground. Bikes dip up to about 0.6 grid units into the surface for a moment at some jump crests, flat or not (as before this change). Ground steeper than the 35% warning is still allowed. Opened straight from disk, the editor runs the published game, which gets these changes only once PR 20 is merged. The marshals reuse the running coach's sprite (no art for them yet). Buildings can't be rotated, since each picture is drawn for one view. The L-shaped engine rebuilder with lock-up is in the library but not placed on any map. The 35×18 example block fits on no shipped map and was tested on a blank map.
 
-To resume: `npm install`, `npm test`, `npm run dev`, then open `/tools/track-editor.html` or `/tools/map-editor.html`.
+To resume: `npm install`, `npm test`, `npm run dev`, then open `/tools/` (the toolkit) or `/tools/track-editor.html` or `/tools/map-editor.html`.
 
 ## What's in this build
 
@@ -275,6 +275,7 @@ Testing aids to take out before the final release:
 | `public/data/` | Game content as JSON: NPCs, dialogue, bikes, items, the opening chain (`story.json`), the world map, locks and shift jobs (`world.json`), shops and repairs (`shops.json`), and the vans (`vehicles.json`). Every file is checked when the game starts. |
 | `public/assets/` | Art and baked maps, written by the import tool. Don't edit by hand. |
 | `tools/import-art.mjs` | Copies the art from the shared art folder and bakes each Tiled map into one game-ready file. |
+| `tools/index.html` | The toolkit's front page (`/tools/` beside the game), listing each editor as its own page, with placeholders for the outfit and character designers to come. |
 | `tools/map-editor.html` | Standalone map and tile editor for the game maps and the Tiled sources. |
 | `tools/track-editor.html` | Standalone editor for the race tracks in `public/data/tracks.json`. |
 | `tests/` | Unit tests, plus checks that every door, exit and NPC on the real maps works. |
@@ -293,6 +294,10 @@ npm test
 ```
 
 To update only the van sheets (from `art/vehicles/sheets/map/`) without re-baking the maps: `npm run import-art -- --vehicles /path/to/art`.
+
+### The toolkit
+
+The editors are kept apart from the game as the **Motocross RPG Toolkit**: its front page is `tools/index.html`, published at `…/tools/` beside the game (http://localhost:5173/tools/ with `npm run dev`). It lists the **Track Editor** and the **Map Editor**, each its own page with a **Toolkit** link back, and placeholder pages for the **Outfit Designer** and **Character Designer** to come. The editors work on the game's own data files, and the track editor's race view runs the game itself. The game's menus don't link to the toolkit, so it never shows on a phone. To add a tool, put its page in `tools/`, add a card to `tools/index.html`, and add its file to `TOOLKIT_PAGES` in `vite.config.ts` so the build publishes it.
 
 ### Editing maps
 
