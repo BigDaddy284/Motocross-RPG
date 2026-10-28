@@ -2,16 +2,17 @@ import Phaser from 'phaser';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { SceneryItem, TrackDef } from '../core/race';
-import { START_HOLD, type RiderPose } from '../core/riderAI';
+import { START_HOLD, type RiderPose, type RiderState } from '../core/riderAI';
 import { CHEER_ITEM, CHEER_RANGE, CHEER_WALK, cheerAction, cheerColour, cheerRoute, cheerTiming, cheerVariant, REACT_SECONDS, VARIANT_SCALE, type CheerAction } from '../core/cheer';
 import { alongRoute, OFFICIAL_ITEM, OFFICIAL_SCALE, officialPlan, placedOfficial, routeLength, walkProgress, BOARD_MOVE, BOARD_SIDEWAYS, WALK_FROM, WALK_TO, type OfficialSpot } from '../core/startOfficial';
 import { pointAt, START_PAD, startPointAt } from '../core/trackGeom';
-import { GRID_H, GRID_W, trackKind, type TrackPartsData } from '../core/trackParts';
+import { GRID_H, GRID_W, trackKind, type SceneryDef, type TrackPartsData } from '../core/trackParts';
 import { BIKE_LENGTH, CAM_AZ, LIP_AT, TrackSurface } from '../core/trackSurface';
 import { COLORS, TEXT_RES } from '../ui/theme';
 import { isPaddock } from '../core/paddock';
 import { paddockParts, U as METRE } from './paddock';
-import { FACES_TRACK, tracksideParts, type Label } from './trackside';
+import { FACES_TRACK, marshalParts, tracksideParts, type Label } from './trackside';
+import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../core/marshal';
 import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
@@ -53,6 +54,16 @@ export interface ViewRider {
   startRow?: number;
   /** Brand and gear colours for the race-day bike and rider (raceBike.ts). */
   look?: RaceLook;
+}
+
+/** A marshal in the scene (marshalFigure, updateMarshals): the figure leans and the arm swings the flag up while a rider is down on their watch. */
+interface Marshal {
+  watch: Watch;
+  figure: THREE.Group;
+  arm: THREE.Mesh;
+  /** 0 flag down, 1 up and waving; eased between. */
+  raise: number;
+  phase: number;
 }
 
 /** A cheering fan in the scene (cheerFigure, updateCheers). */
@@ -156,6 +167,8 @@ export class RaceView {
   /** The start gate's pickets, hinged at the bottom so they drop flat when the race starts. */
   private gateDrop: THREE.Group | null = null;
   /** The official holding the start board beside the start straight, and the board itself. */
+  /** The marshals (scenery type marshal): flag up while a rider is down on their watch (updateMarshals). */
+  private marshals: Marshal[] = [];
   /** The cheering fans (scenery type cheer): walk in on load, then react to bikes passing (updateCheers). */
   readonly cheers: Cheer[] = [];
   private cheerClock = 0;
@@ -1033,6 +1046,10 @@ export class RaceView {
     g.position.set(it.x, this.terrainAt(it.x, it.y), it.y);
     g.rotation.y = -(((it.rot ?? 0) * Math.PI) / 180);
     const add = (o: THREE.Object3D) => g.add(o);
+    if (def && it.type === MARSHAL_ITEM) {
+      this.marshalFigure(g, it, def);
+      return g;
+    }
     if (def && isPaddock(def)) {
       // A paddock vehicle or a trackside item (paddock.ts, trackside.ts): one vertex-coloured mesh
       // each, so a full paddock costs a draw an item, plus a textured box for each label with words on.
@@ -1209,6 +1226,42 @@ export class RaceView {
         add(this.boxMesh(w, 0.6, d, this.mat(color)));
     }
     return g;
+  }
+
+  /** A marshal: the stand as one mesh, the figure and its flag arm as two more the view animates, facing the middle of their watch unless turned. */
+  private marshalFigure(g: THREE.Group, it: SceneryItem, def: SceneryDef): void {
+    const i = (this.track.scenery ?? []).indexOf(it);
+    const built = marshalParts(def, it, i);
+    if (built.base.length) g.add(this.mergeParts(built.base));
+    const figure = new THREE.Group();
+    figure.position.set(built.feet[0] * METRE, built.feet[1] * METRE, built.feet[2] * METRE);
+    const body = this.mergeParts(built.figure);
+    body.position.set(-built.feet[0] * METRE, -built.feet[1] * METRE, -built.feet[2] * METRE);
+    figure.add(body);
+    const arm = this.mergeParts(built.arm);
+    arm.geometry.translate(-built.shoulder[0] * METRE, -built.shoulder[1] * METRE, -built.shoulder[2] * METRE);
+    arm.position.set((built.shoulder[0] - built.feet[0]) * METRE, (built.shoulder[1] - built.feet[1]) * METRE, (built.shoulder[2] - built.feet[2]) * METRE);
+    figure.add(arm);
+    g.add(figure);
+    const watch = marshalWatch(this.surface.g, it);
+    if (it.rot === undefined) {
+      const at = watchFocus(this.surface.g, watch);
+      g.rotation.y = -Math.atan2(at.y - it.y, at.x - it.x) + Math.PI / 2;
+    }
+    this.marshals.push({ watch, figure, arm, raise: 0, phase: noise(i * 29 + 7) * Math.PI * 2 });
+  }
+
+  /** Raises each marshal's flag while a rider is down on their watch: the arm swings up and waves, the figure leans out. */
+  updateMarshals(dt: number, clock: number, riders: { dist: number; state: RiderState }[]): void {
+    for (const m of this.marshals) {
+      const want = flagUp(m.watch, riders) ? 1 : 0;
+      m.raise += Math.max(-dt * 2.5, Math.min(dt * 2.5, want - m.raise));
+      const k = m.raise;
+      m.arm.rotation.z = k * 0.45 * Math.sin(clock * 7 + m.phase);
+      m.arm.rotation.x = -0.9 * Math.PI * k;
+      m.figure.rotation.x = 0.22 * k;
+      m.figure.rotation.z = -0.06 * k * Math.sin(clock * 7 + m.phase);
+    }
   }
 
   /** Which way, along the item's depth, points away from the nearest bit of track: 1 or -1. */
@@ -1525,6 +1578,7 @@ export class RaceView {
     }
     this.agePuffs(Math.min(1, dc * 1.4 + dt * 0.3));
     this.updateStart(clock);
+    if (this.marshals.length) this.updateMarshals(Math.min(0.1, dt), clock, riders.map((r) => r.pose));
     if (this.cheers.length) {
       const spots: { x: number; z: number }[] = [];
       for (const r of riders) { const b = this.bikes.get(r.pose.id); if (b && r.pose.state !== 'retired') spots.push({ x: b.root.position.x, z: b.root.position.z }); }

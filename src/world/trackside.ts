@@ -6,6 +6,7 @@
 // core/paddock.ts, picked for it unless chosen in the editor, which mirrors the layouts here.
 import * as THREE from 'three';
 import type { SceneryItem } from '../core/race';
+import { MARSHAL_STANDS } from '../core/marshal';
 import { paddockColour, paddockSetup, paddockVariant } from '../core/paddock';
 import type { SceneryDef } from '../core/trackParts';
 import { Build, CANVAS, CHASSIS, DARK, GLASS, hexNum, MAT, rustyVan, shade, SHIRTS, STEEL, TABLE, TYRE, U } from './paddock';
@@ -18,7 +19,7 @@ export interface Label {
 export interface Built { parts: Build['parts']; labels: Label[] }
 
 /** Items whose people face the track when the item is not turned by hand. */
-export const FACES_TRACK = new Set(['tv_camera_op', 'tv_tripod', 'tv_van', 'tv_tower', 'photographer', 'commentary_box', 'marshal', 'camp_chairs', 'fan_photo', 'fan_parasol', 'fans_fence', 'camera_crane', 'drone_pilot', 'vip_stand']);
+export const FACES_TRACK = new Set(['tv_camera_op', 'tv_tripod', 'tv_van', 'tv_tower', 'photographer', 'commentary_box', 'camp_chairs', 'fan_photo', 'fan_parasol', 'fans_fence', 'camera_crane', 'drone_pilot', 'vip_stand']);
 /** Items whose length is set by their width (like a banner's), so they can run as far as wanted. */
 export const STRETCH = new Set(['foot_bridge', 'crowd_barrier', 'cones', 'fans_fence', 'timing_beam', 'vip_stand']);
 
@@ -343,14 +344,6 @@ const builders: Record<string, (c: Ctx) => void> = {
       for (let j = 1; j < bars; j++) b.pole(x - seg / 2 + (seg * j) / bars, 0.3, 0, 0.75, col, 0.025);
     }
   },
-  marshal({ b, col, variant, i }) {
-    b.person(0, 0, 0, i, { arms: 'up', shirt: col });
-    b.pole(0.3, 1.9, 0.0, 1.1, 0xe8e8e8, 0.03);
-    const flag = { yellow: 0xf0c020, red: 0xd02020, blue: 0x2060e0 }[variant ?? 'yellow'];
-    if (variant === 'checkered') {
-      for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) b.box(0.3 + 0.17 + c * 0.17, 2.98 - 0.18 - r * 0.17, 0, 0.17, 0.17, 0.02, (r + c) % 2 ? BLACK : WHITE);
-    } else b.box(0.3 + 0.37, 2.42, 0, 0.7, 0.55, 0.02, flag ?? 0xf0c020);
-  },
   ambulance({ b, setup, D, i }) {
     const bz = -(D - 1.8) / 2;
     rustyVan(b, 0xf4f4f0, undefined, bz, false);
@@ -636,6 +629,64 @@ const builders: Record<string, (c: Ctx) => void> = {
     for (const x of [-L / 2, L / 2]) b.box(x, 0.6 + (tiers - 1) * 0.5, 0, 0.06, 1.0, D, STEEL);
   },
 };
+
+const HAY = 0xd8b45a;
+export interface MarshalBuilt {
+  /** The stand, the hay bales, a second marshal: still, merged into one mesh. */
+  base: Build['parts'];
+  /** The marshal with the flag: the figure less the flag arm, and the arm with the pole and flag, in metres from the feet. */
+  figure: Build['parts'];
+  arm: Build['parts'];
+  /** Where the feet stand and where the flag arm pivots, in metres in the item's frame. */
+  feet: [number, number, number];
+  shoulder: [number, number, number];
+}
+
+/**
+ * A marshal (core/marshal.ts) for the race view to animate: the flag arm is built apart, pivoting
+ * at the shoulder, hanging with the flag down and swung up to wave it; the figure leans with it.
+ */
+export function marshalParts(def: SceneryDef, it: SceneryItem, i: number): MarshalBuilt {
+  const b = new Build();
+  const col = hexNum(paddockColour(def, it, i), hexNum(def.color, HIVIS));
+  const variant = paddockVariant(def, it, i) ?? 'ground';
+  const lift = MARSHAL_STANDS[variant] ?? 0;
+  const deck = (l: number, w: number, roof: boolean) => {
+    // A steel platform with a handrail round it, the stairs down the back.
+    for (const x of [-l / 2 + 0.06, l / 2 - 0.06]) for (const z of [-w / 2 + 0.06, w / 2 - 0.06]) b.pole(x, 0, z, roof ? lift + 2.3 : lift + 1.05, 0x6a5a48, 0.08);
+    b.box(0, lift - 0.08, 0, l, 0.08, w, 0x5a4a3a);
+    b.box(0, lift - 0.3, 0, l, 0.06, w, 0x6a5a48);
+    for (const x of [-l / 2, l / 2]) b.box(x, lift + 1.0, 0, 0.05, 0.05, w, 0x6a5a48);
+    for (const z of [-w / 2, w / 2]) b.box(0, lift + 1.0, z, l, 0.05, 0.05, 0x6a5a48);
+    for (const x of [-l / 2, l / 2]) b.box(x, lift + 0.5, 0, 0.04, 0.04, w, 0x6a5a48);
+    b.box(0, lift + 0.5, -w / 2, l, 0.04, 0.04, 0x6a5a48);
+    for (let k = 0; k < 4; k++) b.box(0, (k + 0.5) * (lift / 4) - 0.04, -w / 2 - 0.3 - k * 0.3, 0.8, 0.05, 0.3, 0x6a5a48);
+    if (roof) b.box(0, lift + 2.3, 0, l + 0.4, 0.1, w + 0.4, col);
+  };
+  if (variant === 'pallet') deck(1.6, 1.4, false);
+  else if (variant === 'tower') deck(2.0, 2.0, true);
+  else if (variant === 'bales') {
+    for (const x of [-0.95, 0.95]) b.box(x, 0, 0.85, 1.8, 0.6, 1.0, HAY);
+    b.box(0, 0.6, 0.85, 1.8, 0.6, 1.0, HAY);
+  } else if (variant === 'pair') {
+    b.person(-0.9, 0, 0.3, i + 1, { shirt: col, arms: 'down' });
+    b.cyl(-1.35, 0, 0.2, 0.09, 0.5, 0xd02020, 10);
+    b.box(-1.35, 0.5, 0.2, 0.08, 0.1, 0.08, BLACK);
+  }
+  const base = b.parts;
+  // The marshal: a figure at the platform's height, with their right arm, the pole and the flag apart.
+  const f = new Build();
+  const fx = variant === 'pair' ? 0.3 : 0;
+  f.person(fx, 0, 0, i, { shirt: col, arms: 'down' });
+  for (const m of f.parts) m.position.y += lift * U;
+  const arm = [f.parts.pop()!];
+  const a = new Build();
+  a.parts.push(...arm);
+  // The pole hangs by the arm with the flag at its lower end, so swung up the flag is on top.
+  a.pole(fx + 0.36, lift + 0.1, 0.12, 1.3, 0xe8e8e8, 0.03);
+  a.box(fx + 0.36 + 0.32, lift + 0.12, 0.12, 0.64, 0.5, 0.02, 0xf0c020);
+  return { base, figure: f.parts, arm: a.parts, feet: [0, lift, 0], shoulder: [fx + 0.3, lift + 1.45, 0] };
+}
 
 /** The meshes and labels of a trackside item, in its own frame, or null for an item built elsewhere (the paddock vehicles). */
 export function tracksideParts(def: SceneryDef, it: SceneryItem, i: number): Built | null {

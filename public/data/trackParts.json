@@ -65,7 +65,7 @@
     {"id": "time_check", "name": "Enduro time check", "w": 2.4, "h": 2.4, "color": "#f0a020", "text": "TIME CHECK", "colours": ["#f0a020", "#f0efe8", "#2a4a90"]},
     {"id": "foot_bridge", "name": "Pedestrian bridge", "w": 16.0, "h": 1.8, "color": "#2a4a90", "overTrack": true, "colours": ["#2a4a90", "#4a4e58", "#c82828", "#2a8a40"], "setups": [["empty", "Empty"], ["fans", "Fans crossing"]]},
     {"id": "crowd_barrier", "name": "Crowd barrier", "w": 7.0, "h": 0.5, "color": "#9a9ca0", "colours": ["#9a9ca0", "#4a4e58", "#f0f0f0"]},
-    {"id": "marshal", "name": "Marshal with a flag", "w": 1.2, "h": 0.8, "color": "#f0a020", "colours": ["#f0a020", "#e07020", "#f0f0f0"], "variants": [["yellow", "Yellow flag"], ["red", "Red flag"], ["blue", "Blue flag"], ["checkered", "Chequered flag"]]},
+    {"id": "marshal", "name": "Marshal", "w": 2.0, "h": 2.0, "color": "#f0a020", "colours": ["#f0a020", "#e8e020", "#f0f0f0", "#d02020"], "variants": [["ground", "Standing trackside"], ["pallet", "On a pallet stand"], ["tower", "In a roofed tower"], ["pair", "A pair with an extinguisher"], ["bales", "Behind hay bales"]]},
     {"id": "ambulance", "name": "Medic and ambulance", "w": 3.5, "h": 2.7, "color": "#f4f4f0", "setups": [["crew", "Medic crew beside it"], ["parked", "Parked up"]]},
     {"id": "quad", "name": "Marshal quad", "w": 1.8, "h": 1.1, "color": "#c03030", "colours": ["#c03030", "#2a8a40", "#2a4a90", "#202428", "#f0a020"], "variants": [["parked", "Parked"], ["rider", "With its rider"]]},
     {"id": "tractor", "name": "Track tractor", "w": 6.5, "h": 2.0, "color": "#2a8a40", "colours": ["#2a8a40", "#c03030", "#2a4a90", "#e8c020"], "variants": [["harrow", "Pulling the harrow"], ["bowser", "Towing the water bowser"]]},
