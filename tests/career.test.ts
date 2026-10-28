@@ -80,7 +80,9 @@ describe('the opening chain', () => {
     expect(state.bike.parts.top_end.condition).toBeGreaterThan(0);
     expect(bikeProblem(bikes, state.bike)).toBeNull();
     expect(state.bag).toEqual([]);
-    expect(flags.tutorial_done && flags.roadworks_done).toBe(true);
+    expect(flags.tutorial_done).toBe(true);
+    // The roadworks stay up until Louis Jonez has said where to race (Boss, 28 Oct 2026).
+    expect(flags.roadworks_done).toBeUndefined();
     expect(state.money).toBe(pence(520));
 
     const notYet = matchStory(story, state, { talk: 'npc.van_seller' });
@@ -89,7 +91,7 @@ describe('the opening chain', () => {
     state.money += pence(80); // shifts
     for (const step of story.steps.slice(vanStep)) play(state, flags, step);
     expect(state.money).toBe(0);
-    expect(flags.van_owned && flags.van_loaded).toBe(true);
+    expect(flags.van_owned && flags.van_loaded && flags.roadworks_done).toBe(true);
     // After the chain: the mechanic's advice, the fabrication boss's tip, then the racing goals.
     expect(journal(story, state, flags)).toBe(story.after![0].text);
     const told = { ...flags, 'told.bike_care': true };

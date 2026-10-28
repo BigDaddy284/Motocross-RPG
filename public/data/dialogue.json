@@ -68,8 +68,7 @@
     ] },
     "story.tutorial_end": { "lines": [
       { "speaker": "npc", "text": "Six hundred for the van? Fair price. Here's £40 extra for all your help today." },
-      { "speaker": "npc", "text": "If you're still short, the fabrication shop and the engine rebuilder always need shift workers." },
-      { "speaker": "npc", "text": "Oh, and the council's finally finished the roadworks on the west road. That's your way to the tracks." }
+      { "speaker": "npc", "text": "If you're still short, the fabrication shop and the engine rebuilder always need shift workers." }
     ] },
     "story.buy_van.short": { "lines": [
       { "speaker": "npc", "text": "Six hundred, and you're {short} short. Shifts in the Industrial Zone pay. Come back when you've got it." }
@@ -85,6 +84,7 @@
     "story.find_track": { "lines": [
       { "speaker": "npc", "text": "Got yourself a van? Then you're a proper racer now." },
       { "speaker": "npc", "text": "Try Farmland MX first. It's hard pack, flowing, and good for a first race. Take the west road out of town." },
+      { "speaker": "npc", "text": "The council's just finished the roadworks on it, so you're in luck." },
       { "speaker": "npc", "text": "There are two more down the same road: Riverside Arena by the river, and Longmoor Enduro out in the woods." },
       { "speaker": "npc", "text": "See you on the gate." }
     ] },

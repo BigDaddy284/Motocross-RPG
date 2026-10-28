@@ -74,8 +74,8 @@
     {
       "id": "tutorial_end", "journal": "Report back to the garage mechanic.",
       "on": { "talk": "npc.garage_mechanic" }, "lines": "story.tutorial_end",
-      "effects": { "money": 40, "flags": ["tutorial_done", "roadworks_done"] },
-      "toast": "The roadworks are finished and the venue road is open. Everyone in town has time for you now."
+      "effects": { "money": 40, "flags": ["tutorial_done"] },
+      "toast": "Everyone in town has time for you now."
     },
     {
       "id": "buy_van", "journal": "Buy the used van for £600. Shifts at the fabrication shop or engine rebuilder will cover the gap.",
@@ -89,12 +89,13 @@
       "id": "load_van", "journal": "Load your bike, spares and tools into the van. Your spares are in the chest in your rented room.",
       "on": { "use": "storage.parts", "map": "int-home-rented-room" }, "markVan": "van_driven", "lines": "story.load_van",
       "effects": { "flags": ["van_loaded"] },
-      "toast": "The venue route is open. Head west out of Home Town to reach the tracks."
+      "toast": "The van's loaded. Ask the local racer outside the local garage where to race."
     },
     {
       "id": "find_track", "journal": "Ask the local racer outside the local garage where to race.",
       "on": { "talk": "npc.local_racer" }, "lines": "story.find_track",
-      "effects": { "flags": ["found.venue-farmland"] }
+      "effects": { "flags": ["found.venue-farmland", "roadworks_done"] },
+      "toast": "The roadworks are finished and the west road to the tracks is open."
     }
   ],
   "done": "Free roam: race at Farmland MX, practise on the backyard loop, or work shifts for money.",
