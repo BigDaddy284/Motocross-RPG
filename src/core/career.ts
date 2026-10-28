@@ -5,6 +5,7 @@
 import type { ChampionshipState } from './championship';
 import type { ErrandState } from './errands';
 import type { ShopState, SparePart } from './shops';
+import type { WorldMapData } from './worldMap';
 import { newSkillState, type SkillState } from './skills';
 
 export interface StatDef {
@@ -115,6 +116,8 @@ export interface RouteDef {
 export interface WorldData {
   /** Testing only: multiplies all shift pay. Review before Final v1. */
   testPayMultiplier?: number;
+  /** The world map screen (core/worldMap.ts). */
+  worldMap?: WorldMapData;
   locks: { map: string; object: string; flag: string; message: string }[];
   /** Places at the end of a route (an exit with a choice of roads): where you arrive and what it is. */
   places: PlaceDef[];

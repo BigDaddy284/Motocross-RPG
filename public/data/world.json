@@ -1,6 +1,17 @@
 {
   "note": "Story locks on map objects, where the roads out go, and the repeatable shift jobs (Spec 14.5a, 15.5). places are where a route can take you (the map and the spawn you arrive on); the place with mods: true is the mod track list, raced from the road without going anywhere (src/core/modTracks.ts). routes are exits with a choice of places at the end (an exit whose to is world_map, a name kept from the old world map screen so the maps did not change): the route marshal by the exit (npcs.json, guide: true) says where each goes and lets you pick, then you leave by the exit. Without a pick, leaving by the exit asks where to, so the marshal is never in the way. Pay is in pounds per part. testPayMultiplier boosts all shift pay while testing (Boss: 10× for Alpha v1): set it back to 1, or remove it, before Final v1.",
   "testPayMultiplier": 10,
+  "worldMap": {
+    "note": "The world map (Boss, 28 Oct 2026), drawn by tools/art/world-map.py. Each zone lists its area maps (a building's inside is in the zone of the map its door is on) and where the rider's biggest bike stands, in the image's pixels.",
+    "image": "art/ui/world-map.png",
+    "size": [1440, 1080],
+    "bikes": "art/ui/world-map-bikes",
+    "zones": [
+      { "id": "home", "name": "Home Town", "maps": ["area1-home-town"], "at": [1110, 526], "image": "art/ui/world-map-home.png" },
+      { "id": "iz", "name": "Industrial Zone", "maps": ["area1-industrial-zone"], "at": [1345, 502], "image": "art/ui/world-map-iz.png" },
+      { "id": "hub", "name": "Race Hub", "maps": ["area1-venue-farmland", "area1-venue-riverside", "area1-venue-longmoor"], "at": [720, 604] }
+    ]
+  },
   "locks": [
     { "map": "area1-home-town", "object": "To the venue route", "flag": "van_loaded", "message": "You'll need a van, loaded with your bike, to get to the tracks." },
     { "map": "area1-home-town", "object": "Bus stop", "flag": "van_loaded", "message": "The bus won't take a bike. You'll need a van to get to the tracks." }

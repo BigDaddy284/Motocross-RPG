@@ -29,6 +29,7 @@ import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
 import { button, panel, slider, statBar } from '../ui/widgets';
 import type { WorldScene } from './WorldScene';
 import { cssSize, view } from '../ui/view';
+import { worldMapTexture, type WorldMapData, type WorldMapZone } from '../core/worldMap';
 
 // Screen-space layer over the world: map name, money and task, messages, the dialogue box, the
 // bike / bag / task panel, confirm boxes, the work progress bar, the pause menu and
@@ -161,6 +162,7 @@ export class HudScene extends Phaser.Scene {
     kb.on('keydown-TAB', togglePanel);
     kb.on('keydown-I', togglePanel);
     kb.on('keydown-B', togglePanel);
+    kb.on('keydown-M', () => !this.modal && !this.pause && !this.dialogue && this.world.openWorldMap());
     kb.on('keydown-K', () => !this.modal && !this.pause && !this.dialogue && this.openPanel('skills'));
   }
 
@@ -187,7 +189,8 @@ export class HudScene extends Phaser.Scene {
       button(this, width - 34, 34, '☰', () => this.world.openPause(), 48, 48),
       ...zoom,
       button(this, width - 50, 150, 'Bike', () => !this.modal && !this.dialogue && this.openPanel('bike'), 80, 48),
-      ...(this.driving ? [button(this, width - 60, 208, 'Get out', () => !this.modal && !this.dialogue && this.world.getOut(), 100, 48)] : []),
+      ...(services.content.world.worldMap ? [button(this, width - 50, 208, 'Map', () => !this.modal && !this.dialogue && this.world.openWorldMap(), 80, 48)] : []),
+      ...(this.driving ? [button(this, width - 60, 266, 'Get out', () => !this.modal && !this.dialogue && this.world.getOut(), 100, 48)] : []),
     ];
     if (this.zoomPop) this.openZoom();
     this.saveText.setPosition(width - 70, 18);
@@ -388,6 +391,34 @@ export class HudScene extends Phaser.Scene {
     if (closeOnClick) shade.on('pointerup', () => this.closeModal());
     c.add(shade);
     c.add(panel(this, 0, 0, w, h).setInteractive());
+  }
+
+  /**
+   * The world map (Boss, 28 Oct 2026): Boss's layout of the areas, with the rider's biggest bike in
+   * the middle of the zone they're in. Fills the screen; a click, Esc or Close shuts it.
+   */
+  showWorldMap(wm: WorldMapData, zone: WorldMapZone | null, here: string, bike: string | null, onClose: () => void): void {
+    const { width, height } = view(this);
+    const c = this.add.container(0, 0);
+    c.add(this.add.rectangle(width / 2, height / 2, width, height, COLORS.ink, 0.94).setInteractive().on('pointerup', () => this.closeModal()));
+    const [iw, ih] = wm.size;
+    const top = 58;
+    const k = Math.min((width - 24) / iw, (height - top - 16) / ih);
+    const x0 = (width - iw * k) / 2;
+    const y0 = top + (height - top - 16 - ih * k) / 2;
+    const key = worldMapTexture(zone?.image ?? wm.image);
+    if (this.textures.exists(key)) c.add(this.add.image(x0, y0, key).setOrigin(0).setScale(k));
+    if (zone && bike && this.textures.exists(worldMapTexture(bike))) {
+      // The map image is drawn at 2 px a pixel; the bike's image is already doubled, so it scales with the map.
+      c.add(this.add.image(x0 + zone.at[0] * k, y0 + zone.at[1] * k, worldMapTexture(bike)).setScale(k));
+    }
+    const outline = { stroke: '#14141e', strokeThickness: 4 };
+    const where = zone ? (here && here !== zone.name ? `${here}, ${zone.name}` : zone.name) : here;
+    const title = this.add.text(16, 30, 'World map', textStyle(this.ts(24), COLORS.accent, { ...outline, fontStyle: 'bold' })).setOrigin(0, 0.5);
+    c.add(title);
+    c.add(this.fitWidth(this.add.text(title.x + title.width + 18, 30, `You're here: ${where}`, textStyle(this.ts(18), COLORS.cream, outline)).setOrigin(0, 0.5), width - title.width - 170));
+    c.add(button(this, width - 64, 30, 'Close', () => this.closeModal(), 100, 40));
+    this.openModal(c, onClose);
   }
 
   /** A yes / no box. Esc or No cancels. */

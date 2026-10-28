@@ -9,6 +9,7 @@ import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
 import { applyMapState, clearedPatches, hiddenSprites } from '../core/mapState';
 import { directions, guidesOn, routeArrival, sideOf, waysOut } from '../core/guides';
 import { goalObjects, nextHop, storyGoal } from '../core/waymarks';
+import { biggestBike, bikeImage, zoneFor } from '../core/worldMap';
 import { ROUTE, spawnTile, stepTriggerAt, type Arrival, type StepResult } from '../core/travel';
 import { DriveMap, FACING_OF, ensureVan, exitTile, footprint, inwardHeading, nearestFree, placeNear, planDrive, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { MOD_PLACE, forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
@@ -658,6 +659,18 @@ export class WorldScene extends Phaser.Scene {
     const ty = dy > 0 ? (bottom - cy) / dy : dy < 0 ? (top - cy) / dy : Infinity;
     const t = Math.min(tx, ty);
     this.hud.showWayArrow({ x: cx + dx * t, y: cy + dy * t, angle: Phaser.Math.RadToDeg(Math.atan2(dy, dx)), label: p.label, sub: p.sub });
+  }
+
+  /** The world map, with the rider's biggest bike in the zone they're in. */
+  openWorldMap(): void {
+    const wm = services.content.world.worldMap;
+    if (!wm || this.busy) return;
+    const zone = zoneFor(wm, services.maps, services.travel, this.map.id);
+    const bike = bikeImage(wm, biggestBike(services.content.bikes, this.save.career));
+    this.player.stopWalking();
+    this.path = [];
+    this.onArrive = null;
+    this.hud.showWorldMap(wm, zone, this.map.title, bike, () => {});
   }
 
   /** Flags such as cleared roadworks change the map: reload it in place. */

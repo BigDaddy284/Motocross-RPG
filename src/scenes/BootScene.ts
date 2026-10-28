@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
 import { CONTENT_FILES, checkContent, type Manifest, type RawContent } from '../core/content';
 import type { BakedMap } from '../core/mapTypes';
-import { newCareerState } from '../core/career';
+import { newCareerState, type BikesData, type WorldData } from '../core/career';
 import { fetchFolder, loadModTracks } from '../core/modTracks';
 import type { VenueDef } from '../core/raceDay';
 import { rewardTexture, type ChampionshipsData } from '../core/championship';
+import { bikeImage, worldMapTexture } from '../core/worldMap';
 import { SAVE_VERSION, type SaveData } from '../core/saves';
 import { Travel } from '../core/travel';
 import { formatError } from '../core/validate';
@@ -46,6 +47,16 @@ export class BootScene extends Phaser.Scene {
     // Badges and trophies (championships.json rewards).
     const champs = this.cache.json.get('content:championships') as ChampionshipsData | undefined;
     for (const c of champs?.championships ?? []) for (const r of c.rewards) if (r.image) this.load.image(rewardTexture(r.image), `assets/${r.image}`);
+    // The world map, its zone versions and a map bike for every class and brand.
+    const wm = (this.cache.json.get('content:world') as WorldData | undefined)?.worldMap;
+    const bikes = this.cache.json.get('content:bikes') as BikesData | undefined;
+    if (wm) {
+      for (const img of [wm.image, ...wm.zones.flatMap((z) => (z.image ? [z.image] : []))]) this.load.image(worldMapTexture(img), `assets/${img}`);
+      for (const c of bikes?.classes ?? []) for (const b of bikes?.brands ?? []) {
+        const img = bikeImage(wm, { class: c.id, brand: b.id, parts: {} });
+        this.load.image(worldMapTexture(img), `assets/${img}`);
+      }
+    }
     this.load.once('complete', () => this.finish(manifest));
     this.load.start();
   }

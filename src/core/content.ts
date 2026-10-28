@@ -14,6 +14,7 @@ import { VEHICLES_SCHEMA, checkVehicles, type VanSheet, type VehiclesData } from
 import { MOD_PLACE } from './modTracks';
 import { ERRANDS_SCHEMA, checkErrands, type ErrandsData } from './errands';
 import { CHALLENGES_SCHEMA, checkChallenges, type ChallengesData } from './challenge';
+import { WORLD_MAP_SCHEMA, checkWorldMap } from './worldMap';
 import { validate, type ContentError, type Schema } from './validate';
 
 // Game content loaded from public/data. Each file is checked against its schema, then the files
@@ -226,10 +227,11 @@ export const STORY_SCHEMA: Schema = {
 
 export const WORLD_SCHEMA: Schema = {
   type: 'object',
-  optional: ['note', 'testPayMultiplier'],
+  optional: ['note', 'testPayMultiplier', 'worldMap'],
   fields: {
     note: { type: 'string' },
     testPayMultiplier: { type: 'number', min: 0 },
+    worldMap: WORLD_MAP_SCHEMA,
     locks: {
       type: 'array',
       items: { type: 'object', fields: { map: { type: 'string', pattern: ID }, object: { type: 'string', nonEmpty: true }, flag: { type: 'string', pattern: ID }, message: { type: 'string', nonEmpty: true } } },
@@ -368,6 +370,7 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
   errors.push(...checkChampionships(content.championships, content));
   errors.push(...checkErrands(CONTENT_FILES.errands, content.errands, content));
   errors.push(...checkChallenges(CONTENT_FILES.challenges, content.challenges, content, new Set(maps.keys())));
+  if (content.world.worldMap) errors.push(...checkWorldMap(CONTENT_FILES.world, content.world.worldMap, maps));
   // Tile art isn't listed at run time; tests check it exists (tests/tracks.test.ts).
   errors.push(...checkTrackParts(content.trackParts, content.tracks.tracks, () => true));
   errors.push(...checkShopContent(CONTENT_FILES.shops, content.shops, content.bikes, seen, maps));

@@ -137,6 +137,13 @@ Checked against the last open line of the "Starter career slice" checklist (Syst
 - **NPC name tags:** every NPC shows their name over their head in white with a dark outline (Boss's design A), indoors and out.
 - **Pavements:** the player now stands on the paving of one-tile pavements as the NPCs do, instead of looking as if they are on the kerb.
 
+#### World map (Boss, 28 Oct 2026)
+
+The **Map** button (or **M**) opens Boss's world map: Areas 2 to 8, the Race Hub with its tracks, Home Town and the Industrial Zone, the Tracks badges and the roads between them. The only marker is your biggest bike, in its brand colour with no outline, standing in the middle of the zone you're in. Inside a building, that's the zone of the map its door is on. Travel is still by the roads out.
+
+- The art comes from `tools/art/world-map.py`, which draws the map, a version of Home Town and the Industrial Zone without their little pictures, and a map bike for every class and brand.
+- `data/world.json` `worldMap` lists each zone's maps and where its bike stands (`src/core/worldMap.ts`).
+
 #### Tutorial markers (Boss, 28 Oct 2026)
 
 Every step of the opening chain shows where to go next (`src/core/waymarks.ts`, drawn by `src/world/Waymarks.ts`):
