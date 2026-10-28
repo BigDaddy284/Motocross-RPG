@@ -121,6 +121,7 @@ export class WorldScene extends Phaser.Scene {
       const character = new Character(this, p.npc.sprite, p, p.facing);
       // Standing on the paving, not the kerb or road below it.
       character.placeAt(p, standLift(map, p.x, p.y));
+      character.showName(p.npc.name);
       this.npcs.push({ placement: p, character });
     }
     this.drive = new DriveMap(map, this.grid, services.content.vehicles.drivable);

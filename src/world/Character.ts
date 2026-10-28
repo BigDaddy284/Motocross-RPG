@@ -1,10 +1,13 @@
 import Phaser from 'phaser';
 import type { Facing, Tile } from '../core/mapTypes';
 import { services } from '../services';
+import { FONT, TEXT_RES } from '../ui/theme';
 
 export const TILE = 64;
 /** Walking speed: milliseconds per tile (4 tiles a second). */
 export const STEP_MS = 250;
+/** Name tags draw over the map, its roofs and trees included. */
+const NAME_DEPTH = 1e6;
 
 const FACINGS: Facing[] = ['down', 'left', 'right', 'up'];
 
@@ -43,6 +46,8 @@ export class Character {
   depthFloor: (() => number) | null = null;
   /** How far up a tile this character stands on it (standLift.ts), for one who walks the pavements. */
   liftAt: ((t: Tile) => number) | null = null;
+  /** The name over an NPC's head (Boss's design A, 28 Oct 2026: white with a dark outline). */
+  private nameTag: Phaser.GameObjects.Text | null = null;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -72,8 +77,19 @@ export class Character {
     this.setPixel(t.x * TILE + TILE / 2, (t.y + 1) * TILE - lift);
   }
 
+  /** Shows a name over the character's head, following them about. */
+  showName(name: string): void {
+    this.nameTag?.destroy();
+    this.nameTag = this.scene.add
+      .text(0, 0, name, { fontFamily: FONT, fontSize: '15px', color: '#ffffff', stroke: '#27292c', strokeThickness: 4, resolution: TEXT_RES })
+      .setOrigin(0.5, 1)
+      .setDepth(NAME_DEPTH);
+    this.setPixel(this.sprite.x, this.sprite.y);
+  }
+
   private setPixel(x: number, y: number): void {
     this.sprite.setPosition(x, y);
+    this.nameTag?.setPosition(x, y - 64);
     this.shadow.setPosition(x, y - 4);
     const d = Math.max(y, this.depthFloor?.() ?? -Infinity);
     this.sprite.setDepth(d);
@@ -133,6 +149,7 @@ export class Character {
   }
 
   destroy(): void {
+    this.nameTag?.destroy();
     this.sprite.destroy();
     this.shadow.destroy();
   }
