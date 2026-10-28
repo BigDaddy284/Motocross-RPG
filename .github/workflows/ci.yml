@@ -2,7 +2,7 @@ name: Test and publish
 
 on:
   push:
-    branches: [main]
+    branches: [main, claude/project-thread-yyhrjn]
   pull_request:
   workflow_dispatch:
 
@@ -11,9 +11,11 @@ permissions:
   pages: write
   id-token: write
 
-concurrency:
-  group: pages
-  cancel-in-progress: true
+# The PR build published beside the main game for testing (Boss, 28 Oct 2026): main stays at the
+# site's address and the preview goes in a folder of its own, with its own saves.
+env:
+  PREVIEW_BRANCH: claude/project-thread-yyhrjn
+  PREVIEW_PATH: pr-29
 
 jobs:
   test:
@@ -27,16 +29,52 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
-      - uses: actions/upload-pages-artifact@v3
-        if: github.ref == 'refs/heads/main'
-        with:
-          path: dist
 
-  # Publishes the playable build to GitHub Pages. Needs Settings > Pages > Source: GitHub Actions.
-  deploy:
+  # Builds the site: main at the root and the preview branch in PREVIEW_PATH, so publishing from
+  # either branch keeps both. Runs on pushes to main or the preview branch.
+  site:
     needs: test
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/claude/project-thread-yyhrjn')
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main
+      - uses: actions/checkout@v4
+        id: preview
+        continue-on-error: true
+        with:
+          ref: ${{ env.PREVIEW_BRANCH }}
+          path: preview
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: main/package-lock.json
+      - name: Build main
+        working-directory: main
+        run: npm ci && npm run build
+      - name: Build the preview into its folder
+        if: steps.preview.outcome == 'success'
+        working-directory: preview
+        env:
+          VITE_STORE_NAMESPACE: "mxrpg-${{ env.PREVIEW_PATH }}:"
+        run: |
+          npm ci && npm run build
+          cp -r dist "../main/dist/$PREVIEW_PATH"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: main/dist
+
+  # Publishes the playable build to GitHub Pages. Needs Settings > Pages > Source: GitHub Actions,
+  # and the preview branch allowed in Settings > Environments > github-pages.
+  deploy:
+    needs: site
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pages
+      cancel-in-progress: true
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

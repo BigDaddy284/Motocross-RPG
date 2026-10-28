@@ -8,7 +8,8 @@ import { Travel } from './core/travel';
 
 // Shared game state that lives outside any one scene. Boot fills in the loaded data.
 
-const store = defaultStore();
+// A preview build (VITE_STORE_NAMESPACE, see .github/workflows/ci.yml) keeps its saves apart from the main game's.
+const store = defaultStore(import.meta.env.VITE_STORE_NAMESPACE || undefined);
 
 export const services = {
   store,
