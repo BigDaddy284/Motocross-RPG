@@ -29,8 +29,6 @@ import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
 // your rider (or the leader once you are out), with a map of the whole lap in the corner.
 
 /** Camera direction: degrees round from straight in front, and degrees down from level. */
-/** Paddock items whose body overhangs its wheels: they get a dark pad on the ground under them (groundPad). */
-const GROUND_PAD = new Set(['van', 'rusty_truck', 'rusty_van', 'mx_van', 'mx_van_long', 'motorhome', 'motorhome_long', 'hauler', 'tv_van', 'catering_van', 'ambulance', 'quad', 'tractor', 'skid_steer', 'merch_trailer', 'bike_trailer', 'big_screen']);
 const CAM_EL = 38;
 /** Grid units across the view, by track kind. Riders stay big enough to follow at this size. */
 const VIEW_UNITS: Record<string, number> = { stadium: 36, outdoor: 32, endurance: 32 };
@@ -1064,24 +1062,6 @@ export class RaceView {
     return new THREE.MeshLambertMaterial({ color, ...extra });
   }
 
-  /**
-   * A dark pad on the ground under an item whose body overhangs what it stands on (a skip on its
-   * runners, a vehicle on its wheels): the ground under the overhang is otherwise lit on the sunny
-   * side, a bright strip between the item and its shadow that makes it look as if it floated. The
-   * pad covers the item's footprint at ground level, as the shade under it would.
-   */
-  private groundPad(g: THREE.Object3D, inset = 0.08): void {
-    const box = new THREE.Box3().setFromObject(g);
-    const w = box.max.x - box.min.x - inset * 2;
-    const d = box.max.z - box.min.z - inset * 2;
-    if (!(w > 0.2 && d > 0.2)) return;
-    const pad = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.55, depthWrite: false }));
-    pad.rotation.x = -Math.PI / 2;
-    pad.position.set((box.min.x + box.max.x) / 2, 0.015, (box.min.z + box.max.z) / 2);
-    pad.renderOrder = 1;
-    g.add(pad);
-  }
-
   private boxMesh(w: number, h: number, d: number, m: THREE.Material | THREE.Material[], x = 0, y = 0, z = 0): THREE.Mesh {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
     mesh.position.set(x, y + h / 2, z);
@@ -1204,7 +1184,6 @@ export class RaceView {
         box.receiveShadow = false;
         add(box);
       }
-      if (GROUND_PAD.has(def.id)) this.groundPad(g);
       // People face the track unless the item is turned by hand.
       if (it.rot === undefined && FACES_TRACK.has(def.id) && this.awayFromTrack(it) === 1) g.rotation.y += Math.PI;
       return g;
@@ -1384,9 +1363,10 @@ export class RaceView {
         const lift = 0.1;
         const D = d * 0.85;
         const t = 0.06;
-        // A dark underbody fills the gap under the floor and a ground pad (below) shades the
-        // ground under the rim's overhang, so no lit ground shows between the skip and its shadow.
-        add(this.boxMesh(base * 2 - 0.1, lift, D - 0.1, this.mat(0x26262a), 0, 0, 0));
+        // A dark plinth the full size of the rim fills the space under the sloping sides and the
+        // floor, so no lit ground shows between the skip and its shadow (it looked as if it
+        // floated); the runners stand just proud of it.
+        add(this.boxMesh(top * 2, lift, D + 0.06, this.mat(0x26262a), 0, 0, 0));
         for (const z of [-D / 4, D / 4]) add(this.boxMesh(base * 2, lift, 0.14, this.mat(0x3a3a3e), 0, 0, z));
         add(this.boxMesh(base * 2, t, D, body, 0, lift, 0));
         // The sides: a trapezoid each, flat to the length.
@@ -1424,7 +1404,6 @@ export class RaceView {
         tyre.rotation.set(Math.PI / 2.4, 0, 0.3);
         tyre.position.set(-0.15 * top, lift + H + 0.02, -0.15 * D);
         add(tyre);
-        this.groundPad(g, 0.12);
         break;
       }
       default:
