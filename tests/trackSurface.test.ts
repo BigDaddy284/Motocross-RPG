@@ -22,7 +22,8 @@ describe('track surface', () => {
         for (const lane of [-1, -0.5, 0, 0.5, 1]) {
           const h = s.height(f, lane);
           expect(Number.isFinite(h)).toBe(true);
-          expect(h).toBeGreaterThanOrEqual(0);
+          // Never below the track's own level there (a dip can take that under the grass).
+          expect(h).toBeGreaterThanOrEqual(Math.min(0, s.lift(f)) - 1e-9);
         }
         // No break in the surface along the lap: even the steepest jump face is under 76 degrees.
         const h = s.height(f, 0);

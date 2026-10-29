@@ -19,10 +19,4 @@ straight to the gate pick.
 In the published game you can also import a .track.json from your device with
 "Import track file" in the mod track list. Imported tracks are kept in that browser only.
 
-farmland-example.track.json is Farmland MX, as an example.
-
-industrial-challenge.track.json is a first draft of the Industrial Zone challenge track
-(Dan Smyth's one-on-one race): half concrete yard, half mud, using the concrete sections
-(Concrete straight, Concrete corner, Concrete to mud) and a mud surface patch over the mud
-half. Brush it up in the track editor; once it's finished it moves into the game's tracks as
-"challenge-industrial" and the challenge opens.
+first-try-mx.track.json is First Try MX, a small example track to copy and change.

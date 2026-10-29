@@ -50,7 +50,8 @@ describe('challenges (Boss, 28 Oct 2026)', () => {
 
   it("stays shut with the building line until the challenge's track is in the game", () => {
     expect(challengeReady(content, home)).toBe(false);
-    expect(challengeReady(content, industrial)).toBe(false);
+    // Dan's Industrial Zone track is in the game (Boss, 29 Oct 2026).
+    expect(challengeReady(content, industrial)).toBe(true);
     expect(challengeReady(content, onFarmland(home))).toBe(true);
   });
 

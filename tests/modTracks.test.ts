@@ -18,7 +18,7 @@ const asFile = (track: unknown) => JSON.stringify({ format: TRACK_FILE, version:
 describe('the mods folder', () => {
   it('holds only track files the game can race (and its README)', () => {
     const files = readdirSync(DIR);
-    expect(files).toContain('farmland-example.track.json');
+    expect(files).toContain('first-try-mx.track.json');
     for (const f of files.filter((n) => n.endsWith('.json'))) {
       const m = readModTrack(content, f, readFileSync(`${DIR}/${f}`, 'utf8'), 'folder');
       expect(m.problems, f).toEqual([]);
@@ -28,11 +28,11 @@ describe('the mods folder', () => {
 
   it('lists the example by its name, under its own id so it never clashes with the game’s tracks', () => {
     const rc = fresh();
-    const folder = [{ file: 'farmland-example.track.json', text: readFileSync(`${DIR}/farmland-example.track.json`, 'utf8') }];
+    const folder = [{ file: 'first-try-mx.track.json', text: readFileSync(`${DIR}/first-try-mx.track.json`, 'utf8') }];
     const mods = loadModTracks(rc, folder, new MemoryStore());
-    expect(mods.map((m) => [m.name, m.file])).toEqual([['Farmland MX (example mod)', 'farmland-example.track.json']]);
+    expect(mods.map((m) => [m.name, m.file])).toEqual([['First Try MX (example mod)', 'first-try-mx.track.json']]);
     expect(rc.tracks.tracks.filter((t) => t.id === 'farmland')).toHaveLength(1);
-    expect(rc.tracks.tracks.some((t) => t.id === 'mod.farmland-example')).toBe(true);
+    expect(rc.tracks.tracks.some((t) => t.id === 'mod.first-try-mx')).toBe(true);
     // Loading again replaces, never doubles up.
     loadModTracks(rc, folder, new MemoryStore());
     expect(rc.tracks.tracks.filter((t) => t.id.startsWith(MOD_PREFIX))).toHaveLength(1);

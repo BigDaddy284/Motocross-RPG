@@ -384,7 +384,7 @@ The best way is through `npm run dev`, because then saving goes straight into th
 
 ![The track editor's welcome card](screenshots/guides/track-editor-welcome.jpg)
 
-**What you should see:** the track list on the left with **Farmland MX (example mod)**, the 3D **race view** in the middle, and the **Layout**, **Surfaces**, **Ground**, **Scenery** and **Height** modes on the right. The status line at the bottom says how many tracks were loaded.
+**What you should see:** the track list on the left with **First Try MX (example mod)**, the 3D **race view** in the middle, and the **Layout**, **Surfaces**, **Ground**, **Scenery** and **Height** modes on the right. The status line at the bottom says how many tracks were loaded.
 
 ![The track editor with the example track loaded](screenshots/guides/track-editor-example-track.jpg)
 
@@ -514,12 +514,11 @@ The game refuses a track that:
 - **What must stay:** the first lines `"format": "mxrpg-track"` and `"version": 1`. Don't edit the file by hand; let the editor do it.
 - It lives in `docs/`, not in `public/mods/tracks/`, so it is **not** part of the game until you import or copy it.
 
-### 7.2 The game's own example track: `public/mods/tracks/farmland-example.track.json`
+### 7.2 The game's own example track: `public/mods/tracks/first-try-mx.track.json`
 
-- **What it is:** a copy of Farmland MX, shipped as a mod track, called "Farmland MX (example mod)". It has 18 sections, a start straight, painted ground and 87 scenery items.
+- **What it is:** a small track shipped as a mod track, called "First Try MX (example mod)". It has a start straight, jumps, a mud and a sand stretch, hills and 40 scenery items.
 - **Why it works:** the game's tests check that every file in this folder can be raced.
 - **How to use it:** in the track editor, select it and click **Duplicate**. The copy is a new mod track; Save asks for its name. Do not save over the original.
-- **Note:** it was made before the editor had features, so it keeps its old list of sections. Placing a feature on the copy asks whether to switch it to features (**Use features**).
 
 ### 7.3 A plain grass tile: `public/assets/art/area-map/tiled/tiles/terrain-common/grass-plain-1.png`
 

@@ -121,11 +121,13 @@ describe('the first corner at the start straight\'s end', () => {
     expect(lapPlan(farm, 1).secs.slice(0, 2)).toEqual([-1, -2]);
     const flat = structuredClone(content.racing);
     flat.sections.first_corner = { ...flat.sections.first_corner, diff: flat.sections.first_corner.diff * 3 };
-    const a = race(farm, 3, 2).traces;
-    const b = race(farm, 3, 2, flat).traces;
-    const k = farm.sections.findIndex((x) => x.type === 'first_corner');
+    // Farmland's lap has a flat corner where the first corner was: put one back to test it.
+    const left: TrackDef = { ...farm, sections: farm.sections.map((x, i) => (i === 1 ? { ...x, type: 'first_corner' } : x)) };
+    const a = race(left, 3, 2).traces;
+    const b = race(left, 3, 2, flat).traces;
+    const k = left.sections.findIndex((x) => x.type === 'first_corner');
     expect(k).toBeGreaterThan(0);
-    const leg = lapPlan(farm, 2).secs.indexOf(k);
+    const leg = lapPlan(left, 2).secs.indexOf(k);
     const rider = Object.keys(a[1].times)[2];
     // Lap 2's first-corner section is timed the same with a harder first corner: it rides as a flat corner.
     expect(b[1].times[rider][leg + 1] - b[1].times[rider][leg]).toBeCloseTo(a[1].times[rider][leg + 1] - a[1].times[rider][leg], 3);
