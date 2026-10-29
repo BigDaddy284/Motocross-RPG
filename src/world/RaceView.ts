@@ -1641,7 +1641,8 @@ export class RaceView {
     const arms = [-1, 1].map((sd) => {
       const arm = new THREE.Group();
       arm.position.set(sd * 0.27, 1.24, 0.04);
-      arm.add(this.boxMesh(0.09, 0.8, 0.09, skin, 0, -0.3, 0));
+      // Hung from the shoulder: the box sits below its pivot, so the arm swings from the shoulder, not its middle.
+      arm.add(this.boxMesh(0.09, 0.8, 0.09, skin, 0, -0.8, 0));
       figure.add(arm);
       return arm;
     });
