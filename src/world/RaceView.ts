@@ -1377,8 +1377,8 @@ export class RaceView {
         const rail = 0.12;
         for (const sz of [-1, 1]) add(this.boxMesh(L * 2 + rail, rail, rail, trim, 0, H - rail / 2, sz * (W / 2)));
         for (const sx of [-1, 1]) add(this.boxMesh(rail, rail, W + rail, trim, sx * L, H - rail / 2, 0));
-        // Channel ribs: three up each long side and one up the middle of each sloping end.
-        for (const sz of [-1, 1]) for (const fx of [-0.55, 0, 0.55]) add(this.boxMesh(0.12, H - rail, 0.05, trim, fx * foot, 0, sz * (W / 2 + 0.025)));
+        // Channel ribs: two up each long side, clear of the name board, and one up the middle of each sloping end.
+        for (const sz of [-1, 1]) for (const fx of [-0.6, 0.6]) add(this.boxMesh(0.12, H - rail, 0.05, trim, fx * foot, 0, sz * (W / 2 + 0.025)));
         const lean = Math.atan2(L - foot, H);
         const slope = Math.hypot(L - foot, H);
         for (const sx of [-1, 1]) {
@@ -1410,7 +1410,7 @@ export class RaceView {
           const face = this.mat(0xffffff, { map: this.textTexture(text || 'SKIP HIRE', 0xf4f4f0, '#1a1a1a') });
           const edge = this.mat(0xf4f4f0);
           for (const sz of [-1, 1]) {
-            const board = this.boxMesh(foot * 1.1, 0.3, 0.02, [edge, edge, edge, edge, sz > 0 ? face : edge, sz < 0 ? face : edge], 0, H * 0.4, sz * (W / 2 + 0.01));
+            const board = this.boxMesh(foot * 0.95, 0.3, 0.02, [edge, edge, edge, edge, sz > 0 ? face : edge, sz < 0 ? face : edge], 0, H * 0.4, sz * (W / 2 + 0.01));
             board.castShadow = false;
             add(board);
           }
@@ -1418,7 +1418,7 @@ export class RaceView {
         // The load: a mound of rubble heaped over the rim, and the bigger pieces bedded into it.
         const rubble = this.mat(0x6a6058, { flatShading: true });
         // Rubble level with the rim right into the corners, and the heap rising out of it.
-        add(this.boxMesh(L * 2 - rail, 0.05, W - rail, rubble, 0, H - 0.05, 0));
+        add(this.boxMesh(L * 2, 0.07, W, rubble, 0, H - 0.04, 0));
         const mx = L - rail * 0.6;
         const mz = W / 2 - rail * 0.4;
         const rise = 0.34;
