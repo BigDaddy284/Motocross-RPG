@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { BIKE_LENGTH } from '../src/core/trackSurface';
@@ -45,6 +46,20 @@ describe('race-day bikes (Race day bike colours.png)', () => {
     const g = GEAR_SETS['cpu-pink'];
     for (const c of [g.helmet, g.jersey, g.pants, g.boot]) expect(colours(parts).has(c)).toBe(true);
     for (const id of CPU_GEAR) expect(GEAR_SETS[id], id).toBeDefined();
+  });
+
+  it('the named racers ride bikes in their own kit colour, over their brand (Boss, 29 Oct 2026)', () => {
+    const riders = JSON.parse(readFileSync('public/data/riders.json', 'utf8')).riders as { name: string; kit?: string; bike: { brand: string } }[];
+    for (const [name, kit] of [['Dan Smyth', 'cpu-dan'], ['Mickey Alington', 'cpu-mickey'], ['Louis Jonez', 'cpu-louis']]) {
+      const r = riders.find((x) => x.name === name)!;
+      expect(r.kit, name).toBe(kit);
+      const g = GEAR_SETS[kit];
+      expect(g.bike, kit).toBe(g.jersey);
+      const plastics = colours(raceBikeParts(look(r.bike.brand, '50cc', kit), BIKE_LENGTH));
+      expect(plastics.has(g.bike!), name).toBe(true);
+    }
+    // Every kit a rider names is a real gear set.
+    for (const r of riders) if (r.kit) expect(GEAR_SETS[r.kit], r.kit).toBeDefined();
   });
 
   it('youth classes ride the youth model, bigger classes the adult model', () => {

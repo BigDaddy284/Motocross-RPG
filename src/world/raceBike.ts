@@ -21,6 +21,7 @@ const HIVIS = 0xdad65d;
 const PINK = 0xf067d5;
 const ORANGE = 0xef6c18;
 const CAMO = 0x6a9f50;
+const GREEN = 0x447f3c;
 const SILVER = 0xb1aeaf;
 
 const FIXED = {
@@ -55,6 +56,7 @@ const COLOURWAYS: Record<string, [Ramp, Ramp]> = {
   orange: [ORANGE, BLACK],
   white: [WHITE, GREY],
   camo: [CAMO, BLACK],
+  green: [GREEN, WHITE],
 };
 
 export interface Gear {
@@ -65,11 +67,13 @@ export interface Gear {
   glove: Ramp;
   pants: Ramp;
   boot: Ramp;
+  /** The rider's own bike colour, over the brand's (a named racer's bike to match their kit). */
+  bike?: Ramp;
 }
 
-function gear(helmet: string, goggles: string, top: string, gloves: string, bottoms: string, boots: string): Gear {
+function gear(helmet: string, goggles: string, top: string, gloves: string, bottoms: string, boots: string, bike?: string): Gear {
   const c = (k: string, i = 0) => COLOURWAYS[k][i];
-  return { helmet: c(helmet), helmet2: c(helmet, 1), visor: c(goggles), jersey: c(top), glove: c(gloves), pants: c(bottoms), boot: c(boots) };
+  return { helmet: c(helmet), helmet2: c(helmet, 1), visor: c(goggles), jersey: c(top), glove: c(gloves), pants: c(bottoms), boot: c(boots), ...(bike ? { bike: c(bike) } : {}) };
 }
 
 /** The gear sets drawn on the race sheets: the player's starter kit and the CPU riders' kits. */
@@ -84,6 +88,10 @@ export const GEAR_SETS: Record<string, Gear> = {
   'cpu-champion': gear('hivis', 'hivis', 'hivis', 'black', 'black', 'black'),
   // Neal Gizard, the pro: blue with black (Boss, 28 Oct 2026).
   'cpu-neal': gear('blue', 'black', 'blue', 'black', 'blue', 'black'),
+  // The named racers in their map kits, on bikes to match (Boss, 29 Oct 2026).
+  'cpu-dan': gear('orange', 'black', 'orange', 'black', 'black', 'black', 'orange'),
+  'cpu-mickey': gear('green', 'white', 'green', 'white', 'white', 'green', 'green'),
+  'cpu-louis': gear('red', 'white', 'red', 'red', 'red', 'red', 'red'),
 };
 
 /** A rider's race kit: the player's, a rider's own, the champions' hi-vis, or the field's kits in turn. */
@@ -139,7 +147,7 @@ export function bikeColours(color: number, player: boolean, look?: RaceLook): Bi
     const kit = shade(color, 0.75);
     return { plastics: color, frame: 0x9a9aa0, plate: 0xf4f4f4, legs: kit, torso: color, arms: kit, helmet: player ? 0xffffff : shade(color, 1.15), visor: DARK };
   }
-  const b = BRAND_COLOURS[look.brand] ?? BRAND_COLOURS.hondmoto;
+  const b = look.gear?.bike ? brandFromColour(look.gear.bike) : BRAND_COLOURS[look.brand] ?? BRAND_COLOURS.hondmoto;
   const g = look.gear;
   return { plastics: b.body, frame: b.frame, plate: b.plate, legs: g.pants, torso: g.jersey, arms: g.jersey, helmet: g.helmet, visor: g.visor };
 }
@@ -198,7 +206,7 @@ export function brandFromColour(color: number): BrandColours {
 export function raceBikeParts(look: RaceLook, length: number, opts: { rider?: boolean; colours?: BrandColours; model?: string } = {}): THREE.Mesh[] {
   const M = MODELS[opts.model ?? ''] ?? MODELS[modelFor(look.cls)];
   const k = length / M.wb;
-  const brand = opts.colours ?? BRAND_COLOURS[look.brand] ?? BRAND_COLOURS.hondmoto;
+  const brand = opts.colours ?? (look.gear?.bike ? brandFromColour(look.gear.bike) : BRAND_COLOURS[look.brand] ?? BRAND_COLOURS.hondmoto);
   const g = look.gear;
   const mats = new Map<number, THREE.MeshLambertMaterial>();
   const mat = (c: number) => mats.get(c) ?? mats.set(c, new THREE.MeshLambertMaterial({ color: c })).get(c)!;
