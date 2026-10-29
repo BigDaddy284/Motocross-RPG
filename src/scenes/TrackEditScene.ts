@@ -27,7 +27,9 @@ export interface EditViewState {
   parts?: TrackPartsData;
   mode: string;
   /** route: the selected point of the start official's route (1 is its first after where they stand), or -1. */
-  sel: { item: number; sec: number; pt: number; start: number; route?: number };
+  sel: { item: number; /** Every selected scenery item (item first) when more than one is selected. */ items?: number[]; sec: number; pt: number; start: number; route?: number };
+  /** A selection box being dragged out (Shift-drag) in Scenery, grid units. */
+  box?: { x0: number; y0: number; x1: number; y1: number };
   /** Scenery items with a problem (by index) and problem spots (height), each an error or a warning. */
   issues: { item?: number; x?: number; y?: number; level: 'error' | 'warning' }[];
   /** The brush under the pointer: a circle of radius r grid units, or a square of n ground cells. */
@@ -404,10 +406,16 @@ export class TrackEditScene extends Phaser.Scene {
       line([{ x: ar.x, z: ar.y }, tip], 0xffffff, false, false, 0.12, 12);
       line([back(-1), tip, back(1)], 0xffffff, false, false, 0.12, 12);
     }
-    // The selected item's outline; while it is dragged, round the moving copy (ghostItem), not the track's.
-    if (st.sel.item >= 0 && st.sel.item !== st.ghostSolid) {
-      const f = size(st.sel.item);
+    // The selected items' outlines; while one is dragged, round the moving copy (ghostItem), not the track's.
+    for (const si of st.sel.items?.length ? st.sel.items : st.sel.item >= 0 ? [st.sel.item] : []) {
+      if (si === st.ghostSolid) continue;
+      const f = size(si);
       if (f) line(rect(f.x, f.z, f.w + 0.45, f.d + 0.45, f.a), SELECT, true);
+    }
+    // A selection box being dragged out.
+    if (st.box) {
+      const { x0, y0, x1, y1 } = st.box;
+      line([{ x: x0, z: y0 }, { x: x1, z: y0 }, { x: x1, z: y1 }, { x: x0, z: y1 }, { x: x0, z: y0 }], SELECT, true);
     }
     // The start official's route in Scenery: dashed, or with its points when they're selected (the last, where they end up, red).
     // Cheering fans' walks in too, each its own.
