@@ -59,6 +59,8 @@
     "triple": {"name": "Triple", "diff": 1.5, "skills": {"jumps_ruts": 0.8, "balance": 0.2}, "stats": ["absorption", "power"], "riderWeight": 0.65, "damage": "landing", "shapes": ["straight"]},
     "step_down": {"name": "Step-down", "diff": 1.3, "skills": {"jumps_ruts": 0.7, "riding_position": 0.3}, "stats": ["absorption", "braking"], "riderWeight": 0.6, "damage": "landing", "shapes": ["straight"]},
     "step_on": {"name": "Step-on step-off", "diff": 1.1, "skills": {"jumps_ruts": 0.6, "riding_position": 0.4}, "stats": ["absorption", "response"], "riderWeight": 0.55, "damage": "landing", "shapes": ["straight"]},
+    "step_on_two": {"name": "Step-on, two tables", "diff": 1.3, "skills": {"jumps_ruts": 0.7, "riding_position": 0.3}, "stats": ["absorption", "response"], "riderWeight": 0.6, "damage": "landing", "shapes": ["straight"]},
+    "step_on_three": {"name": "Step-on, three tables", "diff": 1.5, "skills": {"jumps_ruts": 0.7, "riding_position": 0.3}, "stats": ["absorption", "response"], "riderWeight": 0.65, "damage": "landing", "shapes": ["straight"]},
     "dragon_back": {"name": "Dragon's back", "diff": 1.5, "skills": {"balance": 0.5, "riding_position": 0.5}, "stats": ["absorption", "power"], "riderWeight": 0.6, "damage": "landing", "shapes": ["straight", "sweeper"]},
     "quad": {"name": "Quad", "diff": 1.7, "skills": {"jumps_ruts": 0.9, "balance": 0.1}, "stats": ["absorption", "power"], "riderWeight": 0.7, "damage": "landing", "shapes": ["straight"]},
     "on_off": {"name": "On-off", "diff": 1.3, "skills": {"jumps_ruts": 0.7, "riding_position": 0.3}, "stats": ["absorption", "response"], "riderWeight": 0.6, "damage": "landing", "shapes": ["straight"]},

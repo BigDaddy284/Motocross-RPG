@@ -45,6 +45,8 @@ export const DEFAULT_HEIGHTS: Record<string, number> = {
   quad: 3.5,
   step_down: 3,
   step_on: 2,
+  step_on_two: 2.2,
+  step_on_three: 2.4,
   on_off: 2.2,
   single_over_table: 2.8,
   table_over_single: 2.8,
@@ -59,6 +61,51 @@ export const DEFAULT_HEIGHTS: Record<string, number> = {
 };
 
 const peak = (a: number, b: number, c: number, d: number, h = 1): Peak => ({ a, b, c, d, h });
+
+/**
+ * A step-on step-off (Boss, 29 Oct 2026): a single at the start with a gap to a tabletop that has
+ * a slight lip on its end, to hop onto the next tabletop or, off the last, to a single at the end.
+ * Like a step-up and a step-down stuck together, for tabletops. `tables` is how many tabletops
+ * stand between the singles; the sizes are shares of the section.
+ */
+function stepOn(tables: number, size: { margin: number; single: [number, number]; gap: number; table: [number, number, number] }): JumpDef {
+  const peaks: Peak[] = [];
+  let u = size.margin;
+  const single = (): { a: number; b: number; d: number } => {
+    const a = u;
+    const b = a + size.single[0];
+    const d = b + size.single[1];
+    peaks.push(peak(a, b, b, d, 0.7));
+    u = d;
+    return { a, b, d };
+  };
+  const first = single();
+  u += size.gap;
+  const tops: { a: number; b: number; lip: number }[] = [];
+  for (let i = 0; i < tables; i++) {
+    const a = u;
+    const b = a + size.table[0];
+    const c = b + size.table[1];
+    const d = c + size.table[2];
+    peaks.push(peak(a, b, c, d, 0.9));
+    // The lip: the deck's end rises a little above the deck and is the take-off off it.
+    peaks.push(peak(c - 0.05, c, c + 0.01, d, 1));
+    tops.push({ a, b, lip: c + 0.005 });
+    u = d + size.gap;
+  }
+  const last = single();
+  const on: [number, number] = [first.b, tops[0].b + 0.02];
+  const hops: [number, number][] = [on];
+  for (let i = 1; i < tables; i++) hops.push([tops[i - 1].lip, tops[i].b + 0.02]);
+  const off: [number, number] = [tops[tables - 1].lip, last.b + (last.d - last.b) * 0.35];
+  const ways: Way[] = [
+    { name: tables > 1 ? 'on, hop, off' : 'on and off', hops: [...hops, off], w: [0.4, 1] },
+    { name: tables > 1 ? 'on, hop, roll off' : 'on and roll off', hops, w: [0.8, 0.3] },
+    { name: 'roll', hops: [], w: [0.3, 0] },
+    { name: 'case', hops: [[first.b, tops[0].a + size.table[0] * 0.6]], w: [0.15, 0], short: true },
+  ];
+  return { peaks, ways };
+}
 
 /**
  * The jumps. Hops start at a lip (a peak's b) and land on a deck, the back of a hump, or, coming
@@ -120,14 +167,12 @@ export const JUMPS: Record<string, JumpDef> = {
       { name: 'case', hops: [[0.3, 0.66]], w: [0.1, 0], short: true },
     ],
   },
-  step_on: {
-    peaks: [peak(0.16, 0.3, 0.62, 0.84)],
-    ways: [
-      { name: 'on and off', hops: [[0.2, 0.38], [0.6, 0.76]], w: [0.6, 1] },
-      { name: 'on and roll', hops: [[0.2, 0.38]], w: [0.8, 0.2] },
-      { name: 'roll', hops: [], w: [0.3, 0] },
-    ],
-  },
+  // Single, tabletop with a lip, single (the tabletop's deck is DECKS.step_on in trackSurface.ts).
+  step_on: stepOn(1, { margin: 0.04, single: [0.08, 0.07], gap: 0.06, table: [0.09, 0.26, 0.1] }),
+  // Single, two tabletops with lips hopped from one to the next, single.
+  step_on_two: stepOn(2, { margin: 0.03, single: [0.06, 0.05], gap: 0.05, table: [0.07, 0.135, 0.08] }),
+  // Single, three tabletops, single.
+  step_on_three: stepOn(3, { margin: 0.02, single: [0.05, 0.05], gap: 0.04, table: [0.06, 0.07, 0.07] }),
   on_off: {
     peaks: [peak(0.12, 0.24, 0.42, 0.5), peak(0.62, 0.72, 0.72, 0.9, 0.9)],
     ways: [
