@@ -15,6 +15,8 @@ const GOLD = 0xecbe2a;
 
 export type Mark =
   | { kind: 'npc'; x: number; y: number }
+  /** A news NPC's bubble: orange while there's something new to read, white once it's read. */
+  | { kind: 'news'; x: number; y: number; fresh: boolean }
   | { kind: 'object'; tiles: Tile[] }
   | { kind: 'door'; tiles: Tile[] }
   | { kind: 'exit'; tiles: Tile[]; side: string };
@@ -65,6 +67,7 @@ export class Waymarks {
     this.clear();
     for (const m of marks) {
       if (m.kind === 'npc') this.bubble(m.x, m.y);
+      else if (m.kind === 'news') this.bubble(m.x, m.y, !m.fresh);
       else if (m.kind === 'object') this.outline(m.tiles);
       else if (m.kind === 'door') this.doorArrow(m.tiles);
       else this.exitArrow(m.tiles, m.side);
@@ -81,19 +84,20 @@ export class Waymarks {
     this.scene.tweens.add({ targets: target, y: target.y + by, duration: ms, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
   }
 
-  /** 1A in orange: a speech bubble with "!" over the NPC's name, bobbing gently. */
-  private bubble(x: number, feetY: number): void {
+  /** 1A in orange: a speech bubble with "!" over the NPC's name, bobbing gently. White is a news bubble already read. */
+  private bubble(x: number, feetY: number, white = false): void {
     const g = this.scene.add.graphics();
     const w = 34;
     const h = 40;
     g.fillStyle(COLORS.ink, 1).fillRoundedRect(-w / 2 - 3, -h - 3, w + 6, h + 6, 9);
     g.fillTriangle(-9, -2, 9, -2, 0, 13);
-    g.fillStyle(COLORS.accent, 1).fillRoundedRect(-w / 2, -h, w, h, 7);
+    g.fillStyle(white ? 0xffffff : COLORS.accent, 1).fillRoundedRect(-w / 2, -h, w, h, 7);
     g.fillTriangle(-6, -1, 6, -1, 0, 8);
-    g.fillStyle(COLORS.accentDark, 1).fillRect(-w / 2 + 3, -6, w - 6, 3);
+    if (!white) g.fillStyle(COLORS.accentDark, 1).fillRect(-w / 2 + 3, -6, w - 6, 3);
     g.fillStyle(COLORS.ink, 1).fillRect(-4, -h + 7, 8, 18).fillRect(-4, -h + 29, 8, 7);
     const c = this.add(this.scene.add.container(x, feetY - 102, [g]).setDepth(DEPTH));
-    this.bob(c, -6);
+    // A read news bubble sits still: only something new bobs for attention.
+    if (!white) this.bob(c, -6);
   }
 
   /** 2A: a glowing orange outline round the equipment, with sparkles at its corners. */

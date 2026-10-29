@@ -216,6 +216,11 @@
     "challenger_iz.lost": { "lines": [
       { "speaker": "npc", "text": "Ha! Too slow. The zone is mine. Come back when you think you're ready." }
     ] },
+    "news.area2_dec2026": { "lines": [
+      { "speaker": "npc", "text": "Manny Festo, at your service. I keep everyone up to date on what's coming next." },
+      { "speaker": "npc", "text": "Area 2 is under construction right now. It's due to be ready in December 2026." },
+      { "speaker": "npc", "text": "Come back and see me again to check for more updates." }
+    ] },
     "pro_racer.hello": { "lines": [
       { "speaker": "npc", "text": "You're not skilled enough for me to waste my time on. Go and practise, and come back when you're on a 450cc." }
     ] }

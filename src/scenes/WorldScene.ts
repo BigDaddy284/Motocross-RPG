@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { advanceStory, bikeProblem, currentStep, fillText, formatMoney, jobPay, matchStory, pence, type JobDef, type StoryEvent, type StoryStep } from '../core/career';
-import { npcsOnMap, type DialogueLine, type NpcDef, type NpcPlacement } from '../core/content';
+import { newsRead, npcsOnMap, properName, type DialogueLine, type NpcDef, type NpcPlacement } from '../core/content';
 import { Grid, STEPS } from '../core/grid';
 import { objectTiles, type BakedMap, type Facing, type MapObject, type Tile } from '../core/mapTypes';
 import { findPathToAny, findPathTowards, standingTiles } from '../core/pathfinding';
@@ -93,6 +93,8 @@ export class WorldScene extends Phaser.Scene {
   private outWhenStopped = false;
   private lastBumpToast = 0;
   private waymarks!: Waymarks;
+  /** The news NPCs' bubbles (Manny Festo), kept apart from the story markers. */
+  private newsMarks!: Waymarks;
   /** The tutorial marker the screen-edge arrow points to while it is off screen, in world pixels. */
   private markPoint: { x: number; y: number; label: string; sub?: string } | null = null;
   private markEarning = false;
@@ -179,6 +181,8 @@ export class WorldScene extends Phaser.Scene {
 
     this.waymarks = new Waymarks(this, services.settings.get().accessibility.reducedEffects);
     this.refreshWaymarks();
+    this.newsMarks = new Waymarks(this, services.settings.get().accessibility.reducedEffects);
+    this.refreshNews();
     this.events.once('shutdown', () => this.hud.showWayArrow(null));
 
     this.setupInput();
@@ -424,8 +428,8 @@ export class WorldScene extends Phaser.Scene {
       if (venue.office && !venue.locked) {
         const official = services.content.npcs.find((n) => n.id === venue.office);
         // A named official (Joseph Halden at Farmland) goes by name, anyone else by the job.
-        const named = !!official && services.content.riders.riders.some((r) => r.name === official.name);
-        this.hud.toast(`${venue.name}: sign on with ${named ? official!.name : `the ${official?.name.toLowerCase() ?? 'track official'}`} at the race office.`);
+        const who = official && properName(official.name) ? official.name : `the ${official?.name.toLowerCase() ?? 'track official'}`;
+        this.hud.toast(`${venue.name}: sign on with ${who} at the race office.`);
       } else this.openVenue(venue);
       return;
     }
@@ -444,12 +448,24 @@ export class WorldScene extends Phaser.Scene {
     if (this.runStory({ talk: npc.id }, npc.name, () => this.faceBack(placement, character), () => this.faceNpc(character))) return;
     if (npc.quietUntil && !this.save.flags[npc.quietUntil]) {
       // GDD 4.2: NPCs outside the opening chain don't acknowledge the rider until it's done.
-      // A racer goes by their name ("Louis Jonez doesn't look up"), anyone else by their job.
-      const named = services.content.riders.riders.some((r) => r.name === npc.name);
-      this.hud.toast(`${named ? npc.name : `The ${npc.name.toLowerCase()}`} doesn't look up.`);
+      // A named NPC goes by their name ("Louis Jonez doesn't look up"), anyone else by their job.
+      this.hud.toast(`${properName(npc.name) ? npc.name : `The ${npc.name.toLowerCase()}`} doesn't look up.`);
       return;
     }
     this.faceNpc(character);
+    if (npc.news) {
+      // News for the players: read once, and the bubble turns white until there's a new message.
+      this.say(npc.name, npc.dialogue, () => {
+        const read = newsRead(npc.dialogue);
+        if (!this.save.flags[read]) {
+          this.save.flags[read] = true;
+          this.refreshNews();
+          this.quickSave();
+        }
+        this.faceBack(placement, character);
+      });
+      return;
+    }
     const office = services.content.tracks.venues.find((v) => v.office === npc.id && v.map === this.map.id);
     if (office) {
       // A one-off hello first (Joseph Halden introduces himself as Farmland's owner), then the office.
@@ -623,6 +639,15 @@ export class WorldScene extends Phaser.Scene {
     if (m.step.confirm) this.hud.confirm(m.step.confirm, 'Yes', finish, onClose);
     else finish();
     return true;
+  }
+
+  /** The "!" over each news NPC here: orange until their current message is read (newsRead). */
+  private refreshNews(): void {
+    const marks: Mark[] = this.npcs
+      // Like their talk, the bubble waits until the opening chain is done (GDD 4.2).
+      .filter((n) => n.placement.npc.news && (!n.placement.npc.quietUntil || this.save.flags[n.placement.npc.quietUntil]))
+      .map((n) => ({ kind: 'news', x: n.character.sprite.x, y: n.character.sprite.y, fresh: !this.save.flags[newsRead(n.placement.npc.dialogue)] }));
+    this.newsMarks.show(marks);
   }
 
   // ---- tutorial markers (Boss, 28 Oct 2026) ----

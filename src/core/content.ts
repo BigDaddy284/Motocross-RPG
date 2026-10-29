@@ -36,7 +36,19 @@ export interface NpcDef {
   quietUntil?: string;
   /** The CPU rider this NPC is (riders.json): their name is shown over the NPC's head in place of name. */
   rider?: string;
+  /**
+   * The NPC's dialogue is news for the players (Manny Festo, Boss 29 Oct 2026): a "!" bubble over
+   * them, orange until the current dialogue has been read, then white. A new message is a new
+   * dialogue key, so it shows orange again.
+   */
+  news?: boolean;
 }
+
+/** A person's name ("Tasha Reid") rather than a job ("Track official"): every word starts with a capital. */
+export const properName = (name: string): boolean => /^[A-Z]\S*( [A-Z]\S*)+$/.test(name);
+
+/** The save flag for having read a news NPC's message (its dialogue key). */
+export const newsRead = (dialogue: string): string => `read.${dialogue}`;
 
 export interface DialogueLine {
   speaker: 'npc' | 'player' | 'narrator';
@@ -91,7 +103,7 @@ export const NPCS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['map', 'tile', 'facing', 'talk', 'quietUntil', 'rider'],
+        optional: ['map', 'tile', 'facing', 'talk', 'quietUntil', 'rider', 'news'],
         fields: {
           id: { type: 'string', pattern: ID },
           name: { type: 'string', nonEmpty: true },
@@ -106,6 +118,7 @@ export const NPCS_SCHEMA: Schema = {
           },
           quietUntil: { type: 'string', pattern: ID },
           rider: { type: 'string', pattern: ID },
+          news: { type: 'boolean' },
         },
       },
     },
