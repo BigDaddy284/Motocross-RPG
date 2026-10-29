@@ -53,7 +53,7 @@ export const DEFAULT_HEIGHTS: Record<string, number> = {
   rhythm: 1.5,
   whoops: 0.6,
   rollers: 0.9,
-  dragon_back: 1.4,
+  dragon_back: 2.2,
   uphill: 6,
   downhill: 6,
 };
@@ -180,12 +180,12 @@ export const JUMPS: Record<string, JumpDef> = {
     ],
   },
   dragon_back: {
-    // Four humps, each higher than the last, then the drop off the top of the fourth.
-    peaks: [peak(0.06, 0.14, 0.14, 0.2, 0.25), peak(0.24, 0.32, 0.32, 0.38, 0.5), peak(0.42, 0.5, 0.5, 0.56, 0.75), peak(0.6, 0.7, 0.72, 0.78, 1)],
+    // Four humps, each bigger than the last, building up to the big final mound and the launch off its top.
+    peaks: [peak(0.05, 0.12, 0.12, 0.18, 0.18), peak(0.23, 0.3, 0.3, 0.36, 0.32), peak(0.41, 0.48, 0.48, 0.54, 0.55), peak(0.58, 0.72, 0.74, 0.88, 1)],
     ways: [
-      { name: 'skip the tops', hops: [[0.14, 0.32], [0.32, 0.5], [0.5, 0.7], [0.72, 0.9]], w: [0.3, 1] },
-      { name: 'double double', hops: [[0.14, 0.5], [0.5, 0.9]], w: [0, 0.6] },
-      { name: 'ride up, jump off', hops: [[0.72, 0.88]], w: [1, 0.1] },
+      { name: 'skip the tops', hops: [[0.12, 0.3], [0.3, 0.48], [0.48, 0.72], [0.74, 0.93]], w: [0.3, 1] },
+      { name: 'double double', hops: [[0.12, 0.48], [0.48, 0.93]], w: [0, 0.6] },
+      { name: 'ride up, jump off', hops: [[0.74, 0.9]], w: [1, 0.1] },
     ],
   },
 };
