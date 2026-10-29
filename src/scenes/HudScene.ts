@@ -24,6 +24,7 @@ import {
 import type { DialogueLine } from '../core/content';
 import { repairLent } from '../core/errands';
 import { PACE_BAND, REP_ZONE, goodRep, onPace, type DrillDef } from '../core/training';
+import { ensureAnims } from '../world/Character';
 import { careerRecords, recordText } from '../core/records';
 import { services } from '../services';
 import { COLORS, hex, textStyle } from '../ui/theme';
@@ -520,10 +521,10 @@ export class HudScene extends Phaser.Scene {
    * it gave with Again and Done. A round can't be failed: `onFinish` runs for every finished round
    * and returns the lines to show (the XP and any level-ups). Esc or Done leaves.
    */
-  openDrill(drill: DrillDef, onFinish: () => string[], onClose: () => void): void {
+  openDrill(drill: DrillDef, who: { player: string; coach?: string }, onFinish: () => string[], onClose: () => void): void {
     const { width, height, k } = this.page();
-    const w = Math.min(640, width - 32);
-    const h = 330;
+    const w = Math.min(860, width - 32);
+    const h = 360;
     const c = this.add.container((width / 2) * k, (height / 2) * k).setScale(k);
     this.backdrop(c, w, h, false);
     c.add(this.add.text(0, -h / 2 + 32, drill.name, textStyle(26, COLORS.accent)).setOrigin(0.5));
@@ -551,38 +552,79 @@ export class HudScene extends Phaser.Scene {
       body.add(button(this, -120, 100, 'Again', () => round(), 200, 46));
       body.add(button(this, 120, 100, 'Done', () => this.closeModal(), 200, 46));
     };
+    // A floating word over the picture ("+1", "Miss") that drifts up and fades.
+    const pop = (holder: Phaser.GameObjects.Container, x: number, y: number, text: string, color: number) => {
+      const o = this.add.text(x, y, text, textStyle(this.pts(20), color)).setOrigin(0.5);
+      holder.add(o);
+      this.tweens.add({ targets: o, y: y - 36, alpha: 0, duration: 700, onComplete: () => o.destroy() });
+    };
     const round = () => {
       clear();
-      const bw = w - 120;
-      const timeBg = this.add.rectangle(-bw / 2, -h / 2 + 70, bw, 8, COLORS.panelLight).setOrigin(0, 0.5);
-      const timeFill = this.add.rectangle(-bw / 2, -h / 2 + 70, bw, 8, COLORS.blue).setOrigin(0, 0.5);
-      const label = this.add.text(0, 70, '', textStyle(this.pts(20), COLORS.cream, { align: 'center' })).setOrigin(0.5);
-      const tip = this.add.text(0, 118, drill.game === 'reps' ? 'Space or tap' : 'Hold Space or press and hold', textStyle(this.pts(14), COLORS.muted)).setOrigin(0.5);
+      // The picture on the left half (Boss, 29 Oct 2026), the timing bar on the right.
+      const half = w / 2;
+      const vx = -half / 2 + 10;
+      const rx = half / 2 - 10;
+      const vis = this.add.container(vx, 30).setScale(Math.min(1, (half - 20) / 380));
+      vis.add(this.add.rectangle(0, -10, 370, 220, 0x161b26, 0.85).setStrokeStyle(2, COLORS.panelLight));
+      const bw = w - 60;
+      const timeBg = this.add.rectangle(-bw / 2, -h / 2 + 66, bw, 8, COLORS.panelLight).setOrigin(0, 0.5);
+      const timeFill = this.add.rectangle(-bw / 2, -h / 2 + 66, bw, 8, COLORS.blue).setOrigin(0, 0.5);
+      const label = this.add.text(rx, 80, '', textStyle(this.pts(20), COLORS.cream, { align: 'center' })).setOrigin(0.5);
+      const tip = this.add.text(rx, 120, drill.game === 'reps' ? 'Space or tap' : 'Hold Space or press and hold', textStyle(this.pts(14), COLORS.muted)).setOrigin(0.5);
       // The whole box is the button, so a tap anywhere on it counts.
       const pad = this.add.rectangle(0, 20, w, h - 40, 0, 0.001).setInteractive();
-      body.add([pad, timeBg, timeFill, label, tip]);
+      body.add([pad, vis, timeBg, timeFill, label, tip]);
       let t = 0;
       let down = false;
       let tick: (dt: number) => void = () => {};
       let finish: () => string = () => '';
       if (drill.game === 'reps') {
-        // A marker swings across the bar; a press while it's in the green zone is a good rep.
-        const bar = this.add.rectangle(-bw / 2, 0, bw, 26, COLORS.panelLight).setOrigin(0, 0.5);
-        const zone = this.add.rectangle(-bw / 2 + bw * REP_ZONE[0], 0, bw * (REP_ZONE[1] - REP_ZONE[0]), 26, 0x4f9a3a).setOrigin(0, 0.5);
-        const marker = this.add.rectangle(-bw / 2, 0, 8, 40, COLORS.accent);
-        body.add([bar, zone, marker]);
+        // A marker swings across the bar; a press while it's in the green zone is a good rep. The
+        // rider on the mat does a clean push-up for a good rep and a wobbly half one for a miss.
+        const sb = 200;
+        const bar = this.add.rectangle(rx - sb / 2, -10, sb, 26, COLORS.panelLight).setOrigin(0, 0.5);
+        const zone = this.add.rectangle(rx - sb / 2 + sb * REP_ZONE[0], -10, sb * (REP_ZONE[1] - REP_ZONE[0]), 26, 0x4f9a3a).setOrigin(0, 0.5);
+        const marker = this.add.rectangle(rx - sb / 2, -10, 8, 40, COLORS.accent);
+        const streakText = this.add.text(rx, -60, '', textStyle(this.pts(16), 0x9fe07a)).setOrigin(0.5);
+        body.add([bar, zone, marker, streakText]);
+        // The exercise mat in the bedroom, and the rider on it in their push-up frames.
+        vis.add(this.add.rectangle(0, 70, 320, 14, 0x3b6ea8).setStrokeStyle(2, 0x2a4f7a));
+        const fitKey = `chr:${who.player}:fit`;
+        const RIDER_X = 10;
+        const rider = this.textures.exists(fitKey) ? this.add.sprite(RIDER_X, 66, fitKey, 0).setOrigin(0.5, 1).setScale(3) : null;
+        if (rider) vis.add(rider);
+        const pose = { d: 0 };
+        const show = () => rider?.active && rider.setFrame(pose.d > 0.5 ? 1 : 0);
+        show();
         let good = 0;
         let tries = 0;
+        let streak = 0;
         let wait = 0;
         let pos = 0;
         const rep = () => {
           if (wait > 0) return;
-          wait = 280;
+          wait = 480;
           tries += 1;
           const ok = goodRep(pos);
           if (ok) good += 1;
+          streak = ok ? streak + 1 : 0;
           zone.setFillStyle(ok ? 0x7fd65a : 0xc0392b);
           this.time.delayedCall(160, () => zone.active && zone.setFillStyle(0x4f9a3a));
+          this.tweens.killTweensOf(pose);
+          if (rider) {
+            rider.x = RIDER_X;
+            this.tweens.killTweensOf(rider);
+          }
+          if (ok) {
+            // A full rep: down to the floor and back up.
+            this.tweens.add({ targets: pose, d: 1, duration: 150, hold: 140, yoyo: true, ease: 'Sine.easeInOut', onUpdate: show, onComplete: show });
+            pop(vis, -40, -70, streak >= 3 ? `+1  x${streak}` : '+1', 0x9fe07a);
+          } else {
+            // A miss: the arms give, a shake, and back up.
+            this.tweens.add({ targets: pose, d: 0.45, duration: 160, yoyo: true, hold: 120, onUpdate: show, onComplete: show });
+            if (rider) this.tweens.add({ targets: rider, x: RIDER_X + 3, duration: 40, yoyo: true, repeat: 3 });
+            pop(vis, -40, -70, 'Miss', 0xe0705a);
+          }
         };
         pad.on('pointerdown', rep);
         const key = () => rep();
@@ -591,27 +633,50 @@ export class HudScene extends Phaser.Scene {
         tick = (dt) => {
           wait = Math.max(0, wait - dt);
           pos = 0.5 - 0.5 * Math.cos((t / 1500) * Math.PI);
-          marker.setX(-bw / 2 + bw * pos);
+          marker.setX(rx - sb / 2 + sb * pos);
           label.setText(`Good reps: ${good}`);
+          streakText.setText(streak >= 2 ? `Streak x${streak}` : '');
         };
         finish = () => `${good} good reps out of ${tries}.`;
       } else {
-        // Holding speeds up, letting go eases off; each lap split counts when most of it was on pace.
+        // Holding speeds up, letting go eases off. Inside the green band the rider keeps a steady
+        // full pace round the track; outside it they slow, so more green means more laps.
         const bh = 150;
-        const x = 0;
-        const bar = this.add.rectangle(x, 0, 40, bh, COLORS.panelLight);
-        const band = this.add.rectangle(x, bh / 2 - bh * PACE_BAND[1], 40, bh * (PACE_BAND[1] - PACE_BAND[0]), 0x4f9a3a).setOrigin(0.5, 0);
-        const marker = this.add.rectangle(x, 0, 60, 6, COLORS.accent);
-        const splitsText = this.add.text(70, -30, '', textStyle(this.pts(16), COLORS.cream, { lineSpacing: 4 })).setOrigin(0, 0.5);
-        body.add([bar, band, marker, splitsText]);
-        label.setY(100);
-        tip.setY(128);
-        const laps = 4;
-        const splits: boolean[] = [];
+        const bx = rx - 50;
+        const bar = this.add.rectangle(bx, -10, 40, bh, COLORS.panelLight);
+        const band = this.add.rectangle(bx, -10 + bh / 2 - bh * PACE_BAND[1], 40, bh * (PACE_BAND[1] - PACE_BAND[0]), 0x4f9a3a).setOrigin(0.5, 0);
+        const marker = this.add.rectangle(bx, 0, 60, 6, COLORS.accent);
+        const info = this.add.text(bx + 50, -10, '', textStyle(this.pts(16), COLORS.cream, { lineSpacing: 6 })).setOrigin(0, 0.5);
+        body.add([bar, band, marker, info]);
+        label.setY(92);
+        tip.setY(126);
+        // The track: green infield, red lanes with white lines, the coach watching from the middle.
+        const RX = 150;
+        const RY = 66;
+        const TY = 16;
+        const g = this.add.graphics().setY(TY);
+        g.fillStyle(0x4f8a3a).fillEllipse(0, 0, (RX + 26) * 2, (RY + 26) * 2);
+        g.lineStyle(34, 0xb5483a).strokeEllipse(0, 0, RX * 2, RY * 2);
+        g.lineStyle(2, 0xf2efe6).strokeEllipse(0, 0, (RX - 17) * 2, (RY - 17) * 2).strokeEllipse(0, 0, (RX + 17) * 2, (RY + 17) * 2).strokeEllipse(0, 0, RX * 2, RY * 2);
+        g.fillStyle(0x6aa84f).fillEllipse(0, 0, (RX - 18) * 2, (RY - 18) * 2);
+        g.lineStyle(3, 0xf2efe6).lineBetween(-18, RY - 17, -18, RY + 17);
+        vis.add(g);
+        const hasCoach = !!who.coach && this.textures.exists(`chr:${who.coach}:act`);
+        if (hasCoach) {
+          ensureAnims(this, who.coach!);
+          vis.add(this.add.sprite(0, TY + 16, `chr:${who.coach}:act`, 0).setOrigin(0.5, 1).play(`${who.coach}:idle-down`));
+        }
+        ensureAnims(this, who.player);
+        const runner = this.add.sprite(0, 0, `chr:${who.player}:walk`, 0).setOrigin(0.5, 0.95).setScale(0.85);
+        vis.add(runner);
+        const lapMs = drill.ms / 4;
         let pace = 0.3;
         let onFor = 0;
-        let inSplit = 0;
         let drift = 0;
+        let ang = Math.PI / 2;
+        let run = 0;
+        let speed = 0;
+        let dir = '';
         const press = () => (down = true);
         const release = () => (down = false);
         pad.on('pointerdown', press).on('pointerup', release).on('pointerout', release);
@@ -621,24 +686,42 @@ export class HudScene extends Phaser.Scene {
           kb.off('keydown-SPACE', press);
           kb.off('keyup-SPACE', release);
         };
+        const laps = () => Math.floor(run / (Math.PI * 2));
         tick = (dt) => {
           const s = dt / 1000;
           drift += (Math.random() - 0.5) * s * 0.6;
           drift = Math.max(-0.08, Math.min(0.08, drift));
           pace = Math.max(0, Math.min(1, pace + (down ? 0.55 : -0.4) * s + drift * s));
-          marker.setY(bh / 2 - bh * pace);
-          if (onPace(pace)) onFor += dt;
-          inSplit += dt;
-          const splitMs = drill.ms / laps;
-          if (inSplit >= splitMs && splits.length < laps) {
-            splits.push(onFor >= splitMs * 0.6);
-            onFor = 0;
-            inSplit -= splitMs;
+          marker.setY(-10 + bh / 2 - bh * pace);
+          const on = onPace(pace);
+          if (on) onFor += dt;
+          // Full speed in the band; too slow jogs, too fast soon blows up and slows to a stagger.
+          const want = on ? 1 : pace < PACE_BAND[0] ? 0.35 + 0.4 * (pace / PACE_BAND[0]) : 0.55;
+          speed += (want - speed) * Math.min(1, s * 3);
+          const step = ((Math.PI * 2) / lapMs) * dt * speed;
+          ang += step;
+          run += step;
+          // Anticlockwise, the way a running track is run.
+          const x = RX * Math.cos(ang);
+          const y = RY * Math.sin(-ang);
+          const dx = -Math.sin(ang) * RX;
+          const dy = -Math.cos(ang) * RY;
+          const d = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
+          runner.setPosition(x, TY + y);
+          // The far side of the track draws behind the coach, the near side in front.
+          vis.bringToTop(runner);
+          if (y < 0 && hasCoach) vis.moveDown(runner);
+          if (d !== dir) {
+            dir = d;
+            runner.play(`${who.player}:walk-${d}`);
           }
-          splitsText.setText(Array.from({ length: laps }, (_, i) => `Lap ${i + 1}: ${i < splits.length ? (splits[i] ? 'on pace' : 'off pace') : i === splits.length ? 'running…' : ''}`).join('\n'));
-          label.setText(onPace(pace) ? 'On pace' : pace > PACE_BAND[1] ? 'Too fast, ease off' : 'Too slow, push on');
+          runner.anims.timeScale = 0.6 + speed * 1.2;
+          runner.setTint(on ? 0xffffff : 0xffc8b8);
+          const pct = t > 0 ? Math.round((onFor / t) * 100) : 0;
+          info.setText(`Laps: ${laps()}\nOn pace: ${pct}%`);
+          label.setText(on ? 'On pace' : pace > PACE_BAND[1] ? 'Too fast, ease off' : 'Too slow, push on');
         };
-        finish = () => `${splits.filter(Boolean).length} of ${laps} lap splits on pace.`;
+        finish = () => `${laps()} ${laps() === 1 ? 'lap' : 'laps'}, on pace ${Math.round((onFor / Math.max(1, t)) * 100)}% of the time.`;
       }
       let over = false;
       const ev = this.time.addEvent({

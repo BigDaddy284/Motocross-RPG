@@ -39,6 +39,8 @@ export class BootScene extends Phaser.Scene {
       const [fw, fh] = manifest.characters.frame;
       this.load.spritesheet(`chr:${id}:walk`, `assets/${sheet.walk}`, { frameWidth: fw, frameHeight: fh });
       this.load.spritesheet(`chr:${id}:act`, `assets/${sheet.act}`, { frameWidth: fw, frameHeight: fh });
+      // The push-up frames are side on, so wider than a walk frame: up, then down.
+      if (sheet.fit) this.load.spritesheet(`chr:${id}:fit`, `assets/${sheet.fit}`, { frameWidth: 96, frameHeight: 64 });
     }
     for (const [id, sheet] of Object.entries(manifest.vehicles ?? {})) {
       this.load.image(vanTexture(id), `assets/${sheet.image}`);

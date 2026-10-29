@@ -209,37 +209,44 @@
    "player-m-start-a": {
     "name": "player-m-start-a",
     "walk": "art/characters/player/player-m-start-a.png",
-    "act": "art/characters/player/player-m-start-a.act.png"
+    "act": "art/characters/player/player-m-start-a.act.png",
+    "fit": "art/characters/player/player-m-start-a.fit.png"
    },
    "player-f-start-a": {
     "name": "player-f-start-a",
     "walk": "art/characters/player/player-f-start-a.png",
-    "act": "art/characters/player/player-f-start-a.act.png"
+    "act": "art/characters/player/player-f-start-a.act.png",
+    "fit": "art/characters/player/player-f-start-a.fit.png"
    },
    "player-m-start-b": {
     "name": "player-m-start-b",
     "walk": "art/characters/player/player-m-start-b.png",
-    "act": "art/characters/player/player-m-start-b.act.png"
+    "act": "art/characters/player/player-m-start-b.act.png",
+    "fit": "art/characters/player/player-m-start-b.fit.png"
    },
    "player-f-start-b": {
     "name": "player-f-start-b",
     "walk": "art/characters/player/player-f-start-b.png",
-    "act": "art/characters/player/player-f-start-b.act.png"
+    "act": "art/characters/player/player-f-start-b.act.png",
+    "fit": "art/characters/player/player-f-start-b.fit.png"
    },
    "player-m-mxgear": {
     "name": "player-m-mxgear",
     "walk": "art/characters/player/player-m-mxgear.png",
-    "act": "art/characters/player/player-m-mxgear.act.png"
+    "act": "art/characters/player/player-m-mxgear.act.png",
+    "fit": "art/characters/player/player-m-mxgear.fit.png"
    },
    "player-f-mxgear": {
     "name": "player-f-mxgear",
     "walk": "art/characters/player/player-f-mxgear.png",
-    "act": "art/characters/player/player-f-mxgear.act.png"
+    "act": "art/characters/player/player-f-mxgear.act.png",
+    "fit": "art/characters/player/player-f-mxgear.fit.png"
    },
    "player-m-mx-nohelmet": {
     "name": "player-m-mx-nohelmet",
     "walk": "art/characters/player/player-m-mx-nohelmet.png",
-    "act": "art/characters/player/player-m-mx-nohelmet.act.png"
+    "act": "art/characters/player/player-m-mx-nohelmet.act.png",
+    "fit": "art/characters/player/player-m-mx-nohelmet.fit.png"
    }
   }
  },

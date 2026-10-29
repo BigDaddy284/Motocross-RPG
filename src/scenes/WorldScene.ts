@@ -1426,7 +1426,8 @@ export class WorldScene extends Phaser.Scene {
   /** A Fitness drill (core/training.ts): its round in the HUD, XP for every round finished, saved after each. */
   private runDrill(drill: DrillDef, onClose: () => void = () => this.player.idle()): void {
     const skill = services.content.skills.leads.flatMap((l) => l.children).find((c) => c.id === drill.skill);
-    this.hud.openDrill(drill, () => {
+    const coach = drill.npc ? services.content.npcs.find((n) => n.id === drill.npc)?.sprite : undefined;
+    this.hud.openDrill(drill, { player: this.save.rider.look, coach }, () => {
       const ups = finishRound(services.content.skills, this.save.career.skills, drill);
       this.hud.showCareer(this.save.career, this.save.flags);
       this.milestoneSave();

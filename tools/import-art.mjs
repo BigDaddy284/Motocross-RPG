@@ -249,6 +249,8 @@ function copyCharacters() {
       name: pid,
       walk: useImage(path.join(ART, 'characters/player', `${pid}.png`)),
       act: useImage(path.join(ART, 'characters/player', `${pid}.act.png`)),
+      // The push-up frames for the Fitness drill (up, down), when the art has them.
+      ...(fs.existsSync(path.join(ART, 'characters/player', `${pid}.fit.png`)) ? { fit: useImage(path.join(ART, 'characters/player', `${pid}.fit.png`)) } : {}),
     };
   }
   return out;

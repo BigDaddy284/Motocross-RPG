@@ -72,7 +72,8 @@ export interface Manifest {
     rows: Facing[];
     walk: { columns: number; fps: number };
     act: { columns: string[]; idle_fps: number };
-    sheets: Record<string, { name: string; walk: string; act: string }>;
+    /** fit: the player's push-up frames (arms straight, then bent), side on at 96 by 64. */
+    sheets: Record<string, { name: string; walk: string; act: string; fit?: string }>;
   };
   /** Van sheets by design id (tools/import-art.mjs). */
   vehicles?: Record<string, VanSheet>;
