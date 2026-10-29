@@ -47,6 +47,17 @@ describe('checking a mod track like the game’s own', () => {
     expect(problems(JSON.stringify(farmland()))).toEqual([]);
   });
 
+  it('takes a finish-line jump and a tunnel through a deck, as the editor saves them', () => {
+    const t = farmland();
+    const jump = t.sections.find((s) => s.type === 'tabletop')!;
+    jump.finish = true;
+    jump.tunnel = 'walk';
+    (t as unknown as { features: unknown[] }).features = [{ type: 'tabletop', at: 0, len: 16, passing: 0.3, finish: true, tunnel: 'walk' }];
+    expect(problems(asFile(t))).toEqual([]);
+    jump.tunnel = 'drain' as never;
+    expect(problems(asFile(t)).join()).toMatch(/tunnel.*must be one of track, walk/);
+  });
+
   it('refuses what isn’t a raceable track, and says why', () => {
     expect(problems('not json')).toEqual(['the file is not valid JSON']);
     expect(problems('{"hello": 1}')[0]).toMatch(/not a track file/);

@@ -95,9 +95,10 @@ describe('finish-line jumps', () => {
       const banner = s.height(fa, 0) + ARCH_CLEAR;
       for (const way of JUMPS[type].ways) {
         const flight = { hops: way.hops.map(([a, b]) => [f0 + a * span, f0 + b * span] as [number, number]), launch: 1 };
-        for (const lane of [-0.8, 0, 0.8]) {
-          const [back, front] = s.wheels(fa, lane, flight);
-          expect(Math.max(back.y, front.y) + RIDER, `${type} ${way.name} lane ${lane}`).toBeLessThan(banner);
+        // Under the banner's thickness and a little either side of it.
+        for (const df of [-0.02, 0, 0.02]) for (const lane of [-0.8, 0, 0.8]) {
+          const [back, front] = s.wheels(fa + df * span, lane, flight);
+          expect(Math.max(back.y, front.y) + RIDER, `${type} ${way.name} lane ${lane} at ${df}`).toBeLessThan(banner);
         }
       }
     }

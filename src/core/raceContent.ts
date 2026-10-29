@@ -14,6 +14,8 @@ const IDS = { type: 'string', pattern: ID } as const;
 const N = { type: 'number' } as const;
 const N0 = { type: 'number', min: 0 } as const;
 const SHARE = { type: 'number', min: 0, max: 1 } as const;
+// A tunnel through a jump's deck: the track passes under it, or a walkway does (trackSurface.ts).
+const TUNNEL = { type: 'string', oneOf: ['track', 'walk'] } as const;
 const RANGE: Schema = { type: 'array', items: N0, minItems: 2, maxItems: 2 };
 const LEVEL = { type: 'number', integer: true, min: 1, max: 99 } as const;
 const WEIGHTS: Schema = { type: 'record', values: N0 };
@@ -145,12 +147,12 @@ export const TRACKS_SCHEMA: Schema = {
           // The editor's features on the route (jumps and the like), from which the sections are generated with the route's own straights and bends.
           features: {
             type: 'array',
-            items: { type: 'object', optional: ['line', 'height'], fields: { type: IDS, at: N0, len: { type: 'number', min: 0.5 }, passing: SHARE, line: IDS, height: N0 } },
+            items: { type: 'object', optional: ['line', 'height', 'tunnel', 'finish'], fields: { type: IDS, at: N0, len: { type: 'number', min: 0.5 }, passing: SHARE, line: IDS, height: N0, tunnel: TUNNEL, finish: { type: 'boolean' } } },
           },
           sections: {
             type: 'array',
             minItems: 1,
-            items: { type: 'object', optional: ['line', 'height'], fields: { type: IDS, length: { type: 'number', min: 1 }, passing: SHARE, line: IDS, height: N0 } },
+            items: { type: 'object', optional: ['line', 'height', 'tunnel', 'finish'], fields: { type: IDS, length: { type: 'number', min: 1 }, passing: SHARE, line: IDS, height: N0, tunnel: TUNNEL, finish: { type: 'boolean' } } },
           },
           kind: IDS,
           width: { type: 'number', min: 1, max: 12 },

@@ -243,10 +243,10 @@ export function landingOf(way: Way | null): number | null {
 
 /**
  * A finish-line jump (a section with `finish`): where along it the finish arch stands, as a share
- * of the section, and how high its banner's underside is above the surface there. The tabletop's
- * arch stands over the middle of its deck, the double's just over its landing, where every way
- * over the jump has come down near the surface; the clearance leaves room for a rider still in
- * the air there (the arch test checks it against every way).
+ * of the section, and how high its banner's underside is above the surface there. The arch stands
+ * on the front hump's lip, the take-off, where every way over the jump is still on the ground or
+ * just leaving it; the clearance leaves room for a rider in the air there (the arch test checks
+ * it against every way).
  */
-export const ARCH_AT: Record<string, number> = { tabletop: 0.46, double: 0.72 };
+export const ARCH_AT: Record<string, number> = { tabletop: 0.3, double: 0.3 };
 export const ARCH_CLEAR = 4.6;
