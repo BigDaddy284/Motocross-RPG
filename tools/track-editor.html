@@ -6055,13 +6055,15 @@ function dragItemTo(t, raw, e) {
   const it = t.scenery[drag.i];
   drag.raw = raw;
   drag.alt = e.altKey;
-  // Lined up from how it was turned when picked up, so a bend from Q and E never flips it a quarter turn.
-  const s = snapToItems(t, { ...it, rot: drag.start.rot }, drag.i, raw, e);
+  // Lined up from how it was turned when picked up (or since, with Q and E while dragged), so a
+  // bend from Q and E never flips it a quarter turn.
+  const rot0 = drag.rot ?? drag.start.rot;
+  const s = snapToItems(t, { ...it, rot: rot0 }, drag.i, raw, e);
   it.x = clamp(s ? s.x : snapHalf(raw.x, e), -SCENE_OUT, GRID_W + SCENE_OUT);
   it.y = clamp(s ? s.y : snapHalf(raw.y, e), -SCENE_OUT, GRID_H + SCENE_OUT);
   // Snapped onto another item it turns the same way (and as far again as Q and E have bent it);
   // away from one it is turned as when picked up.
-  const rot = s ? s.rot : drag.start.rot;
+  const rot = s ? s.rot : rot0;
   if (rot === undefined) delete it.rot; else it.rot = rot;
   app.snapTo = s ? s.j : -1;
   // While it is dragged only the map and the race view follow it (the race view moves the one
@@ -6502,7 +6504,13 @@ window.addEventListener('keydown', (e) => {
       e.preventDefault();
       const step = (e.altKey ? 1 : e.shiftKey ? 5 : 15) * (e.key.toLowerCase() === 'q' ? -1 : 1);
       // Snapped while placed or dragged, it swings round the join instead (Snap object).
-      if (drag?.kind === 'item' && drag.started && app.snapTo >= 0) { app.snapBend += step; dragItemTo(track(), drag.raw, { altKey: drag.alt }); }
+      if (drag?.kind === 'item' && drag.started) {
+        // Turned while dragged: snapped, it swings round the join; free, the turn is kept with the
+        // drag (drag.rot), so the next move keeps it instead of going back to how it was picked up.
+        if (app.snapTo >= 0) app.snapBend += step;
+        else drag.rot = ((((drag.rot ?? drag.start.rot ?? 0) + step) % 360) + 360) % 360;
+        dragItemTo(track(), drag.raw, { altKey: drag.alt });
+      }
       else if (app.selItem >= 0) turnItem(step);
       else if (ghostItemForView(track()) && app.snapTo >= 0) { app.snapBend += step; requestDraw(); sendView(); }
       else { app.placeRot = ((((app.placeRot ?? 0) + step) % 360) + 360) % 360; requestDraw(); sendView(); }
