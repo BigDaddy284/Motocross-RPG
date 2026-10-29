@@ -17,7 +17,7 @@ This is a hobby project, made for fun in spare time. It is offered as-is, with n
 The game loop: **earn money, keep the bike going, race, level up, repeat.**
 
 1. **Start a career** in Home Town with a broken 50cc. Paul Phoenix, the mechanic at Phoenix MX, gets it running in the tutorial and teaches the basics.
-2. **Earn money** on shifts in the Industrial Zone: the fabrication shop (frame brackets) and the engine rebuilder (pistons). Pay is per part made, and is boosted 10× while testing.
+2. **Earn money** on shifts in the Industrial Zone: the fabrication shop (frame brackets) and the engine rebuilder (pistons). Pay is per part made, and is boosted 5× while testing.
 3. **Look after the bike.** Every lap wears its parts, and a part at 0% breaks. Buy new or better-grade parts at Moto78 (the bike shop) and the tyre shop in Home Town (fitted free, or kept as spares in your bag), and pay the local garage to repair or fit them.
 4. **Get a van** and load your bike to reach the tracks on the venue road.
 5. **Race.** Three venues are open: **Farmland MX**, **Riverside Arena** and **Longmoor Enduro**, each with a track official at the race office (at Farmland it's Joseph Halden, who owns the track and introduces himself the first time you talk to him). A race day is two motos against 15 riders (5 laps a moto, or 8 at Longmoor Enduro, and 8 in a motocross or endurance championship round), including the Local Champion: £20 entry (your first race day is free), gate picks, a start official and a pit board, with prize money to 10th in each moto. Free practice is 25% of the entry, and the backyard loop at home is free.
@@ -191,7 +191,7 @@ Markers come from `story.json` and the maps' doors and exits, so a new step need
   - **Installing:** put the `.track.json` files the track editor's **Export** button makes in `public/mods/tracks/` (`mods/tracks/` beside the built game). The build (and `npm run dev`, on every load) writes an `index.json` of that folder for the game to read. `farmland-example.track.json` is there as an example.
   - **Importing:** "Import track file" in the list loads a `.track.json` from your device and keeps it in that browser; an imported track can be removed again from its race office.
   - **Checks:** every mod track gets the game's own track checks (schema, sections, start straight, the start official's spot and walk, and only the game's own surfaces, ground and scenery). One that fails stays in the list and says why when picked; a failed import isn't kept. Mod tracks use the game's own art for now. See `src/core/modTracks.ts`.
-- **Shift pay is 10× while testing** (`testPayMultiplier` in `public/data/world.json`; review before Final v1).
+- **Shift pay is 5× while testing** (10× before Alpha v1.1) (`testPayMultiplier` in `public/data/world.json`; review before Final v1).
 
 ### Added to test build 0.3: your van on the map
 
@@ -233,7 +233,7 @@ Checked against the rest of the "Starter career slice" checklist (Systems Specif
 - **Official results.** A rider's place is fixed the moment they cross the finish line on the last lap, and the running order shows their gap at the flag; riders still racing show live gaps.
 - **Results.** Each moto shows positions, gaps, best laps, points, prize money (3× entry to the winner, paid to 10th) and XP. The day shows the overall order, the podium bonus, your money, XP by skill and what wore on your bike.
 - **Backyard practice.** Click the dirt loop behind your rented room. Ride laps on your own until you stop: free, practice XP at a tenth of the race rate, and real wear. Farmland MX also has free practice for £5.
-- **Testing only:** shift pay is tripled (`testPayMultiplier: 3` in `world.json`), so a fabrication bracket pays £2.25 and a piston £3.75. Set it back to 1 before Final v1.
+- **Testing only:** shift pay is boosted (`testPayMultiplier` in `world.json`, 5× for Alpha v1.1). Set it back to 1 before Final v1.
 - Saves are now version 3; a test build 0.2 save upgrades with every skill at level 1.
 - New content files, all checked at start-up: `skills.json`, `racing.json` (every race rule and tuning number), `tracks.json` (track sections and venues) and `riders.json` (the CPU riders and the local field). `npx vite-node tools/sim/balance.ts 300 1` runs 300 race days and prints the spread of results, crashes, money, XP and wear, for tuning.
 - Which areas each CPU rider races in is their `areas` list in `riders.json`: a field (such as `area1.local`) names its area, and its pool is every rider with that area. Neal Gizard, the pro, races only in Area 8.
@@ -284,7 +284,7 @@ Wheels and tyres can't be repaired or sold to any shop (`consumables` in `shops.
 
 Testing aids to take out before the final release:
 
-- **Money cheat** (Boss, 28 Oct 2026). A new career with the rider name `moneymoneymoney` starts with £50,000. It's in `src/scenes/careerFlow.ts`, marked `TEST ONLY, REMOVE BEFORE RELEASE`.
+- **Shift pay boost.** `testPayMultiplier` in `world.json` (5× for Alpha v1.1). The `moneymoneymoney` money cheat was removed for the Alpha v1.1 release.
 
 ## How the project is laid out
 
