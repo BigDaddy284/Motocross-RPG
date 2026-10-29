@@ -45,6 +45,8 @@ const PAGE_H = 600;
 
 export class HudScene extends Phaser.Scene {
   private dialogue: Phaser.GameObjects.Container | null = null;
+  /** The open dialogue and the line it's on, so a resize can build it again to fit (Boss, 29 Oct 2026). */
+  private dialogueAt: { args: [string, string, DialogueLine[], () => void]; line: number } | null = null;
   private pause: Phaser.GameObjects.Container | null = null;
   private toastText!: Phaser.GameObjects.Text;
   private toastBg!: Phaser.GameObjects.Rectangle;
@@ -107,6 +109,7 @@ export class HudScene extends Phaser.Scene {
 
   create(): void {
     this.dialogue = null;
+    this.dialogueAt = null;
     this.pause = null;
     this.modal = null;
     this.progressBox = null;
@@ -208,6 +211,8 @@ export class HudScene extends Phaser.Scene {
     this.toastText.setPosition(width / 2, height - HUD_BAR - 30);
     this.toastText.setWordWrapWidth(Math.min(700, width - 60));
     this.fitToast();
+    // The dialogue box is placed and wrapped for the window it opened in: build it again for this one.
+    if (this.dialogue && this.dialogueAt) this.openDialogue(...this.dialogueAt.args, this.dialogueAt.line);
   }
 
   /** A draggable zoom slider beside the Zoom button. Mouse wheel and + and - still zoom too. */
@@ -330,8 +335,10 @@ export class HudScene extends Phaser.Scene {
   }
 
   /** Shows lines one at a time; click, tap, E, Space or Enter moves on. */
-  openDialogue(npcName: string, riderName: string, lines: DialogueLine[], onClose: () => void): void {
+  openDialogue(npcName: string, riderName: string, lines: DialogueLine[], onClose: () => void, from = 0): void {
     this.dialogue?.destroy();
+    const at = { args: [npcName, riderName, lines, onClose] as [string, string, DialogueLine[], () => void], line: from };
+    this.dialogueAt = at;
     const { width, height, k } = this.page();
     const w = Math.min(960, width - 24);
     const pad = 20;
@@ -352,8 +359,9 @@ export class HudScene extends Phaser.Scene {
     const hintBg = this.add.rectangle(0, 0, 10, 10, COLORS.accent).setOrigin(1, 1).setInteractive({ useHandCursor: true });
     c.add([bg, name, body, hintBg, hint]);
     this.dialogue = c;
-    let i = 0;
+    let i = from;
     const show = () => {
+      at.line = i;
       const line = lines[i];
       const narrator = line.speaker === 'narrator';
       name.setText(line.speaker === 'npc' ? npcName : line.speaker === 'player' ? riderName : '');
@@ -366,12 +374,13 @@ export class HudScene extends Phaser.Scene {
     const close = () => {
       c.destroy();
       this.dialogue = null;
+      this.dialogueAt = null;
       this.advance = null;
       onClose();
     };
     // Skip the key press or click that opened the box.
-    let ready = false;
-    this.time.delayedCall(150, () => (ready = true));
+    let ready = from > 0;
+    if (!ready) this.time.delayedCall(150, () => (ready = true));
     this.advance = () => {
       if (!ready) return;
       i += 1;
