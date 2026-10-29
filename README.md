@@ -90,6 +90,14 @@ Then use **Ready to race**, which runs the game's checks.
 - it uses only the game's own surfaces, ground and scenery (custom art isn't supported yet);
 - the start official stands and walks clear of the track, the line-up and solid scenery.
 
+**Enduro Sprint tracks (Boss, 29 Oct 2026).** Set the track's Kind to **Enduro Sprint** for a point-to-point timed test instead of a loop. There is no start gate or start straight: riders leave the start line one at a time, 10 seconds apart, and can catch and pass the rider in front. After the finish line they roll down a single-file **return lane** (a quarter of the track's width, at half speed, no passing) and queue at the start for the next lap. The return lane's time is left out, and the lowest total time over the timed laps wins. A one-lap timed qualifying sprint sets moto 1's start order (fastest first), and moto 2 goes in moto 1's order. Sprint motos are 8 laps (`kindLaps` in `racing.json`). In the editor, place the finish line, then use **Start line** to lay the return lane from the finish to the start; the track's checks then ask for:
+
+- the return lane as the first section, at least 20 grid units long, kept clear of the test except at its ends;
+- no start straight and no start board official;
+- the sprint start (an arch with a timing beam, a clock, a timekeeper with a stopwatch and a scorer with a clipboard) on the start line, which is added for you if it's left out.
+
+Enduro sections that any mod track can use: **rocks**, **logs**, **log step**, **water crossing**, **roots**, **off-camber**, **hill climb** and **woods**, with **boulder** and **log pile** scenery. The example sprint is **Quarry Sprint** (`public/mods/tracks/quarry-sprint.track.json`). This is for mod tracks only for now (Boss, 29 Oct 2026).
+
 A track that fails stays in the list, and picking it shows the reasons. An import that fails isn't added. Each track is listed by its name, with its file name under it. Mod tracks get their own ids, so they never clash with the game's tracks. The code is in `src/core/modTracks.ts`.
 
 ## What's new in Alpha v1.1

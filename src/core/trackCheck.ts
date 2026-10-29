@@ -1,5 +1,5 @@
 import type { TrackDef } from './race';
-import { headingAt, lapGeom, nearestOnLap, START_PAD, startGeom, startHalfWidth, startHeadingAt, startPointAt } from './trackGeom';
+import { headingAt, isSprint, lapGeom, nearestOnLap, pointAt, RETURN_LANE, RETURN_TAPER, RETURN_WIDTH, sectionBounds, SPRINT_KIND, START_PAD, startGeom, startHalfWidth, startHeadingAt, startPointAt } from './trackGeom';
 import { DEFAULT_TRACK_WIDTH } from './trackParts';
 
 // Checks that a track's sections and start straight agree with its drawing, shared by the game's
@@ -19,11 +19,56 @@ export const JOIN_MAX = 75;
 
 export function layoutProblems(track: TrackDef, sectionDefs: Record<string, { name: string }>): LayoutProblem[] {
   const out: LayoutProblem[] = [];
+  const sprint = track.kind === SPRINT_KIND;
   track.sections.forEach((s, i) => {
     if (!sectionDefs[s.type]) return;
     if (s.type === 'start_gate') out.push({ field: `sections[${i}].type`, message: `section ${i + 1} is a start gate on the lap; the start is its own start straight now, so make this a straight` });
+    if (s.type === RETURN_LANE && !(sprint && i === 0)) {
+      out.push({ field: `sections[${i}].type`, message: sprint ? `section ${i + 1} is a return lane; an Enduro Sprint has one, its first section, from the finish line to the start line` : `section ${i + 1} is a return lane, which only an Enduro Sprint has` });
+    }
   });
-  out.push(...startProblems(track));
+  out.push(...(sprint ? sprintProblems(track) : startProblems(track)));
+  return out;
+}
+
+/** The shortest return lane, in grid units: room for a whole field to queue single file at the start line. */
+export const RETURN_MIN = 20;
+
+/**
+ * An Enduro Sprint's own rules, in place of the start straight's: the return lane is its first
+ * section, from the finish line round to the start line, long enough for the queue, with no start
+ * straight, and nowhere does it cross or run into the test, except where it leaves the finish
+ * line and joins the start line.
+ */
+export function sprintProblems(track: TrackDef): LayoutProblem[] {
+  const out: LayoutProblem[] = [];
+  const add = (field: string, message: string) => out.push({ field, message });
+  if (!isSprint(track)) {
+    add('sections[0].type', "an Enduro Sprint's first section is the return lane: the single-file lane from the finish line back to the start line");
+    return out;
+  }
+  if (track.start?.path?.length) add('start', 'an Enduro Sprint has no start straight or start gate: riders leave one at a time from the start line at the end of the return lane, so remove it');
+  if (track.sections.length < 2) {
+    add('sections', 'an Enduro Sprint needs its test: sections after the return lane, from the start line to the finish line');
+    return out;
+  }
+  const g = lapGeom(track.path);
+  const b = sectionBounds(track);
+  const lane = b[1] * g.total;
+  if (lane < RETURN_MIN) add('sections[0].length', `the return lane is ${lane.toFixed(1)} grid units long; it needs at least ${RETURN_MIN} for the riders to queue single file at the start line`);
+  // Clear of the test everywhere but its two ends, where it leaves the finish line and joins the start line.
+  const width = track.width ?? DEFAULT_TRACK_WIDTH;
+  const clear = width / 2 + (width * RETURN_WIDTH) / 2 + 0.5;
+  const ends = RETURN_TAPER + clear + 1;
+  for (let d = ends; d < lane - ends; d += 0.25) {
+    const p = pointAt(g, d / g.total);
+    let near = Infinity;
+    for (let u = b[1] * g.total; u <= g.total; u += 0.25) near = Math.min(near, Math.hypot(pointAt(g, u / g.total).x - p.x, pointAt(g, u / g.total).y - p.y));
+    if (near < clear) {
+      add('sections[0]', `the return lane runs into the test at ${p.x.toFixed(0)}, ${p.y.toFixed(0)}; it must never cross the track, so keep it at least ${clear.toFixed(1)} grid units clear`);
+      break;
+    }
+  }
   return out;
 }
 

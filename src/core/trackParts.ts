@@ -3,6 +3,7 @@ import type { TrackDef } from './race';
 import { OFFICIAL_ITEM, officialPlan, placedOfficial } from './startOfficial';
 import { cheerProblems } from './cheer';
 import { sceneryIssues } from './trackClearance';
+import { SPRINT_KIND } from './trackGeom';
 import type { ContentError, Schema } from './validate';
 
 // The parts a track is built from beyond its sections: track kinds, surface patches, ground and
@@ -140,7 +141,9 @@ export function checkTrackParts(parts: TrackPartsData, tracks: TrackDef[], artEx
       const { mpu, along } = lapProfile(t);
       for (const p of elevationIssues(t, mpu, along)) if (p.level === 'error') err(F.tracks, at('elevation'), p.message);
     }
-    if (t.scenery?.some((s) => s.type === OFFICIAL_ITEM)) {
+    if (t.kind === SPRINT_KIND && t.scenery?.some((s) => s.type === OFFICIAL_ITEM)) {
+      err(F.tracks, at(`scenery[${t.scenery.findIndex((s) => s.type === OFFICIAL_ITEM)}]`), 'an Enduro Sprint has no start board official: riders leave one at a time from the start line');
+    } else if (t.scenery?.some((s) => s.type === OFFICIAL_ITEM)) {
       // Placed by the track: every problem with where they stand and walk.
       const j = t.scenery.findIndex((s) => s.type === OFFICIAL_ITEM);
       for (const m of placedOfficial(t, parts).problems) err(F.tracks, at(`scenery[${j}]`), m);

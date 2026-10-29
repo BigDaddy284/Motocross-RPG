@@ -1,5 +1,5 @@
 import { bikeProblem, pence, type BikesData, type Bike, type CareerState } from './career';
-import { lapMetres } from './trackGeom';
+import { isSprint, lapMetres } from './trackGeom';
 import { MotoSim, formatTime, gateBonus, mixSeed, seededRng, type Entrant, type RacingData, type RiderResult, type Tactic, type TrackDef } from './race';
 import { addXp, childLevels, type LevelUp, type SkillsData } from './skills';
 import type { RiderStyle } from './riderProfile';
@@ -208,8 +208,13 @@ export class RaceDay {
   readonly cls: string;
   readonly laps: number;
   readonly motoCount: number;
-  /** The order riders pick gates for the next moto. */
+  /** The order riders pick gates for the next moto; in an enduro sprint, the order they leave the start line. */
   pickOrder: string[];
+  /**
+   * An enduro sprint (trackGeom.isSprint): a one-lap timed qualifying sets the start order for
+   * moto 1, fastest first, and each moto's results the order for the next. Nobody picks a gate.
+   */
+  readonly sprint: boolean;
   private readonly rng: () => number;
 
   constructor(
@@ -226,6 +231,7 @@ export class RaceDay {
   ) {
     this.track = trackById(rc, venue.track!);
     this.cls = venue.class ?? '50cc';
+    this.sprint = isSprint(this.track);
     this.laps = custom?.laps ?? lapsFor(rc, this.track, this.cls, !!round);
     this.motoCount = custom?.motos ?? 2;
     this.rng = seededRng(seed);
@@ -327,9 +333,14 @@ export class RaceDay {
     return best;
   }
 
-  /** True while a championship round's qualifying is still to ride. */
+  /** True while a championship round's or a sprint's qualifying is still to ride. */
   get qualifyingDue(): boolean {
-    return !!this.round && !this.qualifying;
+    return (!!this.round || this.sprint) && !this.qualifying;
+  }
+
+  /** A sprint: every rider leaves the start line in the pick order (their gate is their place in it). */
+  private startInPickOrder(): void {
+    this.pickOrder.forEach((id, i) => (this.field.find((e) => e.id === id)!.gate = i));
   }
 
   /**
@@ -337,10 +348,10 @@ export class RaceDay {
    * random order (the day's first pick order); nobody picks a gate for it.
    */
   startQualifying(message: string): MotoSim {
-    const r = this.round!;
-    this.pickOrder.forEach((id, i) => (this.field.find((e) => e.id === id)!.gate = i));
+    this.startInPickOrder();
+    // A sprint qualifies on one timed test, riders leaving in a random order; a round has an out lap first.
     return new MotoSim(this.rc.racing, this.rc.bikes, this.track, this.cls, this.field, {
-      laps: r.qualifyingLaps + 1,
+      laps: this.sprint ? 1 : this.round!.qualifyingLaps + 1,
       motoIndex: 0,
       seed: mixSeed(this.seed, 0x7175616c),
       message,
@@ -349,7 +360,7 @@ export class RaceDay {
 
   /** Records qualifying: the order by best timed lap sets moto 1's gate pick order. No points or prize. */
   finishQualifying(sim: MotoSim): QualifyingRecord {
-    const timed = (laps: number[]) => (laps.length > 1 ? Math.min(...laps.slice(1)) : null);
+    const timed = (laps: number[]) => (this.sprint ? (laps[0] ?? null) : laps.length > 1 ? Math.min(...laps.slice(1)) : null);
     const rows = sim.riders.map((r) => ({ r, best: timed(r.lapTimes) }));
     rows.sort((a, b) => (a.best ?? Infinity) - (b.best ?? Infinity) || b.r.laps - a.r.laps || a.r.time - b.r.time || a.r.e.gate - b.r.e.gate);
     const pole = rows[0].best;
@@ -366,7 +377,7 @@ export class RaceDay {
       reason: r.reason,
       gap: best === null ? 'No time' : i === 0 || pole === null ? formatTime(best, 3) : `+${(best - pole).toFixed(3)}s`,
     }));
-    const xp = scaleXp(sim.xp, this.round!.xpTimes);
+    const xp = scaleXp(sim.xp, this.round?.xpTimes ?? 1);
     this.qualifying = { results, xp };
     if (sim.playerBike) this.player.bike = sim.playerBike;
     this.pickOrder = results.map((r) => r.id);
@@ -375,6 +386,7 @@ export class RaceDay {
 
   /** The moto simulation for the next moto. The caller runs it (live or auto-complete). */
   startMoto(message: string, retireAtBroken?: number): MotoSim {
+    if (this.sprint) this.startInPickOrder();
     return new MotoSim(this.rc.racing, this.rc.bikes, this.track, this.cls, this.field, {
       laps: this.laps,
       // Ruts deepen through the day, qualifying counting as one step (Spec 10, Round 111).

@@ -53,7 +53,7 @@ export const RACING_SCHEMA: Schema = {
     note: { type: 'string' },
     sim: {
       type: 'object',
-      optional: ['firstCorner', 'pileup', 'fitness'],
+      optional: ['firstCorner', 'pileup', 'fitness', 'sprint'],
       fields: {
         fitness: {
           type: 'object',
@@ -66,6 +66,7 @@ export const RACING_SCHEMA: Schema = {
           },
         },
         firstCorner: { type: 'object', fields: { chance: SHARE, riders: RANGE } },
+        sprint: { type: 'object', fields: { interval: { type: 'number', min: 1 }, returnSpeed: { type: 'number', min: 0.1, max: 1 } } },
         pileup: { type: 'object', fields: { chance: SHARE, window: N0, most: { type: 'number', integer: true, min: 1 } } },
         spread: N0,
         noise: N0,

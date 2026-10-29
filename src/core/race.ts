@@ -1,5 +1,5 @@
 import { bikeStats, type Bike, type BikesData } from './career';
-import { firstCorner, lapPlan, sectionBounds, startGeom, type DrawnShape, type FirstCorner, type StartGeom } from './trackGeom';
+import { firstCorner, isSprint, lapPlan, RETURN_LANE, sectionBounds, SPRINT_QUEUE, startGeom, type DrawnShape, type FirstCorner, type StartGeom } from './trackGeom';
 import type { RiderStyle } from './riderProfile';
 import { sectionGrades, type TrackElevation, type TrackHill } from './elevation';
 
@@ -24,6 +24,14 @@ export interface SectionDef {
   /** The drawn shapes the section was meant for (trackGeom.drawnShape), as a hint; any type can be placed on any shape. */
   shapes?: DrawnShape[];
 }
+
+export interface SprintRules {
+  interval: number;
+  returnSpeed: number;
+}
+
+/** A sprint's rules when racing.json leaves them out. */
+export const SPRINT_DEFAULTS: SprintRules = { interval: 10, returnSpeed: 0.5 };
 
 export interface MistakeOutcome {
   id: 'small' | 'big' | 'minor_crash' | 'serious_crash';
@@ -84,6 +92,8 @@ export interface RacingData {
      * late in the moto (fading less). Late ramps in over the second half. All of it is capped at capPct.
      */
     fitness?: { roughPct: number; rough: string[]; strengthLatePct: number; enduranceLatePct: number; capPct: number };
+    /** Enduro sprints (trackGeom.isSprint): seconds between riders leaving the start line, and the return lane's speed as a share of the class's reference speed. */
+    sprint?: SprintRules;
   };
   xp: {
     sectionFactor: number;
@@ -235,7 +245,7 @@ export interface Entrant {
   skills: Record<string, number>;
   bike: Bike;
   tactic: Tactic;
-  /** Gate number from 0, best first. Lap 1 starts in gate order. */
+  /** Gate number from 0, best first. Lap 1 starts in gate order; in a sprint, the order riders leave the start line. */
   gate: number;
   /** How they ride on the race screen (riderProfile.ts); never changes a result. */
   style?: RiderStyle;
@@ -284,6 +294,8 @@ interface RiderState {
   time: number;
   laps: number;
   lapTimes: number[];
+  /** A sprint's timed test laps added up: the race time that counts (results' time). 0 on other tracks. */
+  sprintTime: number;
   message: string;
   stats: Record<string, number>;
   broken: number;
@@ -297,7 +309,8 @@ interface LapStart {
   passes: number;
   xp: Record<string, number>;
   parts: Bike['parts'];
-  riders: Pick<RiderState, 'time' | 'laps' | 'lapTimes' | 'message' | 'stats' | 'broken' | 'retired' | 'reason'>[];
+  riders: Pick<RiderState, 'time' | 'laps' | 'lapTimes' | 'sprintTime' | 'message' | 'stats' | 'broken' | 'retired' | 'reason'>[];
+  lastAway: number;
 }
 
 export interface MotoOptions {
@@ -354,6 +367,11 @@ export class MotoSim {
   readonly firstCorner: FirstCorner | null;
   /** Everything a lap changes, as it was before the latest lap, so it can be run again (redoLap). */
   private before: LapStart | null = null;
+  /** An enduro sprint: riders leave the start line one at a time and the timed tests add up. */
+  readonly sprint: boolean;
+  readonly sprintRules: SprintRules;
+  /** A sprint: when the last rider to leave the start line left it, so the next waits the interval after them. */
+  private lastAway = 0;
 
   constructor(
     private readonly racing: RacingData,
@@ -370,6 +388,8 @@ export class MotoSim {
     this.firstCorner = firstCorner(this.start);
     this.cls = racing.classes[classId];
     this.ceiling = bikes.classes.find((c) => c.id === classId)?.ceiling ?? 1;
+    this.sprint = isSprint(track);
+    this.sprintRules = { ...SPRINT_DEFAULTS, ...racing.sim.sprint };
     this.ink = racing.ink;
     const mine = entrants.find((e) => e.player);
     this.playerBike = mine ? structuredClone(mine.bike) : null;
@@ -377,9 +397,11 @@ export class MotoSim {
       const bike = e.player ? this.playerBike! : e.bike;
       return {
         e: { ...e, bike },
-        time: opts.practice ? (e.startAt ?? 0) : 0,
+        // A sprint sends riders off the start line in their start order, the interval apart.
+        time: opts.practice ? (e.startAt ?? 0) : this.sprint ? e.gate * this.sprintRules.interval : 0,
         laps: 0,
         lapTimes: [],
+        sprintTime: 0,
         message: e.player ? (opts.message ?? 'steady') : e.tactic.message,
         stats: bikeStats(bikes, bike),
         broken: Object.values(bike.parts).filter((p) => p.condition <= 0).length,
@@ -387,6 +409,7 @@ export class MotoSim {
       };
     });
     this.player = this.riders.find((r) => r.e.player);
+    this.lastAway = Math.max(0, ...this.riders.map((r) => r.time));
   }
 
   get lap(): number {
@@ -438,6 +461,7 @@ export class MotoSim {
     Object.assign(this.xp, b.xp);
     if (this.playerBike) this.playerBike.parts = structuredClone(b.parts);
     this.riders.forEach((r, i) => Object.assign(r, { ...b.riders[i], lapTimes: [...b.riders[i].lapTimes] }));
+    this.lastAway = b.lastAway;
     change();
     return this.nextLap();
   }
@@ -449,7 +473,8 @@ export class MotoSim {
       passes: this.passes,
       xp: { ...this.xp },
       parts: this.playerBike ? structuredClone(this.playerBike.parts) : {},
-      riders: this.riders.map((r) => ({ time: r.time, laps: r.laps, lapTimes: [...r.lapTimes], message: r.message, stats: r.stats, broken: r.broken, retired: r.retired, reason: r.reason })),
+      riders: this.riders.map((r) => ({ time: r.time, laps: r.laps, lapTimes: [...r.lapTimes], sprintTime: r.sprintTime, message: r.message, stats: r.stats, broken: r.broken, retired: r.retired, reason: r.reason })),
+      lastAway: this.lastAway,
     };
     const lap = ++this.lapNo;
     const { sim } = this.racing;
@@ -482,7 +507,15 @@ export class MotoSim {
       for (let i = 0; i < n; i++) incident.add(pool.splice(Math.floor(lapRng() * pool.length), 1)[0]);
     }
 
+    // A sprint times each test from when the rider leaves the start line.
+    const away = new Map(active.map((r) => [r, r.time]));
+
     plan.secs.forEach((si, leg) => {
+      if (this.sprint && (si === SPRINT_QUEUE || this.track.sections[si]?.type === RETURN_LANE)) {
+        order = this.sprintTransit(si, plan.metres[leg], order, cur, away, out);
+        for (const r of order) trace.times[r.e.id].push(cur.get(r)!);
+        return;
+      }
       // The start straight rides as a start (gate bonus, start skills) in a race, in practice as a
       // straight; its end rides as the first corner. A lap section left as a first corner from
       // before (the first corner is no longer a section) rides as a flat corner.
@@ -554,7 +587,8 @@ export class MotoSim {
       for (const r of done) trace.times[r.e.id].push(cur.get(r)!);
       order = done.slice().sort((a, b) => cur.get(a)! - cur.get(b)!);
       // Clean air and traffic after the first stretch of the lap the field joins on lap 1 (Spec 10.4).
-      if (lap === 1 && leg === Math.min(1, plan.secs.length - 1) && !this.opts.practice) {
+      // A sprint has no pack to get clear of.
+      if (lap === 1 && leg === Math.min(1, plan.secs.length - 1) && !this.opts.practice && !this.sprint) {
         const ca = sim.cleanAir;
         order.forEach((r, i) => {
           if (i < ca.top) air.set(r, 1 - ca.bonusPct / 100);
@@ -567,11 +601,41 @@ export class MotoSim {
       if (out.has(r)) continue;
       r.time = cur.get(r)!;
       r.laps += 1;
-      r.lapTimes.push(r.time - startTimes.get(r)!);
+      // A sprint lap's time is the timed test alone, from leaving the start line to the finish line.
+      const lapTime = r.time - (this.sprint ? away.get(r)! : startTimes.get(r)!);
+      r.lapTimes.push(lapTime);
+      if (this.sprint) r.sprintTime += lapTime;
     }
     if (this.player) this.rng = draws.get(this.player)!;
     if (this.player && !this.player.retired && active.includes(this.player)) this.wearPlayer(trace, plan.metres.reduce((a, m) => a + m, 0) / 1000);
     return trace;
+  }
+
+  /**
+   * A sprint's untimed stretches, which nobody races: the roll down the return lane at the
+   * return speed, single file in the order riders finished, and the queue at the start line,
+   * where each rider leaves in the order they got there, the interval after the rider before
+   * (lastAway carries on from lap to lap, so a lap's first rider waits on the last lap's last).
+   * Returns the riding order after it.
+   */
+  private sprintTransit(si: number, metres: number, order: RiderState[], cur: Map<RiderState, number>, away: Map<RiderState, number>, out: Set<RiderState>): RiderState[] {
+    const going = order.filter((r) => !out.has(r)).sort((a, b) => cur.get(a)! - cur.get(b)!);
+    let prev = -Infinity;
+    for (const r of going) {
+      if (si === SPRINT_QUEUE) {
+        const at = Math.max(cur.get(r)!, this.lastAway + this.sprintRules.interval);
+        this.lastAway = at;
+        cur.set(r, at);
+        away.set(r, at);
+      } else {
+        // Everyone rolls at the same speed, so nobody closes on the rider ahead; a rider who
+        // finished right behind another still keeps a bike's gap.
+        const at = Math.max(cur.get(r)! + metres / (this.cls.refSpeed * this.sprintRules.returnSpeed), prev + this.racing.sim.blockedGap);
+        cur.set(r, at);
+      }
+      prev = cur.get(r)!;
+    }
+    return going;
   }
 
   /** Runs the rest of the moto with no changes, for auto-complete. */
@@ -582,7 +646,9 @@ export class MotoSim {
   }
 
   results(): RiderResult[] {
-    const sorted = [...this.riders].sort((a, b) => Number(a.retired) - Number(b.retired) || b.laps - a.laps || a.time - b.time);
+    // A sprint is won on the timed tests added up, not on who crosses the line first.
+    const raced = (r: RiderState) => (this.sprint ? r.sprintTime : r.time);
+    const sorted = [...this.riders].sort((a, b) => Number(a.retired) - Number(b.retired) || b.laps - a.laps || raced(a) - raced(b));
     const leader = sorted[0];
     return sorted.map((r, i) => ({
       id: r.e.id,
@@ -591,11 +657,11 @@ export class MotoSim {
       player: r.e.player,
       position: i + 1,
       laps: r.laps,
-      time: r.time,
+      time: raced(r),
       bestLap: r.lapTimes.length ? Math.min(...r.lapTimes) : null,
       retired: r.retired,
       reason: r.reason,
-      gap: i === 0 ? formatTime(r.time) : r.retired ? 'DNF' : r.laps < leader.laps ? `+${leader.laps - r.laps} lap${leader.laps - r.laps > 1 ? 's' : ''}` : `+${(r.time - leader.time).toFixed(1)}s`,
+      gap: i === 0 ? formatTime(raced(r)) : r.retired ? 'DNF' : r.laps < leader.laps ? `+${leader.laps - r.laps} lap${leader.laps - r.laps > 1 ? 's' : ''}` : `+${(raced(r) - raced(leader)).toFixed(1)}s`,
     }));
   }
 

@@ -6,10 +6,10 @@ import type { SceneryItem, TrackDef } from '../core/race';
 import { START_HOLD, type RiderPose, type RiderState } from '../core/riderAI';
 import { CHEER_ITEM, CHEER_RANGE, CHEER_WALK, cheerAction, cheerColour, cheerRoute, cheerTiming, cheerVariant, REACT_SECONDS, VARIANT_SCALE, type CheerAction } from '../core/cheer';
 import { alongRoute, OFFICIAL_ITEM, OFFICIAL_SCALE, officialPlan, placedOfficial, routeLength, walkProgress, BOARD_MOVE, BOARD_SIDEWAYS, WALK_FROM, WALK_TO, type OfficialSpot } from '../core/startOfficial';
-import { nearestOnLap, pointAt, START_PAD, startPointAt } from '../core/trackGeom';
+import { isSprint, nearestOnLap, pointAt, RETURN_LANE, START_PAD, startPointAt } from '../core/trackGeom';
 import { DEFAULT_TRACK_WIDTH, GRID_H, GRID_W, trackKind, type SceneryDef, type TrackPartsData } from '../core/trackParts';
-import { archSpan } from '../core/trackClearance';
-import { BIKE_LENGTH, CAM_AZ, LIP_AT, TrackSurface } from '../core/trackSurface';
+import { archSpan, SPANS_TRACK, sprintPlace, SPRINT_START_ITEM, SurfaceIndex, surfacePoints } from '../core/trackClearance';
+import { BIKE_LENGTH, CAM_AZ, LIP_AT, LOGS_AT, TrackSurface } from '../core/trackSurface';
 import { COLORS, TEXT_RES } from '../ui/theme';
 import { isPaddock } from '../core/paddock';
 import { paddockParts, U as METRE } from './paddock';
@@ -194,6 +194,8 @@ export class RaceView {
   private lastClock = 0;
   private dead = false;
   private readonly patchSpans: { from: number; to: number; color: number }[];
+  /** Lap fractions of the water crossings' streams, where the back wheel throws up spray. */
+  private readonly waterSpans: [number, number][] = [];
   private terrain = new Float32Array(0);
   private readonly labels: Phaser.GameObjects.Container;
   /** Tall scenery that fades when a rider is behind it, so it never hides the racing. */
@@ -347,6 +349,7 @@ export class RaceView {
       const flat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
       this.scene3.add(this.mergeParts(low, flat));
     }
+    this.buildEnduro();
 
     this.marker = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.55, 4), new THREE.MeshBasicMaterial({ color: COLORS.accent }));
     this.marker.rotation.x = Math.PI;
@@ -485,7 +488,7 @@ export class RaceView {
         const f = i / n;
         if (!this.drawn(f)) continue;
         const p = s.spot(f, 0);
-        mid.push({ x: p.x, z: p.z, r: s.hw * (LIP_AT + Math.max(s.skirt(f, -1), s.skirt(f, 1))), l: s.lift(f), seg: 0 });
+        mid.push({ x: p.x, z: p.z, r: s.hwAt(f) * (LIP_AT + Math.max(s.skirt(f, -1), s.skirt(f, 1))), l: s.lift(f), seg: 0 });
       }
       const lapEnd = mid.length;
       for (let u = -START_PAD; u < s.start.total; u += 0.5) {
@@ -755,7 +758,7 @@ export class RaceView {
       const deck = s.height(f, 0);
       const top = deck + ARCH_CLEAR;
       for (const side of [-1, 1]) {
-        const lane = (side * span) / 2 / s.hw;
+        const lane = (side * span) / 2 / s.hwAt(f);
         const p = s.spot(f, lane);
         const base = Math.min(this.terrainAt(p.x, p.z), s.height(f, lane)) - 0.2;
         const post = new THREE.Mesh(new THREE.BoxGeometry(0.5, top - base, 0.5), this.mat(0xd8d8d8));
@@ -873,6 +876,207 @@ export class RaceView {
     mesh.receiveShadow = true;
     mesh.castShadow = true;
     return mesh;
+  }
+
+  // ---- enduro sections and sprints (Boss, 29 Oct 2026) ----
+
+  /**
+   * What the enduro sections are made of, laid on the track: rocks, roots and logs where the
+   * surface bucks (trackSurface sectionShape), a stream across a water crossing, and trees close
+   * on both sides of woods singletrack. On a sprint, its start at the start line (unless the track
+   * places one), and stakes and tape down both sides of the return lane.
+   */
+  private buildEnduro(): void {
+    const s = this.surface;
+    const parts: THREE.Mesh[] = [];
+    const water: THREE.Mesh[] = [];
+    const rnd = (k: number) => noise(k * 13.37 + 5.1);
+    let near: SurfaceIndex | null = null;
+    const index = () => (near ??= new SurfaceIndex(surfacePoints(this.track)));
+    const sitting = (m: THREE.Mesh, f: number, lane: number, lift = 0) => {
+      const p = s.spot(f, lane);
+      m.position.set(p.x, s.height(f, lane) + lift, p.z);
+      return p;
+    };
+    const across = (f: number) => s.spot(f, 0).ang;
+    this.track.sections.forEach((sec, si) => {
+      const f0 = s.bounds[si];
+      const f1 = s.bounds[si + 1];
+      const len = (f1 - f0) * s.g.total;
+      const at = (u: number) => f0 + (f1 - f0) * u;
+      switch (sec.type) {
+        case 'rocks': {
+          // Stones of every size, the biggest pushed out towards the edges where riders steer round them.
+          const n = Math.round(len * 3.2);
+          for (let k = 0; k < n; k++) {
+            const f = at(0.03 + 0.94 * rnd(si * 997 + k));
+            const big = rnd(si * 31 + k * 7) > 0.8;
+            const lane = (rnd(si * 53 + k * 3) * 2 - 1) * (big ? 1.15 : 0.95);
+            const r = (big ? 0.2 : 0.08) + 0.1 * rnd(si * 71 + k);
+            const m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), this.mat(shade(0x9a958a, 0.75 + 0.35 * rnd(si * 19 + k)), { flatShading: true }));
+            sitting(m, f, lane, r * 0.35);
+            m.scale.y = 0.6;
+            m.rotation.set(rnd(k) * 3, rnd(k * 3) * 3, 0);
+            parts.push(m);
+          }
+          break;
+        }
+        case 'roots': {
+          // Roots snaking across the track from the trees either side, half sunk in the dirt.
+          const n = Math.max(3, Math.round(len * 0.9));
+          for (let k = 0; k < n; k++) {
+            const f = at(0.06 + 0.88 * rnd(si * 211 + k));
+            const reach = s.hwAt(f) * 2.5;
+            const m = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.07, reach, 6), this.mat(shade(0x5a3a20, 0.85 + 0.3 * rnd(k))));
+            sitting(m, f, 0, 0.02);
+            m.rotation.set(0, -across(f) + (rnd(si * 7 + k) - 0.5) * 0.9, Math.PI / 2);
+            parts.push(m);
+          }
+          break;
+        }
+        case 'logs':
+        case 'log_step': {
+          // Logs across the track, as wide as its lips, on the humps the surface has for them.
+          const h = this.metreUnits(sec.height ?? (sec.type === 'logs' ? 0.4 : 0.6));
+          const spots = sec.type === 'logs' ? LOGS_AT : [0.5];
+          spots.forEach((u, k) => {
+            const f = at(u);
+            const r = h / 2;
+            const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.05, s.hwAt(f) * 2 * LIP_AT + 0.3, 12), this.mat(shade(0x7a5230, 0.9 + 0.2 * rnd(si + k))));
+            sitting(m, f, 0, -h / 2 + r * 0.9);
+            m.position.y = s.lift(f) + r * 0.95;
+            m.rotation.set(0, -across(f), Math.PI / 2);
+            parts.push(m);
+            for (const side of [-1, 1]) {
+              const e = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.9, r * 0.9, 0.02, 12), this.mat(0xc8a878));
+              const p = s.spot(f, side * (LIP_AT + 0.15 / s.hwAt(f)));
+              e.position.set(p.x, s.lift(f) + r * 0.95, p.z);
+              e.rotation.set(0, -across(f), Math.PI / 2);
+              parts.push(e);
+            }
+          });
+          break;
+        }
+        case 'water_crossing': {
+          // A stream running across the track: water over the section and out into the grass both sides.
+          const rows = Math.max(6, Math.ceil(len / 0.3));
+          const pos: number[] = [];
+          const idx: number[] = [];
+          // Across: out into the grass each side (grid units past the lip), wavering along the stream's banks.
+          const lanesOut = [-4, -2.2, -LIP_AT, -1, 0, 1, LIP_AT, 2.2, 4];
+          for (let i = 0; i <= rows; i++) {
+            const u = 0.15 + (0.7 * i) / rows;
+            const f = at(u);
+            const hw = s.hwAt(f);
+            const bank = Math.sin(Math.PI * (i / rows));
+            for (const l of lanesOut) {
+              const out = Math.abs(l) > LIP_AT ? (Math.abs(l) - LIP_AT) * (0.55 + 0.45 * bank) * (0.85 + 0.3 * rnd(si * 17 + i * 3 + (l > 0 ? 1 : 0))) : 0;
+              const lane = Math.abs(l) > LIP_AT ? Math.sign(l) * (LIP_AT + out / hw) : l;
+              const p = s.spot(f, lane);
+              const y = Math.abs(lane) <= LIP_AT ? s.height(f, lane) : this.terrainAt(p.x, p.z);
+              pos.push(p.x, y + 0.06, p.z);
+            }
+            // Ripples and the odd stone in the stream.
+            if (i % 3 === 1) {
+              const rip = new THREE.Mesh(new THREE.BoxGeometry(0.6 + rnd(i) * 0.6, 0.015, 0.05), this.mat(0xcfe6f6));
+              const lane = (rnd(si * 5 + i) * 2 - 1) * (LIP_AT + 1.5 / hw);
+              const p = s.spot(f, lane);
+              rip.position.set(p.x, (Math.abs(lane) <= LIP_AT ? s.height(f, lane) : this.terrainAt(p.x, p.z)) + 0.075, p.z);
+              rip.rotation.y = -across(f) + Math.PI / 2;
+              parts.push(rip);
+            }
+          }
+          const cols = lanesOut.length;
+          for (let i = 0; i < rows; i++) for (let j = 0; j < cols - 1; j++) {
+            const a = i * cols + j;
+            idx.push(a, a + cols, a + 1, a + 1, a + cols, a + cols + 1);
+          }
+          const geo = new THREE.BufferGeometry();
+          geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+          geo.setIndex(idx);
+          geo.computeVertexNormals();
+          const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: 0x4a86c0, transparent: true, opacity: 0.78, side: THREE.DoubleSide }));
+          m.receiveShadow = true;
+          water.push(m);
+          this.waterSpans.push([at(0.15), at(0.85)]);
+          break;
+        }
+        case 'woods': {
+          // Trees close on both sides, each clear of the rest of the track.
+          const step = 2.2;
+          const n = Math.max(2, Math.floor(len / step));
+          for (let k = 0; k <= n; k++) {
+            for (const side of [-1, 1]) {
+              const f = at(k / n);
+              const hw = s.hwAt(f);
+              const off = hw * LIP_AT + 1.0 + 1.4 * rnd(si * 41 + k * 2 + side);
+              const p = s.spot(f, side * (off / hw));
+              if (index().offTrack(p.x, p.z) < 1.2) continue;
+              const tree = this.buildItem({ type: rnd(si * 9 + k * 5 + side) > 0.25 ? 'tree' : 'bush', x: p.x, y: p.z, w: 2.4 + rnd(k + si) * 1.4, h: 2.4 });
+              if (tree) this.addTall(tree);
+            }
+          }
+          break;
+        }
+        case RETURN_LANE: {
+          if (!isSprint(this.track) || si !== 0) break;
+          // Stakes and tape down both sides, so the lane reads as single file.
+          const n = Math.max(2, Math.floor(len / 2.5));
+          const tape = this.mat(0xf0e030);
+          for (let k = 1; k < n; k++) {
+            for (const side of [-1, 1]) {
+              const f = at(k / n);
+              const hw = s.hwAt(f);
+              const p = s.spot(f, side * (LIP_AT + 0.35 / hw));
+              const stake = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.6, 0.05), this.mat(0xe8e8e8));
+              stake.position.set(p.x, this.terrainAt(p.x, p.z) + 0.3, p.z);
+              parts.push(stake);
+              if (k + 1 < n) {
+                const q = s.spot(at((k + 1) / n), side * (LIP_AT + 0.35 / s.hwAt(at((k + 1) / n))));
+                const run = Math.hypot(q.x - p.x, q.z - p.z);
+                const t = new THREE.Mesh(new THREE.BoxGeometry(run, 0.04, 0.02), tape);
+                t.position.set((p.x + q.x) / 2, (this.terrainAt(p.x, p.z) + this.terrainAt(q.x, q.z)) / 2 + 0.52, (p.z + q.z) / 2);
+                t.rotation.y = -Math.atan2(q.z - p.z, q.x - p.x);
+                parts.push(t);
+              }
+            }
+          }
+          break;
+        }
+      }
+    });
+    if (parts.length) {
+      for (const m of parts) m.updateMatrix();
+      this.scene3.add(this.mergeParts(parts, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })));
+    }
+    for (const m of water) this.scene3.add(m);
+    // A sprint's start, built at the start line unless the track places its own.
+    const place = sprintPlace(this.track);
+    if (place && !this.track.scenery?.some((it) => it.type === SPRINT_START_ITEM)) {
+      const start = this.buildItem({ type: SPRINT_START_ITEM, ...place });
+      if (start) this.scene3.add(start);
+    }
+  }
+
+  /** Adds a tall object that fades when it stands between the camera and a rider (fadeBlockers), as placed scenery does. */
+  private addTall(obj: THREE.Object3D): void {
+    this.scene3.add(obj);
+    obj.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(obj);
+    const mats: THREE.Material[] = [];
+    obj.traverse((o) => {
+      const m = (o as THREE.Mesh).material;
+      if (m) mats.push(...(Array.isArray(m) ? m : [m]));
+    });
+    for (const m of mats) m.transparent = true;
+    const corners: THREE.Vector3[] = [];
+    for (const cx of [box.min.x, box.max.x]) for (const cy of [box.min.y, box.max.y]) for (const cz of [box.min.z, box.max.z]) corners.push(new THREE.Vector3(cx, cy, cz));
+    this.tall.push({ corners, mats, faded: false });
+  }
+
+  /** Metres of height to grid units, as the track surface draws them. */
+  private metreUnits(m: number): number {
+    return this.surface.units(m);
   }
 
   /** The start gate across the start straight, just ahead of the line-up. */
@@ -1192,7 +1396,7 @@ export class RaceView {
     if (it.type === OFFICIAL_ITEM) return null;
     const def = this.parts.scenery.find((s) => s.id === it.type);
     // The finish arch always spans the track (trackClearance.ts archSpan), whatever width it was saved with.
-    const w = it.type === 'finish_arch' ? archSpan(this.track.width ?? DEFAULT_TRACK_WIDTH) : it.w ?? def?.w ?? 2;
+    const w = SPANS_TRACK.has(it.type) ? archSpan(this.track.width ?? DEFAULT_TRACK_WIDTH) : it.w ?? def?.w ?? 2;
     const d = it.h ?? def?.h ?? 2;
     const color = hex(it.color ?? def?.color, 0x888888);
     const text = it.text ?? def?.text ?? '';
@@ -2001,7 +2205,7 @@ export class RaceView {
       // Dust off the back wheel.
       if (dc > 0 && p.speed > 6 && p.air < 0.15 && p.state === 'riding' && Math.abs(p.lane) <= 1) {
         const n = Math.min(2, dc * p.speed * 0.12);
-        const water = !onStart && this.patchAt(f) === 0x4a86c0;
+        const water = !onStart && (this.patchAt(f) === 0x4a86c0 || this.waterSpans.some(([a, b]) => f >= a && f <= b));
         for (let k = 0; k < n || (k === 0 && noise(clock * 977 + mx) < n); k++) this.puff(back.x, back.y + 0.1, back.z, water ? 0xdff0ff : 0xcaa478);
       }
     }
