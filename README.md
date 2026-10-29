@@ -8,6 +8,10 @@ A single-player, offline motocross career RPG. Start as an unknown rider with a 
 
 This is **Alpha v1.1**: the whole career loop from a broken bike to race days at three venues, player-made tracks, and now the **Local Champion Championship** for the Area 1 badge. All art is placeholder art in the agreed style, imported from the project's art threads.
 
+## A hobby project, offered as-is
+
+This is a hobby project, made for fun in spare time. It is offered as-is, with no warranty, no support and no promised updates. There may be bugs, and some may never be fixed. Issues are turned off on this repository and I'm not able to answer questions, take requests or fix problems. You're welcome to play it, learn from it and change it for your own use, at your own risk. Back up anything you care about: your career is saved in the browser you play in, so use **Load → Export save** now and then to keep a copy as a file, and keep copies of your own tracks (the `.track.json` files in `public/mods/tracks/`, or the editor's **Export**).
+
 ## What Alpha v1.1 offers
 
 The game loop: **earn money, keep the bike going, race, level up, repeat.**
