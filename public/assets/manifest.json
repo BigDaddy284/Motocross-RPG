@@ -29,12 +29,12 @@
   },
   {
    "id": "int-home-bike-shop",
-   "title": "General bike shop",
+   "title": "Moto78",
    "kind": "interior"
   },
   {
    "id": "int-home-local-garage",
-   "title": "Local garage",
+   "title": "Phoenix MX",
    "kind": "interior"
   },
   {
@@ -69,7 +69,7 @@
   },
   {
    "id": "int-home-van-office",
-   "title": "Van seller's office",
+   "title": "Nicholls Used Motors",
    "kind": "interior"
   },
   {
@@ -122,17 +122,17 @@
   },
   "sheets": {
    "npc-01-garage-mechanic": {
-    "name": "Garage mechanic",
+    "name": "Paul Phoenix (Phoenix MX)",
     "walk": "art/characters/npcs/npc-01-garage-mechanic.png",
     "act": "art/characters/npcs/npc-01-garage-mechanic.act.png"
    },
    "npc-02-van-seller": {
-    "name": "Van seller",
+    "name": "Jedrick Nicholls (Nicholls Used Motors)",
     "walk": "art/characters/npcs/npc-02-van-seller.png",
     "act": "art/characters/npcs/npc-02-van-seller.act.png"
    },
    "npc-03-bike-shop-owner": {
-    "name": "General bike shop owner",
+    "name": "Bill Rothon (Moto78)",
     "walk": "art/characters/npcs/npc-03-bike-shop-owner.png",
     "act": "art/characters/npcs/npc-03-bike-shop-owner.act.png"
    },
@@ -170,6 +170,11 @@
     "name": "Practice track owner",
     "walk": "art/characters/npcs/npc-10-practice-track-owner.png",
     "act": "art/characters/npcs/npc-10-practice-track-owner.act.png"
+   },
+   "npc-17-track-official": {
+    "name": "Track official (Riverside)",
+    "walk": "art/characters/npcs/npc-17-track-official.png",
+    "act": "art/characters/npcs/npc-17-track-official.act.png"
    },
    "npc-11-modifier-machine-owner": {
     "name": "Modifier machine owner",

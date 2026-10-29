@@ -52,7 +52,7 @@
       "returns": [{"tile": [1,4]},{"tile": [3,4], "name": "side_door"}]
     },
     {
-      "id": "bld.home.bike_shop", "name": "General bike shop", "zone": "Home Town", "npc": "General bike shop owner",
+      "id": "bld.home.bike_shop", "name": "Moto78", "zone": "Home Town", "npc": "Bill Rothon",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [0,320,512,320], "at": [0,0]}],
       "footprint": [
         "#######",

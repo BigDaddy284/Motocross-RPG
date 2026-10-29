@@ -22,7 +22,7 @@
       "effects": { "money": 120 }
     },
     {
-      "id": "collect_order", "journal": "Collect the garage's parts order from the general bike shop.",
+      "id": "collect_order", "journal": "Collect the garage's parts order from Moto78, the bike shop up the road.",
       "on": { "talk": "npc.bike_shop_owner" }, "lines": "story.collect_order",
       "effects": { "give": ["task.parts_order"] }
     },

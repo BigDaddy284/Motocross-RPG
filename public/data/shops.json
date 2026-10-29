@@ -21,7 +21,7 @@
   "spareLimit": 20,
   "shops": [
     {
-      "id": "shop.bike", "name": "General bike shop", "npc": "npc.bike_shop_owner", "map": "int-home-bike-shop",
+      "id": "shop.bike", "name": "Moto78", "npc": "npc.bike_shop_owner", "map": "int-home-bike-shop",
       "actions": ["shop.bike_parts"], "needs": "tutorial_done",
       "greeting": "Engine, suspension and bodywork for the 50s and 65s, Grades 1 to 3. Grade 1 is always on the shelf; the better stuff comes and goes.",
       "sells": {

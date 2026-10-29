@@ -24,7 +24,7 @@
     ] },
     "story.paid_top_end": { "lines": [
       { "speaker": "npc", "text": "Hear that? Sounds like a bike again. Nice work. Here's the £120 I promised." },
-      { "speaker": "npc", "text": "If you're after more, I've got jobs. First, pop to the general bike shop up the road and collect my parts order." }
+      { "speaker": "npc", "text": "If you're after more, I've got jobs. First, pop up the road to Moto78, Bill's bike shop, and collect my parts order." }
     ] },
     "story.collect_order": { "lines": [
       { "speaker": "npc", "text": "The garage order? It's right here. Mind, it's heavier than it looks." },
@@ -96,10 +96,12 @@
       { "speaker": "npc", "text": "How's the 50 running? Bring it round if you need bench time." }
     ] },
     "van_seller.hello": { "lines": [
-      { "speaker": "npc", "text": "Treat that motor right and it'll get you to every track in the area." }
+      { "speaker": "npc", "text": "Treat that motor right and it'll get you to every track in the area." },
+      { "speaker": "npc", "text": "I still race when I can get away from the forecourt. See you on the gate, and don't expect me to move over." }
     ] },
     "bike_shop_owner.hello": { "lines": [
-      { "speaker": "npc", "text": "Parts for 50s and 65s, Grades 1 to 3. Have a look at the counter." }
+      { "speaker": "npc", "text": "Bill Rothon, Moto78. Parts for 50s and 65s, Grades 1 to 3. Have a look at the counter." },
+      { "speaker": "npc", "text": "I race too, when the shop lets me. Everything on these shelves I've broken myself at some point, so I know what lasts." }
     ] },
     "tyre_specialist.hello": { "lines": [
       { "speaker": "npc", "text": "Tyres, rims, spokes. Hard pack round here, so you'll want a hard-pack rear." }

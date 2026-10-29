@@ -5,7 +5,7 @@
     { "id": "cpu.local_racer", "name": "Louis Jonez", "tag": "Local Champion", "areas": [1], "level": 15, "skills": { "overtaking": 17 }, "bike": { "brand": "yamamoto", "grade": 1, "condition": 0.95 }, "tactic": { "message": "steady", "push": 1, "pushGap": 2 }, "style": { "line": "outside", "jumps": "float" } },
     { "id": "cpu.r03", "name": "Jeno Rothon", "areas": [1], "level": 12, "bike": { "brand": "hondmoto", "grade": 2, "condition": 0.7 }, "tactic": { "message": "steady" } },
     { "id": "cpu.r04", "name": "Ellie Shaw", "areas": [1], "level": 11, "skills": { "cornering": 15 }, "bike": { "brand": "sukimoto", "grade": 1, "condition": 0.9 }, "tactic": { "message": "steady", "push": 2, "pushGap": 2 } },
-    { "id": "cpu.r05", "name": "Jordan Pike", "areas": [1], "level": 9, "skills": { "starts": 14 }, "bike": { "brand": "kwakmoto", "grade": 1, "condition": 0.85 }, "tactic": { "message": "push" } },
+    { "id": "cpu.r05", "name": "Bill Rothon", "areas": [1], "level": 9, "skills": { "starts": 14 }, "bike": { "brand": "kwakmoto", "grade": 1, "condition": 0.85 }, "tactic": { "message": "push" } },
     { "id": "cpu.r06", "name": "Sam Doyle", "areas": [1], "level": 8, "bike": { "brand": "yamamoto", "grade": 1, "condition": 0.75 }, "tactic": { "message": "steady" } },
     { "id": "cpu.r07", "name": "Mia Hart", "areas": [1], "level": 7, "skills": { "consistency": 11 }, "bike": { "brand": "hondmoto", "grade": 1, "condition": 0.8 }, "tactic": { "message": "save_bike" } },
     { "id": "cpu.r08", "name": "Jedrick Nicholls", "areas": [1], "level": 6, "bike": { "brand": "sukimoto", "grade": 1, "condition": 0.7 }, "tactic": { "message": "steady" } },

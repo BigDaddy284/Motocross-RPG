@@ -10,8 +10,8 @@ const maps = loadMaps();
 const T = 64;
 
 /** The Home Town map file as it stands (Alpha v1: 2×2 road exits and the local racer outside the garage). */
-// Updated for the Used Motors building and its seller (Boss, 28 Oct 2026), the garage renamed Phoenix MX and Used Motors renamed Nicholls Used Motors (29 Oct 2026).
-const HOME_TOWN_SHA256 = 'fa0c0536e5b4abf3d4e72a780d97a3fccc31a0eb91890bfede6634a30bb6f1c7';
+// Updated for the Used Motors building and its seller (Boss, 28 Oct 2026), the garage renamed Phoenix MX and Used Motors renamed Nicholls Used Motors and the bike shop renamed Moto78 (29 Oct 2026).
+const HOME_TOWN_SHA256 = '30d047f8b45cbc5efa088fb475005aeb35fc64812c43652a04c77fdb6a7f8400';
 
 function pngSize(rel: string): [number, number] {
   const b = fs.readFileSync(`public/assets/${rel}`);
