@@ -323,7 +323,7 @@ body.final .final-hide { display: none !important; }
   </div>
 
   <div class="pane" id="pane-scenery">
-    <div class="hint">Pick an item: it follows the pointer, see-through, where a click would place it; <kbd>Q</kbd> <kbd>E</kbd> turn it first. Click an item to select it, drag to move it (arrow keys nudge it), <kbd>Q</kbd> <kbd>E</kbd> turn it 15°, with <kbd>Shift</kbd> 5°, with <kbd>Alt</kbd> 1° (or type any angle in Turn), <kbd>Del</kbd> removes it. <b>Snap object</b> joins it onto a nearby item, end to end or side by side; <kbd>Alt</kbd> drops the snapping. Snapped, <kbd>Q</kbd> <kbd>E</kbd> swing it round the join, so a fence can turn off another and stay joined. The white arrow shows which way it faces.</div>
+    <div class="hint">Pick an item: it follows the pointer, see-through, where a click would place it; <kbd>Q</kbd> <kbd>E</kbd> turn it first. Click an item to select it, drag to move it (arrow keys nudge it), <kbd>Q</kbd> <kbd>E</kbd> turn it 15°, with <kbd>Shift</kbd> 5°, with <kbd>Alt</kbd> 1° (or type any angle in Turn; left empty, a marshal, flag man, pit crew, fan or TV crew faces the track on its own), <kbd>Del</kbd> removes it. <b>Snap object</b> joins it onto a nearby item, end to end or side by side; <kbd>Alt</kbd> drops the snapping. Snapped, <kbd>Q</kbd> <kbd>E</kbd> swing it round the join, so a fence can turn off another and stay joined. The white arrow shows which way it faces.</div>
     <div class="pal" id="sceneryPal"></div>
     <div class="box" id="sceneryDetail"></div>
   </div>
@@ -600,7 +600,7 @@ const app = {
   groundBrush: null,
   sceneryBrush: null,
   /** How the next scenery item placed is turned, in degrees (Q and E before placing). */
-  placeRot: 0,
+  placeRot: null,
   /** Whether Alt was held on the last pointer move (no snapping), for the placing preview. */
   hoverAlt: false,
   /** The scenery item the one being placed or dragged is snapped onto (Snap object), or -1. */
@@ -3116,8 +3116,8 @@ function renderSceneryDetail() {
     const h = field('Depth', num(it.h, String(def?.h ?? ''), 0.5));
     h.addEventListener('change', () => editItem((x) => { const v = Number(h.value); if (h.value === '' || v === def?.h) delete x.h; else if (v > 0) x.h = round1(v); }));
   }
-  const rot = field('Turn', num(it.rot ?? 0, '0', 15));
-  rot.addEventListener('change', () => editItem((x) => { const v = ((Math.round(Number(rot.value)) % 360) + 360) % 360; if (v) x.rot = v; else delete x.rot; }));
+  const rot = field('Turn', num(it.rot, facesTrack(it.type) ? 'faces the track' : '0', 15));
+  rot.addEventListener('change', () => editItem((x) => { if (rot.value === '') delete x.rot; else x.rot = ((Math.round(Number(rot.value)) % 360) + 360) % 360; }));
   const btns = document.createElement('div');
   btns.className = 'row';
   btns.style.marginTop = '4px';
@@ -3231,8 +3231,8 @@ function turnItem(d) {
       it.x = clamp(round2(p.x + dx * Math.cos(b) - dy * Math.sin(b)), -SCENE_OUT, GRID_W + SCENE_OUT);
       it.y = clamp(round2(p.y + dx * Math.sin(b) + dy * Math.cos(b)), -SCENE_OUT, GRID_H + SCENE_OUT);
     }
-    const v = ((((it.rot ?? 0) + d) % 360) + 360) % 360;
-    if (v) it.rot = v; else delete it.rot;
+    // Turned by hand, even back to 0 (rot left out means it faces the track on its own).
+    it.rot = ((((it.rot ?? 0) + d) % 360) + 360) % 360;
   });
 }
 /**
@@ -3825,6 +3825,8 @@ function facingOf(t, it, i) {
   }
   return { x, y, ang };
 }
+/** Items that turn to the track on their own when not turned by hand (Turn left empty). */
+function facesTrack(type) { return type === 'marshal' || type === 'flagger' || type === 'pit_crew' || type === CHEER || FACES_TRACK.has(type); }
 /** The facing arrows the race view draws: the selected item's (or the one being dragged) and the one about to be placed. */
 function facingArrows(t, ghostItem) {
   const out = [];
@@ -4007,8 +4009,8 @@ function renderVehicleDetail(box, t, it, def, field, editItem) {
     const w = field('Width', (() => { const n = document.createElement('input'); n.type = 'number'; n.step = '0.5'; n.min = '0'; n.value = it.w === undefined ? '' : String(it.w); n.placeholder = String(def.w); return n; })());
     w.addEventListener('change', () => editItem((x) => { const v = Number(w.value); if (w.value === '' || v === def.w) delete x.w; else if (v > 0) x.w = round1(v); }));
   }
-  const rot = field('Turn', (() => { const n = document.createElement('input'); n.type = 'number'; n.step = '15'; n.value = String(it.rot ?? 0); return n; })());
-  rot.addEventListener('change', () => editItem((x) => { const v = ((Math.round(Number(rot.value)) % 360) + 360) % 360; if (v) x.rot = v; else delete x.rot; }));
+  const rot = field('Turn', (() => { const n = document.createElement('input'); n.type = 'number'; n.step = '15'; n.value = it.rot === undefined ? '' : String(it.rot); n.placeholder = facesTrack(it.type) ? 'faces the track' : '0'; return n; })());
+  rot.addEventListener('change', () => editItem((x) => { if (rot.value === '') delete x.rot; else x.rot = ((Math.round(Number(rot.value)) % 360) + 360) % 360; }));
   const info = document.createElement('div');
   info.className = 'hint';
   const picked = 'The dashed swatch and "Picked for it" leave the choice to the track, the same each time it loads.';
@@ -4984,11 +4986,11 @@ function ghostItemForView(t) {
 /** The item a click at x, y would place: snapped onto a neighbour (Snap object) or the grid, turned as set with Q and E. */
 function itemToPlace(t, def, x, y, e) {
   const it = { type: def.id, x: round1(x), y: round1(y) };
-  if (app.placeRot) it.rot = app.placeRot;
+  if (app.placeRot !== null) it.rot = app.placeRot;
   const s = snapToItems(t, it, -1, { x, y }, e);
   it.x = clamp(s ? s.x : snapHalf(x, e), -SCENE_OUT, GRID_W + SCENE_OUT);
   it.y = clamp(s ? s.y : snapHalf(y, e), -SCENE_OUT, GRID_H + SCENE_OUT);
-  if (s && s.rot) it.rot = s.rot; else if (s) delete it.rot;
+  if (s) it.rot = s.rot;
   app.snapTo = s ? s.j : -1;
   return it;
 }
@@ -6054,8 +6056,8 @@ function dragItemTo(t, raw, e) {
   it.y = clamp(s ? s.y : snapHalf(raw.y, e), -SCENE_OUT, GRID_H + SCENE_OUT);
   // Snapped onto another item it turns the same way (and as far again as Q and E have bent it);
   // away from one it is turned as when picked up.
-  const rot = s ? s.rot : drag.start.rot ?? 0;
-  if (rot) it.rot = rot; else delete it.rot;
+  const rot = s ? s.rot : drag.start.rot;
+  if (rot === undefined) delete it.rot; else it.rot = rot;
   app.snapTo = s ? s.j : -1;
   // While it is dragged only the map and the race view follow it (the race view moves the one
   // item); the panels, checks and undo catch up when it is let go (onPointerUp).
@@ -6498,7 +6500,7 @@ window.addEventListener('keydown', (e) => {
       if (drag?.kind === 'item' && drag.started && app.snapTo >= 0) { app.snapBend += step; dragItemTo(track(), drag.raw, { altKey: drag.alt }); }
       else if (app.selItem >= 0) turnItem(step);
       else if (ghostItemForView(track()) && app.snapTo >= 0) { app.snapBend += step; requestDraw(); sendView(); }
-      else { app.placeRot = (((app.placeRot + step) % 360) + 360) % 360; requestDraw(); sendView(); }
+      else { app.placeRot = ((((app.placeRot ?? 0) + step) % 360) + 360) % 360; requestDraw(); sendView(); }
     }
     else if (e.key.startsWith('Arrow') && app.selItem >= 0) {
       e.preventDefault();
