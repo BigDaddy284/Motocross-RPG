@@ -8,7 +8,7 @@
     { "id": "cpu.r05", "name": "Jordan Pike", "areas": [1], "level": 9, "skills": { "starts": 14 }, "bike": { "brand": "kwakmoto", "grade": 1, "condition": 0.85 }, "tactic": { "message": "push" } },
     { "id": "cpu.r06", "name": "Sam Doyle", "areas": [1], "level": 8, "bike": { "brand": "yamamoto", "grade": 1, "condition": 0.75 }, "tactic": { "message": "steady" } },
     { "id": "cpu.r07", "name": "Mia Hart", "areas": [1], "level": 7, "skills": { "consistency": 11 }, "bike": { "brand": "hondmoto", "grade": 1, "condition": 0.8 }, "tactic": { "message": "save_bike" } },
-    { "id": "cpu.r08", "name": "Liam Cole", "areas": [1], "level": 6, "bike": { "brand": "sukimoto", "grade": 1, "condition": 0.7 }, "tactic": { "message": "steady" } },
+    { "id": "cpu.r08", "name": "Jedrick Nicholls", "areas": [1], "level": 6, "bike": { "brand": "sukimoto", "grade": 1, "condition": 0.7 }, "tactic": { "message": "steady" } },
     { "id": "cpu.r09", "name": "Owen Price", "areas": [1], "level": 5, "skills": { "jumps_ruts": 8 }, "bike": { "brand": "yamamoto", "grade": 1, "condition": 0.65 }, "tactic": { "message": "push" } },
     { "id": "cpu.r10", "name": "Ruby Lane", "areas": [1], "level": 4, "bike": { "brand": "kwakmoto", "grade": 1, "condition": 0.7 }, "tactic": { "message": "steady" } },
     { "id": "cpu.r11", "name": "Alfie Ward", "areas": [1], "level": 3, "bike": { "brand": "hondmoto", "grade": 1, "condition": 0.6 }, "tactic": { "message": "steady" } },

@@ -59,7 +59,7 @@
     ] },
     "story.paid_rebore": { "lines": [
       { "speaker": "npc", "text": "Perfect bore. That's £80." },
-      { "speaker": "npc", "text": "You'll want to get to the tracks next, and for that you need a motor. Go and see the used motor seller, south of here." }
+      { "speaker": "npc", "text": "You'll want to get to the tracks next, and for that you need a motor. Go and see Jedrick at Nicholls Used Motors, south of here." }
     ] },
     "story.meet_van_seller": { "lines": [
       { "speaker": "npc", "text": "Paul sent you? Then you'll want the old second-hand motor out back." },

@@ -68,7 +68,7 @@
       "effects": { "take": ["task.cylinder_rebored"], "money": 80 }
     },
     {
-      "id": "meet_van_seller", "journal": "Go and see the used motor seller about getting to the tracks.",
+      "id": "meet_van_seller", "journal": "Go and see Jedrick at Nicholls Used Motors about getting to the tracks.",
       "on": { "talk": "npc.van_seller" }, "lines": "story.meet_van_seller"
     },
     {
