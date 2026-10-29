@@ -80,3 +80,26 @@ describe('jumps', () => {
     }
   });
 });
+
+describe('finish-line jumps', () => {
+  it('keeps the finish arch banner above every rider still in the air where it stands', async () => {
+    const { ARCH_AT, ARCH_CLEAR } = await import('../src/core/jumps');
+    // A rider and bike stand about 2 m above the wheels.
+    const RIDER = 2.0;
+    for (const type of Object.keys(ARCH_AT)) {
+      const track = trackWith(type, type === 'tabletop' ? 16 : 14);
+      const s = new TrackSurface(track);
+      const f0 = s.bounds[1];
+      const span = s.bounds[2] - f0;
+      const fa = f0 + ARCH_AT[type] * span;
+      const banner = s.height(fa, 0) + ARCH_CLEAR;
+      for (const way of JUMPS[type].ways) {
+        const flight = { hops: way.hops.map(([a, b]) => [f0 + a * span, f0 + b * span] as [number, number]), launch: 1 };
+        for (const lane of [-0.8, 0, 0.8]) {
+          const [back, front] = s.wheels(fa, lane, flight);
+          expect(Math.max(back.y, front.y) + RIDER, `${type} ${way.name} lane ${lane}`).toBeLessThan(banner);
+        }
+      }
+    }
+  });
+});

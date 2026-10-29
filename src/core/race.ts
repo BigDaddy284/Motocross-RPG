@@ -131,6 +131,8 @@ export interface TrackSection {
    * the lap passes under it, 'walk' for a pedestrian tunnel through it (trackSurface.ts).
    */
   tunnel?: 'track' | 'walk';
+  /** A finish-line jump (tabletop or double): the lap's first section, with the finish arch built over it (jumps.ts ARCH_AT). */
+  finish?: true;
 }
 
 /** A stretch of the lap with a different surface, in metres from the start line (race view only). */

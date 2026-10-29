@@ -1,3 +1,4 @@
+import { ARCH_AT, ARCH_CLEAR } from '../core/jumps';
 import Phaser from 'phaser';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -295,7 +296,7 @@ export class RaceView {
     this.groundTex.anisotropy = 4;
     this.drawGround();
     this.buildTerrain();
-    this.ground.push(this.terrainMesh(), this.buildTrack(), ...this.buildPortals());
+    this.ground.push(this.terrainMesh(), this.buildTrack(), ...this.buildPortals(), ...this.buildFinishArches());
     if (this.surface.start.total > 0) this.ground.push(this.buildStart());
     this.scene3.add(...this.ground);
     this.scene3.add(this.overlay);
@@ -731,6 +732,48 @@ export class RaceView {
     mesh.receiveShadow = true;
     mesh.castShadow = true;
     return mesh;
+  }
+
+  /**
+   * The finish arch built over a finish-line jump (a section with `finish`): its posts stand on the
+   * banks beside the track, clear of every lane, and its banner spans the track ARCH_CLEAR above
+   * the surface where it stands (jumps.ts ARCH_AT), above any rider still in the air there.
+   */
+  private buildFinishArches(): THREE.Mesh[] {
+    const s = this.surface;
+    const out: THREE.Mesh[] = [];
+    const def = this.parts.scenery.find((d) => d.id === 'finish_arch');
+    const color = hex(def?.color, 0x202020);
+    const span = archSpan(this.track.width ?? DEFAULT_TRACK_WIDTH);
+    this.track.sections.forEach((sec, si) => {
+      if (!sec.finish) return;
+      const f0 = s.bounds[si];
+      const f1 = s.bounds[si + 1];
+      if (f1 === undefined) return;
+      const f = f0 + (ARCH_AT[sec.type] ?? 0.5) * (f1 - f0);
+      const c = s.spot(f, 0);
+      const deck = s.height(f, 0);
+      const top = deck + ARCH_CLEAR;
+      for (const side of [-1, 1]) {
+        const lane = (side * span) / 2 / s.hw;
+        const p = s.spot(f, lane);
+        const base = Math.min(this.terrainAt(p.x, p.z), s.height(f, lane)) - 0.2;
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.5, top - base, 0.5), this.mat(0xd8d8d8));
+        post.position.set(p.x, (top + base) / 2, p.z);
+        post.rotation.y = Math.PI / 2 - c.ang;
+        post.castShadow = true;
+        post.receiveShadow = true;
+        out.push(post);
+      }
+      const face = this.mat(0xffffff, { map: this.textTexture(def?.text || 'FINISH', color) });
+      const side = this.mat(shade(color, 0.8));
+      const banner = new THREE.Mesh(new THREE.BoxGeometry(span, 0.9, 0.35), [side, side, side, side, face, face]);
+      banner.position.set(c.x, top + 0.45, c.z);
+      banner.rotation.y = Math.PI / 2 - c.ang;
+      banner.castShadow = true;
+      out.push(banner);
+    });
+    return out;
   }
 
   /** Concrete portal frames round each tunnel's holes: a lintel along the deck's edge and a jamb at each end, both sides. */
