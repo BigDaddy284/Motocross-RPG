@@ -1353,60 +1353,53 @@ export class RaceView {
         break;
       }
       case 'skip': {
-        // A builder's skip: wider at the top than the floor, the ends sloping out, vertical ribs and
-        // lifting lugs down the sides, on two runners, with rubbish showing over the rim.
+        // A builder's skip sitting flat on the ground: a steel box with vertical long sides, the two
+        // ends sloping out to a wider rim, a rail round the rim, ribs and lifting lugs on the sides,
+        // a dark band round the foot, and rubbish showing over the rim.
         const body = this.mat(color);
         const dark = this.mat(shade(color, 0.72));
+        const steel = this.mat(0x3a3a3e);
         const top = w / 2;
-        const base = w * 0.31;
+        const base = w * 0.36;
         const H = 1.05;
-        const lift = 0.1;
         const D = d * 0.85;
         const t = 0.06;
-        // The sloping sides overhang the floor, so the sun lit a strip of ground between the skip's
-        // foot and its shadow, as if it floated. An unseen block the full size of the rim, from the
-        // ground up, casts the shadow instead, so the shadow reaches right to the foot; a dark
-        // underbody fills under the floor between the runners.
-        const caster = this.boxMesh(top * 2, lift + H, D + 0.06, new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }), 0, 0, 0);
-        caster.receiveShadow = false;
-        add(caster);
-        add(this.boxMesh(base * 2 - 0.1, lift, D - 0.1, this.mat(0x26262a), 0, 0, 0));
-        for (const z of [-D / 4, D / 4]) add(this.boxMesh(base * 2, lift, 0.14, this.mat(0x3a3a3e), 0, 0, z));
-        add(this.boxMesh(base * 2, t, D, body, 0, lift, 0));
-        // The sides: a trapezoid each, flat to the length.
+        // The floor and the long sides go right down to the ground, so nothing shows under it.
+        add(this.boxMesh(base * 2, t, D, body, 0, 0, 0));
         const side = new THREE.Shape([new THREE.Vector2(-base, 0), new THREE.Vector2(base, 0), new THREE.Vector2(top, H), new THREE.Vector2(-top, H)]);
         for (const sz of [-1, 1]) {
           const m = new THREE.Mesh(new THREE.ExtrudeGeometry(side, { depth: t, bevelEnabled: false }), body);
-          m.position.set(0, lift, sz * (D / 2) - (sz < 0 ? 0 : t));
+          m.position.set(0, 0, sz * (D / 2) - (sz < 0 ? 0 : t));
           m.castShadow = true;
           m.receiveShadow = true;
           add(m);
-          // Ribs up the side, a rail round the rim and a lifting lug at each end.
-          for (const fx of [-0.5, 0, 0.5]) add(this.boxMesh(0.1, H, 0.06, dark, fx * base * 1.4, lift, sz * (D / 2 + 0.03)));
-          add(this.boxMesh(w, 0.1, 0.1, dark, 0, lift + H - 0.1, sz * (D / 2 + 0.03)));
+          // A dark band round the foot, ribs up the side, a rail round the rim and a lug at each end.
+          add(this.boxMesh(base * 2 + 0.04, 0.12, 0.05, dark, 0, 0, sz * (D / 2 + 0.01)));
+          for (const fx of [-0.5, 0, 0.5]) add(this.boxMesh(0.1, H, 0.06, dark, fx * base * 1.3, 0, sz * (D / 2 + 0.03)));
+          add(this.boxMesh(w, 0.1, 0.1, dark, 0, H - 0.1, sz * (D / 2 + 0.03)));
           for (const sx of [-1, 1]) {
-            const lug = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.14, 10), this.mat(0x3a3a3e));
+            const lug = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.14, 10), steel);
             lug.rotation.x = Math.PI / 2;
-            lug.position.set(sx * (base + (top - base) * 0.55), lift + H * 0.55, sz * (D / 2 + 0.1));
+            lug.position.set(sx * (base + (top - base) * 0.55), H * 0.55, sz * (D / 2 + 0.1));
             add(lug);
           }
         }
-        // The ends lean out from the floor to the rim.
+        // The ends lean out from the floor to the rim, their feet on the ground.
         const run = top - base;
         const len = Math.hypot(run, H);
         for (const sx of [-1, 1]) {
           const end = this.boxMesh(t, len, D, body, 0, -len / 2, 0);
-          end.position.set(sx * (base + run / 2), lift + H / 2, 0);
+          end.position.set(sx * (base + run / 2), H / 2, 0);
           end.rotation.z = -sx * Math.atan2(run, H);
           add(end);
-          add(this.boxMesh(0.1, 0.1, D + 0.12, dark, sx * (top - 0.04), lift + H - 0.1, 0));
+          add(this.boxMesh(0.1, 0.1, D + 0.12, dark, sx * (top - 0.04), H - 0.1, 0));
         }
         // Rubbish over the rim: boards, a tyre, a sack and broken blocks.
         const junk = [[-0.6, 0.18, 0.5, 0.25, 0x8a6a44], [0.35, 0.22, 0.45, 0.3, 0x6a6a70], [-0.05, 0.3, 0.35, 0.35, 0xc8c0a8], [0.75, 0.16, 0.4, 0.28, 0x5a4a3a]];
-        for (const [fx, h, l, wd, c] of junk) add(this.boxMesh(l, h, wd, this.mat(c), fx * (top - 0.4), lift + H - h * 0.6, (fx > 0 ? -0.2 : 0.2) * D));
+        for (const [fx, h, l, wd, c] of junk) add(this.boxMesh(l, h, wd, this.mat(c), fx * (top - 0.4), H - h * 0.6, (fx > 0 ? -0.2 : 0.2) * D));
         const tyre = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.1, 8, 14), this.mat(0x1c1c22));
         tyre.rotation.set(Math.PI / 2.4, 0, 0.3);
-        tyre.position.set(-0.15 * top, lift + H + 0.02, -0.15 * D);
+        tyre.position.set(-0.15 * top, H + 0.02, -0.15 * D);
         add(tyre);
         break;
       }
