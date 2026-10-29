@@ -78,6 +78,12 @@ export interface RacingData {
     firstCorner?: { chance: number; riders: [number, number] };
     /** A crash collecting riders close behind: each rider arriving within `window` seconds has this chance of going down too, up to `most` of them. */
     pileup?: { chance: number; window: number; most: number };
+    /**
+     * Fitness in the lap time (Spec 3.4, Boss 29 Oct 2026), each at level 99: Strength is roughPct
+     * faster through rough sections and strengthLatePct late in the moto, Endurance enduranceLatePct
+     * late in the moto (fading less). Late ramps in over the second half. All of it is capped at capPct.
+     */
+    fitness?: { roughPct: number; rough: string[]; strengthLatePct: number; enduranceLatePct: number; capPct: number };
   };
   xp: {
     sectionFactor: number;
@@ -626,7 +632,19 @@ export class MotoSim {
     const cons = r.e.skills.consistency ?? 1;
     const sd = sim.noise * (1 - (sim.consistencyNoiseCut * cons) / 99) * Math.max(0.2, 1 - me.consistencyNoise * msg.consistency);
     const noise = Math.max(0.7, 1 + this.gauss() * sd);
-    return base * this.difficulty(sec, def) * (1 - sim.spread * (perf - 0.5)) * pace * gateK * noise;
+    return base * this.difficulty(sec, def) * (1 - sim.spread * (perf - 0.5)) * pace * gateK * noise * (1 - this.fitnessCut(r, sec));
+  }
+
+  /** The share of a section's time a rider's Strength and Endurance take off (sim.fitness), never over its cap. */
+  fitnessCut(r: RiderState, sec: TrackSection): number {
+    const f = this.racing.sim.fitness;
+    if (!f) return 0;
+    const lvl = (k: string) => Math.max(0, (r.e.skills[k] ?? 1) - 1) / 98;
+    const laps = this.opts.laps;
+    const late = laps ? Math.max(0, Math.min(1, (this.lapNo / laps - 0.5) * 2)) : 0;
+    const strength = lvl('strength') * ((f.rough.includes(sec.type) ? f.roughPct : 0) + f.strengthLatePct * late);
+    const endurance = lvl('endurance') * f.enduranceLatePct * late;
+    return Math.min(f.capPct, strength + endurance) / 100;
   }
 
   private mistake(r: RiderState, def: SectionDef, share = 1): MistakeOutcome | null {

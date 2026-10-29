@@ -23,6 +23,7 @@ import {
 } from '../core/shops';
 import type { DialogueLine } from '../core/content';
 import { repairLent } from '../core/errands';
+import { PACE_BAND, REP_ZONE, goodRep, onPace, type DrillDef } from '../core/training';
 import { careerRecords, recordText } from '../core/records';
 import { services } from '../services';
 import { COLORS, hex, textStyle } from '../ui/theme';
@@ -512,6 +513,160 @@ export class HudScene extends Phaser.Scene {
         },
       });
     });
+  }
+
+  /**
+   * A Fitness drill's round (core/training.ts): how to play and Start, the round itself, then what
+   * it gave with Again and Done. A round can't be failed: `onFinish` runs for every finished round
+   * and returns the lines to show (the XP and any level-ups). Esc or Done leaves.
+   */
+  openDrill(drill: DrillDef, onFinish: () => string[], onClose: () => void): void {
+    const { width, height, k } = this.page();
+    const w = Math.min(640, width - 32);
+    const h = 330;
+    const c = this.add.container((width / 2) * k, (height / 2) * k).setScale(k);
+    this.backdrop(c, w, h, false);
+    c.add(this.add.text(0, -h / 2 + 32, drill.name, textStyle(26, COLORS.accent)).setOrigin(0.5));
+    const body = this.add.container(0, 0);
+    c.add(body);
+    const kb = this.input.keyboard!;
+    let stop: (() => void) | null = null;
+    const clear = () => {
+      stop?.();
+      stop = null;
+      body.removeAll(true);
+    };
+    const intro = () => {
+      clear();
+      body.add(this.add.text(0, -60, drill.how, textStyle(this.pts(18), COLORS.cream, { align: 'center', wordWrap: { width: w - 70 }, lineSpacing: 4 })).setOrigin(0.5));
+      body.add(this.add.text(0, 10, `About ${Math.round(drill.ms / 1000)} seconds. Every round you finish counts.`, textStyle(this.pts(15), COLORS.muted)).setOrigin(0.5));
+      body.add(button(this, -120, 100, 'Start', () => round(), 200, 46));
+      body.add(button(this, 120, 100, 'Not now', () => this.closeModal(), 200, 46));
+    };
+    const done = (score: string) => {
+      clear();
+      const lines = onFinish();
+      body.add(this.add.text(0, -70, score, textStyle(this.pts(20), COLORS.cream, { align: 'center' })).setOrigin(0.5));
+      body.add(this.add.text(0, -10, lines.join('\n'), textStyle(this.pts(17), 0x9fe07a, { align: 'center', lineSpacing: 4 })).setOrigin(0.5));
+      body.add(button(this, -120, 100, 'Again', () => round(), 200, 46));
+      body.add(button(this, 120, 100, 'Done', () => this.closeModal(), 200, 46));
+    };
+    const round = () => {
+      clear();
+      const bw = w - 120;
+      const timeBg = this.add.rectangle(-bw / 2, -h / 2 + 70, bw, 8, COLORS.panelLight).setOrigin(0, 0.5);
+      const timeFill = this.add.rectangle(-bw / 2, -h / 2 + 70, bw, 8, COLORS.blue).setOrigin(0, 0.5);
+      const label = this.add.text(0, 70, '', textStyle(this.pts(20), COLORS.cream, { align: 'center' })).setOrigin(0.5);
+      const tip = this.add.text(0, 118, drill.game === 'reps' ? 'Space or tap' : 'Hold Space or press and hold', textStyle(this.pts(14), COLORS.muted)).setOrigin(0.5);
+      // The whole box is the button, so a tap anywhere on it counts.
+      const pad = this.add.rectangle(0, 20, w, h - 40, 0, 0.001).setInteractive();
+      body.add([pad, timeBg, timeFill, label, tip]);
+      let t = 0;
+      let down = false;
+      let tick: (dt: number) => void = () => {};
+      let finish: () => string = () => '';
+      if (drill.game === 'reps') {
+        // A marker swings across the bar; a press while it's in the green zone is a good rep.
+        const bar = this.add.rectangle(-bw / 2, 0, bw, 26, COLORS.panelLight).setOrigin(0, 0.5);
+        const zone = this.add.rectangle(-bw / 2 + bw * REP_ZONE[0], 0, bw * (REP_ZONE[1] - REP_ZONE[0]), 26, 0x4f9a3a).setOrigin(0, 0.5);
+        const marker = this.add.rectangle(-bw / 2, 0, 8, 40, COLORS.accent);
+        body.add([bar, zone, marker]);
+        let good = 0;
+        let tries = 0;
+        let wait = 0;
+        let pos = 0;
+        const rep = () => {
+          if (wait > 0) return;
+          wait = 280;
+          tries += 1;
+          const ok = goodRep(pos);
+          if (ok) good += 1;
+          zone.setFillStyle(ok ? 0x7fd65a : 0xc0392b);
+          this.time.delayedCall(160, () => zone.active && zone.setFillStyle(0x4f9a3a));
+        };
+        pad.on('pointerdown', rep);
+        const key = () => rep();
+        kb.on('keydown-SPACE', key);
+        stop = () => kb.off('keydown-SPACE', key);
+        tick = (dt) => {
+          wait = Math.max(0, wait - dt);
+          pos = 0.5 - 0.5 * Math.cos((t / 1500) * Math.PI);
+          marker.setX(-bw / 2 + bw * pos);
+          label.setText(`Good reps: ${good}`);
+        };
+        finish = () => `${good} good reps out of ${tries}.`;
+      } else {
+        // Holding speeds up, letting go eases off; each lap split counts when most of it was on pace.
+        const bh = 150;
+        const x = 0;
+        const bar = this.add.rectangle(x, 0, 40, bh, COLORS.panelLight);
+        const band = this.add.rectangle(x, bh / 2 - bh * PACE_BAND[1], 40, bh * (PACE_BAND[1] - PACE_BAND[0]), 0x4f9a3a).setOrigin(0.5, 0);
+        const marker = this.add.rectangle(x, 0, 60, 6, COLORS.accent);
+        const splitsText = this.add.text(70, -30, '', textStyle(this.pts(16), COLORS.cream, { lineSpacing: 4 })).setOrigin(0, 0.5);
+        body.add([bar, band, marker, splitsText]);
+        label.setY(100);
+        tip.setY(128);
+        const laps = 4;
+        const splits: boolean[] = [];
+        let pace = 0.3;
+        let onFor = 0;
+        let inSplit = 0;
+        let drift = 0;
+        const press = () => (down = true);
+        const release = () => (down = false);
+        pad.on('pointerdown', press).on('pointerup', release).on('pointerout', release);
+        kb.on('keydown-SPACE', press);
+        kb.on('keyup-SPACE', release);
+        stop = () => {
+          kb.off('keydown-SPACE', press);
+          kb.off('keyup-SPACE', release);
+        };
+        tick = (dt) => {
+          const s = dt / 1000;
+          drift += (Math.random() - 0.5) * s * 0.6;
+          drift = Math.max(-0.08, Math.min(0.08, drift));
+          pace = Math.max(0, Math.min(1, pace + (down ? 0.55 : -0.4) * s + drift * s));
+          marker.setY(bh / 2 - bh * pace);
+          if (onPace(pace)) onFor += dt;
+          inSplit += dt;
+          const splitMs = drill.ms / laps;
+          if (inSplit >= splitMs && splits.length < laps) {
+            splits.push(onFor >= splitMs * 0.6);
+            onFor = 0;
+            inSplit -= splitMs;
+          }
+          splitsText.setText(Array.from({ length: laps }, (_, i) => `Lap ${i + 1}: ${i < splits.length ? (splits[i] ? 'on pace' : 'off pace') : i === splits.length ? 'running…' : ''}`).join('\n'));
+          label.setText(onPace(pace) ? 'On pace' : pace > PACE_BAND[1] ? 'Too fast, ease off' : 'Too slow, push on');
+        };
+        finish = () => `${splits.filter(Boolean).length} of ${laps} lap splits on pace.`;
+      }
+      let over = false;
+      const ev = this.time.addEvent({
+        delay: 16,
+        loop: true,
+        callback: () => {
+          // A removed loop can still fire again in the same frame: a round only ends once.
+          if (over) return;
+          const dt = 16;
+          t += dt;
+          tick(dt);
+          timeFill.width = bw * Math.max(0, 1 - t / drill.ms);
+          if (t >= drill.ms) {
+            over = true;
+            const score = finish();
+            done(score);
+          }
+        },
+      });
+      const prev = stop;
+      stop = () => {
+        ev.remove();
+        prev?.();
+      };
+    };
+    c.once('destroy', () => stop?.());
+    intro();
+    this.openModal(c, onClose);
   }
 
   /** Bike, bag and task in one panel (the task journal lives in the bag until the home PC, Spec 21b). */

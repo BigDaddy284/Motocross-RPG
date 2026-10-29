@@ -13,6 +13,7 @@ import type { SkillsData } from './skills';
 import { VEHICLES_SCHEMA, checkVehicles, type VanSheet, type VehiclesData } from './vehicles';
 import { MOD_PLACE } from './modTracks';
 import { ERRANDS_SCHEMA, checkErrands, type ErrandsData } from './errands';
+import { TRAINING_SCHEMA, checkTraining, type TrainingData } from './training';
 import { CHALLENGES_SCHEMA, checkChallenges, type ChallengesData } from './challenge';
 import { WORLD_MAP_SCHEMA, checkWorldMap } from './worldMap';
 import { validate, type ContentError, type Schema } from './validate';
@@ -59,6 +60,7 @@ export interface Content {
   buildings: BuildingsData;
   championships: ChampionshipsData;
   errands: ErrandsData;
+  training: TrainingData;
   challenges: ChallengesData;
 }
 
@@ -288,6 +290,7 @@ export const CONTENT_FILES = {
   buildings: 'data/buildings.json',
   championships: 'data/championships.json',
   errands: 'data/errands.json',
+  training: 'data/training.json',
   challenges: 'data/challenges.json',
 } as const;
 
@@ -310,6 +313,7 @@ const SCHEMAS: Record<keyof typeof CONTENT_FILES, Schema> = {
   buildings: BUILDINGS_SCHEMA,
   championships: CHAMPIONSHIPS_SCHEMA,
   errands: ERRANDS_SCHEMA,
+  training: TRAINING_SCHEMA,
   challenges: CHALLENGES_SCHEMA,
 };
 
@@ -344,6 +348,7 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
     buildings: raw.buildings as BuildingsData,
     championships: raw.championships as ChampionshipsData,
     errands: raw.errands as ErrandsData,
+    training: raw.training as TrainingData,
     challenges: raw.challenges as ChallengesData,
   };
   const file = CONTENT_FILES.npcs;
@@ -371,6 +376,7 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
   errors.push(...checkRaceContent(content, maps));
   errors.push(...checkChampionships(content.championships, content));
   errors.push(...checkErrands(CONTENT_FILES.errands, content.errands, { ...content, consumables: content.shops.consumables }));
+  errors.push(...checkTraining(CONTENT_FILES.training, content.training, content));
   errors.push(...checkChallenges(CONTENT_FILES.challenges, content.challenges, content, new Set(maps.keys())));
   if (content.world.worldMap) errors.push(...checkWorldMap(CONTENT_FILES.world, content.world.worldMap, maps));
   // Tile art isn't listed at run time; tests check it exists (tests/tracks.test.ts).

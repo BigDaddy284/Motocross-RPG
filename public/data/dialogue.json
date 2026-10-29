@@ -132,6 +132,10 @@
     "modifier_owner.hello": { "lines": [
       { "speaker": "npc", "text": "This old machine? Put a clean part in and see what comes out. Not today, though." }
     ] },
+    "running_coach.hello": { "lines": [
+      { "speaker": "npc", "text": "Hi {rider}! I coach the running club. Riders forget it, but a moto is hard work. The fitter you are, the less you fade at the end." },
+      { "speaker": "npc", "text": "Fancy a session? Keep to the pace I set for each lap. Every session builds your Endurance." }
+    ] },
     "neighbour.hello": { "lines": [
       { "speaker": "npc", "text": "Oh, hello! I'm always on this computer. Pop round any time." }
     ] },

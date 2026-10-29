@@ -18,6 +18,7 @@ import { champProblem, enter, nextRoundVenue, roundEntry, roundsHere, standings,
 import { noteActivity, shopForAction, type ShopDef } from '../core/shops';
 import { errandStage, finishErrand, takeErrand, type ErrandDef } from '../core/errands';
 import { challengeReady, challengeVenue, lossHint, type ChallengeDef } from '../core/challenge';
+import { drillForAction, drillForNpc, finishRound, walked, type DrillDef } from '../core/training';
 import { leadLevel } from '../core/skills';
 import { challengeWins } from '../core/records';
 import { CAREER_SLOT, services } from '../services';
@@ -73,6 +74,8 @@ export class WorldScene extends Phaser.Scene {
   private npcs: { placement: NpcPlacement; character: Character }[] = [];
   private path: Tile[] = [];
   private onArrive: (() => void) | null = null;
+  /** Tiles walked since the last Agility XP (core/training.ts walked). */
+  private walkCarry = 0;
   private walking = false;
   private busy = false;
   /** The zoom the player had outside, while a building has raised it to INTERIOR_ZOOM. */
@@ -406,6 +409,16 @@ export class WorldScene extends Phaser.Scene {
     if (action && this.runStory({ use: action, map: this.map.id, object: objectKey }, '')) return;
     const shop = action ? shopForAction(services.content.shops, this.map.id, action) : null;
     if (shop && this.openShop(shop.shop, shop.fit ? 'fit' : 'buy')) return;
+    const drill = action ? drillForAction(services.content.training, action) : undefined;
+    if (drill) return this.runDrill(drill);
+    // The running track itself: the coach's session (Boss, 29 Oct 2026).
+    const coachDrill = o.type === 'venue' && o.props.venue === 'running_track' ? services.content.training.drills.find((d) => d.npc) : undefined;
+    if (coachDrill) {
+      const coach = services.content.npcs.find((n) => n.id === coachDrill.npc);
+      if (coach?.quietUntil && !this.save.flags[coach.quietUntil]) this.hud.toast(`${o.name}: the club's closed to you for now.`);
+      else this.hud.toast(`${o.name}: talk to ${coach?.name ?? 'the coach'} by the pavilion to run a session.`);
+      return;
+    }
     const venue = o.type === 'venue' ? services.content.tracks.venues.find((v) => v.id === o.props.venue) : undefined;
     if (venue) {
       if (venue.office && !venue.locked) {
@@ -447,6 +460,8 @@ export class WorldScene extends Phaser.Scene {
     if (challenge && !rule) return this.challengeTalk(npc, challenge, back);
     const errand = errands.errands.find((d) => d.npc === npc.id && (!d.needs || this.save.flags[d.needs]));
     if (errand && !rule) return this.errandTalk(npc, errand, back);
+    const drill = drillForNpc(services.content.training, npc.id);
+    if (drill && !rule) return this.say(npc.name, npc.dialogue, () => this.runDrill(drill, back));
     const shop = services.content.shops.shops.find((s) => s.npc === npc.id);
     if (shop && !rule && this.openShop(shop, 'buy', back)) return;
     this.say(npc.name, rule?.dialogue ?? npc.dialogue, () => {
@@ -1381,6 +1396,7 @@ export class WorldScene extends Phaser.Scene {
       // Moving along an exit (say, off it after being turned back) doesn't set it off again.
       const from = stepTriggerAt(this.map, this.player.tile);
       await this.player.step(next);
+      this.walkedTile();
       if (from !== stepTriggerAt(this.map, this.player.tile) && this.checkTrigger()) {
         this.walking = false;
         return;
@@ -1397,6 +1413,25 @@ export class WorldScene extends Phaser.Scene {
     const done = this.onArrive;
     this.onArrive = null;
     done?.();
+  }
+
+  /** Agility for walking about (Spec 3.3): a little XP every few tiles, and a level-up says so. */
+  private walkedTile(): void {
+    const { training, skills } = services.content;
+    const r = walked(training, skills, this.save.career.skills, this.walkCarry);
+    this.walkCarry = r.carry;
+    for (const u of r.ups) this.hud.toast(`Level up! ${u.name} is now level ${u.level}.`);
+  }
+
+  /** A Fitness drill (core/training.ts): its round in the HUD, XP for every round finished, saved after each. */
+  private runDrill(drill: DrillDef, onClose: () => void = () => this.player.idle()): void {
+    const skill = services.content.skills.leads.flatMap((l) => l.children).find((c) => c.id === drill.skill);
+    this.hud.openDrill(drill, () => {
+      const ups = finishRound(services.content.skills, this.save.career.skills, drill);
+      this.hud.showCareer(this.save.career, this.save.flags);
+      this.milestoneSave();
+      return [`+${drill.xp} ${skill?.name ?? drill.skill} XP`, ...ups.map((u) => `Level up! ${u.name} is now level ${u.level}.`)];
+    }, onClose);
   }
 
   /** Handles a door or exit under the player. Returns true when the player is leaving the map. */

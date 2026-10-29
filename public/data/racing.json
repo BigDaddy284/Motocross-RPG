@@ -12,7 +12,7 @@
       { "id": "minor_crash", "share": 0.035, "seconds": [6, 12], "crash": true },
       { "id": "serious_crash", "share": 0.005, "seconds": [15, 30], "crash": true, "serious": true }
     ],
-    "agilityRecoveryCut": 0.4,
+    "agilityRecoveryCut": 0.4, "fitness": { "roughPct": 1.5, "rough": ["rutted_corner", "braking_bumps", "whoops", "rollers", "sand", "mud", "uphill"], "strengthLatePct": 0.5, "enduranceLatePct": 1.5, "capPct": 3 },
     "passWindow": 1.0,
     "failedPassCost": [0.2, 0.5],
     "blockedGap": 0.15,

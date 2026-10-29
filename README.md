@@ -260,6 +260,17 @@ Checked against the first-build checklist in the Systems Specification, section 
 - Versioned saves with 5 rotating backups. A damaged save is kept and the newest good backup is offered.
 - Autosave every 5 minutes, plus Save now in the pause menu.
 
+### Fitness training (Boss, 29 Oct 2026)
+
+- **Strength:** bodyweight drills on the exercise mat in your room. It's a rep timing bar: tap as the marker crosses the green zone.
+- **Endurance:** running sessions with **Tasha Reid**, the running coach by the Running Club pavilion. Hold to run faster and keep your pace in the green band for each lap split.
+- **Agility:** comes from walking about, 1 XP every 10 tiles.
+- **How rounds work:** a round lasts about 40 seconds, can't be failed and gives 50 XP whatever the score (`training.json`, `src/core/training.ts`).
+- **In races** (`racing.json` `sim.fitness`), at level 99:
+  - Strength is up to 1.5% faster through rough sections and 0.5% faster late in a moto.
+  - Endurance is up to 1.5% faster late in a moto, because you fade less.
+  - All Fitness together is capped at 3% of lap time. Agility already shortens crash recovery.
+
 ### Tyres are only ever replaced (Boss, 28 Oct 2026)
 
 Wheels and tyres can't be repaired or sold to any shop (`consumables` in `shops.json`). Ride them until they hit 0% and break, then buy a new set. Buying and fitting a new set in the shop **trades in** the set on the bike for money off: the old set's new price × its condition, the full amount one grade up and a third less for each grade beyond, nothing from 4 grades up, and never more than half the new price (`tradeIn` in `src/core/shops.ts`; table in `alpha-v1.1/tyres/tyre-trade-in.md` in the project files). A set bought as a spare and fitted later at the garage still puts the old set in your bag. The scrapyard owner's repair errand no longer lends tyres.

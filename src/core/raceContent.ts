@@ -53,8 +53,18 @@ export const RACING_SCHEMA: Schema = {
     note: { type: 'string' },
     sim: {
       type: 'object',
-      optional: ['firstCorner', 'pileup'],
+      optional: ['firstCorner', 'pileup', 'fitness'],
       fields: {
+        fitness: {
+          type: 'object',
+          fields: {
+            roughPct: N0,
+            rough: { type: 'array', items: { type: 'string', nonEmpty: true } },
+            strengthLatePct: N0,
+            enduranceLatePct: N0,
+            capPct: N0,
+          },
+        },
         firstCorner: { type: 'object', fields: { chance: SHARE, riders: RANGE } },
         pileup: { type: 'object', fields: { chance: SHARE, window: N0, most: { type: 'number', integer: true, min: 1 } } },
         spread: N0,
