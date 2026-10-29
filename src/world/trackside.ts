@@ -57,6 +57,26 @@ function tripod(b: Build, x: number, z: number, h: number, spread = 0.6): void {
 }
 
 /** A folding chair facing +z with its seat at 0.45 m: legs, seat and back, in a colour. */
+/**
+ * A flight of steps from a platform's edge down to the ground: the top step just under the edge at
+ * z, the flight running off it in direction dir (-1 towards -z), w wide, with a stringer each side.
+ */
+function stairs(b: Build, x: number, z: number, h: number, w: number, dir: -1 | 1, c = STEEL): void {
+  const n = Math.max(2, Math.round(h / 0.22));
+  const rise = h / n;
+  const run = 0.26;
+  for (let k = 1; k < n; k++) b.box(x, h - k * rise - 0.04, z + dir * (k - 0.5) * run, w, 0.05, run, c);
+  const len = Math.hypot(h, n * run);
+  const tilt = Math.atan2(h, n * run);
+  for (const sx of [-w / 2, w / 2]) b.box(x + sx, h / 2 - 0.09, z + (dir * n * run) / 2, 0.05, 0.18, len, shade(c, 0.85), 0, dir * tilt);
+}
+
+/** A ladder up the outside of a tower to the height h, its rails at x ± 0.25 and its back to z. */
+function ladder(b: Build, x: number, z: number, h: number): void {
+  for (const sx of [-0.25, 0.25]) b.pole(x + sx, 0, z, h + 1.0, STEEL, 0.05);
+  for (let y = 0.3; y < h; y += 0.3) b.box(x, y, z, 0.5, 0.03, 0.03, STEEL);
+}
+
 function chair(b: Build, x: number, z: number, c: number): void {
   b.box(x, 0.45, z, 0.5, 0.05, 0.5, c);
   b.box(x, 0.5, z - 0.22, 0.5, 0.5, 0.05, c);
@@ -114,11 +134,12 @@ const builders: Record<string, (c: Ctx) => void> = {
     b.box(-0.55, 3.0, bz, 3.2, 0.04, 1.9, shade(STEEL, 0.9));
     b.box(2.0, 0.3, bz, 0.5, 1.8, 0.4, STEEL);
     if (setup !== 'parked') {
+      // The tripod and the operator stand on the roof: built on the ground, then lifted.
+      const up = b.parts.length;
       tripod(b, 0.2, bz + 0.3, 1.2, 0.4);
-      for (const m of b.parts.slice(-4)) m.position.y += 2.18 * U;
-      camera(b, 0.2, 3.38, bz + 0.3);
       b.turned(0, 0, 0, () => b.person(0.2, bz - 0.35, 0, i, { arms: 'forward', shirt: BLACK }));
-      for (const m of b.parts.slice(-7)) m.position.y += 2.18 * U;
+      for (const m of b.parts.slice(up)) m.position.y += 2.18 * U;
+      camera(b, 0.2, 3.38, bz + 0.3);
     }
   },
   tv_tower({ b, col, i }) {
@@ -130,16 +151,19 @@ const builders: Record<string, (c: Ctx) => void> = {
     }
     b.box(0, h, 0, 2.7, 0.12, 2.7, WOOD);
     for (const x of [-1.3, 1.3]) b.box(x, h + 0.12, 0, 0.05, 1.0, 2.7, STEEL);
-    b.box(0, h + 0.12, -1.3, 2.7, 1.0, 0.05, STEEL);
+    for (const x of [-0.9, 0.9]) b.box(x, h + 0.12, -1.3, 0.9, 1.0, 0.05, STEEL);
     b.box(0, h + 0.12, 1.3, 2.7, 1.0, 0.05, STEEL);
     for (const x of [-1.25, 1.25]) for (const z of [-1.25, 1.25]) b.pole(x, h + 0.12, z, 2.3, STEEL, 0.06);
     b.box(0, h + 2.4, 0, 3.0, 0.1, 3.0, col);
+    // A ladder up the back to the platform, through a gap in the back rail.
+    ladder(b, 0, -1.42, h + 0.12);
+    // The tripod and the crew stand on the platform: built on the ground, then lifted.
+    const up = b.parts.length;
     tripod(b, 0.3, 0.3, 1.3, 0.45);
-    for (const m of b.parts.slice(-4)) m.position.y += (h + 0.12) * U;
-    camera(b, 0.3, h + 1.42, 0.3, true);
     b.person(0.3, -0.3, 0, i, { arms: 'forward', shirt: BLACK });
     b.person(-0.8, 0.2, -0.4, i + 1, { shirt: BLACK });
-    for (const m of b.parts.slice(-22)) m.position.y += (h + 0.12) * U;
+    for (const m of b.parts.slice(up)) m.position.y += (h + 0.12) * U;
+    camera(b, 0.3, h + 1.42, 0.3, true);
   },
   photographer({ b, col, variant, i }) {
     const pose = variant === 'lying' ? 'lie' : variant === 'kneeling' ? 'kneel' : 'stand';
@@ -158,11 +182,14 @@ const builders: Record<string, (c: Ctx) => void> = {
     b.box(0, h + 0.15, 0.81, 3.8, 0.9, 0.04, col);
     b.box(0, h + 2.35, 0, 4.0, 0.1, 3.0, shade(col, 0.8));
     b.box(0, h + 0.9, 0.5, 3.2, 0.06, 0.5, TABLE);
+    // The two commentators sit at the desk: built on the ground, then lifted into the box.
+    const up = b.parts.length;
     b.person(-0.8, 0.1, 0, i, { pose: 'sit', arms: 'forward', shirt: WHITE });
     b.person(0.8, 0.1, 0, i + 1, { pose: 'sit', arms: 'forward', shirt: 0x2a4a90 });
-    for (const m of b.parts.slice(-22)) m.position.y += (h + 0.15) * U;
-    b.box(-1.6, 1.0, -1.4, 0.06, 2.3, 0.06, STEEL);
-    b.box(-1.6, 1.0, -1.4, 0.6, 2.3, 0.06, shade(STEEL, 0.8), 0, 0.05);
+    for (const m of b.parts.slice(up)) m.position.y += (h + 0.15) * U;
+    // Steps up the back to a door in the box.
+    stairs(b, 0, -1.4, h, 1.0, -1);
+    b.box(0, h + 0.15, -1.42, 0.9, 1.9, 0.04, shade(col, 0.7));
   },
   big_screen({ b, col }) {
     b.box(0, 0.5, -0.4, 5.8, 0.3, 2.0, CHASSIS);
@@ -321,12 +348,13 @@ const builders: Record<string, (c: Ctx) => void> = {
     for (const s of [-1, 1]) b.box(s * (L / 2 - 0.2), deckH + 1.2, 0, 0.3, 0.3, w + 0.3, STEEL);
     if (setup === 'fans') {
       const n = Math.max(2, Math.min(8, Math.round(span / 2.5)));
+      const up = b.parts.length;
       for (let k = 0; k < n; k++) {
         const x = -span / 2 + 1.2 + (span - 2.4) * (k / Math.max(1, n - 1));
         const z = (hash(i * 3 + k) - 0.5) * 0.7;
         b.person(x, z, hash(i + k * 7) > 0.5 ? 0.3 : -0.4, i + k, { arms: k % 3 === 0 ? 'up' : 'down' });
       }
-      for (const m of b.parts.slice(-7 * n)) m.position.y += (deckH + 0.15) * U;
+      for (const m of b.parts.slice(up)) m.position.y += (deckH + 0.15) * U;
     }
   },
   crowd_barrier({ b, col, L }) {
@@ -370,8 +398,9 @@ const builders: Record<string, (c: Ctx) => void> = {
     b.box(1.0, 0.4, 0, 0.2, 0.4, 0.9, STEEL);
     b.wheels([0.65, -0.65], 0, 0.5, 0.3, 0.25);
     if (variant === 'rider') {
+      const up = b.parts.length;
       b.person(-0.5, 0.0, Math.PI / 2, i, { pose: 'sit', arms: 'forward', shirt: HIVIS });
-      for (const m of b.parts.slice(-7)) m.position.y += 0.47 * U;
+      for (const m of b.parts.slice(up)) m.position.y += 0.15 * U;
     }
   },
   tractor({ b, col, variant, i }) {
@@ -386,8 +415,9 @@ const builders: Record<string, (c: Ctx) => void> = {
     b.wheels([x0 - 1.1], 0, 1.05, 0.85, 0.55);
     b.wheels([x0 + 0.9], 0, 0.95, 0.5, 0.3);
     b.box(x0 - 2.4, 0.7, 0, 0.6, 0.1, 0.1, CHASSIS);
+    const up = b.parts.length;
     b.person(x0 - 0.6, 0, -Math.PI / 2, i, { pose: 'sit', arms: 'forward', shirt: 0x3a5a3a });
-    for (const m of b.parts.slice(-7)) m.position.y += 0.95 * U;
+    for (const m of b.parts.slice(up)) m.position.y += 0.95 * U;
     if (variant === 'bowser') {
       const t = x0 - 4.6;
       b.box(t + 1.6, 0.6, 0, 1.6, 0.1, 0.1, CHASSIS);
@@ -584,8 +614,9 @@ const builders: Record<string, (c: Ctx) => void> = {
     for (const s of [-1, 1]) b.box(0.7, 0.9, s * 0.65, 1.2, 0.12, 0.1, CHASSIS, -0.25);
     b.box(1.5, 0, 0, 0.6, 0.6, 1.7, STEEL);
     b.box(1.25, 0.55, 0, 0.1, 0.3, 1.7, STEEL, 0.5);
+    const up = b.parts.length;
     b.person(-0.4, -0.2, -Math.PI / 2, i, { pose: 'sit', arms: 'forward', shirt: HIVIS });
-    for (const m of b.parts.slice(-7)) m.position.y += 0.75 * U;
+    for (const m of b.parts.slice(up)) m.position.y += 0.75 * U;
   },
   merch_trailer({ b, col, i, text, labels }) {
     const z = -0.9;
@@ -763,10 +794,13 @@ export function marshalParts(def: SceneryDef, it: SceneryItem, i: number): Marsh
     b.box(0, lift - 0.08, 0, l, 0.08, w, 0x5a4a3a);
     b.box(0, lift - 0.3, 0, l, 0.06, w, 0x6a5a48);
     for (const x of [-l / 2, l / 2]) b.box(x, lift + 1.0, 0, 0.05, 0.05, w, 0x6a5a48);
-    for (const z of [-w / 2, w / 2]) b.box(0, lift + 1.0, z, l, 0.05, 0.05, 0x6a5a48);
+    b.box(0, lift + 1.0, w / 2, l, 0.05, 0.05, 0x6a5a48);
     for (const x of [-l / 2, l / 2]) b.box(x, lift + 0.5, 0, 0.04, 0.04, w, 0x6a5a48);
-    b.box(0, lift + 0.5, -w / 2, l, 0.04, 0.04, 0x6a5a48);
-    for (let k = 0; k < 4; k++) b.box(0, (k + 0.5) * (lift / 4) - 0.04, -w / 2 - 0.3 - k * 0.3, 0.8, 0.05, 0.3, 0x6a5a48);
+    b.box(0, lift + 0.5, w / 2, l, 0.04, 0.04, 0x6a5a48);
+    // The back rails stop either side of the stairs, which come down from the deck's back edge.
+    const side = (l - 0.9) / 2;
+    for (const sx of [-1, 1]) for (const y of [0.5, 1.0]) b.box(sx * (l / 2 - side / 2), lift + y, -w / 2, side, 0.05, 0.05, 0x6a5a48);
+    stairs(b, 0, -w / 2, lift, 0.8, -1, 0x6a5a48);
     if (roof) b.box(0, lift + 2.3, 0, l + 0.4, 0.1, w + 0.4, col);
   };
   if (variant === 'pallet') deck(1.6, 1.4, false);

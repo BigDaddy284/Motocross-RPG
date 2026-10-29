@@ -119,6 +119,7 @@ label.chk { display: flex; gap: 6px; align-items: center; color: var(--dim); }
 .pal { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 4px; }
 .pal button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px; font-size: 11px; line-height: 1.15; }
 .pal button.sel { border-color: var(--accent); background: #2a2516; }
+.pal .palgroup { grid-column: 1 / -1; margin: 8px 0 0; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); }
 .pal canvas { width: 44px; height: 44px; image-rendering: pixelated; }
 #stats { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; font-size: 12px; }
 #stats span:nth-child(odd) { color: var(--dim); }
@@ -314,7 +315,7 @@ body.final .final-hide { display: none !important; }
   </div>
 
   <div class="pane" id="pane-ground">
-    <div class="hint">Paint the ground round the track. Left-click paints, right-click puts the base ground back, <kbd>Shift</kbd>+drag fills a rectangle.</div>
+    <div class="hint">Paint the ground round the track. Left-click paints, right-click puts the base ground back, <kbd>Shift</kbd>+drag fills a rectangle. The edge sets join grass to mud, gravel, concrete or long grass: each names where the second ground is in the cell. The mixed tiles show one ground through another in patches, and each joins up with itself.</div>
     <div class="field"><label for="gBase">Base</label><select id="gBase"></select></div>
     <div class="field"><label for="gBrush">Brush</label><select id="gBrush"><option value="1">1 cell</option><option value="2">2 × 2</option><option value="3" selected>3 × 3</option><option value="5">5 × 5</option></select></div>
     <div class="pal" id="groundPal"></div>
@@ -322,7 +323,7 @@ body.final .final-hide { display: none !important; }
   </div>
 
   <div class="pane" id="pane-scenery">
-    <div class="hint">Pick an item: it follows the pointer, see-through, where a click would place it; <kbd>Q</kbd> <kbd>E</kbd> turn it first. Click an item to select it, drag to move it (arrow keys nudge it), <kbd>Q</kbd> <kbd>E</kbd> turn it 15°, with <kbd>Shift</kbd> 5°, with <kbd>Alt</kbd> 1° (or type any angle in Turn), <kbd>Del</kbd> removes it. <b>Snap object</b> joins it onto a nearby item, end to end or side by side; <kbd>Alt</kbd> drops the snapping.</div>
+    <div class="hint">Pick an item: it follows the pointer, see-through, where a click would place it; <kbd>Q</kbd> <kbd>E</kbd> turn it first. Click an item to select it, drag to move it (arrow keys nudge it), <kbd>Q</kbd> <kbd>E</kbd> turn it 15°, with <kbd>Shift</kbd> 5°, with <kbd>Alt</kbd> 1° (or type any angle in Turn), <kbd>Del</kbd> removes it. <b>Snap object</b> joins it onto a nearby item, end to end or side by side; <kbd>Alt</kbd> drops the snapping. Snapped, <kbd>Q</kbd> <kbd>E</kbd> swing it round the join, so a fence can turn off another and stay joined.</div>
     <div class="pal" id="sceneryPal"></div>
     <div class="box" id="sceneryDetail"></div>
   </div>
@@ -359,7 +360,7 @@ body.final .final-hide { display: none !important; }
     <li class="final-hide"><b>Gates</b> is the start bonus curve, in percent of start time, best gate first (Spec 10.4).</li>
     <li><b>Surfaces:</b> mud, sand, water and other patches along the lap, laid by clicking the track: the stretch a click would surface follows the pointer in the surface's colour. Click a patch to select it and drag it along the lap; its start and length can be typed in too.</li>
     <li><b>Ground:</b> paint the ground round the track with the game's ground tiles.</li>
-    <li><b>Scenery:</b> banners (with your own words and colour), sponsor boards, start gates, tuff blocks, hay bales, tyre walls, stands, crowds, pits, trees and more. <b>Paddock vehicles</b> are the game's own vans at the race bikes' scale: an old rusty truck (empty, or one or two bikes on the back), an old rusty van (doors shut or open, a bike beside it), the MX vans and sports motorhomes (closed up, awning out, or bikes on stands under it), the factory hauler (closed, or a three-sided awning the length of the trailer with bikes under it) and a bike on a stand. Each has a colour and a set-up picked for it, like a fan's shirt; select it to choose them, and the vehicle's body alone counts as solid (the awning side is the lower side on the map before turning). <b>Trackside items</b> are built the same way, each with a colour, a design and a set-up picked for it unless chosen: the TV crew (camera operators standing or kneeling, a tripod camera, a camera van with a crew on its roof, a TV tower, a camera crane, a drone pilot, photographers standing, kneeling or lying in the dirt, a commentary box, a big screen, a press tent); the pits (a pit tent set up with bikes on stands, mechanics and riders, both, or the tool chest, generator and cans, with the team's name on its valance; a bike wash, a bike trailer with one or two bikes, pit clutter, a trade stand, a merchandise trailer, a catering van with a queue, a hospitality marquee, an enduro time check, a signing table); what stands over and beside the track (a pedestrian bridge over the track, empty or with fans crossing, its width set like a banner's and only its stair towers solid; a timing beam and a sponsor inflatable arch, over the track the same way; crowd barriers, cones, marshals (standing trackside, on a pallet stand, in a roofed tower, a pair with an extinguisher, or behind hay bales: each watches a stretch of track and keeps the yellow flag down until a rider goes down there, then leans out and waves it until the rider is away; <b>Set watch</b> then a click on the track sets how far along the lap they watch, at most 36 grid units, drawn as a yellow band, and with no end set they watch the next 18 units), the medics and their ambulance, a marshal quad, a track tractor pulling the harrow or towing the water bowser, a skid steer loader, portable toilets in ones, twos or fours, feather flags, a PA speaker pole, a VIP grandstand with a roof; and the supercross kit: a podium (motocross boxes and a board, or a lit supercross stage; empty, the top three, or champagne), a holeshot board, pyro flame pods, a lighting truss over the track, a stadium tunnel and a trophy table); and the fans (in camping chairs, taking pictures, round a lunch table under a parasol, on a picnic blanket, under a parasol, leaning on a fence). People face the track unless the item is turned; items with words take your own text. Pick an item and it follows the pointer, see-through, on the map and in the race view, where a click would place it, turned as <kbd>Q</kbd> and <kbd>E</kbd> have turned it (the turn is kept for the next item too). <kbd>Q</kbd> and <kbd>E</kbd> turn the selected item 15° a press, 5° with <kbd>Shift</kbd> and 1° with <kbd>Alt</kbd>, and the Turn box takes any whole number of degrees; <kbd>Ctrl+D</kbd> duplicates it, the copy standing end to end with it (so pressing again runs a fence on) while <b>Snap object</b> is ticked. The arrow keys nudge it half a grid unit (2 with <kbd>Shift</kbd>). With <b>Snap object</b> ticked, an item placed or dragged near another joins it end to end or side by side with their edges flush and turned the same way (the item it joins gets a dashed outline), so a run of fences, walls or stands lines up; hold <kbd>Alt</kbd> to drop it for one move, as for the grid. <b>Cheering fans</b> are people who stand trackside and react as bikes pass: pick a variant (body shape), an action (arms up, wave, clap, fist pump, celebrate) and a shirt colour, or leave them to be picked. <b>Draw route</b> gives a fan a walk in: when the track loads they walk from where placed along it, at walking pace, and cheer from its end, so a crowd can file in. A fan must never be on the track, where placed or where the walk ends (an error the game refuses); a walk that crosses the track is only a warning. Each fan reacts in their own time, with a rest between, so a crowd never moves as one.</li>
+    <li><b>Scenery:</b> banners (with your own words and colour), sponsor boards, start gates, tuff blocks, hay bales, tyre walls, stands, crowds, pits, trees and more. <b>Paddock vehicles</b> are the game's own vans at the race bikes' scale: an old rusty truck (empty, or one or two bikes on the back), an old rusty van (doors shut or open, a bike beside it), the MX vans and sports motorhomes (closed up, awning out, or bikes on stands under it), the factory hauler (closed, or a three-sided awning the length of the trailer with bikes under it) and a bike on a stand. Each has a colour and a set-up picked for it, like a fan's shirt; select it to choose them, and the vehicle's body alone counts as solid (the awning side is the lower side on the map before turning). <b>Trackside items</b> are built the same way, each with a colour, a design and a set-up picked for it unless chosen: the TV crew (camera operators standing or kneeling, a tripod camera, a camera van with a crew on its roof, a TV tower, a camera crane, a drone pilot, photographers standing, kneeling or lying in the dirt, a commentary box, a big screen, a press tent); the pits (a pit tent set up with bikes on stands, mechanics and riders, both, or the tool chest, generator and cans, with the team's name on its valance; a bike wash, a bike trailer with one or two bikes, pit clutter, a trade stand, a merchandise trailer, a catering van with a queue, a hospitality marquee, an enduro time check, a signing table); what stands over and beside the track (a pedestrian bridge over the track, empty or with fans crossing, its width set like a banner's and only its stair towers solid; a timing beam and a sponsor inflatable arch, over the track the same way; crowd barriers, cones, marshals (standing trackside, on a pallet stand, in a roofed tower, a pair with an extinguisher, or behind hay bales: each watches a stretch of track and keeps the yellow flag down until a rider goes down there, then leans out and waves it until the rider is away; <b>Set watch</b> then a click on the track sets how far along the lap they watch, at most 36 grid units, drawn as a yellow band, and with no end set they watch the next 18 units), the medics and their ambulance, a marshal quad, a track tractor pulling the harrow or towing the water bowser, a skid steer loader, portable toilets in ones, twos or fours, feather flags, a PA speaker pole, a VIP grandstand with a roof; and the supercross kit: a podium (motocross boxes and a board, or a lit supercross stage; empty, the top three, or champagne), a holeshot board, pyro flame pods, a lighting truss over the track, a stadium tunnel and a trophy table); and the fans (in camping chairs, taking pictures, round a lunch table under a parasol, on a picnic blanket, under a parasol, leaning on a fence). People face the track unless the item is turned; items with words take your own text. Pick an item and it follows the pointer, see-through, on the map and in the race view, where a click would place it, turned as <kbd>Q</kbd> and <kbd>E</kbd> have turned it (the turn is kept for the next item too). <kbd>Q</kbd> and <kbd>E</kbd> turn the selected item 15° a press, 5° with <kbd>Shift</kbd> and 1° with <kbd>Alt</kbd>, and the Turn box takes any whole number of degrees; <kbd>Ctrl+D</kbd> duplicates it, the copy standing end to end with it (so pressing again runs a fence on) while <b>Snap object</b> is ticked. The arrow keys nudge it half a grid unit (2 with <kbd>Shift</kbd>). With <b>Snap object</b> ticked, an item placed or dragged near another joins it end to end or side by side with their edges flush and turned the same way (the item it joins gets a dashed outline), so a run of fences, walls or stands lines up; hold <kbd>Alt</kbd> to drop it for one move, as for the grid. While it is snapped, and once it is placed with an end joined onto another item, <kbd>Q</kbd> and <kbd>E</kbd> swing it round the join instead of its middle, so a fence or wall can turn off in another direction and stay joined (with both ends joined it keeps the end on the item placed first). <b>Cheering fans</b> are people who stand trackside and react as bikes pass: pick a variant (body shape), an action (arms up, wave, clap, fist pump, celebrate) and a shirt colour, or leave them to be picked. <b>Draw route</b> gives a fan a walk in: when the track loads they walk from where placed along it, at walking pace, and cheer from its end, so a crowd can file in. A fan must never be on the track, where placed or where the walk ends (an error the game refuses); a walk that crosses the track is only a warning. Each fan reacts in their own time, with a rest between, so a crowd never moves as one.</li>
     <li><b>Start board official:</b> pick <b>Start board official</b> under Start and finish in Layout, or the last item in Scenery, and click where they wait with the board while the riders line up (one a track; without one the game picks their spot beside the start straight). Select them and click <b>Draw route</b>, then click the ground in order to where they end up (the red point), and <b>Done</b> or <kbd>Esc</kbd>; <b>Cancel</b> puts the old route back, <b>Reset route</b> clears it. Drag a route point to move it, right-click it or press <kbd>Del</kbd> to remove it; dragging the official moves only where they start. In the countdown they raise the board and set off at five, turn it sideways at three and lower it white side out at one as they arrive. The route can be at most <code>official.maxWalk</code> grid units (trackParts.json, 8), may cross the track ahead of the gate but not the riders lined up at the gate or solid scenery, and must end clear of the track; the race view runs the game's checks and they show under the official and in Checks. On a new track they stand where placed until there's a start straight; Checks says when a track has no official or an official has no route.</li>
     <li><b>Height:</b> <b>Raise the track</b> and <b>Lower the track</b> work along the track's length: hover the track and the stretch the tool would change is highlighted, the <b>Length</b> you set centred under the pointer and following the route round corners (cut at the end of an open route); a click raises it by the <b>Height</b> set, right-click lowers it, with the most at the centre easing to nothing at both ends, so the hill meets the track either side with no step and no kink. Nothing changes until you click; each click is one undo, and clicking the same stretch again steps its height instead of stacking another hill (back to level, it goes). Hills are saved with the track (<code>hills</code>), keep their place when the route is reshaped, and are drawn on the map as a band with their height. The track keeps its width, banking, berms and section types; the ground either side rises or sinks to meet it as a grass slope, never a wall. The <b>ground brush</b> (raise, lower, smooth, flatten; radius and strength) shapes the ground away from the track as before. Heights go from 36 m down to 36 m up; riders slow up climbs and run quicker down drops; ground steeper than 45° is refused as a wall, and a track climbing or dropping more than 35% along its length is a warning. Old tracks keep their ground as saved.</li>
     <li><b>Race view:</b> you edit in the game's own race camera and 3D scene with hills, jumps, scenery and ground as a race draws them, and the lap map in its corner. Click, drag and right-click on the 3D ground; the keys are the same in every mode. Mouse wheel or <kbd>+</kbd> <kbd>−</kbd> zoom, <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or a middle-button (or <kbd>Space</kbd>+drag) pan, <kbd>[</kbd> <kbd>]</kbd>, the <b>⟲ Turn left</b> and <b>⟳ Turn right</b> buttons (bottom left) or a <kbd>Shift</kbd>+middle-button drag turn the view round the track, to see it from any side; <kbd>0</kbd> or <b>Reset view</b> goes back to the race camera's angle. Turning only changes the editor's view: clicks still land where the pointer is, and races always use the fixed race camera. The selection is orange, problems red or dashed yellow. In Layout each section shows as a stripe in its kind's colour, with a cream line across the track where one section ends and the next begins. No race runs while you edit. Opened straight from disk, the race view runs the game from the published site (<code>bigdaddy284.github.io/Motocross-RPG</code>), so it needs an internet connection; with neither that nor <code>npm run dev</code>, the editor shows a plain map instead.</li>
@@ -602,6 +603,13 @@ const app = {
   hoverAlt: false,
   /** The scenery item the one being placed or dragged is snapped onto (Snap object), or -1. */
   snapTo: -1,
+  /**
+   * Snap object: how far (degrees) Q and E have turned an item placed or dragged while it is
+   * snapped, about the point where it joins the item it is snapped onto, so a fence can bend away
+   * and stay joined. Back to 0 when it snaps somewhere else (snapKey names where).
+   */
+  snapBend: 0,
+  snapKey: null,
   hoverBound: -1,
   hoverCell: null,
   hoverPt: null,
@@ -2536,7 +2544,16 @@ function swatch(drawFn) {
 function buildPalettes() {
   const mk = (box, items, cur, drawFn, pick) => {
     box.innerHTML = '';
+    let group;
     for (const it of items) {
+      // A heading wherever the group changes (the ground's corner sets and mixed tiles).
+      if ((it.group ?? '') !== (group ?? '')) {
+        group = it.group;
+        const h = document.createElement('div');
+        h.className = 'palgroup';
+        h.textContent = group ?? '';
+        box.appendChild(h);
+      }
       const b = document.createElement('button');
       b.className = it.id === cur ? 'sel' : '';
       b.title = it.name;
@@ -3179,6 +3196,15 @@ function turnItem(d) {
   commit((t) => {
     const it = t.scenery?.[app.selItem];
     if (!it) return;
+    // Joined onto another item (Snap object), it swings round the join so it stays joined.
+    const p = joinedEnd(t, app.selItem);
+    if (p) {
+      const b = (d * Math.PI) / 180;
+      const dx = it.x - p.x;
+      const dy = it.y - p.y;
+      it.x = clamp(round2(p.x + dx * Math.cos(b) - dy * Math.sin(b)), -SCENE_OUT, GRID_W + SCENE_OUT);
+      it.y = clamp(round2(p.y + dx * Math.sin(b) + dy * Math.cos(b)), -SCENE_OUT, GRID_H + SCENE_OUT);
+    }
     const v = ((((it.rot ?? 0) + d) % 360) + 360) % 360;
     if (v) it.rot = v; else delete it.rot;
   });
@@ -5645,23 +5671,72 @@ function snapToItems(t, it, i, raw, e) {
       const c = [0, oh - half, half - oh].reduce((b, c) => (Math.abs(v - c) < Math.abs(v - b) ? c : b));
       return Math.abs(v - c) <= SNAP_ITEM ? c : v;
     };
+    // Each candidate: where the item's middle goes (lx, ly) and where the two join (jl), both in
+    // the neighbour's frame.
     const cands = [];
     for (const s of [-1, 1]) {
       // End to end: only alongside it in depth, so a corner never snaps to a corner diagonally.
       const fy = flush(ly, hy, ob.h / 2);
-      if (Math.abs(fy) <= ob.h / 2 + hy + 1e-6) cands.push({ lx: s * (ob.w / 2 + hx), ly: fy });
+      if (Math.abs(fy) <= ob.h / 2 + hy + 1e-6) cands.push({ lx: s * (ob.w / 2 + hx), ly: fy, jl: [s * (ob.w / 2), fy] });
       const fx = flush(lx, hx, ob.w / 2);
-      if (Math.abs(fx) <= ob.w / 2 + hx + 1e-6) cands.push({ lx: fx, ly: s * (ob.h / 2 + hy) });
+      if (Math.abs(fx) <= ob.w / 2 + hx + 1e-6) cands.push({ lx: fx, ly: s * (ob.h / 2 + hy), jl: [fx, s * (ob.h / 2)] });
+      // A corner: turned a quarter, its length runs off the neighbour's end, the two middle lines
+      // meeting there square (a fence or wall is drawn along its middle line), either way round.
+      if (q % 180 !== 0) for (const s2 of [-1, 1]) cands.push({ lx: s * (ob.w / 2), ly: s2 * (mine.w / 2), jl: [s * (ob.w / 2), 0] });
     }
-    for (const c of cands) {
+    cands.forEach((c, k) => {
       const x = o.x + c.lx * ux[0] + c.ly * uy[0];
       const y = o.y + c.lx * ux[1] + c.ly * uy[1];
       const d = Math.hypot(x - raw.x, y - raw.y);
-      if (d <= SNAP_ITEM && (!best || d < best.d)) best = { x: round1(x), y: round1(y), rot, j, d };
-    }
+      const jl = c.jl;
+      const jx = o.x + jl[0] * ux[0] + jl[1] * uy[0];
+      const jy = o.y + jl[0] * ux[1] + jl[1] * uy[1];
+      if (d <= SNAP_ITEM && (!best || d < best.d)) best = { x, y, rot, j, d, jx, jy, key: `${j}:${k}:${rot}` };
+    });
   });
+  if (!best) { app.snapKey = null; return null; }
+  // Turned with Q and E while snapped: swung round the join, which stays where it is.
+  if (best.key !== app.snapKey) { app.snapKey = best.key; app.snapBend = 0; }
+  if (app.snapBend) {
+    const b = (app.snapBend * Math.PI) / 180;
+    const dx = best.x - best.jx;
+    const dy = best.y - best.jy;
+    best.x = best.jx + dx * Math.cos(b) - dy * Math.sin(b);
+    best.y = best.jy + dx * Math.sin(b) + dy * Math.cos(b);
+    best.rot = (((best.rot + app.snapBend) % 360) + 360) % 360;
+  }
+  best.x = round2(best.x);
+  best.y = round2(best.y);
   return best;
 }
+/**
+ * The point a placed scenery item turns about with Q and E while Snap object is on: the middle of
+ * one of its ends where that end touches another item, so a fence joined onto another swings
+ * round the join and stays joined. With both ends joined it keeps the end on the item placed
+ * first. Null when neither end touches anything (it turns about its middle).
+ */
+function joinedEnd(t, i) {
+  const it = t.scenery?.[i];
+  if (!it || !$('#snapObj').checked || it.type === OFFICIAL || it.type === 'finish_arch') return null;
+  const { w, a } = itemBox(it);
+  let best = null;
+  for (const sgn of [-1, 1]) {
+    const ex = it.x + sgn * (w / 2) * Math.cos(a);
+    const ey = it.y + sgn * (w / 2) * Math.sin(a);
+    (t.scenery ?? []).forEach((o, j) => {
+      if (j === i || o.type === OFFICIAL || sceneryDef(o.type)?.id !== o.type) return;
+      const ob = itemBox(o);
+      const dx = ex - o.x;
+      const dy = ey - o.y;
+      const lx = dx * Math.cos(ob.a) + dy * Math.sin(ob.a);
+      const ly = -dx * Math.sin(ob.a) + dy * Math.cos(ob.a);
+      if (Math.abs(lx) <= ob.w / 2 + JOIN_TOL && Math.abs(ly) <= ob.h / 2 + JOIN_TOL && (!best || j < best.j)) best = { x: ex, y: ey, j };
+    });
+  }
+  return best;
+}
+/** How far (grid units) an item's end may be from another item and still count as joined to it. */
+const JOIN_TOL = 0.25;
 function cellAt(t, gp) { const cell = t.ground?.cell ?? 2; return { x: Math.floor(gp.x / cell), y: Math.floor(gp.y / cell) }; }
 
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -5804,6 +5879,25 @@ function onPointerDown(e) {
   refresh();
 }
 canvas.addEventListener('pointerdown', onPointerDown);
+/** A scenery item dragged to raw (where the pointer has it, not yet snapped): onto a neighbour (Snap object) or the grid. */
+function dragItemTo(t, raw, e) {
+  const it = t.scenery[drag.i];
+  drag.raw = raw;
+  drag.alt = e.altKey;
+  // Lined up from how it was turned when picked up, so a bend from Q and E never flips it a quarter turn.
+  const s = snapToItems(t, { ...it, rot: drag.start.rot }, drag.i, raw, e);
+  it.x = clamp(s ? s.x : snapHalf(raw.x, e), -SCENE_OUT, GRID_W + SCENE_OUT);
+  it.y = clamp(s ? s.y : snapHalf(raw.y, e), -SCENE_OUT, GRID_H + SCENE_OUT);
+  // Snapped onto another item it turns the same way (and as far again as Q and E have bent it);
+  // away from one it is turned as when picked up.
+  const rot = s ? s.rot : drag.start.rot ?? 0;
+  if (rot) it.rot = rot; else delete it.rot;
+  app.snapTo = s ? s.j : -1;
+  // While it is dragged only the map and the race view follow it (the race view moves the one
+  // item); the panels, checks and undo catch up when it is let go (onPointerUp).
+  requestDraw();
+  sendView();
+}
 function onPointerMove(e) {
   const t = track();
   const p = evPos(e);
@@ -5920,19 +6014,7 @@ function onPointerMove(e) {
     const it = t.scenery[app.selItem];
     it.route[drag.i - 1] = [clamp(snapHalf(gp.x, e), -SCENE_OUT, GRID_W + SCENE_OUT), clamp(snapHalf(gp.y, e), -SCENE_OUT, GRID_H + SCENE_OUT)];
   } else if (drag.kind === 'item') {
-    const it = t.scenery[drag.i];
-    const raw = { x: gp.x - drag.dx, y: gp.y - drag.dy };
-    const s = snapToItems(t, it, drag.i, raw, e);
-    it.x = clamp(s ? s.x : snapHalf(raw.x, e), -SCENE_OUT, GRID_W + SCENE_OUT);
-    it.y = clamp(s ? s.y : snapHalf(raw.y, e), -SCENE_OUT, GRID_H + SCENE_OUT);
-    // Snapped onto another item it turns the same way; away from one it is turned as when picked up.
-    const rot = s ? s.rot : drag.start.rot ?? 0;
-    if (rot) it.rot = rot; else delete it.rot;
-    app.snapTo = s ? s.j : -1;
-    // While it is dragged only the map and the race view follow it (the race view moves the one
-    // item); the panels, checks and undo catch up when it is let go (onPointerUp).
-    requestDraw();
-    sendView();
+    dragItemTo(t, { x: gp.x - drag.dx, y: gp.y - drag.dy }, e);
     return;
   } else if (drag.kind === 'patch') {
     const lap = lapLength(t);
@@ -6236,7 +6318,10 @@ window.addEventListener('keydown', (e) => {
       // 15° a press; Shift for 5°, Alt for 1°. With nothing selected, it turns the item about to be placed.
       e.preventDefault();
       const step = (e.altKey ? 1 : e.shiftKey ? 5 : 15) * (e.key.toLowerCase() === 'q' ? -1 : 1);
-      if (app.selItem >= 0) turnItem(step);
+      // Snapped while placed or dragged, it swings round the join instead (Snap object).
+      if (drag?.kind === 'item' && drag.started && app.snapTo >= 0) { app.snapBend += step; dragItemTo(track(), drag.raw, { altKey: drag.alt }); }
+      else if (app.selItem >= 0) turnItem(step);
+      else if (ghostItemForView(track()) && app.snapTo >= 0) { app.snapBend += step; requestDraw(); sendView(); }
       else { app.placeRot = (((app.placeRot + step) % 360) + 360) % 360; requestDraw(); sendView(); }
     }
     else if (e.key.startsWith('Arrow') && app.selItem >= 0) {
@@ -6305,7 +6390,7 @@ async function tryServer() {
 setMode('layout');
 tryServer();
 openRaceView();
-window.trackEditor = { app, openRaceView, sendView, snapToItems, itemToPlace, surfaceGhost, toGrid, heightDab, elevAt, elevationIssues, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, findRef, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart, planWalk, alongStart, followStart, setOfficialAlong, trackRoom, walkRoom, undo, redo, trackForView, officialProblems, setFinish, finishGhost, addFinish, placeFinish, removeFinish, addStart, placeStart, placePiece, cancelPlacing, adjustPiece, readyToRace, tightCorners, keepJoined, startHere, lapLength, refresh, sectionBounds, boundaryCrossings, BOUND_OUT, SCENE_OUT, cheerProblems, routeDrawing, addRoutePoint, lpts, derive, rebuildPath, rebuildSections, splitSegment, segParam, layoutIndices, baseRuns, sectionFeats, featureProblems, featureTypes, featureAt, useFeatures, startFeature, featureGhost, placeFeature, deleteFeature, duplicateFeature, editFeature, startDrawing, stopDrawing, addLayoutPoint, closeRoute, deleteSegment, deletePoint, insertPoint, roundCorner, trackStatus, reverse, fitToGrid, newTrack, deleteSection, firstCornerLeg, colliders, marshalWatch, marshalProblems, hillsAt, hillProfile, trackLevelAt, hillGhost, applyHill, hillTool }; // for tests
+window.trackEditor = { app, openRaceView, sendView, snapToItems, joinedEnd, turnItem, itemToPlace, surfaceGhost, toGrid, heightDab, elevAt, elevationIssues, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, findRef, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart, planWalk, alongStart, followStart, setOfficialAlong, trackRoom, walkRoom, undo, redo, trackForView, officialProblems, setFinish, finishGhost, addFinish, placeFinish, removeFinish, addStart, placeStart, placePiece, cancelPlacing, adjustPiece, readyToRace, tightCorners, keepJoined, startHere, lapLength, refresh, sectionBounds, boundaryCrossings, BOUND_OUT, SCENE_OUT, cheerProblems, routeDrawing, addRoutePoint, lpts, derive, rebuildPath, rebuildSections, splitSegment, segParam, layoutIndices, baseRuns, sectionFeats, featureProblems, featureTypes, featureAt, useFeatures, startFeature, featureGhost, placeFeature, deleteFeature, duplicateFeature, editFeature, startDrawing, stopDrawing, addLayoutPoint, closeRoute, deleteSegment, deletePoint, insertPoint, roundCorner, trackStatus, reverse, fitToGrid, newTrack, deleteSection, firstCornerLeg, colliders, marshalWatch, marshalProblems, hillsAt, hillProfile, trackLevelAt, hillGhost, applyHill, hillTool }; // for tests
 </script>
 </body>
 </html>

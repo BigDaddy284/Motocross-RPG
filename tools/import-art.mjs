@@ -46,8 +46,10 @@ const OVERRIDES = {
 /**
  * Prop folders copied whole, whether or not a map uses them yet, so the map editor's palette offers
  * them: the parked vehicles and bikes on stands (vehgen/paddockbuild.py, Boss's brief of 27 Oct 2026).
+ * The ground folders go whole too, for the track editor's ground tiles (trackParts.json ground):
+ * every corner set, and the mixed tiles of tools/art/ground-mix.py.
  */
-const PALETTE_DIRS = ['area-map/tiled/tiles/vehicle-props', 'area-map/tiled/tiles/bike-props'];
+const PALETTE_DIRS = ['area-map/tiled/tiles/vehicle-props', 'area-map/tiled/tiles/bike-props', 'area-map/tiled/tiles/ground-edges', 'area-map/tiled/tiles/terrain-common', 'area-map/tiled/tiles/ground-mix'];
 
 const copied = new Set();
 
