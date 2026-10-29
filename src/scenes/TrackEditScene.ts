@@ -49,6 +49,8 @@ export interface EditViewState {
   ghost?: { pts: [number, number][]; level: 'ok' | 'warning' | 'error'; ring: [number, number, number] | null; /** The route being drawn: a thin dashed line from the last point to the pointer, not a piece. */ dashed?: boolean; /** Drawn in this colour ('#rrggbb') instead of the level's: the surface a patch would lay. */ colour?: string };
   /** The scenery item the next click would place (Scenery): drawn see-through under the pointer, turned as it would be. */
   ghostItem?: SceneryItem;
+  /** Which way the selected item and the one being placed face: an arrow from the front along ang (grid radians). */
+  arrows?: { x: number; y: number; ang: number }[];
   /**
    * The index of the scenery item being dragged: ghostItem is that item where it is now, drawn
    * solid, and the track's own copy of it (as it was picked up) is left out of the build, so the
@@ -393,6 +395,14 @@ export class TrackEditScene extends Phaser.Scene {
         const f = size(p.item);
         if (f) line(rect(f.x, f.z, f.w + 0.2, f.d + 0.2, f.a), color, true, p.level === 'warning');
       } else if (p.x !== undefined && p.y !== undefined) line(ring(p.x, p.y, 1.2), color, true, p.level === 'warning');
+    }
+    // Facing arrows: a short line from the item's front with a head, so people and stands are placed looking the right way.
+    for (const ar of st.arrows ?? []) {
+      const L = 1.7;
+      const tip = { x: ar.x + Math.cos(ar.ang) * L, z: ar.y + Math.sin(ar.ang) * L };
+      const back = (side: number) => ({ x: tip.x - Math.cos(ar.ang + side * 0.5) * 0.55, z: tip.z - Math.sin(ar.ang + side * 0.5) * 0.55 });
+      line([{ x: ar.x, z: ar.y }, tip], 0xffffff, false, false, 0.12, 12);
+      line([back(-1), tip, back(1)], 0xffffff, false, false, 0.12, 12);
     }
     // The selected item's outline; while it is dragged, round the moving copy (ghostItem), not the track's.
     if (st.sel.item >= 0 && st.sel.item !== st.ghostSolid) {
