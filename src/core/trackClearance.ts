@@ -192,6 +192,16 @@ export function colliders(f: Footprint): Footprint[] {
       return [];
     case 'finish_arch':
       return [along(-(f.w / 2 - 0.25), 0.5, 0.5), along(f.w / 2 - 0.25, 0.5, 0.5)];
+    // The other things that span the track stand on their ends: a pedestrian bridge's stair
+    // towers, a lighting truss's or timing beam's posts, an inflatable's feet (trackside.ts).
+    case 'foot_bridge':
+      return [along(-(f.w / 2 - 1.1), 2.2, Math.min(f.d, 1.8)), along(f.w / 2 - 1.1, 2.2, Math.min(f.d, 1.8))];
+    case 'truss_arch':
+      return [along(-(f.w / 2 - 0.35), 0.7, Math.min(f.d, 1.2)), along(f.w / 2 - 0.35, 0.7, Math.min(f.d, 1.2))];
+    case 'timing_beam':
+      return [along(-(f.w / 2 - 0.2), 0.4, 0.4), along(f.w / 2 - 0.2, 0.4, 0.4)];
+    case 'inflatable':
+      return [along(-(f.w / 2 - 0.5), 1, Math.min(f.d, 1.2)), along(f.w / 2 - 0.5, 1, Math.min(f.d, 1.2))];
     case 'tree':
       return [along(0, 0.35, 0.35)];
     case 'light_tower':

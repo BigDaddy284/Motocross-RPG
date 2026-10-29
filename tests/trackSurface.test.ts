@@ -10,7 +10,7 @@ import { loadManifest, loadMaps, rawContent } from './helpers';
 // with raised edges, and the bikes' wheels sit on it, never floating or sinking.
 
 const content = checkContent(rawContent(), loadManifest(), loadMaps()).content!;
-const SKIM = new Set(['rhythm', 'whoops']);
+const SKIM = new Set(['whoops', 'rollers']);
 
 describe('track surface', () => {
   for (const track of content.tracks.tracks) {
@@ -57,15 +57,17 @@ describe('track surface', () => {
       for (let t = 0; t < end; t += 0.5) {
         for (const p of dir.poses(t)) {
           const f = p.dist - Math.floor(p.dist);
-          const wheels = s.wheels(f, p.lane, p.air);
+          const wheels = s.wheels(f, p.lane, p.flight);
           for (const [k, w] of wheels.entries()) {
             const wf = f + ((k ? 1 : -1) * BIKE_LENGTH) / 2 / s.g.total;
             const ground = s.height(wf, p.lane);
             // Never under the surface.
             expect(w.y).toBeGreaterThanOrEqual(ground - 1e-9);
             const type = track.sections[s.at(wf).si].type;
-            // On the ground the wheel touches it, except where the bike skims rhythm and whoops tops.
-            if (p.air === 0 && !SKIM.has(type)) expect(w.y).toBeCloseTo(ground, 6);
+            // Off its hops the wheel touches the ground, except where the bike skims whoops and rollers.
+            const wf1 = wf - Math.floor(wf);
+            const inHop = !!p.flight?.hops.some(([a, b]) => wf1 > a && wf1 < b);
+            if (!inHop && !SKIM.has(type)) expect(w.y).toBeCloseTo(ground, 6);
             if (w.y > ground + 0.05) flying++;
           }
         }

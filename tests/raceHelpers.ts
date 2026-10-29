@@ -9,7 +9,7 @@ import { loadManifest, loadMaps, rawContent } from './helpers';
 
 export const content = checkContent(rawContent(), loadManifest(), loadMaps()).content!;
 export const units = (track: { path: Parameters<typeof lapGeom>[0] }) => lapGeom(track.path).total;
-export const JUMPY = new Set(['tabletop', 'double', 'step_up', 'triple', 'step_down', 'step_on', 'rhythm', 'whoops', 'dragon_back', 'braking_bumps']);
+export const JUMPY = new Set(['tabletop', 'double', 'step_up', 'triple', 'quad', 'step_down', 'step_on', 'on_off', 'single_over_table', 'table_over_single', 'wall_jump', 'ski_jump', 'rhythm', 'whoops', 'rollers', 'dragon_back', 'braking_bumps']);
 
 /**
  * The first 15 CPU riders (the original local field), plus one rider on a worn-out bike with a

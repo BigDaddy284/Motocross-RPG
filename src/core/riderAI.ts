@@ -1,7 +1,11 @@
 import type { BikesData } from './career';
 import { mixSeed, seededRng, type LapTrace, type MessageDef, type MistakeOutcome, type MotoSim, type TrackDef, type TrackSection } from './race';
 import { riderProfile, type RiderProfile } from './riderProfile';
-import { lapGeom, lapMetres, sectionTurns, START_PAD, startGeom, type StartGeom } from './trackGeom';
+import { lapGeom, lapMetres, sectionBounds, sectionTurns, START_PAD, startGeom, type StartGeom } from './trackGeom';
+import { DEFAULT_HEIGHTS, HOP_JUMPS, landingOf, pickWay, type Way } from './jumps';
+import { TrackSurface, type Flight } from './trackSurface';
+
+export { DEFAULT_HEIGHTS };
 
 // The rider AI for the race screen (GDD 11.1): every rider rides the lap on their own, the way
 // Super Off Road's CPU drivers follow a racing line, but for motocross. The race simulation
@@ -24,6 +28,8 @@ export interface RiderPose {
   lane: number;
   /** Height above the ground in metres (jumps, whoops). */
   air: number;
+  /** The hops this rider is taking through this section and the next, for the view to fly the wheels along (null on the ground). */
+  flight: Flight | null;
   /** Height of the ground itself in metres (hills), for the view. */
   elev: number;
   state: RiderState;
@@ -44,11 +50,7 @@ interface Seg {
 }
 
 const CORNERS = new Set(['first_corner', 'flat_corner', 'berm', 'rutted_corner', 'hairpin', 'fast_sweeper']);
-const BIG_JUMPS = new Set(['tabletop', 'double', 'step_up', 'triple', 'step_down']);
-/** Default jump face and hill heights in metres, when a section doesn't set one. */
-export const DEFAULT_HEIGHTS: Record<string, number> = { tabletop: 2.5, double: 3.5, step_up: 3, triple: 3.5, step_down: 3, step_on: 2, rhythm: 1.5, whoops: 0.6, dragon_back: 1.2, uphill: 6, downhill: 6 };
-/** Where on a big jump the bike is in the air, as a share of the section. */
-const TAKEOFF = 0.3;
+/** Where a mistake on a jump ridden without a hop (rolled) happens, as a share of the section. */
 const LANDING = 0.72;
 /** Riders closer than this many metres, on near lines, ease apart. */
 const ROOM = 5;
@@ -137,6 +139,11 @@ export class RaceDirector {
   readonly arrival: string[] = [];
   private readonly moves = new Map<string, LineUpMove>();
   private readonly lapUnits: number;
+  /** The track as a surface, for the riders' flights over jumps. */
+  private readonly surface: TrackSurface;
+  private readonly bounds: number[];
+  /** Each rider's way through each jump on each lap, picked once (id|lap|section). */
+  private readonly ways = new Map<string, Way | null>();
   private finishCache: { key: string; plan: Map<string, Finish> } | null = null;
 
   constructor(
@@ -153,6 +160,8 @@ export class RaceDirector {
     this.turns = sectionTurns(track, g);
     this.metres = lapMetres(track);
     this.lapUnits = g.total;
+    this.surface = new TrackSurface(track);
+    this.bounds = sectionBounds(track);
     this.start = startGeom(track, g);
     // Each rider's gate is their slot: gates 1 to 8 (0 to 7 here) are the front row, from the inside
     // of the first corner outwards, gates 9 to 16 the second row and 17 to 24 the third, each
@@ -241,12 +250,12 @@ export class RaceDirector {
   private lineUp(id: string, t: number): RiderPose {
     const lane = this.gateLane.get(id) ?? 0;
     const m = this.moves.get(id);
-    if (!m || t >= m.t1) return { id, dist: this.start.from, lane, air: 0, elev: 0, state: 'grid', speed: 0 };
+    if (!m || t >= m.t1) return { id, dist: this.start.from, lane, air: 0, elev: 0, flight: null, state: 'grid', speed: 0 };
     const k = clamp((t - m.t0) / (m.t1 - m.t0), 0, 1);
     const left = 1 - smooth(k);
     // Speed from the eased ride, in metres per second.
     const speed = k > 0 && k < 1 ? ((6 * k * (1 - k) * m.back) / (m.t1 - m.t0)) * (this.metres / this.lapUnits) : 0;
-    return { id, dist: this.start.from - (m.back * left) / this.lapUnits, lane: lane + m.side * left, air: 0, elev: 0, state: 'grid', speed };
+    return { id, dist: this.start.from - (m.back * left) / this.lapUnits, lane: lane + m.side * left, air: 0, elev: 0, flight: null, state: 'grid', speed };
   }
 
   /** True once every rider is in their slot and still (from START_HOLD seconds before the gate drops). */
@@ -367,9 +376,10 @@ export class RaceDirector {
       } else state = 'wobble';
     }
 
-    const { air, elev } = this.height(p, sec.type, sec.height, u, stopped);
+    const flight = this.flight(p, seg, list, lo);
+    const { air, elev } = this.height(p, sec.type, sec.height, u, dist - Math.floor(dist), flight, stopped);
     if (air > 0.05 && state === 'riding') state = 'air';
-    return { id, dist, lane: clamp(lane, -1, 1), air, elev, state, speed };
+    return { id, dist, lane: clamp(lane, -1, 1), air, elev, flight, state, speed };
   }
 
   /** After the rider's last section: finished, out of the race, or waiting for the next lap. */
@@ -379,7 +389,7 @@ export class RaceDirector {
     const outAt = this.out.get(id);
     if (outAt !== undefined && outAt <= t + 1e-9) {
       // Pulled off the track where they stopped.
-      return { id, dist: last.d1, lane: side * (1 + 0.45 * smooth((t - Math.max(outAt, last.t1)) / 2)), air: 0, elev: 0, state: 'retired', speed: 0 };
+      return { id, dist: last.d1, lane: side * (1 + 0.45 * smooth((t - Math.max(outAt, last.t1)) / 2)), air: 0, elev: 0, flight: null, state: 'retired', speed: 0 };
     }
     if (this.laps !== null && last.d1 >= this.laps - 1e-9) {
       // A cool-down after the flag: ease off to a steady slow ride down one edge of the track and
@@ -387,9 +397,9 @@ export class RaceDirector {
       // racing to the line (they all used to stop in a heap 40 m past it).
       const f = this.finishes().get(id)!;
       const dt = t - f.t1;
-      return { id, dist: this.coolDist(f, t), lane: f.from + (f.edge * 0.7 - f.from) * smooth(dt / 3), air: 0, elev: 0, state: 'finished', speed: f.cruise + (f.v - f.cruise) * Math.exp(-dt / 2) };
+      return { id, dist: this.coolDist(f, t), lane: f.from + (f.edge * 0.7 - f.from) * smooth(dt / 3), air: 0, elev: 0, flight: null, state: 'finished', speed: f.cruise + (f.v - f.cruise) * Math.exp(-dt / 2) };
     }
-    return { id, dist: last.d1, lane: this.target(id, p, last), air: 0, elev: 0, state: 'waiting', speed: 0 };
+    return { id, dist: last.d1, lane: this.target(id, p, last), air: 0, elev: 0, flight: null, state: 'waiting', speed: 0 };
   }
 
   /**
@@ -493,7 +503,7 @@ export class RaceDirector {
     if (CORNERS.has(type)) return -(type === 'hairpin' ? 0.6 : type === 'fast_sweeper' ? 0.25 : 0.5) * (1 - 0.6 * p.cornerSpeed);
     if (type === 'straight' || type === 'start_gate' || type === 'downhill') return 0.15 + 0.35 * p.drive;
     if (type === 'uphill') return -0.1 * (1 - p.drive);
-    if (type === 'whoops' || type === 'braking_bumps' || type === 'dragon_back') return -0.2 * (1 - p.skim);
+    if (type === 'whoops' || type === 'rollers' || type === 'braking_bumps') return -0.2 * (1 - p.skim);
     return 0;
   }
 
@@ -510,27 +520,50 @@ export class RaceDirector {
   private mistakeAt(p: RiderProfile, seg: Seg): number {
     if (!seg.mistake) return 1;
     const type = this.section(seg.si).type;
-    if (BIG_JUMPS.has(type)) return LANDING;
+    if (HOP_JUMPS.has(type)) return landingOf(this.way(p, seg)) ?? LANDING;
     return 0.35 + 0.3 * frac(p.seed * 7 + seg.si * 0.37 + seg.lap * 0.13);
   }
 
-  private height(p: RiderProfile, type: string, set: number | undefined, u: number, stopped: boolean): { air: number; elev: number } {
+  /**
+   * The way a rider takes a jump section on a lap: drawn once from their seed, the lap and the
+   * section by their jumping (jumps.ts pickWay); a mistake there comes up short. Null off jumps.
+   */
+  private way(p: RiderProfile, seg: Seg): Way | null {
+    if (seg.si < 0) return null;
+    const key = `${p.id}|${seg.lap}|${seg.si}`;
+    const got = this.ways.get(key);
+    if (got !== undefined) return got;
+    const type = this.track.sections[seg.si].type;
+    const way = HOP_JUMPS.has(type) ? pickWay(type, p.jump, frac(p.seed * 31.7 + seg.lap * 0.618 + seg.si * 0.3819), !!seg.mistake) : null;
+    this.ways.set(key, way);
+    return way;
+  }
+
+  /** A rider's flight plan through a section and the one after it, as lap fractions, or null with no hops. */
+  private flight(p: RiderProfile, seg: Seg, list: Seg[], i: number): Flight | null {
+    const hops: [number, number][] = [];
+    for (const sg of [seg, list[i + 1]]) {
+      if (!sg || sg.si < 0 || sg.lap !== seg.lap) continue;
+      const way = this.way(p, sg);
+      if (!way) continue;
+      const f0 = this.bounds[sg.si];
+      const span = this.bounds[sg.si + 1] - f0;
+      for (const [a, b] of way.hops) hops.push([f0 + a * span, f0 + b * span]);
+    }
+    if (!hops.length) return null;
+    return { hops, launch: 1 - 0.45 * p.scrub };
+  }
+
+  /** How high the rider is off the ground (metres) and how high the ground is (hills), at lap fraction f. */
+  private height(p: RiderProfile, type: string, set: number | undefined, u: number, f: number, flight: Flight | null, stopped: boolean): { air: number; elev: number } {
     const h = set ?? DEFAULT_HEIGHTS[type] ?? 0;
     let air = 0;
     let elev = 0;
     if (!stopped) {
-      if (BIG_JUMPS.has(type) && u > TAKEOFF && u < LANDING) {
-        const x = (u - TAKEOFF) / (LANDING - TAKEOFF);
-        air = h * (1 - 0.5 * p.scrub) * 4 * x * (1 - x);
-      } else if (type === 'rhythm') {
-        // Three jumps in a row.
-        const x = (u * 3) % 1;
-        if (x > 0.1 && x < 0.75) air = h * (1 - 0.4 * p.scrub) * 4 * ((x - 0.1) / 0.65) * (1 - (x - 0.1) / 0.65);
-      } else if (type === 'step_on') {
-        // Two hops: onto the deck and off it again.
-        for (const [a, b] of [[0.2, 0.36], [0.56, 0.74]]) if (u > a && u < b) { const x = (u - a) / (b - a); air = h * 0.35 * (1 - 0.4 * p.scrub) * 4 * x * (1 - x); }
-      } else if (type === 'dragon_back') air = h * 0.5 * (1 - p.skim) * Math.abs(Math.sin(u * Math.PI * 5));
+      const fly = this.surface.flightY(f, 0, flight);
+      if (fly !== null) air = Math.max(0, this.surface.metresOf(fly - this.surface.height(f, 0)));
       else if (type === 'whoops') air = h * (1 - p.skim) * Math.abs(Math.sin(u * Math.PI * 10));
+      else if (type === 'rollers') air = 0.3 * h * (1 - p.skim) * Math.abs(Math.sin(u * Math.PI * 4));
       else if (type === 'braking_bumps') air = 0.15 * (1 - p.skim) * Math.abs(Math.sin(u * Math.PI * 14));
     }
     if (type === 'uphill' || type === 'downhill') elev = h * Math.sin(Math.PI * u);
@@ -543,7 +576,7 @@ export class RaceDirector {
     if (at === undefined || t < at) return null;
     const where = this.pose(id, list, at, false);
     const side = where.lane >= 0 ? 1 : -1;
-    return { ...where, lane: side * Math.max(Math.abs(where.lane), 1 + 0.45 * smooth((t - at) / 2)), air: 0, state: 'retired', speed: 0 };
+    return { ...where, lane: side * Math.max(Math.abs(where.lane), 1 + 0.45 * smooth((t - at) / 2)), air: 0, flight: null, state: 'retired', speed: 0 };
   }
 
   /** Riders side by side ease apart so they don't ride through each other. */

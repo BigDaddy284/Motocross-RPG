@@ -66,7 +66,7 @@ describe('ground elevation', () => {
     const top = up.lift(0.4);
     expect(top).toBeCloseTo(up.units(3), 1);
     for (const lane of [-1, 0, 1, 1.3]) expect(up.height(0.4, lane) - flat.height(0.4, lane)).toBeCloseTo(top, 6);
-    expect(up.wheel(0.4, 0, 0, 0) - flat.wheel(0.4, 0, 0, 0)).toBeCloseTo(top, 6);
+    expect(up.wheel(0.4, 0, null) - flat.wheel(0.4, 0, null)).toBeCloseTo(top, 6);
     // Well away from the hill nothing changes.
     expect(up.height(0.9, 0)).toBeCloseTo(flat.height(0.9, 0), 6);
   });

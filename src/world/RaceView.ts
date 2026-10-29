@@ -1869,7 +1869,7 @@ export class RaceView {
       if (r.startRow && s.onStart(p.dist)) dist -= (r.startRow * BIKE_LENGTH * 1.4 * Math.max(0, Math.min(1, 1 - clock / 2))) / s.g.total;
       const f = dist - Math.floor(dist);
       const onStart = s.onStart(dist);
-      const [back, front] = s.wheelsAt(dist, p.lane, p.air);
+      const [back, front] = s.wheelsAt(dist, p.lane, p.flight);
       // Off the track (a rider who has pulled off) the wheels sit on the ground.
       for (const wh of [back, front]) wh.y = Math.max(wh.y, this.terrainAt(wh.x, wh.z));
       const mx = (back.x + front.x) / 2;
