@@ -5,14 +5,15 @@ import type { SceneryItem, TrackDef } from '../core/race';
 import { START_HOLD, type RiderPose, type RiderState } from '../core/riderAI';
 import { CHEER_ITEM, CHEER_RANGE, CHEER_WALK, cheerAction, cheerColour, cheerRoute, cheerTiming, cheerVariant, REACT_SECONDS, VARIANT_SCALE, type CheerAction } from '../core/cheer';
 import { alongRoute, OFFICIAL_ITEM, OFFICIAL_SCALE, officialPlan, placedOfficial, routeLength, walkProgress, BOARD_MOVE, BOARD_SIDEWAYS, WALK_FROM, WALK_TO, type OfficialSpot } from '../core/startOfficial';
-import { pointAt, START_PAD, startPointAt } from '../core/trackGeom';
+import { nearestOnLap, pointAt, START_PAD, startPointAt } from '../core/trackGeom';
 import { DEFAULT_TRACK_WIDTH, GRID_H, GRID_W, trackKind, type SceneryDef, type TrackPartsData } from '../core/trackParts';
 import { archSpan } from '../core/trackClearance';
 import { BIKE_LENGTH, CAM_AZ, LIP_AT, TrackSurface } from '../core/trackSurface';
 import { COLORS, TEXT_RES } from '../ui/theme';
 import { isPaddock } from '../core/paddock';
 import { paddockParts, U as METRE } from './paddock';
-import { FACES_TRACK, marshalParts, tracksideParts, type Label } from './trackside';
+import { FACES_TRACK, flaggerParts, marshalParts, pitCrewParts, tracksideParts, type Label } from './trackside';
+import { APPROACH, assignCrews, BOARD_PAST, boardOut, boardText, crewSpot, FLAGGER_ITEM, flagState, PIT_CREW_ITEM } from '../core/finishCrew';
 import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../core/marshal';
 import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
 
@@ -65,6 +66,37 @@ interface Marshal {
   /** 0 flag down, 1 up and waving; eased between. */
   raise: number;
   phase: number;
+}
+
+/** The flag man in the scene (flaggerFigure, updateFinishCrew): the white flag up for the last lap, then the chequered flag. */
+interface Flagger {
+  spot: number;
+  figure: THREE.Group;
+  white: THREE.Mesh;
+  chequered: THREE.Mesh;
+  /** How far each flag is up: 0 down, 1 up; eased, the white coming down before the chequered goes up. */
+  wk: number;
+  ck: number;
+  /** How far up a raised flag swings: overhead, or held out under the roof of a tower. */
+  reach: number;
+  phase: number;
+}
+
+/** A pit crew member in the scene (pitCrewFigure, updateFinishCrew): leans out with the board as their rider comes by. */
+interface PitCrew {
+  index: number;
+  spot: number;
+  figure: THREE.Group;
+  arms: THREE.Mesh;
+  board: THREE.Mesh;
+  /** The board's offset from the shoulder before the arms swing, and the shoulder's from the feet (scene units). */
+  boardAt: THREE.Vector3;
+  shoulderAt: THREE.Vector3;
+  canvas: HTMLCanvasElement;
+  texture: THREE.CanvasTexture;
+  text: string;
+  rider: string | null;
+  k: number;
 }
 
 /** A cheering fan in the scene (cheerFigure, updateCheers). */
@@ -170,6 +202,11 @@ export class RaceView {
   /** The official holding the start board beside the start straight, and the board itself. */
   /** The marshals (scenery type marshal): flag up while a rider is down on their watch (updateMarshals). */
   private marshals: Marshal[] = [];
+  /** The flag men and the pit crews by the finish line (core/finishCrew.ts). */
+  private flaggers: Flagger[] = [];
+  private crews: PitCrew[] = [];
+  /** The race's laps, for the flag man's white and chequered flags and the pit boards (setLaps); unset in practice and in the editor. */
+  private laps: number | undefined;
   /** The cheering fans (scenery type cheer): walk in on load, then react to bikes passing (updateCheers). */
   readonly cheers: Cheer[] = [];
   private cheerClock = 0;
@@ -1069,10 +1106,14 @@ export class RaceView {
     // Built outside the track's list, so a marshal or fans here are not kept to animate.
     const marshals = this.marshals.length;
     const cheers = this.cheers.length;
+    const flaggers = this.flaggers.length;
+    const crews = this.crews.length;
     this.ghostIndex = index ?? -1;
     const obj = this.buildItem(it);
     this.ghostIndex = -1;
     this.marshals.length = marshals;
+    this.flaggers.length = flaggers;
+    this.crews.length = crews;
     this.cheers.length = cheers;
     if (!obj) return null;
     if (index !== undefined) return obj;
@@ -1118,6 +1159,14 @@ export class RaceView {
     const add = (o: THREE.Object3D) => g.add(o);
     if (def && it.type === MARSHAL_ITEM) {
       this.marshalFigure(g, it, def);
+      return g;
+    }
+    if (def && it.type === FLAGGER_ITEM) {
+      this.flaggerFigure(g, it, def);
+      return g;
+    }
+    if (def && it.type === PIT_CREW_ITEM) {
+      this.pitCrewFigure(g, it, def);
       return g;
     }
     if (def && isPaddock(def)) {
@@ -1379,6 +1428,157 @@ export class RaceView {
       g.rotation.y = -Math.atan2(at.y - it.y, at.x - it.x) + Math.PI / 2;
     }
     this.marshals.push({ watch, figure, arm, raise: 0, phase: noise(i * 29 + 7) * Math.PI * 2 });
+  }
+
+  /** The race's laps, for the flag man and the pit boards. */
+  setLaps(laps: number | undefined): void {
+    this.laps = laps;
+  }
+
+  /** An arm built apart from a figure, as a mesh pivoting at `at` (metres from the item's middle), its place set from the feet. */
+  private pivotArm(parts: THREE.Mesh[], at: [number, number, number], feet: [number, number, number]): THREE.Mesh {
+    const arm = this.mergeParts(parts);
+    arm.geometry.translate(-at[0] * METRE, -at[1] * METRE, -at[2] * METRE);
+    arm.position.set((at[0] - feet[0]) * METRE, (at[1] - feet[1]) * METRE, (at[2] - feet[2]) * METRE);
+    return arm;
+  }
+
+  /** A figure group standing at the feet, with the body built in the item's frame. */
+  private standingFigure(parts: THREE.Mesh[], feet: [number, number, number]): THREE.Group {
+    const figure = new THREE.Group();
+    figure.position.set(feet[0] * METRE, feet[1] * METRE, feet[2] * METRE);
+    const body = this.mergeParts(parts);
+    body.position.set(-feet[0] * METRE, -feet[1] * METRE, -feet[2] * METRE);
+    figure.add(body);
+    return figure;
+  }
+
+  /** Turns an item to face the nearest point of the track, unless it was turned by hand. */
+  private faceTrack(g: THREE.Group, it: SceneryItem): void {
+    if (it.rot !== undefined) return;
+    const at = pointAt(this.surface.g, nearestOnLap(this.surface.g, it.x, it.y).f);
+    g.rotation.y = -Math.atan2(at.y - it.y, at.x - it.x) + Math.PI / 2;
+  }
+
+  /** The flag man: his stand, the figure, and each arm with its flag, the view raising them in turn. */
+  private flaggerFigure(g: THREE.Group, it: SceneryItem, def: SceneryDef): void {
+    const i = this.itemIndex(it);
+    const built = flaggerParts(def, it, i);
+    if (built.base.length) g.add(this.mergeParts(built.base));
+    const figure = this.standingFigure(built.figure, built.feet);
+    const white = this.pivotArm(built.white, built.left, built.feet);
+    const chequered = this.pivotArm(built.chequered, built.right, built.feet);
+    figure.add(white, chequered);
+    g.add(figure);
+    this.faceTrack(g, it);
+    const roofed = built.variant === 'tower';
+    this.flaggers.push({ spot: crewSpot(this.surface.g, it), figure, white, chequered, wk: 0, ck: 0, reach: roofed ? 0.6 : 0.92, phase: noise(i * 31 + 3) * Math.PI * 2 });
+  }
+
+  /** A pit crew member: the figure, the arms with the pole, and the board with its words, which the view keeps up to date. */
+  private pitCrewFigure(g: THREE.Group, it: SceneryItem, def: SceneryDef): void {
+    const i = this.itemIndex(it);
+    const built = pitCrewParts(def, it, i);
+    if (built.base.length) g.add(this.mergeParts(built.base));
+    const figure = this.standingFigure(built.figure, built.feet);
+    const arms = this.pivotArm(built.arms, built.shoulder, built.feet);
+    figure.add(arms);
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 96;
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    const board = new THREE.Mesh(new THREE.PlaneGeometry(0.75 * METRE, 0.56 * METRE), new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide }));
+    figure.add(board);
+    g.add(figure);
+    this.faceTrack(g, it);
+    const crew: PitCrew = {
+      index: this.crews.length,
+      spot: crewSpot(this.surface.g, it),
+      figure,
+      arms,
+      board,
+      boardAt: new THREE.Vector3(built.board[0] * METRE, built.board[1] * METRE, built.board[2] * METRE),
+      shoulderAt: arms.position.clone(),
+      canvas,
+      texture,
+      text: '',
+      rider: null,
+      k: 0,
+    };
+    this.drawBoard(crew, ['', '']);
+    this.poseCrew(crew);
+    this.crews.push(crew);
+  }
+
+  /** Paints a pit board: white with a black edge, the place big and the laps to go under it. */
+  private drawBoard(c: PitCrew, [top, bottom]: [string, string]): void {
+    const key = `${top}|${bottom}`;
+    if (key === c.text && c.text) return;
+    c.text = key;
+    const ctx = c.canvas.getContext('2d')!;
+    ctx.fillStyle = '#16161a';
+    ctx.fillRect(0, 0, 128, 96);
+    ctx.fillStyle = '#f4f4f0';
+    ctx.fillRect(5, 5, 118, 86);
+    ctx.fillStyle = '#16161a';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = 'bold 40px system-ui, sans-serif';
+    ctx.fillText(top, 64, bottom ? 34 : 48);
+    if (bottom) {
+      ctx.font = 'bold 26px system-ui, sans-serif';
+      ctx.fillText(bottom, 64, 72);
+    }
+    c.texture.needsUpdate = true;
+  }
+
+  /** Puts the arms and the board where the crew's lean (k) has them: down by their side, or held out towards the track. */
+  private poseCrew(c: PitCrew): void {
+    const k = c.k;
+    c.arms.rotation.x = -0.35 - 1.45 * k;
+    c.figure.rotation.x = 0.2 * k;
+    const p = c.boardAt.clone().applyAxisAngle(new THREE.Vector3(1, 0, 0), c.arms.rotation.x).add(c.shoulderAt);
+    c.board.position.copy(p);
+    // The board stands on the pole's end.
+    c.board.position.y += 0.28 * METRE;
+  }
+
+  /**
+   * The flag men and the pit crews: the white flag up as the leader comes up to start the last
+   * lap, swapped for the chequered flag as they come up to finish, held until the last rider has
+   * gone by; each pit crew leaning out with the board as their rider comes past.
+   */
+  updateFinishCrew(dt: number, clock: number, riders: ViewRider[]): void {
+    const g = this.surface.g;
+    const approach = APPROACH / g.total;
+    const runners = riders.map((r) => r.pose);
+    for (const f of this.flaggers) {
+      const want = flagState(f.spot, approach, this.laps, runners);
+      // The white flag comes down before the chequered goes up.
+      const wantW = want === 'white' ? 1 : 0;
+      const wantC = want === 'chequered' && f.wk < 0.15 ? 1 : 0;
+      f.wk += Math.max(-dt * 2.2, Math.min(dt * 2.2, wantW - f.wk));
+      f.ck += Math.max(-dt * 2.2, Math.min(dt * 2.2, wantC - f.ck));
+      f.white.rotation.x = -f.reach * Math.PI * f.wk;
+      f.white.rotation.z = 0.12 * f.wk * Math.sin(clock * 3 + f.phase);
+      f.chequered.rotation.x = -f.reach * Math.PI * f.ck;
+      f.chequered.rotation.z = -0.5 * f.ck * Math.sin(clock * 9 + f.phase);
+      f.figure.rotation.x = 0.12 * Math.max(f.wk, f.ck);
+    }
+    if (!this.crews.length) return;
+    if (riders.length && this.crews.some((c) => c.rider === null)) {
+      const player = riders.find((r) => r.player)?.pose.id ?? '';
+      const picks = assignCrews(this.crews.length, riders.map((r) => r.pose.id), player, this.crews.length + Math.round(g.total));
+      this.crews.forEach((c, k) => (c.rider = picks[k] ?? ''));
+    }
+    for (const c of this.crews) {
+      const r = riders.find((x) => x.pose.id === c.rider);
+      const out = !!r && boardOut(c.spot, approach, BOARD_PAST / g.total, this.laps, r.pose.dist, r.pose.state);
+      if (r && out) this.drawBoard(c, boardText(Number(r.label) || 0, this.laps, c.spot, approach, r.pose.dist));
+      c.k += Math.max(-dt * 3, Math.min(dt * 3, (out ? 1 : 0) - c.k));
+      this.poseCrew(c);
+    }
   }
 
   /** Raises each marshal's flag while a rider is down on their watch: the arm swings up and waves, the figure leans out. */
@@ -1709,6 +1909,7 @@ export class RaceView {
     this.agePuffs(Math.min(1, dc * 1.4 + dt * 0.3));
     this.updateStart(clock);
     if (this.marshals.length) this.updateMarshals(Math.min(0.1, dt), clock, riders.map((r) => r.pose));
+    if (this.flaggers.length || this.crews.length) this.updateFinishCrew(Math.min(0.1, dt), clock, riders);
     if (this.cheers.length) {
       const spots: { x: number; z: number }[] = [];
       for (const r of riders) { const b = this.bikes.get(r.pose.id); if (b && r.pose.state !== 'retired') spots.push({ x: b.root.position.x, z: b.root.position.z }); }

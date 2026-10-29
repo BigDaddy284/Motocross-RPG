@@ -787,6 +787,27 @@ export function marshalParts(def: SceneryDef, it: SceneryItem, i: number): Marsh
   const b = new Build();
   const col = hexNum(paddockColour(def, it, i), hexNum(def.color, HIVIS));
   const variant = paddockVariant(def, it, i) ?? 'ground';
+  const lift = marshalStand(b, variant, col, i);
+  const base = b.parts;
+  // The marshal: a figure at the platform's height, with their right arm, the pole and the flag apart.
+  const f = new Build();
+  const fx = variant === 'pair' ? 0.3 : 0;
+  f.person(fx, 0, 0, i, { shirt: col, arms: 'down' });
+  for (const m of f.parts) m.position.y += lift * U;
+  const arm = [f.parts.pop()!];
+  const a = new Build();
+  a.parts.push(...arm);
+  // The pole hangs by the arm with the flag at its lower end, so swung up the flag is on top.
+  a.pole(fx + 0.36, lift + 0.1, 0.12, 1.3, 0xe8e8e8, 0.03);
+  a.box(fx + 0.36 + 0.32, lift + 0.12, 0.12, 0.64, 0.5, 0.02, 0xf0c020);
+  return { base, figure: f.parts, arm: a.parts, feet: [0, lift, 0], shoulder: [fx + 0.3, lift + 1.45, 0] };
+}
+
+/**
+ * A marshal's stand by its design (the same for the flag man): a pallet stand or a roofed tower
+ * with stairs, hay bales, or a second marshal with an extinguisher. Returns the platform height.
+ */
+function marshalStand(b: Build, variant: string, col: number, i: number): number {
   const lift = MARSHAL_STANDS[variant] ?? 0;
   const deck = (l: number, w: number, roof: boolean) => {
     // A steel platform with a handrail round it, the stairs down the back.
@@ -813,19 +834,93 @@ export function marshalParts(def: SceneryDef, it: SceneryItem, i: number): Marsh
     b.cyl(-1.35, 0, 0.2, 0.09, 0.5, 0xd02020, 10);
     b.box(-1.35, 0.5, 0.2, 0.08, 0.1, 0.08, BLACK);
   }
-  const base = b.parts;
-  // The marshal: a figure at the platform's height, with their right arm, the pole and the flag apart.
+  return lift;
+}
+
+/** A flag man for the race view to animate: the white flag in the left hand, the chequered flag in the right, each arm built apart. */
+export interface FlaggerBuilt {
+  base: Build['parts'];
+  figure: Build['parts'];
+  /** The left arm with the white flag, the right arm with the chequered flag, in metres from the feet. */
+  white: Build['parts'];
+  chequered: Build['parts'];
+  feet: [number, number, number];
+  /** Where the left and right arms pivot. */
+  left: [number, number, number];
+  right: [number, number, number];
+  /** The stand's design, picked or chosen. */
+  variant: string;
+}
+
+/**
+ * The flag man (core/finishCrew.ts), on any of the marshals' stands: each flag on a short pole hangs
+ * from its hand with the flag at the lower end, so swung up the flag is on top.
+ */
+export function flaggerParts(def: SceneryDef, it: SceneryItem, i: number): FlaggerBuilt {
+  const b = new Build();
+  const col = hexNum(paddockColour(def, it, i), hexNum(def.color, WHITE));
+  const variant = paddockVariant(def, it, i) ?? 'ground';
+  const lift = marshalStand(b, variant, col, i);
   const f = new Build();
   const fx = variant === 'pair' ? 0.3 : 0;
-  f.person(fx, 0, 0, i, { shirt: col, arms: 'down' });
+  f.person(fx, 0, 0, i, { shirt: col, trousers: BLACK, arms: 'down' });
   for (const m of f.parts) m.position.y += lift * U;
-  const arm = [f.parts.pop()!];
+  const right = f.parts.pop()!;
+  const left = f.parts.pop()!;
+  const w = new Build();
+  w.parts.push(left);
+  w.pole(fx - 0.36, lift + 0.1, 0.12, 1.3, 0xe8e8e8, 0.03);
+  w.box(fx - 0.36 - 0.36, lift + 0.12, 0.12, 0.72, 0.55, 0.02, 0xf4f4f4);
+  const c = new Build();
+  c.parts.push(right);
+  c.pole(fx + 0.36, lift + 0.1, 0.12, 1.3, 0xe8e8e8, 0.03);
+  // The chequered flag: six squares by four, black and white.
+  const sq = 0.12;
+  for (let r = 0; r < 4; r++) for (let k = 0; k < 6; k++) c.box(fx + 0.36 + sq * (k + 0.5), lift + 0.12 + sq * r, 0.12, sq, sq, 0.02, (r + k) % 2 ? 0x16161a : 0xf4f4f4);
+  return { base: b.parts, figure: f.parts, white: w.parts, chequered: c.parts, feet: [0, lift, 0], left: [fx - 0.3, lift + 1.45, 0], right: [fx + 0.3, lift + 1.45, 0], variant };
+}
+
+/** A pit crew member for the race view to animate: the arms and the board's pole built apart; the board itself (with its words) is drawn by the view. */
+export interface PitCrewBuilt {
+  base: Build['parts'];
+  figure: Build['parts'];
+  /** Both arms and the pole, pivoting at the shoulders, in metres from the feet. */
+  arms: Build['parts'];
+  feet: [number, number, number];
+  shoulder: [number, number, number];
+  /** Where the board hangs from the end of the pole, in the arms' frame before they swing (metres from the shoulder). */
+  board: [number, number, number];
+}
+
+/**
+ * A pit crew member (core/finishCrew.ts): a team shirt and cap, holding a pit board on a pole in
+ * both hands. Standing alone, behind a pit wall, or with a mechanic beside them.
+ */
+export function pitCrewParts(def: SceneryDef, it: SceneryItem, i: number): PitCrewBuilt {
+  const b = new Build();
+  const col = hexNum(paddockColour(def, it, i), hexNum(def.color, 0x2a4a90));
+  const variant = paddockVariant(def, it, i) ?? 'standing';
+  if (variant === 'wall') {
+    // A low concrete pit wall in front of them, the lap side.
+    b.box(0, 0, 0.75, 2.4, 0.9, 0.3, 0xb8b8b0);
+    b.box(0, 0.9, 0.75, 2.4, 0.06, 0.34, 0xd8d8d0);
+  } else if (variant === 'pair') {
+    b.person(-0.9, -0.2, 0.4, i + 1, { shirt: col, arms: 'forward', held: [0.3, 0.2, 0.3, 0xc02020] });
+  }
+  const f = new Build();
+  f.person(0, 0, 0, i, { shirt: col, trousers: BLACK, arms: 'down' });
+  // A team cap.
+  f.box(0, 1.73, 0.04, 0.26, 0.08, 0.3, col);
+  const cap = f.parts.pop()!;
+  const right = f.parts.pop()!;
+  const left = f.parts.pop()!;
+  f.parts.push(cap);
   const a = new Build();
-  a.parts.push(...arm);
-  // The pole hangs by the arm with the flag at its lower end, so swung up the flag is on top.
-  a.pole(fx + 0.36, lift + 0.1, 0.12, 1.3, 0xe8e8e8, 0.03);
-  a.box(fx + 0.36 + 0.32, lift + 0.12, 0.12, 0.64, 0.5, 0.02, 0xf0c020);
-  return { base, figure: f.parts, arm: a.parts, feet: [0, lift, 0], shoulder: [fx + 0.3, lift + 1.45, 0] };
+  a.parts.push(left, right);
+  // A handle across both hands, and the pole running on from it, so held out the board is at its end.
+  a.box(0, 0.72, 0.06, 0.66, 0.05, 0.05, 0xc8c8c8);
+  a.pole(0, -0.05, 0.06, 0.8, 0xc8c8c8, 0.04);
+  return { base: b.parts, figure: f.parts, arms: a.parts, feet: [0, 0, 0], shoulder: [0, 1.45, 0], board: [0, -1.5, 0.06] };
 }
 
 /** The meshes and labels of a trackside item, in its own frame, or null for an item built elsewhere (the paddock vehicles). */
