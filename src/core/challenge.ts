@@ -161,9 +161,10 @@ const MAX_STEPS = 6;
  * rider holds their starting message (auto-complete always does; a live race can still change it
  * with the pit board). Seeds are tried first with the riders as they are, then with them a step
  * stronger (for a loss) or weaker (for a win) at a time, so even a hard field can be beaten and an
- * easy one can win. A loss is one where the rider finishes behind someone, not one where the
- * bike gives out (that only happens as often as it would anyway). If nothing fits, the last moto
- * drawn is raced as it comes.
+ * easy one can win. A loss is the challenger winning (Boss, 29 Oct 2026: they always take first
+ * until the bike is good enough), so for a loss only the challenger is made stronger and the others
+ * weaker. Not one where the bike gives out either (that only happens as often as it would anyway).
+ * If nothing fits, the last moto drawn is raced as it comes.
  */
 export function rigChallenge(rc: RaceContent, def: ChallengeDef, player: Entrant, message: string, rng: () => number = Math.random): RiggedChallenge {
   const win = rng() < winChance(def, rc.bikes, player.bike);
@@ -174,16 +175,19 @@ export function rigChallenge(rc: RaceContent, def: ChallengeDef, player: Entrant
   for (let step = 0; step <= MAX_STEPS; step++) {
     for (let i = 0; i < SEEDS_PER_STEP; i++) {
       const seed = mixSeed(base, step * 1000 + i);
-      const cpus = challengeField(rc, def, seed).map((r) => adjust(r, win ? -step : step));
+      const cpus = challengeField(rc, def, seed).map((r) => adjust(r, win || r.id !== def.challenger ? -step : step));
       const day = challengeDay(rc, def, venue, player, seed, cpus);
       const sim = day.startMoto(message);
       sim.runToEnd();
-      const me = sim.results().find((r) => r.player)!;
+      const results = sim.results();
+      const me = results.find((r) => r.player)!;
       const won = me.position === 1 && !me.retired;
+      const beatenBy = results.find((r) => r.position === 1)?.id;
       last = { win: won, seed, cpus, day: challengeDay(rc, def, venue, player, seed, cpus) };
-      // A loss is beaten fair and square: a moto where the bike gives out is only raced if nothing else fits.
-      if (won === win && (win || !me.retired)) return last;
-      if (won === win) fallback ??= last;
+      // A loss is the challenger winning, beaten fair and square: a moto where the bike gives out is
+      // only raced if nothing else fits.
+      if (won === win && (win || (!me.retired && beatenBy === def.challenger))) return last;
+      if (won === win && (win || beatenBy === def.challenger)) fallback ??= last;
     }
   }
   return fallback ?? last!;

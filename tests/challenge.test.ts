@@ -116,4 +116,25 @@ describe('challenges (Boss, 28 Oct 2026)', () => {
       expect(dnfs).toBeLessThanOrEqual(2);
     }
   });
+
+  it('the challenger takes first whenever the rider loses (Boss, 29 Oct 2026)', () => {
+    for (const def of [home, industrial]) {
+      for (const cond of [0.3, 0.75]) {
+        const c = rider(cond);
+        const rng = seededRng(7);
+        let losses = 0;
+        let challengerFirst = 0;
+        for (let i = 0; i < 30; i++) {
+          const rig = rigChallenge(content, def, playerEntrant(content, c, 'Test'), 'steady', rng);
+          if (rig.win) continue;
+          losses++;
+          const sim = rig.day.startMoto('steady');
+          sim.runToEnd();
+          if (sim.results().find((r) => r.position === 1)?.id === def.challenger) challengerFirst++;
+        }
+        expect(losses, `${def.id} at ${cond}`).toBeGreaterThan(0);
+        expect(challengerFirst, `${def.id} at ${cond}`).toBe(losses);
+      }
+    }
+  });
 });
