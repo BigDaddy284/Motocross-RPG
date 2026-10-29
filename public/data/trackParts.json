@@ -183,7 +183,7 @@
     {"id": "hedge", "name": "Hedge", "w": 2, "h": 2, "art": "town-props/hedge-mid", "color": "#3a6e2e"},
     {"id": "fence", "name": "Rail fence", "w": 2, "h": 2, "art": "venue-frontage/fence-rail", "color": "#8a6a44"},
     {"id": "barrels", "name": "Barrels", "w": 2, "h": 2, "art": "industrial-props/barrels", "color": "#3a6ab0"},
-    {"id": "tyre_stack", "name": "Tyre stack", "w": 2, "h": 2, "art": "industrial-props/tyre-stack-pair", "color": "#222"},
+    {"id": "tyre_stack", "name": "Tyre stack", "w": 2, "h": 2, "art": "industrial-props/tyre-stack-pair", "color": "#222222"},
     {"id": "skip", "name": "Skip", "w": 3, "h": 2, "art": "industrial-props/skip", "color": "#e0a020"},
     {"id": "cheer", "name": "Cheering fan", "w": 0.8, "h": 0.8, "color": "#e04040"},
     {"id": "start_official", "name": "Start board official", "w": 1.2, "h": 1.2, "color": "#f0a020", "text": "30"}

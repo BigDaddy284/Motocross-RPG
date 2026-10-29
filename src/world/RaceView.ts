@@ -1169,9 +1169,12 @@ export class RaceView {
         for (let i = 0; i < 3; i++) add(this.boxMesh(w / 7, 0.52, d * 0.82, this.mat(0xd33a2c), -w / 2 + (w / 3) * (i + 0.5), -0.01, 0));
         break;
       }
-      case 'hay_bale':
-        add(this.boxMesh(w, 0.6, d, this.mat(color)));
+      case 'hay_bale': {
+        // A straw bale with its two strings round it and a lighter cut end.
+        add(this.boxMesh(w, 0.6, d, [this.mat(shade(color, 1.12)), this.mat(shade(color, 1.12)), this.mat(color), this.mat(color), this.mat(color), this.mat(color)]));
+        for (const fx of [-0.25, 0.25]) add(this.boxMesh(0.05, 0.62, d + 0.02, this.mat(shade(color, 0.7)), fx * w, -0.01, 0));
         break;
+      }
       case 'tyre_wall': {
         const n = Math.max(1, Math.round(w / Math.max(0.5, d)));
         const r = Math.min(w / n, d) / 2;
@@ -1266,9 +1269,19 @@ export class RaceView {
         add(ball);
         break;
       }
-      case 'hedge':
-        add(this.boxMesh(w, 1.1, d * 0.6, this.mat(color, { flatShading: true })));
+      case 'hedge': {
+        // A clipped hedge, lumpy along the top and sides.
+        const leaf = this.mat(color, { flatShading: true });
+        add(this.boxMesh(w, 1.0, d * 0.6, leaf));
+        const n = Math.max(2, Math.round(w / 0.6));
+        for (let k = 0; k < n; k++) {
+          const ball = new THREE.Mesh(new THREE.IcosahedronGeometry(d * 0.24, 0), this.mat(shade(color, k % 2 ? 1.08 : 0.94), { flatShading: true }));
+          ball.position.set(-w / 2 + (w / n) * (k + 0.5), 0.95 + (k % 3) * 0.04, (k % 2 ? 0.08 : -0.08) * d);
+          ball.castShadow = true;
+          add(ball);
+        }
         break;
+      }
       case 'fence':
         for (const sx of [-0.45, 0, 0.45]) add(this.boxMesh(0.1, 0.9, 0.1, this.mat(color), sx * w, 0, 0));
         for (const y of [0.35, 0.7]) add(this.boxMesh(w, 0.08, 0.06, this.mat(color), 0, y, 0));
@@ -1289,9 +1302,56 @@ export class RaceView {
         }
         break;
       }
-      case 'skip':
-        add(this.boxMesh(w, 1, d, this.mat(color)));
+      case 'skip': {
+        // A builder's skip: wider at the top than the floor, the ends sloping out, vertical ribs and
+        // lifting lugs down the sides, on two runners, with rubbish showing over the rim.
+        const body = this.mat(color);
+        const dark = this.mat(shade(color, 0.72));
+        const top = w / 2;
+        const base = w * 0.31;
+        const H = 1.05;
+        const lift = 0.1;
+        const D = d * 0.85;
+        const t = 0.06;
+        for (const z of [-D / 4, D / 4]) add(this.boxMesh(base * 2, lift, 0.14, this.mat(0x3a3a3e), 0, 0, z));
+        add(this.boxMesh(base * 2, t, D, body, 0, lift, 0));
+        // The sides: a trapezoid each, flat to the length.
+        const side = new THREE.Shape([new THREE.Vector2(-base, 0), new THREE.Vector2(base, 0), new THREE.Vector2(top, H), new THREE.Vector2(-top, H)]);
+        for (const sz of [-1, 1]) {
+          const m = new THREE.Mesh(new THREE.ExtrudeGeometry(side, { depth: t, bevelEnabled: false }), body);
+          m.position.set(0, lift, sz * (D / 2) - (sz < 0 ? 0 : t));
+          m.castShadow = true;
+          m.receiveShadow = true;
+          add(m);
+          // Ribs up the side, a rail round the rim and a lifting lug at each end.
+          for (const fx of [-0.5, 0, 0.5]) add(this.boxMesh(0.1, H, 0.06, dark, fx * base * 1.4, lift, sz * (D / 2 + 0.03)));
+          add(this.boxMesh(w, 0.1, 0.1, dark, 0, lift + H - 0.1, sz * (D / 2 + 0.03)));
+          for (const sx of [-1, 1]) {
+            const lug = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.14, 10), this.mat(0x3a3a3e));
+            lug.rotation.x = Math.PI / 2;
+            lug.position.set(sx * (base + (top - base) * 0.55), lift + H * 0.55, sz * (D / 2 + 0.1));
+            add(lug);
+          }
+        }
+        // The ends lean out from the floor to the rim.
+        const run = top - base;
+        const len = Math.hypot(run, H);
+        for (const sx of [-1, 1]) {
+          const end = this.boxMesh(t, len, D, body, 0, -len / 2, 0);
+          end.position.set(sx * (base + run / 2), lift + H / 2, 0);
+          end.rotation.z = -sx * Math.atan2(run, H);
+          add(end);
+          add(this.boxMesh(0.1, 0.1, D + 0.12, dark, sx * (top - 0.04), lift + H - 0.1, 0));
+        }
+        // Rubbish over the rim: boards, a tyre, a sack and broken blocks.
+        const junk = [[-0.6, 0.18, 0.5, 0.25, 0x8a6a44], [0.35, 0.22, 0.45, 0.3, 0x6a6a70], [-0.05, 0.3, 0.35, 0.35, 0xc8c0a8], [0.75, 0.16, 0.4, 0.28, 0x5a4a3a]];
+        for (const [fx, h, l, wd, c] of junk) add(this.boxMesh(l, h, wd, this.mat(c), fx * (top - 0.4), lift + H - h * 0.6, (fx > 0 ? -0.2 : 0.2) * D));
+        const tyre = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.1, 8, 14), this.mat(0x1c1c22));
+        tyre.rotation.set(Math.PI / 2.4, 0, 0.3);
+        tyre.position.set(-0.15 * top, lift + H + 0.02, -0.15 * D);
+        add(tyre);
         break;
+      }
       default:
         add(this.boxMesh(w, 0.6, d, this.mat(color)));
     }
