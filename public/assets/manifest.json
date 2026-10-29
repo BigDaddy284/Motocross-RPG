@@ -176,6 +176,11 @@
     "walk": "art/characters/npcs/npc-17-track-official.png",
     "act": "art/characters/npcs/npc-17-track-official.act.png"
    },
+   "npc-18-farmland-official": {
+    "name": "Farmland track official (Joseph Halden)",
+    "walk": "art/characters/npcs/npc-18-farmland-official.png",
+    "act": "art/characters/npcs/npc-18-farmland-official.act.png"
+   },
    "npc-11-modifier-machine-owner": {
     "name": "Modifier machine owner",
     "walk": "art/characters/npcs/npc-11-modifier-machine-owner.png",
