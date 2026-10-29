@@ -57,7 +57,7 @@ Your career is saved in the browser you play in, so another browser or device st
 
 ## Making and installing mod tracks
 
-Mod tracks are race tracks made with the game's track editor and raced in the game from **Mod Track** on the venue road. A mod race day plays exactly like Farmland MX: the same entry fee, field, AI riders, prize money, XP and parts wear. For now, picking a mod track goes straight to the gate pick, without a venue area to walk round, and race day is the only mode (no practice).
+Mod tracks are race tracks made with the game's track editor and raced in the game from **Mod Track** on the venue road. A mod race day plays exactly like Farmland MX: the same entry fee, field, AI riders, prize money, XP and parts wear. Picking a mod track goes straight to the gate pick, without a venue area to walk round, and race day is the only mode (no practice): that is how mod tracks stay (Boss, 29 Oct 2026), with no modders' town area planned.
 
 **1. Build the track** on a computer: the track editor needs a mouse and keyboard and isn't usable on a phone (racing mod tracks on a phone works, through Import track file). Open the track editor: `tools/track-editor.html` on the published site, or http://localhost:5173/tools/track-editor.html when running `npm run dev`. Choose **New**, draw the route, then add:
 
