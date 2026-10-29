@@ -259,3 +259,22 @@ describe('championships (Spec 12.5, 18.6)', () => {
     expect(parseSave(JSON.stringify({ ...save, career: old }))!.career.champs).toBeUndefined();
   });
 });
+
+describe('laps by track kind (Boss, 29 Oct 2026)', () => {
+  const day = (id: string, round: boolean) => {
+    const active = enter(rider(), content, local, 1);
+    return new RaceDay(content, venue(id), playerEntrant(content, rider(), 'Test'), 1, 0, round ? roundOptions(content, local, active) : undefined);
+  };
+
+  it('races 8 laps a moto on an endurance track, and in a motocross or endurance championship round', () => {
+    expect(day('venue-longmoor', false).laps).toBe(8);
+    expect(day('venue-longmoor', true).laps).toBe(8);
+    expect(day('venue-farmland', true).laps).toBe(8);
+  });
+
+  it('keeps the class laps for other race days and stadium rounds', () => {
+    expect(day('venue-farmland', false).laps).toBe(content.racing.classes['50cc'].laps);
+    expect(day('venue-riverside', false).laps).toBe(content.racing.classes['50cc'].laps);
+    expect(day('venue-riverside', true).laps).toBe(content.racing.classes['50cc'].laps);
+  });
+});

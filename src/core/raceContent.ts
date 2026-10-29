@@ -48,7 +48,7 @@ export const SKILLS_SCHEMA: Schema = {
 
 export const RACING_SCHEMA: Schema = {
   type: 'object',
-  optional: ['note'],
+  optional: ['note', 'kindLaps'],
   fields: {
     note: { type: 'string' },
     sim: {
@@ -96,6 +96,14 @@ export const RACING_SCHEMA: Schema = {
       fields: { sectionFactor: N0, practiceFactor: N0, finishBonus: N0, positionStep: N0, positionFloor: N0, overtakeXp: N0, consistencyWeight: N0 },
     },
     classes: { type: 'record', values: { type: 'object', fields: { laps: { type: 'number', integer: true, min: 1 }, entry: N0, classXp: N0, refSpeed: { type: 'number', min: 1 }, youth: { type: 'boolean' } } } },
+    kindLaps: {
+      type: 'object',
+      optional: ['race', 'championship'],
+      fields: {
+        race: { type: 'record', values: { type: 'number', integer: true, min: 1 } },
+        championship: { type: 'record', values: { type: 'number', integer: true, min: 1 } },
+      },
+    },
     messages: {
       type: 'array',
       minItems: 1,

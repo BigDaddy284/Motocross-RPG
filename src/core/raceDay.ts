@@ -192,6 +192,13 @@ export interface QualifyingRecord {
   xp: Record<string, number>;
 }
 
+/** Laps per moto for a race day: by the track's kind where racing.json says (kindLaps), else the class's laps. */
+export function lapsFor(rc: RaceContent, track: TrackDef, cls: string, championship: boolean): number {
+  const kind = track.kind ?? 'outdoor';
+  const byKind = rc.racing.kindLaps;
+  return (championship ? byKind?.championship?.[kind] : undefined) ?? byKind?.race?.[kind] ?? rc.racing.classes[cls].laps;
+}
+
 export class RaceDay {
   readonly field: Entrant[];
   readonly motos: MotoRecord[] = [];
@@ -219,7 +226,7 @@ export class RaceDay {
   ) {
     this.track = trackById(rc, venue.track!);
     this.cls = venue.class ?? '50cc';
-    this.laps = custom?.laps ?? rc.racing.classes[this.cls].laps;
+    this.laps = custom?.laps ?? lapsFor(rc, this.track, this.cls, !!round);
     this.motoCount = custom?.motos ?? 2;
     this.rng = seededRng(seed);
     const cpus = custom?.cpus ?? round?.cpus ?? drawField(rc, venue, seed);

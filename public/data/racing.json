@@ -35,6 +35,7 @@
   "classes": {
     "50cc": { "laps": 5, "entry": 20, "classXp": 1.0, "refSpeed": 11, "youth": true }
   },
+  "kindLaps": { "race": { "endurance": 8 }, "championship": { "outdoor": 8, "endurance": 8 } },
   "messages": [
     { "id": "steady", "name": "STEADY", "pace": 0, "risk": 0, "overtaking": 0, "consistency": 0, "desc": "Ride your normal race." },
     { "id": "push", "name": "PUSH", "pace": 2, "risk": 2, "overtaking": 1, "consistency": -1, "desc": "About 2% faster, but more mistakes and crashes." },

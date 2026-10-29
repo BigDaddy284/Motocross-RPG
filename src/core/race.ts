@@ -95,6 +95,12 @@ export interface RacingData {
     consistencyWeight: number;
   };
   classes: Record<string, ClassRules>;
+  /**
+   * Laps per moto by track kind (Boss, 29 Oct 2026: endurance races are 8 laps), in place of the
+   * class's laps. championship is the same for championship rounds (motocross rounds are 8 laps).
+   * A kind left out uses the class's laps.
+   */
+  kindLaps?: { race?: Record<string, number>; championship?: Record<string, number> };
   messages: MessageDef[];
   messageEffects: {
     pacePct: number;
