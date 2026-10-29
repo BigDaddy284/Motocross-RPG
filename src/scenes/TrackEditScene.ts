@@ -55,6 +55,12 @@ export interface EditViewState {
    * view follows the drag without rebuilding.
    */
   ghostSolid?: number;
+  /**
+   * What each marshal, flag man and pit crew member covers (Scenery): a marshal's watch, or the
+   * flag man's or a crew's approach, as points along the middle of the track, with the point
+   * beside them; the selected one's drawn bold.
+   */
+  zones?: { i: number; kind: 'watch' | 'approach'; pts: [number, number][]; at: [number, number]; sel: boolean }[];
 }
 
 const GREEN = 0x34c759;
@@ -402,6 +408,16 @@ export class TrackEditScene extends Phaser.Scene {
       if (route.length > 1) line(route, 0xffffff, false, !sel, 0.07, 10.5);
       if (sel) route.forEach((p, i) => i && line(ring(p.x, p.z, 0.35), i === st.sel.route ? SELECT : i === route.length - 1 ? RED : 0xffffff, true, false, 0.09, 10.6));
     });
+    // What the marshals, the flag man and the pit crews cover: a marshal's watch yellow, the others'
+    // approach white; bold and as wide as the track for the selected one, a thin dashed line for the rest,
+    // with a ring on the track beside each.
+    if (st.mode === 'scenery') for (const z of st.zones ?? []) {
+      const colour = z.kind === 'watch' ? YELLOW : 0xffffff;
+      const pts = z.pts.map(([x, y]) => ({ x, z: y }));
+      if (z.sel) line(pts, colour, false, false, (t.width ?? 3.4) * 0.45, 10.2);
+      else line(pts, colour, false, true, 0.14, 10.2);
+      line(ring(z.at[0], z.at[1], z.sel ? 0.7 : 0.45), colour, true, false, z.sel ? 0.14 : 0.09, 10.3);
+    }
     // The build boundary: the race ground's edge, a translucent dashed line on the ground, so what
     // is placed can be seen against it (a section may cross it while the track is built).
     {

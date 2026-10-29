@@ -4041,6 +4041,44 @@ function drawWatch(t, it, sel) {
   if (sel) label(w.capped ? `Watch (cut at ${WATCH_MAX})` : 'Watch', se.x, se.y - 14);
   ctx.restore();
 }
+/** How far before them (grid units) a rider counts as coming up to the flag man or a pit crew (src/core/finishCrew.ts APPROACH), and how far past them a crew keeps the board out (BOARD_PAST). */
+const CREW_APPROACH = 24;
+const CREW_PAST = 3;
+/**
+ * The stretch of track each marshal, flag man and pit crew member works, as points along the
+ * middle of the track: a marshal's watch; the flag man's and a crew's approach, from where a
+ * rider coming up to them makes them act to where they stand (a crew on to just past them).
+ * `at` is the point of the track beside them. For the race view and the map.
+ */
+function crewZones(t, only = -1) {
+  if (t.path.length < 2) return [];
+  const g = lapGeom(t);
+  const out = [];
+  (t.scenery ?? []).forEach((it, i) => {
+    if (only >= 0 && i !== only) return;
+    let f0, f1, at;
+    if (it.type === MARSHAL) { const w = marshalWatch(g, it); f0 = w.f0; f1 = w.f1; at = f0; }
+    else if (it.type === 'flagger' || it.type === 'pit_crew') {
+      at = project(g, it.x, it.y).f;
+      f0 = at - CREW_APPROACH / g.total;
+      f1 = at + (it.type === 'pit_crew' ? CREW_PAST / g.total : 0);
+    } else return;
+    const n = Math.max(2, Math.ceil(((f1 - f0) * g.total) / 0.5));
+    const wrap = (f) => ((f % 1) + 1) % 1;
+    const pts = [];
+    for (let k = 0; k <= n; k++) { const p = pointAt(g, wrap(f0 + ((f1 - f0) * k) / n)); pts.push([round2(p.x), round2(p.y)]); }
+    const a = pointAt(g, wrap(at));
+    out.push({ i, kind: it.type === MARSHAL ? 'watch' : 'approach', pts, at: [round2(a.x), round2(a.y)], len: Math.round((f1 - f0) * g.total) });
+  });
+  return out;
+}
+/** The marshal whose watch is being set, with its end where the pointer is: the watch a click would set (null otherwise). */
+function watchPreview(t) {
+  const d = app.routeDraw;
+  const it = d ? t?.scenery?.[d.i] : null;
+  if (!it || it.type !== MARSHAL || !app.hoverPt) return null;
+  return { ...it, route: [[app.hoverPt.x, app.hoverPt.y]] };
+}
 const hasRoute = (it) => !!it && (it.type === OFFICIAL || it.type === CHEER || it.type === MARSHAL);
 /** The item whose route is drawn or edited: the selected fan or marshal, otherwise the start official. */
 const routeIndex = (t) => (t?.scenery?.[app.selItem]?.type === CHEER || t?.scenery?.[app.selItem]?.type === MARSHAL ? app.selItem : officialIndex(t));
@@ -4181,11 +4219,29 @@ const officialKey = (t) => JSON.stringify([t.path, t.start, t.width, t.elevation
 /** The official's route on the map: dashed, or with its points (the last red) when they are selected. */
 function drawRoute(t) {
   (t.scenery ?? []).forEach((it, i) => { if (hasRoute(it) && (it.route?.length || i === app.selItem)) drawRouteOf(t, i); });
+  // The flag man's and pit crews' approach: white along the track, from where a rider coming up makes them act to beside them.
+  for (const z of crewZones(t)) {
+    if (z.kind !== 'approach') continue;
+    const sel = z.i === app.selItem;
+    ctx.save();
+    ctx.strokeStyle = sel ? '#ffffffb0' : '#ffffff50';
+    ctx.lineWidth = Math.max(3, view.width * (sel ? 0.4 : 0.15));
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    z.pts.forEach(([x, y], k) => { const p = toScreen(x, y); if (k) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y); });
+    ctx.stroke();
+    const a = toScreen(z.at[0], z.at[1]);
+    ctx.fillStyle = sel ? '#ffffff' : '#ffffffa0';
+    ctx.beginPath(); ctx.arc(a.x, a.y, sel ? 5 : 3.5, 0, Math.PI * 2); ctx.fill();
+    if (sel) label(t.scenery[z.i].type === 'flagger' ? 'Flags for riders coming up here' : 'Board out for their rider here', a.x, a.y - 14);
+    ctx.restore();
+  }
 }
 function drawRouteOf(t, i) {
   const it = t.scenery[i];
   const sel = i === app.selItem;
-  if (it.type === MARSHAL) drawWatch(t, it, sel);
+  // While the watch is being set, the watch a click would set, following the pointer.
+  if (it.type === MARSHAL) drawWatch(t, (app.routeDraw?.i === i && watchPreview(t)) || it, sel);
   const r = routeOf(it);
   ctx.save();
   ctx.strokeStyle = sel ? '#ffffff' : '#ffffff90';
@@ -4244,7 +4300,12 @@ function addRoutePoint(x, y, e) {
     (it.route ??= []).push([clamp(snapHalf(x, e), -SCENE_OUT, GRID_W + SCENE_OUT), clamp(snapHalf(y, e), -SCENE_OUT, GRID_H + SCENE_OUT)]);
     app.selRoute = it.route.length;
   });
-  if (track().scenery[i].type === MARSHAL) { app.routeDraw = null; refresh(); }
+  if (track().scenery[i].type === MARSHAL) {
+    app.routeDraw = null;
+    refresh();
+    const w = marshalWatch(lapGeom(track()), track().scenery[i]);
+    status(`Watch set: the marshal watches ${w.len.toFixed(0)} grid units of track from beside them to where you clicked${w.capped ? `, cut at ${WATCH_MAX}` : ''}, shown as the yellow band. Set watch again to move it.`, 'ok');
+  }
 }
 function deleteRoutePoint(k) {
   const i = routeIndex(track());
@@ -5956,6 +6017,13 @@ function onPointerMove(e) {
       app.hoverPt = gp;
       app.hoverAlt = !!e.altKey;
       if (app.selItem < 0 && !app.routeDraw && !drag) { requestDraw(); sendView(); }
+      // Setting a marshal's watch: the watch a click would set follows the pointer.
+      else if (app.routeDraw && track()?.scenery?.[app.routeDraw.i]?.type === MARSHAL) {
+        requestDraw();
+        sendView();
+        const w = marshalWatch(lapGeom(track()), watchPreview(track()));
+        $('#posLabel').textContent += ` · click to watch ${w.len.toFixed(0)} grid units${w.capped ? `, cut at ${WATCH_MAX}` : ''}`;
+      }
     }
   }
   if (app.rect) { const c = cellAt(t, gp); app.rect.x1 = c.x; app.rect.y1 = c.y; requestDraw(); return; }
@@ -6254,13 +6322,18 @@ function sendView() {
   // need not be rebuilt as it moves) and left out of the build; the view moves a copy of it.
   const moving = drag?.kind === 'item' && drag.started ? drag.i : -1;
   const shown = trackForView(moving >= 0 ? { ...t, scenery: t.scenery.map((it, i) => (i === moving ? drag.start : it)) } : t);
-  const ghost = app.mode === 'layout' || app.mode === 'height' || app.mode === 'surface' ? ghostForView(t) : undefined;
+  let ghost = app.mode === 'layout' || app.mode === 'height' || app.mode === 'surface' ? ghostForView(t) : undefined;
+  // Setting a marshal's watch: the watch a click would set, as a yellow band along the track.
+  const wp = app.mode === 'scenery' ? watchPreview(t) : null;
+  if (wp) ghost = { pts: crewZones({ ...t, scenery: t.scenery.map((it, i) => (i === app.routeDraw.i ? wp : it)) }, app.routeDraw.i)[0]?.pts ?? [], level: 'ok', ring: null, colour: '#ffd60a' };
+  // What each marshal, flag man and pit crew member covers, in Scenery: the selected one's bold.
+  const zones = app.mode === 'scenery' ? crewZones(t).map((z) => ({ ...z, sel: z.i === app.selItem })) : undefined;
   const ghostItem = moving >= 0 ? t.scenery[moving] : ghostItemForView(t);
   // The route's control points, and the selected point's curve handles, for Layout.
   const L = lpts(t);
   const P = L[app.selPt];
   const handles = app.mode === 'layout' && P && smooth(P) ? [hOut(P), hIn(P)].map((h) => [P[0] + h[0], P[1] + h[1]]) : undefined;
-  f.contentWindow.postMessage({ type: 'track', officialKey: officialKey(t), state: { track: shown.track, gapFrom: shown.gapFrom, gaps: shown.gaps, points: L.map((q) => [q[0], q[1]]), handles, ghost, ghostItem, ghostSolid: moving >= 0 ? moving : undefined, parts: app.parts === FALLBACK_PARTS ? undefined : app.parts, mode: app.mode, sel, issues, brush, sectionColors: shown.track.sections.map((s) => colorOf(s.type)) } }, '*');
+  f.contentWindow.postMessage({ type: 'track', officialKey: officialKey(t), state: { track: shown.track, gapFrom: shown.gapFrom, gaps: shown.gaps, points: L.map((q) => [q[0], q[1]]), handles, ghost, ghostItem, ghostSolid: moving >= 0 ? moving : undefined, zones, parts: app.parts === FALLBACK_PARTS ? undefined : app.parts, mode: app.mode, sel, issues, brush, sectionColors: shown.track.sections.map((s) => colorOf(s.type)) } }, '*');
 }
 window.addEventListener('message', (e) => {
   const f = $('#view3d');
