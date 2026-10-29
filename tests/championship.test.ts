@@ -56,13 +56,15 @@ describe('championships (Spec 12.5, 18.6)', () => {
     expect(errs).toEqual(expect.arrayContaining(['championships[0].rounds[0]', 'championships[0].rounds[1]', 'championships[0].size']));
   });
 
-  it('opens after the first race day; the Area 1 Championship after the badge', () => {
+  it('opens after the first race day; the Area 1 Championship after the badge, and then not until Area 2 (Boss, 29 Oct 2026)', () => {
     const flags: Record<string, boolean> = { 'found.venue-farmland': true };
     expect(champProblem(content, local, flags)).toMatch(/race day first/);
     flags.first_race_done = true;
     expect(champProblem(content, local, flags)).toBeNull();
     expect(champProblem(content, main, flags)).toMatch(/badge/);
     flags['badge.area1'] = true;
+    expect(champProblem(content, main, flags)).toMatch(/Area 2/);
+    flags['area2.ready'] = true;
     expect(champProblem(content, main, flags)).toBeNull();
   });
 

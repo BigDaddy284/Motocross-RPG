@@ -105,6 +105,6 @@
     { "unless": "first_race_done", "text": "Race at Farmland MX: sign on with the track official at the race office. Your first race is free." },
     { "unless": "first_race_finished", "text": "Finish both motos of a race day at Farmland MX. Practise on the backyard loop behind your rented room." },
     { "unless": "badge.area1", "text": "Win the Local Champion Championship for the Area 1 badge: enter at any track's race office, under Championships." },
-    { "unless": "trophy.area1.main", "text": "Win the Area 1 Championship, six rounds at the three tracks: enter at any track's race office." }
+    { "unless": "trophy.area1.main", "text": "You hold the Area 1 badge. The Area 1 Championship comes with Area 2, in a later build: race on, keep the bike sharp, or make your own tracks." }
   ]
 }

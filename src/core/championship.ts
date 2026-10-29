@@ -198,6 +198,8 @@ export function champRiders(rc: Pick<RaceContent, 'riders'>, def: ChampionshipDe
 export function champProblem(rc: Pick<RaceContent, 'tracks'>, def: ChampionshipDef, flags: Record<string, boolean>): string | null {
   const missing = (def.needs ?? []).find((f) => !flags[f]);
   if (missing === 'first_race_done') return 'Locked: finish one normal race day first, at any track. Then the championship opens.';
+  // The Area 1 Championship waits for Area 2 (Boss, 29 Oct 2026): nothing sets area2.ready in this build.
+  if (missing === 'area2.ready') return 'Comes with Area 2, in a later build.';
   if (missing?.startsWith('badge.')) return 'Needs the badge from this area’s Local Champion Championship.';
   if (missing) return 'Not open to you yet.';
   for (const v of def.rounds) {

@@ -23,7 +23,7 @@
         { "money": 40 }
       ],
       "replay": 0.5,
-      "won": "You beat Louis Jonez to the Area 1 badge. The Area 1 Championship is open to you now."
+      "won": "You beat Louis Jonez to the Area 1 badge. The Area 1 Championship comes with Area 2, in a later build."
     },
     {
       "id": "area1.main",
@@ -39,7 +39,7 @@
       "entryTimes": 2.0,
       "purseTimes": 2.6,
       "qualifyingLaps": 3,
-      "needs": ["badge.area1"],
+      "needs": ["badge.area1", "area2.ready"],
       "rewards": [
         { "money": 300, "flag": "trophy.area1.main", "title": "the Area 1 Championship trophy" },
         { "money": 150 },
