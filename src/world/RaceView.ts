@@ -1312,7 +1312,8 @@ export class RaceView {
       }
       case 'bush': {
         const ball = new THREE.Mesh(new THREE.IcosahedronGeometry(Math.min(w, d) * 0.45, 0), this.mat(color, { flatShading: true }));
-        ball.position.y = Math.min(w, d) * 0.3;
+        // Sunk a little, so its lower faces meet the ground instead of a point hovering over it.
+        ball.position.y = Math.min(w, d) * 0.2;
         ball.scale.y = 0.75;
         ball.castShadow = true;
         add(ball);
@@ -1362,6 +1363,9 @@ export class RaceView {
         const lift = 0.1;
         const D = d * 0.85;
         const t = 0.06;
+        // A dark underbody fills the gap under the floor, so no lit ground shows between the skip
+        // and its shadow (which made it look as if it floated); the runners stand proud of it.
+        add(this.boxMesh(base * 2 - 0.1, lift, D - 0.1, this.mat(0x26262a), 0, 0, 0));
         for (const z of [-D / 4, D / 4]) add(this.boxMesh(base * 2, lift, 0.14, this.mat(0x3a3a3e), 0, 0, z));
         add(this.boxMesh(base * 2, t, D, body, 0, lift, 0));
         // The sides: a trapezoid each, flat to the length.
