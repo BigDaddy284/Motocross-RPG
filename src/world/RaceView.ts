@@ -1363,10 +1363,14 @@ export class RaceView {
         const lift = 0.1;
         const D = d * 0.85;
         const t = 0.06;
-        // A dark plinth the full size of the rim fills the space under the sloping sides and the
-        // floor, so no lit ground shows between the skip and its shadow (it looked as if it
-        // floated); the runners stand just proud of it.
-        add(this.boxMesh(top * 2, lift, D + 0.06, this.mat(0x26262a), 0, 0, 0));
+        // The sloping sides overhang the floor, so the sun lit a strip of ground between the skip's
+        // foot and its shadow, as if it floated. An unseen block the full size of the rim, from the
+        // ground up, casts the shadow instead, so the shadow reaches right to the foot; a dark
+        // underbody fills under the floor between the runners.
+        const caster = this.boxMesh(top * 2, lift + H, D + 0.06, new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }), 0, 0, 0);
+        caster.receiveShadow = false;
+        add(caster);
+        add(this.boxMesh(base * 2 - 0.1, lift, D - 0.1, this.mat(0x26262a), 0, 0, 0));
         for (const z of [-D / 4, D / 4]) add(this.boxMesh(base * 2, lift, 0.14, this.mat(0x3a3a3e), 0, 0, z));
         add(this.boxMesh(base * 2, t, D, body, 0, lift, 0));
         // The sides: a trapezoid each, flat to the length.
