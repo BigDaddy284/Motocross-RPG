@@ -32,7 +32,7 @@ describe('tutorial markers (Boss, 28 Oct 2026)', () => {
   it('points at the building door, the way out of a building, or the road to another area', () => {
     const garage = hop('area1-home-town', 'int-home-local-garage')!;
     expect(garage.kind).toBe('door');
-    expect(new Set(garage.via.map((o) => o.name))).toEqual(new Set(['Local garage']));
+    expect(new Set(garage.via.map((o) => o.name))).toEqual(new Set(['Phoenix MX']));
     expect(garage.via.length).toBeGreaterThan(1);
 
     const out = hop('int-home-local-garage', 'int-home-bike-shop')!;

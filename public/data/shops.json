@@ -39,7 +39,7 @@
       }
     },
     {
-      "id": "garage", "name": "Local garage", "npc": "npc.garage_mechanic", "map": "int-home-local-garage",
+      "id": "garage", "name": "Phoenix MX", "npc": "npc.garage_mechanic", "map": "int-home-local-garage",
       "actions": ["service.paid_repair"], "fitAction": "workshop.fit_tune", "needs": "tutorial_done",
       "greeting": "Grade 2 and up, I'll bring it back to new, one grade down. Got spares? I'll fit them on the bench.",
       "repairs": true, "fitFee": 5

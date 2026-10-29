@@ -740,7 +740,7 @@ export class WorldScene extends Phaser.Scene {
     const job = services.content.world.jobs.find((j) => j.map === this.map.id && j.start === o.name);
     if (!job) return false;
     if (job.needs && !this.save.flags[job.needs]) {
-      this.hud.toast('Nobody here has time to show you the work yet. Finish helping the garage mechanic first.');
+      this.hud.toast('Nobody here has time to show you the work yet. Finish helping Paul at Phoenix MX first.');
       return true;
     }
     const pay = formatMoney(jobPay(services.content.world, job));

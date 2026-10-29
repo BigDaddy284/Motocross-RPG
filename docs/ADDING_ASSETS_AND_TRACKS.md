@@ -534,7 +534,7 @@ The game refuses a track that:
 
 ### 7.5 A person: `public/assets/art/characters/npcs/npc-01-garage-mechanic.png` and `.act.png`
 
-- **What it is:** the garage mechanic's walk sheet (384 × 256) and action sheet (192 × 256).
+- **What it is:** Paul Phoenix's walk sheet (384 × 256) and action sheet (192 × 256), the mechanic at Phoenix MX; `tools/art/phoenix-mx.py` drew him and the garage's sign from the earlier mechanic and sign.
 - **How to use it:** look at it to see the frame layout before redrawing someone (section 5.7).
 
 ### 7.6 A ground and a scenery entry: `public/data/trackParts.json`

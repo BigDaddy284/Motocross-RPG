@@ -110,7 +110,7 @@ describe('road exits and the local racer (Alpha v1)', () => {
   it('stands the local racer on the pavement outside the local garage', () => {
     const home = map('area1-home-town');
     const racer = home.objects.find((o) => o.type === 'npc' && o.props.npc === 'npc.local_racer')!;
-    const garage = home.objects.find((o) => o.type === 'building' && o.name === 'Local garage')!;
+    const garage = home.objects.find((o) => o.type === 'building' && o.name === 'Phoenix MX')!;
     const t = { x: racer.x / 64, y: racer.y / 64 };
     expect(t.y).toBe((garage.y + garage.h) / 64);
     expect(t.x).toBeGreaterThanOrEqual(garage.x / 64);

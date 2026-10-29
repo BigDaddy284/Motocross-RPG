@@ -10,8 +10,8 @@ const maps = loadMaps();
 const T = 64;
 
 /** The Home Town map file as it stands (Alpha v1: 2×2 road exits and the local racer outside the garage). */
-// Updated for the Used Motors building and its seller (Boss, 28 Oct 2026).
-const HOME_TOWN_SHA256 = '6ffd58afb02ae813291c22b5e3d5d1497c218b611696fdc065b6ebf3d1682b86';
+// Updated for the Used Motors building and its seller (Boss, 28 Oct 2026), and the garage renamed Phoenix MX (29 Oct 2026).
+const HOME_TOWN_SHA256 = '8d156515d75bfa763a9ff680b4f67da6c96f7f0e8f627631a2fabbd842787bf5';
 
 function pngSize(rel: string): [number, number] {
   const b = fs.readFileSync(`public/assets/${rel}`);
@@ -120,7 +120,7 @@ describe('building checks', () => {
     const named = withLib((b) => {
       b.find((x) => x.id === 'bld.home.local_garage')!.returns = [{ tile: [1, 4] }];
     });
-    expect(problems(named).join('\n')).toMatch(/comes out on the return named "side_door", which Local garage doesn't have/);
+    expect(problems(named).join('\n')).toMatch(/comes out on the return named "side_door", which Phoenix MX doesn't have/);
   });
 
   it('refuses a door or return moved on the map but not in the library', () => {

@@ -40,7 +40,7 @@
       "returns": []
     },
     {
-      "id": "bld.home.local_garage", "name": "Local garage", "zone": "Home Town", "npc": "Garage mechanic",
+      "id": "bld.home.local_garage", "name": "Phoenix MX", "zone": "Home Town", "npc": "Paul Phoenix",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [1216,0,576,256], "at": [0,0]}],
       "footprint": [
         "########",

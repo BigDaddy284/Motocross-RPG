@@ -3,12 +3,12 @@
   "dialogue": {
     "story.intro": { "lines": [
       { "speaker": "narrator", "text": "Your first bike: a tired 50cc, bought with everything you had. You kick it over. Nothing." },
-      { "speaker": "narrator", "text": "The garage on the high street fixes anything with an engine. Maybe the mechanic there can help." },
+      { "speaker": "narrator", "text": "Phoenix MX, the garage on the high street, fixes anything with an engine. Go and see the town's mechanic there." },
       { "speaker": "narrator", "text": "Press Tab or tap Bike to check your bike, your bag and your current task." }
     ] },
     "story.meet_mechanic": { "lines": [
-      { "speaker": "npc", "text": "So you're the new rider everyone's on about? Let's have a listen to that 50." },
-      { "speaker": "narrator", "text": "The mechanic pulls the plug, squints at it, and shakes their head." },
+      { "speaker": "npc", "text": "So you're the new rider everyone's on about? Paul Phoenix. This is my place. Let's have a listen to that 50." },
+      { "speaker": "narrator", "text": "Paul pulls the plug, squints at it, and shakes his head." },
       { "speaker": "npc", "text": "Top end's gone. Zero compression. That bike's going nowhere until it's replaced." },
       { "speaker": "npc", "text": "Here, take this used top end. It's off a customer's old bike and it's still got plenty of life in it." },
       { "speaker": "player", "text": "I haven't got any tools." },
@@ -62,7 +62,7 @@
       { "speaker": "npc", "text": "You'll want to get to the tracks next, and for that you need a motor. Go and see the used motor seller, south of here." }
     ] },
     "story.meet_van_seller": { "lines": [
-      { "speaker": "npc", "text": "The mechanic sent you? Then you'll want the old second-hand motor out back." },
+      { "speaker": "npc", "text": "Paul sent you? Then you'll want the old second-hand motor out back." },
       { "speaker": "npc", "text": "It's high mileage, but it starts every time. It holds one bike, twenty parts and ten tools. Six hundred quid, no haggling." },
       { "speaker": "player", "text": "I'll come back when I've got the money." }
     ] },
