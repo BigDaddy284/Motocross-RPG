@@ -1,13 +1,14 @@
-"""Draws Riverside Arena: the indoor supercross arena that fills the top of the Riverside venue map.
+"""Draws the Supercross Arena: the indoor arena that fills the top of the Supercross venue map, the
+default venue for every supercross event (Boss, 30 Oct 2026).
 
 A big corrugated-steel hall seen top-down three-quarter like the other buildings: a curved roof
 with skylights and vents, a blue clad front with high windows and supercross posters, the
-"RIVERSIDE ARENA" sign and a glass entrance with double doors under a canopy. Drawn at half size
+"SUPERCROSS ARENA" sign and a glass entrance with double doors under a canopy. Drawn at half size
 and doubled, for the style guide's 2 px pixel clusters, with every colour snapped to the
 reference palette (art/palette/palette-ref-v1.hex). 28 x 12 tiles; the double doors are tiles 12
 and 13 of the bottom row, where the map's venue trigger is.
 
-    python3 tools/art/arena-riverside.py <palette.hex> <out.png> [preview.png]
+    python3 tools/art/arena-supercross.py <palette.hex> <out.png> [preview.png]
 """
 import sys
 from pathlib import Path
@@ -203,7 +204,7 @@ def entrance(cv):
     cv.rect(dx0 - 6, H - 2, dx1 + 6, H, (110, 110, 116))
     cv.frame(dx0 - 2, dy0 - 2, dx1 + 2, H - 6, OUTLINE)
     # The sign over the entrance, as the other buildings' signs: dark board, white letters, red rule.
-    name = 'RIVERSIDE ARENA'
+    name = 'SUPERCROSS ARENA'
     tw = text_width(name, 2)
     sx0 = DOOR_X + TILE - tw // 2 - 14
     sx1 = DOOR_X + TILE + tw // 2 + 14
@@ -235,7 +236,7 @@ def draw(pal):
     cv = Canvas(pal)
     roof(cv)
     wall(cv)
-    for x, word in ((40, 'SUPERCROSS'), (184, 'RIVERSIDE'), (640, 'SUPERCROSS'), (784, 'RIVERSIDE')):
+    for x, word in ((40, 'SUPERCROSS'), (184, 'SUPERCROSS'), (640, 'SUPERCROSS'), (784, 'SUPERCROSS')):
         poster(cv, x, H - 66, word)
     entrance(cv)
     flags(cv)

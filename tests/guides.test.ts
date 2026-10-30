@@ -26,7 +26,7 @@ describe('the roads out', () => {
   });
 
   it('at each venue, the lane goes to the other places, never the venue itself', () => {
-    for (const id of ['area1-venue-farmland', 'area1-venue-riverside', 'area1-venue-longmoor']) {
+    for (const id of ['venue-motocross', 'venue-supercross', 'venue-enduro']) {
       const ways = waysOut(map(id), world, maps, travel, {});
       expect(ways).toHaveLength(1);
       expect(ways[0].side).toBe('south');
@@ -51,7 +51,7 @@ describe('leaving by a route', () => {
   const road = exitOn('area1-home-town', 'To the venue route');
 
   it('goes to the place picked, through the exit', () => {
-    for (const id of ['area1-venue-farmland', 'area1-venue-riverside', 'area1-venue-longmoor']) {
+    for (const id of ['venue-motocross', 'venue-supercross', 'venue-enduro']) {
       const to = routeArrival(home, road, world, maps, id);
       expect(typeof to).not.toBe('string');
       if (typeof to === 'string') continue;
@@ -64,15 +64,15 @@ describe('leaving by a route', () => {
       const to = routeArrival(home, road, world, maps, pick);
       expect(typeof to).not.toBe('string');
       if (typeof to === 'string') continue;
-      expect(to.map).toBe('area1-venue-farmland');
-      expect(to.others.map((p) => p.map)).toEqual(['area1-venue-riverside', 'area1-venue-longmoor', 'mod-tracks']);
+      expect(to.map).toBe('venue-motocross');
+      expect(to.others.map((p) => p.map)).toEqual(['venue-supercross', 'venue-enduro', 'mod-tracks']);
     }
   });
 
   it('goes straight there when a route has only one place', () => {
     const w = structuredClone(world);
-    w.routes[0].to = ['area1-venue-farmland'];
-    expect(routeArrival(home, road, w, maps, null)).toMatchObject({ map: 'area1-venue-farmland', tile: spawnTile(map('area1-venue-farmland'), 'from_world_map') });
+    w.routes[0].to = ['venue-motocross'];
+    expect(routeArrival(home, road, w, maps, null)).toMatchObject({ map: 'venue-motocross', tile: spawnTile(map('venue-motocross'), 'from_world_map') });
   });
 
   it('every way out of every area leads somewhere real', () => {
@@ -91,7 +91,7 @@ describe('route checks', () => {
   it('refuse a route exit with no route, a route to a place that isn’t listed, or one back to itself', () => {
     expect(errorsWith((r) => { r.world.routes = r.world.routes.slice(1); })).toEqual([expect.stringMatching(/the exit "To the venue route" on area1-home-town leads to a choice of places, but no route lists them/)]);
     expect(errorsWith((r) => { r.world.routes[0].to.push('area1-industrial-zone'); })).toEqual([expect.stringMatching(/routes\[0\]\.to\[4\]: "area1-industrial-zone" isn't one of the places/)]);
-    expect(errorsWith((r) => { r.world.routes[1].to.push('area1-venue-farmland'); })).toEqual([expect.stringMatching(/routes\[1\]\.to\[4\]: leads back to area1-venue-farmland/)]);
+    expect(errorsWith((r) => { r.world.routes[1].to.push('venue-motocross'); })).toEqual([expect.stringMatching(/routes\[1\]\.to\[4\]: leads back to venue-motocross/)]);
     expect(errorsWith((r) => { r.world.routes[0].exit = 'To the Industrial Zone'; })).toEqual(expect.arrayContaining([expect.stringMatching(/goes straight to area1-industrial-zone, not to a choice of places/)]));
   });
 });
@@ -139,7 +139,7 @@ describe('NPCs stand on the path, not in the road', () => {
 describe('the road menu (Boss, 30 Oct 2026)', () => {
   const kindOf = (id: string) => content.tracks.tracks.find((t) => t.id === id)?.kind;
   const homeRoad = world.routes.find((r) => r.map === 'area1-home-town')!;
-  const lane = world.routes.find((r) => r.map === 'area1-venue-farmland')!;
+  const lane = world.routes.find((r) => r.map === 'venue-motocross')!;
   const names = (ps: { name: string }[]) => ps.map((p) => p.name);
   const FOUND = { 'found.venue-farmland': true };
 
