@@ -29,7 +29,7 @@ It runs in a browser on desktop or on a phone held sideways, and saves automatic
 
 ## Play it
 
-- **In a browser:** once GitHub Pages is switched on (Settings > Pages > Source: GitHub Actions), every push to `main` publishes the game to this repo's Pages site.
+- **In a browser:** once GitHub Pages is switched on (Settings > Pages > Source: GitHub Actions), every push to `main` publishes the game to this repo's Pages site. The v1.5 test build is published beside it at `/test-v1.5/` from the `test/v1.5` branch, with its own saves.
 - **On your own computer:** install [Node.js](https://nodejs.org) (LTS), then:
 
   ```
