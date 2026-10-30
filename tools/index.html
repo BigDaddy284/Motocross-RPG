@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Motocross RPG Toolkit</title>
+<!--
+  Motocross RPG Toolkit: the front page for the game's editors, at /tools/ beside the game.
+
+  Each editor is its own page in this folder, built on the game's own data files (and, for the
+  track editor's race view, the game itself one folder up). The game's menus don't link here:
+  the toolkit needs a mouse and keyboard and is for building content, not for playing.
+
+  To add a tool, add its page to this folder, a card to the list below, and its file name to
+  TOOLKIT_PAGES in vite.config.ts so the build publishes it.
+-->
+<link rel="stylesheet" href="toolkit.css">
+</head>
+<body>
+<header>
+  <h1>🧰 <span>Motocross RPG</span> Toolkit</h1>
+  <span class="grow"></span>
+  <a class="btn" href="https://github.com/BigDaddy284/Motocross-RPG/blob/main/docs/TOOLKIT_INSTRUCTIONS.md">Toolkit instructions</a>
+  <a class="btn" href="../index.html">Play the game</a>
+</header>
+<main>
+  <p class="lead">The editors for building the game's tracks, maps and, later, outfits and characters. Each one opens in its own page. They need a computer with a mouse and keyboard, and work best in Chrome or Edge.</p>
+
+  <h2>Editors</h2>
+  <div class="tools">
+    <a class="tool" href="track-editor.html">
+      <span class="icon">🏁</span>
+      <span class="name">Track Editor</span>
+      <span class="what">Race tracks: the route, start straight, sections, jumps, surfaces, ground, hills, scenery, paddock vehicles and trackside items, edited in the game's own race view. Saves mod tracks the game can race.</span>
+      <span class="tag">Ready</span>
+    </a>
+    <a class="tool" href="map-editor.html">
+      <span class="icon">🗺</span>
+      <span class="name">Map Editor</span>
+      <span class="what">The areas you walk and drive round: tiles, collision, props, buildings and their interiors, doors, exits and spawn points, for the game maps and their Tiled sources.</span>
+      <span class="tag">Ready</span>
+    </a>
+  </div>
+
+  <h2>Coming later</h2>
+  <div class="tools">
+    <a class="tool later" href="outfit-designer.html">
+      <span class="icon">🧥</span>
+      <span class="name">Outfit Designer</span>
+      <span class="what">Rider clothing and riding gear: jerseys, pants, helmets, boots and gloves, their colours and designs, for the player and the CPU riders.</span>
+      <span class="tag">Coming later</span>
+    </a>
+    <a class="tool later" href="character-designer.html">
+      <span class="icon">🧑</span>
+      <span class="name">Character Designer</span>
+      <span class="what">The people of the world: NPC and rider looks, from body and hair to the sprites the game draws on the street and in the paddock.</span>
+      <span class="tag">Coming later</span>
+    </a>
+  </div>
+
+  <h2>Using the toolkit</h2>
+  <ul class="notes">
+    <li>The full guide to every editor, mode by mode, is <a href="https://github.com/BigDaddy284/Motocross-RPG/blob/main/docs/TOOLKIT_INSTRUCTIONS.md">Toolkit instructions</a> (<code>docs/TOOLKIT_INSTRUCTIONS.md</code> in the repo); each editor's <b>Help</b> button has the short version.</li>
+    <li>On the published site, open an editor here and use <b>Open folder…</b> to pick your copy of the game's files.</li>
+    <li>On your own copy, run <code>npm run dev</code> and open <a href="http://localhost:5173/tools/">localhost:5173/tools/</a>. The track editor can then load and save tracks straight from the game's folders.</li>
+    <li>The game itself doesn't link to the toolkit, so players on a phone never see it.</li>
+  </ul>
+</main>
+</body>
+</html>

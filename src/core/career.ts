@@ -2,7 +2,10 @@
 // and shift work. Pure rules with no graphics, so they can be tested and reused by a later
 // standalone economy tool (GDD 2.2).
 
+import type { ChampionshipState } from './championship';
+import type { ErrandState } from './errands';
 import type { ShopState, SparePart } from './shops';
+import type { WorldMapData } from './worldMap';
 import { newSkillState, type SkillState } from './skills';
 
 export interface StatDef {
@@ -60,6 +63,10 @@ export interface StoryStep {
   needs?: { money?: number; items?: string[] };
   /** Lines shown when the needs are not met. */
   notReady?: string;
+  /** While the rider is short of needs.money, the tutorial markers point here to earn it (Boss, 28 Oct 2026). */
+  earn?: { use: string; maps: string[] };
+  /** Until this flag is set (on first getting in), the tutorial markers point to the van (Boss, 28 Oct 2026). */
+  markVan?: string;
   confirm?: string;
   lines?: string;
   effects?: StoryEffects;
@@ -113,6 +120,8 @@ export interface RouteDef {
 export interface WorldData {
   /** Testing only: multiplies all shift pay. Review before Final v1. */
   testPayMultiplier?: number;
+  /** The world map screen (core/worldMap.ts). */
+  worldMap?: WorldMapData;
   locks: { map: string; object: string; flag: string; message: string }[];
   /** Places at the end of a route (an exit with a choice of roads): where you arrive and what it is. */
   places: PlaceDef[];
@@ -151,6 +160,10 @@ export interface CareerState {
   skills: SkillState;
   /** Shop stock rotation, made on the first shop visit. */
   shops?: ShopState;
+  /** Championships entered and finished, made on entering the first one. */
+  champs?: ChampionshipState;
+  /** Errands for NPCs (core/errands.ts), made on taking the first one. */
+  errands?: ErrandState;
 }
 
 export const pence = (pounds: number) => Math.round(pounds * 100);

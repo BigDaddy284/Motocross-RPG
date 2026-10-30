@@ -18,23 +18,23 @@
    "kind": "area"
   },
   {
-   "id": "area1-venue-woodland",
+   "id": "area1-venue-longmoor",
    "title": "Longmoor Enduro",
    "kind": "area"
   },
   {
-   "id": "area1-venue-quarry",
+   "id": "area1-venue-riverside",
    "title": "Riverside Arena",
    "kind": "area"
   },
   {
    "id": "int-home-bike-shop",
-   "title": "General bike shop",
+   "title": "Moto78",
    "kind": "interior"
   },
   {
    "id": "int-home-local-garage",
-   "title": "Local garage",
+   "title": "Phoenix MX",
    "kind": "interior"
   },
   {
@@ -69,7 +69,7 @@
   },
   {
    "id": "int-home-van-office",
-   "title": "Van seller's office",
+   "title": "Nicholls Used Motors",
    "kind": "interior"
   },
   {
@@ -122,17 +122,17 @@
   },
   "sheets": {
    "npc-01-garage-mechanic": {
-    "name": "Garage mechanic",
+    "name": "Paul Phoenix (Phoenix MX)",
     "walk": "art/characters/npcs/npc-01-garage-mechanic.png",
     "act": "art/characters/npcs/npc-01-garage-mechanic.act.png"
    },
    "npc-02-van-seller": {
-    "name": "Van seller",
+    "name": "Jedrick Nicholls (Nicholls Used Motors)",
     "walk": "art/characters/npcs/npc-02-van-seller.png",
     "act": "art/characters/npcs/npc-02-van-seller.act.png"
    },
    "npc-03-bike-shop-owner": {
-    "name": "General bike shop owner",
+    "name": "Bill Rothon (Moto78)",
     "walk": "art/characters/npcs/npc-03-bike-shop-owner.png",
     "act": "art/characters/npcs/npc-03-bike-shop-owner.act.png"
    },
@@ -171,6 +171,21 @@
     "walk": "art/characters/npcs/npc-10-practice-track-owner.png",
     "act": "art/characters/npcs/npc-10-practice-track-owner.act.png"
    },
+   "npc-17-track-official": {
+    "name": "Track official (Riverside)",
+    "walk": "art/characters/npcs/npc-17-track-official.png",
+    "act": "art/characters/npcs/npc-17-track-official.act.png"
+   },
+   "npc-18-farmland-official": {
+    "name": "Farmland track official (Joseph Halden)",
+    "walk": "art/characters/npcs/npc-18-farmland-official.png",
+    "act": "art/characters/npcs/npc-18-farmland-official.act.png"
+   },
+   "npc-19-news-man": {
+    "name": "News man (Manny Festo)",
+    "walk": "art/characters/npcs/npc-19-news-man.png",
+    "act": "art/characters/npcs/npc-19-news-man.act.png"
+   },
    "npc-11-modifier-machine-owner": {
     "name": "Modifier machine owner",
     "walk": "art/characters/npcs/npc-11-modifier-machine-owner.png",
@@ -181,45 +196,72 @@
     "walk": "art/characters/npcs/npc-12-neighbour-pc.png",
     "act": "art/characters/npcs/npc-12-neighbour-pc.act.png"
    },
+   "npc-13-scrapyard-owner": {
+    "name": "Scrapyard owner",
+    "walk": "art/characters/npcs/npc-13-scrapyard-owner.png",
+    "act": "art/characters/npcs/npc-13-scrapyard-owner.act.png"
+   },
+   "npc-14-home-challenger": {
+    "name": "Home Town challenger",
+    "walk": "art/characters/npcs/npc-14-home-challenger.png",
+    "act": "art/characters/npcs/npc-14-home-challenger.act.png"
+   },
+   "npc-15-iz-challenger": {
+    "name": "Industrial Zone challenger",
+    "walk": "art/characters/npcs/npc-15-iz-challenger.png",
+    "act": "art/characters/npcs/npc-15-iz-challenger.act.png"
+   },
+   "npc-16-pro-racer": {
+    "name": "Pro racer",
+    "walk": "art/characters/npcs/npc-16-pro-racer.png",
+    "act": "art/characters/npcs/npc-16-pro-racer.act.png"
+   },
    "player-m-start-a": {
     "name": "player-m-start-a",
     "walk": "art/characters/player/player-m-start-a.png",
-    "act": "art/characters/player/player-m-start-a.act.png"
+    "act": "art/characters/player/player-m-start-a.act.png",
+    "fit": "art/characters/player/player-m-start-a.fit.png"
    },
    "player-f-start-a": {
     "name": "player-f-start-a",
     "walk": "art/characters/player/player-f-start-a.png",
-    "act": "art/characters/player/player-f-start-a.act.png"
+    "act": "art/characters/player/player-f-start-a.act.png",
+    "fit": "art/characters/player/player-f-start-a.fit.png"
    },
    "player-m-start-b": {
     "name": "player-m-start-b",
     "walk": "art/characters/player/player-m-start-b.png",
-    "act": "art/characters/player/player-m-start-b.act.png"
+    "act": "art/characters/player/player-m-start-b.act.png",
+    "fit": "art/characters/player/player-m-start-b.fit.png"
    },
    "player-f-start-b": {
     "name": "player-f-start-b",
     "walk": "art/characters/player/player-f-start-b.png",
-    "act": "art/characters/player/player-f-start-b.act.png"
+    "act": "art/characters/player/player-f-start-b.act.png",
+    "fit": "art/characters/player/player-f-start-b.fit.png"
    },
    "player-m-mxgear": {
     "name": "player-m-mxgear",
     "walk": "art/characters/player/player-m-mxgear.png",
-    "act": "art/characters/player/player-m-mxgear.act.png"
+    "act": "art/characters/player/player-m-mxgear.act.png",
+    "fit": "art/characters/player/player-m-mxgear.fit.png"
    },
    "player-f-mxgear": {
     "name": "player-f-mxgear",
     "walk": "art/characters/player/player-f-mxgear.png",
-    "act": "art/characters/player/player-f-mxgear.act.png"
+    "act": "art/characters/player/player-f-mxgear.act.png",
+    "fit": "art/characters/player/player-f-mxgear.fit.png"
    },
    "player-m-mx-nohelmet": {
     "name": "player-m-mx-nohelmet",
     "walk": "art/characters/player/player-m-mx-nohelmet.png",
-    "act": "art/characters/player/player-m-mx-nohelmet.act.png"
+    "act": "art/characters/player/player-m-mx-nohelmet.act.png",
+    "fit": "art/characters/player/player-m-mx-nohelmet.fit.png"
    }
   }
  },
  "vehicles": {
-  "van-1": {
+  "motor-1": {
    "image": "art/vehicles/sheets/map/map-van-1.png",
    "views": {
     "east": {
@@ -901,7 +943,7 @@
     ]
    }
   },
-  "van-2": {
+  "motor-2": {
    "image": "art/vehicles/sheets/map/map-van-2.png",
    "views": {
     "east": {
@@ -1578,7 +1620,7 @@
     ]
    }
   },
-  "van-3": {
+  "motor-3": {
    "image": "art/vehicles/sheets/map/map-van-3.png",
    "views": {
     "east": {
@@ -2255,7 +2297,7 @@
     ]
    }
   },
-  "van-4": {
+  "motor-4": {
    "image": "art/vehicles/sheets/map/map-van-4.png",
    "views": {
     "east": {
@@ -2932,7 +2974,7 @@
     ]
    }
   },
-  "van-5": {
+  "motor-5": {
    "image": "art/vehicles/sheets/map/map-van-5.png",
    "views": {
     "east": {
@@ -3604,7 +3646,7 @@
     ]
    }
   },
-  "van-6": {
+  "motor-6": {
    "image": "art/vehicles/sheets/map/map-van-6.png",
    "views": {
     "east": {
@@ -4281,7 +4323,7 @@
     ]
    }
   },
-  "van-7": {
+  "motor-7": {
    "image": "art/vehicles/sheets/map/map-van-7.png",
    "views": {
     "east": {

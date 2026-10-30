@@ -10,9 +10,9 @@ export interface Button extends Phaser.GameObjects.Container {
   setSelected(on: boolean): Button;
 }
 
-export function button(scene: Phaser.Scene, x: number, y: number, label: string, onClick: () => void, width = 260, height = 44): Button {
+export function button(scene: Phaser.Scene, x: number, y: number, label: string, onClick: () => void, width = 260, height = 44, fontSize = 20): Button {
   const bg = scene.add.rectangle(0, 0, width, height, COLORS.panel).setStrokeStyle(2, COLORS.inkLine);
-  const text = scene.add.text(0, 0, label, textStyle(20)).setOrigin(0.5);
+  const text = scene.add.text(0, 0, label, textStyle(fontSize)).setOrigin(0.5);
   const c = scene.add.container(x, y, [bg, text]) as Button;
   let enabled = true;
   let selected = false;

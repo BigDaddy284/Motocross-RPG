@@ -7,6 +7,9 @@ import { defineConfig } from 'vite';
 const MOD_DIR = 'public/mods/tracks';
 const modIndex = () => JSON.stringify(existsSync(MOD_DIR) ? readdirSync(MOD_DIR).filter((f) => /\.json$/i.test(f) && f !== 'index.json').sort() : []);
 
+// The toolkit's pages, published at tools/: the front page, its stylesheet and each editor.
+const TOOLKIT_PAGES = ['index.html', 'toolkit.css', 'track-editor.html', 'map-editor.html', 'outfit-designer.html', 'character-designer.html'];
+
 export default defineConfig({
   // Relative paths so the build runs from any folder (desktop wrapper, file share, static host).
   base: './',
@@ -55,13 +58,14 @@ export default defineConfig({
       },
     },
     {
-      // The track editor is one plain HTML file: published beside the game as it is, so it can be
-      // used from the published site, where its race view runs the game one folder up.
-      name: 'copy-track-editor',
+      // The toolkit (tools/index.html) and its editors are plain HTML files: published beside the
+      // game as they are, at tools/, so they can be used from the published site, where the track
+      // editor's race view runs the game one folder up. The game's menus don't link to them.
+      name: 'copy-toolkit',
       apply: 'build',
       closeBundle() {
         mkdirSync('dist/tools', { recursive: true });
-        copyFileSync('tools/track-editor.html', 'dist/tools/track-editor.html');
+        for (const page of TOOLKIT_PAGES) copyFileSync(`tools/${page}`, `dist/tools/${page}`);
       },
     },
   ],

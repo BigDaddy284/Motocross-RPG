@@ -1,26 +1,36 @@
 import Phaser from 'phaser';
-import { advanceStory, fillText, formatMoney, jobPay, matchStory, pence, type JobDef, type StoryEvent, type StoryStep } from '../core/career';
-import { npcsOnMap, type DialogueLine, type NpcDef, type NpcPlacement } from '../core/content';
+import { advanceStory, bikeProblem, currentStep, fillText, formatMoney, jobPay, matchStory, pence, type JobDef, type StoryEvent, type StoryStep } from '../core/career';
+import { newsRead, npcsOnMap, properName, type DialogueLine, type NpcDef, type NpcPlacement } from '../core/content';
 import { Grid, STEPS } from '../core/grid';
 import { objectTiles, type BakedMap, type Facing, type MapObject, type Tile } from '../core/mapTypes';
 import { findPathToAny, findPathTowards, standingTiles } from '../core/pathfinding';
 import type { SaveData } from '../core/saves';
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
 import { applyMapState, clearedPatches, hiddenSprites } from '../core/mapState';
-import { directions, guidesOn, routeArrival, waysOut } from '../core/guides';
+import { routeArrival, sideOf } from '../core/guides';
+import { earning, goalObjects, nextHop, storyGoals } from '../core/waymarks';
+import { biggestBike, bikeImage, zoneFor } from '../core/worldMap';
 import { ROUTE, spawnTile, stepTriggerAt, type Arrival, type StepResult } from '../core/travel';
-import { DriveMap, FACING_OF, ensureVan, exitTile, footprint, inwardHeading, nearestFree, placeNear, planDrive, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
-import { MOD_PLACE, forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
-import { entryFee, fieldCount, practiceFee, venueProblem, type VenueDef } from '../core/raceDay';
+import { DriveMap, FACING_OF, bayFor, ensureVan, exitTile, footprint, inwardHeading, nearestFree, placeNear, planDrive, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
+import { forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
+import { entryFee, fieldCount, lapsFor, practiceFee, trackById, venueProblem, type VenueDef } from '../core/raceDay';
+import { champProblem, enter, nextRoundVenue, roundEntry, roundsHere, standings, titlePossible, withdraw, type ChampionshipDef } from '../core/championship';
 import { noteActivity, shopForAction, type ShopDef } from '../core/shops';
+import { errandStage, finishErrand, takeErrand, type ErrandDef } from '../core/errands';
+import { challengeReady, challengeVenue, lossHint, type ChallengeDef } from '../core/challenge';
+import { drillForAction, drillForNpc, finishRound, walked, type DrillDef } from '../core/training';
+import { leadLevel } from '../core/skills';
+import { challengeWins } from '../core/records';
 import { CAREER_SLOT, services } from '../services';
 import { Character, TILE } from '../world/Character';
 import { MapView, OVERHEAD_DEPTH, isMapCached, loadMapImages } from '../world/MapView';
-import { actionMessage } from '../world/messages';
+import { actionMessage, actionName } from '../world/messages';
+import { Waymarks, clusters, middle, type Mark } from '../world/Waymarks';
+import { DPR, HUD_BAR } from '../ui/view';
 import { standLift } from '../world/standLift';
 import { VanView, type Driver } from '../world/VanView';
 import type { HudScene } from './HudScene';
-import type { RaceSceneData } from './RaceScene';
+import { ordinal, type RaceSceneData } from './RaceScene';
 
 // The walkable world: one map at a time, the player, NPCs, doors and exits, and the player's van.
 // Changing map restarts this scene with the arrival tile, so nothing from the old map lingers.
@@ -64,6 +74,8 @@ export class WorldScene extends Phaser.Scene {
   private npcs: { placement: NpcPlacement; character: Character }[] = [];
   private path: Tile[] = [];
   private onArrive: (() => void) | null = null;
+  /** Tiles walked since the last Agility XP (core/training.ts walked). */
+  private walkCarry = 0;
   private walking = false;
   private busy = false;
   /** The zoom the player had outside, while a building has raised it to INTERIOR_ZOOM. */
@@ -80,6 +92,12 @@ export class WorldScene extends Phaser.Scene {
   /** E was pressed on the move: get out once the van has pulled up. */
   private outWhenStopped = false;
   private lastBumpToast = 0;
+  private waymarks!: Waymarks;
+  /** The news NPCs' bubbles (Manny Festo), kept apart from the story markers. */
+  private newsMarks!: Waymarks;
+  /** The tutorial marker the screen-edge arrow points to while it is off screen, in world pixels. */
+  private markPoint: { x: number; y: number; label: string; sub?: string } | null = null;
+  private markEarning = false;
 
   constructor() {
     super('world');
@@ -97,6 +115,7 @@ export class WorldScene extends Phaser.Scene {
     this.busy = true;
     this.van = null;
     this.moves = [];
+    this.markPoint = null;
   }
 
   async create(): Promise<void> {
@@ -120,14 +139,17 @@ export class WorldScene extends Phaser.Scene {
       const character = new Character(this, p.npc.sprite, p, p.facing);
       // Standing on the paving, not the kerb or road below it.
       character.placeAt(p, standLift(map, p.x, p.y));
+      character.showName(p.npc.name);
       this.npcs.push({ placement: p, character });
     }
-    this.drive = new DriveMap(map, this.grid, services.content.vehicles.drivable);
-    // Route marshals stand by the road to be asked, not in the way: the van drives past them too.
-    this.drive.setNpcTiles(this.npcs.filter((n) => !n.placement.npc.guide).map((n) => ({ x: n.placement.x, y: n.placement.y })));
+    this.drive = new DriveMap(map, this.grid, services.content.vehicles);
+    this.drive.setNpcTiles(this.npcs.map((n) => ({ x: n.placement.x, y: n.placement.y })));
     this.setupVan();
     let { x, y } = this.save.position;
     const { facing } = this.save.position;
+    // A save from before a map was cut down can sit past its new edge: bring it back onto the map.
+    x = Math.min(Math.max(x, 0), map.width - 1);
+    y = Math.min(Math.max(y, 0), map.height - 1);
     // Arriving on foot where the van is parked: step off to the nearest clear tile.
     if (!this.driving && !this.grid.isFree(x, y)) ({ x, y } = nearestFree(this.grid, { x, y }) ?? { x, y });
     this.player = new Character(this, this.save.rider.look, { x, y }, facing);
@@ -140,6 +162,8 @@ export class WorldScene extends Phaser.Scene {
       }
       return floor;
     };
+    // The player's feet go on the paving of a one-tile pavement too, as the NPCs' do.
+    this.player.liftAt = (t) => standLift(this.map, t.x, t.y);
     this.player.placeAt({ x, y });
 
     const cam = this.cameras.main;
@@ -154,6 +178,12 @@ export class WorldScene extends Phaser.Scene {
       unsub();
       this.scale.off('resize', this.applyZoom, this);
     });
+
+    this.waymarks = new Waymarks(this, services.settings.get().accessibility.reducedEffects);
+    this.refreshWaymarks();
+    this.newsMarks = new Waymarks(this, services.settings.get().accessibility.reducedEffects);
+    this.refreshNews();
+    this.events.once('shutdown', () => this.hud.showWayArrow(null));
 
     this.setupInput();
     this.time.addEvent({ delay: AUTOSAVE_MS, loop: true, callback: () => this.autosave('timer') });
@@ -184,6 +214,7 @@ export class WorldScene extends Phaser.Scene {
 
   update(_time: number, delta: number): void {
     if (!this.player) return;
+    this.updateWayArrow();
     if (!this.busy && !this.hud.isDialogueOpen()) this.save.stats.playSeconds += delta / 1000;
     // The van drives every frame, whatever else is going on, on real time (Phaser's smoothed
     // delta runs slow when frames are long, which would make the van crawl on a slow device).
@@ -382,19 +413,30 @@ export class WorldScene extends Phaser.Scene {
     if (action && this.runStory({ use: action, map: this.map.id, object: objectKey }, '')) return;
     const shop = action ? shopForAction(services.content.shops, this.map.id, action) : null;
     if (shop && this.openShop(shop.shop, shop.fit ? 'fit' : 'buy')) return;
+    const drill = action ? drillForAction(services.content.training, action) : undefined;
+    if (drill) return this.runDrill(drill);
+    // The running track itself: the coach's session (Boss, 29 Oct 2026).
+    const coachDrill = o.type === 'venue' && o.props.venue === 'running_track' ? services.content.training.drills.find((d) => d.npc) : undefined;
+    if (coachDrill) {
+      const coach = services.content.npcs.find((n) => n.id === coachDrill.npc);
+      if (coach?.quietUntil && !this.save.flags[coach.quietUntil]) this.hud.toast(`${o.name}: the club's closed to you for now.`);
+      else this.hud.toast(`${o.name}: talk to ${coach?.name ?? 'the coach'} by the pavilion to run a session.`);
+      return;
+    }
     const venue = o.type === 'venue' ? services.content.tracks.venues.find((v) => v.id === o.props.venue) : undefined;
     if (venue) {
       if (venue.office && !venue.locked) {
         const official = services.content.npcs.find((n) => n.id === venue.office);
-        this.hud.toast(`${venue.name}: sign on with the ${official?.name.toLowerCase() ?? 'track official'} at the race office.`);
+        // A named official (Joseph Halden at Farmland) goes by name, anyone else by the job.
+        const who = official && properName(official.name) ? official.name : `the ${official?.name.toLowerCase() ?? 'track official'}`;
+        this.hud.toast(`${venue.name}: sign on with ${who} at the race office.`);
       } else this.openVenue(venue);
       return;
     }
     if (o.type === 'travel' && o.props.to === ROUTE) {
-      // Signs and stops for the roads out: the route marshal by the road says where it goes.
+      // Signs and stops for the roads out: the road itself asks where to.
       const lock = services.travel.lockFor(this.map, o, this.save.flags);
-      const guide = guidesOn(services.content.npcs, this.map)[0];
-      this.hud.toast(lock ? lock.message : `${o.name}: ${guide ? `the ${guide.name.toLowerCase()} by the road out knows where it goes.` : 'the roads out are marked at the edge of town.'}`);
+      this.hud.toast(lock ? lock.message : `${o.name}: walk out onto the road to pick where to go.`);
       return;
     }
     const msg = actionMessage(o, this.save.flags);
@@ -406,19 +448,118 @@ export class WorldScene extends Phaser.Scene {
     if (this.runStory({ talk: npc.id }, npc.name, () => this.faceBack(placement, character), () => this.faceNpc(character))) return;
     if (npc.quietUntil && !this.save.flags[npc.quietUntil]) {
       // GDD 4.2: NPCs outside the opening chain don't acknowledge the rider until it's done.
-      this.hud.toast(`The ${npc.name.toLowerCase()} doesn't look up.`);
+      // A named NPC goes by their name ("Louis Jonez doesn't look up"), anyone else by their job.
+      this.hud.toast(`${properName(npc.name) ? npc.name : `The ${npc.name.toLowerCase()}`} doesn't look up.`);
       return;
     }
     this.faceNpc(character);
-    const office = services.content.tracks.venues.find((v) => v.office === npc.id && v.map === this.map.id);
-    if (office) {
-      this.openVenue(office, () => this.faceBack(placement, character));
+    if (npc.news) {
+      // News for the players: read once, and the bubble turns white until there's a new message.
+      this.say(npc.name, npc.dialogue, () => {
+        const read = newsRead(npc.dialogue);
+        if (!this.save.flags[read]) {
+          this.save.flags[read] = true;
+          this.refreshNews();
+          this.quickSave();
+        }
+        this.faceBack(placement, character);
+      });
       return;
     }
-    if (npc.guide && !this.talkRule(npc)) return this.guideTalk(npc, () => this.faceBack(placement, character));
+    const office = services.content.tracks.venues.find((v) => v.office === npc.id && v.map === this.map.id);
+    if (office) {
+      // A one-off hello first (Joseph Halden introduces himself as Farmland's owner), then the office.
+      const hello = this.talkRule(npc);
+      const open = () => this.openVenue(office, () => this.faceBack(placement, character));
+      if (!hello) return open();
+      this.say(npc.name, hello.dialogue, () => {
+        if (hello.sets) {
+          this.save.flags[hello.sets] = true;
+          this.milestoneSave();
+        }
+        open();
+      });
+      return;
+    }
+    const back = () => this.faceBack(placement, character);
+    const rule = this.talkRule(npc);
+    const { challenges, errands } = services.content;
+    const challenge = challenges.challenges.find((d) => d.npc === npc.id && (!d.needs || this.save.flags[d.needs]));
+    if (challenge && !rule) return this.challengeTalk(npc, challenge, back);
+    const errand = errands.errands.find((d) => d.npc === npc.id && (!d.needs || this.save.flags[d.needs]));
+    if (errand && !rule) return this.errandTalk(npc, errand, back);
+    const drill = drillForNpc(services.content.training, npc.id);
+    if (drill && !rule) return this.say(npc.name, npc.dialogue, () => this.runDrill(drill, back));
     const shop = services.content.shops.shops.find((s) => s.npc === npc.id);
-    if (shop && !this.talkRule(npc) && this.openShop(shop, 'buy', () => this.faceBack(placement, character))) return;
-    this.say(npc.name, this.dialogueFor(npc), () => this.faceBack(placement, character));
+    if (shop && !rule && this.openShop(shop, 'buy', back)) return;
+    this.say(npc.name, rule?.dialogue ?? npc.dialogue, () => {
+      // A one-off talk (the mechanic's advice after the opening chain): said once, then the NPC's usual lines.
+      if (rule?.sets && !this.save.flags[rule.sets]) {
+        this.save.flags[rule.sets] = true;
+        this.hud.showCareer(this.save.career, this.save.flags);
+        this.milestoneSave();
+      }
+      back();
+    });
+  }
+
+  /**
+   * A challenger by a practice track (core/challenge.ts): the track isn't built yet, or they offer
+   * a race for their stake. Win or lose, they race again straight away.
+   */
+  private challengeTalk(npc: NpcDef, def: ChallengeDef, back: () => void): void {
+    const career = this.save.career;
+    if (!challengeReady(services.content, def)) return this.say(npc.name, def.building, back);
+    const fee = pence(def.entry);
+    this.say(npc.name, def.offer, () => {
+      this.hud.confirm(`Race ${npc.name} for ${formatMoney(fee)}?\nWin and you get ${formatMoney(fee * 2)} back.`, 'Race', () => {
+        if (career.money < fee) return this.say(npc.name, def.short, back);
+        const problem = bikeProblem(services.content.bikes, career.bike);
+        if (problem) {
+          this.hud.toast(problem);
+          return back();
+        }
+        const wins = career.counters[challengeWins(def.id)] ?? 0;
+        this.ride('challenge', challengeVenue(def), fee, () => {
+          const won = (this.save.career.counters[challengeWins(def.id)] ?? 0) > wins;
+          if (won) return this.say(npc.name, def.won, back);
+          // The walk-off: a general hint at what to improve (Boss, 28 Oct 2026).
+          const { challenges, bikes, skills, riders } = services.content;
+          const state = this.save.career.skills;
+          const lead = (id: string) => leadLevel(skills, state, skills.leads.find((l) => l.id === id)!);
+          const level = riders.riders.find((r) => r.id === def.challenger)?.level ?? 1;
+          const hint = lossHint(challenges, def, bikes, this.save.career.bike, { riding: lead('rider'), fitness: lead('fitness') }, level);
+          this.say(npc.name, def.lost, () => this.say(npc.name, hint, back));
+        }, undefined, def);
+      }, back);
+    });
+  }
+
+  /** An errand (core/errands.ts): offered, under way, or the repaired part handed back. */
+  private errandTalk(npc: NpcDef, def: ErrandDef, back: () => void): void {
+    const { shops, bikes } = services.content;
+    const career = this.save.career;
+    const saved = (message: string) => {
+      this.hud.toast(message);
+      this.hud.showCareer(career, this.save.flags);
+      this.milestoneSave();
+      back();
+    };
+    const stage = errandStage(career, def);
+    if (stage === 'waiting') return this.say(npc.name, def.waiting, back);
+    if (stage === 'ready') {
+      return this.say(npc.name, def.thanks, () => saved(finishErrand(career, def).message));
+    }
+    this.say(npc.name, def.offer, () => {
+      this.hud.confirm(`Take ${def.owner}'s part to the garage for repair?\nYou pay for the repair and get it back on return, plus ${formatMoney(pence(def.reward))}.`, 'Take it', () => {
+        const r = takeErrand(shops, bikes, career, def);
+        if (!r.ok) {
+          this.hud.toast(r.message);
+          return back();
+        }
+        saved(r.message);
+      }, back);
+    });
   }
 
   /**
@@ -443,12 +584,8 @@ export class WorldScene extends Phaser.Scene {
     character.face(placement.facing);
   }
 
-  /** The NPC's line set for the current flags (npcs.json talk), or their default dialogue. */
-  private dialogueFor(npc: NpcDef): string {
-    return this.talkRule(npc)?.dialogue ?? npc.dialogue;
-  }
-
-  private talkRule(npc: NpcDef): { dialogue: string } | undefined {
+  /** The NPC's line set for the current flags (npcs.json talk), if any; otherwise their default dialogue is said. */
+  private talkRule(npc: NpcDef): NonNullable<NpcDef['talk']>[number] | undefined {
     const f = this.save.flags;
     return npc.talk?.find((t) => (t.if === undefined || f[t.if]) && (t.unless === undefined || !f[t.unless]));
   }
@@ -489,6 +626,7 @@ export class WorldScene extends Phaser.Scene {
       this.hud.showCareer(career, this.save.flags);
       const show = () => {
         onClose();
+        this.refreshWaymarks();
         if (!completed) return;
         if (step.effects?.money) this.hud.toast(step.toast ?? `${step.effects.money > 0 ? '+' : ''}${formatMoney(pence(step.effects.money))}`);
         else if (step.toast) this.hud.toast(step.toast);
@@ -501,6 +639,128 @@ export class WorldScene extends Phaser.Scene {
     if (m.step.confirm) this.hud.confirm(m.step.confirm, 'Yes', finish, onClose);
     else finish();
     return true;
+  }
+
+  /** The "!" over each news NPC here: orange until their current message is read (newsRead). */
+  private refreshNews(): void {
+    const marks: Mark[] = this.npcs
+      // Like their talk, the bubble waits until the opening chain is done (GDD 4.2).
+      .filter((n) => n.placement.npc.news && (!n.placement.npc.quietUntil || this.save.flags[n.placement.npc.quietUntil]))
+      .map((n) => ({ kind: 'news', x: n.character.sprite.x, y: n.character.sprite.y, fresh: !this.save.flags[newsRead(n.placement.npc.dialogue)] }));
+    this.newsMarks.show(marks);
+  }
+
+  // ---- tutorial markers (Boss, 28 Oct 2026) ----
+
+  /** Marks the current story step's NPC or equipment here, or the door or exit on the way to it. */
+  private refreshWaymarks(): void {
+    this.waymarks.clear();
+    this.markPoint = null;
+    const career = this.save.career;
+    this.markEarning = earning(services.content, career);
+    const goals = storyGoals(services.content, services.maps, career, this.save.flags, this.save.van ?? null);
+    if (!goals.length) return;
+    const ts = this.map.tileSize;
+    const nearest = <P extends { x: number; y: number }>(points: P[]) => {
+      const { x, y } = this.player.sprite;
+      return points.reduce((a, b) => (Math.hypot(b.x - x, b.y - y) < Math.hypot(a.x - x, a.y - y) ? b : a));
+    };
+    const marks: Mark[] = [];
+    const points: { x: number; y: number; label: string; sub?: string }[] = [];
+    const here = goals.filter((g) => g.map === this.map.id);
+    const nameOf = (goal: (typeof goals)[number]) => (goal.kind === 'npc' ? goal.name : goal.kind === 'van' ? (this.van?.design.name ?? 'Your motor') : actionName(goal.action));
+    for (const goal of here) {
+      const what = nameOf(goal);
+      if (goal.kind === 'van') {
+        if (!this.van) continue;
+        const tiles = footprint(this.van.pose, this.van.design.length);
+        marks.push({ kind: 'object', tiles });
+        points.push({ ...middle(tiles), label: what });
+      } else if (goal.kind === 'npc') {
+        const n = this.npcs.find((c) => c.placement.npc.id === goal.npc);
+        if (!n) continue;
+        const { x, y } = n.character.sprite;
+        marks.push({ kind: 'npc', x, y });
+        points.push({ x, y: y - TILE, label: what });
+      } else {
+        const objs = goalObjects(this.map, goal.action, career.story.used).map((o) => objectTiles(o, ts));
+        marks.push(...objs.map((tiles): Mark => ({ kind: 'object', tiles })));
+        points.push(...objs.map((tiles) => ({ ...middle(tiles), label: what })));
+      }
+    }
+    if (!here.length) {
+      // The way to each goal: goals behind the same door or exit share its arrows (Boss, 28 Oct
+      // 2026: one road to the Industrial Zone, then both work buildings' doors).
+      const seen = new Set<MapObject>();
+      for (const goal of goals) {
+        const what = nameOf(goal);
+        const hop = nextHop(services.maps, services.content.world, services.travel, this.save.flags, this.map.id, goal.map);
+        if (!hop || hop.via.every((o) => seen.has(o))) continue;
+        for (const o of hop.via) seen.add(o);
+        // One arrow per doorway: a building's side door (its own spawn inside) is a doorway of its own.
+        const doorways = new Map<string, Tile[]>();
+        for (const o of hop.via) {
+          const k = String(o.props.spawn ?? '');
+          doorways.set(k, [...(doorways.get(k) ?? []), ...objectTiles(o, ts)]);
+        }
+        const groups = [...doorways.values()].flatMap(clusters);
+        const side = sideOf(this.map, hop.via[0]);
+        marks.push(...groups.map((tiles): Mark => (hop.kind === 'door' ? { kind: 'door', tiles } : { kind: 'exit', tiles, side })));
+        const label = hop.kind === 'door' ? hop.via[0].name : (services.maps.get(hop.to)?.title ?? hop.via[0].name);
+        // Several goals through one exit: no single thing to name under it.
+        const sub = goals.length > 1 && hop.kind === 'exit' ? undefined : what.toLowerCase() === label.toLowerCase() ? undefined : what;
+        points.push(...groups.map((tiles) => ({ ...middle(tiles), label, sub })));
+      }
+    }
+    if (!points.length) return;
+    this.waymarks.show(marks);
+    this.markPoint = nearest(points);
+  }
+
+  /** Redraws the markers when the money for an earning step comes in, or runs out. */
+  private checkMarkEarning(): void {
+    if (earning(services.content, this.save.career) !== this.markEarning) this.refreshWaymarks();
+  }
+
+  /** 4A: while the marker is off screen, an arrow at the screen edge points the way to it. */
+  private updateWayArrow(): void {
+    this.checkMarkEarning();
+    const p = this.markPoint;
+    const cam = this.cameras.main;
+    const v = cam.worldView;
+    const m = TILE / 2;
+    // Not inside a building: the arrow on the way out is enough there (Boss, 28 Oct 2026).
+    if (!p || this.map.kind === 'interior' || this.busy || this.hud.isDialogueOpen() || (p.x > v.x + m && p.x < v.right - m && p.y > v.y + m && p.y < v.bottom - m)) {
+      this.hud.showWayArrow(null);
+      return;
+    }
+    // From the middle of the screen towards the marker, stopped inside the edge, clear of the HUD text and buttons.
+    const w = this.scale.width / DPR;
+    const h = this.scale.height / DPR;
+    const dx = p.x - v.centerX;
+    const dy = p.y - v.centerY;
+    const left = 56;
+    const right = w - 56;
+    const top = 150;
+    const bottom = h - HUD_BAR - 40;
+    const cx = w / 2;
+    const cy = h / 2;
+    const tx = dx > 0 ? (right - cx) / dx : dx < 0 ? (left - cx) / dx : Infinity;
+    const ty = dy > 0 ? (bottom - cy) / dy : dy < 0 ? (top - cy) / dy : Infinity;
+    const t = Math.min(tx, ty);
+    this.hud.showWayArrow({ x: cx + dx * t, y: cy + dy * t, angle: Phaser.Math.RadToDeg(Math.atan2(dy, dx)), label: p.label, sub: p.sub });
+  }
+
+  /** The world map, with the rider's biggest bike in the zone they're in. */
+  openWorldMap(): void {
+    const wm = services.content.world.worldMap;
+    if (!wm || this.busy) return;
+    const zone = zoneFor(wm, services.maps, services.travel, this.map.id);
+    const bike = bikeImage(wm, biggestBike(services.content.bikes, this.save.career));
+    this.player.stopWalking();
+    this.path = [];
+    this.onArrive = null;
+    this.hud.showWorldMap(wm, zone, this.map.title, bike, () => {});
   }
 
   /** Flags such as cleared roadworks change the map: reload it in place. */
@@ -532,7 +792,7 @@ export class WorldScene extends Phaser.Scene {
     const job = services.content.world.jobs.find((j) => j.map === this.map.id && j.start === o.name);
     if (!job) return false;
     if (job.needs && !this.save.flags[job.needs]) {
-      this.hud.toast('Nobody here has time to show you the work yet. Finish helping the garage mechanic first.');
+      this.hud.toast('Nobody here has time to show you the work yet. Finish helping Paul at Phoenix MX first.');
       return true;
     }
     const pay = formatMoney(jobPay(services.content.world, job));
@@ -627,21 +887,114 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
     const fee = entryFee(rc, venue, this.save.flags);
-    const cls = rc.racing.classes[venue.class ?? '50cc'];
+    const laps = lapsFor(rc, trackById(rc, venue.track!), venue.class ?? '50cc', false);
     const field = fieldCount(rc, venue) + 1;
     const first = fee === 0 && venue.firstRaceFree;
     const text = [
       mod ? mod.intro : first ? "First time here? Your first race day is on us." : 'Race office. What can I do for you?',
-      `${venue.class} race day: ${field} riders including the Local Champion, 2 motos of ${cls.laps} laps. Prize money to 10th in each moto.`,
+      `${venue.class} race day: ${field} riders including the Local Champion, 2 motos of ${laps} laps. Prize money to 10th in each moto.`,
     ].join('\n\n');
     const short = (p: number) => career.money < p;
+    const champs = services.content.championships;
+    // A championship's next round here takes the place of a local race day (Spec 18.6, 6C).
+    const rounds = mod ? [] : roundsHere(champs, career, venue);
+    const roundOptions = rounds.map((def) => {
+      const f = roundEntry(rc, def);
+      const n = career.champs!.active[def.id].rounds.length + 1;
+      return { label: `${def.short} round ${n}`, note: `Entry: ${formatMoney(f)}${short(f) ? " — you can't afford it" : ''}. Qualifying, then 2 motos against the championship's ${def.size + 1} riders.`, enabled: !short(f), onPick: () => this.ride('raceday', venue, f, onClose, def) };
+    });
+    const hasChamps = !mod && champs.championships.some((d) => d.rounds.includes(venue.id));
     this.hud.choose(venue.name, text, [
-      { label: 'Race day', note: first ? 'Entry: free (first race)' : `Entry: ${formatMoney(fee)}${short(fee) ? " — you can't afford it" : ''}`, enabled: !short(fee), onPick: () => this.ride('raceday', venue, fee, onClose) },
+      ...roundOptions,
+      rounds.length
+        ? { label: 'Race day', note: 'Not today: your championship round is on here.', enabled: false, onPick: onClose }
+        : { label: 'Race day', note: first ? 'Entry: free (first race)' : `Entry: ${formatMoney(fee)}${short(fee) ? " — you can't afford it" : ''}`, enabled: !short(fee), onPick: () => this.ride('raceday', venue, fee, onClose) },
       ...(mod
         ? mod.extra
-        : [{ label: 'Free practice', note: `${formatMoney(pFee)}: ride laps on your own until you stop.${short(pFee) ? " You can't afford it." : ''}`, enabled: !short(pFee), onPick: () => this.ride('practice', venue, pFee, onClose) }]),
+        : [{ label: 'Free practice', note: `${formatMoney(pFee)}: ride laps until you stop${venue.practiceRiders ? `, with ${venue.practiceRiders} other riders out on track` : ' on your own'}.${short(pFee) ? " You can't afford it." : ''}`, enabled: !short(pFee), onPick: () => this.ride('practice', venue, pFee, onClose) }]),
+      ...(hasChamps ? [{ label: 'Championships', note: 'Enter one, see the standings, or give one up.', onPick: () => this.openChampionships(venue, onClose) }] : []),
       { label: 'Not now', onPick: onClose },
     ], onClose);
+  }
+
+  // ---- championships (core/championship.ts, Spec 12.5): entered and followed at any race office ----
+
+  private openChampionships(venue: VenueDef, onClose: () => void): void {
+    const rc = services.content;
+    const career = this.save.career;
+    const back = () => this.openVenue(venue, onClose);
+    const list = rc.championships.championships.filter((d) => d.rounds.includes(venue.id));
+    const venueName = (id: string | null) => rc.tracks.venues.find((v) => v.id === id)?.name ?? 'the next track';
+    const options = list.map((def) => {
+      const active = career.champs?.active[def.id];
+      const record = career.champs?.done[def.id];
+      const problem = active ? null : champProblem(rc, def, this.save.flags);
+      let note: string;
+      if (active) {
+        const me = standings(rc.racing.points, active).find((r) => r.player)!;
+        note = `Round ${active.rounds.length + 1} of ${def.rounds.length} next, at ${venueName(nextRoundVenue(def, active))}.${active.rounds.length ? ` You're ${ordinal(me.position)} on ${me.points} points.` : ''}`;
+      } else if (problem) note = problem;
+      else note = `${def.rounds.length} rounds, ${formatMoney(roundEntry(rc, def))} a round.${record?.wins ? ' Won before: half prize money and XP.' : record ? ` Best so far: ${ordinal(record.best)}.` : ''}`;
+      // A locked one can still be picked, to say why it's locked (Boss, 28 Oct 2026).
+      const onPick = problem ? () => { this.hud.toast(problem); this.openChampionships(venue, onClose); } : () => this.openChampionship(def, venue, onClose);
+      return { label: problem ? `${def.short} (locked)` : def.short, note, onPick };
+    });
+    this.hud.choose('Championships', 'Each round is entered separately at its track\'s race office, with qualifying and the same field of riders every round. There is no calendar: a championship waits for you.', [...options, { label: 'Back', onPick: back }], back);
+  }
+
+  private openChampionship(def: ChampionshipDef, venue: VenueDef, onClose: () => void): void {
+    const rc = services.content;
+    const career = this.save.career;
+    const active = career.champs?.active[def.id];
+    const back = () => this.openChampionships(venue, onClose);
+    const rounds = def.rounds.map((v, i) => `${i + 1}. ${rc.tracks.venues.find((x) => x.id === v)?.name ?? v}`).join('   ');
+    if (!active) {
+      const reward = def.rewards[0];
+      const text = [
+        `${def.class}. ${def.rounds.length} rounds: ${rounds}`,
+        `${def.size + 1} riders, the same at every round. Qualifying sets the gate pick for moto 1; points for every moto (25 for a win). Entry ${formatMoney(roundEntry(rc, def))} a round, with bigger prize money than a race day.`,
+        `The winner takes ${reward.title ?? 'the title'}${reward.money ? ` and £${reward.money}` : ''}; 2nd and 3rd win a smaller prize.`,
+      ].join('\n\n');
+      this.hud.choose(def.name, text, [
+        { label: 'Enter', note: 'Free to enter: you pay each round\'s entry when you ride it.', onPick: () => {
+          enter(career, rc, def, (Math.random() * 2 ** 32) >>> 0);
+          this.milestoneSave();
+          this.hud.toast(`Entered the ${def.name}. Round 1 is at ${rc.tracks.venues.find((v) => v.id === def.rounds[0])?.name}.`);
+          this.openVenue(venue, onClose);
+        } },
+        { label: 'Back', onPick: back },
+      ], back);
+      return;
+    }
+    const table = standings(rc.racing.points, active);
+    const name = (id: string) => (id === 'player' ? 'You' : rc.riders.riders.find((r) => r.id === id)?.name ?? id);
+    const me = table.find((r) => r.player)!;
+    const top = table.slice(0, 5).map((r) => `${r.position}. ${name(r.id)}  ${r.points}`);
+    if (me.position > 5) top.push(`${me.position}. You  ${me.points}`);
+    const next = rc.tracks.venues.find((v) => v.id === nextRoundVenue(def, active));
+    const text = [
+      `Rounds: ${rounds}`,
+      active.rounds.length ? `After round ${active.rounds.length}:\n${top.join('\n')}` : 'No rounds ridden yet.',
+      `Next: round ${active.rounds.length + 1} at ${next?.name}. ${active.rounds.length && !titlePossible(def, rc.racing.points, active) ? 'The title is out of reach now, but the top three still win a prize.' : ''}`,
+    ].join('\n\n');
+    const restart = () => this.hud.confirm(`Start the ${def.name} again from round 1?\nYour points so far are lost.`, 'Start again', () => {
+      withdraw(career, def);
+      enter(career, rc, def, (Math.random() * 2 ** 32) >>> 0);
+      this.milestoneSave();
+      this.hud.toast(`${def.name}: started again.`);
+      this.openChampionship(def, venue, onClose);
+    }, () => this.openChampionship(def, venue, onClose));
+    const giveUp = () => this.hud.confirm(`Give up the ${def.name}?\nYour points so far are lost. You can enter again later.`, 'Give it up', () => {
+      withdraw(career, def);
+      this.milestoneSave();
+      this.hud.toast(`You gave up the ${def.name}.`);
+      this.openChampionships(venue, onClose);
+    }, () => this.openChampionship(def, venue, onClose));
+    this.hud.choose(def.name, text, [
+      { label: 'Start again', note: 'Back to round 1 with no points, against a new field.', onPick: restart },
+      { label: 'Give it up', note: 'Leave the championship.', onPick: giveUp },
+      { label: 'Back', onPick: back },
+    ], back);
   }
 
   // ---- mod tracks: player-made tracks raced from the road (core/modTracks.ts) ----
@@ -724,7 +1077,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /** Hands over to the race screen; the world sleeps until it is done. */
-  private ride(mode: 'practice' | 'raceday', venue: VenueDef, fee: number, onClose: () => void): void {
+  private ride(mode: RaceSceneData['mode'], venue: VenueDef, fee: number, onClose: () => void, champ?: ChampionshipDef, challenge?: ChallengeDef): void {
     this.busy = true;
     this.path = [];
     this.player.stopWalking();
@@ -732,6 +1085,8 @@ export class WorldScene extends Phaser.Scene {
       mode,
       venue,
       fee,
+      champ,
+      challenge,
       save: this.snapshot(),
       onDone: (save, message) => {
         this.scene.wake('hud');
@@ -774,6 +1129,7 @@ export class WorldScene extends Phaser.Scene {
     }
     const design = this.designOf(state.design);
     state.design = design.id;
+    this.drive.setVanLength(design.length);
     let pose: VanPose = { x: state.x, y: state.y, heading: state.heading };
     // A design swap or a map change can leave the van where it no longer fits: move it to the nearest spot that does.
     if (!this.drive.fits(pose, design.length)) {
@@ -835,6 +1191,11 @@ export class WorldScene extends Phaser.Scene {
     this.save.driving = true;
     this.player.stopWalking();
     this.sitInVan();
+    const step = currentStep(services.content.story, this.save.career);
+    if (step?.markVan && !this.save.flags[step.markVan]) {
+      this.save.flags[step.markVan] = true;
+      this.refreshWaymarks();
+    }
     this.quickSave();
   }
 
@@ -940,6 +1301,13 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
     const plan = planDrive(this.drive, van.pose, van.design.length, via?.type === 'exit' ? objectTiles(via, this.map.tileSize) : tile);
+    // Parked in a bay it can't turn out of (the Factory Hauler at Riverside): out straight by the exit.
+    const bay = bayFor(services.content.vehicles, this.map.id, van.design.length);
+    if (!plan && via?.type === 'exit' && bay && bay.x === van.pose.x && bay.y === van.pose.y && bay.heading === van.pose.heading) {
+      const r = services.travel.resolve(this.map, via, this.save.flags);
+      if (r) this.vanThrough(r);
+      return;
+    }
     if (!plan) {
       this.hud.toast(`The ${van.design.name} can't get there.`);
       return;
@@ -982,7 +1350,10 @@ export class WorldScene extends Phaser.Scene {
   private driveTo(to: Arrival): boolean {
     const van = this.van!;
     const target = services.maps.get(to.map);
-    const pose = target && placeNear(this.driveMapFor(target), to.tile, van.design.length, inwardHeading(target, to.tile), 12, (t) => !!stepTriggerAt(target, t));
+    const bay = target && bayFor(services.content.vehicles, target.id, van.design.length);
+    const pose = bay
+      ? { x: bay.x, y: bay.y, heading: bay.heading }
+      : target && placeNear(this.driveMapFor(target, van.design.length), to.tile, van.design.length, inwardHeading(target, to.tile), 12, (t) => !!stepTriggerAt(target, t));
     if (!target || !pose) {
       this.hud.toast(`There's no room for the ${van.design.name} over there.`);
       return false;
@@ -993,36 +1364,28 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /** Where a van can go on another map, with its story changes and NPCs, as the scene would build it. */
-  private driveMapFor(map: BakedMap): DriveMap {
+  private driveMapFor(map: BakedMap, length: number): DriveMap {
     const grid = Grid.fromMap(map);
     applyMapState(map, grid, this.save.flags);
-    const dm = new DriveMap(map, grid, services.content.vehicles.drivable);
-    // Route marshals stand by the road to be asked, not in the way: the van drives past them.
-    dm.setNpcTiles(npcsOnMap(services.content, map).filter((p) => !p.npc.guide).map((p) => ({ x: p.x, y: p.y })));
+    const dm = new DriveMap(map, grid, services.content.vehicles);
+    dm.setVanLength(length);
+    dm.setNpcTiles(npcsOnMap(services.content, map).map((p) => ({ x: p.x, y: p.y })));
     return dm;
   }
 
-  // ---- routes and route marshals ----
+  // ---- routes ----
 
   /**
-   * Where a route exit takes the rider, then `go` there: the place picked with the marshal, or its
-   * only place, straight away; otherwise a quick "Where to?" at the road itself, so travel never
-   * waits on a word with the marshal. Returns true when it went straight away.
+   * Where a route exit takes the rider, then `go` there: its only place straight away, otherwise a
+   * quick "Where to?" at the road itself. Returns true when it went straight away.
    */
   private routeTo(via: MapObject, go: (to: Arrival) => void): boolean {
-    const pick = services.routePick?.map === this.map.id && services.routePick.exit === via.name ? services.routePick.to : null;
-    if (pick === MOD_PLACE) {
-      services.routePick = null;
-      this.openModTracks();
-      return false;
-    }
-    const to = routeArrival(this.map, via, services.content.world, services.maps, pick);
+    const to = routeArrival(this.map, via, services.content.world, services.maps, null);
     if (typeof to === 'string') {
       this.hud.toast(to);
       return false;
     }
-    services.routePick = null;
-    if (pick || !to.others.length) {
+    if (!to.others.length) {
       go({ map: to.map, tile: to.tile });
       return true;
     }
@@ -1034,30 +1397,6 @@ export class WorldScene extends Phaser.Scene {
     }));
     this.hud.choose('Where to?', `${route ? `${route.road[0].toUpperCase()}${route.road.slice(1)}` : 'This road'} goes to ${options.length} places.`, options, () => {});
     return false;
-  }
-
-  /** A route marshal: where each way out goes, then which route to take when there's a choice. */
-  private guideTalk(npc: NpcDef, done: () => void): void {
-    const ways = waysOut(this.map, services.content.world, services.maps, services.travel, this.save.flags);
-    const greeting = (services.content.dialogue[npc.dialogue]?.lines ?? []).map((l) => ({ ...l, text: fillText(l.text, { rider: this.save.rider.name }) }));
-    const lines: DialogueLine[] = [...greeting, ...directions(ways).map((text) => ({ speaker: 'npc' as const, text }))];
-    this.hud.openDialogue(npc.name, this.save.rider.name, lines, () => {
-      const choices = ways.filter((w) => w.route && !w.shut && w.places.length > 1);
-      if (!choices.length) return done();
-      const options = choices.flatMap((w) =>
-        w.places.map((p) => ({
-          label: p.name,
-          note: `${w.route!.road[0].toUpperCase()}${w.route!.road.slice(1)}, out to the ${w.side}. ${p.note}`,
-          onPick: () => {
-            services.routePick = { map: this.map.id, exit: w.exit.name, to: p.map };
-            this.hud.toast(`Heading for ${p.name}: take ${w.route!.road} out to the ${w.side}.`);
-            done();
-          },
-        })),
-      );
-      options.push({ label: 'Just asking', note: '', onPick: done });
-      this.hud.choose('Which way?', `Where are you heading, ${this.save.rider.name}?`, options, done);
-    });
   }
 
   /** A small ring where the player clicked, so a click always shows a response. */
@@ -1094,6 +1433,7 @@ export class WorldScene extends Phaser.Scene {
       // Moving along an exit (say, off it after being turned back) doesn't set it off again.
       const from = stepTriggerAt(this.map, this.player.tile);
       await this.player.step(next);
+      this.walkedTile();
       if (from !== stepTriggerAt(this.map, this.player.tile) && this.checkTrigger()) {
         this.walking = false;
         return;
@@ -1110,6 +1450,26 @@ export class WorldScene extends Phaser.Scene {
     const done = this.onArrive;
     this.onArrive = null;
     done?.();
+  }
+
+  /** Agility for walking about (Spec 3.3): a little XP every few tiles, and a level-up says so. */
+  private walkedTile(): void {
+    const { training, skills } = services.content;
+    const r = walked(training, skills, this.save.career.skills, this.walkCarry);
+    this.walkCarry = r.carry;
+    for (const u of r.ups) this.hud.toast(`Level up! ${u.name} is now level ${u.level}.`);
+  }
+
+  /** A Fitness drill (core/training.ts): its round in the HUD, XP for every round finished, saved after each. */
+  private runDrill(drill: DrillDef, onClose: () => void = () => this.player.idle()): void {
+    const skill = services.content.skills.leads.flatMap((l) => l.children).find((c) => c.id === drill.skill);
+    const coach = drill.npc ? services.content.npcs.find((n) => n.id === drill.npc)?.sprite : undefined;
+    this.hud.openDrill(drill, { player: this.save.rider.look, coach }, () => {
+      const ups = finishRound(services.content.skills, this.save.career.skills, drill);
+      this.hud.showCareer(this.save.career, this.save.flags);
+      this.milestoneSave();
+      return [`+${drill.xp} ${skill?.name ?? drill.skill} XP`, ...ups.map((u) => `Level up! ${u.name} is now level ${u.level}.`)];
+    }, onClose);
   }
 
   /** Handles a door or exit under the player. Returns true when the player is leaving the map. */

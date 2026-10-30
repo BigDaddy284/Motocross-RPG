@@ -77,9 +77,10 @@ describe('start straight and lap counting', () => {
       expect(s.metres).toBeGreaterThan(0);
       expect(s.from).toBeLessThan(s.join);
       const one = lapPlan(t, 1);
-      expect(one.secs[0]).toBe(-1);
+      // The start straight, its end as the first corner, then the lap from the join.
+      expect(one.secs.slice(0, 2)).toEqual([-1, -2]);
       expect(one.marks[0]).toBeCloseTo(s.from, 9);
-      expect(one.marks[1]).toBeCloseTo(s.join, 9);
+      expect(one.marks[2]).toBeCloseTo(s.join, 9);
       expect(one.marks.at(-1)).toBeCloseTo(1, 9);
       // Every stretch is ridden once, in order, and the distances add up.
       for (let i = 1; i < one.marks.length; i++) expect(one.marks[i]).toBeGreaterThan(one.marks[i - 1]);

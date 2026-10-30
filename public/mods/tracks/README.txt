@@ -19,4 +19,4 @@ straight to the gate pick.
 In the published game you can also import a .track.json from your device with
 "Import track file" in the mod track list. Imported tracks are kept in that browser only.
 
-farmland-example.track.json is Farmland MX, as an example.
+first-try-mx.track.json is First Try MX, a small example track to copy and change.

@@ -10,7 +10,8 @@ const maps = loadMaps();
 const T = 64;
 
 /** The Home Town map file as it stands (Alpha v1: 2×2 road exits and the local racer outside the garage). */
-const HOME_TOWN_SHA256 = '215520c4dbd97a224b031f2c3e397a64112ea67d7bc608a3577ff08fc085331b';
+// Updated for the Used Motors building and its seller (Boss, 28 Oct 2026), the garage renamed Phoenix MX and Used Motors renamed Nicholls Used Motors and the bike shop renamed Moto78 (29 Oct 2026).
+const HOME_TOWN_SHA256 = '30d047f8b45cbc5efa088fb475005aeb35fc64812c43652a04c77fdb6a7f8400';
 
 function pngSize(rel: string): [number, number] {
   const b = fs.readFileSync(`public/assets/${rel}`);
@@ -79,16 +80,16 @@ describe('building checks', () => {
   it('refuses overlapping buildings on a map', () => {
     const m = withMap('area1-industrial-zone', (m) => {
       const unit = m.objects.find((o) => o.type === 'building' && o.props.blueprint === 'bld.iz.filler_unit')!;
-      unit.x = 30 * T; // onto the modifier unit (27..32, 12..15)
+      unit.x = 24 * T; // onto the modifier unit (22..27, 8..11)
     });
-    expect(problems(lib, m).join('\n')).toMatch(/overlaps Modifier machine unit at 30,12/);
+    expect(problems(lib, m).join('\n')).toMatch(/overlaps Modifier machine unit at 24,8/);
   });
 
   it('refuses a map whose tiles disagree with a footprint', () => {
-    const m = withMap('area1-industrial-zone', (m) => setTile(m, 15, 12, '.'));
-    expect(problems(lib, m)).toEqual([expect.stringMatching(/Engine rebuilder" at 14,11: tile 15,12 is free on the map but solid/)]);
-    const door = withMap('area1-industrial-zone', (m) => setTile(m, 20, 15, '#'));
-    expect(problems(lib, door).join('\n')).toMatch(/tile 20,15 is blocked on the map but walkable/);
+    const m = withMap('area1-industrial-zone', (m) => setTile(m, 13, 8, '.'));
+    expect(problems(lib, m)).toEqual([expect.stringMatching(/Engine rebuilder" at 12,7: tile 13,8 is free on the map but solid/)]);
+    const door = withMap('area1-industrial-zone', (m) => setTile(m, 18, 11, '#'));
+    expect(problems(lib, door).join('\n')).toMatch(/tile 18,11 is blocked on the map but walkable/);
   });
 
   it('refuses a door that leads to a missing interior, or sits on a solid tile', () => {
@@ -119,14 +120,14 @@ describe('building checks', () => {
     const named = withLib((b) => {
       b.find((x) => x.id === 'bld.home.local_garage')!.returns = [{ tile: [1, 4] }];
     });
-    expect(problems(named).join('\n')).toMatch(/comes out on the return named "side_door", which Local garage doesn't have/);
+    expect(problems(named).join('\n')).toMatch(/comes out on the return named "side_door", which Phoenix MX doesn't have/);
   });
 
   it('refuses a door or return moved on the map but not in the library', () => {
     const m = withMap('area1-industrial-zone', (m) => {
       m.objects.find((o) => o.type === 'door' && o.props.building === 'bld.iz.engine_rebuilder')!.x += T;
     });
-    expect(problems(lib, m).join('\n')).toMatch(/has doors \[21,15 int\.iz\.engine_rebuilder\] but bld\.iz\.engine_rebuilder has \[20,15/);
+    expect(problems(lib, m).join('\n')).toMatch(/has doors \[19,11 int\.iz\.engine_rebuilder\] but bld\.iz\.engine_rebuilder has \[18,11/);
   });
 
   it('keeps unfinished buildings off the maps, but lets them be incomplete in the library', () => {
@@ -138,7 +139,7 @@ describe('building checks', () => {
     });
     expect(problems(draft)).toEqual([]);
     const m = withMap('area1-industrial-zone', (m) => {
-      m.objects.push({ type: 'building', name: 'Lock-up', x: 2 * T, y: 26 * T, w: 12 * T, h: 5 * T, props: { blueprint: 'bld.iz.engine_rebuilder_lockup', interior: 'int.iz.engine_rebuilder_lockup', npc: null } });
+      m.objects.push({ type: 'building', name: 'Lock-up', x: 2 * T, y: 21 * T, w: 12 * T, h: 5 * T, props: { blueprint: 'bld.iz.engine_rebuilder_lockup', interior: 'int.iz.engine_rebuilder_lockup', npc: null } });
     });
     expect(problems(draft, m).join('\n')).toMatch(/Engine rebuilder with lock-up is unfinished \(draft\)/);
     // A draft's door can wait for its interior; a ready building's can't.

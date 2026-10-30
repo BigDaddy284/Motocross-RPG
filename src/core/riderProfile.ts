@@ -24,6 +24,8 @@ export interface RiderProfile {
   cornerSpeed: number;
   /** 0 to 1: how low and flat they jump (1 skims every jump). */
   scrub: number;
+  /** 0 to 1: how far they can jump: whether they clear a tabletop, triple a triple or quad a quad (jumps.ts). */
+  jump: number;
   /** 0 to 1: how smoothly they skim whoops and bumps. */
   skim: number;
   /** 0 to 1: how much they move about on the track (low consistency wanders). */
@@ -65,6 +67,7 @@ export function riderProfile(e: Entrant, stats: Record<string, number>, ceiling:
     aggression,
     cornerSpeed: clamp01(0.25 + 0.5 * sk('cornering') + 0.25 * st('grip') + 0.05 * msg.pace),
     scrub,
+    jump: clamp01(0.1 + 0.6 * sk('jumps_ruts') + 0.2 * st('power') + 0.1 * msg.risk + 0.1 * (seed - 0.5)),
     skim: clamp01(0.2 + 0.5 * sk('balance') + 0.3 * st('absorption')),
     wobble: clamp01(0.6 - 0.5 * sk('consistency') - 0.1 * msg.consistency),
     drive: clamp01(0.5 * st('power') + 0.5 * st('response')),

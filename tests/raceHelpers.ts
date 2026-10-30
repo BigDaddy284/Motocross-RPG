@@ -9,20 +9,24 @@ import { loadManifest, loadMaps, rawContent } from './helpers';
 
 export const content = checkContent(rawContent(), loadManifest(), loadMaps()).content!;
 export const units = (track: { path: Parameters<typeof lapGeom>[0] }) => lapGeom(track.path).total;
-export const JUMPY = new Set(['tabletop', 'double', 'step_up', 'rhythm', 'whoops', 'braking_bumps']);
+export const JUMPY = new Set(['tabletop', 'double', 'step_up', 'triple', 'quad', 'step_down', 'step_on', 'step_on_two', 'step_on_three', 'on_off', 'single_over_table', 'table_over_single', 'wall_jump', 'ski_jump', 'rhythm', 'whoops', 'rollers', 'dragon_back', 'braking_bumps']);
 
-/** The first 15 CPU riders (the original local field), plus one rider on a worn-out bike with a broken part. */
-export function field(cls: string): Entrant[] {
+/**
+ * The first 15 CPU riders (the original local field), plus one rider on a worn-out bike with a
+ * broken part. A field over 16 (a championship's 20) adds the next riders from the pool.
+ */
+export function field(cls: string, size = 16): Entrant[] {
   const riders = content.riders.riders.slice(0, 15);
   const list = riders.map((d, i) => cpuEntrant(content, d, cls, i));
   const wreck = cpuEntrant(content, { ...riders[riders.length - 1], id: 'cpu.wreck', name: 'Wreck' }, cls, list.length);
   for (const [slot, p] of Object.entries(wreck.bike.parts)) wreck.bike.parts[slot] = { ...p, condition: slot === 'top_end' ? 0 : 0.15 };
-  return [...list, wreck];
+  const more = content.riders.riders.slice(15, 15 + Math.max(0, size - 16)).map((d, i) => cpuEntrant(content, d, cls, 16 + i));
+  return [...list, wreck, ...more].slice(0, size);
 }
 
 export function race(trackId: string, seed: number, shuffle = false, riders = 16): { sim: MotoSim; dir: RaceDirector; traces: LapTrace[] } {
   const track = content.tracks.tracks.find((t) => t.id === trackId)!;
-  const entrants = field('50cc').slice(0, riders);
+  const entrants = field('50cc', riders);
   // A different gate draw for each seed, as race days give.
   if (shuffle) {
     const rnd = seededRng(seed);

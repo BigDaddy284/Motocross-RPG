@@ -30,7 +30,7 @@ export const HEADING_OF: Record<Facing, Heading> = { up: 'north', down: 'south',
 
 /** Where the player's van is: the save's record, and the only vehicle state the game keeps. */
 export interface VanState {
-  /** Design id in vehicles.json, such as van-2. */
+  /** Design id in vehicles.json, such as motor-2. */
   design: string;
   map: string;
   /** The front tile of the footprint. */
@@ -50,6 +50,8 @@ export interface VanDesign {
   name: string;
   /** The reference image this design is drawn from. */
   reference: string;
+  /** The model's van sheets in the art folder (map-<art>.png), named before the motors were (Boss, 28 Oct 2026). */
+  art?: string;
   /** Footprint in tiles along the heading (always one tile wide). */
   length: number;
   lengthM: number;
@@ -77,6 +79,27 @@ export interface VehiclesData {
   note?: string;
   /** Ground tiles a van can use, matched against the ground image paths. */
   drivable: string[];
+  /**
+   * Drivable ground that is only for the ends of a van (Boss, 28 Oct 2026: vehicles stay on the
+   * road): pavements. Like grass and other open ground, a van's front or back (two tiles for the
+   * longest, OVERHANG) may poke onto it to turn round, never its body. Laid over a verge, it is a
+   * crossing and counts as road.
+   */
+  kerbs?: string[];
+  /**
+   * Verges vans keep off on some maps (Boss, 28 Oct 2026: the van sticks to the road and goes
+   * into a car park by its entrance): a tile whose top ground art matches is not drivable there
+   * (like grass, a long van's body may still swing over a corner of one on a turn), so a crossing laid over a verge stays open. From the art, so it holds when a map is re-imported.
+   */
+  verges?: { maps: string[]; ground: string[] };
+  /** Car parks too small for the longest vans (Boss, 28 Oct 2026): a van longer than maxLength tiles can't go in. */
+  carParks?: { map: string; name: string; area: [number, number, number, number]; maxLength: number }[];
+  /**
+   * Where the longest vans are parked on arriving at a map they can't turn round on (Boss, 28 Oct
+   * 2026: the Factory Hauler in the Riverside West car park). A van of minLength tiles or more is
+   * parked here, cab at x, y, and leaves straight out by the map's exit.
+   */
+  bays?: { map: string; name: string; x: number; y: number; heading: Heading; minLength: number }[];
   /** The van the opening chain sells, and where it is parked when bought. */
   starter: { design: string; map: string; x: number; y: number; heading: Heading };
   designs: VanDesign[];
@@ -87,10 +110,44 @@ const HEADING_ENUM = { type: 'string', enum: HEADINGS } as const;
 
 export const VEHICLES_SCHEMA: Schema = {
   type: 'object',
-  optional: ['note'],
+  optional: ['note', 'kerbs', 'verges', 'carParks', 'bays'],
   fields: {
     note: { type: 'string' },
     drivable: { type: 'array', minItems: 1, items: { type: 'string', nonEmpty: true } },
+    kerbs: { type: 'array', items: { type: 'string', nonEmpty: true } },
+    verges: {
+      type: 'object',
+      fields: {
+        maps: { type: 'array', minItems: 1, items: { type: 'string', pattern: ID } },
+        ground: { type: 'array', minItems: 1, items: { type: 'string', nonEmpty: true } },
+      },
+    },
+    carParks: {
+      type: 'array',
+      items: {
+        type: 'object',
+        fields: {
+          map: { type: 'string', pattern: ID },
+          name: { type: 'string', nonEmpty: true },
+          area: { type: 'array', minItems: 4, maxItems: 4, items: { type: 'number', integer: true, min: 0 } },
+          maxLength: { type: 'number', integer: true, min: 1 },
+        },
+      },
+    },
+    bays: {
+      type: 'array',
+      items: {
+        type: 'object',
+        fields: {
+          map: { type: 'string', pattern: ID },
+          name: { type: 'string', nonEmpty: true },
+          x: { type: 'number', integer: true, min: 0 },
+          y: { type: 'number', integer: true, min: 0 },
+          heading: HEADING_ENUM,
+          minLength: { type: 'number', integer: true, min: 1 },
+        },
+      },
+    },
     starter: {
       type: 'object',
       fields: { design: { type: 'string', pattern: ID }, map: { type: 'string', pattern: ID }, x: { type: 'number', integer: true }, y: { type: 'number', integer: true }, heading: HEADING_ENUM },
@@ -104,6 +161,7 @@ export const VEHICLES_SCHEMA: Schema = {
           id: { type: 'string', pattern: ID },
           name: { type: 'string', nonEmpty: true },
           reference: { type: 'string', nonEmpty: true },
+          art: { type: 'string', pattern: ID },
           length: { type: 'number', integer: true, min: 1 },
           lengthM: { type: 'number', min: 1 },
           stepMs: { type: 'number', integer: true, min: 30 },
@@ -112,6 +170,12 @@ export const VEHICLES_SCHEMA: Schema = {
     },
   },
 };
+
+/** The bay a van this long is parked in on arriving at a map, if it has one. */
+export function bayFor(data: Pick<VehiclesData, 'bays'>, mapId: string, length: number): (VanPose & { name: string }) | null {
+  const b = data.bays?.find((c) => c.map === mapId && length >= c.minLength);
+  return b ? { x: b.x, y: b.y, heading: b.heading, name: b.name } : null;
+}
 
 /** Tiles of a footprint, front first. */
 export function footprint(p: VanPose, length: number): Tile[] {
@@ -130,6 +194,14 @@ export function centre(p: VanPose, length: number): { x: number; y: number } {
 
 const key = (x: number, y: number) => `${x},${y}`;
 
+/** True when a ground layer above the first lays drivable ground on a tile, such as a crossing over a verge. */
+function laidOver(map: BakedMap, x: number, y: number, drivable: string[]): boolean {
+  return map.ground.slice(1).some((l) => {
+    const img = map.images[l.cells[y * map.width + x]] ?? '';
+    return drivable.some((d) => img.includes(d));
+  });
+}
+
 /**
  * Where vans may go on one map. Built from the map's ground art, its blocked tiles and edge walls
  * (after story changes such as cleared roadworks), and its doors. NPC tiles are set separately,
@@ -138,26 +210,103 @@ const key = (x: number, y: number) => `${x},${y}`;
 export class DriveMap {
   readonly width: number;
   readonly height: number;
+  /** Road a van's body can stand on. */
   private readonly ok: boolean[];
+  /** Open ground only a van's ends may poke onto (pavements, grass, verges). */
+  private readonly edge: boolean[];
+  /** Which lane of a two-lane road a tile is, for vans heading each way (LANE_OK), or none. */
+  private readonly laneEW: (-1 | 0 | 1)[];
+  private readonly laneNS: (-1 | 0 | 1)[];
   private readonly npcs = new Set<string>();
 
   constructor(
     readonly map: BakedMap,
     readonly grid: Grid,
-    drivable: string[],
+    private readonly rules: Pick<VehiclesData, 'drivable' | 'verges' | 'carParks' | 'kerbs'>,
   ) {
     this.width = map.width;
     this.height = map.height;
     const base = map.ground[0]?.cells ?? [];
+    const verges = rules.verges?.maps.includes(map.id) ? rules.verges.ground : [];
+    const kerbs = rules.kerbs ?? [];
     const doors = new Set<string>();
     for (const o of map.objects) if (o.type === 'door') for (const t of objectTiles(o, map.tileSize)) doors.add(key(t.x, t.y));
     this.ok = [];
+    this.edge = [];
+    const road: boolean[] = [];
     for (let y = 0; y < map.height; y++) {
       for (let x = 0; x < map.width; x++) {
         const img = map.images[base[y * map.width + x]] ?? '';
-        const surface = drivable.some((d) => img.includes(d));
-        this.ok.push(surface && !grid.isBlocked(x, y) && !doors.has(key(x, y)));
+        const open = !grid.isBlocked(x, y) && !doors.has(key(x, y));
+        const surface = rules.drivable.some((d) => img.includes(d));
+        const verge = verges.some((v) => img.includes(v));
+        const over = laidOver(map, x, y, rules.drivable);
+        const kerb = kerbs.some((k) => img.includes(k)) && !over;
+        const body = open && ((surface && !verge && !kerb) || (verge && over));
+        this.ok.push(body);
+        this.edge.push(open && !body);
+        road.push(open && ROAD.test(img));
       }
+    }
+    // Lanes (Boss, 28 Oct 2026: drive on the left): a road exactly two tiles wide has a lane each
+    // way, the top one heading east and the left one heading north. Wider or narrower roads,
+    // junctions and car parks have none.
+    const r = (x: number, y: number) => x >= 0 && y >= 0 && x < this.width && y < this.height && road[y * this.width + x];
+    const lane = (x: number, y: number, dx: number, dy: number): -1 | 0 | 1 => {
+      if (!r(x, y)) return 0;
+      const a = r(x - dx, y - dy);
+      const b = r(x + dx, y + dy);
+      if (b && !a && !r(x + 2 * dx, y + 2 * dy)) return -1;
+      if (a && !b && !r(x - 2 * dx, y - 2 * dy)) return 1;
+      return 0;
+    };
+    this.laneEW = [];
+    this.laneNS = [];
+    for (let y = 0; y < map.height; y++) {
+      for (let x = 0; x < map.width; x++) {
+        this.laneEW.push(lane(x, y, 0, 1));
+        this.laneNS.push(lane(x, y, 1, 0));
+      }
+    }
+    // A stub shorter than LANE_RUN (a car park entrance) is a driveway, not a road with lanes.
+    const runs = (lanes: (-1 | 0 | 1)[], dx: number, dy: number) => {
+      for (let y = 0; y < map.height; y++) {
+        for (let x = 0; x < map.width; x++) {
+          const i = y * this.width + x;
+          if (!lanes[i] || (x - dx >= 0 && y - dy >= 0 && lanes[(y - dy) * this.width + x - dx] === lanes[i])) continue;
+          let n = 0;
+          while (x + n * dx < this.width && y + n * dy < this.height && lanes[(y + n * dy) * this.width + x + n * dx] === lanes[i]) n++;
+          if (n < LANE_RUN) for (let j = 0; j < n; j++) lanes[(y + j * dy) * this.width + x + j * dx] = 0;
+        }
+      }
+    };
+    runs(this.laneEW, 1, 0);
+    runs(this.laneNS, 0, 1);
+  }
+
+  /** True when a van heading this way may be on this tile: in the left-hand lane of a two-lane road, or anywhere else. */
+  inLane(x: number, y: number, h: Heading): boolean {
+    const i = y * this.width + x;
+    if (h === 'east' || h === 'west') {
+      const l = this.laneEW[i];
+      return !l || (h === 'east' ? l === -1 : l === 1);
+    }
+    const l = this.laneNS[i];
+    return !l || (h === 'north' ? l === -1 : l === 1);
+  }
+
+  private readonly tooSmall = new Set<string>();
+  private vanLength = 0;
+
+  /** The van that is driving: car parks too small for it are off limits. */
+  setVanLength(length: number): void {
+    if (length === this.vanLength) return;
+    this.vanLength = length;
+    this.tooSmall.clear();
+    for (const c of this.rules.carParks ?? []) {
+      if (c.map !== this.map.id || length <= c.maxLength) continue;
+      const [ax, ay, w, h] = c.area;
+      for (let y = ay; y < ay + h; y++) for (let x = ax; x < ax + w; x++) this.tooSmall.add(key(x, y));
     }
   }
 
@@ -172,7 +321,7 @@ export class DriveMap {
 
   /** Ground a van can stand on, ignoring NPCs. */
   isDrivable(x: number, y: number): boolean {
-    return x >= 0 && y >= 0 && x < this.width && y < this.height && this.ok[y * this.width + x];
+    return x >= 0 && y >= 0 && x < this.width && y < this.height && this.ok[y * this.width + x] && !this.tooSmall.has(key(x, y));
   }
 
   /** Somewhere no part of a van may pass over, even cutting a corner: buildings, walls, solid objects, people, off the map. */
@@ -199,22 +348,53 @@ export class DriveMap {
     return this.isDrivable(x, y) && !this.npcs.has(key(x, y));
   }
 
-  /** True when the whole footprint stands on free ground with no wall running through it. */
-  fits(p: VanPose, length: number): boolean {
+  /** Free for a van's front or back: road, or open ground beside it (pavement, grass), with nobody there. */
+  isEdgeFree(x: number, y: number): boolean {
+    if (this.isFree(x, y)) return true;
+    return x >= 0 && y >= 0 && x < this.width && y < this.height && this.edge[y * this.width + x] && !this.tooSmall.has(key(x, y)) && !this.npcs.has(key(x, y));
+  }
+
+  /**
+   * True when the footprint stands on the road with no wall running through it: its body on free
+   * road in the left-hand lane, only its ends (OVERHANG tiles each) over pavement or grass, and
+   * at least one tile of it on the road.
+   */
+  fits(p: VanPose, length: number, flipped = false): boolean {
     const t = footprint(p, length);
-    if (!t.every((c) => this.isFree(c.x, c.y))) return false;
+    // A flipped van (vanPath.ts, for backing round a corner) really faces the other way.
+    const facing = flipped ? OPPOSITE[p.heading] : p.heading;
+    const k = overhang(length);
+    let road = 0;
+    for (let i = 0; i < t.length; i++) {
+      const c = t[i];
+      if (this.isFree(c.x, c.y)) {
+        if (!this.inLane(c.x, c.y, facing)) return false;
+        road++;
+      } else if (!(Math.min(i, t.length - 1 - i) < k && this.isEdgeFree(c.x, c.y))) return false;
+    }
+    if (road < Math.max(1, length - 2 * k)) return false;
     for (let i = 1; i < t.length; i++) if (!this.grid.edgeOpen(t[i - 1], t[i])) return false;
     return true;
   }
 }
 
+/** Road art: the tarmac tiles lanes are worked out on. */
+const ROAD = /\/road-/;
+/** The shortest stretch of two-lane road that has lanes. */
+const LANE_RUN = 4;
+
+/** How many tiles at each end of a van may stand off the road: two for the longest (Boss, 28 Oct 2026), one for the rest. */
+export function overhang(length: number): number {
+  return length >= 7 ? 2 : 1;
+}
+
 export type Move = { kind: 'forward' | 'reverse' | 'turn' | 'uturn' | 'backturn'; to: VanPose };
 
 /** One tile ahead along the heading. */
-export function forward(dm: DriveMap, p: VanPose): Move | null {
+export function forward(dm: DriveMap, p: VanPose, length: number): Move | null {
   const d = STEP[p.heading];
   const to = { x: p.x + d.x, y: p.y + d.y, heading: p.heading };
-  if (!dm.isFree(to.x, to.y) || !dm.grid.edgeOpen(p, to)) return null;
+  if (!dm.isEdgeFree(to.x, to.y) || !dm.grid.edgeOpen(p, to) || !dm.fits(to, length)) return null;
   return { kind: 'forward', to };
 }
 
@@ -223,8 +403,9 @@ export function reverse(dm: DriveMap, p: VanPose, length: number): Move | null {
   const d = STEP[p.heading];
   const rear = footprint(p, length).at(-1)!;
   const behind = { x: rear.x - d.x, y: rear.y - d.y };
-  if (!dm.isFree(behind.x, behind.y) || !dm.grid.edgeOpen(rear, behind)) return null;
-  return { kind: 'reverse', to: { x: p.x - d.x, y: p.y - d.y, heading: p.heading } };
+  const to = { x: p.x - d.x, y: p.y - d.y, heading: p.heading };
+  if (!dm.isEdgeFree(behind.x, behind.y) || !dm.grid.edgeOpen(rear, behind) || !dm.fits(to, length)) return null;
+  return { kind: 'reverse', to };
 }
 
 /**
@@ -232,10 +413,10 @@ export function reverse(dm: DriveMap, p: VanPose, length: number): Move | null {
  * heading that take in the tile beside the cab (or the cab tile itself, or the tile diagonally
  * ahead), so the van pulls round into the side road, lane or bay it is turning into.
  */
-export function turnOptions(dm: DriveMap, p: VanPose, length: number, to: Heading, limit = Infinity): Move[] {
+export function turnOptions(dm: DriveMap, p: VanPose, length: number, to: Heading, limit = Infinity, flipped = false): Move[] {
   // Only swings the whole body can make without passing over anything solid.
   const out: Move[] = [];
-  for (const m of turnCandidates(dm, p, length, to)) {
+  for (const m of turnCandidates(dm, p, length, to, flipped)) {
     if (out.length >= limit) break;
     if (dm.sweepClear(p, m, length)) out.push(m);
   }
@@ -243,7 +424,7 @@ export function turnOptions(dm: DriveMap, p: VanPose, length: number, to: Headin
 }
 
 /** The places turnOptions tries, best first, before checking the swing clears everything solid. */
-function turnCandidates(dm: DriveMap, p: VanPose, length: number, to: Heading): Move[] {
+function turnCandidates(dm: DriveMap, p: VanPose, length: number, to: Heading, flipped = false): Move[] {
   if (to === p.heading) return [];
   const d = STEP[p.heading];
   const kind: Move['kind'] = to === OPPOSITE[p.heading] ? 'uturn' : 'turn';
@@ -253,7 +434,7 @@ function turnCandidates(dm: DriveMap, p: VanPose, length: number, to: Heading): 
   const c0 = centre(p, length);
   const add = (pose: VanPose, pull: number) => {
     const k = key(pose.x, pose.y);
-    if (seen.has(k) || !dm.fits(pose, length)) return;
+    if (seen.has(k) || !dm.fits(pose, length, flipped)) return;
     seen.add(k);
     const c = centre(pose, length);
     found.push({ m: { kind, to: pose }, pull, shift: Math.hypot(c.x - c0.x, c.y - c0.y) });
@@ -261,7 +442,7 @@ function turnCandidates(dm: DriveMap, p: VanPose, length: number, to: Heading): 
   if (kind === 'turn') {
     const s = STEP[to];
     for (const seed of [{ x: p.x + s.x, y: p.y + s.y }, { x: p.x + d.x + s.x, y: p.y + d.y + s.y }, { x: p.x, y: p.y }]) {
-      if (!dm.isFree(seed.x, seed.y) || !dm.grid.edgeOpen(p, seed)) continue;
+      if (!dm.isEdgeFree(seed.x, seed.y) || !dm.grid.edgeOpen(p, seed)) continue;
       // How far short the van stops of pulling its whole length round: the back follows the cab
       // (vanPath.ts), so a swing that ends with the tail at the corner comes to rest straight.
       for (let i = 0; i < length; i++) add({ x: seed.x + nd.x * i, y: seed.y + nd.y * i, heading: to }, length - 1 - i);
@@ -273,7 +454,7 @@ function turnCandidates(dm: DriveMap, p: VanPose, length: number, to: Heading): 
     const lane0 = uturnLanes(length);
     for (const side of [RIGHT_OF[p.heading], OPPOSITE[RIGHT_OF[p.heading]]]) {
       const s = STEP[side];
-      if (!dm.isFree(p.x + s.x, p.y + s.y) || !dm.grid.edgeOpen(p, { x: p.x + s.x, y: p.y + s.y })) continue;
+      if (!dm.isEdgeFree(p.x + s.x, p.y + s.y) || !dm.grid.edgeOpen(p, { x: p.x + s.x, y: p.y + s.y })) continue;
       for (const lane of [lane0, lane0 + 1]) {
         for (let j = 1 - length; j <= 1; j++) add({ x: p.x + s.x * lane + d.x * j, y: p.y + s.y * lane + d.y * j, heading: to }, Math.abs(j + length - 1) + (lane - lane0) * 0.5);
       }
@@ -302,12 +483,12 @@ export function uturnLanes(length: number): number {
  */
 export function backTurnOptions(dm: DriveMap, p: VanPose, length: number, to: Heading, limit = Infinity): Move[] {
   if (to === p.heading || to === OPPOSITE[p.heading]) return [];
-  return turnOptions(dm, flipPose(p, length), length, to, limit).map((m) => ({ kind: 'backturn', to: flipPose(m.to, length) }));
+  return turnOptions(dm, flipPose(p, length), length, to, limit, true).map((m) => ({ kind: 'backturn', to: flipPose(m.to, length) }));
 }
 
 function backTurnCandidates(dm: DriveMap, p: VanPose, length: number, to: Heading): Move[] {
   if (to === p.heading || to === OPPOSITE[p.heading]) return [];
-  return turnCandidates(dm, flipPose(p, length), length, to).map((m) => ({ kind: 'backturn', to: flipPose(m.to, length) }));
+  return turnCandidates(dm, flipPose(p, length), length, to, true).map((m) => ({ kind: 'backturn', to: flipPose(m.to, length) }));
 }
 
 /** Whether a move's swing clears everything solid (straight moves always do). */
@@ -326,7 +507,7 @@ export function turn(dm: DriveMap, p: VanPose, length: number, to: Heading): Mov
  * into the next lane, or reverses when there is no room to turn round.
  */
 export function steer(dm: DriveMap, p: VanPose, length: number, want: Heading): Move | null {
-  if (want === p.heading) return forward(dm, p);
+  if (want === p.heading) return forward(dm, p, length);
   if (want === OPPOSITE[p.heading]) return turn(dm, p, length, want) ?? reverse(dm, p, length);
   return turn(dm, p, length, want);
 }
@@ -382,7 +563,7 @@ export function planDrive(dm: DriveMap, start: VanPose, length: number, goal: Ti
         return moves.reverse();
       }
       if (++nodes > maxNodes) return null;
-      const straight: [Move | null, number][] = [[forward(dm, p), 1], [reverse(dm, p, length), 3]];
+      const straight: [Move | null, number][] = [[forward(dm, p, length), 1], [reverse(dm, p, length), 3]];
       const swings: [Move, number][] = [];
       // Turns cost well over a tile's drive, so a route lines up early and doesn't wiggle at the end.
       const swing = (m: Move) => Math.round(Math.hypot(centre(m.to, length).x - centre(p, length).x, centre(m.to, length).y - centre(p, length).y));
@@ -407,6 +588,12 @@ export function planDrive(dm: DriveMap, start: VanPose, length: number, goal: Ti
  * preferring the given heading (pointing into the map), then any other heading.
  */
 export function placeNear(dm: DriveMap, spawn: Tile, length: number, prefer: Heading, maxRadius = 12, avoid: (t: Tile) => boolean = () => false): VanPose | null {
+  // Parked wholly on the road if there's room (an end over the pavement is only for turning).
+  const onRoad = (p: VanPose) => footprint(p, length).every((t) => dm.isFree(t.x, t.y));
+  return placeWhere(dm, spawn, length, prefer, maxRadius, (p) => onRoad(p) && !footprint(p, length).some(avoid)) ?? placeWhere(dm, spawn, length, prefer, maxRadius, (p) => !footprint(p, length).some(avoid));
+}
+
+function placeWhere(dm: DriveMap, spawn: Tile, length: number, prefer: Heading, maxRadius: number, ok: (p: VanPose) => boolean): VanPose | null {
   const order = [prefer, ...HEADINGS.filter((h) => h !== prefer)];
   for (let r = 0; r <= maxRadius; r++) {
     let found: VanPose | null = null;
@@ -419,7 +606,7 @@ export function placeNear(dm: DriveMap, spawn: Tile, length: number, prefer: Hea
           const s = STEP[h];
           for (let i = 0; i < length; i++) {
             const pose = { x: spawn.x + dx + s.x * i, y: spawn.y + dy + s.y * i, heading: h };
-            if (!dm.fits(pose, length) || footprint(pose, length).some(avoid)) continue;
+            if (!dm.fits(pose, length) || !ok(pose)) continue;
             const score = hi * 100 + i;
             if (score < bestScore) {
               bestScore = score;
@@ -502,13 +689,34 @@ export function checkVehicles(file: string, raw: unknown, maps: Map<string, Bake
     if (ids.has(d.id)) errors.push({ file, field: `designs[${i}].id`, message: `"${d.id}" is used twice` });
     ids.add(d.id);
   });
+  data.carParks?.forEach((c, i) => {
+    const m = maps.get(c.map);
+    if (!m) errors.push({ file, field: `carParks[${i}].map`, message: `no map "${c.map}"` });
+    else if (c.area[0] + c.area[2] > m.width || c.area[1] + c.area[3] > m.height) errors.push({ file, field: `carParks[${i}].area`, message: 'runs off the map' });
+  });
+  data.bays?.forEach((b, i) => {
+    const m = maps.get(b.map);
+    const van = data.designs.filter((d) => d.length >= b.minLength);
+    if (!m) errors.push({ file, field: `bays[${i}].map`, message: `no map "${b.map}"` });
+    else if (!van.length) errors.push({ file, field: `bays[${i}].minLength`, message: 'no van is that long' });
+    else {
+      const dm = new DriveMap(m, Grid.fromMap(m), data);
+      for (const d of van) {
+        dm.setVanLength(d.length);
+        if (!dm.fits(b, d.length)) errors.push({ file, field: `bays[${i}]`, message: `the ${d.name} doesn't fit at ${b.x},${b.y} heading ${b.heading} on ${b.map}` });
+      }
+    }
+  });
+  data.verges?.maps.forEach((id, i) => {
+    if (!maps.has(id)) errors.push({ file, field: `verges.maps[${i}]`, message: `no map "${id}"` });
+  });
   const s = data.starter;
   const design = data.designs.find((d) => d.id === s.design);
   if (!design) errors.push({ file, field: 'starter.design', message: `no design "${s.design}"` });
   const m = maps.get(s.map);
   if (!m) errors.push({ file, field: 'starter.map', message: `no map "${s.map}"` });
   else if (design) {
-    const dm = new DriveMap(m, Grid.fromMap(m), data.drivable);
+    const dm = new DriveMap(m, Grid.fromMap(m), data);
     if (!dm.fits(s, design.length)) errors.push({ file, field: 'starter', message: `the ${design.name} doesn't fit at ${s.x},${s.y} heading ${s.heading} on ${s.map}` });
   }
   return { data, errors };

@@ -1,10 +1,10 @@
 {
-  "note": "The opening chain (GDD 4.2, Spec 14.1 and 18.8), played in order. Money is in pounds. Start £150; the chain pays £460 and fitting costs £90, so you reach the van £80 short.",
+  "note": "The opening chain (GDD 4.2, Spec 14.1 and 18.8), played in order. Money is in pounds. Start £150; the chain pays £460 and fitting costs £90, so you reach the van £80 short. earn (Boss, 28 Oct 2026): while you're short of a step's money, the tutorial markers point to these maps' equipment to earn it instead (the shift benches) and back to the step once you have it. markVan: until that flag is set (the first time you get in the van), the markers point to the van.",
   "startMoney": 150,
   "intro": "story.intro",
   "steps": [
     {
-      "id": "meet_mechanic", "journal": "Your 50cc won't start. Ask the garage mechanic on the high street for help.",
+      "id": "meet_mechanic", "journal": "Your 50cc won't start. Go and see the town's mechanic at Phoenix MX on the high street.",
       "on": { "talk": "npc.garage_mechanic" }, "lines": "story.meet_mechanic",
       "effects": { "give": ["part.top_end_used"] }
     },
@@ -17,17 +17,17 @@
       "effects": { "money": -90, "fit": "part.top_end_used" }
     },
     {
-      "id": "paid_top_end", "journal": "Your bike runs. Tell the garage mechanic.",
+      "id": "paid_top_end", "journal": "Your bike runs. Tell Paul at Phoenix MX.",
       "on": { "talk": "npc.garage_mechanic" }, "lines": "story.paid_top_end",
       "effects": { "money": 120 }
     },
     {
-      "id": "collect_order", "journal": "Collect the garage's parts order from the general bike shop.",
+      "id": "collect_order", "journal": "Collect the garage's parts order from Moto78, the bike shop up the road.",
       "on": { "talk": "npc.bike_shop_owner" }, "lines": "story.collect_order",
       "effects": { "give": ["task.parts_order"] }
     },
     {
-      "id": "deliver_order", "journal": "Take the parts order back to the garage mechanic.",
+      "id": "deliver_order", "journal": "Take the parts order back to Paul at Phoenix MX.",
       "on": { "talk": "npc.garage_mechanic" }, "lines": "story.deliver_order",
       "effects": { "take": ["task.parts_order"], "money": 50 }
     },
@@ -37,7 +37,7 @@
       "lines": "story.service_bike"
     },
     {
-      "id": "paid_service", "journal": "Both bikes are done. Tell the garage mechanic.",
+      "id": "paid_service", "journal": "Both bikes are done. Tell Paul at Phoenix MX.",
       "on": { "talk": "npc.garage_mechanic" }, "lines": "story.paid_service",
       "effects": { "money": 100 }
     },
@@ -53,7 +53,7 @@
       "effects": { "take": ["task.tyres"] }
     },
     {
-      "id": "paid_tyres", "journal": "Tyres fitted. Tell the garage mechanic.",
+      "id": "paid_tyres", "journal": "Tyres fitted. Tell Paul at Phoenix MX.",
       "on": { "talk": "npc.garage_mechanic" }, "lines": "story.paid_tyres",
       "effects": { "money": 70, "give": ["task.cylinder"] }
     },
@@ -63,43 +63,48 @@
       "effects": { "take": ["task.cylinder"], "give": ["task.cylinder_rebored"] }
     },
     {
-      "id": "paid_rebore", "journal": "Bring the rebored cylinder back to the garage mechanic.",
+      "id": "paid_rebore", "journal": "Bring the rebored cylinder back to Paul at Phoenix MX.",
       "on": { "talk": "npc.garage_mechanic" }, "lines": "story.paid_rebore",
       "effects": { "take": ["task.cylinder_rebored"], "money": 80 }
     },
     {
-      "id": "meet_van_seller", "journal": "Go and see the van seller about getting to the tracks.",
+      "id": "meet_van_seller", "journal": "Go and see Jedrick at Nicholls Used Motors about getting to the tracks.",
       "on": { "talk": "npc.van_seller" }, "lines": "story.meet_van_seller"
     },
     {
-      "id": "tutorial_end", "journal": "Report back to the garage mechanic.",
+      "id": "tutorial_end", "journal": "Report back to Paul at Phoenix MX.",
       "on": { "talk": "npc.garage_mechanic" }, "lines": "story.tutorial_end",
-      "effects": { "money": 40, "flags": ["tutorial_done", "roadworks_done"] },
-      "toast": "The roadworks are finished and the venue road is open. Everyone in town has time for you now."
+      "effects": { "money": 40, "flags": ["tutorial_done"] },
+      "toast": "Everyone in town has time for you now."
     },
     {
-      "id": "buy_van", "journal": "Buy the used van for £600. Shifts at the fabrication shop or engine rebuilder will cover the gap.",
+      "id": "buy_van", "journal": "Buy the used motor for £600. Shifts at the fabrication shop or engine rebuilder will cover the gap.",
       "on": { "talk": "npc.van_seller" },
-      "needs": { "money": 600 }, "notReady": "story.buy_van.short",
-      "confirm": "Buy the used van for £600?",
+      "needs": { "money": 600 }, "notReady": "story.buy_van.short", "earn": { "use": "job.shift", "maps": ["int-iz-fabrication-shop", "int-iz-engine-rebuilder"] },
+      "confirm": "Buy the used motor for £600?",
       "lines": "story.buy_van",
       "effects": { "money": -600, "flags": ["van_owned"] }
     },
     {
-      "id": "load_van", "journal": "Load your bike, spares and tools into the van. Your spares are in the chest in your rented room.",
-      "on": { "use": "storage.parts", "map": "int-home-rented-room" }, "lines": "story.load_van",
+      "id": "load_van", "journal": "Load your bike, spares and tools into the motor. Your spares are in the chest in your rented room.",
+      "on": { "use": "storage.parts", "map": "int-home-rented-room" }, "markVan": "van_driven", "lines": "story.load_van",
       "effects": { "flags": ["van_loaded"] },
-      "toast": "The venue route is open. Head west out of Home Town to reach the tracks."
+      "toast": "The motor's loaded. Ask the local champion outside Phoenix MX where to race."
     },
     {
-      "id": "find_track", "journal": "Ask the local racer outside the local garage where to race.",
+      "id": "find_track", "journal": "Ask the local champion outside Phoenix MX where to race.",
       "on": { "talk": "npc.local_racer" }, "lines": "story.find_track",
-      "effects": { "flags": ["found.venue-farmland"] }
+      "effects": { "flags": ["found.venue-farmland", "roadworks_done"] },
+      "toast": "The roadworks are finished and the west road to the tracks is open."
     }
   ],
   "done": "Free roam: race at Farmland MX, practise on the backyard loop, or work shifts for money.",
   "after": [
-    { "unless": "first_race_done", "text": "Race at Farmland MX: sign on with the track official at the race office. Your first race is free." },
-    { "unless": "first_race_finished", "text": "Finish both motos of a race day at Farmland MX. Practise on the backyard loop behind your rented room." }
+    { "unless": "told.bike_care", "text": "Pop into Phoenix MX. Paul has some advice about looking after your bike." },
+    { "unless": "told.iz_challenge", "text": "See the fabrication shop boss in the Industrial Zone. There's a troublemaker by the practice yard." },
+    { "unless": "first_race_done", "text": "Race at Farmland MX: sign on with Joseph Halden, the track owner, at the race office. Your first race is free." },
+    { "unless": "first_race_finished", "text": "Finish both motos of a race day at Farmland MX. Practise on the backyard loop behind your rented room." },
+    { "unless": "badge.area1", "text": "Win the Local Champion Championship for the Area 1 badge: enter at any track's race office, under Championships." },
+    { "unless": "trophy.area1.main", "text": "You hold the Area 1 badge. The Area 1 Championship comes with Area 2, in a later build: race on, keep the bike sharp, or make your own tracks." }
   ]
 }

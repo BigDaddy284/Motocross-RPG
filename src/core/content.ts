@@ -2,15 +2,20 @@ import { BUILDINGS_SCHEMA, checkBuildings, type BuildingsData } from './building
 import type { BikesData, ItemDef, StoryData, WorldData } from './career';
 import { Grid } from './grid';
 import { objectTile, type BakedMap, type Facing } from './mapTypes';
-import { ROUTE, stepTriggerAt } from './travel';
+import { ROUTE } from './travel';
 import type { RacingData } from './race';
 import { TRACK_PARTS_SCHEMA, checkTrackParts, type TrackPartsData } from './trackParts';
+import { CHAMPIONSHIPS_SCHEMA, checkChampionships, type ChampionshipsData } from './championship';
 import { RACING_SCHEMA, RIDERS_SCHEMA, SKILLS_SCHEMA, TRACKS_SCHEMA, checkRaceContent } from './raceContent';
-import type { RidersData, TracksData } from './raceDay';
+import { riderPools, type RidersData, type RidersFile, type TracksData } from './raceDay';
 import { SHOPS_SCHEMA, checkShopContent, type ShopsData } from './shops';
 import type { SkillsData } from './skills';
 import { VEHICLES_SCHEMA, checkVehicles, type VanSheet, type VehiclesData } from './vehicles';
 import { MOD_PLACE } from './modTracks';
+import { ERRANDS_SCHEMA, checkErrands, type ErrandsData } from './errands';
+import { TRAINING_SCHEMA, checkTraining, type TrainingData } from './training';
+import { CHALLENGES_SCHEMA, checkChallenges, type ChallengesData } from './challenge';
+import { WORLD_MAP_SCHEMA, checkWorldMap } from './worldMap';
 import { validate, type ContentError, type Schema } from './validate';
 
 // Game content loaded from public/data. Each file is checked against its schema, then the files
@@ -25,13 +30,25 @@ export interface NpcDef {
   map?: string;
   tile?: [number, number];
   facing?: Facing;
-  /** Line sets picked by flag before falling back to dialogue: the first whose if is set, or whose unless is not. */
-  talk?: { if?: string; unless?: string; dialogue: string }[];
+  /** Line sets picked by flag before falling back to dialogue: the first whose if is set, or whose unless is not. A rule with sets is said once: the flag is set when its lines close. */
+  talk?: { if?: string; unless?: string; dialogue: string; sets?: string }[];
   /** The NPC ignores the rider until this flag is set (GDD 4.2: only the opening chain's NPCs talk at first). */
   quietUntil?: string;
-  /** A route marshal: gives directions from the map's exits and helps pick a route (core/guides.ts). */
-  guide?: boolean;
+  /** The CPU rider this NPC is (riders.json): their name is shown over the NPC's head in place of name. */
+  rider?: string;
+  /**
+   * The NPC's dialogue is news for the players (Manny Festo, Boss 29 Oct 2026): a "!" bubble over
+   * them, orange until the current dialogue has been read, then white. A new message is a new
+   * dialogue key, so it shows orange again.
+   */
+  news?: boolean;
 }
+
+/** A person's name ("Tasha Reid") rather than a job ("Track official"): every word starts with a capital. */
+export const properName = (name: string): boolean => /^[A-Z]\S*( [A-Z]\S*)+$/.test(name);
+
+/** The save flag for having read a news NPC's message (its dialogue key). */
+export const newsRead = (dialogue: string): string => `read.${dialogue}`;
 
 export interface DialogueLine {
   speaker: 'npc' | 'player' | 'narrator';
@@ -53,6 +70,10 @@ export interface Content {
   shops: ShopsData;
   vehicles: VehiclesData;
   buildings: BuildingsData;
+  championships: ChampionshipsData;
+  errands: ErrandsData;
+  training: TrainingData;
+  challenges: ChallengesData;
 }
 
 export interface Manifest {
@@ -63,7 +84,8 @@ export interface Manifest {
     rows: Facing[];
     walk: { columns: number; fps: number };
     act: { columns: string[]; idle_fps: number };
-    sheets: Record<string, { name: string; walk: string; act: string }>;
+    /** fit: the player's push-up frames (arms straight, then bent), side on at 96 by 64. */
+    sheets: Record<string, { name: string; walk: string; act: string; fit?: string }>;
   };
   /** Van sheets by design id (tools/import-art.mjs). */
   vehicles?: Record<string, VanSheet>;
@@ -81,7 +103,7 @@ export const NPCS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['map', 'tile', 'facing', 'talk', 'quietUntil', 'guide'],
+        optional: ['map', 'tile', 'facing', 'talk', 'quietUntil', 'rider', 'news'],
         fields: {
           id: { type: 'string', pattern: ID },
           name: { type: 'string', nonEmpty: true },
@@ -92,10 +114,11 @@ export const NPCS_SCHEMA: Schema = {
           facing: { type: 'string', oneOf: FACING },
           talk: {
             type: 'array',
-            items: { type: 'object', optional: ['if', 'unless'], fields: { if: { type: 'string', pattern: ID }, unless: { type: 'string', pattern: ID }, dialogue: { type: 'string', pattern: ID } } },
+            items: { type: 'object', optional: ['if', 'unless', 'sets'], fields: { if: { type: 'string', pattern: ID }, unless: { type: 'string', pattern: ID }, dialogue: { type: 'string', pattern: ID }, sets: { type: 'string', pattern: ID } } },
           },
           quietUntil: { type: 'string', pattern: ID },
-          guide: { type: 'boolean' },
+          rider: { type: 'string', pattern: ID },
+          news: { type: 'boolean' },
         },
       },
     },
@@ -200,7 +223,7 @@ export const STORY_SCHEMA: Schema = {
       minItems: 1,
       items: {
         type: 'object',
-        optional: ['times', 'needs', 'notReady', 'confirm', 'lines', 'effects', 'toast'],
+        optional: ['times', 'needs', 'notReady', 'earn', 'markVan', 'confirm', 'lines', 'effects', 'toast'],
         fields: {
           id: { type: 'string', pattern: ID },
           journal: { type: 'string', nonEmpty: true },
@@ -208,6 +231,8 @@ export const STORY_SCHEMA: Schema = {
           times: { type: 'number', integer: true, min: 1 },
           needs: { type: 'object', optional: ['money', 'items'], fields: { money: { type: 'number', min: 0 }, items: IDS } },
           notReady: { type: 'string', pattern: ID },
+          markVan: { type: 'string', pattern: ID },
+          earn: { type: 'object', fields: { use: { type: 'string', pattern: ID }, maps: { type: 'array', minItems: 1, items: { type: 'string', pattern: ID } } } },
           confirm: { type: 'string', nonEmpty: true },
           lines: { type: 'string', pattern: ID },
           effects: { type: 'object', optional: ['money', 'give', 'take', 'fit', 'flags'], fields: { money: NUM, give: IDS, take: IDS, fit: { type: 'string', pattern: ID }, flags: IDS } },
@@ -220,10 +245,11 @@ export const STORY_SCHEMA: Schema = {
 
 export const WORLD_SCHEMA: Schema = {
   type: 'object',
-  optional: ['note', 'testPayMultiplier'],
+  optional: ['note', 'testPayMultiplier', 'worldMap'],
   fields: {
     note: { type: 'string' },
     testPayMultiplier: { type: 'number', min: 0 },
+    worldMap: WORLD_MAP_SCHEMA,
     locks: {
       type: 'array',
       items: { type: 'object', fields: { map: { type: 'string', pattern: ID }, object: { type: 'string', nonEmpty: true }, flag: { type: 'string', pattern: ID }, message: { type: 'string', nonEmpty: true } } },
@@ -276,6 +302,10 @@ export const CONTENT_FILES = {
   shops: 'data/shops.json',
   vehicles: 'data/vehicles.json',
   buildings: 'data/buildings.json',
+  championships: 'data/championships.json',
+  errands: 'data/errands.json',
+  training: 'data/training.json',
+  challenges: 'data/challenges.json',
 } as const;
 
 export type RawContent = Record<keyof typeof CONTENT_FILES, unknown>;
@@ -295,6 +325,10 @@ const SCHEMAS: Record<keyof typeof CONTENT_FILES, Schema> = {
   shops: SHOPS_SCHEMA,
   vehicles: VEHICLES_SCHEMA,
   buildings: BUILDINGS_SCHEMA,
+  championships: CHAMPIONSHIPS_SCHEMA,
+  errands: ERRANDS_SCHEMA,
+  training: TRAINING_SCHEMA,
+  challenges: CHALLENGES_SCHEMA,
 };
 
 /** Checks raw file contents and returns the typed content, or every problem found. */
@@ -321,11 +355,15 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
     skills: raw.skills as SkillsData,
     racing: raw.racing as RacingData,
     tracks: raw.tracks as TracksData,
-    riders: raw.riders as RidersData,
+    riders: riderPools(raw.riders as RidersFile),
     trackParts: raw.trackParts as TrackPartsData,
     shops: raw.shops as ShopsData,
     vehicles: raw.vehicles as VehiclesData,
     buildings: raw.buildings as BuildingsData,
+    championships: raw.championships as ChampionshipsData,
+    errands: raw.errands as ErrandsData,
+    training: raw.training as TrainingData,
+    challenges: raw.challenges as ChallengesData,
   };
   const file = CONTENT_FILES.npcs;
   const seen = new Set<string>();
@@ -350,6 +388,11 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
     if (v.track && drafts.has(v.track)) errors.push({ file: CONTENT_FILES.tracks, field: `venues[${i}].track`, message: `"${v.track}" (${drafts.get(v.track)}) is unfinished; mark it Ready to race in the track editor first` });
   });
   errors.push(...checkRaceContent(content, maps));
+  errors.push(...checkChampionships(content.championships, content));
+  errors.push(...checkErrands(CONTENT_FILES.errands, content.errands, { ...content, consumables: content.shops.consumables }));
+  errors.push(...checkTraining(CONTENT_FILES.training, content.training, content));
+  errors.push(...checkChallenges(CONTENT_FILES.challenges, content.challenges, content, new Set(maps.keys())));
+  if (content.world.worldMap) errors.push(...checkWorldMap(CONTENT_FILES.world, content.world.worldMap, maps));
   // Tile art isn't listed at run time; tests check it exists (tests/tracks.test.ts).
   errors.push(...checkTrackParts(content.trackParts, content.tracks.tracks, () => true));
   errors.push(...checkShopContent(CONTENT_FILES.shops, content.shops, content.bikes, seen, maps));
@@ -388,6 +431,13 @@ function checkCareerContent(c: Content, maps: Map<string, BakedMap>): ContentErr
     if (item.part && !slotIds.has(item.part.slot)) err(CONTENT_FILES.items, `items.${id}.part.slot`, `no slot "${item.part.slot}"`);
   }
 
+  // An NPC who is a CPU rider goes by that rider's current name (Boss, 28 Oct 2026: the Area Champion).
+  c.npcs.forEach((n, i) => {
+    if (!n.rider) return;
+    const r = c.riders.riders.find((x) => x.id === n.rider);
+    if (r) n.name = r.name;
+    else err(CONTENT_FILES.npcs, `npcs[${i}].rider`, `no rider "${n.rider}" in ${CONTENT_FILES.riders}`);
+  });
   const npcIds = new Set(c.npcs.map((n) => n.id));
   const item = (field: string, id: string) => !c.items[id] && err(CONTENT_FILES.story, field, `no item "${id}" in ${CONTENT_FILES.items}`);
   const lines = (field: string, id: string | undefined) => id && !c.dialogue[id] && err(CONTENT_FILES.story, field, `no dialogue "${id}" in ${CONTENT_FILES.dialogue}`);
@@ -444,14 +494,6 @@ function checkCareerContent(c: Content, maps: Map<string, BakedMap>): ContentErr
       if (o.type === 'exit' && o.props.to === ROUTE && !world.routes.some((r) => r.map === m.id && r.exit === o.name)) err(CONTENT_FILES.world, 'routes', `the exit "${o.name}" on ${m.id} leads to a choice of places, but no route lists them`);
     }
   }
-  // Route marshals stand on a map with a way out, off the exits and doors.
-  c.npcs.forEach((n, i) => {
-    if (!n.guide) return;
-    const m = n.map ? maps.get(n.map) : undefined;
-    if (!m || !n.tile) return void err(CONTENT_FILES.npcs, `npcs[${i}].guide`, 'a route marshal needs a map and a tile to stand on');
-    if (!m.objects.some((o) => o.type === 'exit')) err(CONTENT_FILES.npcs, `npcs[${i}].guide`, `${m.id} has no exits to give directions to`);
-    if (stepTriggerAt(m, { x: n.tile[0], y: n.tile[1] })) err(CONTENT_FILES.npcs, `npcs[${i}].tile`, `${n.tile.join(',')} is on a door or exit; stand the marshal beside it`);
-  });
   world.jobs.forEach((j, i) => {
     objectOn(`jobs[${i}].start`, j.map, j.start);
     j.stations.forEach((s, k) => objectOn(`jobs[${i}].stations[${k}].object`, j.map, s.object));

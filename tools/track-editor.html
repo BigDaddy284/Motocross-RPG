@@ -43,6 +43,8 @@ body { display: grid; grid-template-rows: auto 1fr auto; grid-template-columns: 
 header { grid-area: top; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 8px; background: var(--panel); border-bottom: 1px solid var(--line); }
 header h1 { font-size: 14px; margin: 0 8px 0 2px; white-space: nowrap; }
 header h1 span { color: var(--accent); }
+#toolkitLink { color: var(--dim); text-decoration: none; font-size: 12px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 5px; white-space: nowrap; }
+#toolkitLink:hover { color: var(--text); border-color: #556; }
 #edition { font-size: 11px; padding: 2px 6px; border-radius: 4px; background: #233a52; color: #bcd8f2; }
 #edition.final { background: #3b2c10; color: #f0c880; }
 #left, #right { background: var(--panel); overflow-y: auto; padding: 8px; }
@@ -101,6 +103,8 @@ label.chk { display: flex; gap: 6px; align-items: center; color: var(--dim); }
 .sec .n { color: var(--dim); font-size: 11px; text-align: right; }
 .sec.off { border-color: #c03030; }
 .sec.off .n { color: #ff7070; font-weight: 700; }
+.sec.warn { border-color: #b08a20; }
+.sec.warn .n { color: #f0c040; font-weight: 700; }
 .sec select, .sec input { width: 100%; }
 .sec select { padding: 3px 2px; }
 .btns { display: flex; gap: 1px; }
@@ -115,6 +119,7 @@ label.chk { display: flex; gap: 6px; align-items: center; color: var(--dim); }
 .pal { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 4px; }
 .pal button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px; font-size: 11px; line-height: 1.15; }
 .pal button.sel { border-color: var(--accent); background: #2a2516; }
+.pal .palgroup { grid-column: 1 / -1; margin: 8px 0 0; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); }
 .pal canvas { width: 44px; height: 44px; image-rendering: pixelated; }
 #stats { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; font-size: 12px; }
 #stats span:nth-child(odd) { color: var(--dim); }
@@ -157,6 +162,7 @@ body.final .final-hide { display: none !important; }
 </head>
 <body>
 <header>
+  <a id="toolkitLink" href="index.html" title="Back to the toolkit: all the editors">🧰 Toolkit</a>
   <h1>🏁 <span>Motocross RPG</span> Track Editor</h1>
   <span id="edition" title="Set by trackParts.json sectionEditor">Development</span>
   <button id="btnOpen" class="primary" title="Pick the repo, public, or public/data">Open folder…</button>
@@ -226,7 +232,8 @@ body.final .final-hide { display: none !important; }
     <button id="btnReverse" title="Ride the track the other way round">Reverse</button>
     <button id="btnFit" title="Centre the drawing and scale it to fill the grid">Fit to grid</button>
     <span class="sep"></span>
-    <label class="chk" style="background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:3px 8px"><input type="checkbox" id="snap" checked> Snap</label>
+    <label class="chk" style="background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:3px 8px" title="Points and items land on the grid (half a square for scenery). Hold Alt to drop it for one move."><input type="checkbox" id="snap" checked> Snap grid</label>
+    <label class="chk" style="background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:3px 8px" title="Scenery placed or dragged near another item joins it end to end or side by side, turned the same way, so fences and walls line up. Hold Alt to drop it for one move."><input type="checkbox" id="snapObj" checked> Snap object</label>
     <label class="chk" style="background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:3px 8px" title="Fade the ground and scenery to see the track"><input type="checkbox" id="showScene" checked> Scenery</label>
     <button id="btnPlay" title="Ride a dot round the lap (P). It slows down in the harder sections.">▶ Preview</button>
     <button id="btnRide" title="Open a race day on this track in the game, with npm run dev running. Save first: the game reads the saved files.">Race it in the game</button>
@@ -300,7 +307,7 @@ body.final .final-hide { display: none !important; }
   </div>
 
   <div class="pane" id="pane-surface">
-    <div class="hint">Pick a surface, then click the track to lay a patch there. Drag a patch along the track to move it, <kbd>Del</kbd> removes it.</div>
+    <div class="hint">Pick a surface, then click the track to lay a patch there: the stretch a click would surface follows the pointer. Click a patch to select it, drag it along the track to move it, <kbd>Del</kbd> removes it; its start and length can be typed in below.</div>
     <div class="pal" id="surfacePal"></div>
     <h2>Patches on this track</h2>
     <div class="patchhead"><span></span><span>Surface</span><span>From (m)</span><span>Metres</span><span></span></div>
@@ -308,7 +315,7 @@ body.final .final-hide { display: none !important; }
   </div>
 
   <div class="pane" id="pane-ground">
-    <div class="hint">Paint the ground round the track. Left-click paints, right-click puts the base ground back, <kbd>Shift</kbd>+drag fills a rectangle.</div>
+    <div class="hint">Paint the ground round the track. Left-click paints, right-click puts the base ground back, <kbd>Shift</kbd>+drag fills a rectangle. The edge sets join grass to mud, gravel, concrete or long grass: each names where the second ground is in the cell. The mixed tiles show one ground through another in patches, and each joins up with itself.</div>
     <div class="field"><label for="gBase">Base</label><select id="gBase"></select></div>
     <div class="field"><label for="gBrush">Brush</label><select id="gBrush"><option value="1">1 cell</option><option value="2">2 × 2</option><option value="3" selected>3 × 3</option><option value="5">5 × 5</option></select></div>
     <div class="pal" id="groundPal"></div>
@@ -316,7 +323,7 @@ body.final .final-hide { display: none !important; }
   </div>
 
   <div class="pane" id="pane-scenery">
-    <div class="hint">Pick an item: it follows the pointer, see-through, where a click would place it; <kbd>Q</kbd> <kbd>E</kbd> turn it first. Click an item to select it, drag to move it, <kbd>Q</kbd> <kbd>E</kbd> turn it 15°, with <kbd>Shift</kbd> 5°, with <kbd>Alt</kbd> 1° (or type any angle in Turn), <kbd>Del</kbd> removes it.</div>
+    <div class="hint">Pick an item: it follows the pointer, see-through, where a click would place it; <kbd>Q</kbd> <kbd>E</kbd> turn it first. Click an item to select it, drag to move it (arrow keys nudge it), <kbd>Q</kbd> <kbd>E</kbd> turn it 15°, with <kbd>Shift</kbd> 5°, with <kbd>Alt</kbd> 1° (or type any angle in Turn; left empty, a marshal, flag man, pit crew, fan or TV crew faces the track on its own), <kbd>Del</kbd> removes it. <kbd>Shift</kbd>-click adds items to the selection and <kbd>Shift</kbd>-drag on open ground boxes them (<kbd>Ctrl+A</kbd> all); a selection drags, nudges, turns, copies and deletes together. <kbd>Ctrl+C</kbd> copies, <kbd>Ctrl+X</kbd> cuts, <kbd>Ctrl+V</kbd> pastes at the pointer, <kbd>Ctrl+D</kbd> duplicates. <b>Snap object</b> joins it onto a nearby item, end to end or side by side; <kbd>Alt</kbd> drops the snapping. Snapped, <kbd>Q</kbd> <kbd>E</kbd> swing it round the join, so a fence can turn off another and stay joined. The white arrow shows which way it faces.</div>
     <div class="pal" id="sceneryPal"></div>
     <div class="box" id="sceneryDetail"></div>
   </div>
@@ -344,16 +351,16 @@ body.final .final-hide { display: none !important; }
 <dialog id="help">
   <h3 style="margin-top:0">Track editor help</h3>
   <ul>
-    <li><b>Layout:</b> the route is the shape the race screen shows: control points on a 100 × 60 grid, joined in order and back to the first point, where the finish line goes. Drag a point to move it (snaps to whole grid units; untick <b>Snap</b> or hold <kbd>Alt</kbd> for tenths). Double-click the route to add a point, right-click a point or press <kbd>Del</kbd> to delete it (the route joins up across it), arrow keys nudge it. <b>Round corner</b> <kbd>R</kbd> gives the selected point curve handles (blue squares): drag one to shape the curve, its mirror follows, <kbd>Alt</kbd> drags one side on its own; <b>Sharp corner</b> takes them off. <b>− Segment</b> takes out the stretch after the selected point, so the route is open there. The drawing the game races is generated from the route; between the features it rides as plain track whatever its shape, and Undo and Redo cover every step, each point placed included.</li>
+    <li><b>Layout:</b> the route is the shape the race screen shows: control points on a 100 × 60 grid, joined in order and back to the first point, where the finish line goes. Drag a point to move it (snaps to whole grid units; untick <b>Snap grid</b> or hold <kbd>Alt</kbd> for tenths). Double-click the route to add a point, right-click a point or press <kbd>Del</kbd> to delete it (the route joins up across it), arrow keys nudge it. <b>Round corner</b> <kbd>R</kbd> gives the selected point curve handles (blue squares): drag one to shape the curve, its mirror follows, <kbd>Alt</kbd> drags one side on its own; <b>Sharp corner</b> takes them off. <b>− Segment</b> takes out the stretch after the selected point, so the route is open there. The drawing the game races is generated from the route; between the features it rides as plain track whatever its shape, and Undo and Redo cover every step, each point placed included.</li>
     <li><b>New tracks</b> start empty and as a draft, drawing their route: click the ground point by point, and click the first point (the green ring) to close the route; <kbd>Enter</kbd> or <kbd>Esc</kbd> stops drawing, <kbd>Backspace</kbd> takes the last point off, and <b>Draw route</b> carries on from the last point of an open route. <b>Close the route</b> joins the last point back to the first; <b>Open the route</b> takes the closing stretch out again. Nothing else is laid for you: the start straight and the finish line are placed on their own under <b>Start and finish</b>, before or after. <b>Features</b> (corners, hairpins, berms, ruts, jumps, whoops, sand and the like) go on top of the route, and only where you put them: nothing is typed from the route's shape, so a route with no features rides as plain track. Pick one and it follows the pointer along the route, <kbd>,</kbd> <kbd>.</kbd> make it shorter or longer, a click places it; drag it along the route, drag its white diamonds to stretch it, <kbd>Del</kbd> removes it, and its line and jump height are under Sections. A feature rides as its type whatever shape it is drawn (a hairpin at 90° or wide open), and moving or reshaping it never changes its type. Two that overlap are allowed with a warning in Checks that names them (click it to select the feature). A draft saves at any time, with one point, an open route, no start or finish, or errors; the Route box says <b>Draft</b>, <b>Draft with warnings</b>, <b>Ready for validation</b> or <b>Race-ready</b>, and the game leaves drafts out until <b>Ready to race</b> passes the game's checks. Tracks made before features keep their sections as saved; <b>Use features</b> (Sections), or placing a feature, keeps their corners, jumps and special sections as features, with their types, and lets the route between them ride as plain track.</li>
-    <li><b>Start straight:</b> every track starts from a gate on its own start straight that joins the route, as on a real track. Its points are the blue squares: the first is the gate (the black bar, with the yellow line-up behind it), the white one is where it joins the route and stays on the route when dragged. To add one, pick <b>Start straight</b> under <b>Start and finish</b> (or <b>+ Start straight</b> above the view): it follows the pointer, its end (the ring) snapping onto the route where the pointer is near it, green where it can go and red with the reason where it can't; <kbd>Q</kbd> <kbd>E</kbd> turn it, <kbd>F</kbd> brings it in from the other side, <kbd>,</kbd> <kbd>.</kbd> make it shorter or longer, a click or <kbd>Enter</kbd> places it and <kbd>Esc</kbd> cancels. On an empty track it can go first, anywhere, and be joined on later by dragging its white end onto the route (anywhere on it, just before or after the finish line included). It turns red when it is off the route. <b>Move start straight</b> places it again, and <b>Remove start straight</b> takes it off. Riders ride it once, then the lap from the join round to the finish line, which ends lap 1. <b>The first corner</b> is the start straight's end: from where it joins to the route's next point, the race rides the route with the first corner's own rules (difficulty, skills, lap 1's first-corner incident), with no section of its own to place; a feature placed there rides as that feature. Select a blue point for <b>+ Point</b> and <b>− Point</b>. The checks ask for it to be at least 12 grid units long, clear of the route until it joins, meeting the route at 75° or less.</li>
-    <li><b>Finish line:</b> its own part of the track, placed by you and never for you: closing the lap or joining the start straight makes no finish line. Pick <b>Finish line</b> under <b>Start and finish</b> (or <b>+ Finish line</b> above the view) once the lap is closed and a chequered bar follows the pointer, snapping across the lap; a click or <kbd>Enter</kbd> places it. It becomes the lap's first point (a point is added there if there was none), and the sections are split and turned round to start there, so the lap is laid out exactly as before. <b>Finish here</b> puts it on the selected point, dragging point 0 moves it along the lap, and <b>Remove finish line</b> takes it off (the track is then unfinished until one is placed again). A track without one is a valid draft; it is listed under the checks as still needed to race.</li>
+    <li><b>Start straight:</b> every track starts from a gate on its own start straight that joins the route, as on a real track. Its points are the blue squares: the first is the gate (the black bar, with the yellow line-up behind it), the white one is where it joins the route and stays on the route when dragged. To add one, pick <b>Start straight</b> under <b>Start and finish</b> (or <b>+ Start straight</b> above the view): it follows the pointer, its end (the ring) snapping onto the route where the pointer is near it, green where it can go and red with the reason where it can't; <kbd>Q</kbd> <kbd>E</kbd> turn it, <kbd>F</kbd> brings it in from the other side, <kbd>,</kbd> <kbd>.</kbd> make it shorter or longer, a click or <kbd>Enter</kbd> places it and <kbd>Esc</kbd> cancels. On an empty track it can go first, anywhere, and be joined on later by dragging its white end onto the route (anywhere on it, just before or after the finish line included). It turns red when it is off the route. <b>Move start straight</b> places it again, and <b>Remove start straight</b> takes it off. Riders ride it once, then the lap from the join round to the finish line, which ends lap 1. <b>The first corner</b> is the start straight's end: the stretch between its last two blue points, drawn blue and labelled, which the race rides with the first corner's own rules (difficulty, skills, lap 1's first-corner incident). It is not a section: there is none to place or pick, and a First corner section on an older track rides as a flat corner. Select a blue point for <b>+ Point</b> and <b>− Point</b>. The checks ask for it to be at least 12 grid units long, clear of the route until it joins, meeting the route at 75° or less.</li>
+    <li><b>Finish line:</b> its own part of the track, placed by you and never for you: closing the lap or joining the start straight makes no finish line. A <b>tabletop</b> or <b>double</b> can be the finish line instead: tick <b>Finish line</b> in its panel and the lap starts and ends at its foot, with the finish arch built over it on the take-off lip of its front hump, its posts on the banks beside the track and its banner high enough that a rider still in the air goes under it; moving the finish line elsewhere makes it a plain jump again, and a scenery finish arch is not needed (ticking the box takes one away). Pick <b>Finish line</b> under <b>Start and finish</b> (or <b>+ Finish line</b> above the view) once the lap is closed and a chequered bar follows the pointer, snapping across the lap; a click or <kbd>Enter</kbd> places it. It becomes the lap's first point (a point is added there if there was none), and the sections are split and turned round to start there, so the lap is laid out exactly as before. <b>Finish here</b> puts it on the selected point, dragging point 0 moves it along the lap, and <b>Remove finish line</b> takes it off (the track is then unfinished until one is placed again). A track without one is a valid draft; it is listed under the checks as still needed to race. The <b>finish arch</b> (Scenery) always spans the track's width, its posts just outside the lips, and belongs on the finish line: placing the line moves it there, square to the track, its panel has <b>Put on the finish line</b>, and the checks say when it is off.</li>
     <li><b>Kind</b> sets how the race screen shows the track: a stadium track fits on one screen; outdoor and endurance tracks use a camera that follows the riders, with a map of the whole lap. <b>Width</b> is the track width on the race screen.</li>
-    <li class="final-hide"><b>Sections</b> are what the race simulation rides, in order. Each is placed on the drawing by its share of the lap length and ridden as its type whatever shape is drawn there; the panel says what the shape reads as (straight, sweeper, corner or hairpin). On a track from before features, <b>From drawing</b> replaces the sections with straights and corners that suit the drawing, if you ask for it. Click the track to pick the section under the pointer. Drag a white diamond to move metres between two sections. The section box sets the line riders take through it and the height of jumps and hills.</li>
+    <li class="final-hide"><b>Sections</b> are what the race simulation rides, in order. Each is placed on the drawing by its share of the lap length and ridden as its type whatever shape is drawn there; the panel says what the shape reads as (straight, sweeper, corner or hairpin). On a track from before features, <b>From drawing</b> replaces the sections with straights and corners that suit the drawing, if you ask for it. Click the track to pick the section under the pointer. Drag a white diamond to move metres between two sections. The section box sets the line riders take through it and the height of jumps and hills. <b>Supercross jumps</b> (from the jump chart): Triple, Quad, Step-up, Step-down, Step-on step-off (a single, a tabletop with a lip on its end, a single; Step-on with two or three tables puts more tabletops between, hopped lip to table), On-off, Single over table, Table over single, Wall jump, Ski jump, Rhythm section, Rollers and a Dragon's back (four humps each bigger than the last, building up to a big final mound launched off). Riders take each jump their own way by their jumping skill and the lap: a tabletop cleared or landed short and ridden off, a triple doubled then singled, a quad as a quad, a double-double or single-double-single, and a mistake comes up short on the face. <b>Tunnels:</b> a tabletop, step-up or step-on has a <b>Tunnel</b> choice: <i>The track passes under it</i> when another part of the route is drawn across its deck (the flat top in the middle), so riders there go through the tunnel while the rest jump over, or <i>A pedestrian tunnel</i>. Both sides of the deck become concrete walls with the opening and a portal frame, and the map draws the hole as a dark band. Choosing the track tunnel makes the feature at least 22 grid units long and 3.5 m high; the checks say when nothing passes under the deck, when the deck is too short for the lower track, or when the jump is too low.</li>
     <li class="final-hide"><b>Gates</b> is the start bonus curve, in percent of start time, best gate first (Spec 10.4).</li>
-    <li><b>Surfaces:</b> mud, sand, water and other patches along the lap, laid by clicking the track.</li>
+    <li><b>Surfaces:</b> mud, sand, water and other patches along the lap, laid by clicking the track: the stretch a click would surface follows the pointer in the surface's colour. Click a patch to select it and drag it along the lap; its start and length can be typed in too.</li>
     <li><b>Ground:</b> paint the ground round the track with the game's ground tiles.</li>
-    <li><b>Scenery:</b> banners (with your own words and colour), sponsor boards, start gates, tuff blocks, hay bales, tyre walls, stands, crowds, pits, trees and more. <b>Paddock vehicles</b> are the game's own vans at the race bikes' scale: an old rusty truck (empty, or one or two bikes on the back), an old rusty van (doors shut or open, a bike beside it), the MX vans and sports motorhomes (closed up, awning out, or bikes on stands under it), the factory hauler (closed, or a three-sided awning the length of the trailer with bikes under it) and a bike on a stand. Each has a colour and a set-up picked for it, like a fan's shirt; select it to choose them, and the vehicle's body alone counts as solid (the awning side is the lower side on the map before turning). Pick an item and it follows the pointer, see-through, on the map and in the race view, where a click would place it, turned as <kbd>Q</kbd> and <kbd>E</kbd> have turned it (the turn is kept for the next item too). <kbd>Q</kbd> and <kbd>E</kbd> turn the selected item 15° a press, 5° with <kbd>Shift</kbd> and 1° with <kbd>Alt</kbd>, and the Turn box takes any whole number of degrees; <kbd>Ctrl+D</kbd> duplicates it. <b>Cheering fans</b> are people who stand trackside and react as bikes pass: pick a variant (body shape), an action (arms up, wave, clap, fist pump, celebrate) and a shirt colour, or leave them to be picked. <b>Draw route</b> gives a fan a walk in: when the track loads they walk from where placed along it, at walking pace, and cheer from its end, so a crowd can file in. A fan must never be on the track, where placed or where the walk ends (an error the game refuses); a walk that crosses the track is only a warning. Each fan reacts in their own time, with a rest between, so a crowd never moves as one.</li>
+    <li><b>Scenery:</b> banners (with your own words and colour), sponsor boards, start gates, tuff blocks, hay bales, tyre walls, stands, crowds, pits, trees and more. <b>Paddock vehicles</b> are the game's own vans at the race bikes' scale: an old rusty truck (empty, or one or two bikes on the back), an old rusty van (doors shut or open, a bike beside it), the MX vans and sports motorhomes (closed up, awning out, or bikes on stands under it), the factory hauler (closed, or a three-sided awning the length of the trailer with bikes under it) and a bike on a stand. Each has a colour and a set-up picked for it, like a fan's shirt; select it to choose them, and the vehicle's body alone counts as solid (the awning side is the lower side on the map before turning). <b>Trackside items</b> are built the same way, each with a colour, a design and a set-up picked for it unless chosen: the TV crew (camera operators standing or kneeling, a tripod camera, a camera van with a crew on its roof, a TV tower, a camera crane, a drone pilot, photographers standing, kneeling or lying in the dirt, a commentary box, a big screen, a press tent); the pits (a pit tent set up with bikes on stands, mechanics and riders, both, or the tool chest, generator and cans, with the team's name on its valance; a bike wash, a bike trailer with one or two bikes, pit clutter, a trade stand, a merchandise trailer, a catering van with a queue, a hospitality marquee, an enduro time check, a signing table); what stands over and beside the track (a pedestrian bridge over the track, empty or with fans crossing, its width set like a banner's and only its stair towers solid; a timing beam and a sponsor inflatable arch, over the track the same way; crowd barriers, cones, marshals (standing trackside, on a pallet stand, in a roofed tower, a pair with an extinguisher, or behind hay bales: each watches a stretch of track and keeps the yellow flag down until a rider goes down there, then leans out and waves it until the rider is away; <b>Set watch</b> then a click on the track sets how far along the lap they watch, at most 36 grid units, drawn as a yellow band, and with no end set they watch the next 18 units), the medics and their ambulance, a marshal quad, a track tractor pulling the harrow or towing the water bowser, a skid steer loader, portable toilets in ones, twos or fours, feather flags, a PA speaker pole, a VIP grandstand with a roof; and the supercross kit: a podium (motocross boxes and a board, or a lit supercross stage; empty, the top three, or champagne), a holeshot board, pyro flame pods, a lighting truss over the track, a stadium tunnel and a trophy table); the finish line crew: a <b>flag man</b> on any of the marshals' stands, placed just before the finish line, who holds up the white flag as the leader comes up to start the last lap, then puts it down and takes up the chequered flag as the leader comes round to finish, holding it until the last rider still racing has gone by; and <b>pit crew</b> (standing, behind a pit wall or with a mechanic), placed just after the line, each given a rider in a race and leaning out with the pit board (place and laps to go) as that rider comes by every lap; Checks mentions either standing more than 12 grid units from the line; and the fans (in camping chairs, taking pictures, round a lunch table under a parasol, on a picnic blanket, under a parasol, leaning on a fence). People face the track unless the item is turned; items with words take your own text. Pick an item and it follows the pointer, see-through, on the map and in the race view, where a click would place it, turned as <kbd>Q</kbd> and <kbd>E</kbd> have turned it (the turn is kept for the next item too). <kbd>Q</kbd> and <kbd>E</kbd> turn the selected item 15° a press, 5° with <kbd>Shift</kbd> and 1° with <kbd>Alt</kbd>, and the Turn box takes any whole number of degrees; <kbd>Ctrl+D</kbd> duplicates it, the copy standing end to end with it (so pressing again runs a fence on) while <b>Snap object</b> is ticked. The arrow keys nudge it half a grid unit (2 with <kbd>Shift</kbd>). Selecting an item makes its kind the one picked in the palette, so the next click places another like it. <kbd>Shift</kbd>-click adds items to the selection, <kbd>Shift</kbd>-drag on open ground boxes every item inside, and <kbd>Ctrl+A</kbd> selects them all; a selection drags, nudges, turns, duplicates and deletes together, and <kbd>Ctrl+C</kbd>, <kbd>Ctrl+X</kbd> and <kbd>Ctrl+V</kbd> copy, cut and paste it, pasting with its middle at the pointer (on the map or in the race view). With <b>Snap object</b> ticked, an item placed or dragged near another joins it end to end or side by side with their edges flush, and turned the same way if it is already within 12° of lining up (turned further by hand, it keeps its own angle and only its position snaps); the item it joins gets a dashed outline, so a run of fences, walls or stands lines up; hold <kbd>Alt</kbd> to drop it for one move, as for the grid. A white arrow on the item being placed or selected, on the map and in the race view, shows which way it faces: people, stands, boards and tents face the arrow, vehicles point their nose along it, and a marshal, flag man, pit crew, fans or TV crew not turned by hand face the track (the arrow shows where), so you can see before you click. While it is snapped, and once it is placed with an end joined onto another item, <kbd>Q</kbd> and <kbd>E</kbd> swing it round the join instead of its middle, so a fence or wall can turn off in another direction and stay joined (with both ends joined it keeps the end on the item placed first). <b>Cheering fans</b> are people who stand trackside and react as bikes pass: pick a variant (body shape), an action (arms up, wave, clap, fist pump, celebrate) and a shirt colour, or leave them to be picked. <b>Draw route</b> gives a fan a walk in: when the track loads they walk from where placed along it, at walking pace, and cheer from its end, so a crowd can file in. A fan must never be on the track, where placed or where the walk ends (an error the game refuses); a walk that crosses the track is only a warning. Each fan reacts in their own time, with a rest between, so a crowd never moves as one.</li>
     <li><b>Start board official:</b> pick <b>Start board official</b> under Start and finish in Layout, or the last item in Scenery, and click where they wait with the board while the riders line up (one a track; without one the game picks their spot beside the start straight). Select them and click <b>Draw route</b>, then click the ground in order to where they end up (the red point), and <b>Done</b> or <kbd>Esc</kbd>; <b>Cancel</b> puts the old route back, <b>Reset route</b> clears it. Drag a route point to move it, right-click it or press <kbd>Del</kbd> to remove it; dragging the official moves only where they start. In the countdown they raise the board and set off at five, turn it sideways at three and lower it white side out at one as they arrive. The route can be at most <code>official.maxWalk</code> grid units (trackParts.json, 8), may cross the track ahead of the gate but not the riders lined up at the gate or solid scenery, and must end clear of the track; the race view runs the game's checks and they show under the official and in Checks. On a new track they stand where placed until there's a start straight; Checks says when a track has no official or an official has no route.</li>
     <li><b>Height:</b> <b>Raise the track</b> and <b>Lower the track</b> work along the track's length: hover the track and the stretch the tool would change is highlighted, the <b>Length</b> you set centred under the pointer and following the route round corners (cut at the end of an open route); a click raises it by the <b>Height</b> set, right-click lowers it, with the most at the centre easing to nothing at both ends, so the hill meets the track either side with no step and no kink. Nothing changes until you click; each click is one undo, and clicking the same stretch again steps its height instead of stacking another hill (back to level, it goes). Hills are saved with the track (<code>hills</code>), keep their place when the route is reshaped, and are drawn on the map as a band with their height. The track keeps its width, banking, berms and section types; the ground either side rises or sinks to meet it as a grass slope, never a wall. The <b>ground brush</b> (raise, lower, smooth, flatten; radius and strength) shapes the ground away from the track as before. Heights go from 36 m down to 36 m up; riders slow up climbs and run quicker down drops; ground steeper than 45° is refused as a wall, and a track climbing or dropping more than 35% along its length is a warning. Old tracks keep their ground as saved.</li>
     <li><b>Race view:</b> you edit in the game's own race camera and 3D scene with hills, jumps, scenery and ground as a race draws them, and the lap map in its corner. Click, drag and right-click on the 3D ground; the keys are the same in every mode. Mouse wheel or <kbd>+</kbd> <kbd>−</kbd> zoom, <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or a middle-button (or <kbd>Space</kbd>+drag) pan, <kbd>[</kbd> <kbd>]</kbd>, the <b>⟲ Turn left</b> and <b>⟳ Turn right</b> buttons (bottom left) or a <kbd>Shift</kbd>+middle-button drag turn the view round the track, to see it from any side; <kbd>0</kbd> or <b>Reset view</b> goes back to the race camera's angle. Turning only changes the editor's view: clicks still land where the pointer is, and races always use the fixed race camera. The selection is orange, problems red or dashed yellow. In Layout each section shows as a stripe in its kind's colour, with a cream line across the track where one section ends and the next begins. No race runs while you edit. Opened straight from disk, the race view runs the game from the published site (<code>bigdaddy284.github.io/Motocross-RPG</code>), so it needs an internet connection; with neither that nor <code>npm run dev</code>, the editor shows a plain map instead.</li>
@@ -377,8 +384,22 @@ const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', '.vite', 'coverage', 
 const ART_DIR = 'assets/art/area-map/tiled/tiles';
 const ID = /^[a-z0-9_.-]+$/;
 // Mirrors src/world/TrackView.ts.
-const JUMPS = new Set(['tabletop', 'double', 'step_up', 'rhythm', 'whoops']);
+const JUMPS = new Set(['tabletop', 'double', 'step_up', 'triple', 'quad', 'step_down', 'step_on', 'step_on_two', 'step_on_three', 'on_off', 'single_over_table', 'table_over_single', 'wall_jump', 'ski_jump', 'rhythm', 'whoops', 'rollers', 'dragon_back']);
+// How many humps each jump has, for the map's bars (mirrors src/core/jumps.ts).
+const HUMPS = { tabletop: 1, double: 2, step_up: 2, triple: 3, quad: 4, step_down: 2, step_on: 3, step_on_two: 4, step_on_three: 5, on_off: 2, single_over_table: 2, table_over_single: 2, wall_jump: 1, ski_jump: 1, rhythm: 3, whoops: 3, rollers: 2, dragon_back: 4 };
 const HEIGHTS = new Set([...JUMPS, 'uphill', 'downhill']);
+// Mirrors src/core/trackSurface.ts DECKS and WALK_HOLE: the flat top of each jump that can carry a tunnel.
+const DECKS = { tabletop: [0.32, 0.6], step_on: [0.34, 0.6], step_up: [0.7, 0.84] };
+const WALLS = { tabletop: [0.2, 0.76], step_on: [0.27, 0.68], step_up: [0.6, 0.92] };
+const WALK_HOLE = 1.2;
+// Mirrors src/core/jumps.ts ARCH_AT: where the finish arch stands over a finish-line jump, as a share of it.
+const ARCH_AT = { tabletop: 0.3, double: 0.3 };
+// Mirrors src/core/riderAI.ts DEFAULT_HEIGHTS.
+const DEFAULT_HEIGHTS_ED = { tabletop: 2.5, double: 3.5, step_up: 3, triple: 3.5, quad: 3.5, step_down: 3, step_on: 2, step_on_two: 2.2, step_on_three: 2.4, on_off: 2.2, single_over_table: 2.8, table_over_single: 2.8, wall_jump: 2.6, ski_jump: 3, rhythm: 1.5, whoops: 0.6, rollers: 0.9, dragon_back: 2.2, uphill: 6, downhill: 6 };
+/** The lowest height (metres) a jump with the track under it should have, so a bike clears it. */
+const TUNNEL_MIN_HEIGHT = 3.5;
+/** The shortest feature (grid units) whose deck can take the lower track with its lips and banks through it. */
+const TUNNEL_MIN_LEN = 22;
 const DIRT = '#c98a4b';
 const DIRT_EDGE = '#8a5a2b';
 // Section colours by the kind of riding: starts, corners, jumps, fast ground, rough ground.
@@ -386,8 +407,9 @@ const KINDS = [
   { name: 'Start', color: '#ffffff', types: ['start_gate'] },
   { name: 'Corners', color: '#3a8fd8', types: ['first_corner', 'flat_corner', 'berm', 'rutted_corner', 'hairpin'] },
   { name: 'Fast', color: '#4fb36b', types: ['straight', 'fast_sweeper', 'uphill', 'downhill'] },
-  { name: 'Jumps', color: '#e05252', types: ['tabletop', 'double', 'step_up', 'rhythm'] },
-  { name: 'Rough', color: '#b06ad8', types: ['whoops', 'braking_bumps', 'sand', 'mud'] },
+  { name: 'Jumps', color: '#e05252', types: ['tabletop', 'double', 'step_up', 'triple', 'quad', 'step_down', 'step_on', 'step_on_two', 'step_on_three', 'on_off', 'single_over_table', 'table_over_single', 'wall_jump', 'ski_jump', 'rhythm', 'dragon_back'] },
+  { name: 'Rough', color: '#b06ad8', types: ['whoops', 'rollers', 'braking_bumps', 'sand', 'mud'] },
+  { name: 'Concrete', color: '#9c9c96', types: ['concrete_straight', 'concrete_corner', 'surface_change'] },
 ];
 const OTHER_COLOR = '#f0a020';
 // Used when there is no trackParts.json next to tracks.json.
@@ -562,6 +584,10 @@ const app = {
   selSec: -1,
   selPatch: -1,
   selItem: -1,
+  /** More selected scenery items (by index) besides selItem: Shift-click and Shift-drag add them. */
+  selMore: [],
+  /** Copied scenery items (Ctrl+C), pasted with Ctrl+V. */
+  clipboard: null,
   selStart: -1,
   /** The selected feature (t.features), or -1. */
   selFeat: -1,
@@ -580,9 +606,18 @@ const app = {
   groundBrush: null,
   sceneryBrush: null,
   /** How the next scenery item placed is turned, in degrees (Q and E before placing). */
-  placeRot: 0,
+  placeRot: null,
   /** Whether Alt was held on the last pointer move (no snapping), for the placing preview. */
   hoverAlt: false,
+  /** The scenery item the one being placed or dragged is snapped onto (Snap object), or -1. */
+  snapTo: -1,
+  /**
+   * Snap object: how far (degrees) Q and E have turned an item placed or dragged while it is
+   * snapped, about the point where it joins the item it is snapped onto, so a fence can bend away
+   * and stay joined. Back to 0 when it snaps somewhere else (snapKey names where).
+   */
+  snapBend: 0,
+  snapKey: null,
   hoverBound: -1,
   hoverCell: null,
   hoverPt: null,
@@ -617,7 +652,32 @@ function changed() {
 function undo() { if (!app.undo.length) return; app.redo.push(snapshot()); restore(app.undo.pop()); changed(); }
 function redo() { if (!app.redo.length) return; app.undo.push(snapshot()); restore(app.redo.pop()); changed(); }
 function setDirty(d) { app.dirty = d; $('#dirty').textContent = d ? '● Unsaved' : ''; }
-function deselect() { app.selPt = -1; app.selSec = -1; app.selPatch = -1; app.selItem = -1; app.selStart = -1; app.selRoute = -1; app.selFeat = -1; app.routeDraw = null; }
+function deselect() { app.selPt = -1; app.selSec = -1; app.selPatch = -1; app.selItem = -1; app.selMore = []; app.selStart = -1; app.selRoute = -1; app.selFeat = -1; app.routeDraw = null; }
+/** Every selected scenery item's index, the main one (selItem, the panel's) first. */
+function selItems() {
+  const out = [];
+  if (app.selItem >= 0) out.push(app.selItem);
+  for (const j of app.selMore) if (!out.includes(j)) out.push(j);
+  return out;
+}
+/** Selects scenery item i on its own, or (add) adds it to the selection, or takes it out again if it is in it. */
+function selectItem(i, add = false) {
+  const t = track();
+  if (add && selItems().includes(i)) {
+    const rest = selItems().filter((j) => j !== i);
+    app.selItem = rest[0] ?? -1;
+    app.selMore = rest.slice(1);
+  } else if (add && app.selItem >= 0) app.selMore = [...app.selMore.filter((j) => j !== i), i];
+  else { app.selItem = i; app.selMore = []; }
+  // The panel's palette follows the selection: the selected item's kind is the one to place next.
+  const type = t?.scenery?.[app.selItem]?.type;
+  if (type && sceneryDef(type)) app.sceneryBrush = type;
+}
+/** Marks the selected item's kind (or the one to place) in the scenery palette. */
+function markSceneryPal() {
+  const cur = track()?.scenery?.[app.selItem]?.type ?? app.sceneryBrush;
+  $('#sceneryPal').querySelectorAll('button').forEach((b) => b.classList.toggle('sel', b.dataset.id === cur));
+}
 
 /** Runs a change as one undo step, and drops it if nothing actually changed. */
 function commit(fn) {
@@ -880,35 +940,22 @@ function startGeom(t, g = lapGeom(t)) {
   const near = project(g, end.x, end.y);
   return { pts, cum, total, join: near.f, off: near.dist };
 }
-/** Shortest first corner, in grid units (trackGeom.FIRST_CORNER_MIN): a route point closer to the join than this is passed over for the next. */
-const FIRST_CORNER_MIN = 1;
+/** On a start straight of only two points, the first corner is this much of its end (trackGeom.FIRST_CORNER_SHARE). */
+const FIRST_CORNER_SHARE = 0.25;
 /**
- * The first corner (as trackGeom.firstCornerSpan): the lap from where the start straight joins to
- * the route's next control point, as lap fractions {from, to} (to may pass 1), where the race
- * rides the route's own track with the first corner's rules. Null without a start straight on the
- * route, and on a track from before features that has its own first-corner section.
+ * The first corner (as trackGeom.firstCorner): the start straight's end, the leg between its last
+ * two points that bends onto the route (on a straight of two points, its last quarter), as grid
+ * units {from, to} up the start straight and its metres. Not a section of its own: the race times
+ * it as its own stretch of lap 1 and rides it with the first corner's rules and lap 1's
+ * first-corner incident. Null without a start straight.
  */
-function firstCornerSpan(t) {
-  if (!t || t.path.length < 2 || t.open) return null;
-  const g = lapGeom(t);
-  const sg = startGeom(t, g);
-  if (!sg || sg.off > 1) return null;
-  if (t.sections.some((s) => s.type === 'first_corner')) return null;
-  const min = FIRST_CORNER_MIN / g.total;
-  let best = Infinity;
-  let point = -1;
-  lpts(t).forEach((p, i) => {
-    let d = project(g, p[0], p[1]).f - sg.join;
-    if (d < min) d += 1;
-    if (d < best) { best = d; point = i; }
-  });
-  if (!Number.isFinite(best)) return null;
-  return { from: sg.join, to: sg.join + best, point, metres: Math.round(best * g.total * PIECE_MPU) };
-}
-/** True when the middle of the stretch [a, b] (lap fractions) lies in the span, counting round past the finish line (trackGeom.inSpan). */
-function inSpan(span, [a, b]) {
-  const mid = ((((a + b) / 2 - span.from) % 1) + 1) % 1;
-  return mid < span.to - span.from - 1e-9;
+function firstCornerLeg(t) {
+  if (!t) return null;
+  const sg = startGeom(t);
+  if (!sg || sg.total <= 0) return null;
+  const n = sg.pts.length;
+  const from = n >= 3 ? sg.cum[n - 2] : sg.total * (1 - FIRST_CORNER_SHARE);
+  return { from, to: sg.total, metres: Math.round((sg.total - from) * PIECE_MPU), points: n >= 3 ? 'its last two points' : 'its last quarter' };
 }
 function startHalfWidth(s, u, hw) {
   const t = clamp(u / Math.max(1e-9, s.total * 0.7), 0, 1);
@@ -1162,7 +1209,7 @@ function derive(t) {
 }
 /**
  * Every section type that is placed as a feature: all but the start gate, the plain track the
- * route is itself, and the first corner, which is the start straight's end (firstCornerSpan).
+ * route is itself, and the first corner, which is the start straight's end (firstCornerLeg).
  */
 const featureTypes = () => sectionTypes().filter((x) => x !== 'start_gate' && x !== 'first_corner' && !isBaseType(x));
 /**
@@ -1184,7 +1231,7 @@ function rebuildSections(t) {
     const b = Math.min(total, f.at + f.len);
     if (b - a < 1e-6) continue;
     if (a > cursor + 1e-6) fill(cursor, a);
-    cuts.push({ type: f.type, from: a, to: b, passing: f.passing, line: f.line, height: f.height, feat: f.k });
+    cuts.push({ type: f.type, from: a, to: b, passing: f.passing, line: f.line, height: f.height, tunnel: f.tunnel, finish: f.finish, feat: f.k });
     cursor = b;
   }
   if (cursor < total - 1e-6) fill(cursor, total);
@@ -1204,9 +1251,75 @@ function rebuildSections(t) {
     const sec = { type: c.type, length: Math.max(1, metres(c.to) - metres(c.from)), passing: c.passing };
     if (c.line) sec.line = c.line;
     if (c.height !== undefined) sec.height = c.height;
+    if (c.tunnel && DECKS[c.type]) sec.tunnel = c.tunnel;
+    if (c.finish && ARCH_AT[c.type]) sec.finish = true;
     return sec;
   });
   SECFEAT.set(t, cuts.map((c) => c.feat));
+}
+/**
+ * The tunnels through jump decks, as the race view builds them (trackSurface.ts findTunnels):
+ * for each section with `tunnel`, its deck as lap fractions and, for a track tunnel, where the
+ * lap crosses under it (null when it doesn't: the editor warns).
+ */
+function tunnelsOf(t) {
+  if (t.path.length < 3 || t.open) return [];
+  const g = lapGeom(t);
+  const bounds = sectionBounds(t);
+  const feats = sectionFeats(t);
+  const hw = (t.width ?? DEFAULT_WIDTH) / 2;
+  const out = [];
+  t.sections.forEach((sec, si) => {
+    const deck = sec.tunnel ? DECKS[sec.type] : undefined;
+    if (!deck) return;
+    const span = bounds[si + 1] - bounds[si];
+    const d0 = bounds[si] + span * deck[0];
+    const d1 = bounds[si] + span * deck[1];
+    const f0 = bounds[si] + span * WALLS[sec.type][0];
+    const f1 = bounds[si] + span * WALLS[sec.type][1];
+    const k = feats[si];
+    if (sec.tunnel === 'walk') {
+      const mid = (d0 + d1) / 2;
+      const half = Math.min((d1 - d0) / 2, WALK_HOLE / 2 / g.total);
+      out.push({ si, k, f0, f1, h0: mid - half, h1: mid + half, walk: true, under: null });
+      return;
+    }
+    const c = crossingUnder(g, d0, d1);
+    if (!c) { out.push({ si, k, f0, f1, h0: d0, h1: d1, walk: false, under: null }); return; }
+    // The hole takes the lower track with its lips and banks (trackSurface.ts skirt on level ground), wider at a slant.
+    const wide = hw * 1.22 + Math.max(0.35, 0.22 * 0.9) + 0.3;
+    const need = wide / Math.max(0.35, Math.abs(Math.sin(c.angle))) / g.total;
+    const half = Math.min((d1 - d0) / 2, need);
+    out.push({ si, k, f0, f1, h0: Math.max(d0, c.f - half), h1: Math.min(d1, c.f + half), walk: false, under: c.under, at: pointAt(g, c.f), short: need > (d1 - d0) / 2 - 0.4 / g.total });
+  });
+  return out;
+}
+/** Where another part of the lap crosses the stretch from f0 to f1 (trackSurface.ts crossingUnder). */
+function crossingUnder(g, f0, f1) {
+  const n = Math.max(2, Math.ceil((f1 - f0) * g.total / 0.25));
+  const o = (p, q, r) => Math.sign((q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x));
+  for (let k = 0; k < n; k++) {
+    const fa = f0 + ((f1 - f0) * k) / n;
+    const fb = f0 + ((f1 - f0) * (k + 1)) / n;
+    const a = pointAt(g, fa);
+    const b = pointAt(g, fb);
+    for (let j = 0; j < g.pts.length - 1; j++) {
+      const fj0 = g.cum[j] / g.total;
+      const fj1 = g.cum[j + 1] / g.total;
+      if (fj1 > f0 - 2 / g.total && fj0 < f1 + 2 / g.total) continue;
+      const c = g.pts[j];
+      const d = g.pts[j + 1];
+      if (!(o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0)) continue;
+      const den = (b.x - a.x) * (d.y - c.y) - (b.y - a.y) * (d.x - c.x);
+      if (Math.abs(den) < 1e-9) continue;
+      const tt = ((c.x - a.x) * (d.y - c.y) - (c.y - a.y) * (d.x - c.x)) / den;
+      const u = ((c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x)) / den;
+      const f = fa + (fb - fa) * tt;
+      const under = fj0 + (fj1 - fj0) * u;
+      return { f, under, angle: headingAt(g, f) - headingAt(g, under) };
+    }
+  }
+  return null;
 }
 /** Which feature each section comes from (-1 for the route's own straights and bends). */
 function sectionFeats(t) {
@@ -1224,7 +1337,7 @@ const featureName = (f) => app.sectionDefs[f.type]?.name ?? f.type;
 /**
  * Gives a track its corners, jumps and special sections as features on the route, at the share
  * of the lap each section has now, each keeping its type; its straights become the route's own
- * plain track, and a first-corner section becomes the start straight's end (firstCornerSpan).
+ * plain track, and a first-corner section becomes a flat corner (the first corner is the start straight's end, firstCornerLeg).
  */
 function useFeatures(t) {
   if (t.features) return;
@@ -1273,7 +1386,30 @@ function patchAt(t, metres) {
 }
 function itemBox(it) {
   const def = sceneryDef(it.type);
-  return { w: it.w ?? def?.w ?? 2, h: it.h ?? def?.h ?? 2, a: ((it.rot ?? 0) * Math.PI) / 180 };
+  const w = it.type === 'finish_arch' ? archSpan((track()?.width ?? DEFAULT_WIDTH)) : it.w ?? def?.w ?? 2;
+  return { w, h: it.h ?? def?.h ?? 2, a: ((it.rot ?? 0) * Math.PI) / 180 };
+}
+/** How wide the finish arch stands for a track width: its posts just outside the lips (src/core/trackClearance.ts archSpan). */
+function archSpan(width) { return width * LIP_AT + 2.4; }
+/** Where the finish arch belongs: on the finish line, square to the track there (trackClearance.ts archPlace). */
+function archPlace(t) {
+  if (t.path.length < 2) return null;
+  const g = lapGeom(t);
+  const deg = (headingAt(g, 0) * 180) / Math.PI;
+  return { x: t.path[0][0], y: t.path[0][1], rot: ((Math.round(deg) + 90) % 360 + 360) % 360 };
+}
+/** True when a finish arch stands on the finish line, square to the track (within half a grid unit and 5°). */
+function archOnLine(t, it) {
+  const at = archPlace(t);
+  if (!at) return true;
+  const dr = Math.abs(((((it.rot ?? 0) - at.rot) % 180) + 270) % 180 - 90);
+  return Math.hypot(it.x - at.x, it.y - at.y) <= 0.5 && dr <= 5;
+}
+/** Puts every finish arch on the finish line, square to the track: when the line is placed, and from the arch's panel. */
+function snapFinishArches(t) {
+  const at = archPlace(t);
+  if (!at || t.finish === false) return;
+  for (const it of t.scenery ?? []) if (it.type === 'finish_arch') { it.x = at.x; it.y = at.y; it.rot = at.rot; delete it.w; }
 }
 function itemHit(it, x, y) {
   const { w, h, a } = itemBox(it);
@@ -1350,7 +1486,7 @@ function drawGround(t) {
 }
 
 /** Scenery with no tile art is drawn by type: simple top-down shapes in its colour. */
-function drawItem(it, sel, blocked = false) {
+function drawItem(it, sel, blocked = false, index = -1) {
   // blocked: true or 'error' (on the racing surface), or 'warning' (one to look at).
   const def = sceneryDef(it.type);
   const { w, h, a } = itemBox(it);
@@ -1361,10 +1497,12 @@ function drawItem(it, sel, blocked = false) {
   ctx.save();
   ctx.translate(s.x, s.y);
   ctx.rotate(a);
-  const vehicle = VEHICLES[it.type] && isPaddock(def);
+  const vehicle = (VEHICLES[it.type] || TRACKSIDE[it.type]) && isPaddock(def);
   if (!vehicle) { ctx.fillStyle = '#00000040'; ctx.fillRect(-W / 2 + 2, -H / 2 + 3, W, H); }
   const img = artImage(def?.art);
-  if (vehicle) {
+  if (vehicle && TRACKSIDE[it.type]) {
+    drawTracksideMap(it, def);
+  } else if (vehicle) {
     drawVehicleMap(it, def, H);
   } else if (img) {
     ctx.imageSmoothingEnabled = false;
@@ -1473,6 +1611,30 @@ function drawItem(it, sel, blocked = false) {
     ctx.setLineDash([]);
   }
   ctx.restore();
+  // Which way it faces: an arrow from its front, so people and stands are placed looking the right way.
+  const face = sel ? facingOf(track(), it, index) : null;
+  if (face) drawFacingArrow(face, Math.max(14, Math.min(40, Math.max(W, H) / 2 + 10)));
+}
+/** A white arrow with a dark edge from (x, y) along ang (grid radians), len pixels long. */
+function drawFacingArrow(face, len) {
+  const s = toScreen(face.x, face.y);
+  ctx.save();
+  ctx.translate(s.x, s.y);
+  ctx.rotate(face.ang);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (const [col, wd] of [['#1c1c22', 5], ['#ffffff', 2.5]]) {
+    ctx.strokeStyle = col;
+    ctx.lineWidth = wd;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(len, 0);
+    ctx.moveTo(len - 6, -5);
+    ctx.lineTo(len, 0);
+    ctx.lineTo(len - 6, 5);
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 /**
@@ -1486,11 +1648,12 @@ function drawItem(it, sel, blocked = false) {
  * Never changes the track. Returns [{ i, level, message }], and is remembered until the track changes.
  */
 const BIKE_HALF_WIDTH = 0.25;
-const SOLID = new Set(['hay_bale', 'tyre_wall', 'tuff_block', 'van', 'pit_tent', 'stand', 'light_tower', 'skip', 'barrels', 'tyre_stack', 'hedge', 'banner', 'sponsor_board', 'rusty_truck', 'rusty_van', 'mx_van', 'mx_van_long', 'motorhome', 'motorhome_long', 'hauler', 'bike_stand']);
+const SOLID = new Set(['hay_bale', 'tyre_wall', 'tuff_block', 'van', 'pit_tent', 'stand', 'light_tower', 'skip', 'barrels', 'tyre_stack', 'hedge', 'banner', 'sponsor_board', 'rusty_truck', 'rusty_van', 'mx_van', 'mx_van_long', 'motorhome', 'motorhome_long', 'hauler', 'bike_stand', 'marshal', 'flagger', 'pit_crew', 'tv_tripod', 'tv_van', 'tv_tower', 'commentary_box', 'big_screen', 'pit_setup', 'bike_wash', 'bike_trailer', 'pit_clutter', 'trade_stand', 'catering_van', 'marquee', 'time_check', 'foot_bridge', 'crowd_barrier', 'ambulance', 'quad', 'tractor', 'toilets', 'inflatable', 'lunch_table', 'fans_fence', 'camera_crane', 'press_tent', 'signing_table', 'pa_speaker', 'timing_beam', 'skid_steer', 'merch_trailer', 'vip_stand', 'podium', 'holeshot_board', 'truss_arch', 'stadium_tunnel', 'trophy_table']);
 const issueCache = new WeakMap();
 function colliders(f) {
   const along = (off, w, d) => ({ ...f, x: f.x + off * Math.cos(f.a), y: f.y + off * Math.sin(f.a), w, d });
   // A vehicle's body alone (its awning and the bikes under it are not solid), across from the footprint's centre.
+  if (TRACKSIDE[f.type]) return tracksideSolid(f);
   const v = VEHICLES[f.type];
   if (v) return v.parts.map(([x0, x1, bw]) => {
     const u = ((x0 + x1) / 2) * PADDOCK_U;
@@ -1549,7 +1712,7 @@ function sceneryIssues(t) {
   const st = startGeom(t, g);
   if (st && st.total > 0) for (let u = -START_PAD; u <= st.total; u += 0.25) pts.push({ ...startPointAt(st, u), hw: startHalfWidth(st, u, hw) });
   const off = (x, y) => { let best = Infinity; for (const p of pts) { const d = Math.hypot(p.x - x, p.y - y) - p.hw; if (d < best) best = d; } return best; };
-  const items = (t.scenery ?? []).map((it, i) => { const { w, h, a } = itemBox(it); return { i, type: it.type, x: it.x, y: it.y, w, d: h, a }; });
+  const items = (t.scenery ?? []).map((it, i) => { const { w, h, a } = itemBox(it); return { i, it, type: it.type, x: it.x, y: it.y, w, d: h, a }; });
   const name = (f) => `the ${(sceneryDef(f.type)?.name ?? f.type).toLowerCase()} at ${f.x}, ${f.y}`;
   const out = [];
   for (const f of items) {
@@ -1668,6 +1831,14 @@ function draw() {
     for (const [x, y] of ends) seg(x, y, col + (app.mode === 'surface' ? 'ee' : 'c0'), width * 0.92);
     if (app.mode === 'surface' && i === app.selPatch) for (const [x, y] of ends) seg(x, y, '#f0a020', 2);
   });
+  // The patch the next click would add (Surface): the chosen surface's colour, edged in white.
+  const sg = app.mode === 'surface' && !scene ? surfaceGhost(t) : null;
+  if (sg) {
+    for (const [x, y] of sg.ends) {
+      strokeLap(g, x, y, '#ffffffc0', width * 0.92 + 4, 'butt');
+      strokeLap(g, x, y, sg.color + 'b0', width * 0.92, 'butt');
+    }
+  }
 
   // Sections as a coloured stripe down the middle, the selected one wider (development only).
   const bounds = sectionBounds(t);
@@ -1682,7 +1853,7 @@ function draw() {
   bounds.slice(0, -1).forEach((b0, i) => {
     const s = t.sections[i];
     if (!JUMPS.has(s.type)) return;
-    const n = s.type === 'rhythm' || s.type === 'whoops' ? 3 : 1;
+    const n = HUMPS[s.type] ?? 1;
     for (let j = 0; j < n; j++) {
       const p = pointAt(g, b0 + ((bounds[i + 1] - b0) * (j + 1)) / (n + 1));
       const sp = toScreen(p.x, p.y);
@@ -1696,6 +1867,21 @@ function draw() {
     }
   });
 
+  // Tunnels: the hole through the deck as a dark band with a pale edge, the walls as grey lines along the deck.
+  for (const tn of tunnelsOf(t)) {
+    const hwG = (t.width ?? DEFAULT_WIDTH) / 2;
+    const poly = (fa, fb, lane) => { const pts = []; const n = Math.max(2, Math.ceil((fb - fa) * g.total / 0.5)); for (let k = 0; k <= n; k++) { const f = fa + ((fb - fa) * k) / n; const p = pointAt(g, f); const a = p.ang + Math.PI / 2; pts.push(toScreen(p.x + Math.cos(a) * lane * hwG, p.y + Math.sin(a) * lane * hwG)); } return pts; };
+    for (const side of [-1.22, 1.22]) {
+      const w = poly(tn.f0, tn.f1, side);
+      ctx.strokeStyle = '#b8b8b4'; ctx.lineWidth = 2.5; ctx.beginPath(); w.forEach((p, k) => (k ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.stroke();
+    }
+    if (!tn.walk && tn.under === null) continue;
+    const l = poly(tn.h0, tn.h1, -1.22);
+    const r = poly(tn.h0, tn.h1, 1.22).reverse();
+    ctx.fillStyle = tn.walk ? '#20202880' : '#202028c0';
+    ctx.strokeStyle = '#f0f0f0'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); [...l, ...r].forEach((p, k) => (k ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
   // Direction arrows.
   for (let f = 0.04; f < 1; f += 0.08) {
     const p = pointAt(g, f);
@@ -1710,6 +1896,23 @@ function draw() {
     ctx.fill();
   }
 
+  // The finish arch over a finish-line jump: a bar across the track with a post each side.
+  if (t.finish !== false) {
+    const b = sectionBounds(t);
+    t.sections.forEach((sec, si) => {
+      if (!sec.finish || b[si + 1] === undefined) return;
+      const p = pointAt(g, b[si] + (ARCH_AT[sec.type] ?? 0.5) * (b[si + 1] - b[si]));
+      const s = toScreen(p.x, p.y);
+      const a = p.ang + Math.PI / 2;
+      const r = (width + 4) / 2;
+      ctx.save();
+      ctx.strokeStyle = '#f4f4f0'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(s.x - Math.cos(a) * r, s.y - Math.sin(a) * r); ctx.lineTo(s.x + Math.cos(a) * r, s.y + Math.sin(a) * r); ctx.stroke();
+      ctx.fillStyle = '#d8d8d8';
+      for (const sg of [-1, 1]) ctx.fillRect(s.x + Math.cos(a) * r * sg - 3, s.y + Math.sin(a) * r * sg - 3, 6, 6);
+      ctx.restore();
+    });
+  }
   // Chequered finish line, once one is placed (the lap's first point).
   if (t.finish !== false) {
     const p = pointAt(g, 0);
@@ -1761,9 +1964,30 @@ function draw() {
   ctx.globalAlpha = scene || app.mode === 'scenery' ? 1 : 0.25;
   const level = new Map();
   for (const p of sceneryIssues(t)) if (level.get(p.i) !== 'error') level.set(p.i, p.level);
-  (t.scenery ?? []).forEach((it, i) => drawItem(it, app.mode === 'scenery' && i === app.selItem, level.get(i) ?? false));
+  const selected = new Set(app.mode === 'scenery' ? selItems() : []);
+  (t.scenery ?? []).forEach((it, i) => drawItem(it, selected.has(i), level.get(i) ?? false, i));
+  if (drag?.kind === 'box' && drag.started) {
+    const a = toScreen(drag.from.x, drag.from.y);
+    const b = toScreen(drag.to.x, drag.to.y);
+    ctx.save(); ctx.strokeStyle = '#ff8a1e'; ctx.setLineDash([6, 4]); ctx.lineWidth = 1.5; ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y); ctx.restore();
+  }
   const ghostItem = scene ? null : ghostItemForView(t);
   if (ghostItem) { ctx.globalAlpha = 0.5; drawItem(ghostItem, true); }
+  // The item the one placed or dragged is snapped onto (Snap object): a white dashed outline.
+  const snapped = app.mode === 'scenery' && (ghostItem || drag?.kind === 'item') ? t.scenery?.[app.snapTo] : null;
+  if (snapped) {
+    const { w, h, a } = itemBox(snapped);
+    const s = toScreen(snapped.x, snapped.y);
+    ctx.save();
+    ctx.globalAlpha = 1;
+    ctx.translate(s.x, s.y);
+    ctx.rotate(a);
+    ctx.setLineDash([4, 3]);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(-(w * view.k) / 2 - 3, -(h * view.k) / 2 - 3, w * view.k + 6, h * view.k + 6);
+    ctx.restore();
+  }
   ctx.globalAlpha = 1;
   if (app.mode === 'scenery') drawRoute(t);
 
@@ -1778,6 +2002,20 @@ function draw() {
     // Start straight points: blue squares, the gate end labelled, the last one white on the lap
     // (red when it has come off the lap, so the join is broken).
     const joinOff = t.path.length >= 2 && (startGeom(t)?.off ?? 0) > 0.3;
+    // The first corner: the start straight's end, from its second-last point to the join, in the corners' blue.
+    const fcl = firstCornerLeg(t);
+    if (fcl && !app.final) {
+      const sgm = startGeom(t);
+      const a = startPointAt(sgm, fcl.from);
+      const bq = sgm.pts[sgm.pts.length - 1];
+      const sa = toScreen(a.x, a.y);
+      const sb = toScreen(bq.x, bq.y);
+      ctx.strokeStyle = '#3a8fd8b0';
+      ctx.lineWidth = Math.max(4, view.width * 0.5);
+      ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(sa.x, sa.y); ctx.lineTo(sb.x, sb.y); ctx.stroke();
+      if (app.mode === 'layout') label('First corner', (sa.x + sb.x) / 2, (sa.y + sb.y) / 2 - 12);
+    }
     (t.start?.path ?? []).forEach(([x, y], i, all) => {
       const s = toScreen(x, y);
       const sel = i === app.selStart;
@@ -1949,6 +2187,7 @@ function setMode(mode) {
 function refresh() {
   if (track() && !shown(track())) { app.cur = firstShown(); deselect(); }
   const t = track();
+  markSceneryPal();
   const has = !!app.data;
   for (const id of ['#btnNew', '#btnImport']) $(id).disabled = !has;
   for (const id of ['#btnDup', '#btnDel', '#btnExport', '#btnAddSec', '#btnReverse', '#btnFit', '#btnPlay']) $(id).disabled = !t;
@@ -2102,8 +2341,9 @@ function setKeyNear(o, key, value, anchor, before = false) {
 }
 
 function sectionTypes() {
-  const types = Object.keys(app.sectionDefs);
-  for (const s of track()?.sections ?? []) if (!types.includes(s.type) && s.type !== 'gap') types.push(s.type);
+  // The first corner is not a section to pick: it is the start straight's end (firstCornerLeg).
+  const types = Object.keys(app.sectionDefs).filter((ty) => ty !== 'first_corner');
+  for (const s of track()?.sections ?? []) if (!types.includes(s.type) && s.type !== 'gap' && s.type !== 'first_corner') types.push(s.type);
   return types;
 }
 
@@ -2117,18 +2357,17 @@ function renderSections() {
   const shapes = sectionShapes(t);
   const feats = sectionFeats(t);
   const bounds = sectionBounds(t);
-  const fcSpan = firstCornerSpan(t);
+  const marks = sectionMarks(t);
   $('#secHint').textContent = t.features
-    ? 'Sections run in order from the finish line: the route itself rides as plain track, and the corners, jumps and the rest are the features placed on it (edit those here or on the route), each ridden as its type whatever shape it is drawn. The first corner is the start straight\'s end: from where it joins to the route\'s next point. Pass is the chance of a pass being on in that section (0 to 1).'
-    : 'Sections run in order from the finish line, each ridden as its type whatever shape it is drawn. Drag the white diamonds on the track to move metres between neighbouring sections. Pass is the chance of a pass being on in that section (0 to 1). Use features keeps the corners, jumps and special sections as features on the route, with their types, and lets the route between them ride as plain track.';
+    ? 'Sections run in order from the finish line: the route itself rides as plain track, and the corners, jumps and the rest are the features placed on it (edit those here or on the route), each ridden as its type whatever shape it is drawn. The first corner is not a section: it is the start straight\'s end, between its last two points. Pass is the chance of a pass being on in that section (0 to 1).'
+    : 'Sections run in order from the finish line, each ridden as its type whatever shape it is drawn. Drag the white diamonds on the track to move metres between neighbouring sections. Pass is the chance of a pass being on in that section (0 to 1). The first corner is not a section: it is the start straight\'s end, between its last two points. Use features keeps the corners, jumps and special sections as features on the route, with their types, and lets the route between them ride as plain track.';
   t.sections.forEach((s, i) => {
     const row = document.createElement('div');
     const fk = feats[i];
     const f = fk >= 0 ? t.features[fk] : null;
     const base = !!t.features && !f;
-    const fc = base && fcSpan && inSpan(fcSpan, [bounds[i], bounds[i + 1]]);
-    row.className = `sec${i === app.selSec ? ' active' : ''}${base ? ' base' : ''}`;
-    row.title = `${base ? (fc ? 'The route itself; rides as the first corner (the start straight\'s end). ' : 'The route itself, plain track. ') : f ? `Feature ${fk + 1}. ` : ''}Drawn as ${shapeText(shapes[i])}.`;
+    row.className = `sec${i === app.selSec ? ' active' : ''}${base ? ' base' : ''}${marks.get(i) ? ` ${marks.get(i).level}` : ''}`;
+    row.title = `${base ? 'The route itself, plain track. ' : f ? `Feature ${fk + 1}. ` : ''}Drawn as ${shapeText(shapes[i])}.${marks.get(i) ? ` ${marks.get(i).text}` : ''}`;
     const sw = document.createElement('div');
     sw.className = 'sw';
     sw.style.background = colorOf(s.type);
@@ -2142,8 +2381,9 @@ function renderSections() {
       o.textContent = app.sectionDefs[ty]?.name ?? `${ty} (unknown)`;
       sel.appendChild(o);
     }
-    if (f && !featureTypes().includes(s.type)) { const o = document.createElement('option'); o.value = s.type; o.textContent = app.sectionDefs[s.type]?.name ?? `${s.type} (unknown)`; sel.appendChild(o); }
-    sel.value = s.type;
+    if (f && !featureTypes().includes(s.type) && s.type !== 'first_corner') { const o = document.createElement('option'); o.value = s.type; o.textContent = app.sectionDefs[s.type]?.name ?? `${s.type} (unknown)`; sel.appendChild(o); }
+    // A first-corner section from before (the first corner is the start straight's end now) rides, and shows, as a flat corner.
+    sel.value = s.type === 'first_corner' ? 'flat_corner' : s.type;
     const def = app.sectionDefs[s.type];
     sel.title = def ? `Difficulty ${def.diff}. Skills: ${Object.keys(def.skills).join(', ')}. Damages: ${def.damage}.` : '';
     sel.disabled = base;
@@ -2171,6 +2411,19 @@ function renderSections() {
     box.appendChild(row);
   });
 }
+/** The sections the checks name, by index: red (off) for an error, amber (warn) for a warning, with the check's words. */
+function sectionMarks(t) {
+  const out = new Map();
+  const { bad, warn, refs } = checkTrack(t, app.data.tracks);
+  for (const [text, ref0] of refs) {
+    const ref = ref0?.feat !== undefined && ref0.sec === undefined ? { ...ref0, sec: sectionOfFeature(t, ref0.feat) } : ref0;
+    if (ref?.sec === undefined || ref.sec < 0) continue;
+    const level = bad.includes(text) ? 'off' : warn.includes(text) ? 'warn' : null;
+    if (!level || (out.get(ref.sec)?.level === 'off')) continue;
+    out.set(ref.sec, { level, text });
+  }
+  return out;
+}
 /** Re-highlights the selected section without rebuilding the inputs being typed in. */
 function refreshLight() {
   [...$('#sections').children].forEach((r, i) => r.classList.toggle('active', i === app.selSec));
@@ -2195,15 +2448,10 @@ function renderSectionDetail() {
   if (t.features) {
     // A stretch of the route itself: nothing to set on it.
     const d0 = sectionShapes(t)[app.selSec];
-    const b0 = sectionBounds(t);
-    const fcs = firstCornerSpan(t);
-    const fc = fcs && inSpan(fcs, [b0[app.selSec], b0[app.selSec + 1]]);
     head.querySelector('.hint').textContent = `the route itself, drawn as ${shapeText(d0)}`;
     const note = document.createElement('div');
     note.className = 'hint';
-    note.textContent = fc
-      ? `This stretch is the first corner: from where the start straight joins to the route's next point, the race rides it with the first corner's own difficulty, skills and incidents. To give it a surface of its own (a berm, ruts), place a feature on it, which rides as that feature.`
-      : 'To give this stretch a racing line, a corner type, a jump or another surface, place a feature on it.';
+    note.textContent = 'To give this stretch a racing line, a corner type, a jump or another surface, place a feature on it.';
     box.append(head, note);
     return;
   }
@@ -2285,6 +2533,56 @@ function renderFeatureDetail(t, k) {
     inp.addEventListener('change', () => editFeature(k, (x) => { const v = Number(inp.value); if (inp.value !== '' && v >= 0) x.height = v; else delete x.height; }));
     field('Height', inp);
   }
+  if (DECKS[f.type]) {
+    const tun = document.createElement('select');
+    fillSelect(tun, [{ id: '', name: 'None' }, { id: 'track', name: 'The track passes under it' }, { id: 'walk', name: 'A pedestrian tunnel' }], f.tunnel ?? '');
+    tun.title = `A tunnel through the deck (the flat top in the middle of it): with the track under it, draw the route across this feature's deck and riders go through the tunnel while others jump over; a pedestrian tunnel is a walkway through. Both sides of the deck become concrete walls with the opening in them. The track under it needs the jump ${TUNNEL_MIN_HEIGHT} m high.`;
+    tun.addEventListener('change', () => editFeature(k, (x) => {
+      if (tun.value) x.tunnel = tun.value; else delete x.tunnel;
+      if (tun.value === 'track' && (x.height ?? DEFAULT_HEIGHTS_ED[x.type] ?? 0) < TUNNEL_MIN_HEIGHT) x.height = TUNNEL_MIN_HEIGHT;
+      // The deck has to be long enough for the lower track to pass through: the feature grows about its middle.
+      if (tun.value === 'track' && x.len < TUNNEL_MIN_LEN) { x.at = Math.max(0, x.at - (TUNNEL_MIN_LEN - x.len) / 2); x.len = TUNNEL_MIN_LEN; }
+    }));
+    field('Tunnel', tun);
+    const tn = tunnelsOf(t).find((x) => x.k === k);
+    if (tn) {
+      const note = document.createElement('div');
+      note.className = tn.walk || tn.under !== null ? 'hint' : 'warn';
+      note.textContent = tn.walk ? 'A walkway through the deck, with a concrete portal each side.' : tn.under !== null ? `The lap crosses under the deck at ${tn.at.x.toFixed(0)}, ${tn.at.y.toFixed(0)}: riders there ride through the tunnel.` : 'No other part of the lap passes under the deck yet: drag the feature along the route, or the route across its deck.';
+      box.appendChild(note);
+    }
+  }
+  if (ARCH_AT[f.type] && !t.open) {
+    const fin = document.createElement('input');
+    fin.type = 'checkbox';
+    fin.checked = !!f.finish;
+    fin.title = 'Make this jump the finish line: the lap starts and ends at its foot and the finish arch is built over it (a scenery finish arch is taken away), its posts on the banks beside the track, high enough that a rider still in the air goes under the banner.';
+    fin.addEventListener('change', () => {
+      if (fin.checked) {
+        commit((t) => {
+          const total = lapGeom(t).total;
+          setFinish(t, (t.features[k].at % total) / total);
+          for (const o of t.features) delete o.finish;
+          // The line is the jump's foot exactly: no sliver of route before it from rounding.
+          if (t.features[k].at < 0.5 || t.features[k].at > lapGeom(t).total - 0.5) t.features[k].at = 0;
+          t.features[k].finish = true;
+          // The jump's built-in arch replaces a scenery finish arch.
+          if (t.scenery) t.scenery = t.scenery.filter((it) => it.type !== 'finish_arch');
+          app.selPt = 0;
+          app.selFeat = k;
+          app.selSec = sectionOfFeature(t, k);
+        });
+        status('This jump is the finish line: every lap starts and ends at its foot, and the finish arch stands over it.', 'ok');
+      } else editFeature(k, (x) => { delete x.finish; });
+    });
+    field('Finish line', fin);
+    if (f.finish) {
+      const note = document.createElement('div');
+      note.className = 'hint';
+      note.textContent = 'The finish arch stands on the take-off lip of the front hump; the lap starts and ends at the foot of the jump.';
+      box.appendChild(note);
+    }
+  }
   const row = document.createElement('div');
   row.className = 'row';
   row.style.marginTop = '6px';
@@ -2359,9 +2657,19 @@ function swatch(drawFn) {
 function buildPalettes() {
   const mk = (box, items, cur, drawFn, pick) => {
     box.innerHTML = '';
+    let group;
     for (const it of items) {
+      // A heading wherever the group changes (the ground's corner sets and mixed tiles).
+      if ((it.group ?? '') !== (group ?? '')) {
+        group = it.group;
+        const h = document.createElement('div');
+        h.className = 'palgroup';
+        h.textContent = group ?? '';
+        box.appendChild(h);
+      }
       const b = document.createElement('button');
       b.className = it.id === cur ? 'sel' : '';
+      b.dataset.id = it.id;
       b.title = it.name;
       b.append(swatch((g) => drawFn(g, it)), it.name);
       b.addEventListener('click', () => { pick(it.id); buildPalettes(); });
@@ -2382,6 +2690,7 @@ function buildPalettes() {
     if (it.id === OFFICIAL) { drawOfficialIcon(g); return; }
     if (it.id === CHEER) { drawCheerIcon(g); return; }
     if (VEHICLES[it.id] && isPaddock(it)) { drawVehicleIcon(g, it); return; }
+    if (TRACKSIDE[it.id] && isPaddock(it)) { drawTracksideIcon(g, it); return; }
     const img = artImage(it.art);
     g.imageSmoothingEnabled = false;
     if (img) { const r = Math.min(40 / img.width, 40 / img.height); g.drawImage(img, 22 - (img.width * r) / 2, 22 - (img.height * r) / 2, img.width * r, img.height * r); return; }
@@ -2429,11 +2738,40 @@ function renderPatches() {
     box.appendChild(row);
   });
 }
+/** How long a patch a click adds, in metres: about a thirtieth of the lap, 5 to 25. */
+function patchLength(t) { return Math.min(25, Math.max(5, Math.round(lapLength(t) / 30))); }
+/**
+ * The patch the next click would add (Surface): the stretch of lap under the pointer, as fractions
+ * of the lap (ends, split where it crosses the finish line) and as points along it for the race
+ * view, in the chosen surface's colour. Nothing off the track, over a patch (a click selects
+ * it), while dragging, or with no surface picked.
+ */
+function surfaceGhost(t) {
+  if (!app.hoverPt || drag || !app.surfaceBrush || t.path.length < 2) return null;
+  const pr = onTrack(t, app.hoverPt.x, app.hoverPt.y);
+  if (!pr) return null;
+  const lap = lapLength(t);
+  if (!lap) return null;
+  const metres = pr.f * lap;
+  if (patchAt(t, metres) >= 0) return null;
+  const len = patchLength(t);
+  const at = Math.max(0, Math.round(metres - len / 2)) % lap;
+  const a = at / lap;
+  const b = (at + len) / lap;
+  const ends = b <= 1 ? [[a, b]] : [[a, 1], [0, b - 1]];
+  const g = lapGeom(t);
+  const pts = [];
+  for (const [x, y] of ends) {
+    const n = Math.max(2, Math.ceil(((y - x) * g.total) / 0.5));
+    for (let k = 0; k <= n; k++) { const p = pointAt(g, x + ((y - x) * k) / n); pts.push([p.x, p.y]); }
+  }
+  return { ends, pts, color: surfaceDef(app.surfaceBrush)?.color ?? '#888888', at, len };
+}
 function addPatch(metres) {
   if (!app.surfaceBrush) { status('Pick a surface first.', 'err'); return; }
   commit((t) => {
     const lap = lapLength(t);
-    const len = Math.min(25, Math.max(5, Math.round(lap / 30)));
+    const len = patchLength(t);
     if (!t.patches) setKeyNear(t, 'patches', [], 'sections');
     t.patches.push({ surface: app.surfaceBrush, at: Math.max(0, Math.round(metres - len / 2)) % lap, length: len });
     app.selPatch = t.patches.length - 1;
@@ -2825,6 +3163,12 @@ function renderSceneryDetail() {
     return;
   }
   const def = sceneryDef(it.type);
+  if (selItems().length > 1) {
+    const many = document.createElement('div');
+    many.className = 'hint';
+    many.textContent = `${selItems().length} items selected: they drag, nudge, turn, copy and delete together. This panel is the first one's.`;
+    box.appendChild(many);
+  }
   const head = document.createElement('div');
   head.innerHTML = '<b></b>';
   head.querySelector('b').textContent = def?.name ?? it.type;
@@ -2849,12 +3193,25 @@ function renderSceneryDetail() {
     field('Colour', col);
   }
   const num = (v, ph, step) => { const i = document.createElement('input'); i.type = 'number'; i.step = String(step); i.min = '0'; i.value = v === undefined ? '' : String(v); i.placeholder = ph; return i; };
-  const w = field('Width', num(it.w, String(def?.w ?? ''), 0.5));
-  w.addEventListener('change', () => editItem((x) => { const v = Number(w.value); if (w.value === '' || v === def?.w) delete x.w; else if (v > 0) x.w = round1(v); }));
-  const h = field('Depth', num(it.h, String(def?.h ?? ''), 0.5));
-  h.addEventListener('change', () => editItem((x) => { const v = Number(h.value); if (h.value === '' || v === def?.h) delete x.h; else if (v > 0) x.h = round1(v); }));
-  const rot = field('Turn', num(it.rot ?? 0, '0', 15));
-  rot.addEventListener('change', () => editItem((x) => { const v = ((Math.round(Number(rot.value)) % 360) + 360) % 360; if (v) x.rot = v; else delete x.rot; }));
+  if (it.type === 'finish_arch') {
+    const note = document.createElement('div');
+    note.className = 'hint';
+    note.textContent = `Spans the track's width (${archSpan(t.width ?? DEFAULT_WIDTH).toFixed(1)} grid units for this track), its posts just outside the lips, and belongs on the finish line, square to the track.`;
+    box.appendChild(note);
+    const snap = document.createElement('button');
+    snap.textContent = 'Put on the finish line';
+    snap.title = 'Moves the arch onto the finish line (the lap\'s first point) and turns it square to the track there. Placing the finish line does this too.';
+    snap.disabled = t.finish === false || t.path.length < 2 || archOnLine(t, it);
+    snap.addEventListener('click', () => { commit((t) => snapFinishArches(t)); status('The finish arch is on the finish line, square to the track.', 'ok'); });
+    box.appendChild(snap);
+  } else {
+    const w = field('Width', num(it.w, String(def?.w ?? ''), 0.5));
+    w.addEventListener('change', () => editItem((x) => { const v = Number(w.value); if (w.value === '' || v === def?.w) delete x.w; else if (v > 0) x.w = round1(v); }));
+    const h = field('Depth', num(it.h, String(def?.h ?? ''), 0.5));
+    h.addEventListener('change', () => editItem((x) => { const v = Number(h.value); if (h.value === '' || v === def?.h) delete x.h; else if (v > 0) x.h = round1(v); }));
+  }
+  const rot = field('Turn', num(it.rot, facesTrack(it.type) ? 'faces the track' : '0', 15));
+  rot.addEventListener('change', () => editItem((x) => { if (rot.value === '') delete x.rot; else x.rot = ((Math.round(Number(rot.value)) % 360) + 360) % 360; }));
   const btns = document.createElement('div');
   btns.className = 'row';
   btns.style.marginTop = '4px';
@@ -2925,7 +3282,7 @@ function renderCheerDetail(box, t, it, field, editItem) {
     const b = document.createElement('button'); b.textContent = txt; b.addEventListener('click', fn); btns2.appendChild(b);
   }
   box.appendChild(btns2);
-  const probs = [...sceneryIssues(t).filter((p) => p.i === i), ...cheerProblems(t).filter((p) => p.i === i)];
+  const probs = [...sceneryIssues(t).filter((p) => p.i === i), ...cheerProblems(t).filter((p) => p.i === i), ...marshalProblems(t).filter((p) => p.i === i)];
   if (probs.length) {
     const msg = document.createElement('div');
     msg.className = 'hint';
@@ -2950,36 +3307,111 @@ function placeItem(x, y, e) {
   }
   commit((t) => {
     if (!t.scenery) setKeyNear(t, 'scenery', [], 'ground' in t ? 'ground' : 'patches' in t ? 'patches' : 'sections');
-    const it = { type: def.id, x: clamp(snapHalf(x, e), -SCENE_OUT, GRID_W + SCENE_OUT), y: clamp(snapHalf(y, e), -SCENE_OUT, GRID_H + SCENE_OUT) };
-    if (app.placeRot) it.rot = app.placeRot;
+    const it = itemToPlace(t, def, x, y, e);
     t.scenery.push(it);
     app.selItem = t.scenery.length - 1;
   });
 }
 function turnItem(d) {
-  commit((t) => {
-    const it = t.scenery?.[app.selItem];
-    if (!it) return;
-    const v = ((((it.rot ?? 0) + d) % 360) + 360) % 360;
-    if (v) it.rot = v; else delete it.rot;
-  });
+  commit((t) => { for (const i of selItems()) turnOne(t, i, d); });
 }
+function turnOne(t, i, d) {
+  {
+    const it = t.scenery?.[i];
+    if (!it) return;
+    // Joined onto another item (Snap object), it swings round the join so it stays joined.
+    const p = joinedEnd(t, i);
+    if (p) {
+      const b = (d * Math.PI) / 180;
+      const dx = it.x - p.x;
+      const dy = it.y - p.y;
+      it.x = clamp(round2(p.x + dx * Math.cos(b) - dy * Math.sin(b)), -SCENE_OUT, GRID_W + SCENE_OUT);
+      it.y = clamp(round2(p.y + dx * Math.sin(b) + dy * Math.cos(b)), -SCENE_OUT, GRID_H + SCENE_OUT);
+    }
+    // Turned by hand, even back to 0 (rot left out means it faces the track on its own).
+    it.rot = ((((it.rot ?? 0) + d) % 360) + 360) % 360;
+  }
+}
+/**
+ * Ctrl+D: a copy of the selected item. With Snap object on it stands end to end with the item,
+ * on along its length, so pressing again and again runs a fence or a wall on; otherwise it is
+ * set two grid units across from it.
+ */
 function duplicateItem() {
+  const sel = selItems();
+  const one = sel.length === 1;
   commit((t) => {
-    const it = t.scenery?.[app.selItem];
-    if (!it || it.type === OFFICIAL) return;
-    t.scenery.push({ ...it, x: Math.min(GRID_W, it.x + 2), y: Math.min(GRID_H, it.y + 2) });
-    app.selItem = t.scenery.length - 1;
+    const copies = [];
+    for (const i of sel) {
+      const it = t.scenery?.[i];
+      if (!it || it.type === OFFICIAL) continue;
+      const copy = clone(it);
+      if (one && $('#snapObj').checked) {
+        const { w, a } = itemBox(it);
+        copy.x = round1(it.x + w * Math.cos(a));
+        copy.y = round1(it.y + w * Math.sin(a));
+      } else {
+        copy.x = it.x + 2;
+        copy.y = it.y + 2;
+      }
+      copy.x = clamp(copy.x, -SCENE_OUT, GRID_W + SCENE_OUT);
+      copy.y = clamp(copy.y, -SCENE_OUT, GRID_H + SCENE_OUT);
+      t.scenery.push(copy);
+      copies.push(t.scenery.length - 1);
+    }
+    if (copies.length) { app.selItem = copies[0]; app.selMore = copies.slice(1); }
   });
 }
 function deleteItem() {
   app.routeDraw = null;
+  const sel = selItems().filter((i) => track()?.scenery?.[i]).sort((a, b) => b - a);
+  if (!sel.length) return;
   commit((t) => {
-    if (!t.scenery?.[app.selItem]) return;
-    t.scenery.splice(app.selItem, 1);
+    for (const i of sel) t.scenery.splice(i, 1);
     if (!t.scenery.length) delete t.scenery;
     app.selItem = -1;
+    app.selMore = [];
   });
+}
+/** Ctrl+C: the selected items go on the clipboard (the start official stays where they are). */
+function copyItems() {
+  const t = track();
+  const items = selItems().map((i) => t?.scenery?.[i]).filter((it) => it && it.type !== OFFICIAL).map(clone);
+  if (!items.length) return false;
+  app.clipboard = items;
+  status(`Copied ${items.length === 1 ? 'the item' : `${items.length} items`}: Ctrl+V pastes at the pointer.`, 'ok');
+  return true;
+}
+/**
+ * Ctrl+V: the copied items, laid out as they were, with their middle at the pointer (over the map or
+ * the race view), or two grid units across from where they were copied; the pasted ones are selected.
+ */
+function pasteItems() {
+  const items = app.clipboard;
+  if (!items?.length) { status('Nothing copied yet: select items and press Ctrl+C.', 'err'); return; }
+  const cx = items.reduce((a, it) => a + it.x, 0) / items.length;
+  const cy = items.reduce((a, it) => a + it.y, 0) / items.length;
+  const to = app.hoverPt ? { x: app.hoverPt.x, y: app.hoverPt.y } : { x: cx + 2, y: cy + 2 };
+  commit((t) => {
+    if (!t.scenery) setKeyNear(t, 'scenery', [], 'ground' in t ? 'ground' : 'patches' in t ? 'patches' : 'sections');
+    const added = [];
+    for (const it of items) {
+      const copy = clone(it);
+      copy.x = clamp(round1(to.x + it.x - cx), -SCENE_OUT, GRID_W + SCENE_OUT);
+      copy.y = clamp(round1(to.y + it.y - cy), -SCENE_OUT, GRID_H + SCENE_OUT);
+      t.scenery.push(copy);
+      added.push(t.scenery.length - 1);
+    }
+    app.selItem = added[0];
+    app.selMore = added.slice(1);
+  });
+}
+function selectAllItems() {
+  const n = (track()?.scenery ?? []).length;
+  if (!n) return;
+  app.selItem = 0;
+  app.selMore = Array.from({ length: n - 1 }, (_, k) => k + 1);
+  refresh();
 }
 
 // ---- stats, legend ----
@@ -3055,7 +3487,7 @@ function checkTrack(t, all, strict = false) {
       else if (t.path.length >= 2) for (const m of startProblems(t)) warn.push(`Race start: ${m}`);
       if (t.finish === false) warn.push('No finish line yet: once the route is closed, pick Finish line under Start and finish and put it on the route where every lap starts and ends.');
       for (const m of officialNotes(t)) { warn.push(m.text); if (m.i >= 0) refs.set(m.text, { item: m.i }); }
-      for (const p of cheerProblems(t)) { warn.push(p.message); refs.set(p.message, { item: p.i }); }
+      for (const p of [...cheerProblems(t), ...marshalProblems(t)]) { warn.push(p.message); refs.set(p.message, { item: p.i }); }
       for (const p of elevationIssues(t)) warn.push(`Height: ${p.message} (${p.level === 'error' ? 'red' : 'yellow'} ring in Height mode).`);
       return { bad: [], warn, refs };
     }
@@ -3139,7 +3571,22 @@ function checkTrack(t, all, strict = false) {
     }
   }
   for (const m of officialNotes(t)) { warn.push(m.text); if (m.i >= 0) refs.set(m.text, { item: m.i }); }
-  for (const p of cheerProblems(t)) { (p.level === 'error' ? bad : warn).push(p.message); refs.set(p.message, { item: p.i }); }
+  for (const p of [...cheerProblems(t), ...marshalProblems(t)]) { (p.level === 'error' ? bad : warn).push(p.message); refs.set(p.message, { item: p.i }); }
+  const finishJump = t.sections.some((sec) => sec.finish);
+  if (t.finish !== false && t.path.length >= 2) (t.scenery ?? []).forEach((it, i) => {
+    if (it.type !== 'finish_arch') return;
+    if (finishJump) {
+      const text = `Scenery item ${i + 1}: a finish arch at ${it.x}, ${it.y}, but the finish line is a jump with its own arch built in; delete this one (click here to find it).`;
+      warn.push(text);
+      refs.set(text, { item: i });
+      return;
+    }
+    if (archOnLine(t, it)) return;
+    const at = archPlace(t);
+    const text = `Scenery item ${i + 1}: the finish arch at ${it.x}, ${it.y} is not on the finish line at ${at.x}, ${at.y}, square to the track. Select it and click Put on the finish line (click here to find it).`;
+    warn.push(text);
+    refs.set(text, { item: i });
+  });
   if (!t.practiceOnly && !t.gates?.length) warn.push('No gate curve: every gate starts the same.');
   // Two segments that cross make a figure of eight on screen, which the race screen can't show as a bridge.
   const g = lapGeom(t);
@@ -3148,27 +3595,67 @@ function checkTrack(t, all, strict = false) {
     const o = (p, q, r) => Math.sign((q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x));
     return o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0;
   };
+  const tunnels = tunnelsOf(t);
+  // A crossing under a tunnel's deck is the tunnel; any other is the two stretches drawn through each other.
+  const underTunnel = (i) => tunnels.some((tn) => tn.under !== null && Math.abs(tn.under - (g.cum[i] + g.cum[i + 1]) / 2 / g.total) < (g.cum[i + 1] - g.cum[i]) / 2 / g.total + 1e-9);
   let crossings = 0;
-  for (let i = 0; i < n; i++) for (let j = i + 2; j < n; j++) if (!(i === 0 && j === n - 1) && cross(g.pts[i], g.pts[i + 1], g.pts[j], g.pts[j + 1])) crossings++;
-  if (crossings) warn.push(`Geometry: the drawing crosses itself ${crossings === 1 ? 'once' : `${crossings} times`}. That's fine for a crossover, but riders will pass through each other there.`);
-  for (const c of tightCorners(t)) warn.push(`Geometry: the corner at ${c.x.toFixed(0)}, ${c.y.toFixed(0)} is tighter than the track's edge can follow (about ${(c.r * PIECE_MPU).toFixed(1)} m round against a half-width of ${((t.width ?? DEFAULT_WIDTH) / 2 * PIECE_MPU).toFixed(1)} m), so the race view mitres its inside edge to a point there. Select the point and Round corner, or widen the bend.`);
+  for (let i = 0; i < n; i++) for (let j = i + 2; j < n; j++) if (!(i === 0 && j === n - 1) && cross(g.pts[i], g.pts[i + 1], g.pts[j], g.pts[j + 1]) && !underTunnel(i) && !underTunnel(j)) crossings++;
+  if (crossings) warn.push(`Geometry: the drawing crosses itself ${crossings === 1 ? 'once' : `${crossings} times`} with no tunnel there. That's fine for a crossover, but riders will pass through each other there; a tabletop, step-up or step-on with Tunnel set carries the track over the crossing.`);
+  for (const tn of tunnels) {
+    const sec = t.sections[tn.si];
+    const name = `${tn.k >= 0 ? `Feature ${tn.k + 1}` : `Section ${tn.si + 1}`} (${app.sectionDefs[sec.type]?.name ?? sec.type})`;
+    if (!tn.walk && tn.under === null) {
+      const text = `${name} has Tunnel set to the track, but no other part of the lap passes under its deck (the flat top in the middle of it). Move it along the route until the deck sits over the crossing, or set Tunnel to none (click here to find it).`;
+      warn.push(text);
+      refs.set(text, tn.k >= 0 ? { feat: tn.k } : { sec: tn.si });
+    }
+    if (!tn.walk && tn.under !== null && tn.short) {
+      const text = `${name} carries the track over a tunnel but its deck is too short to take the lower track through: make it at least ${TUNNEL_MIN_LEN} grid units long (longer where the track crosses at a slant), by dragging its ends or in the sections list (click here to find it).`;
+      warn.push(text);
+      refs.set(text, tn.k >= 0 ? { feat: tn.k } : { sec: tn.si });
+    }
+    const h = sec.height ?? DEFAULT_HEIGHTS_ED[sec.type] ?? 0;
+    if (!tn.walk && tn.under !== null && h < TUNNEL_MIN_HEIGHT - 1e-9) {
+      const text = `${name} carries the track over a tunnel but is only ${h} m high: a bike needs ${TUNNEL_MIN_HEIGHT} m under the deck. Set its Height (click here to find it).`;
+      warn.push(text);
+      refs.set(text, tn.k >= 0 ? { feat: tn.k } : { sec: tn.si });
+    }
+  }
+  for (const c of tightCorners(t)) {
+    const si = sectionAt(t, c.f);
+    const sec = t.sections[si];
+    const L = lpts(t);
+    let pt = -1;
+    L.forEach(([x, y], k) => { if (pt < 0 || Math.hypot(x - c.x, y - c.y) < Math.hypot(L[pt][0] - c.x, L[pt][1] - c.y)) pt = k; });
+    const text = `Geometry: the corner at ${c.x.toFixed(0)}, ${c.y.toFixed(0)}${sec ? ` (section ${si + 1}, ${app.sectionDefs[sec.type]?.name ?? sec.type})` : ''} turns tighter than the track can follow, about ${(c.r * PIECE_MPU).toFixed(1)} m round on a track ${((t.width ?? DEFAULT_WIDTH) * PIECE_MPU).toFixed(1)} m wide, so the inside of the racing surface folds to a point and riders on the inside line bunch there. Round the corner (select the point and Round corner), move the point out, or narrow the track (click here to find it).`;
+    warn.push(text);
+    refs.set(text, { pt, sec: si });
+  }
   // What is in place, so the groups read as a whole.
   const good = [];
   if (t.path.length >= 3 && !t.open) good.push(`Circuit: a closed route of ${lpts(t).length} points and ${t.sections.length} section${t.sections.length === 1 ? '' : 's'}, ${lap} m${t.features ? `, with ${t.features.length} feature${t.features.length === 1 ? '' : 's'}` : ''}.`);
   if (t.start) {
     const sg = startGeom(t);
-    const fc = firstCornerSpan(t);
-    if (sg) good.push(`Race start: a start straight ${Math.round(sg.total * PIECE_MPU)} m from the gate, joining ${Math.round(sg.join * lap)} m into the lap.${fc ? ` The first corner runs ${fc.metres} m from the join to point ${fc.point}: the race rides it with the first corner's rules, and lap 1's first-corner incident happens there.` : ''}`);
+    const fc = firstCornerLeg(t);
+    if (sg) good.push(`Race start: a start straight ${Math.round(sg.total * PIECE_MPU)} m from the gate, joining ${Math.round(sg.join * lap)} m into the lap.${fc ? ` The first corner is its end, ${fc.metres} m between ${fc.points}: the race rides it with the first corner's rules, and lap 1's first-corner incident happens there.` : ''}`);
   }
   if (t.finish !== false && t.path.length) good.push(`Finish line: at ${t.path[0][0]}, ${t.path[0][1]}, the lap's first point; every lap starts and ends there.`);
+  t.sections.forEach((sec, si) => { if (sec.finish) good.push(`Finish jump: section ${si + 1} (${app.sectionDefs[sec.type]?.name?.toLowerCase() ?? sec.type}) is the finish line, with the finish arch built over it.`); });
+  for (const tn of tunnels) {
+    if (tn.walk) good.push(`Tunnel: a pedestrian tunnel through ${tn.k >= 0 ? `feature ${tn.k + 1}` : `section ${tn.si + 1}`}'s deck.`);
+    else if (tn.under !== null) good.push(`Tunnel: ${tn.k >= 0 ? `feature ${tn.k + 1}` : `section ${tn.si + 1}`}'s deck carries the track over the lap at ${tn.at.x.toFixed(0)}, ${tn.at.y.toFixed(0)}; riders go through the tunnel under it.`);
+  }
   return { bad, warn, refs, good };
 }
 /**
- * Corners drawn tighter than half the track's width: the lap's turn rate (as the game measures
- * it, over a grid unit each way of the smoothed heading) against the track's half-width. Inside
- * such a corner the race view's surface is mitred to a point, so the inside edge is pinched there.
+ * Corners drawn tighter than the racing surface can follow: the lap's turn rate (as the game
+ * measures it, over a grid unit each way of the smoothed heading) against the inside line's
+ * distance from the centre (0.9 of the half-width, as far in as riders go). Inside such a corner
+ * the racing surface folds and the race view mitres it to a point, so the inside line is pinched
+ * there. The lip and bank outside the surface fold sooner, and that is drawn cleanly, so it is
+ * not reported (Boss, 28 Oct 2026: the yellow warnings on corners that looked fine).
  */
-const TIGHT_LANE = 1.22;
+const TIGHT_LANE = 0.9;
 /** A boundary crossing worded for the checks: which stretch of the route, where, and what to do. */
 function boundaryText(t, c, drafting) {
   const n = lpts(t).length;
@@ -3195,7 +3682,7 @@ function tightCorners(t) {
     else if (tight && k > run.k) run = { k, f };
     else if (!tight && run) {
       const p = pointAt(g, run.f);
-      out.push({ x: p.x, y: p.y, r: 1 / run.k });
+      out.push({ x: p.x, y: p.y, r: 1 / run.k, f: run.f });
       run = null;
     }
   }
@@ -3245,10 +3732,14 @@ function findRef(ref) {
     lookAt(p.x, p.y);
   } else if (ref.pt !== undefined && lpts(t)[ref.pt]) {
     app.selPt = ref.pt;
-    app.selFeat = -1;
-    app.selSec = -1;
+    app.selSec = ref.sec ?? -1;
+    app.selFeat = ref.sec !== undefined ? sectionFeats(t)[ref.sec] ?? -1 : -1;
     const [x, y] = lpts(t)[ref.pt];
     lookAt(x, y);
+  } else if (ref.sec !== undefined && t.sections[ref.sec]) {
+    app.selSec = ref.sec;
+    app.selFeat = sectionFeats(t)[ref.sec] ?? -1;
+    app.selPt = -1;
   }
   refresh();
 }
@@ -3360,6 +3851,7 @@ function vehicleLook(it, def, i) {
     variant: paddockPick(def.variants, it.variant, i, 3),
   };
 }
+const BIKE_WB = { adult: 1.46, youth: 1.3, mini: 0.95, pitbike: 1.12, enduro: 1.48, twinshock: 1.42 };
 const AWNING = '#e2ded4';
 /** The vehicle on the map as the race view builds it: body, cab, wheels, the awning out and the bikes, in the item's frame (H is the footprint's depth in px). */
 function drawVehicleMap(it, def, H) {
@@ -3369,14 +3861,15 @@ function drawVehicleMap(it, def, H) {
   const m = (x) => x * PADDOCK_U * view.k;
   const bodyW = Math.max(...v.parts.map((p) => p[2]));
   const oy = -(H - m(bodyW)) / 2;
-  const bike = (x, z, col) => {
+  const bike = (x, z, col, f = 1) => {
     ctx.fillStyle = col;
-    ctx.fillRect(m(x) - m(1.1), oy + m(z) - m(0.22), m(2.2), m(0.44));
+    ctx.fillRect(m(x) - m(1.1 * f), oy + m(z) - m(0.22 * f), m(2.2 * f), m(0.44 * f));
     ctx.fillStyle = '#1c1c22';
-    ctx.fillRect(m(x) - m(1.1), oy + m(z) - m(0.12), m(0.55), m(0.24));
-    ctx.fillRect(m(x) + m(0.55), oy + m(z) - m(0.12), m(0.55), m(0.24));
+    ctx.fillRect(m(x) - m(1.1 * f), oy + m(z) - m(0.12 * f), m(0.55 * f), m(0.24 * f));
+    ctx.fillRect(m(x) + m(0.55 * f), oy + m(z) - m(0.12 * f), m(0.55 * f), m(0.24 * f));
   };
-  if (v.bike) { bike(0, 0, look.colour); return; }
+  // A bike on a stand is drawn to its model's wheelbase (src/world/raceBike.ts MODELS).
+  if (v.bike) { bike(0, 0, look.colour, (BIKE_WB[look.variant] ?? 1.46) / 1.46); return; }
   const awn = v.awning && look.setup && look.setup.startsWith('awning') ? v.awning : null;
   if (awn) {
     const z0 = oy + m(bodyW / 2);
@@ -3433,6 +3926,190 @@ function drawVehicleIcon(g, def) {
   if (v.cab) { g.fillStyle = '#223344'; g.fillRect(cx + v.cab[0] * k + 1, oy - (bodyW / 2) * k + 1, Math.max(2, (v.cab[1] - v.cab[0]) * k - 2), bodyW * k - 2); }
   if (def.id.startsWith('rusty')) { g.fillStyle = '#7a4a28'; for (let i = 0; i < 4; i++) g.fillRect(cx + (v.parts[0][0] + 0.5 + i * 1.1) * k, oy + (i % 2 ? 0.3 : -0.5) * k, 2, 2); }
 }
+// ---- trackside items (src/world/trackside.ts: this mirrors its layouts) ----
+/** Shirts for the people, picked as the race view picks them. */
+const SHIRTS = ['#e04040', '#4080e0', '#f0c030', '#40b060', '#f0f0f0', '#e07030', '#9060c0', '#30b0c0', '#202428'];
+const shirtOf = (k) => SHIRTS[Math.floor(paddockHash(k * 13 + 5) * SHIRTS.length)];
+const BIKE_COLS = ['#c21c15', '#3b86da', '#a0c33e', '#ecbe2a', '#ef6c18'];
+const STEEL_C = '#8a8c90', BLACK_C = '#202428', WHITE_C = '#f0f0f0', TABLE_C = '#d8d8d0', CANVAS_C = '#e2ded4', CHASSIS_C = '#2a2a30', WOOD_C = '#9a7a4a', MAT_C = '#3a3a3e';
+/** Items whose length is set by their width, like a banner's. */
+const STRETCH = new Set(['foot_bridge', 'crowd_barrier', 'cones', 'fans_fence', 'timing_beam', 'vip_stand', 'pyro', 'truss_arch']);
+/** Items whose people face the track in the race view unless the item is turned by hand. */
+const FACES_TRACK = new Set(['tv_camera_op', 'tv_tripod', 'tv_van', 'tv_tower', 'photographer', 'commentary_box', 'camp_chairs', 'fan_photo', 'fan_parasol', 'fans_fence', 'camera_crane', 'drone_pilot', 'vip_stand']);
+/** Scenery with no front to speak of: no facing arrow when placed or selected. */
+const NO_FRONT = new Set(['tuff_block', 'hay_bale', 'tyre_wall', 'tape', 'flag_post', 'crowd_barrier', 'cones', 'barrels', 'tyre_stack', 'skip', 'tree', 'bush', 'hedge', 'fence', 'light_tower', 'feather_flags', 'pa_speaker', 'timing_beam', 'truss_arch', 'foot_bridge', 'finish_arch', 'start_gate', 'inflatable', 'pyro', 'lunch_table', 'picnic', 'pit_clutter', 'bike_wash', 'bike_stand', 'banner', 'sponsor_board']);
+/** Motor vehicles and trailers, whose front is their nose (along their length, +x), not their side. */
+const NOSE_FIRST = new Set(['rusty_truck', 'rusty_van', 'mx_van', 'mx_van_long', 'motorhome', 'motorhome_long', 'hauler', 'tv_van', 'catering_van', 'ambulance', 'quad', 'tractor', 'skid_steer', 'merch_trailer', 'bike_trailer']);
+/**
+ * Which way a scenery item faces, as the race view builds it (RaceView buildItem and the figures):
+ * where its front is (x, y) and the direction it looks (ang, grid radians), or null for an item
+ * with no front. People and stands face +z of their own footprint (the bottom edge on the map when
+ * unturned), vehicles their nose; a marshal not turned by hand faces the middle of their watch, a
+ * flag man or pit crew the nearest point of the track, fans the track from where their walk ends,
+ * and the TV crews and the like turn to the track on their own (FACES_TRACK).
+ */
+function facingOf(t, it, i) {
+  if (!it || NO_FRONT.has(it.type) || it.type === OFFICIAL || !sceneryDef(it.type)) return null;
+  const a = ((it.rot ?? 0) * Math.PI) / 180;
+  let x = it.x;
+  let y = it.y;
+  let ang = NOSE_FIRST.has(it.type) ? a : a + Math.PI / 2;
+  if (it.rot === undefined && t.path.length >= 2) {
+    const g = lapGeom(t);
+    const toward = (px, py) => Math.atan2(py - y, px - x);
+    if (it.type === 'marshal') {
+      const w = marshalWatch(g, it);
+      const p = pointAt(g, (w.f0 + w.f1) / 2);
+      ang = toward(p.x, p.y);
+    } else if (it.type === 'flagger' || it.type === 'pit_crew') {
+      const p = pointAt(g, project(g, x, y).f);
+      ang = toward(p.x, p.y);
+    } else if (it.type === CHEER) {
+      const end = it.route?.length ? it.route[it.route.length - 1] : [x, y];
+      x = end[0];
+      y = end[1];
+      const p = pointAt(g, project(g, x, y).f);
+      ang = toward(p.x, p.y);
+    } else if (FACES_TRACK.has(it.type)) {
+      // Turned to put the track in front of it (RaceView awayFromTrack).
+      const p = pointAt(g, project(g, x, y).f);
+      const dot = (p.x - x) * -Math.sin(a) + (p.y - y) * Math.cos(a);
+      if (dot <= 0) ang += Math.PI;
+    }
+  }
+  return { x, y, ang };
+}
+/** Items that turn to the track on their own when not turned by hand (Turn left empty). */
+function facesTrack(type) { return type === 'marshal' || type === 'flagger' || type === 'pit_crew' || type === CHEER || FACES_TRACK.has(type); }
+/** The facing arrows the race view draws: the selected item's (or the one being dragged) and the one about to be placed. */
+function facingArrows(t, ghostItem) {
+  const out = [];
+  if (app.mode !== 'scenery') return out;
+  const sel = t.scenery?.[app.selItem];
+  const a = sel ? facingOf(t, sel, app.selItem) : null;
+  if (a) out.push(a);
+  const b = ghostItem && !sel ? facingOf(t, ghostItem, -1) : null;
+  if (b) out.push(b);
+  return out;
+}
+/**
+ * Each item from above, in metres in its frame (centred on its footprint, x along, z down the map;
+ * the people face +z): `draw` gives its shapes for the given look, length and depth, and `solid`
+ * the boxes [x0, x1, z0, z1] that count as solid (left out: the whole footprint; []: none).
+ * Shapes: ['r', x, z, l, w, colour] a box, ['d', x, z, r, colour] a disc, ['b', x, z, colour, across]
+ * a bike, ['p', x, z, k] a person (shirt by k), ['t', x0, x1, z0, z1, colour] a pitched roof.
+ */
+const ROWN = (n, gap) => Array.from({ length: n }, (_, k) => (k - (n - 1) / 2) * gap);
+const TRACKSIDE = {
+  tv_camera_op: { draw: (lk, L, D, i) => [['p', 0, -0.1, i, lk.colour], ['r', 0, 0.35, 0.28, 0.5, BLACK_C]] },
+  tv_tripod: { draw: (lk, L, D, i) => [['r', 0, 0.2, 0.42, 0.75, BLACK_C], ['p', 0, -0.65, i, lk.colour]], solid: () => [[-0.5, 0.5, -0.3, 0.7]] },
+  tv_van: { draw: (lk, L, D, i) => { const bz = -(D - 1.8) / 2; return [['r', -0.05, bz, 4.3, 1.8, lk.colour], ['r', 1.6, bz, 1.0, 1.75, '#223344'], ['r', -0.55, bz, 3.2, 1.9, '#9a9ca0'], ...(lk.setup === 'parked' ? [] : [['r', 0.2, bz + 0.3, 0.28, 0.5, BLACK_C], ['p', 0.2, bz - 0.35, i, BLACK_C]])]; }, solid: (lk, L, D) => { const bz = -(D - 1.8) / 2; return [[-2.2, 2.1, bz - 0.9, bz + 0.9]]; } },
+  tv_tower: { draw: (lk, L, D, i) => [['r', 0, 0, 3.0, 3.0, lk.colour], ['r', 0.3, 0.3, 0.42, 0.75, BLACK_C], ['p', 0.3, -0.3, i, BLACK_C], ['p', -0.8, 0.2, i + 1, BLACK_C]], solid: () => [[-1.3, 1.3, -1.3, 1.3]] },
+  photographer: { draw: (lk, L, D, i) => lk.variant === 'lying' ? [['r', 0, -0.2, 0.5, 1.9, shirtOf(i)], ['d', 0, 0.3, 0.14, '#e0b090'], ['r', 0, 0.75, 0.1, 0.4, BLACK_C]] : [['p', 0, 0, i, lk.colour], ['r', 0, 0.42, 0.1, 0.4, BLACK_C]] },
+  commentary_box: { draw: (lk) => [['r', 0, 0, 4.0, 3.0, lk.colour], ['r', 0, 0.81, 3.4, 0.12, '#223344']], solid: () => [[-1.8, 1.8, -1.3, 1.3]] },
+  big_screen: { draw: (lk) => [['r', 0, -0.4, 5.8, 2.0, CHASSIS_C], ['r', 0, -0.6, 5.6, 0.6, lk.colour], ['r', 0, -0.28, 5.2, 0.08, '#4a7ad0']], solid: () => [[-2.9, 3.8, -1.4, 0.6]] },
+  pit_setup: { draw: (lk, L, D, i) => { const s = lk.setup; const out = [['r', 0, -0.8, 6.0, 3.6, MAT_C], ['t', -3, 3, -2.6, 1.0, lk.colour], ['r', 0, 1.03, 6.0, 0.1, '#00000080']]; if (s === 'bikes' || s === 'both') out.push(['b', -1.6, 0, BIKE_COLS[i % 5], true], ['b', 1.6, 0, BIKE_COLS[(i + 1) % 5], true]); if (s === 'people' || s === 'both') out.push(['p', -1.6, 1.6, i, lk.colour], ['p', 0.3, 1.9, i + 1, lk.colour], ['p', 2.4, 1.5, i + 2, BIKE_COLS[(i + 1) % 5]]); if (s === 'tools' || s === 'both') out.push(['r', -1.2, -2.0, 0.9, 0.5, lk.colour], ['r', -0.4, -2.1, 0.35, 0.25, '#c02020'], ['r', 0, -2.1, 0.35, 0.25, '#2a4aa0']); if (s === 'tools') out.push(['r', 1.6, -1.8, 0.7, 0.5, '#c02020'], ['r', 1.8, 0.2, 1.2, 0.7, TABLE_C], ['p', -0.5, 1.7, i + 3, lk.colour]); return out; }, solid: () => [[-3, 3, -2.6, 1.0]] },
+  bike_wash: { draw: (lk, L, D, i) => [['d', 0, 0.2, 1.1, '#5a6a70'], ['b', 0, 0, lk.colour, true], ['r', 0.95, -0.5, 0.45, 0.35, '#e8c020'], ['p', -0.9, 0.9, i, '#3a5a3a']], solid: () => [[-0.4, 0.4, -1.1, 1.1]] },
+  bike_trailer: { draw: (lk) => [['r', -0.3, 0, 2.2, 1.5, lk.colour], ['r', 1.2, 0, 0.9, 0.1, CHASSIS_C], ...(lk.variant === 'two' ? [['b', -0.3, -0.38, BIKE_COLS[0]], ['b', -0.3, 0.38, BIKE_COLS[1]]] : [['b', -0.3, 0, BIKE_COLS[0]]])], solid: () => [[-1.4, 1.7, -0.75, 0.75]] },
+  pit_clutter: { draw: (lk) => [['r', -0.4, 0, 0.9, 0.5, lk.colour], ['r', 0.4, -0.1, 0.35, 0.25, '#c02020'], ['r', 0.8, -0.1, 0.35, 0.25, '#2a4aa0'], ['d', 0.65, 0.35, 0.33, '#1c1c22'], ['d', -0.9, 0.1, 0.32, '#1c1c22']] },
+  trade_stand: { draw: (lk, L, D, i) => [['t', -1.5, 1.5, -2.0, 1.0, lk.colour], ['r', 0, 1.02, 3.0, 0.08, '#00000080'], ['r', 0, 0.5, 2.6, 0.7, TABLE_C], ['r', 0, -1.6, 2.8, 0.1, lk.colour], ['p', 0.3, -0.5, i, lk.colour]], solid: () => [[-1.5, 1.5, -2.0, 1.0]] },
+  catering_van: { draw: (lk, L, D, i) => { const z = -0.9; const out = [['r', -0.3, z, 4.2, 2.2, lk.colour], ['r', -0.3, z + 1.5, 2.9, 0.9, '#00000030'], ['r', -0.3, z + 1.15, 2.9, 0.3, TABLE_C], ['r', 2.2, z, 0.7, 0.12, CHASSIS_C], ['r', 1.6, z + 1.4, 0.6, 0.08, BLACK_C], ['p', -0.3, z + 0.5, i + 9, WHITE_C]]; if (lk.setup === 'queue') for (let k = 0; k < 3; k++) out.push(['p', -0.6 + k * 0.1, z + 2.1 + k * 0.75, i + k]); return out; }, solid: () => [[-2.4, 2.6, -2.0, 0.2]] },
+  marquee: { draw: (lk) => { const out = [['r', 0, 0, 10, 6, CANVAS_C], ['r', 0, 0, 10.1, 0.12, STEEL_C], ['r', 0, 2.97, 10, 0.1, lk.colour]]; for (let k = 0; k < 4; k++) out.push(['d', -3.6 + k * 2.4, -0.8, 0.6, TABLE_C]); return out; }, solid: () => [[-5, 5, -3, 3]] },
+  time_check: { draw: (lk, L, D, i) => [['t', -1.5, 1.5, -1.5, 1.5, lk.colour], ['r', 0, 1.52, 3.0, 0.08, '#00000080'], ['r', 0.3, 0.2, 1.2, 0.7, TABLE_C], ['r', -1.0, -0.9, 0.5, 0.5, BLACK_C], ['p', 0.3, -0.5, i, '#f0a020'], ['p', 1.3, 1.4, i + 1, '#f0a020']], solid: () => [[-1.5, 1.5, -1.5, 1.5]] },
+  foot_bridge: { draw: (lk, L, D, i) => { const out = [['r', 0, 0, L - 4.2, 1.6, lk.colour], ['r', -(L / 2 - 1.1), 0, 2.2, 1.6, '#6a6a70'], ['r', L / 2 - 1.1, 0, 2.2, 1.6, '#6a6a70']]; if (lk.setup === 'fans') { const span = L - 4.2; const n = Math.max(2, Math.min(8, Math.round(span / 2.5))); for (let k = 0; k < n; k++) out.push(['p', -span / 2 + 1.2 + (span - 2.4) * (k / Math.max(1, n - 1)), (paddockHash(i * 3 + k) - 0.5) * 0.7, i + k]); } return out; }, solid: (lk, L) => [[-L / 2, -L / 2 + 2.2, -0.9, 0.9], [L / 2 - 2.2, L / 2, -0.9, 0.9]] },
+  crowd_barrier: { draw: (lk, L) => { const n = Math.max(1, Math.round(L / 2.3)); const seg = L / n; const out = [['r', 0, 0, L, 0.1, lk.colour]]; for (let k = 0; k <= n; k++) out.push(['r', -L / 2 + seg * k, 0, 0.1, 0.5, lk.colour]); return out; } },
+  marshal: { draw: (lk, L, D, i) => { const v = lk.variant; const out = []; if (v === 'pallet') out.push(['r', 0, 0, 1.6, 1.4, '#6a5a48'], ['r', 0, -1.3, 0.8, 1.2, '#5a4a3a']); if (v === 'tower') out.push(['r', 0, 0, 2.4, 2.4, lk.colour], ['r', 0, -1.6, 0.8, 1.2, '#5a4a3a']); if (v === 'bales') out.push(['r', -0.95, 0.85, 1.8, 1.0, '#d8b45a'], ['r', 0.95, 0.85, 1.8, 1.0, '#d8b45a']); if (v === 'pair') out.push(['p', -0.9, 0, i + 1, lk.colour], ['d', -1.35, 0.2, 0.09, '#d02020']); const fx = v === 'pair' ? 0.3 : 0; out.push(['p', fx, 0, i, lk.colour], ['r', fx + 0.68, 0.12, 0.64, 0.06, '#f0c020']); return out; }, solid: (lk) => lk.variant === 'pallet' ? [[-0.8, 0.8, -0.7, 0.7]] : lk.variant === 'tower' ? [[-1.0, 1.0, -1.0, 1.0]] : lk.variant === 'bales' ? [[-1.85, 1.85, 0.35, 1.35]] : [[-0.3, 0.3, -0.3, 0.3]] },
+  // The flag man (src/core/finishCrew.ts) on the marshals' stands, the white flag one side and the chequered the other.
+  flagger: { draw: (lk, L, D, i) => { const v = lk.variant; const out = []; if (v === 'pallet') out.push(['r', 0, 0, 1.6, 1.4, '#6a5a48'], ['r', 0, -1.3, 0.8, 1.2, '#5a4a3a']); if (v === 'tower') out.push(['r', 0, 0, 2.4, 2.4, lk.colour], ['r', 0, -1.6, 0.8, 1.2, '#5a4a3a']); if (v === 'bales') out.push(['r', -0.95, 0.85, 1.8, 1.0, '#d8b45a'], ['r', 0.95, 0.85, 1.8, 1.0, '#d8b45a']); if (v === 'pair') out.push(['p', -0.9, 0, i + 1, lk.colour], ['d', -1.35, 0.2, 0.09, '#d02020']); const fx = v === 'pair' ? 0.3 : 0; out.push(['p', fx, 0, i, lk.colour], ['r', fx - 0.72, 0.12, 0.72, 0.1, '#f4f4f4'], ['r', fx + 0.62, 0.12, 0.36, 0.1, '#16161a'], ['r', fx + 0.98, 0.12, 0.36, 0.1, '#f4f4f4']); return out; }, solid: (lk) => lk.variant === 'pallet' ? [[-0.8, 0.8, -0.7, 0.7]] : lk.variant === 'tower' ? [[-1.0, 1.0, -1.0, 1.0]] : lk.variant === 'bales' ? [[-1.85, 1.85, 0.35, 1.35]] : [[-0.3, 0.3, -0.3, 0.3]] },
+  // A pit crew member with their board (src/core/finishCrew.ts), behind a pit wall or with a mechanic.
+  pit_crew: { draw: (lk, L, D, i) => { const out = []; if (lk.variant === 'wall') out.push(['r', 0, 0.75, 2.4, 0.3, '#b8b8b0']); if (lk.variant === 'pair') out.push(['p', -0.9, -0.2, i + 1, lk.colour]); out.push(['p', 0, 0, i, lk.colour], ['r', 0, 0.45, 0.75, 0.12, '#f4f4f0']); return out; }, solid: (lk) => lk.variant === 'wall' ? [[-1.2, 1.2, 0.6, 0.9]] : [[-0.3, 0.3, -0.3, 0.3]] },
+  ambulance: { draw: (lk, L, D, i) => { const bz = -(D - 1.8) / 2; const out = [['r', -0.05, bz, 4.3, 1.8, '#f4f4f0'], ['r', 1.6, bz, 1.0, 1.75, '#223344'], ['r', -0.3, bz, 1.2, 0.3, '#2050e0']]; for (let k = 0; k < 10; k++) for (const s of [-1, 1]) out.push(['r', -2.0 + k * 0.36, bz + s * 0.9, 0.34, 0.08, k % 2 ? '#2fb02a' : '#f0e020']); if (lk.setup === 'crew') out.push(['p', -1.2, bz + 1.5, i, '#2fb02a'], ['p', 0.4, bz + 1.7, i + 1, '#2fb02a']); return out; }, solid: (lk, L, D) => { const bz = -(D - 1.8) / 2; return [[-2.2, 2.1, bz - 0.9, bz + 0.9]]; } },
+  quad: { draw: (lk, L, D, i) => [['r', 0, 0, 1.8, 0.7, CHASSIS_C], ['r', -0.1, 0, 1.3, 0.9, lk.colour], ['r', -0.5, 0, 0.7, 0.45, BLACK_C], ...[[0.65, -0.5], [0.65, 0.5], [-0.65, -0.5], [-0.65, 0.5]].map(([x, z]) => ['r', x, z, 0.6, 0.25, '#1c1c22']), ...(lk.variant === 'rider' ? [['p', -0.5, 0, i, '#f0a020']] : [])] },
+  tractor: { draw: (lk, L, D, i) => { const x0 = 2.1; const out = [['r', x0, 0, 1.8, 0.8, lk.colour], ['r', x0 - 0.6, 0, 1.5, 1.3, '#223344'], ['r', x0 - 1.1, -0.85, 1.7, 0.55, '#1c1c22'], ['r', x0 - 1.1, 0.85, 1.7, 0.55, '#1c1c22'], ['r', x0 + 0.9, -0.95, 1.0, 0.3, '#1c1c22'], ['r', x0 + 0.9, 0.95, 1.0, 0.3, '#1c1c22']]; if (lk.variant === 'bowser') { const t = x0 - 4.6; out.push(['r', t + 1.6, 0, 1.6, 0.1, CHASSIS_C], ['r', t, 0, 3.0, 1.6, lk.colour], ['r', t - 1.7, 0, 0.1, 2.4, STEEL_C]); } else { const t = x0 - 2.9; out.push(['r', t - 0.6, 0, 0.6, 0.1, CHASSIS_C], ['r', t, 0, 0.4, 2.2, CHASSIS_C], ['r', t - 0.6, 0, 0.4, 2.2, CHASSIS_C]); } return out; }, solid: (lk) => lk.variant === 'bowser' ? [[-4.1, 3.1, -1.2, 1.2]] : [[-1.6, 3.1, -1.1, 1.1]] },
+  toilets: { draw: (lk) => ROWN(lk.variant === 'four' ? 4 : lk.variant === 'two' ? 2 : 1, 1.25).flatMap((x) => [['r', x, 0, 1.15, 1.15, lk.colour], ['r', x, 0.555, 0.7, 0.06, '#00000060']]), solid: (lk) => { const n = lk.variant === 'four' ? 4 : lk.variant === 'two' ? 2 : 1; return [[-((n - 1) / 2 * 1.25 + 0.6), (n - 1) / 2 * 1.25 + 0.6, -0.6, 0.6]]; } },
+  feather_flags: { draw: (lk) => ROWN(lk.variant === 'three' ? 3 : 1, 1.4).flatMap((x) => [['d', x, 0, 0.3, BLACK_C], ['r', x + 0.33, 0, 0.62, 0.08, lk.colour]]) },
+  inflatable: { draw: (lk, L) => lk.variant === 'column' ? [['d', 0, 0, 0.75, lk.colour]] : [['r', 0, 0, L, 1.2, lk.colour], ['d', -(L / 2 - 0.6), 0, 0.65, lk.colour], ['d', L / 2 - 0.6, 0, 0.65, lk.colour]], solid: (lk, L) => lk.variant === 'column' ? [[-0.75, 0.75, -0.75, 0.75]] : [[-L / 2, -L / 2 + 1.2, -0.65, 0.65], [L / 2 - 1.2, L / 2, -0.65, 0.65]] },
+  cones: { draw: (lk, L) => { const n = Math.max(1, Math.round(L / 1.5)); return Array.from({ length: n }, (_, k) => ['d', n === 1 ? 0 : -L / 2 + 0.3 + (L - 0.6) * (k / (n - 1)), 0, 0.2, lk.colour]); } },
+  camp_chairs: { draw: (lk, L, D, i) => { const n = lk.variant === 'three' ? 3 : lk.variant === 'two' ? 2 : 1; const out = ROWN(n, 0.85).flatMap((x, k) => [['r', x, 0, 0.5, 0.5, lk.colour], ['p', x, 0, i + k]]); out.push(['r', (n - 1) / 2 * 0.85 + 0.7, 0.1, 0.55, 0.4, '#2a5ab0']); return out; } },
+  fan_photo: { draw: (lk, L, D, i) => [['p', 0, 0, i, lk.colour]] },
+  lunch_table: { draw: (lk, L, D, i) => { const out = lk.setup === 'parasol' ? [['d', 0, 0, 1.5, lk.colour]] : []; out.push(['r', 0, 0, 1.6, 0.8, TABLE_C]); for (const [x, z] of [[-0.4, 0.9], [0.4, 0.9], [-0.4, -0.9], [0.4, -0.9]]) out.push(['r', x, z, 0.5, 0.5, '#3a3a40'], ['p', x, z, i + Math.round(x * 10 + z * 3)]); return out; }, solid: () => [[-0.8, 0.8, -0.4, 0.4]] },
+  picnic: { draw: (lk, L, D, i) => [['r', 0, 0, 2.2, 2.2, lk.colour], ['r', 0.7, -0.6, 0.5, 0.35, WOOD_C], ['p', -0.5, -0.5, i], ['p', -0.1, 0.6, i + 1], ...(lk.variant === 'three' ? [['p', 0.7, 0.4, i + 2]] : [])] },
+  fan_parasol: { draw: (lk, L, D, i) => [['d', 0.25, 0, 0.9, lk.colour], ['p', -0.15, 0, i, WHITE_C]] },
+  fans_fence: { draw: (lk, L, D, i) => { const out = [['r', 0, 0, L, 0.1, lk.colour]]; const fans = Math.max(1, Math.round(L / 1.3)); for (let k = 0; k < fans; k++) out.push(['p', -L / 2 + 0.65 + (L - 1.3) * (fans === 1 ? 0.5 : k / (fans - 1)), -0.3, i + k]); return out; }, solid: (lk, L) => [[-L / 2, L / 2, -0.05, 0.05]] },
+  camera_crane: { draw: (lk, L, D, i) => [['r', -2.3, -0.3, 1.6, 1.6, CHASSIS_C], ['r', 0.4, -0.3, 6.0, 0.16, lk.colour], ['r', 3.1, -0.3, 0.42, 0.75, BLACK_C], ['r', -3.6, -0.3, 0.6, 0.5, '#4a4a50'], ['p', -2.3, 0.6, i, BLACK_C]], solid: () => [[-3.1, -1.5, -1.1, 0.5]] },
+  drone_pilot: { draw: (lk, L, D, i) => [['p', 0, 0, i, lk.colour], ['r', 0.3, 0.6, 0.7, 0.7, '#00000040'], ['r', 0.3, 0.6, 0.3, 0.3, BLACK_C]] },
+  press_tent: { draw: (lk, L, D, i) => { const out = [['t', -2, 2, -2, 2, lk.colour], ['r', 0, 2.02, 4.0, 0.08, '#00000080']]; for (const z of [-1.0, 0.8]) { out.push(['r', 0, z, 3.6, 0.7, TABLE_C]); for (let k = 0; k < 3; k++) out.push(['p', -1.2 + k * 1.2, z + 0.55, i + k + (z > 0 ? 3 : 0)]); } return out; }, solid: () => [[-2, 2, -2, 2]] },
+  signing_table: { draw: (lk, L, D, i) => { const out = [['r', 0, -1.4, 2.8, 0.1, lk.colour], ['r', 0, -0.3, 2.4, 0.7, TABLE_C], ['p', -0.4, -0.95, i, BIKE_COLS[i % 5]], ['p', 0.5, -0.95, i + 1, BIKE_COLS[(i + 2) % 5]]]; for (let k = 0; k < 3; k++) out.push(['p', -0.3 + k * 0.1, 0.4 + k * 0.7, i + 3 + k]); return out; }, solid: () => [[-1.4, 1.4, -1.45, 0.05]] },
+  pa_speaker: { draw: (lk) => [['r', 0, 0, 0.6, 0.6, CHASSIS_C], ['r', -0.3, 0.1, 0.4, 0.5, lk.colour], ['r', 0.3, 0.1, 0.4, 0.5, lk.colour]], solid: () => [[-0.3, 0.3, -0.3, 0.3]] },
+  timing_beam: { draw: (lk, L) => [['r', 0, 0, L - 0.6, 0.12, '#3a3a40'], ['r', -(L / 2 - 0.3), 0, 0.5, 0.5, lk.colour], ['r', L / 2 - 0.3, 0, 0.5, 0.5, lk.colour]], solid: (lk, L) => [[-L / 2, -L / 2 + 0.6, -0.3, 0.3], [L / 2 - 0.6, L / 2, -0.3, 0.3]] },
+  skid_steer: { draw: (lk, L, D, i) => [['r', -0.3, 0, 1.9, 1.3, lk.colour], ['r', -0.4, 0, 1.2, 1.0, '#223344'], ['r', 1.5, 0, 0.6, 1.7, STEEL_C], ...[[0.3, -0.75], [0.3, 0.75], [-0.9, -0.75], [-0.9, 0.75]].map(([x, z]) => ['r', x, z, 0.76, 0.25, '#1c1c22']), ['p', -0.4, -0.2, i, '#f0a020']], solid: () => [[-1.3, 1.8, -0.9, 0.9]] },
+  merch_trailer: { draw: (lk, L, D, i) => { const z = -0.9; const out = [['r', 0, z - 0.3, 5.6, 1.6, lk.colour], ['r', 0, z + 1.9, 5.6, 1.8, CANVAS_C], ['r', 0, z + 1.0, 5.2, 0.35, TABLE_C], ['r', 3.1, z, 0.7, 0.1, CHASSIS_C], ['p', -1.2, z + 0.6, i, lk.colour], ['p', 1.6, z + 2.0, i + 1]]; for (let k = 0; k < 6; k++) out.push(['r', -2.25 + k * 0.9, z + 0.55, 0.5, 0.1, SHIRTS[(i + k) % SHIRTS.length]]); return out; }, solid: () => [[-2.85, 3.5, -2.0, 0.3]] },
+  podium: { draw: (lk, L, D, i) => { const sx = lk.variant === 'supercross'; const out = []; if (sx) out.push(['r', 0, -0.4, 7.0, 3.6, '#3a3a40']); out.push(['r', 0, -2.0, sx ? 7.0 : 5.0, 0.12, lk.colour]); for (const [x, c] of [[0, '#f0f0f0'], [-1.3, '#e8e8e8'], [1.3, '#e0e0e0']]) out.push(['r', x, -0.6, 1.2, 1.2, sx ? c : WOOD_C]); if (lk.setup !== 'empty') for (const [x, k] of [[0, 1], [-1.3, 2], [1.3, 3]]) out.push(['p', x, -0.6, i + k, BIKE_COLS[(i + k) % 5]]); return out; }, solid: (lk) => lk.variant === 'supercross' ? [[-3.5, 3.5, -2.2, 1.4]] : [[-2.5, 2.5, -2.1, 0]] },
+  holeshot_board: { draw: (lk) => [['r', 0, 0, 3.0, 0.12, lk.colour], ['d', -1.4, 0, 0.08, STEEL_C], ['d', 1.4, 0, 0.08, STEEL_C]], solid: () => [[-1.6, 1.6, -0.15, 0.15]] },
+  pyro: { draw: (lk, L) => { const n = Math.max(1, Math.round(L / 2.0)); const out = []; for (let k = 0; k < n; k++) { const x = n === 1 ? 0 : -L / 2 + 0.5 + (L - 1.0) * (k / (n - 1)); out.push(['r', x, 0, 0.7, 0.7, BLACK_C]); if (lk.setup === 'firing') out.push(['d', x, 0, 0.26, lk.colour]); } return out; } },
+  truss_arch: { draw: (lk, L) => [['r', 0, 0, L, 0.5, STEEL_C], ['r', -(L / 2 - 0.4), 0, 1.0, 1.0, BLACK_C], ['r', L / 2 - 0.4, 0, 1.0, 1.0, BLACK_C]], solid: (lk, L) => [[-L / 2 - 0.1, -L / 2 + 0.9, -0.5, 0.5], [L / 2 - 0.9, L / 2 + 0.1, -0.5, 0.5]] },
+  stadium_tunnel: { draw: (lk) => { const out = [['r', 0, -3.4, 9.0, 3.2, lk.colour], ['r', 0, 0, 9.0, 0.6, '#9a9a98'], ['r', 0, 0, 3.2, 0.6, '#3a3a40'], ['r', 0, -1.6, 3.2, 3.8, '#3a3a40']]; return out; }, solid: () => [[-4.5, -1.6, -5.0, 0.3], [1.6, 4.5, -5.0, 0.3], [-1.6, 1.6, -5.0, -3.0]] },
+  trophy_table: { draw: (lk, L, D, i) => [['r', 0, 0, 2.4, 0.8, TABLE_C], ['d', 0, 0, 0.16, '#e8c020'], ['d', -0.7, 0, 0.14, '#d0d0d8'], ['d', 0.7, 0, 0.14, '#c08040'], ['p', 0, -0.7, i, BLACK_C]], solid: () => [[-1.2, 1.2, -0.45, 0.45]] },
+  vip_stand: { draw: (lk, L, D, i) => { const Dm = 5.0; const out = []; for (let k = 0; k < 4; k++) { const z = -Dm / 2 + (Dm / 4) * (k + 0.5); out.push(['r', 0, z, L, Dm / 4, k % 2 ? shadeHex(lk.colour, 1.12) : lk.colour]); const seats = Math.max(1, Math.floor(L / 0.6)); for (let s = 0; s < seats; s++) if (paddockHash(i * 7 + s * 3 + k) > 0.3) out.push(['d', -L / 2 + 0.3 + (s + 0.5) * ((L - 0.6) / seats), z + 0.08, 0.16, SHIRTS[Math.floor(paddockHash(i + s * 11 + k * 5) * SHIRTS.length)]]); } out.push(['r', 0, 0, L + 0.4, Dm + 0.4, '#00000030']); return out; }, solid: (lk, L) => [[-L / 2, L / 2, -2.5, 2.5]] },
+};
+function shadeHex(hex, k) {
+  const c = parseInt(normHex(hex).slice(1), 16);
+  const ch = (s) => Math.min(255, Math.round(((c >> s) & 0xff) * k));
+  return `#${((ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).padStart(6, '0')}`;
+}
+/** Draws one item's shapes with the metres-to-pixels scale m, the frame's origin at the footprint's centre. */
+function drawShapes(g, shapes, m) {
+  for (const s of shapes) {
+    if (s[0] === 'r') { g.fillStyle = s[5]; g.fillRect(m(s[1]) - m(s[3]) / 2, m(s[2]) - m(s[4]) / 2, Math.max(1, m(s[3])), Math.max(1, m(s[4]))); }
+    else if (s[0] === 'd') { g.fillStyle = s[4]; g.beginPath(); g.arc(m(s[1]), m(s[2]), Math.max(1, m(s[3])), 0, Math.PI * 2); g.fill(); }
+    else if (s[0] === 'b') {
+      const [, x, z, col, across] = s;
+      g.save(); g.translate(m(x), m(z)); if (across) g.rotate(Math.PI / 2);
+      g.fillStyle = col; g.fillRect(-m(1.1), -m(0.22), m(2.2), m(0.44));
+      g.fillStyle = '#1c1c22'; g.fillRect(-m(1.1), -m(0.12), m(0.55), m(0.24)); g.fillRect(m(0.55), -m(0.12), m(0.55), m(0.24));
+      g.restore();
+    } else if (s[0] === 'p') {
+      g.fillStyle = s[4] ?? shirtOf(s[3]); g.fillRect(m(s[1]) - m(0.23), m(s[2]) - m(0.13), Math.max(2, m(0.46)), Math.max(2, m(0.26)));
+      g.fillStyle = '#e0b090'; g.beginPath(); g.arc(m(s[1]), m(s[2]), Math.max(1, m(0.12)), 0, Math.PI * 2); g.fill();
+    } else if (s[0] === 't') {
+      const [, x0, x1, z0, z1, col] = s;
+      g.fillStyle = col; g.fillRect(m(x0), m(z0), m(x1 - x0), m(z1 - z0));
+      g.strokeStyle = '#00000050'; g.lineWidth = 1; g.beginPath();
+      g.moveTo(m(x0), m(z0)); g.lineTo(m(x1), m(z1)); g.moveTo(m(x1), m(z0)); g.lineTo(m(x0), m(z1)); g.stroke();
+    }
+  }
+}
+/** The item's shapes for its look and size: length and depth in metres from its footprint. */
+function tracksideShapes(it, def, i) {
+  const { w, h } = itemBox(it);
+  return TRACKSIDE[it.type].draw(vehicleLook(it, def, i), w / PADDOCK_U, h / PADDOCK_U, i);
+}
+function drawTracksideMap(it, def) {
+  const i = (track()?.scenery ?? []).indexOf(it);
+  drawShapes(ctx, tracksideShapes(it, def, i), (x) => x * PADDOCK_U * view.k);
+}
+/** The palette picture: the item from above at its default size, in its first colour, with its first options. */
+function drawTracksideIcon(g, def) {
+  g.clearRect(0, 0, 44, 44);
+  const it = { type: def.id, x: 0, y: 0, color: def.colours?.[0] ?? def.color, variant: def.variants?.[0]?.[0], action: def.setups?.[0]?.[0] };
+  const k = Math.min(40 / def.w, 40 / def.h) * PADDOCK_U;
+  g.save(); g.translate(22, 22);
+  drawShapes(g, TRACKSIDE[def.id].draw(vehicleLook(it, def, 0), def.w / PADDOCK_U, def.h / PADDOCK_U, 0), (x) => x * k);
+  g.restore();
+}
+/** The solid boxes of a trackside item, in grid units in the item's frame (colliders turns them to the grid). */
+function tracksideSolid(f) {
+  const def = sceneryDef(f.type);
+  const spec = TRACKSIDE[f.type];
+  const it = f.it ?? track()?.scenery?.[f.i] ?? { type: f.type };
+  const boxes = spec.solid ? spec.solid(vehicleLook(it, def, f.i ?? 0), f.w / PADDOCK_U, f.d / PADDOCK_U) : null;
+  if (!boxes) return [f];
+  return boxes.map(([x0, x1, z0, z1]) => {
+    const u = ((x0 + x1) / 2) * PADDOCK_U;
+    const v = ((z0 + z1) / 2) * PADDOCK_U;
+    return { ...f, x: f.x + u * Math.cos(f.a) - v * Math.sin(f.a), y: f.y + u * Math.sin(f.a) + v * Math.cos(f.a), w: (x1 - x0) * PADDOCK_U, d: (z1 - z0) * PADDOCK_U };
+  });
+}
 /** A paddock vehicle: its design and set-up (picked for it unless chosen), its colour, and the turn. */
 function renderVehicleDetail(box, t, it, def, field, editItem) {
   const i = app.selItem;
@@ -3448,6 +4125,13 @@ function renderVehicleDetail(box, t, it, def, field, editItem) {
   };
   if (def.variants) field('Design', sel(def.variants, it.variant, (v) => editItem((x) => { if (v) x.variant = v; else delete x.variant; }), `Picked for it (${name(def.variants, look.variant)})`));
   if (def.setups) field('Set-up', sel(def.setups, it.action, (v) => editItem((x) => { if (v) x.action = v; else delete x.action; }), `Picked for it (${name(def.setups, look.setup)})`));
+  if (def.text !== undefined) {
+    const txt = document.createElement('input');
+    txt.type = 'text';
+    txt.value = it.text ?? def.text;
+    txt.addEventListener('change', () => editItem((x) => { const v = txt.value.trim(); if (v && v !== def.text) x.text = v; else delete x.text; }));
+    field('Text', txt);
+  }
   const colours = document.createElement('div');
   colours.className = 'row';
   const auto = document.createElement('button');
@@ -3475,14 +4159,48 @@ function renderVehicleDetail(box, t, it, def, field, editItem) {
   own.addEventListener('change', () => editItem((x) => { x.color = own.value; }));
   colours.appendChild(own);
   field('Colour', colours);
-  const rot = field('Turn', (() => { const n = document.createElement('input'); n.type = 'number'; n.step = '15'; n.value = String(it.rot ?? 0); return n; })());
-  rot.addEventListener('change', () => editItem((x) => { const v = ((Math.round(Number(rot.value)) % 360) + 360) % 360; if (v) x.rot = v; else delete x.rot; }));
+  if (STRETCH.has(it.type)) {
+    const w = field('Width', (() => { const n = document.createElement('input'); n.type = 'number'; n.step = '0.5'; n.min = '0'; n.value = it.w === undefined ? '' : String(it.w); n.placeholder = String(def.w); return n; })());
+    w.addEventListener('change', () => editItem((x) => { const v = Number(w.value); if (w.value === '' || v === def.w) delete x.w; else if (v > 0) x.w = round1(v); }));
+  }
+  const rot = field('Turn', (() => { const n = document.createElement('input'); n.type = 'number'; n.step = '15'; n.value = it.rot === undefined ? '' : String(it.rot); n.placeholder = facesTrack(it.type) ? 'faces the track' : '0'; return n; })());
+  rot.addEventListener('change', () => editItem((x) => { if (rot.value === '') delete x.rot; else x.rot = ((Math.round(Number(rot.value)) % 360) + 360) % 360; }));
   const info = document.createElement('div');
   info.className = 'hint';
+  const picked = 'The dashed swatch and "Picked for it" leave the choice to the track, the same each time it loads.';
   info.textContent = VEHICLES[it.type]?.awning
-    ? 'The dashed swatch and "Picked for it" leave the choice to the track, the same each time it loads. The body stands at the back of the footprint; the awning and the bikes under it fill the rest and are not solid.'
-    : 'The dashed swatch and "Picked for it" leave the choice to the track, the same each time it loads.';
+    ? `${picked} The body stands at the back of the footprint; the awning and the bikes under it fill the rest and are not solid.`
+    : FACES_TRACK.has(it.type) ? `${picked} Its people face the track (the bottom edge of the footprint on the map) unless you turn it.`
+    : STRETCH.has(it.type) ? `${picked} Width sets how far it runs, like a banner's.`
+    : picked;
   box.appendChild(info);
+  if (it.type === 'flagger' || it.type === 'pit_crew') {
+    const fi = document.createElement('div');
+    fi.className = 'hint';
+    fi.textContent = it.type === 'flagger'
+      ? 'The flag man belongs just before the finish line. As the leader comes up to start the last lap he holds up the white flag; as the leader comes round to finish he puts it down and takes up the chequered flag, holding it until the last rider still racing has gone by. He faces the track unless turned.'
+      : 'A pit crew member belongs just after the finish line. In a race each one is given a rider; as that rider comes up to them every lap they lean out with the pit board (their place and the laps to go) until the rider has gone by. They face the track unless turned. Later in the game you can have a pit crew of your own.';
+    box.appendChild(fi);
+  }
+  if (it.type === MARSHAL) {
+    const w = t.path.length >= 2 ? marshalWatch(lapGeom(t), it) : null;
+    const wi = document.createElement('div');
+    wi.className = 'hint';
+    wi.textContent = !w ? 'Draw the track first: the marshal watches a stretch of it.'
+      : it.route?.length ? `Watches ${w.len.toFixed(1)} grid units of track from beside them to the end set${w.capped ? ` (cut at ${WATCH_MAX})` : ''}: the yellow band. The flag stays down until a rider goes down there, then they wave it until the rider is away. They face the middle of it unless turned.`
+      : `No end set: watches the next ${WATCH_DEFAULT} grid units of track past them (the yellow band). Set watch, then click the track where the watch ends, up to ${WATCH_MAX} units the lap way round. The flag goes up while a rider is down on it.`;
+    box.appendChild(wi);
+    const wb = document.createElement('div');
+    wb.className = 'row';
+    wb.style.marginTop = '4px';
+    const mkw = (txt, title, fn, on = false) => { const b = document.createElement('button'); b.textContent = txt; b.title = title; b.classList.toggle('on', on); b.addEventListener('click', fn); wb.appendChild(b); return b; };
+    if (app.routeDraw) mkw('Cancel', 'Put the watch back as it was', cancelRoute, true);
+    else {
+      mkw('Set watch', 'Click the track where the watch ends', () => routeDrawing(true));
+      mkw('Reset watch', `Watch the next ${WATCH_DEFAULT} units past them`, resetRoute).disabled = !it.route?.length;
+    }
+    box.appendChild(wb);
+  }
   const btns = document.createElement('div');
   btns.className = 'row';
   btns.style.marginTop = '4px';
@@ -3494,9 +4212,112 @@ function renderVehicleDetail(box, t, it, def, field, editItem) {
   box.appendChild(btns);
 }
 const CHEER_RADIUS = 0.4;
-const hasRoute = (it) => !!it && (it.type === OFFICIAL || it.type === CHEER);
-/** The item whose route is drawn or edited: the selected fan, otherwise the start official. */
-const routeIndex = (t) => (t?.scenery?.[app.selItem]?.type === CHEER ? app.selItem : officialIndex(t));
+// Marshals (src/core/marshal.ts: this mirrors it): each watches a stretch of track, from the nearest
+// point of the track to them to the end they set (their one route point, projected onto the track),
+// in the lap direction and capped; the flag goes up while a rider is down on it.
+const MARSHAL = 'marshal';
+const WATCH_MAX = 36;
+const WATCH_DEFAULT = 18;
+const WATCH_MIN = 2;
+function marshalWatch(g, it) {
+  const from = project(g, it.x, it.y).f;
+  const end = it.route?.length ? it.route[it.route.length - 1] : null;
+  let len = WATCH_DEFAULT;
+  if (end) len = ((((project(g, end[0], end[1]).f - from) % 1) + 1) % 1) * g.total;
+  const capped = len > WATCH_MAX;
+  len = Math.max(WATCH_MIN, Math.min(WATCH_MAX, len));
+  return { f0: from, f1: from + len / g.total, len, capped };
+}
+/** How far (grid units round the lap) the flag man and pit crews may stand from the finish line before Checks mentions it. */
+const FINISH_CREW_NEAR = 12;
+function marshalProblems(t) {
+  if (t.path.length < 2) return [];
+  const g = lapGeom(t);
+  const out = [];
+  // The flag man and the pit crews work the finish line (src/core/finishCrew.ts).
+  (t.scenery ?? []).forEach((it, i) => {
+    if (it.type !== 'flagger' && it.type !== 'pit_crew') return;
+    const pr = project(g, it.x, it.y);
+    const along = Math.min(pr.f, 1 - pr.f) * g.total;
+    const who = it.type === 'flagger' ? 'flag man' : 'pit crew member';
+    if (t.finish === false) out.push({ i, level: 'warning', message: `Scenery item ${i + 1}: the ${who} at ${it.x}, ${it.y} works the finish line, and this track has none placed yet (click here to find them).` });
+    else if (along > FINISH_CREW_NEAR) out.push({ i, level: 'warning', message: `Scenery item ${i + 1}: the ${who} at ${it.x}, ${it.y} is ${Math.round(along)} grid units round the lap from the finish line; they work best within ${FINISH_CREW_NEAR}, ${it.type === 'flagger' ? 'just before' : 'just after'} it (click here to find them).` });
+  });
+  (t.scenery ?? []).forEach((it, i) => {
+    if (it.type !== MARSHAL || !it.route?.length) return;
+    const w = marshalWatch(g, it);
+    const end = it.route[it.route.length - 1];
+    if (project(g, end[0], end[1]).dist > 8) out.push({ i, level: 'warning', message: `Scenery item ${i + 1}: the marshal at ${it.x}, ${it.y} has their watch's end set at ${end[0]}, ${end[1]}, well off the track; it is taken as the nearest point of the track (click here to find them).` });
+    else if (w.capped) out.push({ i, level: 'warning', message: `Scenery item ${i + 1}: the marshal at ${it.x}, ${it.y} watches ${WATCH_MAX} grid units of track, not as far as the end set at ${end[0]}, ${end[1]} (click here to find them).` });
+  });
+  return out;
+}
+/** The watched stretch on the map: a yellow band along the track with an arrow at its end. */
+function drawWatch(t, it, sel) {
+  if (t.path.length < 2) return;
+  const g = lapGeom(t);
+  const w = marshalWatch(g, it);
+  const n = Math.max(2, Math.ceil(w.len / 0.5));
+  ctx.save();
+  ctx.strokeStyle = sel ? '#f0c020c0' : '#f0c02070';
+  ctx.lineWidth = Math.max(4, view.width * 0.4);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  for (let k = 0; k <= n; k++) { const p = pointAt(g, w.f0 + ((w.f1 - w.f0) * k) / n); const s = toScreen(p.x, p.y); if (k) ctx.lineTo(s.x, s.y); else ctx.moveTo(s.x, s.y); }
+  ctx.stroke();
+  const e = pointAt(g, w.f1);
+  const se = toScreen(e.x, e.y);
+  const a = headingAt(g, w.f1);
+  ctx.fillStyle = sel ? '#f0c020' : '#f0c020a0';
+  ctx.beginPath();
+  ctx.moveTo(se.x + Math.cos(a) * 10, se.y + Math.sin(a) * 10);
+  ctx.lineTo(se.x + Math.cos(a + 2.5) * 9, se.y + Math.sin(a + 2.5) * 9);
+  ctx.lineTo(se.x + Math.cos(a - 2.5) * 9, se.y + Math.sin(a - 2.5) * 9);
+  ctx.closePath(); ctx.fill();
+  if (sel) label(w.capped ? `Watch (cut at ${WATCH_MAX})` : 'Watch', se.x, se.y - 14);
+  ctx.restore();
+}
+/** How far before them (grid units) a rider counts as coming up to the flag man or a pit crew (src/core/finishCrew.ts APPROACH), and how far past them a crew keeps the board out (BOARD_PAST). */
+const CREW_APPROACH = 24;
+const CREW_PAST = 3;
+/**
+ * The stretch of track each marshal, flag man and pit crew member works, as points along the
+ * middle of the track: a marshal's watch; the flag man's and a crew's approach, from where a
+ * rider coming up to them makes them act to where they stand (a crew on to just past them).
+ * `at` is the point of the track beside them. For the race view and the map.
+ */
+function crewZones(t, only = -1) {
+  if (t.path.length < 2) return [];
+  const g = lapGeom(t);
+  const out = [];
+  (t.scenery ?? []).forEach((it, i) => {
+    if (only >= 0 && i !== only) return;
+    let f0, f1, at;
+    if (it.type === MARSHAL) { const w = marshalWatch(g, it); f0 = w.f0; f1 = w.f1; at = f0; }
+    else if (it.type === 'flagger' || it.type === 'pit_crew') {
+      at = project(g, it.x, it.y).f;
+      f0 = at - CREW_APPROACH / g.total;
+      f1 = at + (it.type === 'pit_crew' ? CREW_PAST / g.total : 0);
+    } else return;
+    const n = Math.max(2, Math.ceil(((f1 - f0) * g.total) / 0.5));
+    const wrap = (f) => ((f % 1) + 1) % 1;
+    const pts = [];
+    for (let k = 0; k <= n; k++) { const p = pointAt(g, wrap(f0 + ((f1 - f0) * k) / n)); pts.push([round2(p.x), round2(p.y)]); }
+    const a = pointAt(g, wrap(at));
+    out.push({ i, kind: it.type === MARSHAL ? 'watch' : 'approach', pts, at: [round2(a.x), round2(a.y)], len: Math.round((f1 - f0) * g.total) });
+  });
+  return out;
+}
+/** The marshal whose watch is being set, with its end where the pointer is: the watch a click would set (null otherwise). */
+function watchPreview(t) {
+  const d = app.routeDraw;
+  const it = d ? t?.scenery?.[d.i] : null;
+  if (!it || it.type !== MARSHAL || !app.hoverPt) return null;
+  return { ...it, route: [[app.hoverPt.x, app.hoverPt.y]] };
+}
+const hasRoute = (it) => !!it && (it.type === OFFICIAL || it.type === CHEER || it.type === MARSHAL);
+/** The item whose route is drawn or edited: the selected fan or marshal, otherwise the start official. */
+const routeIndex = (t) => (t?.scenery?.[app.selItem]?.type === CHEER || t?.scenery?.[app.selItem]?.type === MARSHAL ? app.selItem : officialIndex(t));
 /**
  * Fans must never be on the track: where they are placed (sceneryIssues) and where their walk
  * ends (here); a route that crosses the track on the way is only odd to look at (a warning).
@@ -3634,10 +4455,29 @@ const officialKey = (t) => JSON.stringify([t.path, t.start, t.width, t.elevation
 /** The official's route on the map: dashed, or with its points (the last red) when they are selected. */
 function drawRoute(t) {
   (t.scenery ?? []).forEach((it, i) => { if (hasRoute(it) && (it.route?.length || i === app.selItem)) drawRouteOf(t, i); });
+  // The flag man's and pit crews' approach: white along the track, from where a rider coming up makes them act to beside them.
+  for (const z of crewZones(t)) {
+    if (z.kind !== 'approach') continue;
+    const sel = z.i === app.selItem;
+    ctx.save();
+    ctx.strokeStyle = sel ? '#ffffffb0' : '#ffffff50';
+    ctx.lineWidth = Math.max(3, view.width * (sel ? 0.4 : 0.15));
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    z.pts.forEach(([x, y], k) => { const p = toScreen(x, y); if (k) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y); });
+    ctx.stroke();
+    const a = toScreen(z.at[0], z.at[1]);
+    ctx.fillStyle = sel ? '#ffffff' : '#ffffffa0';
+    ctx.beginPath(); ctx.arc(a.x, a.y, sel ? 5 : 3.5, 0, Math.PI * 2); ctx.fill();
+    if (sel) label(t.scenery[z.i].type === 'flagger' ? 'Flags for riders coming up here' : 'Board out for their rider here', a.x, a.y - 14);
+    ctx.restore();
+  }
 }
 function drawRouteOf(t, i) {
   const it = t.scenery[i];
   const sel = i === app.selItem;
+  // While the watch is being set, the watch a click would set, following the pointer.
+  if (it.type === MARSHAL) drawWatch(t, (app.routeDraw?.i === i && watchPreview(t)) || it, sel);
   const r = routeOf(it);
   ctx.save();
   ctx.strokeStyle = sel ? '#ffffff' : '#ffffff90';
@@ -3666,7 +4506,9 @@ function routeDrawing(on) {
   commit((t) => { delete t.scenery[i].route; });
   status(t.scenery[i].type === CHEER
     ? 'Drawing the walk in: click where the fan walks, in order, ending trackside where they stand and cheer (never on the track). Done or Esc when finished.'
-    : 'Drawing the route: click where the official walks, in order, ending where they stand for the start. Done or Esc when finished.', 'ok');
+    : t.scenery[i].type === MARSHAL
+      ? `Setting the watch: click the track where it ends; the marshal watches from the track beside them to there, the lap way round (up to ${WATCH_MAX} grid units).`
+      : 'Drawing the route: click where the official walks, in order, ending where they stand for the start. Done or Esc when finished.', 'ok');
   refresh();
 }
 function cancelRoute() {
@@ -3682,16 +4524,24 @@ function resetRoute() {
   app.routeDraw = null;
   app.selRoute = -1;
   if (i >= 0) commit((t) => { delete t.scenery[i].route; });
-  status(t?.scenery?.[i]?.type === CHEER ? 'Route cleared: the fan stands where placed. Draw route to have them walk in.' : 'Route cleared: the official holds the board where they stand. Draw route to give them a walk.', 'ok');
+  status(t?.scenery?.[i]?.type === CHEER ? 'Route cleared: the fan stands where placed. Draw route to have them walk in.' : t?.scenery?.[i]?.type === MARSHAL ? `Watch reset: the marshal watches the next ${WATCH_DEFAULT} grid units of track past them.` : 'Route cleared: the official holds the board where they stand. Draw route to give them a walk.', 'ok');
 }
 function addRoutePoint(x, y, e) {
   const i = app.routeDraw?.i ?? routeIndex(track());
   if (i < 0) return;
   commit((t) => {
     const it = t.scenery[i];
+    // A marshal's watch has one end: a new click moves it.
+    if (it.type === MARSHAL) it.route = [];
     (it.route ??= []).push([clamp(snapHalf(x, e), -SCENE_OUT, GRID_W + SCENE_OUT), clamp(snapHalf(y, e), -SCENE_OUT, GRID_H + SCENE_OUT)]);
     app.selRoute = it.route.length;
   });
+  if (track().scenery[i].type === MARSHAL) {
+    app.routeDraw = null;
+    refresh();
+    const w = marshalWatch(lapGeom(track()), track().scenery[i]);
+    status(`Watch set: the marshal watches ${w.len.toFixed(0)} grid units of track from beside them to where you clicked${w.capped ? `, cut at ${WATCH_MAX}` : ''}, shown as the yellow band. Set watch again to move it.`, 'ok');
+  }
 }
 function deleteRoutePoint(k) {
   const i = routeIndex(track());
@@ -3947,7 +4797,7 @@ function renderOfficialDetail(box, t, it) {
 /** Metres a grid unit, as for sections from the drawing (about the game's tracks). */
 const PIECE_MPU = 2.7;
 /** A feature's length in grid units when first placed, by type (others 12). */
-const PIECE_LEN = { straight: 14, tabletop: 12, double: 12, step_up: 10, rhythm: 14, whoops: 12, braking_bumps: 8, sand: 10, mud: 10, uphill: 12, downhill: 12 };
+const PIECE_LEN = { straight: 14, tabletop: 12, double: 12, step_up: 10, triple: 16, quad: 20, step_down: 12, step_on: 14, step_on_two: 22, step_on_three: 28, on_off: 14, single_over_table: 16, table_over_single: 16, wall_jump: 8, ski_jump: 14, rhythm: 14, whoops: 12, rollers: 12, dragon_back: 14, braking_bumps: 8, sand: 10, mud: 10, uphill: 12, downhill: 12 };
 const PIECE_PASS = { straight: 0.6, sweeper: 0.5, corner: 0.6, hairpin: 0.7 };
 
 /** A point of the drawing by index, counting round past the end on a closed lap. */
@@ -4188,8 +5038,8 @@ function renderRoute() {
   $('#btnFinishPiece').classList.toggle('sel', app.placing?.kind === 'finish');
   $('#btnFinishRemove').disabled = t.finish === false;
   const needs = [!t.start && 'a start straight', t.finish === false && 'a finish line'].filter(Boolean);
-  const fcs = !needs.length && !t.open ? firstCornerSpan(t) : null;
-  const startNote = needs.length ? ` Still needed to race: ${needs.join(' and ')} (Start and finish${t.finish === false && t.open ? ', the finish line once the route is closed' : ''}).` : fcs ? ` The first corner is the start straight's end: ${fcs.metres} m from the join to point ${fcs.point}.` : '';
+  const fcs = !needs.length && !t.open ? firstCornerLeg(t) : null;
+  const startNote = needs.length ? ` Still needed to race: ${needs.join(' and ')} (Start and finish${t.finish === false && t.open ? ', the finish line once the route is closed' : ''}).` : fcs ? ` The first corner is the start straight's end: ${fcs.metres} m between ${fcs.points} (the blue stretch).` : '';
   const metres = n >= 2 ? `${Math.round(lapGeom(t).total * PIECE_MPU)} m` : '';
   const pl = app.placing;
   const gh = pl && pl.kind !== 'feature' ? ghostOf(t, pl) : null;
@@ -4257,6 +5107,11 @@ function drawGhost() {
 }
 /** What the race view draws for what is being placed. */
 function ghostForView(t) {
+  if (app.mode === 'surface') {
+    const sg = surfaceGhost(t);
+    if (!sg) return undefined;
+    return { pts: sg.pts, level: 'ok', ring: null, colour: sg.color };
+  }
   if (app.mode === 'height' && hillTool()) {
     // The elevation tool's preview: the stretch of track it would raise or lower, as a band.
     if (!app.hoverPt) return undefined;
@@ -4280,9 +5135,17 @@ function ghostItemForView(t) {
   if (app.mode !== 'scenery' || !app.hoverPt || app.selItem >= 0 || app.routeDraw || drag) return undefined;
   const def = sceneryDef(app.sceneryBrush);
   if (!def) return undefined;
-  const e = { altKey: app.hoverAlt };
-  const it = { type: def.id, x: clamp(snapHalf(app.hoverPt.x, e), -SCENE_OUT, GRID_W + SCENE_OUT), y: clamp(snapHalf(app.hoverPt.y, e), -SCENE_OUT, GRID_H + SCENE_OUT) };
-  if (app.placeRot) it.rot = app.placeRot;
+  return itemToPlace(t, def, app.hoverPt.x, app.hoverPt.y, { altKey: app.hoverAlt });
+}
+/** The item a click at x, y would place: snapped onto a neighbour (Snap object) or the grid, turned as set with Q and E. */
+function itemToPlace(t, def, x, y, e) {
+  const it = { type: def.id, x: round1(x), y: round1(y) };
+  if (app.placeRot !== null) it.rot = app.placeRot;
+  const s = snapToItems(t, it, -1, { x, y }, e);
+  it.x = clamp(s ? s.x : snapHalf(x, e), -SCENE_OUT, GRID_W + SCENE_OUT);
+  it.y = clamp(s ? s.y : snapHalf(y, e), -SCENE_OUT, GRID_H + SCENE_OUT);
+  if (s) it.rot = s.rot;
+  app.snapTo = s ? s.j : -1;
   return it;
 }
 /**
@@ -4612,6 +5475,10 @@ function snapFinishF(t, f) {
  * route does not change, so the lap is laid out as before.
  */
 function setFinish(t, f) {
+  setFinishCore(t, f);
+  snapFinishArches(t);
+}
+function setFinishCore(t, f) {
   const g = lapGeom(t);
   const d = snapFinishF(t, f) * g.total;
   const idx = layoutIndices(t);
@@ -4635,7 +5502,11 @@ function setFinish(t, f) {
   const oldLast = t.sections.at(-1);
   const oldFirst = t.sections[0];
   if (t.features) {
-    for (const ft of t.features) ft.at = round1((((ft.at - units) % g2.total) + g2.total) % g2.total);
+    for (const ft of t.features) {
+      ft.at = round1((((ft.at - units) % g2.total) + g2.total) % g2.total);
+      // A finish-line jump is the lap's first feature: the line moved off it, it is a plain jump again.
+      if (ft.finish && ft.at > 0.5 && ft.at < g2.total - 0.5) delete ft.finish;
+    }
   } else {
     // The section the line falls in, split there unless it is within half a metre of a boundary.
     let k = 0;
@@ -5084,6 +5955,117 @@ function hit(sx, sy) {
 function evPos(e) { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
 function snapGrid(v, e) { return $('#snap').checked && !e.altKey ? Math.round(v) : round1(v); }
 function snapHalf(v, e) { return $('#snap').checked && !e.altKey ? Math.round(v * 2) / 2 : round1(v); }
+/** How close (grid units) a scenery item has to come to another to snap onto it (Snap object). */
+const SNAP_ITEM = 1.5;
+/** How far (degrees) an item's turn may be from a quarter turn of its neighbour's and still be turned to match when it snaps. */
+const SNAP_TURN = 12;
+/**
+ * Snap object: where a scenery item at raw (not yet snapped) would join the nearest other item,
+ * end to end or side by side with their edges flush, turned the same way (to the nearest quarter
+ * turn of its own), so a run of fences or walls lines up without fiddling. Null when no item is
+ * within SNAP_ITEM, when it is off, or with Alt held. i is the item's own index (-1 placing).
+ */
+function snapToItems(t, it, i, raw, e) {
+  if (!$('#snapObj').checked || e.altKey) return null;
+  const items = t.scenery ?? [];
+  const mine = itemBox(it);
+  const rot0 = it.rot ?? 0;
+  let best = null;
+  items.forEach((o, j) => {
+    if (j === i || o.type === OFFICIAL || sceneryDef(o.type)?.id !== o.type) return;
+    const ob = itemBox(o);
+    // Too far for any edge of it to be near: the sum of both half diagonals plus the snap range.
+    if (Math.hypot(raw.x - o.x, raw.y - o.y) > Math.hypot(mine.w, mine.h) / 2 + Math.hypot(ob.w, ob.h) / 2 + SNAP_ITEM) return;
+    // Turned like the neighbour (to the nearest quarter turn of how it is turned now) when it is
+    // already within SNAP_TURN of lining up; turned by hand to some other angle, it keeps that
+    // angle and only its position snaps, so a turn is never undone by moving it.
+    const orot = o.rot ?? 0;
+    const q = Math.round((rot0 - orot) / 90) * 90;
+    const aligned = Math.abs(rot0 - orot - q) <= SNAP_TURN;
+    const rot = aligned ? ((orot + q) % 360 + 360) % 360 : ((rot0 % 360) + 360) % 360;
+    const a = (rot * Math.PI) / 180;
+    const da = a - ob.a;
+    // The item's half extents along the neighbour's length (ux) and depth (uy).
+    const hx = Math.abs((mine.w / 2) * Math.cos(da)) + Math.abs((mine.h / 2) * Math.sin(da));
+    const hy = Math.abs((mine.w / 2) * Math.sin(da)) + Math.abs((mine.h / 2) * Math.cos(da));
+    const ux = [Math.cos(ob.a), Math.sin(ob.a)];
+    const uy = [-Math.sin(ob.a), Math.cos(ob.a)];
+    const dx = raw.x - o.x;
+    const dy = raw.y - o.y;
+    const lx = dx * ux[0] + dy * ux[1];
+    const ly = dx * uy[0] + dy * uy[1];
+    // Flush along the other axis: centred, or with a far edge level with the neighbour's, when
+    // within the snap range of one of those; otherwise where it is.
+    const flush = (v, half, oh) => {
+      const c = [0, oh - half, half - oh].reduce((b, c) => (Math.abs(v - c) < Math.abs(v - b) ? c : b));
+      return Math.abs(v - c) <= SNAP_ITEM ? c : v;
+    };
+    // Each candidate: where the item's middle goes (lx, ly) and where the two join (jl), both in
+    // the neighbour's frame.
+    const cands = [];
+    for (const s of [-1, 1]) {
+      // End to end: only alongside it in depth, so a corner never snaps to a corner diagonally.
+      const fy = flush(ly, hy, ob.h / 2);
+      if (Math.abs(fy) <= ob.h / 2 + hy + 1e-6) cands.push({ lx: s * (ob.w / 2 + hx), ly: fy, jl: [s * (ob.w / 2), fy] });
+      const fx = flush(lx, hx, ob.w / 2);
+      if (Math.abs(fx) <= ob.w / 2 + hx + 1e-6) cands.push({ lx: fx, ly: s * (ob.h / 2 + hy), jl: [fx, s * (ob.h / 2)] });
+      // A corner: turned a quarter, its length runs off the neighbour's end, the two middle lines
+      // meeting there square (a fence or wall is drawn along its middle line), either way round.
+      if (aligned && q % 180 !== 0) for (const s2 of [-1, 1]) cands.push({ lx: s * (ob.w / 2), ly: s2 * (mine.w / 2), jl: [s * (ob.w / 2), 0] });
+    }
+    cands.forEach((c, k) => {
+      const x = o.x + c.lx * ux[0] + c.ly * uy[0];
+      const y = o.y + c.lx * ux[1] + c.ly * uy[1];
+      const d = Math.hypot(x - raw.x, y - raw.y);
+      const jl = c.jl;
+      const jx = o.x + jl[0] * ux[0] + jl[1] * uy[0];
+      const jy = o.y + jl[0] * ux[1] + jl[1] * uy[1];
+      if (d <= SNAP_ITEM && (!best || d < best.d)) best = { x, y, rot, j, d, jx, jy, key: `${j}:${k}:${rot}` };
+    });
+  });
+  if (!best) { app.snapKey = null; return null; }
+  // Turned with Q and E while snapped: swung round the join, which stays where it is.
+  if (best.key !== app.snapKey) { app.snapKey = best.key; app.snapBend = 0; }
+  if (app.snapBend) {
+    const b = (app.snapBend * Math.PI) / 180;
+    const dx = best.x - best.jx;
+    const dy = best.y - best.jy;
+    best.x = best.jx + dx * Math.cos(b) - dy * Math.sin(b);
+    best.y = best.jy + dx * Math.sin(b) + dy * Math.cos(b);
+    best.rot = (((best.rot + app.snapBend) % 360) + 360) % 360;
+  }
+  best.x = round2(best.x);
+  best.y = round2(best.y);
+  return best;
+}
+/**
+ * The point a placed scenery item turns about with Q and E while Snap object is on: the middle of
+ * one of its ends where that end touches another item, so a fence joined onto another swings
+ * round the join and stays joined. With both ends joined it keeps the end on the item placed
+ * first. Null when neither end touches anything (it turns about its middle).
+ */
+function joinedEnd(t, i) {
+  const it = t.scenery?.[i];
+  if (!it || !$('#snapObj').checked || it.type === OFFICIAL || it.type === 'finish_arch') return null;
+  const { w, a } = itemBox(it);
+  let best = null;
+  for (const sgn of [-1, 1]) {
+    const ex = it.x + sgn * (w / 2) * Math.cos(a);
+    const ey = it.y + sgn * (w / 2) * Math.sin(a);
+    (t.scenery ?? []).forEach((o, j) => {
+      if (j === i || o.type === OFFICIAL || sceneryDef(o.type)?.id !== o.type) return;
+      const ob = itemBox(o);
+      const dx = ex - o.x;
+      const dy = ey - o.y;
+      const lx = dx * Math.cos(ob.a) + dy * Math.sin(ob.a);
+      const ly = -dx * Math.sin(ob.a) + dy * Math.cos(ob.a);
+      if (Math.abs(lx) <= ob.w / 2 + JOIN_TOL && Math.abs(ly) <= ob.h / 2 + JOIN_TOL && (!best || j < best.j)) best = { x: ex, y: ey, j };
+    });
+  }
+  return best;
+}
+/** How far (grid units) an item's end may be from another item and still count as joined to it. */
+const JOIN_TOL = 0.25;
 function cellAt(t, gp) { const cell = t.ground?.cell ?? 2; return { x: Math.floor(gp.x / cell), y: Math.floor(gp.y / cell) }; }
 
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -5182,11 +6164,16 @@ function onPointerDown(e) {
     }
     app.selRoute = -1;
     if (h?.kind === 'item') {
-      app.selItem = h.i;
+      // Shift-click adds it to the selection (or takes it out); a click on an item already in a
+      // selection keeps the rest, so the whole selection can be dragged by any of its items.
+      if (e.shiftKey) { selectItem(h.i, true); refresh(); return; }
+      if (selItems().includes(h.i)) app.selItem = h.i; else selectItem(h.i);
       const it = t.scenery[h.i];
-      drag = { kind: 'item', i: h.i, dx: gp.x - it.x, dy: gp.y - it.y, started: false };
+      const others = selItems().filter((j) => j !== h.i).map((j) => ({ j, dx: t.scenery[j].x - it.x, dy: t.scenery[j].y - it.y }));
+      drag = { kind: 'item', i: h.i, dx: gp.x - it.x, dy: gp.y - it.y, started: false, start: clone(it), others };
       refresh();
-    } else if (app.selItem >= 0) { app.selItem = -1; refresh(); }
+    } else if (e.shiftKey) { drag = { kind: 'box', from: gp, to: gp, started: false }; }
+    else if (app.selItem >= 0) { app.selItem = -1; app.selMore = []; refresh(); }
     else placeItem(gp.x, gp.y, e);
     return;
   }
@@ -5226,6 +6213,33 @@ function onPointerDown(e) {
   refresh();
 }
 canvas.addEventListener('pointerdown', onPointerDown);
+/** A scenery item dragged to raw (where the pointer has it, not yet snapped): onto a neighbour (Snap object) or the grid. */
+function dragItemTo(t, raw, e) {
+  const it = t.scenery[drag.i];
+  drag.raw = raw;
+  drag.alt = e.altKey;
+  // Lined up from how it was turned when picked up (or since, with Q and E while dragged), so a
+  // bend from Q and E never flips it a quarter turn.
+  const rot0 = drag.rot ?? drag.start.rot;
+  const s = snapToItems(t, { ...it, rot: rot0 }, drag.i, raw, e);
+  it.x = clamp(s ? s.x : snapHalf(raw.x, e), -SCENE_OUT, GRID_W + SCENE_OUT);
+  it.y = clamp(s ? s.y : snapHalf(raw.y, e), -SCENE_OUT, GRID_H + SCENE_OUT);
+  // Snapped onto another item it turns the same way (and as far again as Q and E have bent it);
+  // away from one it is turned as when picked up.
+  const rot = s ? s.rot : rot0;
+  if (rot === undefined) delete it.rot; else it.rot = rot;
+  // The rest of the selection keeps its place beside it.
+  for (const o of drag.others ?? []) {
+    const oi = t.scenery[o.j];
+    oi.x = clamp(round2(it.x + o.dx), -SCENE_OUT, GRID_W + SCENE_OUT);
+    oi.y = clamp(round2(it.y + o.dy), -SCENE_OUT, GRID_H + SCENE_OUT);
+  }
+  app.snapTo = s ? s.j : -1;
+  // While it is dragged only the map and the race view follow it (the race view moves the one
+  // item); the panels, checks and undo catch up when it is let go (onPointerUp).
+  requestDraw();
+  sendView();
+}
 function onPointerMove(e) {
   const t = track();
   const p = evPos(e);
@@ -5250,11 +6264,24 @@ function onPointerMove(e) {
       requestDraw();
       if (hillTool()) sendView();
     }
+    if (app.mode === 'surface' && !drag) {
+      // The placing preview: the stretch the next click would surface.
+      app.hoverPt = gp;
+      requestDraw();
+      sendView();
+    }
     if (app.mode === 'scenery') {
       // The placing preview follows the pointer while nothing is selected or dragged.
       app.hoverPt = gp;
       app.hoverAlt = !!e.altKey;
       if (app.selItem < 0 && !app.routeDraw && !drag) { requestDraw(); sendView(); }
+      // Setting a marshal's watch: the watch a click would set follows the pointer.
+      else if (app.routeDraw && track()?.scenery?.[app.routeDraw.i]?.type === MARSHAL) {
+        requestDraw();
+        sendView();
+        const w = marshalWatch(lapGeom(track()), watchPreview(track()));
+        $('#posLabel').textContent += ` · click to watch ${w.len.toFixed(0)} grid units${w.capped ? `, cut at ${WATCH_MAX}` : ''}`;
+      }
     }
   }
   if (app.rect) { const c = cellAt(t, gp); app.rect.x1 = c.x; app.rect.y1 = c.y; requestDraw(); return; }
@@ -5336,9 +6363,13 @@ function onPointerMove(e) {
     const it = t.scenery[app.selItem];
     it.route[drag.i - 1] = [clamp(snapHalf(gp.x, e), -SCENE_OUT, GRID_W + SCENE_OUT), clamp(snapHalf(gp.y, e), -SCENE_OUT, GRID_H + SCENE_OUT)];
   } else if (drag.kind === 'item') {
-    const it = t.scenery[drag.i];
-    it.x = clamp(snapHalf(gp.x - drag.dx, e), -SCENE_OUT, GRID_W + SCENE_OUT);
-    it.y = clamp(snapHalf(gp.y - drag.dy, e), -SCENE_OUT, GRID_H + SCENE_OUT);
+    dragItemTo(t, { x: gp.x - drag.dx, y: gp.y - drag.dy }, e);
+    return;
+  } else if (drag.kind === 'box') {
+    drag.to = gp;
+    requestDraw();
+    sendView();
+    return;
   } else if (drag.kind === 'patch') {
     const lap = lapLength(t);
     const m = project(lapGeom(t), gp.x, gp.y).f * lap;
@@ -5374,7 +6405,7 @@ function onPointerMove(e) {
   changed();
 }
 canvas.addEventListener('pointermove', onPointerMove);
-function onPointerUp() {
+function onPointerUp(e) {
   if (app.rect) {
     const t = track();
     const [x0, y0, x1, y1] = rectCells(app.rect);
@@ -5387,13 +6418,28 @@ function onPointerUp() {
   }
   if (drag?.started && exportTracks(app.data) === exportTracks(app.undo.at(-1).data)) app.undo.pop();
   const click = drag && !drag.started ? drag.click : null;
+  const moved = drag?.kind === 'item' && drag.started;
+  if (drag?.kind === 'box' && drag.started) {
+    const t = track();
+    const x0 = Math.min(drag.from.x, drag.to.x), x1 = Math.max(drag.from.x, drag.to.x);
+    const y0 = Math.min(drag.from.y, drag.to.y), y1 = Math.max(drag.from.y, drag.to.y);
+    const inside = (t?.scenery ?? []).map((it, i) => (it.x >= x0 && it.x <= x1 && it.y >= y0 && it.y <= y1 ? i : -1)).filter((i) => i >= 0);
+    const keep = e?.shiftKey ? selItems() : [];
+    const all = [...keep, ...inside.filter((i) => !keep.includes(i))];
+    app.selItem = all[0] ?? -1;
+    app.selMore = all.slice(1);
+    const type = t?.scenery?.[app.selItem]?.type;
+    if (type && sceneryDef(type)) app.sceneryBrush = type;
+  }
   drag = null;
+  app.snapTo = -1;
+  if (moved) { changed(); return; }
   if (click === 'close') { closeRoute(); return; }
   if (click === 'stop') { stopDrawing(); return; }
   refresh();
 }
 canvas.addEventListener('pointerup', onPointerUp);
-canvas.addEventListener('pointerleave', () => { if (app.hoverCell || app.hoverPt) { app.hoverCell = null; app.hoverPt = null; requestDraw(); if (app.mode === 'scenery' || app.mode === 'height') sendView(); } });
+canvas.addEventListener('pointerleave', () => { if (app.hoverCell || app.hoverPt) { app.hoverCell = null; app.hoverPt = null; requestDraw(); if (app.mode === 'scenery' || app.mode === 'height' || app.mode === 'surface') sendView(); } });
 function onDblClick(e) {
   const t = track();
   if (!t || app.mode !== 'layout' || app.drawing || app.placing) return;
@@ -5542,19 +6588,28 @@ function sendView() {
   const f = $('#view3d');
   const t = track();
   if (!app.view3d || !t || !f.contentWindow) return;
-  const issues = [...sceneryIssues(t).map((p) => ({ item: p.i, level: p.level })), ...cheerProblems(t).map((p) => ({ item: p.i, level: p.level })), ...elevationIssues(t).map((p) => ({ x: p.x, y: p.y, level: p.level })), ...boundaryCrossings(t).map((c) => ({ x: c.x, y: c.y, level: 'error' }))];
+  const issues = [...sceneryIssues(t).map((p) => ({ item: p.i, level: p.level })), ...cheerProblems(t).map((p) => ({ item: p.i, level: p.level })), ...marshalProblems(t).map((p) => ({ item: p.i, level: p.level })), ...elevationIssues(t).map((p) => ({ x: p.x, y: p.y, level: p.level })), ...boundaryCrossings(t).map((c) => ({ x: c.x, y: c.y, level: 'error' }))];
   let brush = null;
   if (app.mode === 'height' && !hillTool()) brush = { shape: 'circle', r: Number($('#hRadius').value) };
   else if (app.mode === 'ground') brush = { shape: 'cells', cell: t.ground?.cell ?? 2, n: Number($('#gBrush').value) };
-  const sel = { item: app.mode === 'scenery' ? app.selItem : -1, sec: app.selSec, pt: app.selPt, start: app.selStart, route: app.selRoute };
-  const shown = trackForView(t);
-  const ghost = app.mode === 'layout' || app.mode === 'height' ? ghostForView(t) : undefined;
-  const ghostItem = ghostItemForView(t);
+  const sel = { item: app.mode === 'scenery' ? app.selItem : -1, items: app.mode === 'scenery' ? selItems() : [], sec: app.selSec, pt: app.selPt, start: app.selStart, route: app.selRoute };
+  // A scenery item being dragged is sent as it was picked up (so the view, built from the track,
+  // need not be rebuilt as it moves) and left out of the build; the view moves a copy of it.
+  const moving = drag?.kind === 'item' && drag.started && !drag.others?.length ? drag.i : -1;
+  const box = drag?.kind === 'box' && drag.started ? { x0: drag.from.x, y0: drag.from.y, x1: drag.to.x, y1: drag.to.y } : undefined;
+  const shown = trackForView(moving >= 0 ? { ...t, scenery: t.scenery.map((it, i) => (i === moving ? drag.start : it)) } : t);
+  let ghost = app.mode === 'layout' || app.mode === 'height' || app.mode === 'surface' ? ghostForView(t) : undefined;
+  // Setting a marshal's watch: the watch a click would set, as a yellow band along the track.
+  const wp = app.mode === 'scenery' ? watchPreview(t) : null;
+  if (wp) ghost = { pts: crewZones({ ...t, scenery: t.scenery.map((it, i) => (i === app.routeDraw.i ? wp : it)) }, app.routeDraw.i)[0]?.pts ?? [], level: 'ok', ring: null, colour: '#ffd60a' };
+  // What each marshal, flag man and pit crew member covers, in Scenery: the selected one's bold.
+  const zones = app.mode === 'scenery' ? crewZones(t).map((z) => ({ ...z, sel: z.i === app.selItem })) : undefined;
+  const ghostItem = moving >= 0 ? t.scenery[moving] : ghostItemForView(t);
   // The route's control points, and the selected point's curve handles, for Layout.
   const L = lpts(t);
   const P = L[app.selPt];
   const handles = app.mode === 'layout' && P && smooth(P) ? [hOut(P), hIn(P)].map((h) => [P[0] + h[0], P[1] + h[1]]) : undefined;
-  f.contentWindow.postMessage({ type: 'track', officialKey: officialKey(t), state: { track: shown.track, gapFrom: shown.gapFrom, gaps: shown.gaps, points: L.map((q) => [q[0], q[1]]), handles, ghost, ghostItem, parts: app.parts === FALLBACK_PARTS ? undefined : app.parts, mode: app.mode, sel, issues, brush, sectionColors: shown.track.sections.map((s) => colorOf(s.type)) } }, '*');
+  f.contentWindow.postMessage({ type: 'track', officialKey: officialKey(t), state: { box, track: shown.track, gapFrom: shown.gapFrom, gaps: shown.gaps, points: L.map((q) => [q[0], q[1]]), handles, ghost, ghostItem, ghostSolid: moving >= 0 ? moving : undefined, arrows: facingArrows(t, ghostItem), zones, parts: app.parts === FALLBACK_PARTS ? undefined : app.parts, mode: app.mode, sel, issues, brush, sectionColors: shown.track.sections.map((s) => colorOf(s.type)) } }, '*');
 }
 window.addEventListener('message', (e) => {
   const f = $('#view3d');
@@ -5606,6 +6661,10 @@ window.addEventListener('keydown', (e) => {
   // The race view's camera keys work wherever the keyboard is: the view moves its own camera.
   if (!mod && camKeyToView(e, true)) return;
   if (mod && e.key.toLowerCase() === 'd' && app.mode === 'scenery') { e.preventDefault(); duplicateItem(); return; }
+  if (mod && app.mode === 'scenery' && e.key.toLowerCase() === 'c') { e.preventDefault(); copyItems(); return; }
+  if (mod && app.mode === 'scenery' && e.key.toLowerCase() === 'x') { e.preventDefault(); if (copyItems()) deleteItem(); return; }
+  if (mod && app.mode === 'scenery' && e.key.toLowerCase() === 'v') { e.preventDefault(); pasteItems(); return; }
+  if (mod && app.mode === 'scenery' && e.key.toLowerCase() === 'a') { e.preventDefault(); selectAllItems(); return; }
   if (mod) return;
   const modes = { 1: 'layout', 2: 'surface', 3: 'ground', 4: 'scenery', 5: 'height' };
   if (modes[e.key]) { setMode(modes[e.key]); return; }
@@ -5635,14 +6694,23 @@ window.addEventListener('keydown', (e) => {
       // 15° a press; Shift for 5°, Alt for 1°. With nothing selected, it turns the item about to be placed.
       e.preventDefault();
       const step = (e.altKey ? 1 : e.shiftKey ? 5 : 15) * (e.key.toLowerCase() === 'q' ? -1 : 1);
-      if (app.selItem >= 0) turnItem(step);
-      else { app.placeRot = (((app.placeRot + step) % 360) + 360) % 360; requestDraw(); sendView(); }
+      // Snapped while placed or dragged, it swings round the join instead (Snap object).
+      if (drag?.kind === 'item' && drag.started) {
+        // Turned while dragged: snapped, it swings round the join; free, the turn is kept with the
+        // drag (drag.rot), so the next move keeps it instead of going back to how it was picked up.
+        if (app.snapTo >= 0) app.snapBend += step;
+        else drag.rot = ((((drag.rot ?? drag.start.rot ?? 0) + step) % 360) + 360) % 360;
+        dragItemTo(track(), drag.raw, { altKey: drag.alt });
+      }
+      else if (app.selItem >= 0) turnItem(step);
+      else if (ghostItemForView(track()) && app.snapTo >= 0) { app.snapBend += step; requestDraw(); sendView(); }
+      else { app.placeRot = ((((app.placeRot ?? 0) + step) % 360) + 360) % 360; requestDraw(); sendView(); }
     }
     else if (e.key.startsWith('Arrow') && app.selItem >= 0) {
       e.preventDefault();
       const d = e.shiftKey ? 2 : 0.5;
       const [dx, dy] = { ArrowLeft: [-d, 0], ArrowRight: [d, 0], ArrowUp: [0, -d], ArrowDown: [0, d] }[e.key];
-      commit((t) => { const it = t.scenery[app.selItem]; it.x = clamp(round1(it.x + dx), -SCENE_OUT, GRID_W + SCENE_OUT); it.y = clamp(round1(it.y + dy), -SCENE_OUT, GRID_H + SCENE_OUT); });
+      commit((t) => { for (const i of selItems()) { const it = t.scenery[i]; it.x = clamp(round1(it.x + dx), -SCENE_OUT, GRID_W + SCENE_OUT); it.y = clamp(round1(it.y + dy), -SCENE_OUT, GRID_H + SCENE_OUT); } });
     }
     return;
   }
@@ -5704,7 +6772,7 @@ async function tryServer() {
 setMode('layout');
 tryServer();
 openRaceView();
-window.trackEditor = { app, openRaceView, sendView, heightDab, elevAt, elevationIssues, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, findRef, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart, planWalk, alongStart, followStart, setOfficialAlong, trackRoom, walkRoom, undo, redo, trackForView, officialProblems, setFinish, finishGhost, addFinish, placeFinish, removeFinish, addStart, placeStart, placePiece, cancelPlacing, adjustPiece, readyToRace, tightCorners, keepJoined, startHere, lapLength, refresh, sectionBounds, boundaryCrossings, BOUND_OUT, SCENE_OUT, cheerProblems, routeDrawing, addRoutePoint, lpts, derive, rebuildPath, rebuildSections, splitSegment, segParam, layoutIndices, baseRuns, sectionFeats, featureProblems, featureTypes, featureAt, useFeatures, startFeature, featureGhost, placeFeature, deleteFeature, duplicateFeature, editFeature, startDrawing, stopDrawing, addLayoutPoint, closeRoute, deleteSegment, deletePoint, insertPoint, roundCorner, trackStatus, reverse, fitToGrid, newTrack, deleteSection, firstCornerSpan, inSpan, hillsAt, hillProfile, trackLevelAt, hillGhost, applyHill, hillTool }; // for tests
+window.trackEditor = { app, openRaceView, sendView, facingOf, snapToItems, joinedEnd, turnItem, itemToPlace, surfaceGhost, toGrid, heightDab, elevAt, elevationIssues, pointAt, headingAt, exportTracks, parseKeepFloats, useSource, HttpSource, ListSource, checkTrack, checkAll, runChecks, findItem, findRef, setMode, paintCells, commit, lapGeom, project, toScreen, sceneryOnTrack, sceneryIssues, sectionShapes, startGeom, startProblems, sectionsFromDrawing, autoStart, planWalk, alongStart, followStart, setOfficialAlong, trackRoom, walkRoom, undo, redo, trackForView, officialProblems, setFinish, finishGhost, addFinish, placeFinish, removeFinish, addStart, placeStart, placePiece, cancelPlacing, adjustPiece, readyToRace, tightCorners, keepJoined, startHere, lapLength, refresh, sectionBounds, boundaryCrossings, BOUND_OUT, SCENE_OUT, cheerProblems, routeDrawing, addRoutePoint, lpts, derive, rebuildPath, rebuildSections, splitSegment, segParam, layoutIndices, baseRuns, sectionFeats, featureProblems, featureTypes, featureAt, useFeatures, startFeature, featureGhost, placeFeature, deleteFeature, duplicateFeature, editFeature, startDrawing, stopDrawing, addLayoutPoint, closeRoute, deleteSegment, deletePoint, insertPoint, roundCorner, trackStatus, reverse, fitToGrid, newTrack, deleteSection, firstCornerLeg, colliders, marshalWatch, marshalProblems, hillsAt, hillProfile, trackLevelAt, hillGhost, applyHill, hillTool }; // for tests
 </script>
 </body>
 </html>

@@ -21,14 +21,31 @@ const game = new Phaser.Game({
   scene: [BootScene, MenuScene, NewCareerScene, SettingsScene, WorldScene, HudScene, RaceScene, TrackEditScene],
 });
 
+/**
+ * The size the game can show at: the visible part of the page. In a phone browser (not added to
+ * the home screen) the toolbars cover some of the window, so it's the visual viewport there, or
+ * the game's own box (sized to the visible height by the page's CSS).
+ */
+function screenSize(): { w: number; h: number } {
+  const box = document.getElementById('game')?.getBoundingClientRect();
+  const vv = window.visualViewport;
+  const w = Math.min(window.innerWidth, box?.width || Infinity, vv ? vv.width * vv.scale : Infinity);
+  const h = Math.min(window.innerHeight, box?.height || Infinity, vv ? vv.height * vv.scale : Infinity);
+  return { w, h };
+}
+
 function fitScreen(): void {
-  const w = Math.round(window.innerWidth * DPR);
-  const h = Math.round(window.innerHeight * DPR);
+  const { w: cw, h: ch } = screenSize();
+  const w = Math.round(cw * DPR);
+  const h = Math.round(ch * DPR);
   if (w !== game.scale.width || h !== game.scale.height) game.scale.resize(w, h);
 }
 window.addEventListener('resize', fitScreen);
 window.addEventListener('orientationchange', () => setTimeout(fitScreen, 200));
 window.visualViewport?.addEventListener('resize', fitScreen);
+// Safari ignores user-scalable=no: stop pinch and double-tap zoom, which push the game off screen.
+for (const ev of ['gesturestart', 'gesturechange', 'dblclick']) document.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
+fitScreen();
 
 // Exposed for automated playtests and debugging in the browser console.
 (window as unknown as { game: Phaser.Game }).game = game;

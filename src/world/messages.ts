@@ -19,7 +19,7 @@ const ACTIONS: Record<string, string> = {
   'shop.bike_parts': 'The parts shop',
   'shop.tyres_wheels': 'The tyres and wheels shop',
   'shop.tool_sets': 'The tool set shop',
-  'shop.van': 'Buying the van',
+  'shop.van': 'Buying the motor',
   'story.neighbour_pc': "The neighbour's computer",
   'job.shift': 'Work shifts',
   'train.welding': 'Welding training',
@@ -33,11 +33,14 @@ const ACTIONS: Record<string, string> = {
 
 const pretty = (s: string) => s.replace(/[_-]+/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
 
+/** What an object's action is called, for markers and messages. */
+export const actionName = (action: string): string => ACTIONS[action] ?? pretty(action);
+
 /** Objects that already do something in this build, with what they say outside the story. */
 const NOW: Record<string, (flags: Record<string, boolean>) => string> = {
-  'shop.van': (f) => (f.van_owned ? "The van's yours. It's parked outside your room." : 'Used van: £600, no haggling. Talk to the van seller.'),
+  'shop.van': (f) => (f.van_owned ? "The motor's yours. It's parked outside your room." : 'Used motor: £600, no haggling. Talk to Jedrick.'),
   'workshop.fit_tune': () => 'The garage workbench. Nothing to fit right now.',
-  'storage.parts': (f) => (f.van_loaded ? 'Your spares are packed in the van.' : 'Your spares chest.'),
+  'storage.parts': (f) => (f.van_loaded ? 'Your spares are packed in the motor.' : 'Your spares chest.'),
   // Shops open once the opening chain is done; until then they only say they're busy.
   'shop.bike_parts': () => "The parts counter. They're busy with the garage's order. Check your task.",
   'shop.tyres_wheels': () => "The tyre counter. They're busy with the garage's order. Check your task.",

@@ -1,17 +1,14 @@
 {
   "note": "NPC lines and the opening chain's script. {rider} is the rider's name, {short} is how much money is missing. Speaker narrator has no name box.",
   "dialogue": {
-    "route_marshal.hello": { "lines": [
-      { "speaker": "npc", "text": "Lost? I keep an eye on the roads out of here. Here's where they go." }
-    ] },
     "story.intro": { "lines": [
       { "speaker": "narrator", "text": "Your first bike: a tired 50cc, bought with everything you had. You kick it over. Nothing." },
-      { "speaker": "narrator", "text": "The garage on the high street fixes anything with an engine. Maybe the mechanic there can help." },
+      { "speaker": "narrator", "text": "Phoenix MX, the garage on the high street, fixes anything with an engine. Go and see the town's mechanic there." },
       { "speaker": "narrator", "text": "Press Tab or tap Bike to check your bike, your bag and your current task." }
     ] },
     "story.meet_mechanic": { "lines": [
-      { "speaker": "npc", "text": "So you're the new rider everyone's on about? Let's have a listen to that 50." },
-      { "speaker": "narrator", "text": "The mechanic pulls the plug, squints at it, and shakes their head." },
+      { "speaker": "npc", "text": "So you're the new rider everyone's on about? Paul Phoenix. This is my place. Let's have a listen to that 50." },
+      { "speaker": "narrator", "text": "Paul pulls the plug, squints at it, and shakes his head." },
       { "speaker": "npc", "text": "Top end's gone. Zero compression. That bike's going nowhere until it's replaced." },
       { "speaker": "npc", "text": "Here, take this used top end. It's off a customer's old bike and it's still got plenty of life in it." },
       { "speaker": "player", "text": "I haven't got any tools." },
@@ -27,7 +24,7 @@
     ] },
     "story.paid_top_end": { "lines": [
       { "speaker": "npc", "text": "Hear that? Sounds like a bike again. Nice work. Here's the £120 I promised." },
-      { "speaker": "npc", "text": "If you're after more, I've got jobs. First, pop to the general bike shop up the road and collect my parts order." }
+      { "speaker": "npc", "text": "If you're after more, I've got jobs. First, pop up the road to Moto78, Bill's bike shop, and collect my parts order." }
     ] },
     "story.collect_order": { "lines": [
       { "speaker": "npc", "text": "The garage order? It's right here. Mind, it's heavier than it looks." },
@@ -62,17 +59,16 @@
     ] },
     "story.paid_rebore": { "lines": [
       { "speaker": "npc", "text": "Perfect bore. That's £80." },
-      { "speaker": "npc", "text": "You'll want to get to the tracks next, and for that you need a van. Go and see the van seller, south of here." }
+      { "speaker": "npc", "text": "You'll want to get to the tracks next, and for that you need a motor. Go and see Jedrick at Nicholls Used Motors, south of here." }
     ] },
     "story.meet_van_seller": { "lines": [
-      { "speaker": "npc", "text": "The mechanic sent you? Then you'll want the old van out back." },
+      { "speaker": "npc", "text": "Paul sent you? Then you'll want the old second-hand motor out back." },
       { "speaker": "npc", "text": "It's high mileage, but it starts every time. It holds one bike, twenty parts and ten tools. Six hundred quid, no haggling." },
       { "speaker": "player", "text": "I'll come back when I've got the money." }
     ] },
     "story.tutorial_end": { "lines": [
-      { "speaker": "npc", "text": "Six hundred for the van? Fair price. Here's £40 extra for all your help today." },
-      { "speaker": "npc", "text": "If you're still short, the fabrication shop and the engine rebuilder always need shift workers." },
-      { "speaker": "npc", "text": "Oh, and the council's finally finished the roadworks on the west road. That's your way to the tracks." }
+      { "speaker": "npc", "text": "Six hundred for the motor? Fair price. Here's £40 extra for all your help today." },
+      { "speaker": "npc", "text": "If you're still short, the fabrication shop and the engine rebuilder always need shift workers." }
     ] },
     "story.buy_van.short": { "lines": [
       { "speaker": "npc", "text": "Six hundred, and you're {short} short. Shifts in the Industrial Zone pay. Come back when you've got it." }
@@ -86,8 +82,9 @@
       { "speaker": "narrator", "text": "Everything has its place. Ready to go racing." }
     ] },
     "story.find_track": { "lines": [
-      { "speaker": "npc", "text": "Got yourself a van? Then you're a proper racer now." },
+      { "speaker": "npc", "text": "Got yourself a motor, I see. Then you're a proper racer now." },
       { "speaker": "npc", "text": "Try Farmland MX first. It's hard pack, flowing, and good for a first race. Take the west road out of town." },
+      { "speaker": "npc", "text": "The council's just finished the roadworks on it, so you're in luck." },
       { "speaker": "npc", "text": "There are two more down the same road: Riverside Arena by the river, and Longmoor Enduro out in the woods." },
       { "speaker": "npc", "text": "See you on the gate." }
     ] },
@@ -99,10 +96,12 @@
       { "speaker": "npc", "text": "How's the 50 running? Bring it round if you need bench time." }
     ] },
     "van_seller.hello": { "lines": [
-      { "speaker": "npc", "text": "Treat that van right and it'll get you to every track in the area." }
+      { "speaker": "npc", "text": "Treat that motor right and it'll get you to every track in the area." },
+      { "speaker": "npc", "text": "I still race when I can get away from the forecourt. See you on the gate, and don't expect me to move over." }
     ] },
     "bike_shop_owner.hello": { "lines": [
-      { "speaker": "npc", "text": "Parts for 50s and 65s, Grades 1 to 3. Have a look at the counter." }
+      { "speaker": "npc", "text": "Bill Rothon, Moto78. Parts for 50s and 65s, Grades 1 to 3. Have a look at the counter." },
+      { "speaker": "npc", "text": "I race too, when the shop lets me. Everything on these shelves I've broken myself at some point, so I know what lasts." }
     ] },
     "tyre_specialist.hello": { "lines": [
       { "speaker": "npc", "text": "Tyres, rims, spokes. Hard pack round here, so you'll want a hard-pack rear." }
@@ -115,25 +114,115 @@
       { "speaker": "npc", "text": "Do enough work for me and I might let you use the practice yard." }
     ] },
     "local_racer.hello": { "lines": [
-      { "speaker": "npc", "text": "You race? There are three local tracks round here, but you'll need a van to reach them." }
+      { "speaker": "npc", "text": "You race? There are three local tracks round here, but you'll need a motor to reach them." }
     ] },
     "local_racer.after": { "lines": [
       { "speaker": "npc", "text": "Farmland MX, west road. I'll see you on the gate." }
+    ] },
+    "farmland_owner.intro": { "lines": [
+      { "speaker": "npc", "text": "Hello there! I'm Joseph Halden. I own Farmland MX, and I run the race office too." },
+      { "speaker": "npc", "text": "This track used to be my family's farm. Every bump out there has a story." },
+      { "speaker": "npc", "text": "First time racing here, {rider}? Your first race day is free. Sign on when you're ready, and have fun out there." }
     ] },
     "track_official.hello": { "lines": [
       { "speaker": "npc", "text": "Race office. Sign on here for race days and practice." }
     ] },
     "local_champion.hello": { "lines": [
-      { "speaker": "npc", "text": "New face. Signing on for the 50s? Don't worry, everyone gets lapped by me once." }
+      { "speaker": "npc", "text": "New face. Signing on for the 50s? I'm the current Area Champion, and I pretty much always win out there." },
+      { "speaker": "npc", "text": "Don't worry, everyone gets lapped by me once." }
     ] },
     "local_champion.after": { "lines": [
-      { "speaker": "npc", "text": "Not bad out there. Keep coming back. I'll be on the gate every week." }
+      { "speaker": "npc", "text": "Not bad out there. I'm still the Area Champion, mind. Keep coming back and you might give me a race one day." }
     ] },
     "modifier_owner.hello": { "lines": [
       { "speaker": "npc", "text": "This old machine? Put a clean part in and see what comes out. Not today, though." }
     ] },
+    "running_coach.hello": { "lines": [
+      { "speaker": "npc", "text": "Hi {rider}! I coach the running club. Riders forget it, but a moto is hard work. The fitter you are, the less you fade at the end." },
+      { "speaker": "npc", "text": "Fancy a session? Keep to the pace I set for each lap. Every session builds your Endurance." }
+    ] },
     "neighbour.hello": { "lines": [
       { "speaker": "npc", "text": "Oh, hello! I'm always on this computer. Pop round any time." }
+    ] },
+    "garage_mechanic.bike_care": { "lines": [
+      { "speaker": "npc", "text": "Now you've got the bike running, here's some advice. Racing comes down to two things: you and your bike." },
+      { "speaker": "npc", "text": "Ride, train and race to level up your skills. Every lap teaches you something." },
+      { "speaker": "npc", "text": "Parts wear out as you ride. Keep an eye on them in your bike panel, and upgrade to better grades when you can afford it." },
+      { "speaker": "npc", "text": "I can repair a worn part here. It comes back one grade lower, but good as new. Grade 1 parts and broken parts can't be repaired, though. Those have to be replaced." },
+      { "speaker": "npc", "text": "Oh, and there's a cocky lad by the practice track gate, Mickey Alington. He says nobody in town can beat him. Fancy proving him wrong?" }
+    ] },
+    "fabricator.challenge": { "lines": [
+      { "speaker": "npc", "text": "Heard you've been helping out round town. Good on you." },
+      { "speaker": "npc", "text": "Keep an eye out for Dan Smyth by the practice yard down the road. He's always causing trouble and telling everyone he's the fastest in the zone." },
+      { "speaker": "npc", "text": "Look after your bike, and you might just beat him at his own game." },
+      { "speaker": "npc", "text": "And if you want shifts, use the blue bench inside to start a batch of frame brackets. It's 75p a bracket." }
+    ] },
+    "scrapyard_owner.offer": { "lines": [
+      { "speaker": "npc", "text": "Hello there! Got a minute? This old part's seen better days, and I'm far too busy to take it in myself." },
+      { "speaker": "npc", "text": "Could you get it repaired at the garage and bring it back? I'll pay you back what the repair costs, plus £5 for your trouble." }
+    ] },
+    "scrapyard_owner.waiting": { "lines": [
+      { "speaker": "npc", "text": "Any luck with my part? The garage on the high street can repair it. Remember, it's mine, so look after it!" }
+    ] },
+    "scrapyard_owner.thanks": { "lines": [
+      { "speaker": "npc", "text": "Good as new! Thanks a lot. Here's the repair money back, plus a little extra." },
+      { "speaker": "npc", "text": "Come and see me again. There's always something here that needs fixing." }
+    ] },
+    "challenger_home.building": { "lines": [
+      { "speaker": "npc", "text": "You? Race me? I might be stuck kicking my bike over now and then, but once she gets going, she's a rocket." },
+      { "speaker": "npc", "text": "They're building a brand new track here. Soon as it opens, I'll race you for £50 and show you what she can do." }
+    ] },
+    "challenger_home.offer": { "lines": [
+      { "speaker": "npc", "text": "Back for more? It's £50 to race me. Eight of us, three laps." },
+      { "speaker": "npc", "text": "Win, and you get your £50 back plus £50 more. Anything but first, and I keep it." }
+    ] },
+    "challenger_home.short": { "lines": [
+      { "speaker": "npc", "text": "You need £50 to race me. Come back when you've got it." }
+    ] },
+    "challenger_home.won": { "lines": [
+      { "speaker": "npc", "text": "What? You beat me! Lucky day, that's all. Here's your money." },
+      { "speaker": "npc", "text": "Rematch? Any time you like." }
+    ] },
+    "challenger_home.lost": { "lines": [
+      { "speaker": "npc", "text": "Told you I'm the fastest round here! Come back and try again whenever you like." }
+    ] },
+    "challenge_hint.bike": { "lines": [
+      { "speaker": "npc", "text": "Your bike sounded a bit tired out there. Look after it and you'll give me a proper race." }
+    ] },
+    "challenge_hint.riding": { "lines": [
+      { "speaker": "npc", "text": "Your bike's quick enough. It's your riding that needs a bit more practice." }
+    ] },
+    "challenge_hint.fitness": { "lines": [
+      { "speaker": "npc", "text": "Your bike's quick enough, but you looked worn out by the end. Get a bit fitter and you'll be right there." }
+    ] },
+    "challenge_hint.unlucky": { "lines": [
+      { "speaker": "npc", "text": "Your bike's definitely quick enough. You were just unlucky today. Have another go!" }
+    ] },
+    "challenger_iz.building": { "lines": [
+      { "speaker": "npc", "text": "Looking for trouble? I'd race you, but they're still building the new track in the yard." },
+      { "speaker": "npc", "text": "Come back when it's done. Just you and me, £70, winner takes it all." }
+    ] },
+    "challenger_iz.offer": { "lines": [
+      { "speaker": "npc", "text": "So you want to race me? Just you and me, three laps, and it costs £70." },
+      { "speaker": "npc", "text": "Beat me and you get your £70 back plus £70 more. Lose, and I keep it." }
+    ] },
+    "challenger_iz.short": { "lines": [
+      { "speaker": "npc", "text": "£70 or no race. Go and do some shifts, then come back." }
+    ] },
+    "challenger_iz.won": { "lines": [
+      { "speaker": "npc", "text": "No way! Nobody beats me in the zone. Fine, here's your money." },
+      { "speaker": "npc", "text": "I want a rematch. Same time, same place." }
+    ] },
+    "challenger_iz.lost": { "lines": [
+      { "speaker": "npc", "text": "Ha! Too slow. The zone is mine. Come back when you think you're ready." }
+    ] },
+    "news.area2_dec2026": { "lines": [
+      { "speaker": "npc", "text": "Manny Festo, at your service. I keep everyone up to date on what's coming next." },
+      { "speaker": "npc", "text": "Area 2 is under construction right now. It's due to be ready in December 2026." },
+      { "speaker": "npc", "text": "Come back and see me again to check for more updates." }
+    ] },
+    "pro_racer.hello": { "lines": [
+      { "speaker": "npc", "text": "You're not skilled enough for me to waste my time on. Go and practise, and come back when you're on a 450cc." }
     ] }
   }
 }

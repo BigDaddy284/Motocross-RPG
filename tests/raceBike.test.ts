@@ -1,7 +1,8 @@
+import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { BIKE_LENGTH } from '../src/core/trackSurface';
-import { BRAND_COLOURS, bikeColours, CPU_GEAR, GEAR_SETS, modelFor, raceBikeParts, type RaceLook } from '../src/world/raceBike';
+import { BIKE_MODELS, BRAND_COLOURS, bikeColours, CPU_GEAR, GEAR_SETS, MODELS, modelFor, raceBikeParts, type RaceLook } from '../src/world/raceBike';
 import { readPublic } from './helpers';
 
 const colours = (parts: THREE.Mesh[]) => new Set(parts.map((p) => (p.material as THREE.MeshLambertMaterial).color.getHex()));
@@ -47,8 +48,40 @@ describe('race-day bikes (Race day bike colours.png)', () => {
     for (const id of CPU_GEAR) expect(GEAR_SETS[id], id).toBeDefined();
   });
 
+  it('the named racers ride bikes in their own kit colour, over their brand (Boss, 29 Oct 2026)', () => {
+    const riders = JSON.parse(readFileSync('public/data/riders.json', 'utf8')).riders as { name: string; kit?: string; bike: { brand: string } }[];
+    for (const [name, kit] of [['Dan Smyth', 'cpu-dan'], ['Mickey Alington', 'cpu-mickey'], ['Louis Jonez', 'cpu-louis']]) {
+      const r = riders.find((x) => x.name === name)!;
+      expect(r.kit, name).toBe(kit);
+      const g = GEAR_SETS[kit];
+      expect(g.bike, kit).toBe(g.jersey);
+      const plastics = colours(raceBikeParts(look(r.bike.brand, '50cc', kit), BIKE_LENGTH));
+      expect(plastics.has(g.bike!), name).toBe(true);
+    }
+    // Every kit a rider names is a real gear set.
+    for (const r of riders) if (r.kit) expect(GEAR_SETS[r.kit], r.kit).toBeDefined();
+  });
+
   it('youth classes ride the youth model, bigger classes the adult model', () => {
     expect(['50cc', '65cc', '85cc', '125cc', '250cc', 'open'].map(modelFor)).toEqual(['youth', 'youth', 'youth', 'adult', 'adult', 'adult']);
+  });
+
+  it('the scenery models (mini, pit bike, enduro, twin-shock) build to their own wheelbase and never ride in a race', () => {
+    expect(BIKE_MODELS.map(([id]) => id)).toEqual(['adult', 'youth', 'mini', 'pitbike', 'enduro', 'twinshock']);
+    for (const [id] of BIKE_MODELS) {
+      const wb = (MODELS[id].wb / 1.46) * BIKE_LENGTH;
+      const parts = raceBikeParts(look('hondmoto', '250cc'), wb, { rider: false, model: id });
+      expect(parts.length).toBeGreaterThan(20);
+      for (const x of [-wb / 2, wb / 2]) {
+        const t = tyreBottom(parts, x);
+        expect(t.y).toBeCloseTo(0, 2);
+        expect(t.x).toBeCloseTo(x, 2);
+      }
+    }
+    expect(MODELS.mini.wb).toBeLessThan(MODELS.pitbike.wb);
+    expect(colours(raceBikeParts(look('hondmoto', '250cc'), BIKE_LENGTH, { rider: false, model: 'enduro' })).has(0xfff6c0)).toBe(true);
+    // Races only ever pick the youth or adult model from the class.
+    expect(new Set(['50cc', '65cc', '85cc', '125cc', '250cc', 'open'].map(modelFor))).toEqual(new Set(['youth', 'adult']));
   });
 
   it('the tyres touch the ground exactly where the old bike\'s wheels did, so riders go round the track the same', () => {

@@ -8,7 +8,8 @@ import { Travel } from './core/travel';
 
 // Shared game state that lives outside any one scene. Boot fills in the loaded data.
 
-const store = defaultStore();
+// A preview build (VITE_STORE_NAMESPACE, see .github/workflows/ci.yml) keeps its saves apart from the main game's.
+const store = defaultStore(import.meta.env.VITE_STORE_NAMESPACE || undefined);
 
 export const services = {
   store,
@@ -18,8 +19,6 @@ export const services = {
   content: null as unknown as Content,
   maps: new Map<string, BakedMap>(),
   travel: null as unknown as Travel,
-  /** The route picked with a route marshal: leaving this map by this exit goes to that place. */
-  routePick: null as { map: string; exit: string; to: string } | null,
   /** The track files installed in the mods folder, as fetched at start. */
   modFolder: [] as ImportedFile[],
   /** Every mod track, installed and imported, checked (core/modTracks.ts). */

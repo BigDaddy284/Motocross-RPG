@@ -1,10 +1,10 @@
 {
   "note": "Items the rider can carry. A part item fits into a bike slot.",
   "items": {
-    "part.top_end_used": { "name": "Used top end", "desc": "A Grade 1 top end from the garage mechanic. Needs a workshop and tools to fit.", "part": { "slot": "top_end", "grade": 1, "condition": 0.75 } },
+    "part.top_end_used": { "name": "Used top end", "desc": "A Grade 1 top end from Paul at Phoenix MX. Needs a workshop and tools to fit.", "part": { "slot": "top_end", "grade": 1, "condition": 0.75 } },
     "task.parts_order": { "name": "Customer parts order", "desc": "A box of parts from the bike shop, for the garage." },
     "task.tyres": { "name": "Pair of new tyres", "desc": "For a customer bike at the garage. Fit them on the tyre machine." },
     "task.cylinder": { "name": "Worn cylinder", "desc": "Needs a rebore at the engine rebuilder in the Industrial Zone." },
-    "task.cylinder_rebored": { "name": "Rebored cylinder", "desc": "Back to the garage mechanic with this." }
+    "task.cylinder_rebored": { "name": "Rebored cylinder", "desc": "Back to Paul at Phoenix MX with this." }
   }
 }

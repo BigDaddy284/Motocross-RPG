@@ -1,4 +1,5 @@
 import { bikeStats, formatMoney, pence, type BikesData, type CareerState, type Part } from './career';
+import type { PartOwner } from './errands';
 import type { BakedMap } from './mapTypes';
 import { seededRng } from './race';
 import type { ContentError, Schema } from './validate';
@@ -45,6 +46,8 @@ export interface ShopsData {
   gradeFactor: number;
   /** A repair costs this share of a new part at the grade it drops to (Round 125, 1C). */
   repairShare: number;
+  /** Slots that wear out and are only ever replaced: no repairs and no resale (Boss, 28 Oct 2026: tyres). */
+  consumables?: string[];
   /** Spec 14.5: price × (base + perCondition × condition) × shop factor × demand. */
   resale: { base: number; perCondition: number; otherShop: number; demand: [number, number] };
   /** Spec 14.6: stock refreshes after this many race days, or this many other activities (shift batches, practice sessions). */
@@ -58,7 +61,12 @@ export interface ShopsData {
 export interface SparePart extends Part {
   slot: string;
   class: string;
+  /** Lent by an NPC for an errand (core/errands.ts): not the rider's to fit, sell or dump. */
+  owner?: PartOwner;
 }
+
+/** The rider's own words when they try to fit, sell or dump a part that isn't theirs. */
+export const notMine = (part: SparePart) => `I don't own this part. I'm trusted to fix it and take it back to ${part.owner!.name}.`;
 
 /** Stock rotation and what has sold since the last refresh. Kept on the career, made on first use. */
 export interface ShopState {
@@ -146,7 +154,7 @@ export function demand(data: ShopsData, shop: ShopDef, career: CareerState): num
 
 /** Pence this shop pays for a spare, or null when it can't buy it. Broken parts can't be sold (Round 125). */
 export function resaleValue(data: ShopsData, shop: ShopDef, career: CareerState, part: SparePart): number | null {
-  if (!shop.sells || part.condition <= 0) return null;
+  if (!shop.sells || part.condition <= 0 || part.owner || data.consumables?.includes(part.slot)) return null;
   const r = data.resale;
   const factor = shop.sells.slots.includes(part.slot) ? 1 : r.otherShop;
   return Math.round(partPrice(data, part.slot, part.grade, part.class) * (r.base + r.perCondition * part.condition) * factor * demand(data, shop, career));
@@ -156,6 +164,7 @@ export type RepairQuote = { ok: true; grade: number; cost: number } | { ok: fals
 
 /** Spec 7.4: one grade lower at 100% for 70% of a new part at that grade. Grade 1 and broken parts can't be repaired. */
 export function repairQuote(data: ShopsData, slot: string, part: Part, cls: string): RepairQuote {
+  if (data.consumables?.includes(slot)) return { ok: false, reason: "Tyres can't be repaired. Ride them until they wear out, then fit a new set." };
   if (part.condition <= 0) return { ok: false, reason: 'Broken: it can only be replaced.' };
   if (part.grade <= 1) return { ok: false, reason: "Grade 1 can't be repaired. Replace it when it wears out." };
   if (part.condition >= 1) return { ok: false, reason: 'Like new: nothing to repair.' };
@@ -196,17 +205,44 @@ function roomFor(data: ShopsData, career: CareerState, slot: string | null, free
 
 const fullMessage = (data: ShopsData) => `Your spares are full (${data.spareLimit} parts). Sell or dump some first.`;
 
+/**
+ * Pence off a new set of tyres for trading in the set on the bike (Boss, 28 Oct 2026): what the
+ * old set cost new times its condition, faded with every grade the new set is above it past the
+ * first (G1 to G4 tyres take nothing off G8), and never more than half the new price. With prices
+ * doubling each grade, a G1 at 100% is half off a G2, a G2 at 100% half off a G3, and a G1 at 100%
+ * a sixth off a G3. Only for consumables, bought and fitted in the shop; a broken set is worth nothing.
+ */
+export function tradeIn(data: ShopsData, career: CareerState, item: StockItem): number {
+  const old = career.bike.parts[item.slot];
+  if (!data.consumables?.includes(item.slot) || !old || old.condition <= 0) return 0;
+  const gap = item.grade - old.grade;
+  const fade = Math.max(0, Math.min(1, 1 - (gap - 1) / (TRADE_IN_GRADES - 1)));
+  const value = partPrice(data, item.slot, old.grade, career.bike.class) * Math.min(1, old.condition) * fade;
+  return Math.round(Math.min(value, item.price * 0.5));
+}
+
+/** A trade-in fades to nothing at this many grades below the new set. */
+const TRADE_IN_GRADES = 4;
+
 /** Buys a stock item, either fitted in the shop or carried away as a spare. */
 export function buyPart(data: ShopsData, bikes: BikesData, career: CareerState, item: StockItem, fit: boolean): Result {
   if (item.soldOut) return { ok: false, message: 'Sold out until the stock changes.' };
-  if (career.money < item.price) return { ok: false, message: "You can't afford it." };
-  if (!roomFor(data, career, fit ? item.slot : null)) return { ok: false, message: fullMessage(data) };
-  career.money -= item.price;
+  const off = fit ? tradeIn(data, career, item) : 0;
+  const price = item.price - off;
+  if (career.money < price) return { ok: false, message: "You can't afford it." };
+  if (!off && !roomFor(data, career, fit ? item.slot : null)) return { ok: false, message: fullMessage(data) };
+  career.money -= price;
   if (!item.always) shopState(career).sold.push(item.key);
   const name = `G${item.grade} ${slotName(bikes, item.slot)}`;
   if (!fit) {
     career.bag.push({ id: SPARE, part: { slot: item.slot, class: career.bike.class, grade: item.grade, condition: 1 } });
     return { ok: true, message: `Bought a new ${name}. It's in your bag.` };
+  }
+  if (off) {
+    // The old set is traded in: gone, for money off.
+    const old = career.bike.parts[item.slot]!;
+    career.bike.parts[item.slot] = { grade: item.grade, condition: 1 };
+    return { ok: true, message: `New ${name} fitted. Your G${old.grade} set (${Math.round(old.condition * 100)}%) was traded in for ${formatMoney(off)} off.` };
   }
   return { ok: true, message: `New ${name} fitted.${swapIn(bikes, career, item.slot, { grade: item.grade, condition: 1 })}` };
 }
@@ -215,6 +251,8 @@ export function buyPart(data: ShopsData, bikes: BikesData, career: CareerState, 
 export function sellSpare(data: ShopsData, shop: ShopDef, career: CareerState, index: number): Result {
   const part = career.bag[index]?.part;
   if (!part) return { ok: false, message: 'Nothing to sell.' };
+  if (part.owner) return { ok: false, message: notMine(part) };
+  if (data.consumables?.includes(part.slot)) return { ok: false, message: 'Nobody buys used tyres.' };
   const value = resaleValue(data, shop, career, part);
   if (value === null) return { ok: false, message: "This shop can't buy that." };
   career.bag.splice(index, 1);
@@ -224,7 +262,8 @@ export function sellSpare(data: ShopsData, shop: ShopDef, career: CareerState, i
 
 /** Sends a spare to the dump: deleted, no resale (Spec 7.2). */
 export function dumpSpare(career: CareerState, index: number): boolean {
-  if (!career.bag[index]?.part) return false;
+  const part = career.bag[index]?.part;
+  if (!part || part.owner) return false;
   career.bag.splice(index, 1);
   return true;
 }
@@ -245,6 +284,7 @@ export function repairPart(data: ShopsData, bikes: BikesData, career: CareerStat
 export function fitSpare(data: ShopsData, bikes: BikesData, shop: ShopDef, career: CareerState, index: number): Result {
   const part = career.bag[index]?.part;
   if (!part) return { ok: false, message: 'Nothing to fit.' };
+  if (part.owner) return { ok: false, message: notMine(part) };
   if (part.class !== career.bike.class) return { ok: false, message: `That part is for a ${part.class}.` };
   const fee = pence(shop.fitFee ?? 0);
   if (career.money < fee) return { ok: false, message: "You can't afford the bench fee." };
@@ -277,13 +317,14 @@ const GRADE = { type: 'number', integer: true, min: 1, max: 10 } as const;
 
 export const SHOPS_SCHEMA: Schema = {
   type: 'object',
-  optional: ['note'],
+  optional: ['note', 'consumables'],
   fields: {
     note: { type: 'string' },
     slotBase: { type: 'record', values: N0 },
     classPriceFactor: { type: 'record', values: N0 },
     gradeFactor: { type: 'number', min: 1 },
     repairShare: { type: 'number', min: 0, max: 1 },
+    consumables: { type: 'array', items: { type: 'string', nonEmpty: true } },
     resale: {
       type: 'object',
       fields: { base: N0, perCondition: N0, otherShop: { type: 'number', min: 0, max: 1 }, demand: { type: 'array', items: N0, minItems: 2, maxItems: 2 } },

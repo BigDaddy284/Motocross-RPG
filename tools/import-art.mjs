@@ -27,8 +27,8 @@ const AREA_MAPS = [
   'area-map/tiled/maps/area1-home-town.tmj',
   'area-map/tiled/maps/area1-industrial-zone.tmj',
   'area-map/tiled/maps/area1-venue-farmland.tmj',
-  'area-map/tiled/maps/area1-venue-woodland.tmj',
-  'area-map/tiled/maps/area1-venue-quarry.tmj',
+  'area-map/tiled/maps/area1-venue-longmoor.tmj',
+  'area-map/tiled/maps/area1-venue-riverside.tmj',
 ];
 const INTERIOR_DIR = 'buildings/tiled/maps/interiors';
 const BUILDINGS_DATA = 'buildings/data/area1-buildings-v3.json';
@@ -46,8 +46,10 @@ const OVERRIDES = {
 /**
  * Prop folders copied whole, whether or not a map uses them yet, so the map editor's palette offers
  * them: the parked vehicles and bikes on stands (vehgen/paddockbuild.py, Boss's brief of 27 Oct 2026).
+ * The ground folders go whole too, for the track editor's ground tiles (trackParts.json ground):
+ * every corner set, and the mixed tiles of tools/art/ground-mix.py.
  */
-const PALETTE_DIRS = ['area-map/tiled/tiles/vehicle-props', 'area-map/tiled/tiles/bike-props'];
+const PALETTE_DIRS = ['area-map/tiled/tiles/vehicle-props', 'area-map/tiled/tiles/bike-props', 'area-map/tiled/tiles/ground-edges', 'area-map/tiled/tiles/terrain-common', 'area-map/tiled/tiles/ground-mix'];
 
 const copied = new Set();
 
@@ -247,6 +249,8 @@ function copyCharacters() {
       name: pid,
       walk: useImage(path.join(ART, 'characters/player', `${pid}.png`)),
       act: useImage(path.join(ART, 'characters/player', `${pid}.act.png`)),
+      // The push-up frames for the Fitness drill (up, down), when the art has them.
+      ...(fs.existsSync(path.join(ART, 'characters/player', `${pid}.fit.png`)) ? { fit: useImage(path.join(ART, 'characters/player', `${pid}.fit.png`)) } : {}),
     };
   }
   return out;
@@ -262,12 +266,14 @@ function copyVehicles() {
   const out = {};
   for (const d of data.designs) {
     const dir = path.join(ART, 'vehicles/sheets/map');
-    const sheet = readJson(path.join(dir, `map-${d.id}.json`));
-    if (sheet.footprintTiles[0] !== d.length) throw new Error(`map-${d.id}.json: footprint ${sheet.footprintTiles[0]} tiles, but vehicles.json says ${d.length}`);
-    out[d.id] = { image: useImage(path.join(dir, `map-${d.id}.png`)), views: sheet.views };
+    // The sheets keep their van names (art), the designs are motors (Boss, 28 Oct 2026).
+    const art = d.art ?? d.id;
+    const sheet = readJson(path.join(dir, `map-${art}.json`));
+    if (sheet.footprintTiles[0] !== d.length) throw new Error(`map-${art}.json: footprint ${sheet.footprintTiles[0]} tiles, but vehicles.json says ${d.length}`);
+    out[d.id] = { image: useImage(path.join(dir, `map-${art}.png`)), views: sheet.views };
     // The turning frames (vehgen/vanrot.py), when drawn.
-    const turnJson = path.join(dir, `map-${d.id}-turn.json`);
-    if (fs.existsSync(turnJson)) out[d.id].turn = { image: useImage(path.join(dir, `map-${d.id}-turn.png`)), frames: readJson(turnJson).frames };
+    const turnJson = path.join(dir, `map-${art}-turn.json`);
+    if (fs.existsSync(turnJson)) out[d.id].turn = { image: useImage(path.join(dir, `map-${art}-turn.png`)), frames: readJson(turnJson).frames };
   }
   return out;
 }

@@ -80,7 +80,9 @@ describe('the opening chain', () => {
     expect(state.bike.parts.top_end.condition).toBeGreaterThan(0);
     expect(bikeProblem(bikes, state.bike)).toBeNull();
     expect(state.bag).toEqual([]);
-    expect(flags.tutorial_done && flags.roadworks_done).toBe(true);
+    expect(flags.tutorial_done).toBe(true);
+    // The roadworks stay up until Louis Jonez has said where to race (Boss, 28 Oct 2026).
+    expect(flags.roadworks_done).toBeUndefined();
     expect(state.money).toBe(pence(520));
 
     const notYet = matchStory(story, state, { talk: 'npc.van_seller' });
@@ -89,10 +91,17 @@ describe('the opening chain', () => {
     state.money += pence(80); // shifts
     for (const step of story.steps.slice(vanStep)) play(state, flags, step);
     expect(state.money).toBe(0);
-    expect(flags.van_owned && flags.van_loaded).toBe(true);
+    expect(flags.van_owned && flags.van_loaded && flags.roadworks_done).toBe(true);
+    // After the chain: the mechanic's advice, the fabrication boss's tip, then the racing goals.
     expect(journal(story, state, flags)).toBe(story.after![0].text);
-    expect(journal(story, state, { ...flags, first_race_done: true })).toBe(story.after![1].text);
-    expect(journal(story, state, { ...flags, first_race_done: true, first_race_finished: true })).toBe(story.done);
+    const told = { ...flags, 'told.bike_care': true };
+    expect(journal(story, state, told)).toBe(story.after![1].text);
+    Object.assign(flags, told, { 'told.iz_challenge': true });
+    expect(journal(story, state, flags)).toBe(story.after![2].text);
+    expect(journal(story, state, { ...flags, first_race_done: true })).toBe(story.after![3].text);
+    expect(journal(story, state, { ...flags, first_race_done: true, first_race_finished: true })).toBe(story.after![4].text);
+    expect(journal(story, state, { ...flags, first_race_done: true, first_race_finished: true, 'badge.area1': true })).toBe(story.after![5].text);
+    expect(journal(story, state, { ...flags, first_race_done: true, first_race_finished: true, 'badge.area1': true, 'trophy.area1.main': true })).toBe(story.done);
   });
 
   it('fitting the top end costs £90 and leaves about £30 once the £120 is paid', () => {
@@ -121,8 +130,7 @@ describe('the opening chain', () => {
   it('only the opening chain NPCs talk before it is done (GDD 4.2)', () => {
     const inChain = new Set(story.steps.slice(0, story.steps.findIndex((s) => s.id === 'tutorial_end') + 1).flatMap((s) => (s.on.talk ? [s.on.talk] : [])));
     for (const n of content.npcs) {
-      // Route marshals only give directions (they replace the world map screen), so they always answer.
-      if (inChain.has(n.id) || n.guide) expect(n.quietUntil, n.id).toBeUndefined();
+      if (inChain.has(n.id)) expect(n.quietUntil, n.id).toBeUndefined();
       else expect(n.quietUntil, n.id).toBe('tutorial_done');
     }
   });
@@ -151,13 +159,13 @@ describe('roadworks and the venue route', () => {
   it('block the west road until the opening chain clears them', () => {
     const blocked = Grid.fromMap(home);
     applyMapState(home, blocked, {});
-    expect(blocked.isFree(1, 20)).toBe(false);
+    expect(blocked.isFree(1, 12)).toBe(false);
     expect(hiddenSprites(home, {}).size).toBe(0);
 
     const flags = { roadworks_done: true };
     const open = Grid.fromMap(home);
     applyMapState(home, open, flags);
-    for (const [x, y] of [[1, 20], [2, 20], [1, 21], [2, 21]]) expect(open.isFree(x, y), `${x},${y}`).toBe(true);
+    for (const [x, y] of [[1, 12], [2, 12], [1, 13], [2, 13]]) expect(open.isFree(x, y), `${x},${y}`).toBe(true);
     const gone = [...hiddenSprites(home, flags)].map((s) => home.images[s.img]);
     expect(gone.length).toBeGreaterThan(0);
     expect(gone.every((p) => p.includes('/roadworks/'))).toBe(true);
@@ -180,10 +188,10 @@ describe('roadworks and the venue route', () => {
 });
 
 describe('testing pay boost', () => {
-  it('pays 10× for shifts while testing (review before Final v1)', () => {
+  it('pays 5× for shifts while testing (review before Final v1)', () => {
     const fab = world.jobs.find((j) => j.id === 'job.fabrication')!;
-    expect(world.testPayMultiplier).toBe(10);
-    expect(jobPay(world, fab)).toBe(750);
+    expect(world.testPayMultiplier).toBe(5);
+    expect(jobPay(world, fab)).toBe(375);
     expect(jobPay({ ...world, testPayMultiplier: undefined }, fab)).toBe(75);
   });
 });

@@ -8,32 +8,43 @@ import { paddockColour, paddockSetup, paddockVariant } from '../core/paddock';
 import type { SceneryItem } from '../core/race';
 import type { SceneryDef } from '../core/trackParts';
 import { BIKE_LENGTH } from '../core/trackSurface';
-import { brandFromColour, modelFor, raceBikeParts } from './raceBike';
+import { brandFromColour, modelFor, MODELS, raceBikeParts } from './raceBike';
 
 /** Grid units per metre: the adult race bike's 1.46 m wheelbase is BIKE_LENGTH apart. */
 export const U = BIKE_LENGTH / 1.46;
 
-const GLASS = 0x223344;
-const TYRE = 0x1c1c22;
-const RIM = 0x9a9ca0;
-const STEEL = 0x8a8c90;
-const CHROME = 0xc8cacc;
-const DARK = 0x1e2a44;
-const CHASSIS = 0x2a2a30;
-const CANVAS = 0xe2ded4;
-const TABLE = 0xd8d8d0;
-const MAT = 0x3a3a3e;
+export const GLASS = 0x223344;
+export const TYRE = 0x1c1c22;
+export const RIM = 0x9a9ca0;
+export const STEEL = 0x8a8c90;
+export const CHROME = 0xc8cacc;
+export const DARK = 0x1e2a44;
+export const CHASSIS = 0x2a2a30;
+export const CANVAS = 0xe2ded4;
+export const TABLE = 0xd8d8d0;
+export const MAT = 0x3a3a3e;
 const RUST = [0x6b3f22, 0x8a5a30, 0x5a3418];
+/** Shirts for the people built beside the track, picked by hash. */
+export const SHIRTS = [0xe04040, 0x4080e0, 0xf0c030, 0x40b060, 0xf0f0f0, 0xe07030, 0x9060c0, 0x30b0c0, 0x202428];
+const TROUSERS = [0x2a3a5a, 0x4a4a50, 0x6a5040, 0x3a5a3a];
+const SKIN = [0xe0b090, 0xc08860, 0x8a5a3a, 0xf0d0b0];
 
-const hexNum = (s: string, fallback: number) => (/^#[0-9a-f]{6}$/i.test(s) ? parseInt(s.slice(1), 16) : fallback);
-const shade = (c: number, k: number) => {
+export const hexNum = (s: string, fallback: number) => (/^#[0-9a-f]{6}$/i.test(s) ? parseInt(s.slice(1), 16) : fallback);
+export const shade = (c: number, k: number) => {
   const ch = (s: number) => Math.min(255, Math.round(((c >> s) & 0xff) * k));
   return (ch(16) << 16) | (ch(8) << 8) | ch(0);
 };
 const Y = new THREE.Vector3(0, 1, 0);
+const hash01 = (i: number) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+
+/** How a person stands: on their feet, sat (on a seat 0.45 m up), kneeling, or lying on their front. */
+export type Pose = 'stand' | 'sit' | 'kneel' | 'lie' | 'floor';
+/** Where their arms are: by their sides, held out in front (holding something), or up. */
+export type Arms = 'down' | 'forward' | 'up';
+export interface Person { pose?: Pose; arms?: Arms; shirt?: number; trousers?: number; skin?: number; /** A box held in front of the face: length (along z), height, width. */ held?: [number, number, number, number]; }
 
 /** Builds one vehicle's meshes, in grid units, from sizes given in metres: x along its length (front at +x), y up, z across. */
-class Build {
+export class Build {
   parts: THREE.Mesh[] = [];
   private mats = new Map<number, THREE.MeshLambertMaterial>();
   mat(c: number): THREE.MeshLambertMaterial {
@@ -46,6 +57,82 @@ class Build {
     m.rotation.set(rx, 0, rz);
     this.parts.push(m);
     return m;
+  }
+  /** A cylinder standing on y (axis up): centre x, z, bottom y, radius r, height h. */
+  cyl(x: number, y: number, z: number, r: number, h: number, c: number, n = 12, rTop = r): THREE.Mesh {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(rTop * U, r * U, h * U, n), this.mat(c));
+    m.position.set(x * U, (y + h / 2) * U, z * U);
+    this.parts.push(m);
+    return m;
+  }
+  /** A flat disc on the ground (a puddle, a mat): centre x, z, radius r. */
+  disc(x: number, z: number, r: number, c: number, y = 0.01): THREE.Mesh {
+    return this.cyl(x, y, z, r, 0.02, c, 16);
+  }
+  /** A thin pole: centre x, z, bottom y, height h. */
+  pole(x: number, y: number, z: number, h: number, c = STEEL, t = 0.06): THREE.Mesh {
+    return this.box(x, y, z, t, h, t, c);
+  }
+  /** Runs fn, then turns everything it built by ry about the point (cx, cz). */
+  turned(cx: number, cz: number, ry: number, fn: () => void): void {
+    const n = this.parts.length;
+    fn();
+    if (!ry) return;
+    const q = new THREE.Quaternion().setFromAxisAngle(Y, ry);
+    const c = new THREE.Vector3(cx * U, 0, cz * U);
+    for (const m of this.parts.slice(n)) {
+      m.position.sub(c).applyQuaternion(q).add(c);
+      m.quaternion.premultiply(q);
+    }
+  }
+  /**
+   * A person about 1.75 m tall facing +z with their feet (or seat) at (x, 0, z), turned by ry, in the
+   * proportions of the cheering fans' figure: box legs, body, head and arms.
+   */
+  person(x: number, z: number, ry: number, k: number, o: Person = {}): void {
+    const shirt = o.shirt ?? SHIRTS[Math.floor(hash01(k * 13 + 5) * SHIRTS.length)];
+    const trousers = o.trousers ?? TROUSERS[Math.floor(hash01(k * 17 + 9) * TROUSERS.length)];
+    const skin = o.skin ?? SKIN[Math.floor(hash01(k * 19 + 11) * SKIN.length)];
+    const pose = o.pose ?? 'stand';
+    const arms = o.arms ?? 'down';
+    this.turned(x, z, ry, () => {
+      if (pose === 'lie') {
+        // On their front, feet at -z, head towards +z and propped up.
+        for (const sx of [-0.11, 0.11]) this.box(x + sx, 0.08, z - 0.75, 0.14, 0.16, 0.8, trousers);
+        this.box(x, 0.08, z - 0.05, 0.46, 0.26, 0.68, shirt);
+        this.box(x, 0.2, z + 0.42, 0.24, 0.24, 0.24, skin);
+        for (const sx of [-0.3, 0.3]) this.box(x + sx, 0.08, z + 0.2, 0.1, 0.1, 0.6, skin);
+        if (o.held) this.box(x, 0.22, z + 0.62 + o.held[0] / 2, o.held[2], o.held[1], o.held[0], o.held[3]);
+        return;
+      }
+      let y = 0.8;
+      if (pose === 'floor') {
+        // Sat on the ground, legs out in front.
+        y = 0.1;
+        for (const sx of [-0.11, 0.11]) this.box(x + sx, 0, z + 0.3, 0.14, 0.14, 0.62, trousers);
+      } else if (pose === 'stand') for (const sx of [-0.11, 0.11]) this.box(x + sx, 0, z, 0.14, 0.8, 0.16, trousers);
+      else if (pose === 'sit') {
+        y = 0.45;
+        for (const sx of [-0.11, 0.11]) {
+          this.box(x + sx, 0.4, z + 0.22, 0.14, 0.14, 0.5, trousers);
+          this.box(x + sx, 0, z + 0.4, 0.14, 0.42, 0.14, trousers);
+        }
+      } else {
+        y = 0.5;
+        for (const sx of [-0.11, 0.11]) {
+          this.box(x + sx, 0, z - 0.25, 0.14, 0.14, 0.55, trousers);
+          this.box(x + sx, 0, z, 0.14, 0.5, 0.14, trousers);
+        }
+      }
+      this.box(x, y, z, 0.46, 0.68, 0.26, shirt);
+      this.box(x, y + 0.7, z, 0.24, 0.24, 0.24, skin);
+      for (const sx of [-0.3, 0.3]) {
+        if (arms === 'up') this.box(x + sx, y + 0.5, z, 0.1, 0.7, 0.1, skin);
+        else if (arms === 'forward') this.box(x + sx, y + 0.45, z + 0.3, 0.1, 0.1, 0.6, skin);
+        else this.box(x + sx, y - 0.05, z, 0.1, 0.7, 0.1, skin);
+      }
+      if (o.held) this.box(x, y + 0.6, z + 0.14 + o.held[0] / 2, o.held[2], o.held[1], o.held[0], o.held[3]);
+    });
   }
   /** A road wheel on an axle across z: the tyre and a lighter rim. */
   wheel(x: number, z: number, r: number, w = 0.25): void {
@@ -67,24 +154,30 @@ class Build {
       this.box(x + (t - 0.5) * 2.2 + ((i * 3) % 2) * 0.3, y + ((i * 5) % 3) * 0.25, z + side * 0.012, s * 1.4, s, 0.02, RUST[i % RUST.length]);
     }
   }
-  /** A race bike with no rider, in one colour, standing on the ground at (x, y, z) facing +x (turned by ry). */
-  bike(x: number, y: number, z: number, colour: number, cls = '250cc', ry = 0): void {
+  /**
+   * A race bike with no rider, in one colour, standing on the ground at (x, y, z) facing +x (turned by
+   * ry). `model` is one of raceBike's MODELS (adult, youth, mini, pitbike, enduro, twinshock) or a
+   * racing class, which picks the adult or youth model as a race does.
+   */
+  bike(x: number, y: number, z: number, colour: number, model = 'adult', ry = 0): void {
     const q = new THREE.Quaternion().setFromAxisAngle(Y, ry);
-    // The youth model's wheelbase is 1.3 m to the adult's 1.46 m, so a youth bike is built that much shorter.
-    const length = BIKE_LENGTH * (modelFor(cls) === 'youth' ? 1.3 / 1.46 : 1);
-    for (const m of raceBikeParts({ brand: 'hondmoto', cls, gear: null as never }, length, { rider: false, colours: brandFromColour(colour) })) {
+    const key = MODELS[model] ? model : modelFor(model);
+    // Each model is built to its own wheelbase (the adult's 1.46 m is BIKE_LENGTH), so a mini is a mini.
+    const length = BIKE_LENGTH * (MODELS[key].wb / 1.46);
+    for (const m of raceBikeParts({ brand: 'hondmoto', cls: '250cc', gear: null as never }, length, { rider: false, colours: brandFromColour(colour), model: key })) {
       m.position.applyQuaternion(q).add(new THREE.Vector3(x * U, y * U, z * U));
       m.quaternion.premultiply(q);
       this.parts.push(m);
     }
   }
   /** A bike lifted on a paddock stand under its engine. */
-  bikeOnStand(x: number, z: number, colour: number, cls = '250cc', ry = 0): void {
+  bikeOnStand(x: number, z: number, colour: number, model = 'adult', ry = 0): void {
     const q = new THREE.Quaternion().setFromAxisAngle(Y, ry);
     const p = new THREE.Vector3(-0.05 * U, 0, 0).applyQuaternion(q);
-    const m = this.box(x + p.x / U, 0, z + p.z / U, 0.45, 0.33, 0.3, STEEL);
+    const lift = MODELS[model]?.wb && MODELS[model].wb < 1.2 ? 0.26 : 0.33;
+    const m = this.box(x + p.x / U, 0, z + p.z / U, 0.45, lift, 0.3, STEEL);
     m.rotation.y = ry;
-    this.bike(x, 0.33, z, colour, cls, ry);
+    this.bike(x, lift, z, colour, model, ry);
   }
   /** A folding table with two chairs beside it. */
   table(x: number, z: number): void {
@@ -122,7 +215,7 @@ class Build {
   }
 }
 
-type Setup = string | undefined;
+export type Setup = string | undefined;
 
 function rustyTruck(b: Build, col: number, setup: Setup): void {
   const ox = 0.3;
@@ -149,7 +242,8 @@ function rustyTruck(b: Build, col: number, setup: Setup): void {
   for (let i = 0; i < bikes; i++) b.bike(ox - 1.5, 0.93, bikes === 2 ? (i ? 0.45 : -0.45) : 0, i ? 0xa0c33e : bikeCol);
 }
 
-function rustyVan(b: Build, col: number, setup: Setup, bz: number): void {
+/** The old van's shape; `rusty` adds the rust patches (the TV van and the ambulance are clean). */
+export function rustyVan(b: Build, col: number, setup: Setup, bz: number, rusty = true): void {
   b.box(0, 0.3, bz, 4.2, 0.25, 1.4, CHASSIS);
   b.box(-0.55, 0.5, bz, 3.3, 1.6, 1.8, col);
   b.box(1.6, 0.5, bz, 1.0, 0.8, 1.75, col);
@@ -157,7 +251,7 @@ function rustyVan(b: Build, col: number, setup: Setup, bz: number): void {
   b.box(1.18, 1.2, bz, 0.08, 0.75, 1.6, GLASS, 0.4);
   b.box(0.55, 1.3, bz, 1.0, 0.5, 1.84, GLASS);
   b.wheels([1.4, -1.4], bz, 0.8, 0.34);
-  for (const s of [-1, 1]) {
+  if (rusty) for (const s of [-1, 1]) {
     b.rust(-0.6, 0.6, bz + s * 0.9, s, 5);
     b.rust(-0.6, 1.5, bz + s * 0.9, s, 2);
   }
@@ -287,7 +381,7 @@ export function paddockParts(def: SceneryDef, it: SceneryItem, i: number): THREE
     case 'motorhome': motorhome(b, col, setup, bz(2.25), false); break;
     case 'motorhome_long': motorhome(b, col, setup, bz(2.4), true); break;
     case 'hauler': hauler(b, col, setup, bz(2.55)); break;
-    case 'bike_stand': b.bikeOnStand(0, 0, col, variant === 'youth' ? '65cc' : '250cc'); break;
+    case 'bike_stand': b.bikeOnStand(0, 0, col, variant ?? 'adult'); break;
     default: break;
   }
   return b.parts;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { newCareerState, type CareerState } from '../src/core/career';
 import { checkContent } from '../src/core/content';
-import { MotoSim, mixSeed } from '../src/core/race';
+import { MotoSim, gateBonus, mixSeed } from '../src/core/race';
 import { PLAYER_ID, RaceDay, applyRide, cpuEntrant, drawField, entryFee, motoPrize, playerEntrant, practiceSim, venueProblem } from '../src/core/raceDay';
 import { addXp, childLevel, leadLevel, levelForXp, newSkillState, xpForLevel } from '../src/core/skills';
 import { loadManifest, loadMaps, rawContent } from './helpers';
@@ -190,7 +190,7 @@ describe('race day (Spec 12, 14)', () => {
     const c = rider();
     expect(venueProblem(content, farmland, c, {})).not.toBeNull();
     expect(venueProblem(content, farmland, c, { 'found.venue-farmland': true })).toBeNull();
-    for (const [id, track] of [['venue-quarry', 'arena-supercross'], ['venue-woodland', 'longmoor-endurance']]) {
+    for (const [id, track] of [['venue-riverside', 'arena-supercross'], ['venue-longmoor', 'longmoor-endurance']]) {
       const v = content.tracks.venues.find((x) => x.id === id)!;
       expect(venueProblem(content, v, c, { van_loaded: true })).not.toBeNull();
       expect(venueProblem(content, v, c, { 'found.venue-farmland': true })).toBeNull();
@@ -215,6 +215,53 @@ describe('race day (Spec 12, 14)', () => {
       if (gates.every((g, i) => i === 0 || g > gates[i - 1] || d.pickOrder[i] === PLAYER_ID)) inOrder++;
     }
     expect(inOrder).toBe(0);
+  });
+
+  it('the first three pickers always take the three best gates, and no CPU rider takes a gate more than 2% worse than one left', () => {
+    for (let seed = 1; seed <= 40; seed++) {
+      const d = day(seed);
+      d.pickOrder = [...d.pickOrder.filter((id) => id !== PLAYER_ID), PLAYER_ID];
+      d.pickOrder.splice(3 + (seed % 10), 0, d.pickOrder.pop()!);
+      const { taken, free } = d.gatesForPlayer();
+      const best = [...Array(d.gateCount).keys()].sort((a, b) => gateBonus(d.track, b) - gateBonus(d.track, a) || a - b).slice(0, 3);
+      for (const g of best) expect(taken.has(g)).toBe(true);
+      // Gates taken in pick order: each pick is at most 2% worse than the best gate free at the time.
+      const left = new Set([...Array(d.gateCount).keys()]);
+      for (const id of d.pickOrder.slice(0, d.pickOrder.indexOf(PLAYER_ID))) {
+        const g = [...taken].find(([, who]) => who === id)![0];
+        const top = Math.max(...[...left].map((x) => gateBonus(d.track, x)));
+        expect(gateBonus(d.track, g)).toBeGreaterThanOrEqual(top - 2);
+        left.delete(g);
+      }
+      expect(free.length).toBe(d.gateCount - taken.size);
+    }
+  });
+
+  it('never shows the gates filled in a neat line from gate 1 to a player picking 6th to 13th, at any venue (Boss, 28 Oct 2026)', () => {
+    for (const vid of ['venue-farmland', 'venue-riverside', 'venue-longmoor']) {
+      const v = content.tracks.venues.find((x) => x.id === vid)!;
+      for (let pos = 6; pos <= 13; pos++) {
+        for (let seed = 1; seed <= 60; seed++) {
+          const d = new RaceDay(content, v, playerEntrant(content, rider(), 'Test'), seed, 2000);
+          const order = d.pickOrder.filter((id) => id !== PLAYER_ID);
+          order.splice(pos - 1, 0, PLAYER_ID);
+          d.pickOrder = order;
+          const { taken } = d.gatesForPlayer();
+          expect([...taken.keys()].some((g) => g >= taken.size)).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('never fills the start in a neat line, in either moto (Boss, 28 Oct 2026)', () => {
+    for (let seed = 1; seed <= 60; seed++) {
+      const d = day(seed);
+      // The player picks last, so every CPU pick shows on the gate screen.
+      d.pickOrder = [...d.pickOrder.filter((id) => id !== PLAYER_ID), PLAYER_ID];
+      const { taken } = d.gatesForPlayer();
+      const inPickOrder = d.pickOrder.slice(0, -1).map((id) => [...taken].find(([, who]) => who === id)![0]);
+      expect(inPickOrder.every((g, i) => i === 0 || g > inPickOrder[i - 1])).toBe(false);
+    }
   });
 
   it('runs two motos, sets moto 2 gate picks by moto 1 order, and totals the day', () => {
@@ -293,11 +340,20 @@ describe('race content checks', () => {
     expect(errors).toContainEqual(expect.objectContaining({ file: 'data/tracks.json', field: 'tracks[1].sections[2].type' }));
   });
 
-  it('rejects a rider in a field who does not exist', () => {
+  it("rejects a field regular who doesn't race in the field's area", () => {
     const raw = rawContent();
-    (raw.riders as { fields: Record<string, string[]> }).fields['area1.local'].push('cpu.nobody');
+    (raw.riders as { riders: { id: string; areas: number[] }[] }).riders.find((r) => r.id === 'cpu.local_champion')!.areas = [2];
     const { errors } = checkContent(raw, loadManifest(), maps);
-    expect(errors.some((e) => e.file === 'data/riders.json' && /cpu\.nobody/.test(e.message))).toBe(true);
+    expect(errors.some((e) => e.file === 'data/riders.json' && /cpu\.local_champion/.test(e.message))).toBe(true);
+  });
+
+  it("puts riders in the pools of the areas they race in, and Neal Gizard in Area 8 only (Boss, 28 Oct 2026)", () => {
+    const pool = content.riders.fields['area1.local'];
+    expect(pool).toEqual(content.riders.riders.filter((r) => r.areas.includes(1)).map((r) => r.id));
+    const neal = content.riders.riders.find((r) => r.name === 'Neal Gizard')!;
+    expect(neal.areas).toEqual([8]);
+    expect(pool).not.toContain(neal.id);
+    for (const n of ['Lee Stocky', 'Brandon Stocky']) expect(pool).toContain(content.riders.riders.find((r) => r.name === n)?.id);
   });
 });
 
@@ -305,9 +361,9 @@ describe('the race day field: regulars plus a random draw from the pool', () => 
   const venue = (id: string) => content.tracks.venues.find((v) => v.id === id)!;
   const ids = (v: string, seed: number) => drawField(content, venue(v), seed).map((r) => r.id);
 
-  it('races 15 CPU riders, the Local Champion every time and Kyle Brooks every time at Farmland', () => {
+  it('races 15 CPU riders, the Local Champion every time and Louis Jonez every time at Farmland', () => {
     for (let seed = 1; seed <= 40; seed++) {
-      for (const v of ['venue-farmland', 'venue-quarry', 'venue-woodland']) {
+      for (const v of ['venue-farmland', 'venue-riverside', 'venue-longmoor']) {
         const f = ids(v, seed);
         expect(f, `${v} ${seed}`).toHaveLength(15);
         expect(new Set(f).size).toBe(15);
@@ -319,17 +375,17 @@ describe('the race day field: regulars plus a random draw from the pool', () => 
   });
 
   it('draws the rest at random each race day, the same draw for the same day, from the whole pool', () => {
-    expect(ids('venue-quarry', 5)).toEqual(ids('venue-quarry', 5));
-    const fields = new Set([...Array(20).keys()].map((s) => ids('venue-quarry', s + 1).join()));
+    expect(ids('venue-riverside', 5)).toEqual(ids('venue-riverside', 5));
+    const fields = new Set([...Array(20).keys()].map((s) => ids('venue-riverside', s + 1).join()));
     expect(fields.size).toBeGreaterThan(15);
-    const seen = new Set([...Array(200).keys()].flatMap((s) => ids('venue-quarry', s + 1)));
+    const seen = new Set([...Array(200).keys()].flatMap((s) => ids('venue-riverside', s + 1)));
     expect([...seen].sort()).toEqual([...content.riders.fields['area1.local']].sort());
-    // Kyle is in the pool away from Farmland, so some days he isn't there.
-    expect([...Array(40).keys()].some((s) => !ids('venue-quarry', s + 1).includes('cpu.local_racer'))).toBe(true);
+    // Louis is in the pool away from Farmland, so some days he isn't there.
+    expect([...Array(40).keys()].some((s) => !ids('venue-riverside', s + 1).includes('cpu.local_racer'))).toBe(true);
   });
 
   it('includes every new rider by name, with average stats', () => {
-    const names = ['Neal Gizard', 'Harvey Gizard', 'Louie Gizard', 'Kate Gizard', 'Aidan Gizard', 'Taylor Heart', 'Jason Styles', 'Jordan Styles', 'James Nestor', 'Mickey Alington', 'Louis Jonez', 'Andy McLaren', 'Justin Smyth', 'Dan Smyth'];
+    const names = ['Harvey Gizard', 'Louie Gizard', 'Kate Gizard', 'Aidan Gizard', 'Taylor Heart', 'Jason Styles', 'Jordan Styles', 'James Nestor', 'Mickey Alington', 'Louis Jonez', 'Andy McLaren', 'Justin Smyth', 'Dan Smyth'];
     const champ = content.riders.riders.find((r) => r.id === 'cpu.local_champion')!;
     for (const n of names) {
       const r = content.riders.riders.find((x) => x.name === n)!;

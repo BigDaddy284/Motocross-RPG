@@ -12,8 +12,10 @@
     <link rel="manifest" href="./app.webmanifest" />
     <title>Motocross RPG: The Road to Legend</title>
     <style>
-      html, body { margin: 0; height: 100%; background: #14141e; overflow: hidden; }
-      #game { width: 100vw; height: 100vh; }
+      /* No pinch or double-tap zoom: a zoomed-in page leaves part of the game off screen. */
+      html, body { margin: 0; height: 100%; background: #14141e; overflow: hidden; touch-action: none; overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+      /* dvh is the visible height in a mobile browser, between its toolbars; vh is the fallback. */
+      #game { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; }
       canvas { display: block; image-rendering: pixelated; touch-action: none; }
       /* The game is laid out for a landscape screen: a phone held upright is asked to turn. */
       #rotate { display: none; position: fixed; inset: 0; z-index: 20; background: #14141e; color: #e8dbb8;

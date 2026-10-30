@@ -29,6 +29,8 @@ export interface GroundDef {
   /** Tile art under assets/art/area-map/tiled/tiles, without .png. */
   art?: string;
   color: string;
+  /** The heading it is listed under in the track editor's ground palette; ungrouped ones come first. */
+  group?: string;
 }
 
 export interface SceneryDef {
@@ -77,7 +79,7 @@ export const TRACK_PARTS_SCHEMA: Schema = {
     kinds: { type: 'array', minItems: 1, items: { type: 'object', fields: { id: IDS, name: S, view: { type: 'string', oneOf: ['screen', 'follow'] }, desc: S } } },
     lines: { type: 'array', minItems: 1, items: IDS },
     surfaces: { type: 'array', items: { type: 'object', fields: { id: IDS, name: S, color: COLOR } } },
-    ground: { type: 'array', minItems: 1, items: { type: 'object', optional: ['art'], fields: { id: IDS, name: S, art: ART, color: COLOR } } },
+    ground: { type: 'array', minItems: 1, items: { type: 'object', optional: ['art', 'group'], fields: { id: IDS, name: S, art: ART, color: COLOR, group: S } } },
     scenery: {
       type: 'array',
       items: {

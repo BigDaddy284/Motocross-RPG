@@ -1,0 +1,1130 @@
+{
+  "format": "mxrpg-track",
+  "version": 1,
+  "track": {
+    "id": "first-try-mx-track",
+    "name": "First Try MX (example mod)",
+    "size": "small",
+    "surface": "hard_pack",
+    "kind": "outdoor",
+    "gates": [
+      2,
+      2,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      -1,
+      -1,
+      -1,
+      -2
+    ],
+    "path": [
+      [
+        31.3,
+        54
+      ],
+      [
+        16.2,
+        55.8
+      ],
+      [
+        10.8,
+        53.6
+      ],
+      [
+        8,
+        50
+      ],
+      [
+        5,
+        43
+      ],
+      [
+        4.3,
+        10.9
+      ],
+      [
+        6.8,
+        6.7
+      ],
+      [
+        10.6,
+        5.4
+      ],
+      [
+        15.1,
+        6
+      ],
+      [
+        21,
+        17
+      ],
+      [
+        22.7,
+        23.1
+      ],
+      [
+        31.1,
+        28.3
+      ],
+      [
+        64.5,
+        28.8
+      ],
+      [
+        69,
+        24
+      ],
+      [
+        69,
+        18
+      ],
+      [
+        63.3,
+        12.6
+      ],
+      [
+        32,
+        17
+      ],
+      [
+        27,
+        14
+      ],
+      [
+        24,
+        10
+      ],
+      [
+        23,
+        5
+      ],
+      [
+        25.2,
+        2.3
+      ],
+      [
+        35,
+        6
+      ],
+      [
+        89,
+        6
+      ],
+      [
+        93,
+        15
+      ],
+      [
+        93,
+        22
+      ],
+      [
+        87.5,
+        27.1
+      ],
+      [
+        88.1,
+        36.3
+      ],
+      [
+        93,
+        42
+      ],
+      [
+        93,
+        50
+      ],
+      [
+        88,
+        54
+      ]
+    ],
+    "sections": [
+      {
+        "type": "step_up",
+        "length": 27,
+        "passing": 0.5
+      },
+      {
+        "type": "straight",
+        "length": 14,
+        "passing": 0.6
+      },
+      {
+        "type": "berm",
+        "length": 56,
+        "passing": 0.5
+      },
+      {
+        "type": "tabletop",
+        "length": 27,
+        "passing": 0.5
+      },
+      {
+        "type": "tabletop",
+        "length": 33,
+        "passing": 0.5
+      },
+      {
+        "type": "straight",
+        "length": 60,
+        "passing": 0.6
+      },
+      {
+        "type": "double",
+        "length": 33,
+        "passing": 0.5
+      },
+      {
+        "type": "straight",
+        "length": 43,
+        "passing": 0.6
+      },
+      {
+        "type": "rhythm",
+        "length": 38,
+        "passing": 0.5
+      },
+      {
+        "type": "straight",
+        "length": 7,
+        "passing": 0.6
+      },
+      {
+        "type": "rhythm",
+        "length": 37,
+        "passing": 0.5
+      },
+      {
+        "type": "straight",
+        "length": 176,
+        "passing": 0.6
+      },
+      {
+        "type": "hairpin",
+        "length": 32,
+        "passing": 0.5
+      },
+      {
+        "type": "straight",
+        "length": 25,
+        "passing": 0.6
+      },
+      {
+        "type": "mud",
+        "length": 72,
+        "passing": 0.5
+      },
+      {
+        "type": "straight",
+        "length": 46,
+        "passing": 0.6
+      },
+      {
+        "type": "sand",
+        "length": 68,
+        "passing": 0.5
+      },
+      {
+        "type": "straight",
+        "length": 171,
+        "passing": 0.6
+      },
+      {
+        "type": "step_up",
+        "length": 37,
+        "passing": 0.5
+      },
+      {
+        "type": "straight",
+        "length": 16,
+        "passing": 0.6
+      },
+      {
+        "type": "double",
+        "length": 32,
+        "passing": 0.5
+      }
+    ],
+    "patches": [
+      {
+        "surface": "mud",
+        "at": 595,
+        "length": 25
+      },
+      {
+        "surface": "mud",
+        "at": 615,
+        "length": 25
+      },
+      {
+        "surface": "mud",
+        "at": 637,
+        "length": 25
+      },
+      {
+        "surface": "mud",
+        "at": 652,
+        "length": 25
+      },
+      {
+        "surface": "sand",
+        "at": 727,
+        "length": 25
+      },
+      {
+        "surface": "sand",
+        "at": 749,
+        "length": 25
+      },
+      {
+        "surface": "sand",
+        "at": 769,
+        "length": 25
+      }
+    ],
+    "scenery": [
+      {
+        "type": "start_official",
+        "x": 26,
+        "y": 44.5,
+        "route": [
+          [
+            25.5,
+            37.5
+          ]
+        ]
+      },
+      {
+        "type": "pit_tent",
+        "x": 11.5,
+        "y": 36
+      },
+      {
+        "type": "pit_tent",
+        "x": 16.7,
+        "y": 35.8
+      },
+      {
+        "type": "tape",
+        "x": 15,
+        "y": 39.5,
+        "rot": 355
+      },
+      {
+        "type": "tape",
+        "x": 16,
+        "y": 47,
+        "rot": 355
+      },
+      {
+        "type": "cheer",
+        "x": 68.5,
+        "y": 48,
+        "rot": 280
+      },
+      {
+        "type": "cheer",
+        "x": 67.8,
+        "y": 45.3,
+        "rot": 190
+      },
+      {
+        "type": "cheer",
+        "x": 66.5,
+        "y": 44.5,
+        "rot": 175
+      },
+      {
+        "type": "cheer",
+        "x": 69.5,
+        "y": 46.5,
+        "rot": 265
+      },
+      {
+        "type": "cheer",
+        "x": 12.4,
+        "y": 11.4,
+        "rot": 160
+      },
+      {
+        "type": "cheer",
+        "x": 13.5,
+        "y": 13.5,
+        "rot": 235
+      },
+      {
+        "type": "cheer",
+        "x": 14.5,
+        "y": 14.5,
+        "rot": 265
+      },
+      {
+        "type": "cheer",
+        "x": 15,
+        "y": 16.5,
+        "rot": 265
+      },
+      {
+        "type": "cheer",
+        "x": 11.8,
+        "y": 13,
+        "rot": 160
+      },
+      {
+        "type": "cheer",
+        "x": 13.5,
+        "y": 15.5,
+        "rot": 250
+      },
+      {
+        "type": "cheer",
+        "x": 10.8,
+        "y": 13.9,
+        "rot": 130
+      },
+      {
+        "type": "cheer",
+        "x": 20,
+        "y": 37,
+        "rot": 355
+      },
+      {
+        "type": "cheer",
+        "x": 21,
+        "y": 36.5,
+        "rot": 355
+      },
+      {
+        "type": "cheer",
+        "x": 9.2,
+        "y": 28.3,
+        "rot": 85
+      },
+      {
+        "type": "cheer",
+        "x": 9.6,
+        "y": 25.6,
+        "rot": 100
+      },
+      {
+        "type": "cheer",
+        "x": 9.6,
+        "y": 22.9,
+        "rot": 100
+      },
+      {
+        "type": "hauler",
+        "x": 19,
+        "y": -8.5,
+        "rot": 270,
+        "action": "awning_bikes"
+      },
+      {
+        "type": "hauler",
+        "x": 30.5,
+        "y": -15.5
+      },
+      {
+        "type": "hauler",
+        "x": 48.5,
+        "y": -15,
+        "action": "awning"
+      },
+      {
+        "type": "rusty_van",
+        "x": 32.5,
+        "y": -3,
+        "rot": 90
+      },
+      {
+        "type": "rusty_van",
+        "x": 27.5,
+        "y": -3,
+        "rot": 150
+      },
+      {
+        "type": "mx_van",
+        "x": 40.5,
+        "y": -5.5,
+        "rot": 90
+      },
+      {
+        "type": "mx_van",
+        "x": 47,
+        "y": -6.5,
+        "rot": 270
+      },
+      {
+        "type": "mx_van",
+        "x": 51.5,
+        "y": -5.5,
+        "rot": 90
+      },
+      {
+        "type": "tyre_stack",
+        "x": 37,
+        "y": -14.5,
+        "rot": 90
+      },
+      {
+        "type": "tyre_stack",
+        "x": 37,
+        "y": -12.5,
+        "rot": 90
+      },
+      {
+        "type": "finish_arch",
+        "x": 31,
+        "y": 54,
+        "rot": 86
+      },
+      {
+        "type": "marquee",
+        "x": 83,
+        "y": 14
+      },
+      {
+        "type": "ambulance",
+        "x": 63,
+        "y": 22,
+        "rot": 315
+      },
+      {
+        "type": "trade_stand",
+        "x": 75.5,
+        "y": 36,
+        "rot": 270
+      },
+      {
+        "type": "trade_stand",
+        "x": 75.5,
+        "y": 33.5,
+        "rot": 270
+      },
+      {
+        "type": "trade_stand",
+        "x": 75.5,
+        "y": 31,
+        "rot": 270
+      },
+      {
+        "type": "toilets",
+        "x": 6.5,
+        "y": -2,
+        "rot": 270
+      },
+      {
+        "type": "toilets",
+        "x": 6.5,
+        "y": -5,
+        "rot": 270
+      },
+      {
+        "type": "flagger",
+        "x": 32.4,
+        "y": 50.3,
+        "variant": "pallet",
+        "rot": 315
+      }
+    ],
+    "start": {
+      "path": [
+        [
+          20,
+          43
+        ],
+        [
+          48,
+          40
+        ],
+        [
+          66,
+          38
+        ],
+        [
+          74,
+          46
+        ],
+        [
+          70.1,
+          54
+        ]
+      ]
+    },
+    "features": [
+      {
+        "type": "berm",
+        "at": 15,
+        "len": 21,
+        "passing": 0.5
+      },
+      {
+        "type": "tabletop",
+        "at": 36,
+        "len": 10,
+        "passing": 0.5
+      },
+      {
+        "type": "tabletop",
+        "at": 46,
+        "len": 12,
+        "passing": 0.5
+      },
+      {
+        "type": "double",
+        "at": 80.5,
+        "len": 12,
+        "passing": 0.5
+      },
+      {
+        "type": "double",
+        "at": 376.9794561819192,
+        "len": 12,
+        "passing": 0.5
+      },
+      {
+        "type": "step_up",
+        "at": 0,
+        "len": 10,
+        "passing": 0.5
+      },
+      {
+        "type": "mud",
+        "at": 225,
+        "len": 27,
+        "passing": 0.5
+      },
+      {
+        "type": "sand",
+        "at": 269,
+        "len": 25,
+        "passing": 0.5
+      },
+      {
+        "type": "hairpin",
+        "at": 204,
+        "len": 12,
+        "passing": 0.5
+      },
+      {
+        "type": "rhythm",
+        "at": 108.5,
+        "len": 14,
+        "passing": 0.5
+      },
+      {
+        "type": "rhythm",
+        "at": 125,
+        "len": 14,
+        "passing": 0.5
+      },
+      {
+        "type": "step_up",
+        "at": 357.5,
+        "len": 13.5,
+        "passing": 0.5
+      }
+    ],
+    "hills": [
+      {
+        "at": 352,
+        "len": 16,
+        "height": 2
+      },
+      {
+        "at": 351,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 350.5,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 351.5,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 358.5,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 358,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 363.5,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 363,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 369,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 369.5,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 368.5,
+        "len": 16,
+        "height": 2
+      },
+      {
+        "at": 14.5,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 14,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 18,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 17.5,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 24.5,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 23.5,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 26.6,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 33.7,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 30.1,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 64.7,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 63.7,
+        "len": 16,
+        "height": 3
+      },
+      {
+        "at": 67.7,
+        "len": 16,
+        "height": 2
+      },
+      {
+        "at": 67.2,
+        "len": 16,
+        "height": 3
+      },
+      {
+        "at": 65.7,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 72.7,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 73.2,
+        "len": 16,
+        "height": 2
+      },
+      {
+        "at": 76.7,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 77.2,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 77.7,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 80.2,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 81.2,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 82.2,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 87.2,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 90.7,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 93.7,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 199.7,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 198.7,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 204.9,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 204.2,
+        "len": 16,
+        "height": 2
+      },
+      {
+        "at": 202.7,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 203.2,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 203.7,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 210,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 221,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 226,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 225.5,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 226.5,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 229,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 228.5,
+        "len": 16,
+        "height": -2
+      },
+      {
+        "at": 234,
+        "len": 16,
+        "height": -2
+      },
+      {
+        "at": 235,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 234.5,
+        "len": 16,
+        "height": -2
+      },
+      {
+        "at": 239.5,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 239,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 240.5,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 243,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 247.5,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 247,
+        "len": 16,
+        "height": -2
+      },
+      {
+        "at": 222.5,
+        "len": 16,
+        "height": -2
+      },
+      {
+        "at": 219.5,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 232.5,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 235.5,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 236.5,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 243.5,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 245,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 246.5,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 250,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 252,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 241.5,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 241,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 253.5,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 255,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 254.5,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 254,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 249,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 242,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 240,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 231,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 229.5,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 227,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 224,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 216.5,
+        "len": 16,
+        "height": -1
+      },
+      {
+        "at": 295,
+        "len": 16,
+        "height": 3
+      },
+      {
+        "at": 281,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 280,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 271,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 302.5,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 303,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 321.5,
+        "len": 16,
+        "height": 2
+      },
+      {
+        "at": 322,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 323,
+        "len": 16,
+        "height": 1
+      },
+      {
+        "at": 62,
+        "len": 6,
+        "height": -1
+      },
+      {
+        "at": 64.5,
+        "len": 6,
+        "height": -2
+      },
+      {
+        "at": 66,
+        "len": 6,
+        "height": -1
+      },
+      {
+        "at": 67,
+        "len": 6,
+        "height": -1
+      },
+      {
+        "at": 68.5,
+        "len": 6,
+        "height": -1
+      },
+      {
+        "at": 205.5,
+        "len": 16,
+        "height": -2
+      }
+    ]
+  }
+}

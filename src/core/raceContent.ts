@@ -14,6 +14,8 @@ const IDS = { type: 'string', pattern: ID } as const;
 const N = { type: 'number' } as const;
 const N0 = { type: 'number', min: 0 } as const;
 const SHARE = { type: 'number', min: 0, max: 1 } as const;
+// A tunnel through a jump's deck: the track passes under it, or a walkway does (trackSurface.ts).
+const TUNNEL = { type: 'string', oneOf: ['track', 'walk'] } as const;
 const RANGE: Schema = { type: 'array', items: N0, minItems: 2, maxItems: 2 };
 const LEVEL = { type: 'number', integer: true, min: 1, max: 99 } as const;
 const WEIGHTS: Schema = { type: 'record', values: N0 };
@@ -46,13 +48,23 @@ export const SKILLS_SCHEMA: Schema = {
 
 export const RACING_SCHEMA: Schema = {
   type: 'object',
-  optional: ['note'],
+  optional: ['note', 'kindLaps'],
   fields: {
     note: { type: 'string' },
     sim: {
       type: 'object',
-      optional: ['firstCorner', 'pileup'],
+      optional: ['firstCorner', 'pileup', 'fitness'],
       fields: {
+        fitness: {
+          type: 'object',
+          fields: {
+            roughPct: N0,
+            rough: { type: 'array', items: { type: 'string', nonEmpty: true } },
+            strengthLatePct: N0,
+            enduranceLatePct: N0,
+            capPct: N0,
+          },
+        },
         firstCorner: { type: 'object', fields: { chance: SHARE, riders: RANGE } },
         pileup: { type: 'object', fields: { chance: SHARE, window: N0, most: { type: 'number', integer: true, min: 1 } } },
         spread: N0,
@@ -84,6 +96,14 @@ export const RACING_SCHEMA: Schema = {
       fields: { sectionFactor: N0, practiceFactor: N0, finishBonus: N0, positionStep: N0, positionFloor: N0, overtakeXp: N0, consistencyWeight: N0 },
     },
     classes: { type: 'record', values: { type: 'object', fields: { laps: { type: 'number', integer: true, min: 1 }, entry: N0, classXp: N0, refSpeed: { type: 'number', min: 1 }, youth: { type: 'boolean' } } } },
+    kindLaps: {
+      type: 'object',
+      optional: ['race', 'championship'],
+      fields: {
+        race: { type: 'record', values: { type: 'number', integer: true, min: 1 } },
+        championship: { type: 'record', values: { type: 'number', integer: true, min: 1 } },
+      },
+    },
     messages: {
       type: 'array',
       minItems: 1,
@@ -145,12 +165,12 @@ export const TRACKS_SCHEMA: Schema = {
           // The editor's features on the route (jumps and the like), from which the sections are generated with the route's own straights and bends.
           features: {
             type: 'array',
-            items: { type: 'object', optional: ['line', 'height'], fields: { type: IDS, at: N0, len: { type: 'number', min: 0.5 }, passing: SHARE, line: IDS, height: N0 } },
+            items: { type: 'object', optional: ['line', 'height', 'tunnel', 'finish'], fields: { type: IDS, at: N0, len: { type: 'number', min: 0.5 }, passing: SHARE, line: IDS, height: N0, tunnel: TUNNEL, finish: { type: 'boolean' } } },
           },
           sections: {
             type: 'array',
             minItems: 1,
-            items: { type: 'object', optional: ['line', 'height'], fields: { type: IDS, length: { type: 'number', min: 1 }, passing: SHARE, line: IDS, height: N0 } },
+            items: { type: 'object', optional: ['line', 'height', 'tunnel', 'finish'], fields: { type: IDS, length: { type: 'number', min: 1 }, passing: SHARE, line: IDS, height: N0, tunnel: TUNNEL, finish: { type: 'boolean' } } },
           },
           kind: IDS,
           width: { type: 'number', min: 1, max: 12 },
@@ -188,7 +208,7 @@ export const TRACKS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['track', 'class', 'field', 'office', 'needs', 'practiceFeePct', 'firstRaceFree', 'practiceOnly', 'area', 'locked', 'regulars'],
+        optional: ['track', 'class', 'field', 'office', 'needs', 'practiceFeePct', 'firstRaceFree', 'practiceOnly', 'area', 'locked', 'regulars', 'practiceRiders'],
         fields: {
           id: IDS,
           name: S,
@@ -204,6 +224,7 @@ export const TRACKS_SCHEMA: Schema = {
           practiceOnly: { type: 'boolean' },
           area: { type: 'array', items: { type: 'number', integer: true, min: 0 }, minItems: 4, maxItems: 4 },
           locked: S,
+          practiceRiders: { type: 'number', integer: true, min: 0, max: 15 },
         },
       },
     },
@@ -219,11 +240,13 @@ export const RIDERS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['tag', 'skills', 'style'],
+        optional: ['tag', 'skills', 'style', 'kit'],
         fields: {
           id: IDS,
           name: S,
           tag: S,
+          kit: S,
+          areas: { type: 'array', items: { type: 'number', integer: true, min: 1, max: 8 } },
           level: LEVEL,
           skills: { type: 'record', values: LEVEL },
           bike: { type: 'object', fields: { brand: IDS, grade: { type: 'number', integer: true, min: 1, max: 10 }, condition: SHARE } },
@@ -236,7 +259,7 @@ export const RIDERS_SCHEMA: Schema = {
         },
       },
     },
-    fields: { type: 'record', values: { type: 'array', items: IDS } },
+    fields: { type: 'record', values: { type: 'object', fields: { area: { type: 'number', integer: true, min: 1, max: 8 } } } },
     fieldSize: { type: 'record', values: { type: 'number', integer: true, min: 1, max: 15 } },
     regulars: { type: 'record', values: { type: 'array', items: IDS } },
   },

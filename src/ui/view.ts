@@ -17,3 +17,6 @@ export function view(scene: Phaser.Scene): { width: number; height: number } {
 export function cssSize(scene: Phaser.Scene): { width: number; height: number } {
   return { width: scene.scale.width / DPR, height: scene.scale.height / DPR };
 }
+
+/** The height of the HUD's button row along the bottom of the world screen, in CSS pixels (Boss, 28 Oct 2026). */
+export const HUD_BAR = 52;

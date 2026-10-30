@@ -27,7 +27,9 @@ export interface EditViewState {
   parts?: TrackPartsData;
   mode: string;
   /** route: the selected point of the start official's route (1 is its first after where they stand), or -1. */
-  sel: { item: number; sec: number; pt: number; start: number; route?: number };
+  sel: { item: number; /** Every selected scenery item (item first) when more than one is selected. */ items?: number[]; sec: number; pt: number; start: number; route?: number };
+  /** A selection box being dragged out (Shift-drag) in Scenery, grid units. */
+  box?: { x0: number; y0: number; x1: number; y1: number };
   /** Scenery items with a problem (by index) and problem spots (height), each an error or a warning. */
   issues: { item?: number; x?: number; y?: number; level: 'error' | 'warning' }[];
   /** The brush under the pointer: a circle of radius r grid units, or a square of n ground cells. */
@@ -46,9 +48,23 @@ export interface EditViewState {
   /** The selected control point's curve handles, as the spots they are at. */
   handles?: [number, number][];
   /** What is being placed (the start straight, the finish line or a feature): its points, whether it can go there, and the ring it snaps on at (x, y, radius). */
-  ghost?: { pts: [number, number][]; level: 'ok' | 'warning' | 'error'; ring: [number, number, number] | null; /** The route being drawn: a thin dashed line from the last point to the pointer, not a piece. */ dashed?: boolean };
+  ghost?: { pts: [number, number][]; level: 'ok' | 'warning' | 'error'; ring: [number, number, number] | null; /** The route being drawn: a thin dashed line from the last point to the pointer, not a piece. */ dashed?: boolean; /** Drawn in this colour ('#rrggbb') instead of the level's: the surface a patch would lay. */ colour?: string };
   /** The scenery item the next click would place (Scenery): drawn see-through under the pointer, turned as it would be. */
   ghostItem?: SceneryItem;
+  /** Which way the selected item and the one being placed face: an arrow from the front along ang (grid radians). */
+  arrows?: { x: number; y: number; ang: number }[];
+  /**
+   * The index of the scenery item being dragged: ghostItem is that item where it is now, drawn
+   * solid, and the track's own copy of it (as it was picked up) is left out of the build, so the
+   * view follows the drag without rebuilding.
+   */
+  ghostSolid?: number;
+  /**
+   * What each marshal, flag man and pit crew member covers (Scenery): a marshal's watch, or the
+   * flag man's or a crew's approach, as points along the middle of the track, with the point
+   * beside them; the selected one's drawn bold.
+   */
+  zones?: { i: number; kind: 'watch' | 'approach'; pts: [number, number][]; at: [number, number]; sel: boolean }[];
 }
 
 const GREEN = 0x34c759;
@@ -284,14 +300,14 @@ export class TrackEditScene extends Phaser.Scene {
     const st = this.state;
     if (!st || this.scale.width < 50 || this.scale.height < 50) return;
     const parts = st.parts ?? services.content.trackParts;
-    const key = JSON.stringify([st.track, st.gapFrom, st.gaps, parts === services.content.trackParts ? null : parts, this.scale.width, this.scale.height]);
+    const key = JSON.stringify([st.track, st.gapFrom, st.gaps, parts === services.content.trackParts ? null : parts, this.scale.width, this.scale.height, st.ghostSolid ?? -1]);
     if (key !== this.built) {
       const first = !this.built;
       this.built = key;
       // The new view takes over the old one's renderer (its WebGL context and shaders), then the old one goes.
       const old = this.view;
       const was = [...this.holder.list];
-      this.view = new RaceView(this, this.holder, structuredClone(st.track), parts, 0, 0, this.scale.width, this.scale.height, old?.gl, { gapFrom: st.gapFrom, gaps: st.gaps });
+      this.view = new RaceView(this, this.holder, structuredClone(st.track), parts, 0, 0, this.scale.width, this.scale.height, old?.gl, { gapFrom: st.gapFrom, gaps: st.gaps, skipItem: st.ghostSolid });
       old?.destroy(true);
       for (const o of was) o.destroy();
       this.view.editCam = this.cam;
@@ -382,9 +398,24 @@ export class TrackEditScene extends Phaser.Scene {
         if (f) line(rect(f.x, f.z, f.w + 0.2, f.d + 0.2, f.a), color, true, p.level === 'warning');
       } else if (p.x !== undefined && p.y !== undefined) line(ring(p.x, p.y, 1.2), color, true, p.level === 'warning');
     }
-    if (st.sel.item >= 0) {
-      const f = size(st.sel.item);
+    // Facing arrows: a short line from the item's front with a head, so people and stands are placed looking the right way.
+    for (const ar of st.arrows ?? []) {
+      const L = 1.7;
+      const tip = { x: ar.x + Math.cos(ar.ang) * L, z: ar.y + Math.sin(ar.ang) * L };
+      const back = (side: number) => ({ x: tip.x - Math.cos(ar.ang + side * 0.5) * 0.55, z: tip.z - Math.sin(ar.ang + side * 0.5) * 0.55 });
+      line([{ x: ar.x, z: ar.y }, tip], 0xffffff, false, false, 0.12, 12);
+      line([back(-1), tip, back(1)], 0xffffff, false, false, 0.12, 12);
+    }
+    // The selected items' outlines; while one is dragged, round the moving copy (ghostItem), not the track's.
+    for (const si of st.sel.items?.length ? st.sel.items : st.sel.item >= 0 ? [st.sel.item] : []) {
+      if (si === st.ghostSolid) continue;
+      const f = size(si);
       if (f) line(rect(f.x, f.z, f.w + 0.45, f.d + 0.45, f.a), SELECT, true);
+    }
+    // A selection box being dragged out.
+    if (st.box) {
+      const { x0, y0, x1, y1 } = st.box;
+      line([{ x: x0, z: y0 }, { x: x1, z: y0 }, { x: x1, z: y1 }, { x: x0, z: y1 }, { x: x0, z: y0 }], SELECT, true);
     }
     // The start official's route in Scenery: dashed, or with its points when they're selected (the last, where they end up, red).
     // Cheering fans' walks in too, each its own.
@@ -395,6 +426,16 @@ export class TrackEditScene extends Phaser.Scene {
       if (route.length > 1) line(route, 0xffffff, false, !sel, 0.07, 10.5);
       if (sel) route.forEach((p, i) => i && line(ring(p.x, p.z, 0.35), i === st.sel.route ? SELECT : i === route.length - 1 ? RED : 0xffffff, true, false, 0.09, 10.6));
     });
+    // What the marshals, the flag man and the pit crews cover: a marshal's watch yellow, the others'
+    // approach white; bold and as wide as the track for the selected one, a thin dashed line for the rest,
+    // with a ring on the track beside each.
+    if (st.mode === 'scenery') for (const z of st.zones ?? []) {
+      const colour = z.kind === 'watch' ? YELLOW : 0xffffff;
+      const pts = z.pts.map(([x, y]) => ({ x, z: y }));
+      if (z.sel) line(pts, colour, false, false, (t.width ?? 3.4) * 0.45, 10.2);
+      else line(pts, colour, false, true, 0.14, 10.2);
+      line(ring(z.at[0], z.at[1], z.sel ? 0.7 : 0.45), colour, true, false, z.sel ? 0.14 : 0.09, 10.3);
+    }
     // The build boundary: the race ground's edge, a translucent dashed line on the ground, so what
     // is placed can be seen against it (a section may cross it while the track is built).
     {
@@ -488,16 +529,16 @@ export class TrackEditScene extends Phaser.Scene {
           }
           fine.push({ x, z: y });
         }
-        line(fine, g.level === 'error' ? RED : g.level === 'warning' ? YELLOW : GREEN, false, false, w, 11);
+        line(fine, g.colour ? hexColor(g.colour) : g.level === 'error' ? RED : g.level === 'warning' ? YELLOW : GREEN, false, false, w, 11);
       }
     }
     // The scenery item the next click would place: see-through, where and as turned it would stand, with its footprint outlined.
     const gi = st.ghostItem;
     if (gi) {
       const def = parts.scenery.find((d) => d.id === gi.type);
-      const obj = v.ghostItem(gi);
+      const obj = v.ghostItem(gi, st.ghostSolid);
       if (obj) v.overlay.add(obj);
-      line(rect(gi.x, gi.y, (gi.w ?? def?.w ?? 2) + 0.3, (gi.h ?? def?.h ?? 2) + 0.3, ((gi.rot ?? 0) * Math.PI) / 180), SELECT, true, true, 0.09, 11);
+      line(rect(gi.x, gi.y, (gi.w ?? def?.w ?? 2) + 0.3, (gi.h ?? def?.h ?? 2) + 0.3, ((gi.rot ?? 0) * Math.PI) / 180), SELECT, true, st.ghostSolid === undefined, 0.09, 11);
     }
   }
 

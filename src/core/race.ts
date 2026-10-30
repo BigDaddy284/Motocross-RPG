@@ -1,5 +1,5 @@
 import { bikeStats, type Bike, type BikesData } from './career';
-import { firstCornerSpan, inSpan, lapGeom, lapPlan, sectionBounds, startGeom, type DrawnShape, type LapSpan, type StartGeom } from './trackGeom';
+import { firstCorner, lapPlan, sectionBounds, startGeom, type DrawnShape, type FirstCorner, type StartGeom } from './trackGeom';
 import type { RiderStyle } from './riderProfile';
 import { sectionGrades, type TrackElevation, type TrackHill } from './elevation';
 
@@ -78,6 +78,12 @@ export interface RacingData {
     firstCorner?: { chance: number; riders: [number, number] };
     /** A crash collecting riders close behind: each rider arriving within `window` seconds has this chance of going down too, up to `most` of them. */
     pileup?: { chance: number; window: number; most: number };
+    /**
+     * Fitness in the lap time (Spec 3.4, Boss 29 Oct 2026), each at level 99: Strength is roughPct
+     * faster through rough sections and strengthLatePct late in the moto, Endurance enduranceLatePct
+     * late in the moto (fading less). Late ramps in over the second half. All of it is capped at capPct.
+     */
+    fitness?: { roughPct: number; rough: string[]; strengthLatePct: number; enduranceLatePct: number; capPct: number };
   };
   xp: {
     sectionFactor: number;
@@ -89,6 +95,12 @@ export interface RacingData {
     consistencyWeight: number;
   };
   classes: Record<string, ClassRules>;
+  /**
+   * Laps per moto by track kind (Boss, 29 Oct 2026: endurance races are 8 laps), in place of the
+   * class's laps. championship is the same for championship rounds (motocross rounds are 8 laps).
+   * A kind left out uses the class's laps.
+   */
+  kindLaps?: { race?: Record<string, number>; championship?: Record<string, number> };
   messages: MessageDef[];
   messageEffects: {
     pacePct: number;
@@ -126,6 +138,13 @@ export interface TrackSection {
   line?: string;
   /** Height in metres of the jump face or hill, for the race view. */
   height?: number;
+  /**
+   * A tunnel through a jump's deck (tabletop, step-up, step-on): 'track' where another part of
+   * the lap passes under it, 'walk' for a pedestrian tunnel through it (trackSurface.ts).
+   */
+  tunnel?: 'track' | 'walk';
+  /** A finish-line jump (tabletop or double): the lap's first section, with the finish arch built over it (jumps.ts ARCH_AT). */
+  finish?: true;
 }
 
 /** A stretch of the lap with a different surface, in metres from the start line (race view only). */
@@ -194,7 +213,7 @@ export interface TrackDef {
   elevation?: TrackElevation;
   /** Hills and dips along the track from the editor's elevation tool (elevation.ts); none when left out. */
   hills?: TrackHill[];
-  /** The track editor's route: its control points ([x, y], with curve handles after), from which `path` is drawn. The next one after the start straight's join ends the first corner (trackGeom.firstCornerSpan). */
+  /** The track editor's route: its control points ([x, y], with curve handles after), from which `path` is drawn. */
   layout?: { points: number[][] };
 }
 
@@ -209,6 +228,8 @@ export interface Entrant {
   id: string;
   name: string;
   tag?: string;
+  /** Their own race kit on the race screen (CpuRiderDef.kit). */
+  kit?: string;
   player: boolean;
   /** Child skill levels. */
   skills: Record<string, number>;
@@ -218,6 +239,11 @@ export interface Entrant {
   gate: number;
   /** How they ride on the race screen (riderProfile.ts); never changes a result. */
   style?: RiderStyle;
+  /**
+   * Practice only: when the rider set off from the gate, in seconds from the session's start. A
+   * rider already out on track when you arrive set off before 0.
+   */
+  startAt?: number;
 }
 
 /** Events name the section by index; -1 is the start straight. */
@@ -324,8 +350,8 @@ export class MotoSim {
   /** How the ground's climbs and drops stretch or shorten each section's time (elevation.ts). */
   private readonly grades: number[];
   private readonly start: StartGeom;
-  /** The first corner: the lap from the start straight's join to the route's next point (trackGeom.firstCornerSpan), or null on a track with its own first-corner section or no start straight. */
-  readonly firstCorner: LapSpan | null;
+  /** The first corner: the start straight's end, between its last two points (trackGeom.firstCorner), or null with no start straight. */
+  readonly firstCorner: FirstCorner | null;
   /** Everything a lap changes, as it was before the latest lap, so it can be run again (redoLap). */
   private before: LapStart | null = null;
 
@@ -341,7 +367,7 @@ export class MotoSim {
     this.bounds = sectionBounds(track);
     this.grades = sectionGrades(track);
     this.start = startGeom(track);
-    this.firstCorner = firstCornerSpan(track, lapGeom(track.path), this.start);
+    this.firstCorner = firstCorner(this.start);
     this.cls = racing.classes[classId];
     this.ceiling = bikes.classes.find((c) => c.id === classId)?.ceiling ?? 1;
     this.ink = racing.ink;
@@ -351,7 +377,7 @@ export class MotoSim {
       const bike = e.player ? this.playerBike! : e.bike;
       return {
         e: { ...e, bike },
-        time: 0,
+        time: opts.practice ? (e.startAt ?? 0) : 0,
         laps: 0,
         lapTimes: [],
         message: e.player ? (opts.message ?? 'steady') : e.tactic.message,
@@ -372,7 +398,8 @@ export class MotoSim {
   }
 
   get finished(): boolean {
-    return (this.opts.laps !== null && this.lapNo >= this.opts.laps) || this.riders.every((r) => r.retired);
+    // Practice is over for everyone once the rider's own bike gives out, whoever else is still out.
+    return (this.opts.laps !== null && this.lapNo >= this.opts.laps) || this.riders.every((r) => r.retired) || (!!this.opts.practice && !!this.player?.retired);
   }
 
   get playerMessage(): string {
@@ -429,14 +456,15 @@ export class MotoSim {
     const active = this.riders.filter((r) => !r.retired);
     // Each rider's own draws for this lap.
     const draws = new Map(this.riders.map((r, i) => [r, seededRng(mixSeed(this.opts.seed, lap * 256 + i))]));
-    const plan = lapPlan(this.track, lap, this.bounds, this.start, this.firstCorner ? [this.firstCorner.from, this.firstCorner.to] : []);
+    const plan = lapPlan(this.track, lap, this.bounds, this.start);
     const trace: LapTrace = { lap, marks: plan.marks, secs: plan.secs, times: {}, events: [] };
     for (const r of active) {
       trace.times[r.e.id] = [r.time];
       if (!r.e.player) r.message = this.cpuMessage(r);
     }
-    // Riding order entering the lap: the gate order on lap 1, then race order.
-    let order = [...active].sort((a, b) => (lap === 1 ? a.e.gate - b.e.gate : a.time - b.time));
+    // Riding order entering the lap: the gate order on lap 1, then race order (in practice, the
+    // order riders set off in, then the gate).
+    let order = [...active].sort((a, b) => (lap === 1 ? a.time - b.time || a.e.gate - b.e.gate : a.time - b.time));
     const air = new Map<RiderState, number>();
     const startTimes = new Map(active.map((r) => [r, r.time]));
     const cur = new Map(active.map((r) => [r, r.time]));
@@ -445,15 +473,9 @@ export class MotoSim {
     const lapRng = seededRng(mixSeed(this.opts.seed, lap * 256 + 255));
     const incident = new Set<RiderState>();
     const fc = sim.firstCorner;
-    // The first corner: the stretch from the start straight's join to the route's next point when
-    // the track has one, else (a track drawn with its own first-corner section) the lap's first
-    // corner section. The route's own surface rides there as a first corner; a feature placed
-    // there (a berm, a rutted corner) rides as itself.
-    const span = this.firstCorner;
-    const inFirstCorner = (leg: number) => !!span && plan.secs[leg] >= 0 && inSpan(span, plan.spans[leg]);
-    const firstCornerLeg = lap === 1 && fc && !this.opts.practice
-      ? (span ? plan.secs.findIndex((si, leg) => si >= 0 && inFirstCorner(leg)) : plan.secs.findIndex((si) => si >= 0 && this.racing.sections[this.track.sections[si].type]?.damage === 'corner'))
-      : -1;
+    // The first corner is the start straight's end (lapPlan's stretch -2): the incident happens
+    // there, on lap 1 of a race. A track without a start straight has no first corner.
+    const firstCornerLeg = lap === 1 && fc && !this.opts.practice ? plan.secs.indexOf(-2) : -1;
     if (firstCornerLeg >= 0 && fc && lapRng() < fc.chance) {
       const pool = [...active];
       const n = Math.min(pool.length, fc.riders[0] + Math.floor(lapRng() * (fc.riders[1] - fc.riders[0] + 1)));
@@ -461,11 +483,15 @@ export class MotoSim {
     }
 
     plan.secs.forEach((si, leg) => {
-      // The start straight rides as a start (gate bonus, start skills) in a race; in practice it's a straight.
-      const full = si < 0 ? { type: 'start_gate', length: plan.metres[leg], passing: this.track.start?.passing ?? 0.6 } : this.track.sections[si];
+      // The start straight rides as a start (gate bonus, start skills) in a race, in practice as a
+      // straight; its end rides as the first corner. A lap section left as a first corner from
+      // before (the first corner is no longer a section) rides as a flat corner.
+      const full = si === -2
+        ? { type: 'first_corner', length: plan.metres[leg], passing: this.track.start?.passing ?? 0.6 }
+        : si < 0 ? { type: 'start_gate', length: plan.metres[leg], passing: this.track.start?.passing ?? 0.6 } : this.track.sections[si];
       const sec = { ...full, length: plan.metres[leg] };
-      const isStart = si < 0 && !this.opts.practice;
-      const def = this.racing.sections[sec.type === 'start_gate' && !isStart ? 'straight' : sec.type === 'straight' && inFirstCorner(leg) && this.racing.sections.first_corner ? 'first_corner' : sec.type];
+      const isStart = si === -1 && !this.opts.practice;
+      const def = this.racing.sections[sec.type === 'start_gate' && !isStart ? 'straight' : sec.type === 'first_corner' && si >= 0 && this.racing.sections.flat_corner ? 'flat_corner' : sec.type];
       // A section joined part way through on lap 1 is only partly ridden, with fewer chances to slip.
       const share = Math.min(1, sec.length / Math.max(1e-9, full.length));
       const done: RiderState[] = [];
@@ -608,11 +634,23 @@ export class MotoSim {
     const perf = this.performance(r, def);
     const base = sec.length / this.cls.refSpeed;
     const pace = 1 - (msg.pace * me.pacePct) / 100 + (msg.consistency * me.consistencyTimePct) / 100;
-    const gateBonus = gate >= 0 ? 1 - (this.track.gates?.[gate] ?? 0) / 100 : 1;
+    const gateK = gate >= 0 ? 1 - gateBonus(this.track, gate) / 100 : 1;
     const cons = r.e.skills.consistency ?? 1;
     const sd = sim.noise * (1 - (sim.consistencyNoiseCut * cons) / 99) * Math.max(0.2, 1 - me.consistencyNoise * msg.consistency);
     const noise = Math.max(0.7, 1 + this.gauss() * sd);
-    return base * this.difficulty(sec, def) * (1 - sim.spread * (perf - 0.5)) * pace * gateBonus * noise;
+    return base * this.difficulty(sec, def) * (1 - sim.spread * (perf - 0.5)) * pace * gateK * noise * (1 - this.fitnessCut(r, sec));
+  }
+
+  /** The share of a section's time a rider's Strength and Endurance take off (sim.fitness), never over its cap. */
+  fitnessCut(r: RiderState, sec: TrackSection): number {
+    const f = this.racing.sim.fitness;
+    if (!f) return 0;
+    const lvl = (k: string) => Math.max(0, (r.e.skills[k] ?? 1) - 1) / 98;
+    const laps = this.opts.laps;
+    const late = laps ? Math.max(0, Math.min(1, (this.lapNo / laps - 0.5) * 2)) : 0;
+    const strength = lvl('strength') * ((f.rough.includes(sec.type) ? f.roughPct : 0) + f.strengthLatePct * late);
+    const endurance = lvl('endurance') * f.enduranceLatePct * late;
+    return Math.min(f.capPct, strength + endurance) / 100;
   }
 
   private mistake(r: RiderState, def: SectionDef, share = 1): MistakeOutcome | null {
@@ -765,8 +803,19 @@ export class MotoSim {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-export function formatTime(s: number): string {
+/**
+ * A gate's start bonus in percent (Spec 10.4). Gates past the track's curve (a championship's
+ * third row on a track drawn for 16) get a point less than its last gate.
+ */
+export function gateBonus(track: Pick<TrackDef, 'gates'>, gate: number): number {
+  const curve = track.gates ?? [];
+  if (curve.length && gate >= curve.length) return curve[curve.length - 1] - 1;
+  return curve[gate] ?? 0;
+}
+
+/** A time as m:ss.s, or with more decimals (qualifying times to the thousandth). */
+export function formatTime(s: number, digits = 1): string {
   const m = Math.floor(s / 60);
   const sec = s - m * 60;
-  return `${m}:${sec.toFixed(1).padStart(4, '0')}`;
+  return `${m}:${sec.toFixed(digits).padStart(digits + 3, '0')}`;
 }

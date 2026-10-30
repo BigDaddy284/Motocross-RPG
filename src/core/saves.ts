@@ -8,7 +8,7 @@ import { HEADINGS, type VanState } from './vehicles';
 // - a save from an older build loads through the migration steps below;
 // - a save that cannot be read is kept under a "corrupt" key and the newest good backup is offered.
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 6;
 export const BACKUP_COUNT = 5;
 
 export interface SaveData {
@@ -50,7 +50,30 @@ const MIGRATIONS: Record<number, Migration> = {
   2: (old) => ({ ...old, career: { ...(old.career as Record<string, unknown>), skills: { xp: {}, bonus: {} } } }),
   // Test build 3 had no van on the map: a bought van turns up at the starter spot on loading.
   3: (old) => ({ ...old, van: null, driving: false }),
+  // Alpha v1.1 named the Quarry and Woodland venues after their tracks, Riverside and Longmoor.
+  4: (old) => renameIds(old, RENAMED_V5) as Record<string, unknown>,
+  // Alpha v1.1 calls the vans motors (Boss, 28 Oct 2026): van-1 to van-7 are motor-1 to motor-7.
+  5: (old) => {
+    const van = old.van as { design?: unknown } | null | undefined;
+    return van && typeof van.design === 'string' ? { ...old, van: { ...van, design: van.design.replace(/^van-(\d+)$/, 'motor-$1') } } : old;
+  },
 };
+
+/** Old id to new id, wherever an id turns up in a save: positions, the van, championships, counters. */
+const RENAMED_V5: [RegExp, string][] = [
+  [/\b(area1-)?venue-quarry\b/g, '$1venue-riverside'],
+  [/\b(area1-)?venue-woodland\b/g, '$1venue-longmoor'],
+  [/\b(npc\.(?:track_official|marshal))_quarry\b/g, '$1_riverside'],
+  [/\b(npc\.(?:track_official|marshal))_woodland\b/g, '$1_longmoor'],
+];
+
+function renameIds(value: unknown, rules: [RegExp, string][]): unknown {
+  const fix = (s: string) => rules.reduce((t, [re, to]) => t.replace(re, to), s);
+  if (typeof value === 'string') return fix(value);
+  if (Array.isArray(value)) return value.map((v) => renameIds(v, rules));
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [fix(k), renameIds(v, rules)]));
+  return value;
+}
 
 export type LoadResult =
   | { status: 'ok'; data: SaveData; fromBackup?: number }
@@ -205,6 +228,8 @@ function isCareer(v: unknown): boolean {
     Object.values(bike.parts).every((p) => Number.isInteger(p?.grade) && typeof p?.condition === 'number') &&
     Array.isArray(c.bag) && c.bag.every((b) => typeof b?.id === 'string' && (b.part === undefined || isSpare(b.part))) &&
     (c.shops === undefined || isShopState(c.shops)) &&
+    (c.champs === undefined || isChampState(c.champs)) &&
+    (c.errands === undefined || isErrandState(c.errands)) &&
     !!story && Number.isInteger(story.step) && Array.isArray(story.used) &&
     typeof c.counters === 'object' && c.counters !== null &&
     isSkills(c.skills)
@@ -212,12 +237,35 @@ function isCareer(v: unknown): boolean {
 }
 
 function isSpare(p: Record<string, unknown>): boolean {
-  return typeof p.slot === 'string' && typeof p.class === 'string' && Number.isInteger(p.grade) && typeof p.condition === 'number';
+  const o = p.owner as Record<string, unknown> | undefined;
+  return typeof p.slot === 'string' && typeof p.class === 'string' && Number.isInteger(p.grade) && typeof p.condition === 'number' &&
+    (o === undefined || (typeof o === 'object' && o !== null && typeof o.errand === 'string' && typeof o.name === 'string'));
+}
+
+function isErrandState(v: unknown): boolean {
+  const s = v as Record<string, unknown>;
+  return typeof s === 'object' && s !== null && (s.active === null || typeof s.active === 'string') &&
+    typeof s.done === 'object' && s.done !== null && Object.values(s.done).every(Number.isInteger);
 }
 
 function isShopState(v: unknown): boolean {
   const s = v as Record<string, unknown>;
   return typeof s === 'object' && s !== null && [s.seed, s.refresh, s.raceDays, s.activities].every(Number.isInteger) && Array.isArray(s.sold);
+}
+
+function isChampState(v: unknown): boolean {
+  const s = v as Record<string, unknown>;
+  if (typeof s !== 'object' || s === null || typeof s.active !== 'object' || s.active === null || typeof s.done !== 'object' || s.done === null) return false;
+  const active = Object.values(s.active).every((a) => {
+    const x = a as Record<string, unknown>;
+    return typeof x === 'object' && x !== null && Number.isInteger(x.seed) && Array.isArray(x.field) && x.field.every((id) => typeof id === 'string') && typeof x.replay === 'boolean' &&
+      Array.isArray(x.rounds) && x.rounds.every((r) => typeof r?.venue === 'string' && Array.isArray(r.qualifying) && Array.isArray(r.motos));
+  });
+  const done = Object.values(s.done).every((d) => {
+    const x = d as Record<string, unknown>;
+    return typeof x === 'object' && x !== null && [x.runs, x.wins, x.best].every(Number.isInteger);
+  });
+  return active && done;
 }
 
 function isSkills(v: unknown): boolean {

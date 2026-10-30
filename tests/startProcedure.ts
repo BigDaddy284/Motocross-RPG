@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LINE_UP, START_HOLD } from '../src/core/riderAI';
+import { START_HOLD, lineUpTime } from '../src/core/riderAI';
 import { lapGeom, lapMetres } from '../src/core/trackGeom';
 import { BIKE_LENGTH, TrackSurface } from '../src/core/trackSurface';
 import { arrivals, content, race } from './raceHelpers';
@@ -23,10 +23,10 @@ export function startProcedureTest(trackId: string): void {
           expect(ids.length).toBe(n);
           const gate = new Map(ids.map((id) => [id, dir.gateOf(id)]));
           const byGate = new Map(ids.map((id) => [gate.get(id)!, id]));
-          // Gates 1 to 8 are the front row, 9 to 16 the second, each straight behind the gate 8 before it.
+          // Gates 1 to 8 are the front row, 9 to 16 the second and 17 on the third, each straight behind the gate 8 before it.
           for (const id of ids) {
             const g = gate.get(id)!;
-            expect(dir.startRow(id)).toBe(g < 8 ? 0 : 1);
+            expect(dir.startRow(id)).toBe(Math.floor(g / 8));
             if (g >= 8) expect(slots.get(id)!.lane).toBe(slots.get(byGate.get(g - 8)!)!.lane);
           }
           expect(new Set(ids.filter((id) => gate.get(id)! < 8).map((id) => slots.get(id)!.lane)).size).toBe(Math.min(n, 8));
@@ -34,13 +34,13 @@ export function startProcedureTest(trackId: string): void {
           const k = Math.min(n, Math.max(4, Math.min(8, Math.round(n * 0.25))));
           expect(dir.arrival).toHaveLength(n);
           expect([...dir.lined].sort()).toEqual(dir.arrival.slice(0, k).sort());
-          // A second-row rider never comes before the front-row rider of their lane.
+          // A rider in a row behind never comes before the rider in front of them in their lane.
           for (const id of ids) {
             const g = gate.get(id)!;
             if (g >= 8) expect(dir.arrival.indexOf(id)).toBeGreaterThan(dir.arrival.indexOf(byGate.get(g - 8)!));
           }
-          expect(dir.prep).toBe(LINE_UP);
-          expect(dir.prestart).toBe(LINE_UP + START_HOLD);
+          expect(dir.prep).toBe(lineUpTime(n));
+          expect(dir.prestart).toBe(lineUpTime(n) + START_HOLD);
           expect(dir.linedUp(-START_HOLD)).toBe(true);
           expect(dir.linedUp(-START_HOLD - 0.05)).toBe(false);
           const last = new Map<string, number>();

@@ -1,0 +1,8 @@
+{
+  "note": "Fitness training (Spec 3.3, Boss 29 Oct 2026). Each drill is a round of about 40 seconds that can't be failed: finishing it gives its xp whatever the score (Spec 3, Round 122). 50 XP a round is about Tier 1's 4,500 XP an hour (Spec 2.2). walk: Agility for walking about, xp every `tiles` tiles.",
+  "drills": [
+    { "id": "train.bodyweight", "name": "Bodyweight drills", "skill": "strength", "xp": 50, "game": "reps", "ms": 40000, "how": "Press Space or tap as the marker crosses the green zone for a good rep. Every round counts, whatever your reps." },
+    { "id": "train.running", "name": "Running session", "skill": "endurance", "xp": 50, "game": "pace", "ms": 40000, "npc": "npc.running_coach", "how": "Hold Space or press and hold to run faster, let go to ease off. Keep your pace in the green band for each lap split." }
+  ],
+  "walk": { "skill": "agility", "tiles": 10, "xp": 1 }
+}

@@ -57,13 +57,17 @@ export class LocalStore implements KeyValueStore {
   }
 }
 
-/** localStorage when it works (it can be blocked in private windows), otherwise memory only. */
-export function defaultStore(): KeyValueStore {
+/**
+ * localStorage when it works (it can be blocked in private windows), otherwise memory only. A test
+ * build published beside the main game (the PR preview on GitHub Pages) passes its own namespace,
+ * so its saves and settings never touch the main game's on the same site.
+ */
+export function defaultStore(namespace = 'mxrpg:'): KeyValueStore {
   try {
-    const probe = 'mxrpg:probe';
+    const probe = `${namespace}probe`;
     localStorage.setItem(probe, '1');
     localStorage.removeItem(probe);
-    return new LocalStore();
+    return new LocalStore(namespace);
   } catch {
     return new MemoryStore();
   }

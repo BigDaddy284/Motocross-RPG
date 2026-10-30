@@ -1,0 +1,52 @@
+{
+  "note": "Championships (Spec 12.5, 18.6). Rounds are venues, raced in this order, each entered separately at its race office. size is the CPU riders drawn once when you enter, from the field's pool (its regulars and this championship's first), who race every round. entryTimes and purseTimes multiply the class entry and the prize money (Spec 14.2 tiers). qualifyingLaps are timed laps after an out lap; the best timed lap sets the gate pick order for moto 1. rewards are by final position: money in pounds, a flag to set, what it is called, and its picture (under public/assets). replay is the XP and purse share for a championship you have already won (Round 125). needs are the flags that open it. main is the rider to beat, raced as they are and the best in it on skill; every other CPU rider is buff better (0.1: 10% higher skills and bike condition) (Boss, 28 Oct 2026: Louis Jonez is the Local Champion, Dean Marsh the placeholder Area 1 champion). without are pool riders kept out, field regulars too. Reward money is provisional.",
+  "championships": [
+    {
+      "id": "area1.local_champion",
+      "name": "Local Champion Championship",
+      "short": "Local Champion",
+      "class": "50cc",
+      "field": "area1.local",
+      "size": 15,
+      "regulars": ["cpu.local_racer"],
+      "without": ["cpu.local_champion"],
+      "main": "cpu.local_racer",
+      "buff": 0.1,
+      "rounds": ["venue-farmland", "venue-riverside", "venue-longmoor"],
+      "entryTimes": 1.5,
+      "purseTimes": 1.8,
+      "qualifyingLaps": 3,
+      "needs": ["found.venue-farmland", "first_race_done"],
+      "rewards": [
+        { "money": 150, "flag": "badge.area1", "title": "the Area 1 badge", "image": "art/ui/badge-area1.png" },
+        { "money": 75 },
+        { "money": 40 }
+      ],
+      "replay": 0.5,
+      "won": "You beat Louis Jonez to the Area 1 badge. The Area 1 Championship comes with Area 2, in a later build."
+    },
+    {
+      "id": "area1.main",
+      "name": "Area 1 Championship",
+      "short": "Area 1",
+      "class": "50cc",
+      "field": "area1.local",
+      "size": 15,
+      "regulars": ["cpu.local_racer"],
+      "main": "cpu.local_champion",
+      "buff": 0.1,
+      "rounds": ["venue-farmland", "venue-riverside", "venue-longmoor", "venue-farmland", "venue-riverside", "venue-longmoor"],
+      "entryTimes": 2.0,
+      "purseTimes": 2.6,
+      "qualifyingLaps": 3,
+      "needs": ["badge.area1", "area2.ready"],
+      "rewards": [
+        { "money": 300, "flag": "trophy.area1.main", "title": "the Area 1 Championship trophy" },
+        { "money": 150 },
+        { "money": 80 }
+      ],
+      "replay": 0.5,
+      "won": "Area 1 champion! The next class's bike and Area 2 come in a later build."
+    }
+  ]
+}
