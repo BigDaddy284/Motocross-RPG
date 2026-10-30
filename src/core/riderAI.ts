@@ -36,6 +36,12 @@ export interface RiderPose {
   state: RiderState;
   /** Speed in metres per second, for wheel spin, dust and lean. */
   speed: number;
+  /**
+   * A crash the view acts out its own way: 'loop' is a wheelie out of the gate that goes over
+   * backwards. t is seconds from the moment the rider comes off (negative while the front is
+   * still coming up).
+   */
+  stunt?: { kind: 'loop'; t: number };
 }
 
 interface Seg {
@@ -45,7 +51,7 @@ interface Seg {
   t1: number;
   d0: number;
   d1: number;
-  mistake?: { outcome: MistakeOutcome['id']; lost: number };
+  mistake?: { outcome: MistakeOutcome['id']; lost: number; loop?: boolean };
   pass?: string;
   blocked?: string;
 }
@@ -53,6 +59,9 @@ interface Seg {
 const CORNERS = new Set(['first_corner', 'flat_corner', 'berm', 'rutted_corner', 'hairpin', 'fast_sweeper']);
 /** Where a mistake on a jump ridden without a hop (rolled) happens, as a share of the section. */
 const LANDING = 0.72;
+/** How far out of the gate a loop-out goes over, in metres, and how long the wheelie takes to come up before it does. */
+export const LOOP_METRES = 6;
+export const LOOP_RISE = 0.8;
 /** The showman (tricks.ts) picks ways over the jumps as a jumper this good at least. */
 const SHOWMAN_JUMP = 0.85;
 /** Riders closer than this many metres, on near lines, ease apart. */
@@ -323,7 +332,7 @@ export class RaceDirector {
         // Two mistakes in one section show as one, with the time of both.
         const lost = (seg.mistake?.lost ?? 0) + e.lost;
         const worse = seg.mistake && rank(seg.mistake.outcome) > rank(e.outcome) ? seg.mistake.outcome : e.outcome;
-        seg.mistake = { outcome: worse, lost };
+        seg.mistake = { outcome: worse, lost, ...(seg.mistake?.loop || e.with === 'loop_out' ? { loop: true } : {}) };
       } else if (e.kind === 'pass') seg.pass = e.other;
       else if (e.kind === 'failedPass') seg.blocked = e.other;
     }
@@ -458,9 +467,16 @@ export class RaceDirector {
     lane += p.wobble * 0.08 * Math.sin(t * 1.3 + p.seed * 40);
 
     let state: RiderState = 'riding';
+    const loop = this.loopsOut(p, seg);
+    let stunt: RiderPose['stunt'];
+    if (loop) {
+      const since = s - at * ride;
+      if (since > -LOOP_RISE) stunt = { kind: 'loop', t: since };
+    }
     if (stopped && seg.mistake) {
       const crash = seg.mistake.outcome === 'minor_crash' || seg.mistake.outcome === 'serious_crash';
-      if (crash) {
+      if (crash && loop) state = s - at * ride < lost * 0.6 ? 'crashed' : 'remount';
+      else if (crash) {
         state = s - at * ride < lost * 0.6 ? 'crashed' : 'remount';
         // A crashed bike slides towards the outside of the track.
         lane += (this.turn(seg.si) ? -this.turn(seg.si) : 1) * 0.25 * smooth((s - at * ride) / 0.6);
@@ -470,7 +486,9 @@ export class RaceDirector {
     const flight = this.flight(p, seg, list, lo);
     const { air, elev } = this.height(p, sec.type, sec.height, u, dist - Math.floor(dist), flight, stopped);
     if (air > 0.05 && state === 'riding') state = 'air';
-    return { id, dist, lane: clamp(lane, -1, 1), air, elev, flight, state, speed };
+    const pose: RiderPose = { id, dist, lane: clamp(lane, -1, 1), air, elev, flight, state, speed };
+    if (stunt) pose.stunt = stunt;
+    return pose;
   }
 
   /** After the rider's last section: finished, out of the race, or waiting for the next lap. */
@@ -660,9 +678,19 @@ export class RaceDirector {
   /** Where in a section a mistake happens: on landing for a jump, otherwise part way through. */
   private mistakeAt(p: RiderProfile, seg: Seg): number {
     if (!seg.mistake) return 1;
+    if (this.loopsOut(p, seg)) return clamp(LOOP_METRES / Math.max(1e-6, (seg.d1 - seg.d0) * this.metres), 0, 0.5);
     const type = this.section(seg.si).type;
     if (HOP_JUMPS.has(type)) return landingOf(this.way(p, seg)) ?? LANDING;
     return 0.35 + 0.3 * frac(p.seed * 7 + seg.si * 0.37 + seg.lap * 0.13);
+  }
+
+  /**
+   * A crash on the start straight shown as a loop-out (Boss, 30 Oct 2026): the rider pulls such a
+   * big wheelie out of the gate that the bike goes over backwards and they come off the back.
+   * The referee (race.ts, sim.loopOut) says who and how long it costs.
+   */
+  private loopsOut(_p: RiderProfile, seg: Seg): boolean {
+    return seg.si === -1 && !!seg.mistake?.loop;
   }
 
   /**

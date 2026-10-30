@@ -21,6 +21,7 @@
     "cleanAir": { "top": 3, "bonusPct": 0.5, "trafficAfter": 10, "penaltyPct": 1.0 },
     "retireAtBroken": 4,
     "firstCorner": { "chance": 0.3, "riders": [1, 3] },
+    "loopOut": { "chance": 0.3 },
     "pileup": { "chance": 0.35, "window": 0.8, "most": 3 },
     "sprint": { "interval": 10, "returnSpeed": 0.5 }
   },
