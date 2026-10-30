@@ -5,7 +5,9 @@ with every colour snapped to the reference palette (art/palette/palette-ref-v1.h
 
     python3 tools/art/drag-strip.py <palette.hex> <out-folder>
 
-Writes vip-grandstand.png (24 x 4 tiles), start-platform.png (2 x 6 tiles, across the strip), start-line-v.png and
+Writes vip-grandstand.png (24 x 4 tiles), start-platform.png (2 x 6 tiles, across the strip),
+no-turn-track.png (27 x 4 tiles: the dirt No-Turn track from the platform's four start gates to the
+map's right edge, with a tabletop, a double, whoops and a step-up, hay bales along its sides), start-line-v.png and
 finish-line-v.png (1 tile, laid over a strip tile, transparent either side).
 """
 import sys
@@ -160,6 +162,78 @@ def start_platform(pal):
     return cv.doubled()
 
 
+DIRT = (150, 100, 60)
+DIRT_LIGHT = (184, 132, 84)
+DIRT_DARK = (112, 72, 44)
+DIRT_SHADOW = (84, 54, 36)
+
+
+def jump_face(cv, x0, x1, y0, y1, lift):
+    """A mound across the track, x0 to x1, seen from above and the front: the take-off face lit,
+    the landing face in shade, a front face `lift` px deep to show its height, and its shadow."""
+    mid = (x0 + x1) // 2
+    cv.rect(x1, y0 + 2, x1 + lift, y1 + 2, DIRT_SHADOW)  # cast shadow, behind it
+    for x in range(x0, x1):
+        t = (x - x0) / max(1, x1 - x0)
+        colour = DIRT_LIGHT if x < mid - (x1 - x0) // 6 else DIRT if x < mid + (x1 - x0) // 6 else DIRT_DARK
+        cv.rect(x, y0 - lift, x + 1, y1 - lift, colour)
+        cv.rect(x, y1 - lift, x + 1, y1, (122, 82, 50))
+    cv.rect(x0, y0 - lift, x1, y0 - lift + 1, (210, 168, 120))
+
+
+def no_turn_track(pal):
+    """The dirt No-Turn track as it is built in the track editor, seen from the car park: four start
+    gates on the platform's edge, then a tabletop, a double, whoops and a step-up, running on off
+    the right of the map. Hay bales mark its sides."""
+    W, H = 27 * HALF, 4 * HALF
+    cv = Canvas(pal, W, H)
+    top, bottom = 8, H - 8
+    cv.rect(0, top, W, bottom, DIRT)
+    # Ruts and grooves along the racing lines.
+    for lane in range(4):
+        y = top + 6 + lane * ((bottom - top - 12) // 3)
+        for x in range(0, W, 3):
+            if (x * 7 + lane * 5) % 11 < 7:
+                cv.rect(x, y, x + 2, y + 1, DIRT_DARK)
+    for x in range(0, W, 5):
+        cv.rect(x, top + 2 + (x * 13) % 9, x + 1, top + 3 + (x * 13) % 9, DIRT_LIGHT)
+        cv.rect(x + 2, bottom - 4 - (x * 7) % 9, x + 3, bottom - 3 - (x * 7) % 9, DIRT_LIGHT)
+    # Banked edges.
+    cv.rect(0, top, W, top + 2, DIRT_DARK)
+    cv.rect(0, bottom - 2, W, bottom, DIRT_LIGHT)
+    # Four start gates on the platform's edge: steel frames with the gates up.
+    lane_h = (bottom - top) // 4
+    for i in range(4):
+        y0 = top + i * lane_h
+        cv.rect(0, y0 + 2, 6, y0 + lane_h - 2, (90, 94, 102))
+        cv.rect(1, y0 + 4, 5, y0 + lane_h - 4, (226, 196, 90))
+        cv.rect(6, y0 + 3, 8, y0 + lane_h - 3, (40, 42, 48))
+        cv.text(str(i + 1), 2, y0 + lane_h // 2 - 3, (30, 30, 36)) if str(i + 1) in FONT else None
+        cv.frame(0, y0 + 2, 6, y0 + lane_h - 2, OUTLINE)
+    # The jumps, left to right.
+    jump_face(cv, 70, 150, top + 2, bottom - 2, 6)    # tabletop
+    cv.rect(88, top + 2 - 6, 132, bottom - 2 - 6, (170, 118, 74))  # its flat top
+    jump_face(cv, 230, 262, top + 2, bottom - 2, 5)   # double: take-off
+    jump_face(cv, 300, 332, top + 2, bottom - 2, 5)   # double: landing
+    for x in range(410, 520, 18):                     # whoops
+        jump_face(cv, x, x + 12, top + 2, bottom - 2, 2)
+    jump_face(cv, 590, 640, top + 2, bottom - 2, 4)   # step-up
+    cv.rect(640, top + 2 - 7, 700, bottom - 2 - 7, (170, 118, 74))
+    cv.rect(640, bottom - 2 - 7, 700, bottom - 2, (122, 82, 50))
+    jump_face(cv, 780, W, top + 2, bottom - 2, 6)     # a tabletop running on out of sight
+    # Hay bales along both sides, a gap now and then.
+    for x in range(20, W - 8, 26):
+        if (x // 26) % 5 == 3:
+            continue
+        for y in (top - 6, bottom - 2):
+            cv.rect(x, y, x + 16, y + 8, (214, 178, 88))
+            cv.rect(x, y + 6, x + 16, y + 8, (170, 136, 60))
+            cv.rect(x + 5, y, x + 6, y + 8, (186, 150, 70))
+            cv.rect(x + 10, y, x + 11, y + 8, (186, 150, 70))
+            cv.frame(x, y, x + 16, y + 8, OUTLINE)
+    return cv.doubled()
+
+
 def line(pal, chequered):
     W = H = HALF
     cv = Canvas(pal, W, H)
@@ -178,6 +252,7 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     grandstand(pal).save(out / 'vip-grandstand.png')
     start_platform(pal).save(out / 'start-platform.png')
+    no_turn_track(pal).save(out / 'no-turn-track.png')
     line(pal, False).save(out / 'start-line-v.png')
     line(pal, True).save(out / 'finish-line-v.png')
 
