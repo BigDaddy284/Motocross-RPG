@@ -389,8 +389,8 @@ const JUMPS = new Set(['tabletop', 'double', 'step_up', 'triple', 'quad', 'step_
 const HUMPS = { tabletop: 1, double: 2, step_up: 2, triple: 3, quad: 4, step_down: 2, step_on: 3, step_on_two: 4, step_on_three: 5, on_off: 2, single_over_table: 2, table_over_single: 2, wall_jump: 1, ski_jump: 1, rhythm: 3, whoops: 3, rollers: 2, dragon_back: 4 };
 const HEIGHTS = new Set([...JUMPS, 'uphill', 'downhill']);
 // Mirrors src/core/trackSurface.ts DECKS and WALK_HOLE: the flat top of each jump that can carry a tunnel.
-const DECKS = { tabletop: [0.32, 0.6], step_on: [0.34, 0.6], step_up: [0.7, 0.84] };
-const WALLS = { tabletop: [0.2, 0.76], step_on: [0.27, 0.68], step_up: [0.6, 0.92] };
+const DECKS = { tabletop: [0.32, 0.6], step_on: [0.34, 0.6], step_up: [0.36, 0.58] };
+const WALLS = { tabletop: [0.2, 0.76], step_on: [0.27, 0.68], step_up: [0.24, 0.72] };
 const WALK_HOLE = 1.2;
 // Mirrors src/core/jumps.ts ARCH_AT: where the finish arch stands over a finish-line jump, as a share of it.
 const ARCH_AT = { tabletop: 0.3, double: 0.3 };

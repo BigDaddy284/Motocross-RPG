@@ -640,8 +640,10 @@ const builders: Record<string, (c: Ctx) => void> = {
     const D = 5.0;
     const tiers = 4;
     const step = D / tiers;
+    // The front row (the lowest) is at +z, the side the people face and the track is on; the
+    // tiers rise towards the back wall at -z (Boss, 30 Oct 2026: it stood the wrong way round).
     for (let k = 0; k < tiers; k++) {
-      const z = -D / 2 + step * (k + 0.5);
+      const z = D / 2 - step * (k + 0.5);
       const h = 0.6 + k * 0.5;
       b.box(0, 0, z, L, h, step, k % 2 ? shade(col, 1.12) : col);
       const seats = Math.max(1, Math.floor(L / 0.6));

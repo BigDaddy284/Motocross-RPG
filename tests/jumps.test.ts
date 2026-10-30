@@ -48,7 +48,7 @@ describe('jumps', () => {
   });
 
   it('flies each wheel from the lip along the face, clear of the ground, and lands where the hop says', () => {
-    for (const type of ['tabletop', 'triple', 'quad', 'dragon_back', 'ski_jump', 'step_on', 'step_on_two', 'step_on_three']) {
+    for (const type of ['tabletop', 'triple', 'quad', 'dragon_back', 'ski_jump', 'step_on', 'step_on_two', 'step_on_three', 'step_up']) {
       const track = trackWith(type);
       const s = new TrackSurface(track);
       const f0 = s.bounds[1];

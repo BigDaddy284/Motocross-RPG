@@ -124,7 +124,7 @@
         { "type": "flag_post", "x": 13.5, "y": 46 },
         { "type": "flag_post", "x": 72, "y": 25 },
         { "type": "flag_post", "x": 90, "y": 26 },
-        { "type": "start_official", "x": 46.4, "y": 48.2, "route": [[46.2, 45.2], [45.5, 41.6]] },
+        { "type": "start_official", "x": 46.4, "y": 48.2, "route": [[46.2, 45.2], [47.5, 41.6]] },
         { "type": "motorhome", "x": 52.5, "y": 17.5 },
         { "type": "motorhome", "x": 35.5, "y": 17.5, "color": "#2a4a90" },
         { "type": "flagger", "x": 44.1, "y": 57.6, "color": "#202428", "variant": "ground", "rot": 150 },
@@ -428,7 +428,7 @@
         { "type": "tree", "x": 14, "y": 20 },
         { "type": "fence", "x": 2, "y": 34 },
         { "type": "fence", "x": 2, "y": 38 },
-        { "type": "start_official", "x": 46.4, "y": 48.2, "route": [[46.2, 45.2], [45.5, 41.6]] },
+        { "type": "start_official", "x": 46.4, "y": 48.2, "route": [[46.2, 45.2], [47.5, 41.6]] },
         { "type": "flagger", "x": 44.2, "y": 50.7, "rot": 45 },
         { "type": "marshal", "x": 49.2, "y": 0.6 },
         { "type": "rusty_van", "x": 52, "y": 36.5, "action": "bike_out" }
