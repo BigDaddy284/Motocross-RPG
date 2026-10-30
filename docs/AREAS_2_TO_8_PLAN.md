@@ -95,7 +95,13 @@ Tools also open some work:
 - **Customer repair tickets** on the Phoenix MX job board ask for the tool set for that ticket's slot, so better tools open better-paying tickets.
 - **House workshop upgrades** (engine stand, suspension tools, tyre machine, Spec 17.1) are separate from the tool sets. They're bought for the house, not carried.
 
-**Where tools are sold.** The Area 1 tool shop is the only tool shop (Boss, 30 Oct 2026). It adds each new set as the area that brings it opens, so the "Tool shop" lines in each area below mean what the Area 1 shop starts stocking then. A second tool shop in Area 5 might come later, but that isn't settled.
+**Where tools are sold.** The Area 1 tool shop is the only tool shop (Boss, 30 Oct 2026).
+
+**Jason Styles owns the tool shop, now called J's Tools** (Boss, 30 Oct 2026). He's the same Jason Styles who races in the Area 1 pool.
+
+- **Back story:** he moved to Home Town from South Africa chasing the dream. He's raced all his life but never made the big leagues, and he's hoping this season is the one.
+- **Look:** 40s, white, ginger hair and ginger freckles, black jeans, and a white T-shirt with the shop logo on it.
+- **Art to update:** a sprite for him, the new J's Tools logo on his shirt, and the building name and sign. It adds each new set as the area that brings it opens, so the "Tool shop" lines in each area below mean what the Area 1 shop starts stocking then. A second tool shop in Area 5 might come later, but that isn't settled.
 
 ### When a frame breaks
 
@@ -271,7 +277,7 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 1. **Mechanical Engineer can't be levelled.** Shifts pay money but give no XP. The fabrication and engine shifts need XP for Welding, Bodywork, Machining and Engine Components, and the engine rebuild work needs Engine Assembly XP.
 2. **No kept part from a batch.** A finished batch should give one random part (Spec 15.1). Without this, the "every part from a batch job" goal can't work anywhere.
 3. **The batch rules aren't in.** The facility lock (one open job per facility, stop and come back later) and the batch sizes of 50 and 100 from the Spec still need building. Today's shifts are 20 brackets and 16 pistons.
-4. **The tool shop is empty and has no owner.** Tool sets gate DIY repairs (Spec 17.2a), and DIY repair itself isn't built yet. Tool slots in the house and motor aren't counted yet either.
+4. **The tool shop is empty.** Its owner is now Jason Styles, at J's Tools. Tool sets gate DIY repairs (Spec 17.2a), and DIY repair itself isn't built yet. Tool slots in the house and motor aren't counted yet either.
 5. **Job boards are missing.** That covers customer repairs at Phoenix MX (needed in every area), fabrication jobs and engine jobs.
 6. **No Rider Ability drills at all.** Racing is the only training. Area 1 could get one drill (for example gate drop at the backyard) so the pattern is set before Area 2.
 7. **A broken Grade 1 frame can't be replaced** (see [When a frame breaks](#when-a-frame-breaks)).
