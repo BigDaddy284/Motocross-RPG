@@ -4,7 +4,7 @@ import { riderProfile, type RiderProfile } from './riderProfile';
 import { isNoTurn, isSprint, lapGeom, lapMetres, NO_TURN_LANES, NO_TURN_RUNOFF, pointAt, sectionBounds, sectionTurns, SPRINT_QUEUE, START_PAD, startGeom, type StartGeom } from './trackGeom';
 import { DEFAULT_HEIGHTS, HOP_JUMPS, landingOf, pickWay, type Way } from './jumps';
 import { HILLS, sectionShape, TrackSurface, type Flight } from './trackSurface';
-import { showmanOf, TEST_PLAYER_TRICKS, trickFor, type Trick } from './tricks';
+import { showmanOf, trickFor, type Trick } from './tricks';
 import { downPhase } from './crashRecovery';
 
 export { DEFAULT_HEIGHTS };
@@ -793,9 +793,9 @@ export class RaceDirector {
     return way;
   }
 
-  /** The field's showman, who goes big and throws tricks on most big hops; for testing, the player too (TEST_PLAYER_TRICKS). */
+  /** The field's showman, who goes big and throws tricks on most big hops. */
   private showsOff(p: RiderProfile): boolean {
-    return p.id === this.showman || (TEST_PLAYER_TRICKS && !!p.player);
+    return p.id === this.showman;
   }
 
   /** The trick a rider would throw on hop i of a way through a section (tricks.ts), before any mistake. */

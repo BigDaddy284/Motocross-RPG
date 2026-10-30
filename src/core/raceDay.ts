@@ -1,7 +1,8 @@
 import { bikeProblem, pence, type BikesData, type Bike, type CareerState } from './career';
 import { isSprint, lapMetres } from './trackGeom';
 import { MotoSim, formatTime, gateBonus, mixSeed, seededRng, type Entrant, type RacingData, type RiderResult, type Tactic, type TrackDef } from './race';
-import { addXp, childLevels, type LevelUp, type SkillsData } from './skills';
+import { addXp, childLevels, leadLevel, type LevelUp, type SkillsData } from './skills';
+import { TRICKS_FLAG } from './tricks';
 import type { RiderStyle } from './riderProfile';
 
 // Race days, practice and venues (Spec 12.2a, 14): who is in the field, gate picks, prize money,
@@ -113,8 +114,12 @@ export function cpuEntrant(rc: RaceContent, def: CpuRiderDef, cls: string, gate 
   return { id: def.id, name: def.name, tag: def.tag, player: false, skills, bike: cpuBike(rc.bikes, def, cls), tactic: def.tactic, gate, ...(def.style ? { style: def.style } : {}), ...(def.kit ? { kit: def.kit } : {}) };
 }
 
-export function playerEntrant(rc: RaceContent, career: CareerState, name: string, gate = 0): Entrant {
-  return { id: PLAYER_ID, name, player: true, skills: childLevels(rc.skills, career.skills), bike: career.bike, tactic: { message: 'steady' }, gate };
+/** The player as they race. `flags` are the save's: with TRICKS_FLAG set, they whip and scrub by their Rider Ability level (tricks.ts). */
+export function playerEntrant(rc: RaceContent, career: CareerState, name: string, gate = 0, flags: Record<string, boolean> = {}): Entrant {
+  const e: Entrant = { id: PLAYER_ID, name, player: true, skills: childLevels(rc.skills, career.skills), bike: career.bike, tactic: { message: 'steady' }, gate };
+  const rider = rc.skills.leads.find((l) => l.id === 'rider');
+  if (flags[TRICKS_FLAG] && rider) e.riderLevel = leadLevel(rc.skills, career.skills, rider);
+  return e;
 }
 
 export function trackById(rc: RaceContent, id: string): TrackDef {
