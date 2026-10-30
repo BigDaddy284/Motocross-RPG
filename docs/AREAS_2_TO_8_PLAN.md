@@ -200,12 +200,12 @@ Every area has the same base set, so the columns below list only what's **new**:
 
 The machine stays in the Industrial Zone unit in Area 1, where it's already built, and it's broken until this quest line fixes it (Boss, 30 Oct 2026).
 
-1. **The start.** When Area 5 opens, Manny Festo's news mentions the modifier machine owner *(name needed)*, whose machine in the Industrial Zone has been broken for years. In Northern Works the player meets someone who knows them and sends the player to help.
+1. **The start.** When Area 5 opens, Manny Festo's news mentions **Mad Maggie**, the modifier machine owner (Boss, 30 Oct 2026: a brilliant, eccentric mad-scientist tinkerer, keeping her current look of lab coat, goggles pushed up and messy grey hair), whose machine in the Industrial Zone has been broken for years. In Northern Works the player meets someone who knows her and sends the player to help.
 2. **Back through the past areas.** The tasks take the player back through Areas 1 to 4, tracking down what the machine needs. Along the way the player gets **two parts** for the machine's first test. Each is either a worn part they have to repair on the way, or the kept part from a batch they complete.
 3. **Fixing the machine.** The quest ends in the Industrial Zone unit with the player fixing the machine themselves. This step needs **Mechanical Engineer 30** (Boss, 30 Oct 2026).
 4. **The first test, still part of the quest:**
-   - **Part one disappears.** The machine breaks it for good, and the owner says something like "Whoops, forgot to tell you about that." Then they explain the rules: a 1 in 10 chance of losing the part on every go, no rerolls, and parts must have no modifiers and be at 80% condition or better.
-   - **Part two comes out at +1, −1, −1.** The owner says "Better luck next time, but at least it didn't disappear."
+   - **Part one disappears.** The machine breaks it for good, and Maggie says something like "Whoops, forgot to tell you about that." Then she explains the rules: a 1 in 10 chance of losing the part on every go, no rerolls, and parts must have no modifiers and be at 80% condition or better.
+   - **Part two comes out at +1, −1, −1.** Maggie says "Better luck next time, but at least it didn't disappear."
 5. **After that**, the quest line ends and the machine is open for good, at the normal rules: a fee of £20 at Grade 1 that doubles each grade, a 1 in 10 break chance, and all three modifiers positive about 1 in 10,000 (Spec 6). There's only one machine in the game, the one in Area 1.
 
 ### Area 6: Highlands (hills, moorland, wind, long climbs)
@@ -283,7 +283,7 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 16. **Sponsors and reputation** (Spec 16) are needed for Area 5's Sponsored Rides.
 17. **House tiers.** None can be bought yet, and shared storage across houses (Boss's rule) needs building.
 18. **Clothing.** The wardrobe isn't built. It's needed for Phoenix MX clothing and sponsor outfits.
-19. **Unnamed NPCs.** The fabrication shop boss, engine rebuilder, modifier machine owner, neighbour and scrapyard owner still have job titles.
+19. **Unnamed NPCs.** The fabrication shop boss, engine rebuilder, neighbour and scrapyard owner still have job titles.
 20. **Mountain backdrop tiles** for Mountain Town (Area 2) need making (Boss, 30 Oct 2026).
 21. **Hidden venues.** The Spec has optional venues found by exploring or NPC tasks (for example a secret sand pit on the coast). None are planned per area yet.
 
@@ -296,7 +296,7 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 5. ~~The class dealer~~ Settled: Bill Rothon at Moto78 sells the new class frame to riders who don't take the championship winner's sponsorship (Boss, 30 Oct 2026).
 6. **Energy drinks (parked until closer to Area 4):** a drinks van at the venues (my recommendation), their own shop, or Moto78 only. And confirm Area 4 over the Spec's "from 125cc Youth".
 7. ~~A second Modifying Machine~~ Settled: one machine, in Area 1, fixed by a quest line that starts in Area 5 (Boss, 30 Oct 2026). Fixing it needs Mechanical Engineer 30.
-8. **The modifier machine owner's name.**
+8. ~~The modifier machine owner's name~~ Settled: Mad Maggie, keeping her current look (Boss, 30 Oct 2026).
 9. **Batch jobs per area:** is one new facility per area right (Area 6 gets two), and are you happy with the Frame works in Area 5 as the way to make better frames without a sponsor?
 10. **Houses:** one tier in Areas 2, 3, 5, 6 and 8 (none new in 4 and 7), or a different spread?
 11. **The fitness spread:** weights (A2), agility ladder (A3), yoga (A4), rowing (A5), cycling (A6), dojo (A7), ice bath (A8).
