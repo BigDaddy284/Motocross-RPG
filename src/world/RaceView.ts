@@ -6,8 +6,8 @@ import type { SceneryItem, TrackDef } from '../core/race';
 import { LOOP_RISE, START_HOLD, type RiderPose, type RiderState } from '../core/riderAI';
 import { CHEER_ITEM, CHEER_RANGE, CHEER_WALK, cheerAction, cheerColour, cheerRoute, cheerTiming, cheerVariant, REACT_SECONDS, VARIANT_SCALE, type CheerAction } from '../core/cheer';
 import { alongRoute, OFFICIAL_ITEM, OFFICIAL_SCALE, officialPlan, placedOfficial, routeLength, walkProgress, BOARD_MOVE, BOARD_SIDEWAYS, WALK_FROM, WALK_TO, type OfficialSpot } from '../core/startOfficial';
-import { isSprint, lapMetres, nearestOnLap, pointAt, RETURN_LANE, START_PAD, startPointAt } from '../core/trackGeom';
-import { DEFAULT_TRACK_WIDTH, GRID_H, GRID_W, trackKind, type SceneryDef, type TrackPartsData } from '../core/trackParts';
+import { gridOf, hiddenSpans, isSprint, NO_TURN_LANES, NO_TURN_PLATFORM, lapMetres, nearestOnLap, pointAt, RETURN_LANE, START_PAD, startPointAt } from '../core/trackGeom';
+import { DEFAULT_TRACK_WIDTH, trackKind, type SceneryDef, type TrackPartsData } from '../core/trackParts';
 import { archSpan, SPANS_TRACK, sprintPlace, SPRINT_START_ITEM, SurfaceIndex, surfacePoints } from '../core/trackClearance';
 import { BIKE_LENGTH, CAM_AZ, LIP_AT, LOGS_AT, TrackSurface, type Flight } from '../core/trackSurface';
 import { downPhase } from '../core/crashRecovery';
@@ -15,7 +15,7 @@ import { APPROACH as TRICK_APPROACH, trickPose, type Trick } from '../core/trick
 import { COLORS, TEXT_RES } from '../ui/theme';
 import { isPaddock } from '../core/paddock';
 import { paddockParts, U as METRE } from './paddock';
-import { FACES_TRACK, flaggerParts, marshalParts, pitCrewParts, tracksideParts, type Label } from './trackside';
+import { FACES_TRACK, flaggerParts, marshalParts, pitCrewParts, starterBox, tracksideParts, type Label } from './trackside';
 import { APPROACH, assignCrews, BOARD_PAST, boardOut, boardText, crewSpot, FLAGGER_ITEM, flagState, PIT_CREW_ITEM } from '../core/finishCrew';
 import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../core/marshal';
 import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
@@ -35,7 +35,7 @@ import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
 const CAM_EL = 38;
 /** Grid units across the view, by track kind. Riders stay big enough to follow at this size. */
 const VIEW_UNITS: Record<string, number> = { stadium: 36, outdoor: 32, endurance: 32 };
-/** Ground drawn round the 100 × 60 grid, in grid units. */
+/** Ground drawn round the grid (100 × 60, or a No-Turn Takedown's 200 × 30), in grid units. */
 const MARGIN = 24;
 // The bank at each edge of the track runs a little past its foot and a little under the ground, so
 // where the ground slopes away from a raised track its triangles (drawn flat between lattice points)
@@ -225,6 +225,9 @@ export class RaceView {
   private readonly gapFrom: number;
   /** The stretches of the drawing that aren't track (fractions of it): the gap back to the start, and any gaps left between pieces of an unfinished track. */
   private readonly gaps: [number, number][];
+  /** The grid's size in grid units (trackGeom gridOf). */
+  private readonly gw: number;
+  private readonly gh: number;
   /** The track editor's markers (selection, brush, checks), drawn over everything; empty in a race. */
   readonly overlay = new THREE.Group();
   /** Goes up when the picture changes by itself (the ground's art arriving), for a view that only draws on a change. */
@@ -274,8 +277,10 @@ export class RaceView {
     opts: { gapFrom?: number; gaps?: [number, number][]; scaleWidth?: number; /** A scenery item (by index) not built: the one the track editor is dragging, which it draws itself (ghostItem). */ skipItem?: number } = {},
   ) {
     this.gapFrom = opts.gapFrom ?? 1;
-    this.gaps = [...(opts.gaps ?? []), ...(this.gapFrom < 1 ? [[this.gapFrom, 1] as [number, number]] : [])];
     this.surface = new TrackSurface(track);
+    // A No-Turn Takedown's way back from the run-off to the start line is never drawn (trackGeom hiddenSpans).
+    this.gaps = [...(opts.gaps ?? []), ...(this.gapFrom < 1 ? [[this.gapFrom, 1] as [number, number]] : []), ...hiddenSpans(track, this.surface.g, this.surface.bounds)];
+    ({ w: this.gw, h: this.gh } = gridOf(track));
     this.lapMetres = lapMetres(track);
     const kind = trackKind(parts, track);
     this.follow = true;
@@ -329,8 +334,8 @@ export class RaceView {
 
     // Ground, track and scenery.
     this.groundCanvas = document.createElement('canvas');
-    this.groundCanvas.width = ((GRID_W + 2 * MARGIN) / 2) * TILE_PX;
-    this.groundCanvas.height = ((GRID_H + 2 * MARGIN) / 2) * TILE_PX;
+    this.groundCanvas.width = ((this.gw + 2 * MARGIN) / 2) * TILE_PX;
+    this.groundCanvas.height = ((this.gh + 2 * MARGIN) / 2) * TILE_PX;
     this.groundTex = new THREE.CanvasTexture(this.groundCanvas);
     this.groundTex.colorSpace = THREE.SRGBColorSpace;
     this.groundTex.magFilter = THREE.NearestFilter;
@@ -341,7 +346,11 @@ export class RaceView {
     if (this.surface.start.total > 0) this.ground.push(this.buildStart());
     this.scene3.add(...this.ground);
     this.scene3.add(this.overlay);
-    if (this.surface.start.total > 0) {
+    if (this.surface.start.total > 0 && this.surface.raised) {
+      // A No-Turn Takedown's start platform: four gates, two each side of the starter's box, and no start board.
+      this.scene3.add(this.noTurnGate());
+      this.addTall(this.platformFrame());
+    } else if (this.surface.start.total > 0) {
       this.scene3.add(this.startGate());
       this.scene3.add(this.startBoard());
     } else if (this.track.scenery?.some((it) => it.type === OFFICIAL_ITEM)) {
@@ -399,10 +408,10 @@ export class RaceView {
     this.labels = scene.add.container(0, 0);
     parent.add(this.labels);
     const mw = 190;
-    const mk = mw / GRID_W;
+    const mk = mw / this.gw;
     this.mapBox = { x: x + w - mw - 12, y: y + 12, k: mk };
     const mg = scene.add.graphics();
-    mg.fillStyle(COLORS.ink, 0.85).fillRoundedRect(this.mapBox.x - 6, this.mapBox.y - 6, mw + 12, GRID_H * mk + 12, 6);
+    mg.fillStyle(COLORS.ink, 0.85).fillRoundedRect(this.mapBox.x - 6, this.mapBox.y - 6, mw + 12, this.gh * mk + 12, 6);
     mg.lineStyle(4, 0xc98a4b, 1);
     mg.beginPath();
     if (!this.gaps.length) this.surface.g.pts.forEach((p, i) => (i ? mg.lineTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk) : mg.moveTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk)));
@@ -467,8 +476,8 @@ export class RaceView {
     const painted = new Map<string, string>();
     for (const [id, cells] of Object.entries(ground.paint ?? {})) for (const [cx, cy] of cells) painted.set(`${cx},${cy}`, id);
     const px = TILE_PX / 2;
-    for (let gy = -MARGIN; gy < GRID_H + MARGIN; gy += cell) {
-      for (let gx = -MARGIN; gx < GRID_W + MARGIN; gx += cell) {
+    for (let gy = -MARGIN; gy < this.gh + MARGIN; gy += cell) {
+      for (let gx = -MARGIN; gx < this.gw + MARGIN; gx += cell) {
         const id = painted.get(`${Math.floor(gx / cell)},${Math.floor(gy / cell)}`) ?? ground.base;
         const def = this.parts.ground.find((g) => g.id === id);
         const key = def?.art && this.scene.textures.exists(`trackart:${def.art}`) ? `trackart:${def.art}` : null;
@@ -491,8 +500,8 @@ export class RaceView {
    */
   private buildTerrain(): void {
     const s = this.surface;
-    const tw = GRID_W + 2 * MARGIN + 1;
-    const th = GRID_H + 2 * MARGIN + 1;
+    const tw = this.gw + 2 * MARGIN + 1;
+    const th = this.gh + 2 * MARGIN + 1;
     this.terrain = new Float32Array(tw * th);
     const hills: { x: number; z: number; e: number }[] = [];
     const flats: { x: number; z: number }[] = [];
@@ -532,7 +541,7 @@ export class RaceView {
       const lapEnd = mid.length;
       for (let u = -START_PAD; u < s.start.total; u += 0.5) {
         const p = startPointAt(s.start, u);
-        mid.push({ x: p.x, z: p.y, r: s.startHw(u) * LIP_AT + 0.4, l: s.startGround(u), seg: 1, u });
+        mid.push({ x: p.x, z: p.y, r: s.startHw(u) * LIP_AT + 0.4, l: s.startBase(u), seg: 1, u });
       }
       // The level of the track at the bit of route nearest a point: interpolated along the route
       // between the nearest bit and its neighbours, so under the track and at its foot the ground
@@ -542,7 +551,7 @@ export class RaceView {
         const q = mid[k];
         // The start straight's level is graded to the lap where they meet, so it is a function of
         // the spot itself.
-        if (q.seg === 1) return s.startGround(q.u!, x, z);
+        if (q.seg === 1) return s.startBase(q.u!, x, z);
         const nb = (j: number) => {
           if (q.seg === 0) return mid[((j % lapEnd) + lapEnd) % lapEnd];
           return j >= lapEnd && j < mid.length ? mid[j] : undefined;
@@ -666,8 +675,8 @@ export class RaceView {
 
   /** Ground height at a point on the grid. */
   terrainAt(x: number, z: number): number {
-    const tw = GRID_W + 2 * MARGIN + 1;
-    const th = GRID_H + 2 * MARGIN + 1;
+    const tw = this.gw + 2 * MARGIN + 1;
+    const th = this.gh + 2 * MARGIN + 1;
     const gx = Math.max(0, Math.min(tw - 1.001, x + MARGIN));
     const gz = Math.max(0, Math.min(th - 1.001, z + MARGIN));
     const i = Math.floor(gx);
@@ -682,8 +691,8 @@ export class RaceView {
 
   /** The ground as one mesh, shaped by the terrain and painted with the editor's ground tiles. */
   private terrainMesh(): THREE.Mesh {
-    const tw = GRID_W + 2 * MARGIN + 1;
-    const th = GRID_H + 2 * MARGIN + 1;
+    const tw = this.gw + 2 * MARGIN + 1;
+    const th = this.gh + 2 * MARGIN + 1;
     const pos: number[] = [];
     const uv: number[] = [];
     for (let j = 0; j < th; j++) {
@@ -747,7 +756,7 @@ export class RaceView {
         if (Math.abs(lane) <= 1 || open > 0.5) color = shade(patch ?? base, grain * (0.97 + 0.06 * noise(i * 31 + j)));
         else if (Math.abs(lane) <= LIP_AT + 1e-6) color = shade(patch ?? base, 0.82 * grain);
         else if (wall) color = foot ? 0x7a7a78 : 0x9a9a98;
-        else color = shade(base, foot ? 0.62 : 0.72);
+        else color = wall ? 0x24324e : shade(base, foot ? 0.62 : 0.72);
         c.setHex(color);
         col.push(c.r, c.g, c.b);
       });
@@ -792,7 +801,8 @@ export class RaceView {
       const f0 = s.bounds[si];
       const f1 = s.bounds[si + 1];
       if (f1 === undefined) return;
-      const f = f0 + (ARCH_AT[sec.type] ?? 0.5) * (f1 - f0);
+      // A No-Turn Takedown's finish-line jump ends on the finish line, the end of the run, and the arch stands over the line.
+      const f = s.raised ? f1 - 1e-4 : f0 + (ARCH_AT[sec.type] ?? 0.5) * (f1 - f0);
       const c = s.spot(f, 0);
       const deck = s.height(f, 0);
       const top = deck + ARCH_CLEAR;
@@ -881,11 +891,13 @@ export class RaceView {
       const u = -START_PAD + ((st.total + START_PAD) * i) / rows;
       const dip = 0.006 * Math.max(0, Math.min(1, (u - merge) / 0.5));
       const lip = s.startHeight(u, LIP_AT);
-      const sk = Math.max(0.35, lip * 0.9) / s.startHw(u);
+      // A No-Turn Takedown's start platform stands on steel: its sides go straight down to the ground (platformFrame) until the drop-in reaches it.
+      const wall = s.platform(u) > 0.05;
+      const sk = wall ? 0.02 / s.startHw(u) : Math.max(0.35, lip * 0.9) / s.startHw(u);
       const lanes = [-(LIP_AT + sk * FOOT_OUT), -(LIP_AT + sk * 0.45), -LIP_AT, ...inner, LIP_AT, LIP_AT + sk * 0.45, LIP_AT + sk * FOOT_OUT];
       const grain = 0.94 + 0.1 * noise(i + 977);
-      // Concrete under the gate and the line-up, dirt from just past the gate.
-      const pad = u < 0.9;
+      // Concrete under the gate and the line-up (the whole deck of a start platform), dirt from just past the gate.
+      const pad = u < (s.raised ? NO_TURN_PLATFORM.deck : 0.9);
       lanes.forEach((lane, j) => {
         const p = s.startSpot(u, lane);
         const foot = j === 0 || j === cols - 1;
@@ -1138,6 +1150,103 @@ export class RaceView {
     gate.add(hinge);
     this.gateDrop = hinge;
     return gate;
+  }
+
+  /**
+   * A No-Turn Takedown's start gate (Boss, 30 Oct 2026): a gate for each of the four riders, two
+   * each side of the starter's box in the middle of the platform, their pickets hinged to drop
+   * together at the start like any start gate's.
+   */
+  private noTurnGate(): THREE.Object3D {
+    const s = this.surface;
+    const u = 0.75;
+    const at = s.startSpot(u, 0);
+    const hw = s.startHw(u);
+    const g = new THREE.Group();
+    g.position.set(at.x, s.startHeight(u, 0), at.z);
+    g.rotation.y = -at.ang;
+    const d = 1;
+    // Along the riders' way is +x here, across the platform +z (the riders' right).
+    const hinge = new THREE.Group();
+    hinge.position.set(d * 0.3 + 0.04, 0.12, 0);
+    const steel = this.mat(0x8a8a8a);
+    const picket = this.mat(0x5a5a60);
+    const rail = this.mat(0xd8d8d8);
+    const lane = (hw * (NO_TURN_LANES[1] - NO_TURN_LANES[0])) * 0.92;
+    for (const side of [-1, 1]) {
+      const inner = Math.abs(NO_TURN_LANES[2]) * hw - lane / 2;
+      const outer = Math.abs(NO_TURN_LANES[3]) * hw + lane / 2;
+      const mid = side * (inner + outer) / 2;
+      g.add(this.boxMesh(d, 0.12, outer - inner, steel, 0, 0, mid));
+      for (const l of NO_TURN_LANES.filter((x) => Math.sign(x) === side)) {
+        hinge.add(this.boxMesh(0.08, 0.55, lane * 0.82, picket, 0, 0, l * hw));
+      }
+      hinge.add(this.boxMesh(0.18, 0.18, outer - inner, this.mat(0xc8302a), -0.1, 0.55, mid));
+      // A post at each end of each pair, holding the gate's pivot.
+      for (const z of [inner, outer]) g.add(this.boxMesh(0.12, 0.85, 0.12, rail, 0.3, 0, side * z));
+    }
+    g.add(hinge);
+    this.gateDrop = hinge;
+    // The starter's box between the pairs, just behind the gate line, the starter facing down the run.
+    const inner = (Math.abs(NO_TURN_LANES[1]) * hw - lane / 2) * 2;
+    const box = this.mergeParts(starterBox(Math.min(1.2, (inner * 0.9) / METRE), 0));
+    box.rotation.y = Math.PI / 2;
+    box.position.set(-0.2, 0, 0);
+    g.add(box);
+    return g;
+  }
+
+  /**
+   * The frame under a No-Turn Takedown's start platform: steel legs down each side of the deck and
+   * the drop-in to the ground, a rail along the deck's edges, and the panel across its back.
+   */
+  private platformFrame(): THREE.Object3D {
+    const s = this.surface;
+    const g = new THREE.Group();
+    const steel = this.mat(0x6a6e78);
+    const rail = this.mat(0xd8d8d8);
+    const panel = this.mat(0x24324e);
+    const end = NO_TURN_PLATFORM.deck + NO_TURN_PLATFORM.drop;
+    const post = (u: number, lane: number, h0: number, h1: number, w: number, m: THREE.Material) => {
+      const p = s.startSpot(u, lane);
+      const top = s.startHeight(u, lane);
+      const mesh = this.boxMesh(w, Math.max(0.02, top - h1 - h0), w, m, p.x, h0, p.z);
+      mesh.position.y = h0 + (top - h1 - h0) / 2;
+      g.add(mesh);
+    };
+    for (let u = -START_PAD + 0.2; u < end; u += 1) {
+      for (const side of [-1, 1]) {
+        const lane = side * (LIP_AT + 0.02);
+        const p = s.startSpot(u, lane);
+        const base = this.terrainAt(p.x, p.z);
+        if (s.startHeight(u, lane) - base > 0.15) post(u, lane, base, 0, 0.14, steel);
+      }
+    }
+    // A rail along each side of the deck, on posts.
+    for (const side of [-1, 1]) {
+      const lane = side * LIP_AT;
+      const a = s.startSpot(-START_PAD, lane);
+      const b = s.startSpot(NO_TURN_PLATFORM.deck, lane);
+      const y = s.startHeight(0, lane) + 0.85;
+      const len = Math.hypot(b.x - a.x, b.z - a.z);
+      const bar = this.boxMesh(len, 0.06, 0.06, rail, (a.x + b.x) / 2, y, (a.z + b.z) / 2);
+      bar.rotation.y = -Math.atan2(b.z - a.z, b.x - a.x);
+      g.add(bar);
+      for (let u = -START_PAD; u <= NO_TURN_PLATFORM.deck + 0.01; u += (NO_TURN_PLATFORM.deck + START_PAD) / 4) {
+        const p = s.startSpot(u, lane);
+        g.add(this.boxMesh(0.06, 0.85, 0.06, rail, p.x, s.startHeight(u, lane), p.z));
+      }
+    }
+    // The panel across the back of the deck, from its top down to the ground.
+    const l = s.startSpot(-START_PAD, -LIP_AT);
+    const r = s.startSpot(-START_PAD, LIP_AT);
+    const c = { x: (l.x + r.x) / 2, z: (l.z + r.z) / 2 };
+    const top = s.startHeight(-START_PAD, 0);
+    const base = this.terrainAt(c.x, c.z);
+    const back = this.boxMesh(Math.hypot(r.x - l.x, r.z - l.z), top - base, 0.12, panel, c.x, base, c.z);
+    back.rotation.y = -Math.atan2(r.z - l.z, r.x - l.x);
+    g.add(back);
+    return g;
   }
 
   /**
@@ -2255,6 +2364,12 @@ export class RaceView {
         b = this.makeBike(r.color, r.player, r.look);
         this.bikes.set(p.id, b);
       }
+      // Not on show: waiting off the start platform for their turn, or gone from the run-off (riderAI).
+      if (p.hidden) {
+        b.root.visible = false;
+        b.label.setVisible(false);
+        continue;
+      }
       let dist = p.dist;
       // The second start row waits a bike length behind the gate and closes up as the race starts.
       if (r.startRow && s.onStart(p.dist)) dist -= (r.startRow * BIKE_LENGTH * 1.4 * Math.max(0, Math.min(1, 1 - clock / 2))) / s.g.total;
@@ -2725,7 +2840,7 @@ export class RaceView {
     g.clear();
     const order = [...riders].sort((a, b) => Number(a.player) - Number(b.player));
     for (const r of order) {
-      if (r.pose.state === 'retired') continue;
+      if (r.pose.state === 'retired' || r.pose.hidden) continue;
       const q = this.surface.place(r.pose.dist, 0);
       const p = { x: q.x, y: q.z };
       g.fillStyle(r.color, 1).fillCircle(box.x + p.x * box.k, box.y + p.y * box.k, r.player ? 4 : 2.6);

@@ -1,7 +1,7 @@
 import type { BikesData } from './career';
 import { mixSeed, seededRng, type LapTrace, type MessageDef, type MistakeOutcome, type MotoSim, type TrackDef, type TrackSection } from './race';
 import { riderProfile, type RiderProfile } from './riderProfile';
-import { isSprint, lapGeom, lapMetres, pointAt, sectionBounds, sectionTurns, SPRINT_QUEUE, START_PAD, startGeom, type StartGeom } from './trackGeom';
+import { isNoTurn, isSprint, lapGeom, lapMetres, NO_TURN_LANES, NO_TURN_RUNOFF, pointAt, sectionBounds, sectionTurns, SPRINT_QUEUE, START_PAD, startGeom, type StartGeom } from './trackGeom';
 import { DEFAULT_HEIGHTS, HOP_JUMPS, landingOf, pickWay, type Way } from './jumps';
 import { HILLS, sectionShape, TrackSurface, type Flight } from './trackSurface';
 import { showmanOf, TEST_PLAYER_TRICKS, trickFor, type Trick } from './tricks';
@@ -26,6 +26,8 @@ export interface RiderPose {
   id: string;
   /** Distance round the race in laps (1.5 = halfway round lap 2). */
   dist: number;
+  /** Not on the screen: a No-Turn Takedown seeding rider still waiting their turn back in the pits, or long since done. */
+  hidden?: boolean;
   /** Across the track: -1 is the left edge as the rider sees it, 1 the right. Past 1 is off the track. */
   lane: number;
   /** Height above the ground in metres (jumps, whoops). */
@@ -105,6 +107,11 @@ const QUEUE_CLOSE = 1.6;
 const PARK_AT = 0.2;
 const PARK_GAP = 1.5;
 
+/** Seconds a No-Turn Takedown seeding rider stays parked in the run-off before riding back to the pits (off the screen). */
+const PARK_STAY = 6;
+/** Grid units a No-Turn Takedown rider waiting their turn on the seeding run stands behind the one on the gate. */
+const SEED_GAP = 1.6;
+
 /** Gates in a start row, and the most riders the start takes (two rows; Boss, 28 Oct 2026: 16 looks cleaner than 20). */
 export const ROW_SIZE = 8;
 export const MAX_GRID = 16;
@@ -176,6 +183,10 @@ export class RaceDirector {
   private finishCache: { key: string; plan: Map<string, Finish> } | null = null;
   /** An enduro sprint: riders leave the start line one at a time, queue for it single file, and ride the return lane single file. */
   readonly sprint: boolean;
+  /** A No-Turn Takedown: four on the gate, two each side of the starter's box, and finishers pull up in the run-off. */
+  readonly noTurn: boolean;
+  /** Seconds between riders leaving the gate on a staggered run (a No-Turn Takedown's seeding run); 0 when they all go together. */
+  readonly interval: number;
 
   constructor(
     readonly track: TrackDef,
@@ -186,6 +197,8 @@ export class RaceDirector {
     readonly laps: number | null,
     /** The order riders picked their gates, which is the order they ride up to the start. Left out, a shuffle drawn from the track and the gates. */
     pickOrder?: string[],
+    /** A staggered start (MotoOptions.interval): riders leave the gate this many seconds apart, in gate order. */
+    interval = 0,
   ) {
     const g = lapGeom(track.path);
     this.turns = sectionTurns(track, g);
@@ -195,6 +208,8 @@ export class RaceDirector {
     this.bounds = sectionBounds(track);
     this.start = startGeom(track, g);
     this.sprint = isSprint(track);
+    this.noTurn = isNoTurn(track);
+    this.interval = interval;
     this.showman = showmanOf(profiles.values());
     // Each rider's gate is their slot: gates 1 to 8 (0 to 7 here) are the front row, from the inside
     // of the first corner outwards, gates 9 to 16 the second row and 17 to 24 the third, each
@@ -202,7 +217,7 @@ export class RaceDirector {
     const order = [...gates.entries()].sort((a, b) => a[1] - b[1]).map(([id]) => id);
     const firstTurn = this.turns.find((t) => t !== 0) || 1;
     const n = order.length;
-    if (n > MAX_GRID) throw new Error(`${n} riders, but the start has ${MAX_GRID} gates`);
+    if (n > MAX_GRID && !interval) throw new Error(`${n} riders, but the start has ${MAX_GRID} gates`);
     const used = new Set<number>();
     for (const [id, gate] of gates) {
       if (!Number.isInteger(gate) || gate < 0 || gate >= Math.max(n, 1) || used.has(gate)) throw new Error(`${id} has gate ${gate + 1}, which is not a free gate of the ${n}`);
@@ -214,7 +229,17 @@ export class RaceDirector {
       this.gateRow.set(id, Math.floor(gate / ROW_SIZE));
       this.gateLane.set(id, firstTurn * (perRow > 1 ? 0.9 - step * (gate % ROW_SIZE) : 0));
     }
+    // A No-Turn Takedown's four gates: two each side of the starter's box.
+    if (this.noTurn) for (const [id, gate] of gates) this.gateLane.set(id, NO_TURN_LANES[gate % NO_TURN_LANES.length]);
     for (const id of profiles.keys()) this.segs.set(id, []);
+    if (interval > 0) {
+      // A staggered run: no line-up. The next rider away waits on the gate, the one after on the
+      // pad behind, and the rest back in the pits; the first leaves SPRINT_LEAD seconds in.
+      for (const id of gates.keys()) this.gateLane.set(id, this.noTurn ? NO_TURN_LANES[1] : 0);
+      this.prep = 0;
+      this.prestart = SPRINT_LEAD;
+      return;
+    }
     if (this.sprint) {
       // A sprint has no grid: everyone queues single file in the middle of the return lane, in
       // their start order, and the first rider leaves SPRINT_LEAD seconds after the screen opens.
@@ -359,7 +384,7 @@ export class RaceDirector {
     const poses: RiderPose[] = [];
     for (const [id, list] of this.segs) poses.push(this.pose(id, list, t));
     if (this.sprint) this.queue(poses, t);
-    else this.coolDown(poses, t);
+    else if (!this.noTurn) this.coolDown(poses, t);
     this.keepApart(poses);
     return poses;
   }
@@ -426,6 +451,7 @@ export class RaceDirector {
       if (off) return off;
     }
     const p = this.profiles.get(id)!;
+    if (this.interval > 0 && (!list.length || t <= list[0].t0)) return this.waitingTurn(id, list, t);
     if (this.sprint && (!list.length || t <= list[0].t0)) return { id, dist: this.start.from, lane: 0, air: 0, elev: 0, flight: null, state: 'grid', speed: 0 };
     if (!list.length || t <= list[0].t0) return this.lineUp(id, t);
     // The section the rider is in now: the first one that ends after t.
@@ -507,6 +533,7 @@ export class RaceDirector {
       return { id, dist: last.d1, lane: side * (1 + 0.45 * smooth((t - Math.max(outAt, last.t1)) / 2)), air: 0, elev: 0, flight: null, state: 'retired', speed: 0 };
     }
     if (this.laps !== null && last.d1 >= this.laps - 1e-9 && this.sprint) return this.parked(id, last, t);
+    if (this.laps !== null && last.d1 >= this.laps - 1e-9 && this.noTurn) return this.pulledUp(id, last, t);
     if (this.laps !== null && last.d1 >= this.laps - 1e-9) {
       // A cool-down after the flag: ease off to a steady slow ride down one edge of the track and
       // keep rolling round, so finishers never park on the track where the riders behind are still
@@ -537,6 +564,45 @@ export class RaceDirector {
     const reach = there ? (rolled - spot) * this.metres / Math.max(0.5, cruise) : 0;
     const side = this.parkSide(spot);
     return { id, dist, lane: side * 3.2 * smooth(reach / 1.5), air: 0, elev: 0, flight: null, state: 'finished', speed: there ? cruise * (1 - smooth(reach / 1.5)) : cruise + (v0 - cruise) * Math.exp(-dt / 2) };
+  }
+
+  /**
+   * A staggered run's rider before they leave the gate: on the gate if they are next away, on the
+   * pad behind it if they go after that, otherwise back in the pits (hidden).
+   */
+  private waitingTurn(id: string, list: Seg[], t: number): RiderPose {
+    const mine = list[0]?.t0 ?? Infinity;
+    let ahead = 0;
+    for (const other of this.segs.values()) {
+      const at = other[0]?.t0;
+      if (at !== undefined && at > t && at < mine) ahead++;
+    }
+    const lane = this.gateLane.get(id) ?? 0;
+    const dist = this.start.from - (ahead * SEED_GAP) / this.lapUnits;
+    return { id, dist, lane, air: 0, elev: 0, flight: null, state: 'grid', speed: 0, ...(ahead > 1 ? { hidden: true } : {}) };
+  }
+
+  /**
+   * A No-Turn Takedown finisher: rolls off the line into the run-off and pulls up to one side, in
+   * finishing order, alternating sides, clear of the riders still finishing. On a staggered run
+   * they ride off back to the pits a few seconds later, so the run-off never fills.
+   */
+  private pulledUp(id: string, last: Seg, t: number): RiderPose {
+    const order = [...this.segs.entries()].filter(([, l]) => l.at(-1)?.d1 !== undefined && l.at(-1)!.d1 >= this.laps! - 1e-9).sort((a, b) => a[1].at(-1)!.t1 - b[1].at(-1)!.t1).map(([k]) => k);
+    const k = order.indexOf(id);
+    const runoff = NO_TURN_RUNOFF / this.lapUnits;
+    const slot = this.interval > 0 ? 0 : Math.floor(k / 2);
+    const spot = this.laps! + Math.min(runoff * 0.8, runoff * 0.35 + (slot * PARK_GAP) / this.lapUnits);
+    const v0 = ((last.d1 - last.d0) * this.metres) / Math.max(1e-6, last.t1 - last.t0);
+    const dt = Math.max(0, t - last.t1);
+    // Braking hard to a stop: the run-off is short.
+    const stopIn = Math.max(0.5, ((spot - last.d1) * this.metres * 2) / Math.max(1, v0));
+    const k1 = clamp(dt / stopIn, 0, 1);
+    const dist = last.d1 + (spot - last.d1) * (1 - (1 - k1) * (1 - k1));
+    const side = k % 2 ? -1 : 1;
+    const off = smooth((dt - stopIn * 0.6) / 1.5);
+    const gone = this.interval > 0 && dt > PARK_STAY;
+    return { id, dist, lane: side * (0.55 + 0.25 * off), air: 0, elev: 0, flight: null, state: 'finished', speed: v0 * (1 - k1), ...(gone ? { hidden: true } : {}) };
   }
 
   private parkSides = new Map<number, number>();
@@ -801,7 +867,7 @@ export class RaceDirector {
 
   /** Riders side by side ease apart so they don't ride through each other. */
   private keepApart(poses: RiderPose[]): void {
-    const racing = poses.filter((q) => q.state !== 'grid' && q.state !== 'retired').sort((a, b) => b.dist - a.dist);
+    const racing = poses.filter((q) => q.state !== 'grid' && q.state !== 'retired' && !q.hidden).sort((a, b) => b.dist - a.dist);
     for (let i = 0; i < racing.length; i++) {
       for (let j = i + 1; j < racing.length; j++) {
         const a = racing[i];
@@ -831,7 +897,7 @@ export function directorFor(sim: MotoSim, bikes: BikesData, messages: MessageDef
     profiles.set(r.e.id, riderProfile(r.e, r.stats, ceiling, messages.find((m) => m.id === r.message)));
     gates.set(r.e.id, r.e.gate);
   }
-  return new RaceDirector(sim.track, profiles, gates, sim.totalLaps, pickOrder);
+  return new RaceDirector(sim.track, profiles, gates, sim.totalLaps, pickOrder, sim.opts.interval ?? 0);
 }
 
 function rank(o: MistakeOutcome['id']): number {

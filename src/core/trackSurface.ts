@@ -2,7 +2,7 @@ import type { TrackDef } from './race';
 import { Elevation, hillsAt } from './elevation';
 import { DEFAULT_HEIGHTS, HOP_JUMPS, jumpShape } from './jumps';
 import { SCRUB_LAUNCH, type Trick } from './tricks';
-import { headingAt, isSprint, lapGeom, lapMetres, nearestOnLap, pointAt, sectionBounds, sectionTurns, startGeom, startHalfWidth, startHeadingAt, startPointAt, widthShare, type LapGeom, type StartGeom } from './trackGeom';
+import { gridOf, headingAt, isNoTurn, isSprint, lapGeom, NO_TURN_PLATFORM, platformShare, lapMetres, nearestOnLap, pointAt, sectionBounds, sectionTurns, startGeom, startHalfWidth, startHeadingAt, startPointAt, widthShare, type LapGeom, type StartGeom } from './trackGeom';
 import { DEFAULT_TRACK_WIDTH } from './trackParts';
 
 // The track as a solid surface (no graphics), shared by the 3D race view and its tests. Every
@@ -155,6 +155,8 @@ export class TrackSurface {
   readonly hw: number;
   /** An enduro sprint, whose return lane is narrower than the rest of the track. */
   private readonly narrows: boolean;
+  /** A No-Turn Takedown, whose start straight is a raised platform with a drop-in. */
+  readonly raised: boolean;
   private readonly heights: number[];
   /** The start straight from the gate to where it joins the lap. */
   readonly start: StartGeom;
@@ -172,12 +174,13 @@ export class TrackSurface {
     this.mpu = lapMetres(track) / this.g.total;
     this.hw = (track.width ?? DEFAULT_TRACK_WIDTH) / 2;
     this.narrows = isSprint(track);
+    this.raised = isNoTurn(track);
     this.heights = track.sections.map((s) => {
       const metres = s.height ?? (s.type === 'braking_bumps' ? 0.25 : DEFAULT_HEIGHTS[s.type] ?? 0);
       return this.units(metres);
     });
     this.start = startGeom(track, this.g);
-    this.elev = new Elevation(track.elevation);
+    this.elev = new Elevation(track.elevation, gridOf(track));
     this.joinSide = 0;
     if (this.start.total > 0) {
       // Which side of the lap the start straight arrives from: look a little way back up it.
@@ -404,6 +407,20 @@ export class TrackSurface {
    * instead of one burying the other.
    */
   startGround(u: number, x?: number, z?: number): number {
+    return this.startBase(u, x, z) + this.platform(u);
+  }
+
+  /**
+   * How high a No-Turn Takedown's start platform holds the start straight `u` grid units from the
+   * gate, in grid units: the deck the gate stands on (and the pad behind it), then the drop-in down
+   * to the ground. 0 on any other track.
+   */
+  platform(u: number): number {
+    return this.raised ? this.units(NO_TURN_PLATFORM.height) * platformShare(u) : 0;
+  }
+
+  /** The ground under the start straight, before any start platform lifts it: what the grass round it is graded to. */
+  startBase(u: number, x?: number, z?: number): number {
     if ((this.elev.empty && !this.track.hills?.length) || this.start.total <= 0) return 0;
     const c = startPointAt(this.start, Math.max(0, Math.min(this.start.total, u)));
     const own = this.groundAt(c.x, c.y);

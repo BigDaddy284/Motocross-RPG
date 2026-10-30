@@ -1,6 +1,6 @@
 import type { SceneryItem, TrackDef } from './race';
 import { DEFAULT_TRACK_WIDTH, type TrackPartsData } from './trackParts';
-import { headingAt, isSprint, lapGeom, pointAt, sprintStart, START_PAD, startGeom, startHalfWidth, startPointAt } from './trackGeom';
+import { headingAt, hiddenSpans, isSprint, lapGeom, pointAt, sprintStart, START_PAD, startGeom, startHalfWidth, startPointAt } from './trackGeom';
 import { LIP_AT, LIP_H, TrackSurface } from './trackSurface';
 
 // How far things are from where bikes go: the racing surface (the lap, the start straight and the
@@ -27,8 +27,11 @@ export function surfacePoints(track: TrackDef): SurfacePoint[] {
   const hw = s.hw;
   const n = Math.max(200, Math.ceil(g.total / 0.25));
   const pts: SurfacePoint[] = [];
+  // A No-Turn Takedown's way back is never drawn: nothing on the grid has to keep clear of it.
+  const hidden = hiddenSpans(track, g, s.bounds);
   for (let i = 0; i < n; i++) {
     const f = i / n;
+    if (hidden.some(([a, b]) => f > a && f < b)) continue;
     const p = pointAt(g, f);
     const here = s.hwAt(f);
     pts.push({ x: p.x, y: p.y, hw: here, reach: here * (LIP_AT + Math.max(s.skirt(f, -1), s.skirt(f, 1))) });

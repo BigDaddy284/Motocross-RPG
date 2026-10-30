@@ -5,7 +5,8 @@
     {"id": "stadium", "name": "Stadium (supercross)", "view": "screen", "desc": "A short track in an arena that fits on one screen."},
     {"id": "outdoor", "name": "Outdoor motocross", "view": "follow", "desc": "A natural-terrain track; the view follows the riders when it is too long for one screen."},
     {"id": "endurance", "name": "Endurance", "view": "follow", "desc": "A long loop for long races; the view follows the riders, with a map of the whole track."},
-    {"id": "enduro_sprint", "name": "Enduro Sprint", "view": "follow", "desc": "A timed test ridden one rider at a time, a few seconds apart, lowest total time winning. The first section is the return lane: a single-file lane from the finish line back to the start line, a quarter of the track's width, ridden at half speed and never timed."}
+    {"id": "enduro_sprint", "name": "Enduro Sprint", "view": "follow", "desc": "A timed test ridden one rider at a time, a few seconds apart, lowest total time winning. The first section is the return lane: a single-file lane from the finish line back to the start line, a quarter of the track's width, ridden at half speed and never timed."},
+    { "id": "no_turn", "name": "No-Turn Takedown", "view": "follow", "desc": "A straight drag strip on a long, slim 200 × 30 grid: no bends anywhere. Four riders drop off a raised start platform and race one run to the finish line, in knockout heats after a timed seeding run, with a best-of-three final. The first section is the run-off past the finish line, where riders pull up." }
   ],
   "lines": ["inside", "middle", "outside"],
   "surfaces": [
