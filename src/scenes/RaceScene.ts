@@ -166,7 +166,9 @@ export class RaceScene extends Phaser.Scene {
       const career = this.save.career;
       const champ = this.champ;
       const round = champ ? roundOptions(services.content, champ.def, champ.active) : undefined;
-      this.day = new RaceDay(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name), (Math.random() * 2 ** 32) >>> 0, this.args.fee, round);
+      // TEST ONLY, REMOVE BEFORE RELEASE: Settings > Gameplay > "TEST: Ride alone" races with no AI riders.
+      const alone = services.settings.get().gameplay.testRideAlone;
+      this.day = new RaceDay(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name), (Math.random() * 2 ** 32) >>> 0, this.args.fee, round, undefined, alone);
       this.setupField();
       if (this.day.qualifyingDue) this.showQualifyingStart();
       else this.showGatePick();
@@ -1491,7 +1493,7 @@ export class RaceScene extends Phaser.Scene {
 
   private startPractice(): void {
     const career = this.save.career;
-    this.sim = practiceSim(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name), (Math.random() * 2 ** 32) >>> 0);
+    this.sim = practiceSim(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name), (Math.random() * 2 ** 32) >>> 0, services.settings.get().gameplay.testRideAlone);
     // You, and any riders already out on track (practiceRiders on the venue).
     this.sim.riders.forEach(({ e }, i) => {
       this.names.set(e.id, e.player ? 'You' : e.name);

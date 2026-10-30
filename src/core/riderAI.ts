@@ -4,7 +4,7 @@ import { riderProfile, type RiderProfile } from './riderProfile';
 import { isSprint, lapGeom, lapMetres, pointAt, sectionBounds, sectionTurns, SPRINT_QUEUE, START_PAD, startGeom, type StartGeom } from './trackGeom';
 import { DEFAULT_HEIGHTS, HOP_JUMPS, landingOf, pickWay, type Way } from './jumps';
 import { HILLS, sectionShape, TrackSurface, type Flight } from './trackSurface';
-import { showmanOf, trickFor, type Trick } from './tricks';
+import { showmanOf, TEST_PLAYER_TRICKS, trickFor, type Trick } from './tricks';
 import { downPhase } from './crashRecovery';
 
 export { DEFAULT_HEIGHTS };
@@ -713,7 +713,7 @@ export class RaceDirector {
     if (HOP_JUMPS.has(type)) {
       const r = frac(p.seed * 31.7 + seg.lap * 0.618 + seg.si * 0.3819);
       // The showman goes big, so there are always hops to throw tricks off (only the view; the referee sets the time).
-      const jumping = p.id === this.showman ? Math.max(p.jump, SHOWMAN_JUMP) : p.jump;
+      const jumping = this.showsOff(p) ? Math.max(p.jump, SHOWMAN_JUMP) : p.jump;
       way = pickWay(type, jumping, r, !!seg.mistake);
       // A rider who would have thrown a trick off the last hop of their usual way overdoes it
       // there instead of coming up short: the mistake is the trick gone wrong.
@@ -727,12 +727,17 @@ export class RaceDirector {
     return way;
   }
 
+  /** The field's showman, who goes big and throws tricks on most big hops; for testing, the player too (TEST_PLAYER_TRICKS). */
+  private showsOff(p: RiderProfile): boolean {
+    return p.id === this.showman || (TEST_PLAYER_TRICKS && !!p.player);
+  }
+
   /** The trick a rider would throw on hop i of a way through a section (tricks.ts), before any mistake. */
   private hopTrick(p: RiderProfile, seg: Seg, way: Way, i: number): Trick | null {
     const [a, b] = way.hops[i];
     const metres = (b - a) * (this.bounds[seg.si + 1] - this.bounds[seg.si]) * this.metres;
     const next = this.turns.slice(seg.si + 1).find((t) => t !== 0) ?? this.turns.find((t) => t !== 0) ?? 0;
-    return trickFor(p, p.id === this.showman, seg.lap, seg.si, i, metres, next);
+    return trickFor(p, this.showsOff(p), seg.lap, seg.si, i, metres, next);
   }
 
   /** A rider's tricks over each hop of their way through a section; the last is overdone (bail) on a mistake. */
