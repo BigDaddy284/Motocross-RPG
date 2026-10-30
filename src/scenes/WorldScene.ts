@@ -28,7 +28,8 @@ import { actionMessage, actionName } from '../world/messages';
 import { Waymarks, clusters, middle, type Mark } from '../world/Waymarks';
 import { DPR, HUD_BAR } from '../ui/view';
 import { standLift } from '../world/standLift';
-import { VanView, type Driver } from '../world/VanView';
+import { VanView, type Driver, type VanLoad } from '../world/VanView';
+import { modelFor } from '../world/raceBike';
 import type { HudScene } from './HudScene';
 import { ordinal, type RaceSceneData } from './RaceScene';
 
@@ -656,6 +657,7 @@ export class WorldScene extends Phaser.Scene {
 
   /** Marks the current story step's NPC or equipment here, or the door or exit on the way to it. */
   private refreshWaymarks(): void {
+    this.van?.setLoad(this.vanLoad());
     this.waymarks.clear();
     this.markPoint = null;
     const career = this.save.career;
@@ -1145,7 +1147,14 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
     this.van = new VanView(this, design, sheet, pose);
+    this.van.setLoad(this.vanLoad());
     this.occupyVan(true);
+  }
+
+  /** The player's bike, once it is loaded in the motor: shown on the back of a truck, in its brand colours. */
+  private vanLoad(): VanLoad | null {
+    const bike = this.save.career.bike;
+    return this.save.flags.van_loaded ? { model: modelFor(bike.class), brand: bike.brand } : null;
   }
 
   private occupyVan(on: boolean): void {
