@@ -67,10 +67,10 @@ export function fireworkShow(): Rocket[] {
     out.push({
       t,
       side,
-      height: 7 + rnd(i) * 5,
+      height: 4 + rnd(i) * 3,
       drift: 0.5 + rnd(i + 50) * 2,
       color: FIREWORK_COLOURS[Math.floor(rnd(i + 100) * FIREWORK_COLOURS.length)],
-      sparks: 40 + Math.floor(rnd(i + 150) * 30),
+      sparks: 36 + Math.floor(rnd(i + 150) * 24),
     });
   add(0, -1, 0);
   add(0.05, 1, 1);

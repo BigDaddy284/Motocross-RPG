@@ -173,6 +173,8 @@ interface Puff {
 const DUST = 200;
 /** Sparks in the finish fireworks' pool (updateFireworks). */
 const SPARKS = 2400;
+/** How big a firework spark looks, in grid units. */
+const SPARK_SIZE = 0.55;
 
 const hex = (s: string | undefined, fallback: number) => (s && /^#[0-9a-f]{6}$/i.test(s) ? parseInt(s.slice(1), 16) : fallback);
 function shade(c: number, k: number): number {
@@ -2723,7 +2725,7 @@ export class RaceView {
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.BufferAttribute(fw.pos, 3).setUsage(THREE.DynamicDrawUsage));
       geo.setAttribute('color', new THREE.BufferAttribute(fw.col, 3).setUsage(THREE.DynamicDrawUsage));
-      const mat = new THREE.PointsMaterial({ size: 0.55, map: this.puffMap, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+      const mat = new THREE.PointsMaterial({ size: 1, sizeAttenuation: false, map: this.puffMap, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
       fw.sparks = new THREE.Points(geo, mat);
       fw.sparks.frustumCulled = false;
       this.scene3.add(fw.sparks);
@@ -2765,8 +2767,8 @@ export class RaceView {
           const yv = 1 - (2 * (n + 0.5)) / r.sparks;
           const rad = Math.sqrt(1 - yv * yv);
           const th = n * 2.39996 + k;
-          const sp = 4.2 + noise(k * 131 + n) * 1.6;
-          const c = noise(k * 17 + n) < 0.15 ? 0xffffff : r.color;
+          const sp = 3.4 + noise(k * 131 + n) * 1.4;
+          const c = noise(k * 17 + n) < 0.08 ? 0xffffff : r.color;
           spark(p.x, p.y, p.z, Math.cos(th) * rad * sp, yv * sp, Math.sin(th) * rad * sp, 1.3 + noise(k * 7 + n * 3) * 0.7, c);
         }
       }
@@ -2784,11 +2786,14 @@ export class RaceView {
       fw.pos[j + 1] += fw.vel[j + 1] * dc;
       fw.pos[j + 2] += fw.vel[j + 2] * dc;
       const k = Math.max(0, fw.life[i] / fw.full[i]);
-      const glow = k < 0.3 ? k * (0.5 + 0.5 * Math.sin(fw.life[i] * 60 + i)) * 3 : Math.min(1, k * 1.4);
+      const glow = k < 0.3 ? k * (0.5 + 0.5 * Math.sin(fw.life[i] * 60 + i)) * 3 : Math.min(0.85, k * 1.4);
       fw.col[j] = fw.base[j] * glow;
       fw.col[j + 1] = fw.base[j + 1] * glow;
       fw.col[j + 2] = fw.base[j + 2] * glow;
     }
+    // An orthographic camera draws points a fixed number of pixels across: kept at a spark's size in the scene.
+    const c = this.camera;
+    (fw.sparks!.material as THREE.PointsMaterial).size = (SPARK_SIZE * this.renderer.domElement.height * c.zoom) / (c.top - c.bottom);
     const geo = fw.sparks!.geometry;
     geo.attributes.position.needsUpdate = true;
     geo.attributes.color.needsUpdate = true;
