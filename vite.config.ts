@@ -9,7 +9,7 @@ const MOD_DIR = 'public/mods/tracks';
 const modIndex = () => JSON.stringify(existsSync(MOD_DIR) ? readdirSync(MOD_DIR).filter((f) => /\.json$/i.test(f) && f !== 'index.json').sort() : []);
 
 // The map editor saves into the game while developing: these files under public/, and nothing else.
-const TOOLKIT_SAVES = [/^assets\/maps\/[a-z0-9-]+\.json$/, /^assets\/manifest\.json$/, /^assets\/custom\/[a-z0-9_-]+(\/[a-z0-9_-]+)*\.png$/, /^data\/buildings\.json$/];
+const TOOLKIT_SAVES = [/^assets\/maps\/[A-Za-z0-9_-]+\.json$/, /^assets\/manifest\.json$/, /^assets\/custom\/[a-z0-9_-]+(\/[a-z0-9_-]+)*\.png$/, /^data\/buildings\.json$/];
 /** The pictures the map editor made (public/assets/custom), as paths under public/assets. */
 function customPictures(dir = 'public/assets/custom', rel = 'custom'): string[] {
   if (!existsSync(dir)) return [];
@@ -59,8 +59,8 @@ export default defineConfig({
             res.end(JSON.stringify({ saved: `${MOD_DIR}/${name}` }));
           });
         });
-        // The map editor (tools/map-editor.html) while developing: GET /__toolkit/pictures lists the
-        // pictures it made; POST /__toolkit/save/<path under public> writes a map, the manifest, the
+        // The map editor (tools/map-editor.html) while developing: GET /__toolkit/files lists the map
+        // files in public/assets/maps and the pictures it made, for its file check; POST /__toolkit/save/<path under public> writes a map, the manifest, the
         // building library or one of its pictures straight into the game.
         server.middlewares.use('/__toolkit/', (req, res) => {
           const url = (req.url ?? '').split('?')[0];
@@ -68,9 +68,10 @@ export default defineConfig({
             res.statusCode = code;
             res.end(message);
           };
-          if (url === '/pictures') {
+          if (url === '/files') {
+            const maps = existsSync('public/assets/maps') ? readdirSync('public/assets/maps').filter((f) => f.endsWith('.json')).sort().map((f) => `maps/${f}`) : [];
             res.setHeader('Content-Type', 'application/json');
-            return res.end(JSON.stringify(customPictures()));
+            return res.end(JSON.stringify({ maps, pictures: customPictures() }));
           }
           if (!url.startsWith('/save/')) return fail(404, 'Unknown toolkit request');
           const file = decodeURIComponent(url.slice('/save/'.length));

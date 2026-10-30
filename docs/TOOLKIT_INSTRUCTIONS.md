@@ -13,6 +13,22 @@ The editors are kept apart from the game as the **Motocross RPG Toolkit**: its f
 - With `npm run dev`, open http://localhost:5173/tools/map-editor.html and click **Load the game maps from this server**. **Save writes straight into the game**: maps, new tiles, building pictures and the building library. This is the easiest way.
 - Or click **Open folder…** (Chrome or Edge) and pick the repo's `public` folder for the game maps, their tiles and the building library (`public/assets` works for maps and tiles but not buildings), or the shared `art` folder for the **Tiled source maps** (`.tmj`). Save writes back into the folder; other browsers download the file instead.
 
+### New maps and the file check
+
+The game finds its maps through the map list in `public/assets/manifest.json` and its buildings through `public/data/buildings.json`, not by looking in the folders. The editor keeps them in step for you (Boss, 30 Oct 2026):
+
+- **New map…** (next to the map list) starts a new area map from the open one. It copies the ground, collision, props and spawns and leaves out the buildings, doors, people and triggers, because each of those can only be on one map. It saves the map and adds it to the map list.
+- **The file check** runs when you open the game, and again from **Check files**. It lists every difference, each ticked, to apply or leave:
+  - a map file in `public/assets/maps` that isn't on the list, such as one copied in by hand, is added. Its id is set to match its file name if the two differ.
+  - if a copied map's buildings lead into interiors another map already uses, which would stop the game starting, it offers to clear them out the way New map does.
+  - a map on the list whose file has gone is taken off the list.
+  - a name or kind that differs between a map's file and the list is updated.
+  - a building picture in `public/assets/custom/buildings` that no building uses is added to the library as an unfinished building, and a building whose picture is missing can be marked unfinished.
+
+New tiles need nothing: the palette is read from the folders.
+
+A new area map also needs a way in (an **Exit** on another map, *To* its id) and a place on the world map: add its id to a zone's `maps` in `public/data/world.json`, or `npm test` reports it.
+
 ### Map tab
 
 Paints tiles on every ground layer, edits collision, moves, copies, clears and swaps regions (buildings move with their doors), places and moves props, and checks that doors, spawns and exits sit on free tiles. An unchanged map saves back byte for byte.
