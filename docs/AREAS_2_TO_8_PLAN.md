@@ -55,7 +55,7 @@ Each new area also raises the facility tier of earlier activities (Spec 2.2), so
 
 ### Every bike part can be bought or earned
 
-Kept part: the employer gives one random part from each finished batch (Spec 15.1). The contract's class follows the area. The player can make parts for a class they haven't reached yet, as Spec 15.5 has it, but they **can't fit** a kept part until that class is unlocked; it waits in storage. (**Decision**, Boss asked 30 Oct 2026: keep this, or stop players making parts above their class.)
+Kept part: the employer gives one random part from each finished batch (Spec 15.1). **No making parts above your current class** (Boss, 30 Oct 2026, replacing Spec 15.5's "a player can make parts for a class they have not reached yet"). A batch is always for a class the player has already unlocked, so every kept part can be fitted.
 
 | Slot | Buy it at | Batch job that can give it as the kept part |
 |---|---|---|
@@ -94,7 +94,7 @@ Tools also open some work:
 - **Customer repair tickets** on the Phoenix MX job board ask for the tool set for that ticket's slot, so better tools open better-paying tickets.
 - **House workshop upgrades** (engine stand, suspension tools, tyre machine, Spec 17.1) are separate from the tool sets. They're bought for the house, not carried.
 
-**Where tools are sold (Decision).** Area 1 already has a tool shop building with no owner. Either the tool shop is a fifth shop in every area, or Area 1's tool shop stays the only one and stocks each new set as each area opens. I'd go with the second, since it's already on the map, plus one tool stall in Area 5's City for the Pro and Master sets.
+**Where tools are sold.** The Area 1 tool shop is the only tool shop (Boss, 30 Oct 2026). It adds each new set as the area that brings it opens, so the "Tool shop" lines in each area below mean what the Area 1 shop starts stocking then. A second tool shop in Area 5 might come later, but that isn't settled.
 
 ### When a frame breaks
 
@@ -150,7 +150,7 @@ Every area has the same base set, so the columns below list only what's **new**:
 - **Fitness:** **Town gym, weight training** (Strength, Tier 2). The Spec already puts the gym in Area 2, unlocked by a gym NPC task. Rowing on the river is an option here too.
 - **Rider training:** practice track coach *(placeholder name)* with body position drills (Riding Position) and cone braking (Cornering and Braking). Rut riding in the mud (Balance, Jumps and Ruts).
 - **Venues:** Riverside MX *(placeholder)*, a clay outdoor track; Mud bog *(placeholder)* Enduro Loop; a supercross venue *(placeholder)*.
-- **Tool shop:** wheel and brake tools (£600).
+- **New at the Area 1 tool shop:** wheel and brake tools (£600).
 - **House:** Starter terrace (£3,000), with the shed workshop interior that's already drawn.
 - **Motor:** Old Rusty Van.
 
@@ -161,7 +161,7 @@ Every area has the same base set, so the columns below list only what's **new**:
 - **Fitness:** **Agility ladder** on the beach (Agility). Agility only comes from walking today.
 - **Rider training (Big Pete):** jump timing and tricks (Jumps and Ruts), gate drop (Starts), whoops and sand on the sand track (Balance, Jumps and Ruts).
 - **Venues:** sand MX track, beach endurance loop, a supercross venue *(placeholders)*.
-- **Tool shop:** engine tools (£3,000).
+- **New at the Area 1 tool shop:** engine tools (£3,000).
 - **House:** Semi with garage (£12,000).
 - **Motor:** Motor 3, MX Van Short.
 
@@ -172,7 +172,7 @@ Every area has the same base set, so the columns below list only what's **new**:
 - **Fitness:** **Yoga** at a woodland retreat (Wellbeing). Wellbeing has nothing to train on today.
 - **Rider training:** berm and flat corner (Cornering and Braking), rut riding over roots (Balance).
 - **Venues:** woodland MX, forest enduro loop, a supercross venue *(placeholders)*.
-- **Tool shop:** suspension tools (£1,500) and Pro bodywork tools.
+- **New at the Area 1 tool shop:** suspension tools (£1,500) and Pro bodywork tools.
 - **Energy drinks:** see [Energy drinks](#energy-drinks-areas-4-to-8).
 - **Motor:** Motor 4, MX Van Medium.
 
@@ -182,7 +182,7 @@ Every area has the same base set, so the columns below list only what's **new**:
 - **Batch job:** **Exhaust and intake works**. Minigames: welding and engine build (Welding, Engine Components). Pay £1.25 a part, batch 50.
 - **Fitness:** **Martial arts dojo** (Martial Arts, with some Agility and Strength). The dojo unlocks through a short task, as the Spec says.
 - **Rider training:** supercross rhythm in the indoor arena (Jumps and Ruts, Riding Position), shadow passing with a local pro (Overtaking).
-- **Tool shop:** Pro wheel and brake tools.
+- **New at the Area 1 tool shop:** Pro wheel and brake tools.
 - **Venues:** supercross stadium, arenacross, outdoor MX on the city edge, and the **first Enduro Sprint**.
 - **House:** Detached house (£80,000).
 - **Motor:** Motor 5, MX Sports Motorhome Medium.
@@ -206,7 +206,7 @@ The modifier unit in the Industrial Zone is already built, and its owner stands 
 - **Batch jobs:** **Gearbox works** (bottom end and drivetrain). Minigames: machining and engine build (Machining, Engine Assembly, Engine Components). Pay £1.25 a part, batch 100. Plus **Plastics moulding** (bodywork and controls). Minigame: bodywork fitting (Bodywork). Pay £1 a part, batch 50.
 - **Fitness:** **Cycling** hill climbs (Endurance).
 - **Rider training:** repetition laps on the hill track (Consistency).
-- **Tool shop:** Pro engine and Pro suspension tools.
+- **New at the Area 1 tool shop:** Pro engine and Pro suspension tools.
 - **Venues:** hill MX, large endurance course, a supercross venue, Enduro Sprint *(placeholders)*.
 - **House:** Farmhouse with land (£400,000, needs three badges), with its own private practice track.
 - **Motor:** Motor 6, MX Sports Motorhome Long.
@@ -217,7 +217,7 @@ The modifier unit in the Industrial Zone is already built, and its owner stands 
 - **Batch job:** **Frame works** (frames). Minigame: welding (Welding). This is the only way to get a frame without a sponsor or a dealer. Pay about £2 a part, batch 50 (**Decision:** frames are worth 10 times a top end, so maybe a smaller batch).
 - **Fitness:** **Rowing** on the old canal (Endurance).
 - **Rider training:** rock garden (Balance), drag launch on the No-Turn strip (Starts).
-- **Tool shop:** Master bodywork tools.
+- **New at the Area 1 tool shop:** Master bodywork tools.
 - **Venues:** quarry MX, rock endurance loop, a supercross venue, Enduro Sprint, and the **first No-Turn Takedown**.
 - **Motor:** Motor 7, Factory Hauler.
 
@@ -227,7 +227,7 @@ The modifier unit in the Industrial Zone is already built, and its owner stands 
 - **Batch job:** **Race department** (any slot, £2.50 a part, batch 100). It needs Mechanical Engineer 70 and an NPC chain.
 - **Fitness:** **Recovery centre** with an ice bath (Wellbeing), plus Tier 5 versions of every fitness drill.
 - **Rider training:** Tier 5 versions of the rider drills.
-- **Tool shop:** Master wheel and brake, engine and suspension tools.
+- **New at the Area 1 tool shop:** Master wheel and brake, engine and suspension tools.
 - **Venues:** national MX, national supercross, a national endurance course, Enduro Sprint, No-Turn Takedown, the **first EnduroCross**, and the Super Event venue.
 - **House:** Champion's estate (£2,000,000, needs all badges).
 - **Motor:** none new.
@@ -290,7 +290,6 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 9. **Batch jobs per area:** is one new facility per area right (Area 6 gets two), and are you happy with the Frame works in Area 7 as the only non-sponsor way to make a frame?
 10. **Houses:** one tier in Areas 2, 3, 5, 6 and 8 (none new in 4 and 7), or a different spread?
 11. **The fitness spread:** weights (A2), agility ladder (A3), yoga (A4), dojo (A5), cycling (A6), rowing (A7), ice bath (A8).
-12. **Tools:** grade limits with Pro and Master versions, or one version of each set? And is the Area 1 tool shop the only tool shop?
-13. **Making parts above your class:** keep it (they wait in storage until the class unlocks), or block it?
-14. **Frames:** Moto78 sells a stock Grade 1 frame of your brand as a replacement, and sponsors replace theirs free?
-15. **Names** for Local Champions, challengers, the Area 2 practice coach, Big Pete's full name, and every venue in Areas 2 to 8.
+12. **Tools:** grade limits with Pro and Master versions, or one version of each set? And is there a second tool shop in Area 5?
+13. **Frames:** Moto78 sells a stock Grade 1 frame of your brand as a replacement, and sponsors replace theirs free?
+14. **Names** for Local Champions, challengers, the Area 2 practice coach, Big Pete's full name, and every venue in Areas 2 to 8.
