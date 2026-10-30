@@ -74,7 +74,7 @@ export const BUILDINGS_SCHEMA: Schema = {
             items: {
               type: 'object',
               fields: {
-                sheet: { type: 'string', pattern: /^art\/[A-Za-z0-9_./+-]+\.png$/ },
+                sheet: { type: 'string', pattern: /^(art|custom)\/[A-Za-z0-9_./+-]+\.png$/ },
                 crop: { type: 'array', minItems: 4, maxItems: 4, items: { type: 'number', integer: true, min: 0 } },
                 at: XY,
               },

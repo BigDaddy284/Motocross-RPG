@@ -1,11 +1,20 @@
 /// <reference types="vitest/config" />
 import { copyFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { defineConfig } from 'vite';
 
 // Mod tracks (src/core/modTracks.ts): a website can't list a folder, so the game reads an index
 // of public/mods/tracks/, made here from whatever track files are in it.
 const MOD_DIR = 'public/mods/tracks';
 const modIndex = () => JSON.stringify(existsSync(MOD_DIR) ? readdirSync(MOD_DIR).filter((f) => /\.json$/i.test(f) && f !== 'index.json').sort() : []);
+
+// The map editor saves into the game while developing: these files under public/, and nothing else.
+const TOOLKIT_SAVES = [/^assets\/maps\/[a-z0-9-]+\.json$/, /^assets\/manifest\.json$/, /^assets\/custom\/[a-z0-9_-]+(\/[a-z0-9_-]+)*\.png$/, /^data\/buildings\.json$/];
+/** The pictures the map editor made (public/assets/custom), as paths under public/assets. */
+function customPictures(dir = 'public/assets/custom', rel = 'custom'): string[] {
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? customPictures(`${dir}/${e.name}`, `${rel}/${e.name}`) : e.name.endsWith('.png') ? [`${rel}/${e.name}`] : []));
+}
 
 // The toolkit's pages, published at tools/: the front page, its stylesheet and each editor.
 const TOOLKIT_PAGES = ['index.html', 'toolkit.css', 'track-editor.html', 'map-editor.html', 'outfit-designer.html', 'character-designer.html'];
@@ -48,6 +57,45 @@ export default defineConfig({
             writeFileSync(`${MOD_DIR}/${name}`, body);
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ saved: `${MOD_DIR}/${name}` }));
+          });
+        });
+        // The map editor (tools/map-editor.html) while developing: GET /__toolkit/pictures lists the
+        // pictures it made; POST /__toolkit/save/<path under public> writes a map, the manifest, the
+        // building library or one of its pictures straight into the game.
+        server.middlewares.use('/__toolkit/', (req, res) => {
+          const url = (req.url ?? '').split('?')[0];
+          const fail = (code: number, message: string) => {
+            res.statusCode = code;
+            res.end(message);
+          };
+          if (url === '/pictures') {
+            res.setHeader('Content-Type', 'application/json');
+            return res.end(JSON.stringify(customPictures()));
+          }
+          if (!url.startsWith('/save/')) return fail(404, 'Unknown toolkit request');
+          const file = decodeURIComponent(url.slice('/save/'.length));
+          if (req.method !== 'POST') return fail(405, 'POST the file');
+          if (file.includes('..') || !TOOLKIT_SAVES.some((r) => r.test(file))) return fail(400, `The toolkit can't save ${file}`);
+          const chunks: Buffer[] = [];
+          let size = 0;
+          req.on('data', (c: Buffer) => {
+            size += c.length;
+            if (size > 20_000_000) req.destroy();
+            else chunks.push(c);
+          });
+          req.on('end', () => {
+            const body = Buffer.concat(chunks);
+            if (file.endsWith('.json')) {
+              try {
+                JSON.parse(body.toString('utf8'));
+              } catch {
+                return fail(400, 'Not JSON');
+              }
+            } else if (body.subarray(1, 4).toString('latin1') !== 'PNG') return fail(400, 'Not a PNG');
+            mkdirSync(dirname(`public/${file}`), { recursive: true });
+            writeFileSync(`public/${file}`, body);
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ saved: `public/${file}` }));
           });
         });
       },

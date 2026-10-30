@@ -8,14 +8,36 @@ The editors are kept apart from the game as the **Motocross RPG Toolkit**: its f
 
 ## Editing maps
 
-`tools/map-editor.html` is a map and tile editor for this game. It is one file with no build step: open it in Chrome or Edge (double-click it), click **Open folder…** and pick either:
+`tools/map-editor.html` edits the game's maps, the tiles they are painted with and the buildings that stand on them, each on its own tab: **Map**, **Tiles** and **Buildings**. Open it one of these ways:
 
-- `public/assets` to edit the **game maps** exactly as the game loads them, or
-- the shared `art` folder to edit the **Tiled source maps** (`.tmj`).
+- With `npm run dev`, open http://localhost:5173/tools/map-editor.html and click **Load the game maps from this server**. **Save writes straight into the game**: maps, new tiles, building pictures and the building library. This is the easiest way.
+- Or click **Open folder…** (Chrome or Edge) and pick the repo's `public` folder for the game maps, their tiles and the building library (`public/assets` works for maps and tiles but not buildings), or the shared `art` folder for the **Tiled source maps** (`.tmj`). Save writes back into the folder; other browsers download the file instead.
 
-It paints tiles on every ground layer, edits collision, moves, copies, clears and swaps regions (buildings move with their doors), places and moves props, and checks that doors, spawns and exits sit on free tiles. In Chrome and Edge, Save writes straight back into the folder; other browsers download the file instead. An unchanged map saves back byte for byte.
+### Map tab
 
-`npm run import-art` rebuilds every game map from the Tiled sources, so edits made only to a game map are lost the next time the art is imported. For changes that should last, edit the `.tmj` map, then run the import. After saving, run `npm test`.
+Paints tiles on every ground layer, edits collision, moves, copies, clears and swaps regions (buildings move with their doors), places and moves props, and checks that doors, spawns and exits sit on free tiles. An unchanged map saves back byte for byte.
+
+**Markers** (left) adds the Data layer's objects to a game map: pick one, then click the map (drag over the tiles for an area one). The panel on the right then sets it up, with suggestions from the game's data:
+
+- **Spawn**: where the player arrives. The first is the default; an exit or door can name another.
+- **Exit**: on an area map, *To map* (or `world_map` for a road with a choice of places) and *Arrive at spawn*; in an interior, *Leaves interior*. Can be locked until a flag is set.
+- **Door**: into an interior. A library building brings its own; this is for a doorway drawn with tiles.
+- **Block zone**: tiles kept blocked until a story flag is set (*Lifted by flag*), then opened, with the barriers and cones on and around it cleared and the *Cleared tile* drawn over the dug-up ground (like the roadworks). Its tiles are blocked when you add it, and freed if you delete it.
+- **Gate**, **Travel** (bus stop), **Venue**, **NPC** and **Interact** (with its *Action*, which the story and shops look for).
+
+Click a marker with **Objects** (V) to change it, drag it to move it, **Delete marker** or Del to delete it. A building's own doors and returns go with the building.
+
+### Tiles tab
+
+A pixel editor for the map's tiles. Pick any tile on the left to edit it, start a **New tile** (1×1 for ground, taller for props), or **Import PNG…**. Tools: Pencil (P), Eraser (E), Fill (F), Picker (I or Alt+click), Line (L), Box (R, Shift fills), with pen sizes (2 matches the art's 2×2 pixel blocks), flips, a quarter turn, the game's palette and the colours already in the picture. **Seams** slides the tile half way round so the edges that meet when it sits beside itself are in the middle, where you can fix them; the preview shows it tiled 3×3.
+
+**Save tile** writes it to `public/assets/custom/tiles/<folder>/<name>.png` and puts it in the map palette (in that folder's group); **Paint with it** goes back to the map with it on the brush. The game's own tiles (`art/`) are left alone, since `npm run import-art` copies them afresh: editing one saves your version as a new tile. Tiles in `custom/` are yours and survive an import.
+
+### Buildings tab
+
+The building library (`public/data/buildings.json`): pick a building or **New**, then set its name, footprint (Solid, Walkable, None), doors and returns, interior, and pictures. **Draw a new picture** opens a blank picture the size of the footprint in the same pixel editor, **Import PNG…** uses one drawn elsewhere, and **✎ Edit** changes an existing picture: the building's own pictures are saved over (maps showing it change too), and a picture cut from a shared sheet is saved as a new one of its own. Pictures go in `public/assets/custom/buildings/`. **Save to library** keeps it; tick *Unfinished* to save a draft that can't be placed yet. Back on the Map tab, **Place** puts it on the map with its doors and solid tiles.
+
+`npm run import-art` rebuilds every game map from the Tiled sources, so edits made only to a game map are lost the next time the art is imported (tiles and building pictures in `custom/` are kept). For changes that should last, edit the `.tmj` map, then run the import. After saving, run `npm test`.
 
 ## Editing race tracks
 
