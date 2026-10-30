@@ -2265,11 +2265,18 @@ export class RaceView {
       for (const wh of [back, front]) wh.y = Math.max(wh.y, this.terrainAt(wh.x, wh.z));
       const mx = (back.x + front.x) / 2;
       const mz = (back.z + front.z) / 2;
-      const my = (back.y + front.y) / 2;
+      let my = (back.y + front.y) / 2;
       let yaw = Math.atan2(front.z - back.z, front.x - back.x);
       const run = Math.hypot(front.x - back.x, front.z - back.z);
       // A bike tips with the ground under its wheels, but never further than a steep jump face.
-      const pitch = Math.max(-0.7, Math.min(0.7, Math.atan2(front.y - back.y, run)));
+      let pitch = Math.max(-0.7, Math.min(0.7, Math.atan2(front.y - back.y, run)));
+      // In the air it flies as one piece: its middle on the hop's arc, turning steadily from the
+      // angle of the face it left to the angle of the landing.
+      const flying = onStart ? null : this.inFlight(p.flight, f, p.lane);
+      if (flying) {
+        if (flying.y !== null) my = flying.y;
+        pitch = flying.pitch;
+      }
       // Lean into the corner, more the faster the bike.
       let lean = Math.max(-0.6, Math.min(0.6, s.curvatureAt(dist) * Math.min(p.speed, 20) * 0.9));
       if (p.state === 'wobble') yaw += 0.35 * Math.sin(clock * 16);
@@ -2485,6 +2492,35 @@ export class RaceView {
       if (!t || f >= f1) continue;
       if (f > f0) return { ...trickPose(t, (f - f0) / (f1 - f0)), kind: t.kind };
       if (t.kind === 'scrub' && f > f0 - pre) return { ...trickPose(t, (f - f0) / pre), kind: t.kind };
+    }
+    return null;
+  }
+
+  /**
+   * A bike in the air at lap fraction f (its middle between a hop's take-off and landing): where
+   * its middle is on the arc, and its pitch. Turned by its wheels' heights instead, a bike on a
+   * short hop (a single) dipped its nose as soon as the front wheel passed the top of the arc,
+   * while the back wheel was still on the face, so it looked as if it rolled over the lip and
+   * left the ground late (Boss, 30 Oct 2026). A real bike leaves nose up at the face's angle and
+   * rotates slowly to meet the landing.
+   */
+  private inFlight(flight: Flight | null, f: number, lane: number): { y: number | null; pitch: number } | null {
+    if (!flight) return null;
+    const s = this.surface;
+    const half = BIKE_LENGTH / 2 / s.g.total;
+    const angle = (at: number) => {
+      const [back, front] = s.wheels(at, lane, flight);
+      return Math.max(-0.7, Math.min(0.7, Math.atan2(front.y - back.y, BIKE_LENGTH)));
+    };
+    for (const [f0, f1] of flight.hops) {
+      // From the front wheel reaching the lip to the back wheel touching down.
+      const from = f0 - half;
+      const to = f1 + half;
+      if (f <= from || f >= to) continue;
+      const k = (f - from) / (to - from);
+      const e = k * k * (3 - 2 * k);
+      // Its middle rides the arc while it is over the gap; either end, its wheels still say where it is.
+      return { y: f > f0 && f < f1 ? s.flightY(f, lane, flight) : null, pitch: angle(from) * (1 - e) + angle(to) * e };
     }
     return null;
   }
