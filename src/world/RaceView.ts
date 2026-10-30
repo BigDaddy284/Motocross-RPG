@@ -16,6 +16,7 @@ import { COLORS, TEXT_RES } from '../ui/theme';
 import { isPaddock } from '../core/paddock';
 import { paddockParts, U as METRE } from './paddock';
 import { FACES_TRACK, flaggerParts, marshalParts, pitCrewParts, starterBox, tracksideParts, type Label } from './trackside';
+import { FIREWORK_LEAD, fireworkShow, fireworksDue, hasFireworks, ROCKET_RISE, type Rocket } from '../core/fireworks';
 import { APPROACH, assignCrews, BOARD_PAST, boardOut, boardText, crewSpot, FLAGGER_ITEM, flagState, PIT_CREW_ITEM } from '../core/finishCrew';
 import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../core/marshal';
 import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
@@ -170,6 +171,10 @@ interface Puff {
 }
 /** Dust puffs alive at once. */
 const DUST = 200;
+/** Sparks in the finish fireworks' pool (updateFireworks). */
+const SPARKS = 2400;
+/** How big a firework spark looks, in grid units. */
+const SPARK_SIZE = 0.55;
 
 const hex = (s: string | undefined, fallback: number) => (s && /^#[0-9a-f]{6}$/i.test(s) ? parseInt(s.slice(1), 16) : fallback);
 function shade(c: number, k: number): number {
@@ -200,6 +205,10 @@ export class RaceView {
   private puffNext = 0;
   private dust: THREE.InstancedMesh | null = null;
   private readonly puffMap: THREE.Texture;
+  /** The tops of each finish arch's two posts, where its fireworks go up from (updateFireworks). */
+  private readonly archTops: [THREE.Vector3, THREE.Vector3][] = [];
+  /** The finish fireworks as the winner finishes: the show and its clock once started, and the spark pool. */
+  private fireworks: { show: Rocket[]; at: number; sparks: THREE.Points | null; pos: Float32Array; col: Float32Array; vel: Float32Array; life: Float32Array; full: Float32Array; base: Float32Array; free: number } | null = null;
   private readonly groundCanvas: HTMLCanvasElement;
   private readonly groundTex: THREE.CanvasTexture;
   private readonly mapDots: Phaser.GameObjects.Graphics;
@@ -257,6 +266,8 @@ export class RaceView {
   private board: { stand: THREE.Group; panel: THREE.Group; arms: THREE.Group[]; legs: THREE.Group[]; route: OfficialSpot[]; length: number } | null = null;
   /** False for practice, which has no start procedure: the start board stays down. */
   hasStart = true;
+  /** False where nobody races to the line first (qualifying, a No-Turn Takedown's seeding run): no finish fireworks. */
+  showFireworks = true;
   /** Frame times in ms (whole update, the 3D draw, and handing the picture to Phaser), for the performance check. */
   readonly frameMs: number[] = [];
   readonly renderMs: number[] = [];
@@ -806,9 +817,11 @@ export class RaceView {
       const c = s.spot(f, 0);
       const deck = s.height(f, 0);
       const top = deck + ARCH_CLEAR;
+      const tops: THREE.Vector3[] = [];
       for (const side of [-1, 1]) {
         const lane = (side * span) / 2 / s.hwAt(f);
         const p = s.spot(f, lane);
+        tops.push(new THREE.Vector3(p.x, top + 0.9, p.z));
         const base = Math.min(this.terrainAt(p.x, p.z), s.height(f, lane)) - 0.2;
         const post = new THREE.Mesh(new THREE.BoxGeometry(0.5, top - base, 0.5), this.mat(0xd8d8d8));
         post.position.set(p.x, (top + base) / 2, p.z);
@@ -824,6 +837,7 @@ export class RaceView {
       banner.rotation.y = Math.PI / 2 - c.ang;
       banner.castShadow = true;
       out.push(banner);
+      this.archTops.push([tops[0], tops[1]]);
     });
     return out;
   }
@@ -1598,6 +1612,11 @@ export class RaceView {
         const face = this.mat(0xffffff, { map: this.textTexture(text || 'FINISH', color) });
         const side = this.mat(shade(color, 0.8));
         add(this.boxMesh(w, 0.9, 0.35, [side, side, side, side, face, face], 0, 4.2, 0));
+        // Not for an editor ghost: only an arch on the track has fireworks.
+        if ((this.track.scenery ?? []).includes(it) && this.ghostIndex < 0) {
+          g.updateMatrixWorld(true);
+          this.archTops.push([g.localToWorld(new THREE.Vector3(-(w / 2 - 0.25), 5.1, 0)), g.localToWorld(new THREE.Vector3(w / 2 - 0.25, 5.1, 0))]);
+        }
         break;
       }
       case 'start_gate': {
@@ -2445,6 +2464,7 @@ export class RaceView {
       }
     }
     this.agePuffs(Math.min(1, dc * 1.4 + dt * 0.3));
+    if (this.laps && this.showFireworks && hasFireworks(this.track.kind)) this.updateFireworks(dc, riders);
     this.updateStart(clock);
     if (this.marshals.length) this.updateMarshals(Math.min(0.1, dt), clock, riders.map((r) => r.pose));
     if (this.flaggers.length || this.crews.length) this.updateFinishCrew(Math.min(0.1, dt), clock, riders);
@@ -2682,6 +2702,103 @@ export class RaceView {
     this.puffs[i] = { x: x + (noise(x * 91) - 0.5) * 0.2, y, z: z + (noise(z * 37) - 0.5) * 0.2, life: 1 };
     this.dust.setColorAt(i, new THREE.Color(color));
     this.dust.instanceColor!.needsUpdate = true;
+  }
+
+  /**
+   * The finish fireworks (core/fireworks.ts, Boss, 30 Oct 2026): from a little before the winner
+   * crosses the line, rockets go up from the tops of the finish arch's posts and burst over the
+   * track. Run on the race clock, so they stop with Pause. A track with no arch has them go up from
+   * either side of the finish line.
+   */
+  private updateFireworks(dc: number, riders: ViewRider[]): void {
+    const s = this.surface;
+    if (!this.fireworks) {
+      if (!fireworksDue(this.laps, FIREWORK_LEAD / s.g.total, riders.map((r) => r.pose))) return;
+      if (!this.archTops.length) {
+        const f = s.raised ? 1 - 1e-4 : 0;
+        const top = s.height(f, 0) + 5;
+        this.archTops.push([-1, 1].map((side) => {
+          const p = s.spot(f, side * 1.2);
+          return new THREE.Vector3(p.x, top, p.z);
+        }) as [THREE.Vector3, THREE.Vector3]);
+      }
+      this.fireworks = { show: fireworkShow(), at: 0, sparks: null, pos: new Float32Array(SPARKS * 3), col: new Float32Array(SPARKS * 3), vel: new Float32Array(SPARKS * 3), life: new Float32Array(SPARKS), full: new Float32Array(SPARKS), base: new Float32Array(SPARKS * 3), free: 0 };
+      const fw = this.fireworks;
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(fw.pos, 3).setUsage(THREE.DynamicDrawUsage));
+      geo.setAttribute('color', new THREE.BufferAttribute(fw.col, 3).setUsage(THREE.DynamicDrawUsage));
+      const mat = new THREE.PointsMaterial({ size: 1, sizeAttenuation: false, map: this.puffMap, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+      fw.sparks = new THREE.Points(geo, mat);
+      fw.sparks.frustumCulled = false;
+      this.scene3.add(fw.sparks);
+    }
+    const fw = this.fireworks;
+    if (dc <= 0) return;
+    const at = fw.at + dc;
+    fw.at = at;
+    const spark = (x: number, y: number, z: number, vx: number, vy: number, vz: number, life: number, color: number) => {
+      const i = fw.free;
+      fw.free = (i + 1) % SPARKS;
+      fw.pos.set([x, y, z], i * 3);
+      fw.vel.set([vx, vy, vz], i * 3);
+      fw.base.set([((color >> 16) & 255) / 255, ((color >> 8) & 255) / 255, (color & 255) / 255], i * 3);
+      fw.life[i] = life;
+      fw.full[i] = life;
+    };
+    // Each rocket in the air leaves a trail of sparks, and bursts at the top of its climb.
+    fw.show.forEach((r, k) => {
+      if (at < r.t) return;
+      const u0 = (at - dc - r.t) / ROCKET_RISE;
+      const u = (at - r.t) / ROCKET_RISE;
+      if (u0 >= 1) return;
+      for (const [a, b] of this.archTops) {
+        const from = r.side < 0 ? a : b;
+        const to = r.side < 0 ? b : a;
+        const across = to.clone().sub(from).setY(0).normalize();
+        const where = (v: number) => {
+          const e = 1 - (1 - Math.min(1, v)) ** 2;
+          return from.clone().addScaledVector(across, r.drift * v).setY(from.y + r.height * e);
+        };
+        const p = where(u);
+        if (u < 1) {
+          spark(p.x, p.y, p.z, 0, -0.6, 0, 0.35, 0xffe0a0);
+          continue;
+        }
+        for (let n = 0; n < r.sparks; n++) {
+          // Spread evenly over a sphere, a little jitter so no two bursts look the same.
+          const yv = 1 - (2 * (n + 0.5)) / r.sparks;
+          const rad = Math.sqrt(1 - yv * yv);
+          const th = n * 2.39996 + k;
+          const sp = 3.4 + noise(k * 131 + n) * 1.4;
+          const c = noise(k * 17 + n) < 0.08 ? 0xffffff : r.color;
+          spark(p.x, p.y, p.z, Math.cos(th) * rad * sp, yv * sp, Math.sin(th) * rad * sp, 1.3 + noise(k * 7 + n * 3) * 0.7, c);
+        }
+      }
+    });
+    // Sparks slow in the air, fall, and fade out with a twinkle at the end.
+    const drag = Math.exp(-dc * 1.6);
+    for (let i = 0; i < SPARKS; i++) {
+      if (fw.life[i] <= 0) continue;
+      fw.life[i] -= dc;
+      const j = i * 3;
+      fw.vel[j] *= drag;
+      fw.vel[j + 1] = fw.vel[j + 1] * drag - 4 * dc;
+      fw.vel[j + 2] *= drag;
+      fw.pos[j] += fw.vel[j] * dc;
+      fw.pos[j + 1] += fw.vel[j + 1] * dc;
+      fw.pos[j + 2] += fw.vel[j + 2] * dc;
+      const k = Math.max(0, fw.life[i] / fw.full[i]);
+      const glow = k < 0.3 ? k * (0.5 + 0.5 * Math.sin(fw.life[i] * 60 + i)) * 3 : Math.min(0.85, k * 1.4);
+      fw.col[j] = fw.base[j] * glow;
+      fw.col[j + 1] = fw.base[j + 1] * glow;
+      fw.col[j + 2] = fw.base[j + 2] * glow;
+    }
+    // An orthographic camera draws points a fixed number of pixels across: kept at a spark's size in the scene.
+    const c = this.camera;
+    (fw.sparks!.material as THREE.PointsMaterial).size = (SPARK_SIZE * this.renderer.domElement.height * c.zoom) / (c.top - c.bottom);
+    const geo = fw.sparks!.geometry;
+    geo.attributes.position.needsUpdate = true;
+    geo.attributes.color.needsUpdate = true;
   }
 
   private agePuffs(k: number): void {

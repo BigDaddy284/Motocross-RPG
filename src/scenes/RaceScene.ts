@@ -640,6 +640,8 @@ export class RaceScene extends Phaser.Scene {
     // over its top-left corner as outlined text, and the race log sits under the standings.
     this.view = new RaceView(this, this.screen, sim.track, services.content.trackParts, 16, 82, vw, dh - 98, undefined, { scaleWidth: 900 });
     this.view.hasStart = !practice;
+    // Fireworks at the finish only where riders race to the line together, not in qualifying or a knockout's seeding run.
+    this.view.showFireworks = !practice && !this.qualifying && !(this.ko && !this.koHeat);
     // The flag man and the pit boards count the race's laps.
     this.view.setLaps(practice ? undefined : sim.totalLaps ?? undefined);
     this.ui.me = this.text(30, 94, '', 18, COLORS.cream, { lineSpacing: 4, ...OVERLAY });
