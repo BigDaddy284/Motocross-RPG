@@ -211,7 +211,10 @@ To resume: `npm install`, `npm test`, `npm run dev`, then open `/tools/` (the to
 
 Testing aids to take out before the final release:
 
-- **Shift pay boost.** `testPayMultiplier` in `world.json` (5× for Alpha v1.1). The `moneymoneymoney` money cheat was removed for the Alpha v1.1 release.
+- **Shift pay boost.** `testPayMultiplier` in `world.json` (5× for Alpha v1.1).
+- **Money cheat.** A new rider named `moneymoneymoney` starts with £50,000 (`TEST_MONEY_NAME` in `careerFlow.ts`). Back in for test v1.5.
+- **Ride alone.** Settings > Gameplay > "TEST: Ride alone (no AI)": practice and race days with no AI riders (`testRideAlone` in `settings.ts`, `alone` in `raceDay.ts`, `RaceScene.ts`, `SettingsScene.ts`).
+- **Player tricks.** `TEST_PLAYER_TRICKS` in `tricks.ts`: the player whips and scrubs as often as the field's showman.
 
 ## Later, once Area 2 is under way
 

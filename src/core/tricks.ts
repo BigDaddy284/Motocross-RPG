@@ -19,6 +19,12 @@ export interface Trick {
   bail?: boolean;
 }
 
+/**
+ * TEST ONLY, REMOVE BEFORE RELEASE (Boss, 30 Oct 2026): the player whips and scrubs as often as the
+ * showman, to see them in testing. Set false (or delete it) for release.
+ */
+export const TEST_PLAYER_TRICKS = true;
+
 /** Hops shorter than this many metres are too short to throw the bike about on. */
 export const TRICK_HOP = 9;
 /** A jumper (RiderProfile.jump) from here up does tricks some of the time, more the better they are. */

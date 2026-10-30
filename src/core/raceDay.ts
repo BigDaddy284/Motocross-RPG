@@ -228,6 +228,8 @@ export class RaceDay {
     readonly round?: RoundOptions,
     /** A challenge's own shape (core/challenge.ts): its motos, laps and riders. */
     custom?: { motos: number; laps: number; cpus: CpuRiderDef[] },
+    /** TEST ONLY, REMOVE BEFORE RELEASE (Boss, 30 Oct 2026): no CPU riders, to test ride a track. */
+    alone = false,
   ) {
     this.track = trackById(rc, venue.track!);
     this.cls = venue.class ?? '50cc';
@@ -235,7 +237,7 @@ export class RaceDay {
     this.laps = custom?.laps ?? lapsFor(rc, this.track, this.cls, !!round);
     this.motoCount = custom?.motos ?? 2;
     this.rng = seededRng(seed);
-    const cpus = custom?.cpus ?? round?.cpus ?? drawField(rc, venue, seed);
+    const cpus = alone ? [] : (custom?.cpus ?? round?.cpus ?? drawField(rc, venue, seed));
     this.field = [player, ...cpus.map((d) => cpuEntrant(rc, d, this.cls))];
     this.pickOrder = shuffle(this.field.map((e) => e.id), this.rng);
   }
@@ -520,11 +522,12 @@ function shuffle<T>(a: T[], rng: () => number): T[] {
  * the lap: each set off from the gate a share of a lap before the session starts, so the nearest is
  * well clear of the gate when you set off.
  */
-export function practiceSim(rc: RaceContent, venue: VenueDef, player: Entrant, seed: number): MotoSim {
+export function practiceSim(rc: RaceContent, venue: VenueDef, player: Entrant, seed: number, alone = false): MotoSim {
   const track = trackById(rc, venue.track!);
   const cls = venue.class ?? '50cc';
   const pool = (rc.riders.fields[venue.field ?? ''] ?? []).map((id) => rc.riders.riders.find((r) => r.id === id)).filter((r): r is CpuRiderDef => !!r);
-  const n = Math.min(venue.practiceRiders ?? 0, pool.length);
+  // TEST ONLY, REMOVE BEFORE RELEASE (Boss, 30 Oct 2026): `alone` sends nobody else out.
+  const n = alone ? 0 : Math.min(venue.practiceRiders ?? 0, pool.length);
   const drawn = shuffle(pool, seededRng(mixSeed(seed, 0x70726163))).slice(0, n);
   // A rough lap time: the lap's length at the class's reference speed.
   const lapSeconds = lapMetres(track) / rc.racing.classes[cls].refSpeed;
