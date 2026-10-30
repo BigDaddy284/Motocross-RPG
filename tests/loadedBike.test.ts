@@ -54,9 +54,9 @@ describe('the loaded bike (Boss, 30 Oct 2026)', () => {
     expect(withoutStand(img, null).data).toEqual(img.data);
   });
 
-  it('ties the straps to the bar top side on, and both bar ends end-on', () => {
+  it('ties a strap to each grip: far and near side on, left and right end-on', () => {
     const side = bikeShape(pic(SIDE, BLUE), true);
-    expect(side.bars).toEqual([[3, 0.5]]);
+    expect(side.bars).toEqual([[3, 0.5], [3, 1.5]]);
     expect(side.bottom).toBe(8);
     const end = bikeShape(pic(['..#..', '#####', '.#b#.', '..#..'], BLUE), false);
     expect(end.bars).toEqual([[0.5, 1.5], [4.5, 1.5]]);

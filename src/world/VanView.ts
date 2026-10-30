@@ -34,6 +34,10 @@ const WHEEL_DROP = 5;
 /** The tie-down straps: black, a little wider than a pixel at the map's scale. */
 const STRAP_COLOUR = 0x16161c;
 const STRAP_WIDTH = 2;
+/** Seen more end-on than this (the cosine of the van's angle), neither strap is on the far side. */
+const FAR_SIDE = 0.3;
+/** The truck bed is 26 px across side on and 34 px from above: the bars' width is squashed the same. */
+const SIDE_SQUASH = 26 / 34;
 
 export const vanTexture = (id: string) => `veh:${id}`;
 export const vanTurnTexture = (id: string) => `veh:${id}:turn`;
@@ -72,7 +76,10 @@ function loadedBike(scene: Phaser.Scene, model: string, brand: string, h: Headin
   canvas.height = img.height;
   canvas.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(img.data), img.width, img.height), 0, 0);
   if (!scene.textures.exists(key)) scene.textures.addCanvas(key, canvas);
-  const shape = bikeShape(img, sideOn);
+  // Side on, the grips are as far apart as the bars are wide from above, squashed like the bed.
+  const above = sideOn ? loadedBike(scene, model, brand, 'north') : null;
+  const span = above ? Math.abs(above.shape.bars[1][0] - above.shape.bars[0][0]) * SIDE_SQUASH : undefined;
+  const shape = bikeShape(img, sideOn, span);
   loadedShapes.set(key, shape);
   return { key, shape };
 }
@@ -108,7 +115,8 @@ export class VanView {
   private driver: Phaser.GameObjects.Image | null = null;
   private driverSheet: string | null = null;
   private bike: Phaser.GameObjects.Image | null = null;
-  private straps: Phaser.GameObjects.Graphics | null = null;
+  /** One graphics per strap, so the far one can pass behind the bike. */
+  private straps: Phaser.GameObjects.Graphics[] | null = null;
   private load: VanLoad | null = null;
   private open = false;
   /** The pose the van is at or heading for: the last move handed over. */
@@ -177,13 +185,13 @@ export class VanView {
     this.load = load;
     if (!load) {
       this.bike?.destroy();
-      this.straps?.destroy();
+      this.straps?.forEach((g) => g.destroy());
       this.bike = null;
       this.straps = null;
       return;
     }
     if (!this.bike) this.bike = this.scene.add.image(0, 0, '__MISSING');
-    if (!this.straps) this.straps = this.scene.add.graphics();
+    if (!this.straps) this.straps = [this.scene.add.graphics(), this.scene.add.graphics()];
     if (this.moving) this.draw(this.drawn, null);
     else this.place(this.pose);
   }
@@ -270,7 +278,7 @@ export class VanView {
     this.shadow.destroy();
     this.driver?.destroy();
     this.bike?.destroy();
-    this.straps?.destroy();
+    this.straps?.forEach((g) => g.destroy());
   }
 
   /**
@@ -326,7 +334,7 @@ export class VanView {
 
   /**
    * The loaded bike stood in the bed's middle, facing the way the motor does, with a strap from
-   * each side of its handlebars to the bed's front corners behind the cab. Between the four bike
+   * each grip to the bed's front corner on that side, behind the cab. Between the four bike
    * views (on the turning frames) the nearest one is turned to the frame's angle.
    */
   private placeBike(bed: BedPoint | undefined, shown: number): void {
@@ -338,7 +346,7 @@ export class VanView {
     const pic = bed ? loadedBike(this.scene, load.model, load.brand, h) : null;
     if (!bed || !pic) {
       b.setVisible(false);
-      g.setVisible(false);
+      g.forEach((s) => s.setVisible(false));
       return;
     }
     if (b.texture.key !== pic.key) b.setTexture(pic.key);
@@ -352,15 +360,19 @@ export class VanView {
     const [cos, sin] = [Math.cos(rot), Math.sin(rot)];
     const ends = bars.map(([bx, by]) => [x + (bx - middle[0]) * cos - (by - middle[1]) * sin, y + (bx - middle[0]) * sin + (by - middle[1]) * cos]);
     const hooks = bed.straps.map(([sx, sy]) => [this.sprite.x + sx, this.sprite.y + sy]);
-    // Each corner takes the nearer bar end (both take the one point side on).
+    // Each corner takes the nearer grip.
     const d = (p: number[], q: number[]) => Math.hypot(p[0] - q[0], p[1] - q[1]);
-    const pair = ends.length < 2 || d(ends[0], hooks[0]) + d(ends[1], hooks[1]) <= d(ends[0], hooks[1]) + d(ends[1], hooks[0]) ? [0, 1] : [1, 0];
-    g.clear().lineStyle(STRAP_WIDTH, STRAP_COLOUR, 1);
+    const pair = d(ends[0], hooks[0]) + d(ends[1], hooks[1]) <= d(ends[0], hooks[1]) + d(ends[1], hooks[0]) ? [0, 1] : [1, 0];
+    // Unless the bed is seen end-on, the corner up the picture across the bike's line is on the
+    // far side of the bed: its strap goes behind the bike, so the two read as one each side.
+    const a = (shown * Math.PI) / 180;
+    const across = (p: number[]) => ((p[0] - x) * Math.sin(a) + (p[1] - y) * Math.cos(a)) * Math.sign(Math.cos(a));
+    const far = Math.abs(Math.cos(a)) < FAR_SIDE ? -1 : across(hooks[0]) < across(hooks[1]) ? 0 : 1;
     hooks.forEach((hk, i) => {
-      const e = ends[Math.min(pair[i], ends.length - 1)];
-      g.lineBetween(e[0], e[1], hk[0], hk[1]);
+      const e = ends[pair[i]];
+      g[i].clear().lineStyle(STRAP_WIDTH, STRAP_COLOUR, 1).lineBetween(e[0], e[1], hk[0], hk[1]);
+      g[i].setDepth(this.sprite.depth + (i === far ? 0.002 : 0.006)).setVisible(true);
     });
-    g.setDepth(this.sprite.depth + 0.006).setVisible(true);
   }
 
   /** The rider's face in the cab window, cropped to the glass. Hidden when the window can't be seen. */

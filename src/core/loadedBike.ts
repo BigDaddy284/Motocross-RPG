@@ -15,6 +15,8 @@ const STAND_RED = (r: number, g: number, b: number) => (r > 150 && g < 70 && b <
 /** The bike's outline and the engine grey that fills where the stand's post crossed the bike. */
 const OUTLINE: [number, number, number] = [39, 42, 44];
 const ENGINE: [number, number, number] = [85, 85, 94];
+/** The handlebar side on is narrower than this; the bike below it is wider. */
+const BAR_WIDTH = 7;
 /** How wide the stand's outline is on each side of its paint. */
 const EDGE = 2;
 
@@ -94,15 +96,15 @@ export interface BikeShape {
   middle: [number, number];
   /** The bottom of the drawn pixels: where the wheels stand. */
   bottom: number;
-  /** The handlebar ends the straps are tied to: one point side on (the bar's top), two end-on. */
+  /** The handlebar's two grips, where the straps are tied: far and near side on, left and right end-on. */
   bars: [number, number][];
 }
 
 /**
- * Where the bike is in its picture. Side on, the handlebar is the tallest point; end-on it is the
- * widest row, and its two ends are where the straps go.
+ * Where the bike is in its picture. Side on, the handlebar is the narrow upright at the top; end-on
+ * it is the widest row. Its two grips are where the straps go.
  */
-export function bikeShape(img: Rgba, sideOn: boolean): BikeShape {
+export function bikeShape(img: Rgba, sideOn: boolean, barSpan?: number): BikeShape {
   const { width, height, data } = img;
   let [x0, y0, x1, y1] = [width, height, -1, -1];
   const rows: { left: number; right: number }[] = [];
@@ -124,8 +126,14 @@ export function bikeShape(img: Rgba, sideOn: boolean): BikeShape {
   if (x1 < 0) return { middle: [width / 2, height / 2], bottom: height, bars: [[width / 2, height / 2]] };
   const middle: [number, number] = [(x0 + x1 + 1) / 2, (y0 + y1 + 1) / 2];
   if (sideOn) {
+    // Side on, the handlebar runs up the picture from the top: its top is the far grip. The near
+    // grip is barSpan below it (the bars' width seen from above, squashed as the bed is), or else
+    // the last row before the bike widens out (Boss, 30 Oct 2026: a strap from each grip).
     const top = rows[y0];
-    return { middle, bottom: y1 + 1, bars: [[(top.left + top.right + 1) / 2, y0 + 0.5]] };
+    const x = (top.left + top.right + 1) / 2;
+    let near = y0;
+    while (near + 1 <= y1 && rows[near + 1].left >= 0 && rows[near + 1].right - rows[near + 1].left < BAR_WIDTH) near++;
+    return { middle, bottom: y1 + 1, bars: [[x, y0 + 0.5], [x, barSpan === undefined ? near + 0.5 : y0 + 0.5 + barSpan]] };
   }
   const widest = Math.max(...rows.map((r) => (r.left < 0 ? 0 : r.right - r.left)));
   const at0 = rows.findIndex((r) => r.left >= 0 && r.right - r.left === widest);
