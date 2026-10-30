@@ -130,12 +130,16 @@ export const JUMPS: Record<string, JumpDef> = {
       { name: 'case', hops: [[0.3, 0.64]], w: [0.15, 0], short: true },
     ],
   },
+  // A step-up onto a tabletop (Boss, 30 Oct 2026): the step's back runs straight into the table's
+  // face, no gap between them, and the table is the tabletop's shape, so a tunnel through it is
+  // the tabletop's (DECKS.step_up in trackSurface.ts) with the step in front of it.
   step_up: {
-    peaks: [peak(0.16, 0.3, 0.3, 0.36, 0.55), peak(0.58, 0.68, 0.86, 0.98)],
+    peaks: [peak(0.06, 0.18, 0.2, 0.38, 0.55), peak(0.2, 0.34, 0.6, 0.76)],
     ways: [
-      { name: 'clear', hops: [[0.3, 0.78]], w: [0.3, 1] },
-      { name: 'single, ride up, hop off', hops: [[0.3, 0.42], [0.86, 0.95]], w: [0.8, 0.1] },
-      { name: 'case', hops: [[0.3, 0.65]], w: [0.15, 0], short: true },
+      { name: 'clear', hops: [[0.18, 0.66]], w: [0.3, 1] },
+      { name: 'ride up, hop off', hops: [[0.6, 0.72]], w: [0.8, 0.1] },
+      { name: 'roll', hops: [], w: [0.3, 0] },
+      { name: 'case', hops: [[0.18, 0.3]], w: [0.15, 0], short: true },
     ],
   },
   triple: {

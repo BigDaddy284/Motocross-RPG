@@ -80,9 +80,9 @@ export interface Tunnel {
   walk: boolean;
 }
 /** The flat top of each jump that can carry a tunnel, as shares of the section: the hole is cut within it. */
-export const DECKS: Record<string, [number, number]> = { tabletop: [0.32, 0.6], step_on: [0.34, 0.6], step_up: [0.7, 0.84] };
+export const DECKS: Record<string, [number, number]> = { tabletop: [0.32, 0.6], step_on: [0.34, 0.6], step_up: [0.36, 0.58] };
 /** How far along each such jump its sides are concrete walls (part way up the faces either side of the deck). */
-export const WALLS: Record<string, [number, number]> = { tabletop: [0.2, 0.76], step_on: [0.27, 0.68], step_up: [0.6, 0.92] };
+export const WALLS: Record<string, [number, number]> = { tabletop: [0.2, 0.76], step_on: [0.27, 0.68], step_up: [0.24, 0.72] };
 /** The width of a pedestrian tunnel's hole, in grid units. */
 export const WALK_HOLE = 1.2;
 

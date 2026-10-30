@@ -76,8 +76,8 @@ describe('start official', () => {
       farm.scenery = [...farm.scenery!.filter((it) => it.type !== OFFICIAL_ITEM), { type: OFFICIAL_ITEM, x, y, route }];
       return placedOfficial(farm, parts).problems.join(' | ');
     };
-    expect(set(46.4, 48.2, [[46.2, 45.2], [45.5, 41.6]])).toBe('');
-    expect(set(46.4, 48.2, [[46.2, 45.2], [45.5, 41.6], [54, 41.6]])).toMatch(/longer than the 8 they can walk/);
+    expect(set(46.4, 48.2, [[46.2, 45.2], [47.5, 41.6]])).toBe('');
+    expect(set(46.4, 48.2, [[46.2, 45.2], [47.5, 41.6], [54, 41.6]])).toMatch(/longer than the 8 they can walk/);
     // Through the hay bale at 50, 41.5.
     expect(set(47, 41.6, [[53, 41.6]])).toMatch(/walks through scenery at/);
     // Across the start straight just behind the gate (36, 46), where the riders line up.
