@@ -286,6 +286,12 @@ Testing aids to take out before the final release:
 
 - **Shift pay boost.** `testPayMultiplier` in `world.json` (5× for Alpha v1.1). The `moneymoneymoney` money cheat was removed for the Alpha v1.1 release.
 
+## Later, once Area 2 is under way
+
+Logged so they are not forgotten, not planned for a build yet:
+
+- **Blender-made models in the race view** (Boss, 30 Oct 2026). Everything in the race view is built in code from three.js boxes and planes: the track, jumps, tunnels, riders, bikes, scenery and the start official. No model files are loaded. To let a modeller work in Blender: add a glTF loader, let each scenery type in `trackParts.json` name a `.glb` under `public/assets/`, and match the scale (one grid unit is one metre). Static scenery first (bales, stands, arch, pit boards); riders and bikes need rigging and animation and come later.
+
 ## How the project is laid out
 
 | Path | What it holds |
