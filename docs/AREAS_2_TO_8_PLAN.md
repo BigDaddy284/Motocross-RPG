@@ -187,7 +187,7 @@ Every area has the same base set, so the columns below list only what's **new**:
 
 ### Area 5: Northern Works (quarry, old industry, rock and dust)
 
-- **Story:** **the Modifying Machine** (below) and **Sponsored Rides**. Sponsor offers open after the Local Champion championship (Spec 16), and the first sponsor brings a branded frame and an outfit. Area Champion Louie Gizard.
+- **Story:** **the Modifying Machine** quest starts here (below), and **Sponsored Rides**. Sponsor offers open after the Local Champion championship (Spec 16), and the first sponsor brings a branded frame and an outfit. Area Champion Louie Gizard.
 - **Batch job:** **Frame works** (frames). Minigame: welding (Welding). This is the only way to get a better frame without a sponsor. Pay about £2 a part, batch 50 (**Decision:** frames are worth 10 times a top end, so maybe a smaller batch).
 - **Fitness:** **Rowing** on the old canal (Endurance).
 - **Rider training:** rock garden (Balance), shadow passing with a local pro (Overtaking).
@@ -198,16 +198,15 @@ Every area has the same base set, so the columns below list only what's **new**:
 
 #### The Modifying Machine storyline (Area 5)
 
-The modifier unit in the Industrial Zone is already built, and its owner stands in it saying nothing until later. This story uses that unit rather than building a second machine.
+The machine stays in the Industrial Zone unit in Area 1, where it's already built, and it's broken until this quest line fixes it (Boss, 30 Oct 2026).
 
-1. **The rumour.** When Area 5 opens, Manny Festo's news mentions a tuner up at the old works whose parts "keep turning up on podium bikes".
-2. **The tuner.** In Northern Works, the player finds the modifier machine's owner *(name needed)* trying to get the machine running again in an old mill. It was in storage while they worked the northern circuit.
-3. **The tasks.** Three steps, each teaching part of the rules:
-   - Run a short batch at the Frame works, to show that manufacturing is the skilled way to get modifiers.
-   - Bring back a part with no modifiers at 80% condition or better, which is the machine's entry rule.
-   - Help move the machine back to the Industrial Zone unit, with the motor loaded.
-4. **The first go.** It's free and can't break the part. After it, the normal rules apply: a fee of £20 at Grade 1 that doubles each grade, a 1 in 10 chance the part breaks, no rerolls, and all three modifiers positive about 1 in 10,000 (Spec 6).
-5. **After that**, the machine is open in the Industrial Zone unit for good. **Decision:** should there also be a machine in Northern Works, so the player doesn't have to go back to Area 1 each time?
+1. **The start.** When Area 5 opens, Manny Festo's news mentions the modifier machine owner *(name needed)*, whose machine in the Industrial Zone has been broken for years. In Northern Works the player meets someone who knows them and sends the player to help.
+2. **Back through the past areas.** The tasks take the player back through Areas 1 to 4, tracking down what the machine needs. Along the way the player gets **two parts** for the machine's first test. Each is either a worn part they have to repair on the way, or the kept part from a batch they complete.
+3. **Fixing the machine.** The quest ends in the Industrial Zone unit with the player fixing the machine themselves. This step is locked behind a Mechanical Engineer level (**Decision:** which level).
+4. **The first test, still part of the quest:**
+   - **Part one disappears.** The machine breaks it for good, and the owner says something like "Whoops, forgot to tell you about that." Then they explain the rules: a 1 in 10 chance of losing the part on every go, no rerolls, and parts must have no modifiers and be at 80% condition or better.
+   - **Part two comes out at +1, −1, −1.** The owner says "Better luck next time, but at least it didn't disappear."
+5. **After that**, the quest line ends and the machine is open for good, at the normal rules: a fee of £20 at Grade 1 that doubles each grade, a 1 in 10 break chance, and all three modifiers positive about 1 in 10,000 (Spec 6). There's only one machine in the game, the one in Area 1.
 
 ### Area 6: Highlands (hills, moorland, wind, long climbs)
 
@@ -296,7 +295,7 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 4. ~~Phoenix MX clothing~~ Settled: a small rack at Phoenix MX in Area 2, buyable once the Area 2 house unlocks the wardrobe (Boss, 30 Oct 2026).
 5. ~~The class dealer~~ Settled: Bill Rothon at Moto78 sells the new class frame to riders who don't take the championship winner's sponsorship (Boss, 30 Oct 2026).
 6. **Energy drinks (parked until closer to Area 4):** a drinks van at the venues (my recommendation), their own shop, or Moto78 only. And confirm Area 4 over the Spec's "from 125cc Youth".
-7. **The Modifying Machine:** in the Industrial Zone only after the Area 5 story, or in Northern Works as well?
+7. ~~A second Modifying Machine~~ Settled: one machine, in Area 1, fixed by a quest line that starts in Area 5 (Boss, 30 Oct 2026). Still open: the Mechanical Engineer level needed to fix it.
 8. **The modifier machine owner's name.**
 9. **Batch jobs per area:** is one new facility per area right (Area 6 gets two), and are you happy with the Frame works in Area 5 as the way to make better frames without a sponsor?
 10. **Houses:** one tier in Areas 2, 3, 5, 6 and 8 (none new in 4 and 7), or a different spread?
