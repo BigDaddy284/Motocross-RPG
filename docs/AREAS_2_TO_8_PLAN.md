@@ -202,7 +202,7 @@ The machine stays in the Industrial Zone unit in Area 1, where it's already buil
 
 1. **The start.** When Area 5 opens, Manny Festo's news mentions the modifier machine owner *(name needed)*, whose machine in the Industrial Zone has been broken for years. In Northern Works the player meets someone who knows them and sends the player to help.
 2. **Back through the past areas.** The tasks take the player back through Areas 1 to 4, tracking down what the machine needs. Along the way the player gets **two parts** for the machine's first test. Each is either a worn part they have to repair on the way, or the kept part from a batch they complete.
-3. **Fixing the machine.** The quest ends in the Industrial Zone unit with the player fixing the machine themselves. This step is locked behind a Mechanical Engineer level (**Decision:** which level).
+3. **Fixing the machine.** The quest ends in the Industrial Zone unit with the player fixing the machine themselves. This step needs **Mechanical Engineer 30** (Boss, 30 Oct 2026).
 4. **The first test, still part of the quest:**
    - **Part one disappears.** The machine breaks it for good, and the owner says something like "Whoops, forgot to tell you about that." Then they explain the rules: a 1 in 10 chance of losing the part on every go, no rerolls, and parts must have no modifiers and be at 80% condition or better.
    - **Part two comes out at +1, −1, −1.** The owner says "Better luck next time, but at least it didn't disappear."
@@ -295,7 +295,7 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 4. ~~Phoenix MX clothing~~ Settled: a small rack at Phoenix MX in Area 2, buyable once the Area 2 house unlocks the wardrobe (Boss, 30 Oct 2026).
 5. ~~The class dealer~~ Settled: Bill Rothon at Moto78 sells the new class frame to riders who don't take the championship winner's sponsorship (Boss, 30 Oct 2026).
 6. **Energy drinks (parked until closer to Area 4):** a drinks van at the venues (my recommendation), their own shop, or Moto78 only. And confirm Area 4 over the Spec's "from 125cc Youth".
-7. ~~A second Modifying Machine~~ Settled: one machine, in Area 1, fixed by a quest line that starts in Area 5 (Boss, 30 Oct 2026). Still open: the Mechanical Engineer level needed to fix it.
+7. ~~A second Modifying Machine~~ Settled: one machine, in Area 1, fixed by a quest line that starts in Area 5 (Boss, 30 Oct 2026). Fixing it needs Mechanical Engineer 30.
 8. **The modifier machine owner's name.**
 9. **Batch jobs per area:** is one new facility per area right (Area 6 gets two), and are you happy with the Frame works in Area 5 as the way to make better frames without a sponsor?
 10. **Houses:** one tier in Areas 2, 3, 5, 6 and 8 (none new in 4 and 7), or a different spread?
