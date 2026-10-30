@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { bikeStats, conditionFactor, formatMoney, type Bike } from '../core/career';
 import { formatTime, gateBonus, type LapTrace, type MotoSim, type RaceEvent, type RiderResult } from '../core/race';
 import { PLAYER_ID, RaceDay, applyRide, playerEntrant, practiceSim, sumXp, trackById, type MotoRecord, type VenueDef } from '../core/raceDay';
-import { Knockout, type KnockoutHeat } from '../core/knockout';
+import { Knockout, type KnockoutHeat, roundName } from '../core/knockout';
 import { finishChampionship, nextRoundVenue, rewardTexture, recordRound, roundOptions, standings, titlePossible, type ActiveChampionship, type ChampionshipDef } from '../core/championship';
 import { noteActivity } from '../core/shops';
 import { challengePrize, rigChallenge, type ChallengeDef } from '../core/challenge';
@@ -1630,8 +1630,8 @@ export class RaceScene extends Phaser.Scene {
         gateButtons.push(b);
       }
     }
-    this.screen.add(this.add.rectangle(W / 2, y, gw - 10, 46, 0xc8302a, 0.8));
-    this.text(W / 2, y, 'Starter', 16).setOrigin(0.5);
+    // The starter's box: a plain black box (Boss, 30 Oct 2026).
+    this.screen.add(this.add.rectangle(W / 2, y, gw - 10, 46, 0x000000).setStrokeStyle(2, COLORS.panelLight));
     this.box(100, 296, 1080, 290);
     const message = this.messagePicker(310);
     this.text(130, 470, 'Your starting message holds to the finish line.', 19, COLORS.cream);
@@ -1763,11 +1763,70 @@ export class RaceScene extends Phaser.Scene {
     this.showKoBracket(heat);
   }
 
-  /** The bracket so far: each round's heats with who went through (✓), then the player's next heat. */
+  /**
+   * The bracket so far, drawn two-sided like a printed tournament bracket (Boss, 30 Oct 2026): the
+   * top half of the first round down the left, the bottom half down the right, each round a column
+   * nearer the middle and the final in the centre. Rounds not drawn up yet are empty boxes.
+   */
   private showKoBracket(next: KnockoutHeat): void {
     const ko = this.ko!;
     this.clear();
     this.header('The bracket', this.dayTitle());
+    const first = ko.rounds[0].heats.length;
+    if (first < 2 || (first & (first - 1)) !== 0) return this.showKoBracketColumns(next);
+    const depth = Math.log2(first);
+    const g = this.add.graphics().lineStyle(2, COLORS.muted, 0.9);
+    this.screen.add(g);
+    const top = 128;
+    const bottom = 620;
+    const boxW = 158;
+    const boxH = 82;
+    // Columns: depth on the left, the final, then depth on the right.
+    const colW = (W - 40) / (2 * depth + 1);
+    const colX = (c: number) => 20 + colW * (c + 0.5);
+    const boxAt = (r: number, i: number) => {
+      if (r === depth) return { x: colX(depth), y: (top + bottom) / 2, side: 0 };
+      const half = first >> (r + 1);
+      const side = i < half ? -1 : 1;
+      const j = side < 0 ? i : i - half;
+      return { x: colX(side < 0 ? r : 2 * depth - r), y: top + ((j + 0.5) * (bottom - top)) / half, side };
+    };
+    const who = (id: string) => (id === PLAYER_ID ? this.save.rider.name : (this.names.get(id) ?? id));
+    for (let r = 0; r <= depth; r++) {
+      const round = ko.rounds[r];
+      const n = first >> r;
+      const title = round?.name ?? roundName(n, n * ko.rules.heatSize);
+      for (const c of r === depth ? [depth] : [r, 2 * depth - r]) this.text(colX(c), 104, title, 14, COLORS.accent).setOrigin(0.5, 0);
+      for (let i = 0; i < n; i++) {
+        const { x, y, side } = boxAt(r, i);
+        // The elbow to the box this heat's riders go on to.
+        if (r < depth) {
+          const to = boxAt(r + 1, i >> 1);
+          const from = x - (side * boxW) / 2;
+          const into = to.x + (side * boxW) / 2;
+          const mid = (from + into) / 2;
+          g.lineBetween(from, y, mid, y).lineBetween(mid, y, mid, to.y).lineBetween(mid, to.y, into, to.y);
+        }
+        const heat = round?.heats[i];
+        const mine = !!heat?.riders.includes(PLAYER_ID);
+        const box = this.add.rectangle(x, y, boxW, boxH, COLORS.ink).setStrokeStyle(heat === next ? 3 : 2, heat === next ? COLORS.accent : COLORS.panelLight);
+        this.screen.add(box);
+        if (!heat) continue;
+        const pts = round.final ? ko.points(heat) : null;
+        const lines = heat.riders.map((id) => {
+          const mark = !round.final && heat.through.includes(id) ? '✓' : ' ';
+          const tail = pts && heat.runs.length ? ` ${pts.get(id)}` : '';
+          return `${mark}${who(id).slice(0, 17 - tail.length).padEnd(17 - tail.length)}${tail}`;
+        });
+        this.text(x - boxW / 2 + 6, y - boxH / 2 + 4, [round.final ? 'Final' : `Heat ${i + 1}`, ...lines].join('\n'), 12, mine ? COLORS.accent : COLORS.cream, { lineSpacing: 1 }).setFontFamily('Consolas, "Courier New", monospace');
+      }
+    }
+    this.koBracketFooter(next);
+  }
+
+  /** The bracket for a field that does not fill one: each round's heats in columns. */
+  private showKoBracketColumns(next: KnockoutHeat): void {
+    const ko = this.ko!;
     const who = (id: string) => (id === PLAYER_ID ? '▶ You' : `  ${this.names.get(id) ?? id}`);
     // A column for every four heats: the round of 32 takes two.
     const cols: { title: string; heats: KnockoutHeat[]; final: boolean }[] = [];
@@ -1784,8 +1843,13 @@ export class RaceScene extends Phaser.Scene {
       }
       this.text(30 + ci * colW, 104, lines.join('\n'), 13, COLORS.cream, { lineSpacing: 1 }).setFontFamily('Consolas, "Courier New", monospace');
     });
+    this.koBracketFooter(next);
+  }
+
+  private koBracketFooter(next: KnockoutHeat): void {
+    const ko = this.ko!;
     const round = ko.rounds[next.round];
-    this.text(W / 2, 640, `The first ${ko.rules.through} in each heat go through (✓).`, 16, COLORS.muted).setOrigin(0.5, 0);
+    this.text(40, 670, `The first ${ko.rules.through} in each heat go through (✓) to the next box along. Your heats are in orange.`, 16, COLORS.muted).setOrigin(0, 0.5);
     this.btn(1090, 670, round.final ? 'To the final' : `${round.name}: heat ${next.index + 1}`, () => this.showKoHeatStart(next), 300, 50);
   }
 

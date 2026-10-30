@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { newCareerState } from '../src/core/career';
 import { checkContent } from '../src/core/content';
-import { finalPoints, Knockout, KNOCKOUT_FIELD, roundName, snakeHeats } from '../src/core/knockout';
+import { bracketOrder, finalPoints, Knockout, KNOCKOUT_FIELD, roundName, snakeHeats } from '../src/core/knockout';
 import { loadModTracks, modVenue, readModTrack } from '../src/core/modTracks';
 import { MotoSim } from '../src/core/race';
 import { entryFee, PLAYER_ID, playerEntrant } from '../src/core/raceDay';
@@ -159,6 +159,23 @@ describe('No-Turn Takedown knockouts', () => {
     expect(places.slice(4, 8).every((p) => p.reached === 'Semi-finals')).toBe(true);
     const day = k.dayResult();
     expect(day.position).toBe(places.find((p) => p.player)!.position);
+  });
+
+  it('lays the heats out as a bracket: each heat fed by the two beside it, seeds 1 and 2 only meeting in the final', () => {
+    expect(bracketOrder(8)).toEqual([1, 8, 4, 5, 2, 7, 3, 6]);
+    const k = knockout(3);
+    const s = k.startSeeding('steady');
+    s.runToEnd();
+    k.finishSeeding(s);
+    const tops = k.rounds[0].heats.map((h) => k.seedOrder.indexOf(h.riders[0]) + 1);
+    expect(tops).toEqual([1, 8, 4, 5, 2, 7, 3, 6]);
+    while (!k.done) k.autoRun(k.next!);
+    for (let r = 1; r < k.rounds.length; r++) {
+      k.rounds[r].heats.forEach((h, i) => {
+        const fed = [...k.rounds[r - 1].heats[2 * i].through, ...k.rounds[r - 1].heats[2 * i + 1].through];
+        expect([...h.riders].sort()).toEqual(fed.sort());
+      });
+    }
   });
 
   it('runs every other heat by itself, stopping at the player’s, and the same seed gives the same day', () => {

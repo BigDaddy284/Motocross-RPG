@@ -76,6 +76,18 @@ export function snakeHeats(ids: string[], size: number): string[][] {
   return heats;
 }
 
+/**
+ * Where each seed's heat sits in a bracket of n heats (n a power of two), top to bottom: for 8,
+ * seeds 1, 8, 4, 5, 2, 7, 3, 6, so seeds 1 and 2 can only meet in the final.
+ */
+export function bracketOrder(n: number): number[] {
+  let order = [1];
+  while (order.length < n) order = order.flatMap((s) => [s, 2 * order.length + 1 - s]);
+  return order;
+}
+
+const isPow2 = (n: number) => n > 0 && (n & (n - 1)) === 0;
+
 export class Knockout {
   readonly field: Entrant[];
   readonly rules: KnockoutRules;
@@ -161,13 +173,27 @@ export class Knockout {
     return this.seeding;
   }
 
-  /** The next round from the riders still in, in seeding order. */
+  /**
+   * The next round. The first is snaked from the seeding times and laid out as a bracket; after
+   * that each heat is the riders through from the two heats beside it in the round before, as on
+   * a drawn bracket (Boss, 30 Oct 2026). A field that does not fill a bracket is snaked afresh.
+   */
   private drawRound(ids: string[]): void {
     const inSeedOrder = this.seedOrder.filter((id) => ids.includes(id));
     const final = inSeedOrder.length <= this.rules.heatSize;
-    const groups = final ? [inSeedOrder] : snakeHeats(inSeedOrder, this.rules.heatSize);
+    const prev = this.rounds.at(-1);
+    const bySeed = (a: string, b: string) => this.seedOrder.indexOf(a) - this.seedOrder.indexOf(b);
+    let groups: string[][];
+    if (prev && isPow2(prev.heats.length) && prev.heats.length > 1 && 2 * this.rules.through <= this.rules.heatSize) {
+      groups = [];
+      for (let i = 0; i < prev.heats.length; i += 2) groups.push([...prev.heats[i].through, ...prev.heats[i + 1].through].sort(bySeed));
+    } else if (final) groups = [inSeedOrder];
+    else {
+      groups = snakeHeats(inSeedOrder, this.rules.heatSize);
+      if (isPow2(groups.length)) groups = bracketOrder(groups.length).map((s) => groups[s - 1]);
+    }
     const round = this.rounds.length;
-    this.rounds.push({ name: roundName(groups.length, inSeedOrder.length), final, heats: groups.map((riders, index) => ({ round, index, riders, runs: [], through: [] })) });
+    this.rounds.push({ name: roundName(groups.length, inSeedOrder.length), final: groups.length === 1, heats: groups.map((riders, index) => ({ round, index, riders, runs: [], through: [] })) });
   }
 
   // ---- heats ----
