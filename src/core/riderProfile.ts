@@ -40,6 +40,8 @@ export interface RiderProfile {
   seed: number;
   /** The player's own rider (never the field's showman for tricks, tricks.ts). */
   player?: boolean;
+  /** The player's Rider Ability level for tricks, once unlocked (Entrant.tricks). */
+  tricks?: number;
 }
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
@@ -77,5 +79,6 @@ export function riderProfile(e: Entrant, stats: Record<string, number>, ceiling:
     lane: (hash(`${e.id}:lane`) - 0.5) * 1.2,
     seed,
     player: e.player,
+    ...(e.tricks !== undefined ? { tricks: e.tricks } : {}),
   };
 }

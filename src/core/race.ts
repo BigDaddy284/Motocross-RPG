@@ -283,6 +283,11 @@ export interface Entrant {
    * rider already out on track when you arrive set off before 0.
    */
   startAt?: number;
+  /**
+   * The player's Rider Ability level for whips and scrubs on the race screen (tricks.ts), once the
+   * Rider Trainer has taught them; left out until then. Never changes a result.
+   */
+  tricks?: number;
 }
 
 /** Events name the section by index; -1 is the start straight. */

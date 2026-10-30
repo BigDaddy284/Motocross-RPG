@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { TrackSurface } from '../src/core/trackSurface';
-import { TRICK_JUMP, trickPose, type Trick } from '../src/core/tricks';
+import { newCareerState } from '../src/core/career';
+import { playerEntrant } from '../src/core/raceDay';
+import { riderProfile } from '../src/core/riderProfile';
+import { xpForLevel } from '../src/core/skills';
+import { playerTrickChances, TRICK_JUMP, trickChance, trickFor, TRICKS_FLAG, trickPose, type Trick } from '../src/core/tricks';
 import { content, race } from './raceHelpers';
 
 /** Every trick thrown in a race, by rider, read off the riders' flights over the whole race. */
@@ -89,5 +93,34 @@ describe('whips and scrubs over the jumps (Boss, 30 Oct 2026)', () => {
       if (scrubbed < jumped - 1e-6) lower++;
     }
     expect(lower).toBeGreaterThan(0);
+  });
+});
+
+describe('the player’s whips and scrubs (Boss, 30 Oct 2026)', () => {
+  it('come with Rider Ability: whips from level 30 up to 70% at 70, scrubs from 60 up to 70% at 99', () => {
+    expect(playerTrickChances(29)).toEqual({ whip: 0, scrub: 0 });
+    const w30 = playerTrickChances(30).whip;
+    expect(w30).toBeGreaterThan(0);
+    expect(w30).toBeLessThan(0.1);
+    expect(playerTrickChances(50).whip).toBeGreaterThan(w30);
+    expect(playerTrickChances(70).whip).toBeCloseTo(0.7);
+    expect(playerTrickChances(99).whip).toBeCloseTo(0.7);
+    expect(playerTrickChances(59).scrub).toBe(0);
+    expect(playerTrickChances(60).scrub).toBeGreaterThan(0);
+    expect(playerTrickChances(80).scrub).toBeLessThan(0.7);
+    expect(playerTrickChances(99).scrub).toBeCloseTo(0.7);
+  });
+
+  it('need the Rider Trainer: without the flag the player never throws one, however good a jumper', () => {
+    const career = newCareerState(content.bikes, content.story, content.bikes.brands[0].id);
+    for (const c of content.skills.leads.find((l) => l.id === 'rider')!.children) career.skills.xp[c.id] = xpForLevel(80);
+    const before = playerEntrant(content, career, 'You');
+    expect(before.tricks).toBeUndefined();
+    const p = { ...riderProfile(before, {}, 1), jump: 1 };
+    expect(trickChance(p, false)).toBe(0);
+    expect(trickFor(p, false, 0, 0, 0, 20)).toBeNull();
+    const after = playerEntrant(content, career, 'You', 0, { [TRICKS_FLAG]: true });
+    expect(after.tricks).toBeGreaterThanOrEqual(70);
+    expect(trickChance(riderProfile(after, {}, 1), false)).toBeCloseTo(Math.max(...Object.values(playerTrickChances(after.tricks!))));
   });
 });

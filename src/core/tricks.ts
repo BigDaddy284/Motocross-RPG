@@ -20,10 +20,23 @@ export interface Trick {
 }
 
 /**
- * TEST ONLY, REMOVE BEFORE RELEASE (Boss, 30 Oct 2026): the player whips and scrubs as often as the
- * showman, to see them in testing. Set false (or delete it) for release.
+ * The player's tricks (Boss, 30 Oct 2026). They come with Rider Ability once the Rider Trainer (an
+ * NPC planned for Area 3) has taught them, which sets this save flag; nothing sets it yet, so for
+ * now only the CPU riders throw them, the showman most of all, to show what is to come.
  */
-export const TEST_PLAYER_TRICKS = true;
+export const TRICKS_FLAG = 'rider_trainer_tricks';
+
+/**
+ * The player's chance of a whip and of a scrub on a big hop, by Rider Ability level: whips from
+ * level 30, starting low and creeping up to 70% at level 70; scrubs from level 60, creeping up to
+ * 70% at level 99 (Boss, 30 Oct 2026).
+ */
+export function playerTrickChances(level: number): { whip: number; scrub: number } {
+  const creep = (from: number, to: number) => (level < from ? 0 : Math.min(PLAYER_TRICK_MAX, PLAYER_TRICK_MIN + ((PLAYER_TRICK_MAX - PLAYER_TRICK_MIN) * (level - from)) / (to - from)));
+  return { whip: creep(30, 70), scrub: creep(60, 99) };
+}
+const PLAYER_TRICK_MIN = 0.05;
+const PLAYER_TRICK_MAX = 0.7;
 
 /** Hops shorter than this many metres are too short to throw the bike about on. */
 export const TRICK_HOP = 9;
@@ -49,6 +62,10 @@ export function showmanOf(profiles: Iterable<RiderProfile>): string | null {
 
 /** How likely a rider is to throw a trick on a big hop: the showman most times, a skilled jumper sometimes, everyone else never. */
 export function trickChance(p: RiderProfile, showman: boolean): number {
+  if (p.player) {
+    const c = playerTrickChances(p.tricks ?? 0);
+    return Math.max(c.whip, c.scrub);
+  }
   if (showman) return SHOWMAN;
   if (p.jump < TRICK_JUMP) return 0;
   return Math.min(0.7, 0.15 + (p.jump - TRICK_JUMP));
@@ -64,8 +81,10 @@ export function trickFor(p: RiderProfile, showman: boolean, lap: number, si: num
   if (chance <= 0) return null;
   const rnd = seededRng(mixSeed(mixSeed(mixSeed(Math.floor(p.seed * 4294967296), lap + 1), si + 7), hop + 3));
   if (rnd() >= chance) return null;
-  // Scrubbers scrub, floaters whip; a showman mixes them up.
-  const scrub = rnd() < Math.max(showman ? 0.4 : 0, 0.2 + 0.6 * p.scrub);
+  // Scrubbers scrub, floaters whip; a showman mixes them up. The player's mix is by level.
+  const pc = p.player ? playerTrickChances(p.tricks ?? 0) : null;
+  const scrubShare = pc ? pc.scrub / (pc.whip + pc.scrub) : Math.max(showman ? 0.4 : 0, 0.2 + 0.6 * p.scrub);
+  const scrub = rnd() < scrubShare;
   // Each rider has a side they like to throw it, and now and then goes the other way.
   const side: 1 | -1 = p.seed * 97 - Math.floor(p.seed * 97) < 0.5 ? 1 : -1;
   let dir: 1 | -1 = rnd() < 0.8 ? side : (-side as 1 | -1);
