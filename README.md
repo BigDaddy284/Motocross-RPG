@@ -279,6 +279,8 @@ After the flag each finisher rides a slow cool-down lap down the nearer edge of 
 
 Riders sit on the race-day bike model from the vehicles thread (Boss, 25 Oct 2026: "use the model from the coloured race day rides"): a youth bike for the 50 to 85 classes and an adult bike above, in the bike's brand colours, with the rider in their gear colours (`src/world/raceBike.ts`). It only changes how a rider looks. The tyres touch the ground exactly where the old bike's wheels did, so every rider takes the same line round every track as before.
 
+**Finish arch fireworks (Boss, 30 Oct 2026).** On a Supercross, EnduroCross or No-Turn Takedown track, fireworks go up from the tops of the finish arch's posts as the winner comes to the line, starting a little over a second before they cross it, and the show runs for about six seconds (`src/core/fireworks.ts`, drawn by `src/world/fireworks.ts`). Every moto has them, and so does every heat and final run of a No-Turn Takedown. Practice, qualifying and the seeding run, where nobody races to the line first, don't. A track with no finish arch fires them from either side of the finish line.
+
 Scenery may not stand on the racing surface, the start straight included; the game's checks and the track editor's **Checks** refuse it (see the toolkit instructions).
 
 ### Checks

@@ -19,6 +19,8 @@ import { FACES_TRACK, flaggerParts, marshalParts, pitCrewParts, starterBox, trac
 import { APPROACH, assignCrews, BOARD_PAST, boardOut, boardText, crewSpot, FLAGGER_ITEM, flagState, PIT_CREW_ITEM } from '../core/finishCrew';
 import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../core/marshal';
 import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
+import { FIREWORK_KINDS, fireworksDue } from '../core/fireworks';
+import { Fireworks } from './fireworks';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
 // isometric camera in the spirit of Super Off Road's overhead arcade view. The track is solid
@@ -257,6 +259,16 @@ export class RaceView {
   private board: { stand: THREE.Group; panel: THREE.Group; arms: THREE.Group[]; legs: THREE.Group[]; route: OfficialSpot[]; length: number } | null = null;
   /** False for practice, which has no start procedure: the start board stays down. */
   hasStart = true;
+  /**
+   * True for a race the winner crosses the line first in (not practice, qualifying or a No-Turn
+   * Takedown's seeding run): on a Supercross, EnduroCross or No-Turn Takedown track the finish arch
+   * sends up fireworks as the winner comes to the line (core/fireworks.ts).
+   */
+  fireworks = false;
+  private show: Fireworks | null = null;
+  /** The tops of the finish arches' posts, where the fireworks go up from. */
+  private readonly archTops: THREE.Vector3[] = [];
+  private readonly kindId: string;
   /** Frame times in ms (whole update, the 3D draw, and handing the picture to Phaser), for the performance check. */
   readonly frameMs: number[] = [];
   readonly renderMs: number[] = [];
@@ -283,6 +295,7 @@ export class RaceView {
     ({ w: this.gw, h: this.gh } = gridOf(track));
     this.lapMetres = lapMetres(track);
     const kind = trackKind(parts, track);
+    this.kindId = kind.id;
     this.follow = true;
     // A view wider than scaleWidth shows more track at the same scale, rather than the same track bigger.
     this.viewUnits = (VIEW_UNITS[kind.id] ?? 32) * (opts.scaleWidth ? w / opts.scaleWidth : 1);
@@ -816,6 +829,7 @@ export class RaceView {
         post.castShadow = true;
         post.receiveShadow = true;
         out.push(post);
+        this.archTops.push(new THREE.Vector3(p.x, top + 0.9, p.z));
       }
       const face = this.mat(0xffffff, { map: this.textTexture(def?.text || 'FINISH', color) });
       const side = this.mat(shade(color, 0.8));
@@ -1598,6 +1612,10 @@ export class RaceView {
         const face = this.mat(0xffffff, { map: this.textTexture(text || 'FINISH', color) });
         const side = this.mat(shade(color, 0.8));
         add(this.boxMesh(w, 0.9, 0.35, [side, side, side, side, face, face], 0, 4.2, 0));
+        if (it === this.track.scenery?.[this.itemIndex(it)]) {
+          g.updateMatrixWorld();
+          for (const sx of [-1, 1]) this.archTops.push(g.localToWorld(new THREE.Vector3(sx * (w / 2 - 0.25), 5.1, 0)));
+        }
         break;
       }
       case 'start_gate': {
@@ -2448,6 +2466,10 @@ export class RaceView {
     this.updateStart(clock);
     if (this.marshals.length) this.updateMarshals(Math.min(0.1, dt), clock, riders.map((r) => r.pose));
     if (this.flaggers.length || this.crews.length) this.updateFinishCrew(Math.min(0.1, dt), clock, riders);
+    if (this.fireworks && FIREWORK_KINDS.has(this.kindId)) {
+      if (!this.show && fireworksDue(this.laps, riders.map((r) => r.pose), this.lapMetres)) this.show = new Fireworks(this.scene3, this.fireworkPosts(), clock, Math.round(this.track.id.length * 7919 + this.lapMetres), Math.max(4, (6 * this.renderer.domElement.width) / this.w));
+      this.show?.update(clock, dc);
+    }
     if (this.cheers.length) {
       const spots: { x: number; z: number }[] = [];
       for (const r of riders) { const b = this.bikes.get(r.pose.id); if (b && r.pose.state !== 'retired') spots.push({ x: b.root.position.x, z: b.root.position.z }); }
@@ -2846,6 +2868,17 @@ export class RaceView {
       g.fillStyle(r.color, 1).fillCircle(box.x + p.x * box.k, box.y + p.y * box.k, r.player ? 4 : 2.6);
       if (r.player) g.lineStyle(1.5, 0xffffff, 1).strokeCircle(box.x + p.x * box.k, box.y + p.y * box.k, 4);
     }
+  }
+
+  /** Where the fireworks go up from: the finish arches' post tops, or, with no arch, either side of the finish line. */
+  private fireworkPosts(): THREE.Vector3[] {
+    if (this.archTops.length) return this.archTops;
+    const s = this.surface;
+    const span = archSpan(this.track.width ?? DEFAULT_TRACK_WIDTH);
+    return [-1, 1].map((side) => {
+      const p = s.spot(0, (side * span) / 2 / s.hwAt(0));
+      return new THREE.Vector3(p.x, s.height(0, 0) + 5, p.z);
+    });
   }
 
   /** Lets the view go; `keepRenderer` leaves its renderer for the next view to reuse. */

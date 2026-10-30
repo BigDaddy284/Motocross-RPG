@@ -642,6 +642,9 @@ export class RaceScene extends Phaser.Scene {
     this.view.hasStart = !practice;
     // The flag man and the pit boards count the race's laps.
     this.view.setLaps(practice ? undefined : sim.totalLaps ?? undefined);
+    // Fireworks off the finish arch for the winner (core/fireworks.ts): not in practice, qualifying
+    // or a No-Turn Takedown's seeding run, where nobody wins a race to the line.
+    this.view.fireworks = !practice && !this.qualifying && !(this.ko && !this.koHeat);
     this.ui.me = this.text(30, 94, '', 18, COLORS.cream, { lineSpacing: 4, ...OVERLAY });
     this.box(right, 16, 334, dh - 160);
     // The standings show as many rows as fit above the log, scrolled to keep you in view.
