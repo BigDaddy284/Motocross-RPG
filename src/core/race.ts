@@ -272,6 +272,11 @@ export interface Entrant {
   player: boolean;
   /** Child skill levels. */
   skills: Record<string, number>;
+  /**
+   * The player only, once the Rider Trainer has taught whips and scrubs (TRICKS_FLAG): their Rider
+   * Ability level, which sets how often they throw them on the race screen (tricks.ts). Left out until then.
+   */
+  riderLevel?: number;
   bike: Bike;
   tactic: Tactic;
   /** Gate number from 0, best first. Lap 1 starts in gate order; in a sprint, the order riders leave the start line. */

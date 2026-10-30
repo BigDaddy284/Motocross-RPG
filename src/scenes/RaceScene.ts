@@ -177,12 +177,12 @@ export class RaceScene extends Phaser.Scene {
       const seed = (Math.random() * 2 ** 32) >>> 0;
       if (!champ && this.args.venue.track && isNoTurn(trackById(services.content, this.args.venue.track))) {
         // A No-Turn Takedown: a knockout, not motos (Boss, 30 Oct 2026).
-        this.ko = new Knockout(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name), seed, this.args.fee, alone);
+        this.ko = new Knockout(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name, 0, this.save.flags), seed, this.args.fee, alone);
         this.setupField();
         this.showKoSeedingStart();
         return;
       }
-      this.day = new RaceDay(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name), seed, this.args.fee, round, undefined, alone);
+      this.day = new RaceDay(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name, 0, this.save.flags), seed, this.args.fee, round, undefined, alone);
       this.setupField();
       if (this.day.qualifyingDue) this.showQualifyingStart();
       else this.showGatePick();
@@ -1483,7 +1483,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private goChallenge(def: ChallengeDef, message: string, auto: boolean): void {
-    const rig = rigChallenge(services.content, def, playerEntrant(services.content, this.save.career, this.save.rider.name), message);
+    const rig = rigChallenge(services.content, def, playerEntrant(services.content, this.save.career, this.save.rider.name, 0, this.save.flags), message);
     this.day = rig.day;
     this.setupField();
     this.sim = this.day.startMoto(message);
@@ -1528,7 +1528,7 @@ export class RaceScene extends Phaser.Scene {
 
   private startPractice(): void {
     const career = this.save.career;
-    this.sim = practiceSim(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name), (Math.random() * 2 ** 32) >>> 0, services.settings.get().gameplay.testRideAlone);
+    this.sim = practiceSim(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name, 0, this.save.flags), (Math.random() * 2 ** 32) >>> 0, services.settings.get().gameplay.testRideAlone);
     // You, and any riders already out on track (practiceRiders on the venue).
     this.sim.riders.forEach(({ e }, i) => {
       this.names.set(e.id, e.player ? 'You' : e.name);
