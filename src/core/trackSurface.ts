@@ -1,6 +1,7 @@
 import type { TrackDef } from './race';
 import { Elevation, hillsAt } from './elevation';
 import { DEFAULT_HEIGHTS, HOP_JUMPS, jumpShape } from './jumps';
+import { SCRUB_LAUNCH, type Trick } from './tricks';
 import { headingAt, isSprint, lapGeom, lapMetres, nearestOnLap, pointAt, sectionBounds, sectionTurns, startGeom, startHalfWidth, startHeadingAt, startPointAt, widthShare, type LapGeom, type StartGeom } from './trackGeom';
 import { DEFAULT_TRACK_WIDTH } from './trackParts';
 
@@ -56,6 +57,8 @@ export const LANDING = 0.72;
 export interface Flight {
   hops: [number, number][];
   launch: number;
+  /** The trick thrown on each hop, or null (tricks.ts); a scrub launches flatter. Left out, none. */
+  tricks?: (Trick | null)[];
 }
 /** How far back from a take-off the face's slope is read, in grid units. */
 const LIP_RUN = 1.2;
@@ -633,9 +636,12 @@ export class TrackSurface {
   flightY(f: number, lane: number, flight: Flight | null): number | null {
     if (!flight) return null;
     const x = f - Math.floor(f);
-    for (const [f0, f1] of flight.hops) {
+    for (let i = 0; i < flight.hops.length; i++) {
+      const [f0, f1] = flight.hops[i];
       if (x <= f0 || x >= f1) continue;
-      const hop = this.hop(f0, f1, lane, flight.launch);
+      // A scrub (tricks.ts) leaves the lip flatter and skims what is under it closer.
+      const scrub = flight.tricks?.[i]?.kind === 'scrub';
+      const hop = scrub ? this.hop(f0, f1, lane, flight.launch * SCRUB_LAUNCH, CLEAR * 0.4) : this.hop(f0, f1, lane, flight.launch);
       const t = (x - f0) / (f1 - f0);
       return hop.y0 + (hop.y1 - hop.y0) * t + 4 * hop.apex * t * (1 - t);
     }
@@ -645,8 +651,8 @@ export class TrackSurface {
   private readonly hops = new Map<string, { y0: number; y1: number; apex: number }>();
 
   /** The arc of a hop: its end heights and its apex above the straight line between them, in grid units. */
-  private hop(f0: number, f1: number, lane: number, launch: number): { y0: number; y1: number; apex: number } {
-    const key = `${f0.toFixed(5)}|${f1.toFixed(5)}|${lane.toFixed(2)}|${launch.toFixed(2)}`;
+  private hop(f0: number, f1: number, lane: number, launch: number, clear = CLEAR): { y0: number; y1: number; apex: number } {
+    const key = `${f0.toFixed(5)}|${f1.toFixed(5)}|${lane.toFixed(2)}|${launch.toFixed(2)}|${clear}`;
     const got = this.hops.get(key);
     if (got) return got;
     const y0 = this.height(f0, lane);
@@ -659,7 +665,7 @@ export class TrackSurface {
     // And it clears whatever stands between the lip and the landing.
     for (let k = 1; k < 12; k++) {
       const t = k / 12;
-      const need = (this.height(f0 + (f1 - f0) * t, lane) + CLEAR - (y0 + (y1 - y0) * t)) / (4 * t * (1 - t));
+      const need = (this.height(f0 + (f1 - f0) * t, lane) + clear - (y0 + (y1 - y0) * t)) / (4 * t * (1 - t));
       apex = Math.max(apex, need);
     }
     apex = Math.max(apex, this.units(0.2));
