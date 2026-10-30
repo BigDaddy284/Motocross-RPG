@@ -101,7 +101,7 @@ Tools also open some work:
 
 - **Back story:** he moved to Home Town from South Africa chasing the dream. He's raced all his life but never made the big leagues, and he's hoping this season is the one.
 - **Look:** 40s, white, ginger hair and ginger freckles, black jeans, and a white T-shirt with the shop logo on it.
-- **Art to update:** a sprite for him, the new J's Tools logo on his shirt, and the building name and sign. It adds each new set as the area that brings it opens, so the "Tool shop" lines in each area below mean what the Area 1 shop starts stocking then. A second tool shop in Area 5 might come later, but that isn't settled.
+- **Art to update:** a sprite for him, the new J's Tools logo on his shirt, and the building name and sign, and a South African flag on a wall inside the shop (Boss, 30 Oct 2026). It adds each new set as the area that brings it opens, so the "Tool shop" lines in each area below mean what the Area 1 shop starts stocking then. A second tool shop in Area 5 might come later, but that isn't settled.
 
 ### When a frame breaks
 
