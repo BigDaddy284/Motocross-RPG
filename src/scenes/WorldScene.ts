@@ -428,7 +428,7 @@ export class WorldScene extends Phaser.Scene {
     if (venue) {
       if (venue.office && !venue.locked) {
         const official = services.content.npcs.find((n) => n.id === venue.office);
-        // A named official (Joseph Halden at Farmland) goes by name, anyone else by the job.
+        // A named official (Joseph Halden, at every track: Boss, 30 Oct 2026) goes by name, anyone else by the job.
         const who = official && properName(official.name) ? official.name : `the ${official?.name.toLowerCase() ?? 'track official'}`;
         this.hud.toast(`${venue.name}: sign on with ${who} at the race office.`);
       } else this.openVenue(venue);
@@ -469,7 +469,7 @@ export class WorldScene extends Phaser.Scene {
     }
     const office = services.content.tracks.venues.find((v) => v.office === npc.id && v.map === this.map.id);
     if (office) {
-      // A one-off hello first (Joseph Halden introduces himself as Farmland's owner), then the office.
+      // A one-off hello first (Joseph Halden introduces himself: his family runs every track), then the office.
       const hello = this.talkRule(npc);
       const open = () => this.openVenue(office, () => this.faceBack(placement, character));
       if (!hello) return open();
