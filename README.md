@@ -39,6 +39,8 @@ It runs in a browser on desktop or on a phone held sideways, and saves automatic
 
   and open the address it prints (usually http://localhost:5173).
 
+- **Promo page:** `public/promo/index.html` is a plain page about the game (roadmap, help wanted for art and music, a link to Discussions), published beside the game at `promo/`. Edit it directly; it needs no build step.
+
 ### Controls
 
 | Action | Keyboard and mouse | Touch |

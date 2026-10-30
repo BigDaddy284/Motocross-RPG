@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Motocross RPG: The Road to Legend</title>
+  <meta name="description" content="A single-player, offline motocross career RPG, in early alpha. See the roadmap, play the test build and help with art and music.">
+  <meta property="og:title" content="Motocross RPG: The Road to Legend">
+  <meta property="og:description" content="Build your rider. Build your bike. Make your name in motocross. Early alpha: play it, follow the roadmap, help with art and music.">
+  <meta property="og:image" content="img/race-day.png">
+  <!-- The promo page: a plain HTML file published beside the game at promo/, so it needs no build step.
+       Links to the game are relative (../), so it works at the site root and in the test build folder. -->
+  <style>
+    :root {
+      --bg: #f6f2ea;
+      --panel: #ffffff;
+      --ink: #1f1b16;
+      --muted: #5f574c;
+      --line: #e3dccf;
+      --accent: #d9621b;
+      --accent-ink: #ffffff;
+      --done: #2f7d4a;
+      --now: #d9621b;
+      --next: #3a6ea5;
+      --later: #7a6f60;
+      --warn-bg: #fff4d6;
+      --warn-line: #e8c25a;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #16130f;
+        --panel: #221d17;
+        --ink: #f1ebe1;
+        --muted: #b3a998;
+        --line: #3a3229;
+        --accent: #f07a2e;
+        --accent-ink: #16130f;
+        --done: #5fbf7f;
+        --now: #f07a2e;
+        --next: #7aa8db;
+        --later: #a89c8a;
+        --warn-bg: #2e2612;
+        --warn-line: #8a6f22;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    a { color: var(--accent); }
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+    header.hero {
+      position: relative;
+      color: #fff;
+      background: #000 url("img/race-day.png") center / cover no-repeat;
+    }
+    header.hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(0,0,0,.6), rgba(0,0,0,.85));
+    }
+    header.hero .wrap { position: relative; padding-top: 72px; padding-bottom: 64px; }
+    .tag {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 999px;
+      background: var(--accent);
+      color: var(--accent-ink);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    h1 { font-size: clamp(32px, 6vw, 56px); line-height: 1.1; margin: 16px 0 8px; }
+    .lead { font-size: clamp(17px, 2.4vw, 21px); max-width: 640px; margin: 0 0 24px; }
+    .buttons { display: flex; flex-wrap: wrap; gap: 12px; }
+    .btn {
+      display: inline-block;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 700;
+      text-decoration: none;
+      background: var(--accent);
+      color: var(--accent-ink);
+    }
+    .btn.ghost { background: transparent; color: #fff; border: 2px solid rgba(255,255,255,.75); }
+    section { padding: 48px 0; border-bottom: 1px solid var(--line); }
+    h2 { font-size: 28px; margin: 0 0 8px; }
+    .sub { color: var(--muted); margin: 0 0 24px; max-width: 720px; }
+    .notice {
+      background: var(--warn-bg);
+      border: 1px solid var(--warn-line);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-top: -24px;
+      position: relative;
+    }
+    .notice strong { display: block; margin-bottom: 4px; }
+    .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 20px;
+    }
+    .card h3 { margin: 0 0 6px; font-size: 18px; }
+    .card p { margin: 0; color: var(--muted); }
+    .shots { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    figure { margin: 0; }
+    figure img { width: 100%; height: auto; display: block; border-radius: 8px; border: 1px solid var(--line); }
+    figcaption { font-size: 14px; color: var(--muted); margin-top: 6px; }
+    .roadmap { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .stage { border-top: 4px solid var(--c); }
+    .stage .label { color: var(--c); font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; }
+    .stage ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
+    .stage li { margin-bottom: 4px; }
+    .stage.done { --c: var(--done); }
+    .stage.now { --c: var(--now); }
+    .stage.next { --c: var(--next); }
+    .stage.later { --c: var(--later); }
+    .help .card { display: flex; flex-direction: column; gap: 8px; }
+    .help ul { margin: 0; padding-left: 18px; color: var(--muted); }
+    .small { font-size: 14px; color: var(--muted); }
+    footer { padding: 32px 0 48px; }
+    @media (max-width: 480px) {
+      header.hero .wrap { padding-top: 48px; padding-bottom: 48px; }
+      section { padding: 36px 0; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="wrap">
+      <span class="tag">Early alpha · free · offline</span>
+      <h1>Motocross RPG:<br>The Road to Legend</h1>
+      <p class="lead">Build your rider. Build your bike. Make your name in motocross. Start as an unknown rider with a broken 50cc and work your way up, one race day at a time.</p>
+      <div class="buttons">
+        <a class="btn" href="../">Play the alpha in your browser</a>
+        <a class="btn ghost" href="#help">Help make it</a>
+        <a class="btn ghost" href="https://github.com/BigDaddy284/the-motocross-rpg/discussions">Join the discussion</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <div class="notice" role="note">
+        <strong>This is an early alpha, made as a hobby.</strong>
+        Most of the art is placeholder, there's no music yet, and there will be bugs. Your career saves in the browser you play in, and updates can change things. It's free and offered as-is, with no release dates promised.
+      </div>
+    </div>
+
+    <section>
+      <div class="wrap">
+        <h2>What you can play today</h2>
+        <p class="sub">The whole early career loop works now: earn money, keep the bike going, race, level up, repeat.</p>
+        <div class="grid">
+          <div class="card"><h3>Start from nothing</h3><p>A broken 50cc, a little money and a mechanic in Home Town who gets you going.</p></div>
+          <div class="card"><h3>Earn your way</h3><p>Work shifts in the Industrial Zone making frame brackets and pistons.</p></div>
+          <div class="card"><h3>Look after the bike</h3><p>Every lap wears its parts. Buy better grades, repair, fit spares.</p></div>
+          <div class="card"><h3>Race three venues</h3><p>Farmland MX, Riverside Arena and Longmoor Enduro: two motos against 15 riders.</p></div>
+          <div class="card"><h3>Win the badge</h3><p>The Local Champion Championship: three rounds, qualifying and points for the Area 1 badge.</p></div>
+          <div class="card"><h3>Build your own tracks</h3><p>A track editor in the browser, and your tracks race in the game.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <h2>Screenshots</h2>
+        <p class="sub">From the alpha builds, with placeholder art.</p>
+        <div class="shots">
+          <figure><img src="img/home-town.png" alt="Home Town, with the player next to the old rusty truck" loading="lazy"><figcaption>Home Town and the old rusty truck</figcaption></figure>
+          <figure><img src="img/race-day.png" alt="Riders in the air over the double at Farmland MX" loading="lazy"><figcaption>Race day at Farmland MX</figcaption></figure>
+          <figure><img src="img/championship.png" alt="Live qualifying in a championship round" loading="lazy"><figcaption>Championship qualifying</figcaption></figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="roadmap">
+      <div class="wrap">
+        <h2>Roadmap</h2>
+        <p class="sub">Where the game is and where it's heading. This is a plan, not a promise: things move around, and there are no dates.</p>
+        <div class="roadmap">
+          <div class="card stage done">
+            <span class="label">Done</span>
+            <h3>Alpha v1 and v1.1</h3>
+            <ul>
+              <li>Career start, tutorial and Home Town</li>
+              <li>Shifts, parts wear, shops and repairs</li>
+              <li>Three race venues and race days</li>
+              <li>Local Champion Championship and the Area 1 badge</li>
+              <li>Player-made mod tracks</li>
+            </ul>
+          </div>
+          <div class="card stage now">
+            <span class="label">In testing now</span>
+            <h3>Alpha v1.5</h3>
+            <ul>
+              <li>Whips, scrubs and loop-outs on the big jumps</li>
+              <li>Crashes, and running back to the bike</li>
+              <li>Your bike strapped on the back of the truck</li>
+            </ul>
+          </div>
+          <div class="card stage next">
+            <span class="label">Next</span>
+            <h3>Finishing Area 1</h3>
+            <ul>
+              <li>Training for mechanic and fitness skills</li>
+              <li>Tool shop, job boards and the last NPCs</li>
+              <li>Exercise at home and the running track</li>
+              <li>Bike setup and tuning</li>
+            </ul>
+          </div>
+          <div class="card stage later">
+            <span class="label">Later</span>
+            <h3>The road to legend</h3>
+            <ul>
+              <li>Area 2 and bigger classes</li>
+              <li>Home and workshop upgrades, sponsors</li>
+              <li>Supercross, indoor and endurance events</li>
+              <li>Modding: custom skins, areas and tracks</li>
+              <li>Real art and music</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="help" class="help">
+      <div class="wrap">
+        <h2>Help wanted: artists and musicians</h2>
+        <p class="sub">The game needs a proper look and a sound of its own. If you'd like to volunteer and see your work in a motocross game, say hello. This is an unpaid hobby project, so there's no budget, but every contributor is credited in the game and here.</p>
+        <div class="grid">
+          <div class="card">
+            <h3>Pixel artists</h3>
+            <ul>
+              <li>Redesign of riders, bikes and riding gear</li>
+              <li>Town, industrial and venue tile sets</li>
+              <li>Buildings, interiors and NPC portraits</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>Musicians</h3>
+            <ul>
+              <li>Menu and title music</li>
+              <li>Town and workshop loops</li>
+              <li>Race day tracks</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>Sound designers</h3>
+            <ul>
+              <li>Engine sounds from 50cc up</li>
+              <li>Crowd, gate drop and crash effects</li>
+              <li>Menu and UI sounds</li>
+            </ul>
+          </div>
+        </div>
+        <p style="margin-top:24px"><a class="btn" href="https://github.com/BigDaddy284/the-motocross-rpg/discussions">Introduce yourself in Discussions</a></p>
+        <p class="small">Share a link to some of your work and what you'd like to make. Please only offer work that's yours to give, and say what licence it's under (for example CC BY 4.0) so it can be used in the game.</p>
+      </div>
+    </section>
+
+    <section id="discuss">
+      <div class="wrap">
+        <h2>Talk about the game</h2>
+        <p class="sub">The Discussions board is the game's community page: share screenshots and tracks you've built, suggest ideas, and follow announcements for each new build. You need a free GitHub account to post.</p>
+        <a class="btn" href="https://github.com/BigDaddy284/the-motocross-rpg/discussions">Open Discussions</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap small">
+      Motocross RPG: The Road to Legend is a single-player, offline hobby project, free under the <a href="https://github.com/BigDaddy284/the-motocross-rpg/blob/main/LICENSE">MIT licence</a>, offered as-is with no warranty. <a href="https://github.com/BigDaddy284/the-motocross-rpg">Source on GitHub</a>.
+    </div>
+  </footer>
+</body>
+</html>
