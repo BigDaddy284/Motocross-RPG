@@ -272,6 +272,8 @@ export interface Entrant {
   player: boolean;
   /** Child skill levels. */
   skills: Record<string, number>;
+  /** The player only: their Rider Ability (lead skill) level, which unlocks whips and scrubs on the race screen (tricks.ts). */
+  riderLevel?: number;
   bike: Bike;
   tactic: Tactic;
   /** Gate number from 0, best first. Lap 1 starts in gate order; in a sprint, the order riders leave the start line. */

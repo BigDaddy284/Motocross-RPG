@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { TrackSurface } from '../src/core/trackSurface';
-import { TRICK_JUMP, trickPose, type Trick } from '../src/core/tricks';
+import type { RiderProfile } from '../src/core/riderProfile';
+import { PLAYER_TRICKS, TRICK_JUMP, playerTricks, trickFor, trickPose, type Trick } from '../src/core/tricks';
 import { content, race } from './raceHelpers';
 
 /** Every trick thrown in a race, by rider, read off the riders' flights over the whole race. */
@@ -89,5 +90,45 @@ describe('whips and scrubs over the jumps (Boss, 30 Oct 2026)', () => {
       if (scrubbed < jumped - 1e-6) lower++;
     }
     expect(lower).toBeGreaterThan(0);
+  });
+
+  describe('the player learns them with Rider Ability (Boss, 30 Oct 2026)', () => {
+    const player = (riderLevel: number, seed = 0.37): RiderProfile => ({
+      id: 'player', line: 0, aggression: 0.5, cornerSpeed: 0.5, scrub: 0.9, jump: 1, skim: 0.5, wobble: 0.2, drive: 0.5, agility: 0.5, lane: 0, seed, player: true, riderLevel,
+    });
+    /** Every trick the player throws on 2000 big hops. */
+    const thrown = (level: number) => {
+      const out: Trick[] = [];
+      for (let i = 0; i < 2000; i++) {
+        const t = trickFor(player(level, (i * 0.6180339887) % 1), false, i % 7, i % 23, i % 3, 20);
+        if (t) out.push(t);
+      }
+      return out;
+    };
+
+    it('whips come in at level 30 and climb to 70% at 70; scrubs at 60 and climb to 70% at 99', () => {
+      expect(playerTricks(29)).toEqual({ whip: 0, scrub: 0 });
+      expect(playerTricks(30).whip).toBeCloseTo(PLAYER_TRICKS.min);
+      expect(playerTricks(50).whip).toBeGreaterThan(playerTricks(40).whip);
+      expect(playerTricks(70).whip).toBeCloseTo(0.7);
+      expect(playerTricks(99).whip).toBeCloseTo(0.7);
+      expect(playerTricks(59).scrub).toBe(0);
+      expect(playerTricks(60).scrub).toBeCloseTo(PLAYER_TRICKS.min);
+      expect(playerTricks(80).scrub).toBeGreaterThan(playerTricks(70).scrub);
+      expect(playerTricks(99).scrub).toBeCloseTo(0.7);
+    });
+
+    it('a low-level player throws nothing, however good a jumper; a level 45 player only rare whips; a level 99 player both, often', () => {
+      expect(thrown(1)).toHaveLength(0);
+      expect(thrown(29)).toHaveLength(0);
+      const mid = thrown(45);
+      expect(mid.length).toBeGreaterThan(0.2 * 2000);
+      expect(mid.length).toBeLessThan(0.55 * 2000);
+      expect(mid.every((t) => t.kind === 'whip')).toBe(true);
+      const top = thrown(99);
+      expect(top.length).toBeGreaterThan(0.6 * 2000);
+      expect(top.filter((t) => t.kind === 'scrub').length).toBeGreaterThan(0.3 * top.length);
+      expect(top.filter((t) => t.kind === 'whip').length).toBeGreaterThan(0.3 * top.length);
+    });
   });
 });
