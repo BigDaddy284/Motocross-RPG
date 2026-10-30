@@ -8,7 +8,8 @@ import { TILE } from './Character';
 // Draws the player's van on an area map from its sheets (art/vehicles/sheets/map): parked, the
 // heading's closed or rear-open cell; on the move, the turning sheet's 32 headings, so it turns
 // smoothly. A soft shadow sits on the footprint, and the rider shows through the cab window while
-// driving. Driving runs every frame: the scene hands over grid moves (vanMotion.ts turns them
+// driving. A motor with an open bed (the Old Rusty Truck) carries the player's bike on its stand
+// once it is loaded, in the bike's brand colours. Driving runs every frame: the scene hands over grid moves (vanMotion.ts turns them
 // into one smooth trip with speeding up, cornering and braking) and hears back as each one ends.
 
 /** The driver is drawn a little smaller than the rider on foot, sat down behind the glass. */
@@ -27,7 +28,40 @@ const LOOKAHEAD = 0.5;
 /** Seconds to ease onto the parked pose when the back hasn't quite straightened up behind the cab. */
 const SETTLE_S = 0.3;
 
+/** How far the upright bike's middle sits above the bed's middle, side on (from the parked truck props). */
+const BIKE_LIFT = 9;
+
 export const vanTexture = (id: string) => `veh:${id}`;
+/** The bike on its stand (area-map bike props) for a model (youth or adult), brand and heading. */
+export const bikeTexture = (model: string, brand: string, h: Heading) => `bike:${model}-${brand}-${h}`;
+export const bikeImagePath = (model: string, brand: string, h: Heading) => `art/area-map/tiled/tiles/bike-props/bike-on-stand-${model}-${brand}-${h}.png`;
+
+/** The bike loaded on the back: its model (youth or adult) and brand. */
+export interface VanLoad {
+  model: string;
+  brand: string;
+}
+
+/** The middle of each bike texture's drawn pixels, found once: the bike pictures have empty space round them. */
+const bikeMiddles = new Map<string, [number, number]>();
+function bikeMiddle(scene: Phaser.Scene, key: string): [number, number] {
+  let m = bikeMiddles.get(key);
+  if (m) return m;
+  const src = scene.textures.get(key).getSourceImage();
+  let [x0, y0, x1, y1] = [Infinity, Infinity, -1, -1];
+  for (let y = 0; y < src.height; y++) {
+    for (let x = 0; x < src.width; x++) {
+      if (!scene.textures.getPixelAlpha(x, y, key)) continue;
+      x0 = Math.min(x0, x);
+      y0 = Math.min(y0, y);
+      x1 = Math.max(x1, x);
+      y1 = Math.max(y1, y);
+    }
+  }
+  m = x1 < 0 ? [src.width / 2, src.height / 2] : [(x0 + x1 + 1) / 2, (y0 + y1 + 1) / 2];
+  bikeMiddles.set(key, m);
+  return m;
+}
 export const vanTurnTexture = (id: string) => `veh:${id}:turn`;
 
 /** Adds the sheets' named frames (east:closed, east:open, ... and t0 to t31) once. */
@@ -60,6 +94,8 @@ export class VanView {
   private readonly shadow: Phaser.GameObjects.Rectangle;
   private driver: Phaser.GameObjects.Image | null = null;
   private driverSheet: string | null = null;
+  private bike: Phaser.GameObjects.Image | null = null;
+  private load: VanLoad | null = null;
   private open = false;
   /** The pose the van is at or heading for: the last move handed over. */
   pose: VanPose;
@@ -116,6 +152,21 @@ export class VanView {
     this.driverSheet = sheet;
     this.driver?.destroy();
     this.driver = sheet ? this.scene.add.image(0, 0, `chr:${sheet}:act`, 0).setOrigin(0, 0).setScale(DRIVER_SCALE) : null;
+    if (this.moving) this.draw(this.drawn, null);
+    else this.place(this.pose);
+  }
+
+  /** Shows the bike on the back (motors with an open bed only), or an empty bed. */
+  setLoad(load: VanLoad | null): void {
+    if (!this.design.bed) load = null;
+    if (load?.model === this.load?.model && load?.brand === this.load?.brand) return;
+    this.load = load;
+    if (!load) {
+      this.bike?.destroy();
+      this.bike = null;
+      return;
+    }
+    if (!this.bike) this.bike = this.scene.add.image(0, 0, '__MISSING');
     if (this.moving) this.draw(this.drawn, null);
     else this.place(this.pose);
   }
@@ -201,6 +252,7 @@ export class VanView {
     this.sprite.destroy();
     this.shadow.destroy();
     this.driver?.destroy();
+    this.bike?.destroy();
   }
 
   /**
@@ -214,6 +266,9 @@ export class VanView {
     const turn = this.sheet.turn;
     let anchor: [number, number];
     let win: [number, number, number, number] | null | undefined;
+    let bed: [number, number] | undefined;
+    /** The angle of the picture drawn: a parked view's heading or the turning frame's. */
+    let shown: number;
     if (parked || !turn || !this.scene.textures.exists(vanTurnTexture(this.design.id))) {
       const h = parked ?? nearestHeading(at.angle);
       const v = this.sheet.views[h];
@@ -222,6 +277,8 @@ export class VanView {
       else if (this.sprite.frame.name !== frame) this.sprite.setFrame(frame);
       anchor = v.anchor;
       win = v.driver;
+      bed = this.design.bed?.views[h];
+      shown = HEADING_ANGLE[h];
     } else {
       const i = Math.round(at.angle / (360 / turn.frames.length)) % turn.frames.length;
       const f = turn.frames[i];
@@ -229,6 +286,8 @@ export class VanView {
       if (this.sprite.texture.key !== vanTurnTexture(this.design.id)) this.sprite.setTexture(vanTurnTexture(this.design.id), name);
       else if (this.sprite.frame.name !== name) this.sprite.setFrame(name);
       anchor = f.anchor;
+      bed = this.design.bed?.turn[i];
+      shown = i * (360 / turn.frames.length);
       win = glassSized(f.driver, this.sheet.views[nearestHeading(at.angle)].driver) ? f.driver : null;
     }
     this.sprite.setOrigin(anchor[0] / this.sprite.frame.width, anchor[1] / this.sprite.frame.height);
@@ -244,6 +303,31 @@ export class VanView {
       .setRotation(-a)
       .setDepth(bottom - 0.75);
     this.placeDriver(win ?? null, nearestHeading(at.angle), anchor);
+    this.placeBike(bed, shown);
+  }
+
+  /**
+   * The loaded bike stood on the bed's middle, facing the way the motor does. Between the four
+   * bike views (on the turning frames) the nearest one is turned to the frame's angle.
+   */
+  private placeBike(bed: [number, number] | undefined, shown: number): void {
+    const b = this.bike;
+    const load = this.load;
+    if (!b || !load) return;
+    const h = nearestHeading(shown);
+    const key = bikeTexture(load.model, load.brand, h);
+    if (!bed || !this.scene.textures.exists(key)) {
+      b.setVisible(false);
+      return;
+    }
+    if (b.texture.key !== key) b.setTexture(key);
+    const [mx, my] = bikeMiddle(this.scene, key);
+    const a = (shown * Math.PI) / 180;
+    b.setOrigin(mx / b.width, my / b.height)
+      .setRotation(-(((shown - HEADING_ANGLE[h] + 540) % 360) - 180) * (Math.PI / 180))
+      .setPosition(this.sprite.x + bed[0], this.sprite.y + bed[1] - BIKE_LIFT * Math.abs(Math.cos(a)))
+      .setDepth(this.sprite.depth + 0.005)
+      .setVisible(true);
   }
 
   /** The rider's face in the cab window, cropped to the glass. Hidden when the window can't be seen. */
@@ -272,6 +356,9 @@ export class VanView {
 function glassSized(win: [number, number, number, number] | null | undefined, parked: [number, number, number, number] | null | undefined): boolean {
   return !!win && !!parked && win[2] <= parked[2] * GLASS_SLACK + 4 && win[3] <= parked[3] * GLASS_SLACK + 4;
 }
+
+/** Screen angles of the headings, anticlockwise from east (as the turning frames count them). */
+const HEADING_ANGLE: Record<Heading, number> = { east: 0, north: 90, west: 180, south: 270 };
 
 function nearestHeading(angle: number): Heading {
   const i = Math.round((((angle % 360) + 360) % 360) / 90) % 4;

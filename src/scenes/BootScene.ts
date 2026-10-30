@@ -14,7 +14,8 @@ import { COLORS, textStyle } from '../ui/theme';
 import { START_MAP } from './careerFlow';
 import type { RaceSceneData } from './RaceScene';
 import { view } from '../ui/view';
-import { vanTexture, vanTurnTexture } from '../world/VanView';
+import { bikeImagePath, bikeTexture, vanTexture, vanTurnTexture } from '../world/VanView';
+import { HEADINGS } from '../core/vehicles';
 
 // Loads the manifest, every baked map's data and the content files, checks them all, then loads
 // the character and van sheets. Map images load later, the first time each map is visited.
@@ -45,6 +46,10 @@ export class BootScene extends Phaser.Scene {
     for (const [id, sheet] of Object.entries(manifest.vehicles ?? {})) {
       this.load.image(vanTexture(id), `assets/${sheet.image}`);
       if (sheet.turn) this.load.image(vanTurnTexture(id), `assets/${sheet.turn.image}`);
+    }
+    // The bike on its stand in each brand, for the load bed of the Old Rusty Truck.
+    for (const b of (this.cache.json.get('content:bikes') as BikesData | undefined)?.brands ?? []) {
+      for (const model of ['youth', 'adult']) for (const h of HEADINGS) this.load.image(bikeTexture(model, b.id, h), `assets/${bikeImagePath(model, b.id, h)}`);
     }
     // Badges and trophies (championships.json rewards).
     const champs = this.cache.json.get('content:championships') as ChampionshipsData | undefined;

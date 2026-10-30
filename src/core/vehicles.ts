@@ -57,6 +57,11 @@ export interface VanDesign {
   lengthM: number;
   /** Milliseconds per tile when driving. */
   stepMs: number;
+  /**
+   * An open load bed (Boss, 30 Oct 2026: the Old Rusty Truck shows the loaded bike on its back):
+   * the bed's middle in each parked view and turning frame, in sheet pixels from the anchor.
+   */
+  bed?: { views: Record<Heading, [number, number]>; turn: [number, number][] };
 }
 
 /** One heading of a van sheet: cell rects in the sheet, the ground anchor and the driver window in the cell. */
@@ -107,6 +112,7 @@ export interface VehiclesData {
 
 const ID = /^[a-z0-9_.-]+$/;
 const HEADING_ENUM = { type: 'string', enum: HEADINGS } as const;
+const POINT: Schema = { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number', integer: true } };
 
 export const VEHICLES_SCHEMA: Schema = {
   type: 'object',
@@ -165,7 +171,15 @@ export const VEHICLES_SCHEMA: Schema = {
           length: { type: 'number', integer: true, min: 1 },
           lengthM: { type: 'number', min: 1 },
           stepMs: { type: 'number', integer: true, min: 30 },
+          bed: {
+            type: 'object',
+            fields: {
+              views: { type: 'object', fields: Object.fromEntries(HEADINGS.map((h) => [h, POINT])) },
+              turn: { type: 'array', minItems: 1, items: POINT },
+            },
+          },
         },
+        optional: ['bed'],
       },
     },
   },

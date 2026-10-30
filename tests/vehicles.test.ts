@@ -361,3 +361,25 @@ describe('the one van in the save', () => {
     for (const h of HEADINGS) expect(OPPOSITE[OPPOSITE[h]]).toBe(h);
   });
 });
+
+describe('the bike on the back (Boss, 30 Oct 2026)', () => {
+  it('gives the Old Rusty Truck a bed point for every parked view and turning frame', () => {
+    const truck = data.designs.find((d) => d.id === 'motor-1')!;
+    expect(truck.bed).toBeDefined();
+    expect(truck.bed!.turn.length).toBe(manifest.vehicles!['motor-1'].turn!.frames.length);
+    // The parked views and the turning frames facing the same way share their bed point.
+    const n = truck.bed!.turn.length;
+    HEADINGS.forEach((h) => expect(truck.bed!.views[h]).toEqual(truck.bed!.turn[({ east: 0, north: 1, west: 2, south: 3 } as const)[h] * (n / 4)]));
+  });
+
+  it('has the bike on its stand in every brand, for both models and all four headings', () => {
+    const missing: string[] = [];
+    for (const b of content.bikes.brands) {
+      for (const model of ['youth', 'adult']) for (const h of HEADINGS) {
+        const img = `assets/art/area-map/tiled/tiles/bike-props/bike-on-stand-${model}-${b.id}-${h}.png`;
+        if (!publicFileExists(img)) missing.push(img);
+      }
+    }
+    expect(missing).toEqual([]);
+  });
+});
