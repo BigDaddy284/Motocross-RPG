@@ -1427,26 +1427,22 @@ export class WorldScene extends Phaser.Scene {
 
     const openTracks = (): void => {
       const back = top;
-      const types = menu.tracks.map((t) =>
-        t.comingSoon
-          ? { label: t.name, note: 'Coming soon.', onPick: () => this.hud.choose(t.name, 'Coming soon.', [{ label: 'Back', onPick: openTracks }], openTracks) }
-          : {
-              label: t.name,
-              note: t.places.length ? t.places.map((p) => p.name).join(', ') : 'None unlocked yet.',
-              enabled: t.places.length > 0,
-              onPick: () => this.roadList(t.name, `${t.name} tracks you can ride.`, t.places.map(item), openTracks),
-            },
-      );
+      // Just the type buttons, centred: the tracks are inside each type (Boss, 30 Oct 2026).
+      const types = menu.tracks.map((t) => ({
+        label: t.name,
+        onPick: () =>
+          t.comingSoon
+            ? this.hud.choose(t.name, 'Coming soon.', [{ label: 'Back', onPick: openTracks }], openTracks, true)
+            : this.roadList(t.name, t.places.length ? `${t.name} tracks you can ride.` : 'None unlocked yet.', t.places.map(item), openTracks),
+      }));
       this.hud.choose('Tracks', 'Pick a type of track.', [
         ...types,
         {
           label: 'Championship',
-          note: champs.length ? champs.map((c) => c.label).join(', ') : 'None unlocked yet.',
-          enabled: champs.length > 0,
-          onPick: () => this.roadList('Championship', 'Go to the track where its next round is. Enter rounds at the race office.', champs, openTracks),
+          onPick: () => this.roadList('Championship', champs.length ? 'Go to the track where its next round is. Enter rounds at the race office.' : 'None unlocked yet.', champs, openTracks),
         },
         { label: 'Back', onPick: back },
-      ], back);
+      ], back, true);
     };
 
     this.hud.choose('Where to?', 'Pick a track, another area, or a mod track.', [

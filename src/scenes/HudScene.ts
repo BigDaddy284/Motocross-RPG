@@ -465,7 +465,8 @@ export class HudScene extends Phaser.Scene {
   }
 
   /** A box with a few choices, such as the race office's menu. Esc or the last button closes it. */
-  choose(title: string, text: string, options: { label: string; note?: string; enabled?: boolean; onPick: () => void }[], onClose: () => void): void {
+  /** A menu of buttons with notes beside them; `centre` puts the buttons in the middle, for a menu without notes. */
+  choose(title: string, text: string, options: { label: string; note?: string; enabled?: boolean; onPick: () => void }[], onClose: () => void, centre = false): void {
     const { width, height, k } = this.page();
     const w = Math.min(720, width - 32);
     const textObj = this.add.text(0, 0, text, textStyle(this.pts(18), COLORS.cream, { wordWrap: { width: w - 60 }, lineSpacing: 4 }));
@@ -480,7 +481,7 @@ export class HudScene extends Phaser.Scene {
     let picked = false;
     options.forEach((o, i) => {
       const y = -h / 2 + 116 + textObj.height + i * gap;
-      const b = button(this, -w / 2 + 150, y, o.label, () => {
+      const b = button(this, centre ? 0 : -w / 2 + 150, y, o.label, () => {
         picked = true;
         this.closeModal();
         o.onPick();
