@@ -234,6 +234,8 @@ The modifier unit in the Industrial Zone is already built, and its owner stands 
 
 ## Energy drinks (Areas 4 to 8)
 
+**Parked** (Boss, 30 Oct 2026): we'll dig deeper into energy drinks closer to Area 4. The notes below are a starting point only.
+
 The rules are already agreed in Spec 4: drinks boost XP for one race day, never race speed. The number of active drinks is limited by Fitness level (1, then 2 at 50, then 3 at 80). Each skill has its own drink.
 
 **Where to sell them (Decision).** My recommendation is a **drinks van parked by the race office at every venue** from Area 4, with Moto78 stocking a few as well:
@@ -284,7 +286,7 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 3. **Manny Festo:** news man only, or a stall as well?
 4. **Phoenix MX clothing:** which area it starts in (I suggest Area 2).
 5. **The class dealer:** should Bill Rothon at Moto78 sell the new bike and frame at each class step for unsponsored riders?
-6. **Energy drinks:** a drinks van at the venues (my recommendation), their own shop, or Moto78 only. And confirm Area 4 over the Spec's "from 125cc Youth".
+6. **Energy drinks (parked until closer to Area 4):** a drinks van at the venues (my recommendation), their own shop, or Moto78 only. And confirm Area 4 over the Spec's "from 125cc Youth".
 7. **The Modifying Machine:** in the Industrial Zone only after the Area 5 story, or in the City as well?
 8. **The modifier machine owner's name.**
 9. **Batch jobs per area:** is one new facility per area right (Area 6 gets two), and are you happy with the Frame works in Area 7 as the only non-sponsor way to make a frame?
