@@ -79,7 +79,8 @@ export interface StoryData {
   steps: StoryStep[];
   done: string;
   /** Task lines once the opening chain is over: the first whose if is set, or whose unless is not. */
-  after?: { if?: string; unless?: string; text: string }[];
+  /** The task line once the opening chain is done: the first whose if is set, or whose unless is not. talk marks that NPC on the map, as a story step's NPC is. */
+  after?: { if?: string; unless?: string; text: string; talk?: string }[];
 }
 
 export interface JobDef {
@@ -301,10 +302,15 @@ export function advanceStory(story: StoryData, state: CareerState, flags: Record
   return true;
 }
 
+/** The task after the opening chain for these flags (story.json after), if any. */
+export function afterTask(story: StoryData, flags: Record<string, boolean>): NonNullable<StoryData['after']>[number] | undefined {
+  return story.after?.find((a) => (a.if === undefined || flags[a.if]) && (a.unless === undefined || !flags[a.unless]));
+}
+
 /** The task line for the journal. */
 export function journal(story: StoryData, state: CareerState, flags: Record<string, boolean> = {}): string {
   const step = currentStep(story, state);
-  if (!step) return story.after?.find((a) => (a.if === undefined || flags[a.if]) && (a.unless === undefined || !flags[a.unless]))?.text ?? story.done;
+  if (!step) return afterTask(story, flags)?.text ?? story.done;
   const n = step.times ?? 1;
   return n > 1 ? `${step.journal} (${state.story.used.length} of ${n})` : step.journal;
 }

@@ -216,7 +216,7 @@ export const STORY_SCHEMA: Schema = {
     done: { type: 'string', nonEmpty: true },
     after: {
       type: 'array',
-      items: { type: 'object', optional: ['if', 'unless'], fields: { if: { type: 'string', pattern: ID }, unless: { type: 'string', pattern: ID }, text: { type: 'string', nonEmpty: true } } },
+      items: { type: 'object', optional: ['if', 'unless', 'talk'], fields: { if: { type: 'string', pattern: ID }, unless: { type: 'string', pattern: ID }, text: { type: 'string', nonEmpty: true }, talk: { type: 'string', pattern: ID } } },
     },
     steps: {
       type: 'array',
@@ -442,6 +442,7 @@ function checkCareerContent(c: Content, maps: Map<string, BakedMap>): ContentErr
   const item = (field: string, id: string) => !c.items[id] && err(CONTENT_FILES.story, field, `no item "${id}" in ${CONTENT_FILES.items}`);
   const lines = (field: string, id: string | undefined) => id && !c.dialogue[id] && err(CONTENT_FILES.story, field, `no dialogue "${id}" in ${CONTENT_FILES.dialogue}`);
   lines('intro', story.intro);
+  story.after?.forEach((a, i) => a.talk && !npcIds.has(a.talk) && err(CONTENT_FILES.story, `after[${i}].talk`, `no NPC "${a.talk}"`));
   story.steps.forEach((s, i) => {
     const at = (f: string) => `steps[${i}].${f}`;
     if (!!s.on.talk === !!s.on.use) err(CONTENT_FILES.story, at('on'), 'needs exactly one of talk or use');

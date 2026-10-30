@@ -659,7 +659,8 @@ export class HudScene extends Phaser.Scene {
         g.lineStyle(34, 0xb5483a).strokeEllipse(0, 0, RX * 2, RY * 2);
         g.lineStyle(2, 0xf2efe6).strokeEllipse(0, 0, (RX - 17) * 2, (RY - 17) * 2).strokeEllipse(0, 0, (RX + 17) * 2, (RY + 17) * 2).strokeEllipse(0, 0, RX * 2, RY * 2);
         g.fillStyle(0x6aa84f).fillEllipse(0, 0, (RX - 18) * 2, (RY - 18) * 2);
-        g.lineStyle(3, 0xf2efe6).lineBetween(-18, RY - 17, -18, RY + 17);
+        // The start and finish line at 6 o'clock, in front of the coach: a lap counts as the rider crosses it.
+        g.lineStyle(3, 0xf2efe6).lineBetween(0, RY - 17, 0, RY + 17);
         vis.add(g);
         const hasCoach = !!who.coach && this.textures.exists(`chr:${who.coach}:act`);
         if (hasCoach) {
@@ -673,7 +674,7 @@ export class HudScene extends Phaser.Scene {
         let pace = 0.3;
         let onFor = 0;
         let drift = 0;
-        let ang = Math.PI / 2;
+        let ang = -Math.PI / 2;
         let run = 0;
         let speed = 0;
         let dir = '';
