@@ -1,4 +1,4 @@
-import { currentStep, pence, type CareerState, type WorldData } from './career';
+import { afterTask, currentStep, pence, type CareerState, type WorldData } from './career';
 import type { Content } from './content';
 import { routeFor, routePlaces } from './guides';
 import type { BakedMap, MapObject } from './mapTypes';
@@ -47,7 +47,12 @@ export function storyGoals(content: Content, maps: Map<string, BakedMap>, career
     return step.earn.maps.filter((m) => maps.has(m)).map((map) => ({ kind: 'object', map, action: step.earn!.use }));
   }
   const goal = storyGoal(content, maps, career);
-  return goal ? [goal] : [];
+  if (goal) return [goal];
+  // After the opening chain, the task line's NPC (Boss, 30 Oct 2026: Paul's bike care advice had no arrows).
+  const after = !step ? afterTask(content.story, flags) : undefined;
+  const npc = after?.talk ? content.npcs.find((n) => n.id === after.talk) : undefined;
+  const map = npc ? npcMap(content, maps, npc.id) : null;
+  return npc && map ? [{ kind: 'npc', map, npc: npc.id, name: npc.name }] : [];
 }
 
 /** True while the current step's markers point to earning its money, not the step itself. */

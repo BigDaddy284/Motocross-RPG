@@ -497,6 +497,8 @@ export class WorldScene extends Phaser.Scene {
       if (rule?.sets && !this.save.flags[rule.sets]) {
         this.save.flags[rule.sets] = true;
         this.hud.showCareer(this.save.career, this.save.flags);
+        // The next task line's NPC gets the markers.
+        this.refreshWaymarks();
         this.milestoneSave();
       }
       back();

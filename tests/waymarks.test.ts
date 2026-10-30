@@ -81,6 +81,20 @@ describe('tutorial markers (Boss, 28 Oct 2026)', () => {
     expect(storyGoals(content, maps, c, { van_driven: true }, van)).toEqual([{ kind: 'object', map: 'int-home-rented-room', action: 'storage.parts' }]);
   });
 
+  it('marks the NPC of each task after the opening chain: Paul, the fabrication boss, then Joseph (Boss, 30 Oct 2026)', () => {
+    const c = newCareerState(content.bikes, content.story, 'hondmoto', () => 0.5);
+    c.story = { step: content.story.steps.length, used: [] };
+    const flags: Record<string, boolean> = { tutorial_done: true, roadworks_done: true, 'found.venue-farmland': true };
+    const npcs = () => storyGoals(content, maps, c, flags).map((g) => (g.kind === 'npc' ? g.npc : g.kind));
+    expect(npcs()).toEqual(['npc.garage_mechanic']);
+    flags['told.bike_care'] = true;
+    expect(npcs()).toEqual(['npc.fabricator']);
+    flags['told.iz_challenge'] = true;
+    expect(npcs()).toEqual(['npc.track_official']);
+    flags.first_race_done = true;
+    expect(npcs()).toEqual([]);
+  });
+
   it('marks only the stands still to do on a step that needs two', () => {
     const map = maps.get('int-home-local-garage')!;
     const both = goalObjects(map, 'workshop.bike', []);
