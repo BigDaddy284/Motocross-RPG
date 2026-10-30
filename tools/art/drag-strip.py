@@ -5,7 +5,7 @@ with every colour snapped to the reference palette (art/palette/palette-ref-v1.h
 
     python3 tools/art/drag-strip.py <palette.hex> <out-folder>
 
-Writes vip-grandstand.png (24 x 4 tiles), start-platform.png (2 x 4 tiles), start-line-v.png and
+Writes vip-grandstand.png (24 x 4 tiles), start-platform.png (2 x 6 tiles, across the strip), start-line-v.png and
 finish-line-v.png (1 tile, laid over a strip tile, transparent either side).
 """
 import sys
@@ -138,7 +138,7 @@ def grandstand(pal):
 def start_platform(pal):
     """The raised start platform across the strip's left end: a steel deck on legs, a drop-off edge
     on the strip side, rails along the back and front, and steps up from the car park."""
-    W, H = 2 * HALF, 4 * HALF
+    W, H = 2 * HALF, 6 * HALF
     cv = Canvas(pal, W, H)
     cv.rect(4, 6, W - 10, H - 10, (130, 134, 142))
     for y in range(8, H - 12, 6):
