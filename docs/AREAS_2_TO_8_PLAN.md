@@ -281,7 +281,7 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 5. **Job boards are missing.** Only one board gets built: customer repairs at Phoenix MX, in every area (Boss, 30 Oct 2026). The fabrication and engine boards are dropped, as the batch shifts cover them. A repair ticket plays as a station minigame, like the shifts (strip, fix, refit, test), never a single click on the bike like the tutorial.
 6. **No Rider Ability drills at all.** Area 1 gets one: a **gate drop drill** at the backyard track for Starts (Boss, 30 Oct 2026). The view is a close-up of the front wheel by the gate. You watch the gate drop and react. It gets easier as Starts rises, as if the gate drops slower, but only at much later levels, so nobody gets the easier version from Area 1 alone without thousands of hours on it. This is a change from Spec 3 (Round 122, 4B), where a minigame stays the same as the skill rises.
 7. **A broken Grade 1 frame can't be replaced** (see [When a frame breaks](#when-a-frame-breaks)).
-8. **The Area 1 main championship** is still "comes with Area 2", and it's the gate to Area 2 (Spec 18.2).
+8. **The Area 1 main championship.** Format locked in (Boss, 30 Oct 2026): 6 rounds, two at each Area 1 track, unlocked by the badge, and winning it unlocks the next class and the next area. Dean Marsh stays as the placeholder champion for now. It opens only once Area 2 is built, and **every Area Championship works the same way**: set up with its area, but only unlocked once the next area exists.
 
 ### Missing for Areas 2 to 8
 
