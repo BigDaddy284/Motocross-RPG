@@ -27,7 +27,7 @@ The game finds its maps through the map list in `public/assets/manifest.json` an
 
 New tiles need nothing: the palette is read from the folders.
 
-A new area map also needs a way in (an **Exit** on another map, *To* its id) and a place on the world map: add its id to a zone's `maps` in `public/data/world.json`, or `npm test` reports it.
+Every area map also has a place on the world map (`worldMap.zones` in `public/data/world.json`). New map asks which zone the new map is in, and the file check asks for any area map that isn't in one, offering the existing zones or a new zone of its own (at the middle of the world map, with no picture of its own until one is drawn). A new map still needs a way in: an **Exit** on another map, *To* its id.
 
 ### Map tab
 

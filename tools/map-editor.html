@@ -304,6 +304,14 @@ body.mode-buildings #bldStudio { display: grid; grid-template-columns: 360px 1fr
   <span id="msg"></span>
 </footer>
 
+<dialog id="newMapDlg">
+  <h3 style="margin-top:0">New map</h3>
+  <p class="hint">A new area map from <b id="nmFrom"></b>: its ground, collision, props and spawns are copied; its buildings, doors, people and triggers are left out, since each can be on one map only.</p>
+  <label class="chk" style="display:grid;grid-template-columns:110px 1fr;gap:6px">Name <input type="text" id="nmName" placeholder="Riverside Town"></label>
+  <label class="chk" style="display:grid;grid-template-columns:110px 1fr;gap:6px;margin-top:6px">On the world map <span id="nmZone"></span></label>
+  <div class="row" style="margin-top:12px"><button id="nmMake" class="primary">Make the map</button><button id="nmCancel">Cancel</button></div>
+</dialog>
+
 <dialog id="checkDlg">
   <h3 style="margin-top:0">File check</h3>
   <p class="hint">The game's lists (its map list and building library) don't match what's in the folders. Untick anything you don't want changed.</p>
@@ -1818,17 +1826,18 @@ const MARKER_TYPES = {
   interact: { label: 'Interact', what: 'Something the player can use, like a desk PC or a noticeboard. The story and the shops look for its action.', fields: [['action', 'text', 'Action'], ['on_wall', 'bool', 'On a wall']] },
 };
 /** Ids the marker fields suggest, gathered from the game's data and maps. */
-const known = { flags: new Set(), npcs: [], venues: [] };
+const known = { flags: new Set(), npcs: [], venues: [], world: null };
 
 async function loadKnown() {
-  known.flags = new Set(); known.npcs = []; known.venues = [];
+  known.flags = new Set(); known.npcs = []; known.venues = []; known.world = null;
   if (!lib.path) return;
   const dir = dirOf(lib.path);
-  const read = async (f) => { const p = joinPath(dir, f); try { return source.has(p) ? await source.text(p) : null; } catch { return null; } };
+  const read = async (f) => { const p = dir ? `${dir}/${f}` : f; /* not joinPath: over http the folder is ../data */ try { return source.has(p) ? await source.text(p) : null; } catch { return null; } };
   const story = await read('story.json');
   if (story) for (const m of story.matchAll(/"flags":\s*\[([^\]]*)\]/g)) for (const f of m[1].matchAll(/"([^"]+)"/g)) known.flags.add(f[1]);
   try { known.npcs = JSON.parse(await read('npcs.json')).npcs.map((n) => n.id); } catch { /* none */ }
   try { known.venues = JSON.parse(await read('tracks.json')).venues.map((v) => v.id); } catch { /* none */ }
+  try { const text = await read('world.json'); if (text) known.world = { text, data: JSON.parse(text), path: dir ? `${dir}/world.json` : 'world.json' }; } catch { /* none */ }
   for (const m of lib.maps.values()) for (const o of m.objects ?? []) for (const k of ['cleared_by', 'unlock']) if (typeof o.props?.[k] === 'string') known.flags.add(o.props[k]);
 }
 
@@ -3941,6 +3950,57 @@ $('#bDrawPic').addEventListener('click', () => bedEditPicture(-1));
 $('#bImportPic').addEventListener('click', async () => { const got = await pickPng(); if (got) bedEditPicture(-1, got.img); });
 
 
+// --- The world map ---------------------------------------------------------------------------------
+// Every area map is in a zone of the world map (data/world.json worldMap.zones), where the rider's
+// bike is shown while they are on it. A new map goes into a zone picked here, or a new zone of its
+// own at the middle of the world map (with no picture of its own until one is drawn).
+
+function zoneOf(mapId) { return known.world?.data.worldMap?.zones.find((z) => z.maps.includes(mapId)) ?? null; }
+
+/** A zone picker: the world map's zones, and a new zone named after the map. */
+function zoneSelect(title, current) {
+  const sel = document.createElement('select');
+  const zones = known.world?.data.worldMap?.zones ?? [];
+  for (const z of zones) sel.appendChild(Object.assign(document.createElement('option'), { value: z.id, textContent: `World map zone: ${z.name}` }));
+  sel.appendChild(Object.assign(document.createElement('option'), { value: '@new', textContent: `A new world map zone: ${title}` }));
+  sel.value = current && zones.some((z) => z.id === current) ? current : '@new';
+  return sel;
+}
+
+/** Puts a map in a zone (an id, or '@new' for one of its own). */
+function putInZone(mapId, title, choice) {
+  const wm = known.world?.data.worldMap;
+  if (!wm) return false;
+  for (const z of wm.zones) z.maps = z.maps.filter((m) => m !== mapId);
+  wm.zones = wm.zones.filter((z) => z.maps.length);
+  if (choice !== '@new' && wm.zones.some((z) => z.id === choice)) wm.zones.find((z) => z.id === choice).maps.push(mapId);
+  else {
+    let id = slug(title).replace(/-/g, '_');
+    for (let n = 2; wm.zones.some((z) => z.id === id); n++) id = `${slug(title).replace(/-/g, '_')}_${n}`;
+    wm.zones.push({ id, name: title, maps: [mapId], at: [Math.round(wm.size[0] / 2), Math.round(wm.size[1] / 2)] });
+  }
+  return true;
+}
+function takeOutOfZones(mapId) {
+  const wm = known.world?.data.worldMap;
+  if (!wm || !zoneOf(mapId)) return false;
+  for (const z of wm.zones) z.maps = z.maps.filter((m) => m !== mapId);
+  wm.zones = wm.zones.filter((z) => z.maps.length);
+  return true;
+}
+
+/** world.json as the repo keeps it: only the zones list is rewritten, one zone a line. */
+async function saveWorld() {
+  const w = known.world;
+  const line = (z) => `{ ${Object.entries(z).map(([k, v]) => `${JSON.stringify(k)}: ${Array.isArray(v) ? `[${v.map((x) => JSON.stringify(x)).join(', ')}]` : JSON.stringify(v)}`).join(', ')} }`;
+  const m = /("zones": \[\n)([\s\S]*?)(\n(\s*)\])/.exec(w.text);
+  const text = m
+    ? w.text.slice(0, m.index) + m[1] + w.data.worldMap.zones.map((z) => `${m[4]}  ${line(z)}`).join(',\n') + m[3] + w.text.slice(m.index + m[0].length)
+    : `${JSON.stringify(w.data, null, 2)}\n`;
+  w.text = text;
+  return writeFile(w.path, text);
+}
+
 // --- New maps --------------------------------------------------------------------------------------
 // A copy of an area map keeps its ground, collision, props and spawns, but not what the game allows
 // on one map only: buildings lead into interiors no other map may lead into, people stand on one map,
@@ -3991,8 +4051,9 @@ async function newMap() {
   const doc = app.doc;
   if (!doc || doc.format !== 'baked' || !lib.manifest) { status('Open a game map first.', 'err'); return; }
   if (doc.raw.kind === 'interior') { status('For a new interior, open the building in the Buildings tab and use New interior from this.', 'err'); return; }
-  const title = prompt(`New map from ${doc.raw.title ?? doc.name}. Its ground, collision, props and spawns are copied; buildings, doors, people and triggers are left out (each can be on one map only).\n\nName of the new map:`, '');
-  if (!title?.trim()) return;
+  const got = await askNewMap(doc);
+  if (!got) return;
+  const { title, zone } = got;
   const prefix = /^area\d+-/.exec(doc.name)?.[0] ?? '';
   let id = `${prefix}${slug(title)}`;
   for (let n = 2; lib.manifest.maps.some((m) => m.id === id) || source.has(joinPath(lib.assets, `maps/${id}.json`)); n++) id = `${prefix}${slug(title)}-${n}`;
@@ -4003,10 +4064,30 @@ async function newMap() {
   const ok = await writeFile(path, `${JSON.stringify(raw)}\n`, true);
   lib.manifest.maps.push({ id, title: title.trim(), kind: 'area' });
   await writeFile(lib.manifestPath, `${JSON.stringify(lib.manifest, null, 1)}${lib.manifestNl ? '\n' : ''}`);
+  if (putInZone(id, title.trim(), zone)) await saveWorld();
   if (!ok) { status(`Downloaded ${id}.json and manifest.json: put them in public/assets/maps and public/assets, then reopen the editor.`, 'ok'); return; }
   if (app.dirty) setDirty(false);
   await useSource(source, { check: false, open: path });
   status(`Made ${title.trim()} (${id}), without ${what}. Add an exit to it from another map (Markers, Exit, To ${id}) so players can get there.`, 'ok');
+}
+/** Asks the new map's name and world map zone; null if cancelled. */
+function askNewMap(doc) {
+  const dlg = $('#newMapDlg');
+  $('#nmFrom').textContent = doc.raw.title ?? doc.name;
+  $('#nmName').value = '';
+  const host = $('#nmZone');
+  host.innerHTML = '';
+  const sel = zoneSelect('(its name)', zoneOf(doc.name)?.id);
+  host.appendChild(sel);
+  host.hidden = !known.world;
+  return new Promise((resolve) => {
+    const done = (v) => { dlg.close(); resolve(v); };
+    $('#nmMake').onclick = () => { const t = $('#nmName').value.trim(); if (!t) { $('#nmName').focus(); return; } done({ title: t, zone: sel.value }); };
+    $('#nmCancel').onclick = () => done(null);
+    dlg.oncancel = () => resolve(null);
+    dlg.showModal();
+    $('#nmName').focus();
+  });
 }
 $('#btnNewMap').addEventListener('click', () => {
   if (app.dirty && !confirm('This map has unsaved changes. They are copied into the new map, but this map itself stays unsaved and is closed. Go on?')) return;
@@ -4046,11 +4127,13 @@ async function fileCheck(show) {
     const entry = lib.manifest.maps.find((m) => m.id === id);
     if (!entry) {
       const clash = fixId && lib.manifest.maps.some((m) => m.id === raw.id);
-      items.push({
+      const it = {
         kind: 'add',
-        text: `New ${kind === 'interior' ? 'interior' : 'map'} ${baseName(p)} ("${title}"): add it to the game's map list.${fixId ? ` The id inside it is ${raw.id}${clash ? ', which is already another map\'s,' : ''} so it's changed to ${id} to match the file name.` : ''}`,
-        apply: async (c) => { if (fixId) await writeId(); lib.manifest.maps.push({ id, title, kind }); c.manifest = true; },
-      });
+        text: `New ${kind === 'interior' ? 'interior' : 'map'} ${baseName(p)} ("${title}"): add it to the game's map list${kind === 'area' && known.world ? ', and to the world map in:' : '.'}${fixId ? ` The id inside it is ${raw.id}${clash ? ', which is already another map\'s,' : ''} so it's changed to ${id} to match the file name.` : ''}`,
+        zone: kind === 'area' && known.world ? zoneSelect(title, zoneOf(id)?.id) : null,
+        apply: async (c) => { if (fixId) await writeId(); lib.manifest.maps.push({ id, title, kind }); c.manifest = true; if (it.zone && putInZone(id, title, it.zone.value)) c.world = true; },
+      };
+      items.push(it);
       raw.id = id;
       const shared = kind === 'area' ? sharedInteriors(raw) : [];
       if (shared.length) {
@@ -4066,10 +4149,14 @@ async function fileCheck(show) {
     if (fixId) items.push({ kind: 'fix', text: `${baseName(p)} says its id is ${raw.id}: change it to ${id} to match the file name (the game finds it by that).`, apply: writeId });
     if (entry.title !== title) items.push({ kind: 'fix', text: `${id} is "${title}" in its file but "${entry.title}" in the map list: use "${title}".`, apply: (c) => { entry.title = title; c.manifest = true; } });
     if (entry.kind !== kind) items.push({ kind: 'fix', text: `${id} is an ${kind} map in its file but listed as ${entry.kind}: list it as ${kind}.`, apply: (c) => { entry.kind = kind; c.manifest = true; } });
+    if (kind === 'area' && known.world && !zoneOf(id)) {
+      const it = { kind: 'fix', text: `${title} (${id}) isn't on the world map: put it in`, zone: zoneSelect(title), apply: (c) => { if (putInZone(id, title, it.zone.value)) c.world = true; } };
+      items.push(it);
+    }
   }
   for (const m of lib.manifest.maps) {
     if (fileIds.has(m.id)) continue;
-    items.push({ kind: 'remove', text: `${m.title ?? m.id} (${m.id}) is in the map list but maps/${m.id}.json isn't in the folder: take it off the list (the game won't start while it's missing).`, apply: (c) => { lib.manifest.maps = lib.manifest.maps.filter((x) => x !== m); c.manifest = true; } });
+    items.push({ kind: 'remove', text: `${m.title ?? m.id} (${m.id}) is in the map list but maps/${m.id}.json isn't in the folder: take it off the list (the game won't start while it's missing).`, apply: (c) => { lib.manifest.maps = lib.manifest.maps.filter((x) => x !== m); c.manifest = true; if (takeOutOfZones(m.id)) c.world = true; } });
   }
   if (lib.data) {
     // Over http only the pictures made here are listed, so only those can be found missing.
@@ -4114,7 +4201,10 @@ async function fileCheck(show) {
     row.className = `chk ${it.kind}`;
     const c = Object.assign(document.createElement('input'), { type: 'checkbox', checked: !!it.apply && !it.off, disabled: !it.apply });
     it.box = c;
-    row.append(c, it.text);
+    const words = document.createElement('span');
+    words.append(it.text);
+    if (it.zone) { it.zone.style.display = 'block'; it.zone.style.marginTop = '4px'; words.append(it.zone); }
+    row.append(c, words);
     box.appendChild(row);
   }
   $('#checkApply').disabled = !items.some((i) => i.apply);
@@ -4131,9 +4221,10 @@ $('#checkApply').addEventListener('click', async () => {
     for (const it of todo) await it.apply(c);
     if (c.manifest) await writeFile(lib.manifestPath, `${JSON.stringify(lib.manifest, null, 1)}${lib.manifestNl ? '\n' : ''}`);
     if (c.library) await writeFile(lib.path, libText(lib.data));
+    if (c.world) await saveWorld();
   } catch (e) { console.error(e); status(`The file check couldn't save: ${e.message}`, 'err'); return; }
   setDirty(false);
-  if (!source.canWrite) { status(`Downloaded ${[c.manifest && 'manifest.json', c.library && 'buildings.json'].filter(Boolean).join(' and ')}: copy them over the game's own, then reopen the editor.`, 'ok'); return; }
+  if (!source.canWrite) { status(`Downloaded ${[c.manifest && 'manifest.json', c.library && 'buildings.json', c.world && 'world.json'].filter(Boolean).join(' and ')}: copy them over the game's own, then reopen the editor.`, 'ok'); return; }
   const was = app.doc?.path;
   if (source.http) await source.scan();
   await useSource(source, { check: false, open: was });
@@ -4159,7 +4250,7 @@ async function tryServer() {
       const b = document.createElement('button');
       b.textContent = `Load the ${manifest.maps.length} game maps from this server`;
       b.addEventListener('click', async () => {
-        const src = new HttpSource(base, manifest.maps.map((m) => `maps/${m.id}.json`).concat('manifest.json', ['buildings', 'story', 'npcs', 'tracks'].map((f) => `../data/${f}.json`)));
+        const src = new HttpSource(base, manifest.maps.map((m) => `maps/${m.id}.json`).concat('manifest.json', ['buildings', 'story', 'npcs', 'tracks', 'world'].map((f) => `../data/${f}.json`)));
         await src.scan();
         await useSource(src);
         status(src.canWrite ? 'Loaded the game. Save writes straight into it (maps, tiles and buildings).' : 'Loaded the game maps. This server is read only, so saving downloads the file.', 'ok');

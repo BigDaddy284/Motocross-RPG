@@ -9,7 +9,7 @@ const MOD_DIR = 'public/mods/tracks';
 const modIndex = () => JSON.stringify(existsSync(MOD_DIR) ? readdirSync(MOD_DIR).filter((f) => /\.json$/i.test(f) && f !== 'index.json').sort() : []);
 
 // The map editor saves into the game while developing: these files under public/, and nothing else.
-const TOOLKIT_SAVES = [/^assets\/maps\/[A-Za-z0-9_-]+\.json$/, /^assets\/manifest\.json$/, /^assets\/custom\/[a-z0-9_-]+(\/[a-z0-9_-]+)*\.png$/, /^data\/buildings\.json$/];
+const TOOLKIT_SAVES = [/^assets\/maps\/[A-Za-z0-9_-]+\.json$/, /^assets\/manifest\.json$/, /^assets\/custom\/[a-z0-9_-]+(\/[a-z0-9_-]+)*\.png$/, /^data\/(buildings|world)\.json$/];
 /** The pictures the map editor made (public/assets/custom), as paths under public/assets. */
 function customPictures(dir = 'public/assets/custom', rel = 'custom'): string[] {
   if (!existsSync(dir)) return [];
