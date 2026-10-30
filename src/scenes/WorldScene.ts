@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { advanceStory, bikeProblem, currentStep, fillText, formatMoney, jobPay, matchStory, pence, type JobDef, type StoryEvent, type StoryStep } from '../core/career';
+import { advanceStory, bikeProblem, currentStep, fillText, formatMoney, jobPay, matchStory, pence, type JobDef, type PlaceDef, type StoryEvent, type StoryStep } from '../core/career';
 import { newsRead, npcsOnMap, properName, type DialogueLine, type NpcDef, type NpcPlacement } from '../core/content';
 import { Grid, STEPS } from '../core/grid';
 import { objectTiles, type BakedMap, type Facing, type MapObject, type Tile } from '../core/mapTypes';
@@ -7,7 +7,7 @@ import { findPathToAny, findPathTowards, standingTiles } from '../core/pathfindi
 import type { SaveData } from '../core/saves';
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
 import { applyMapState, clearedPatches, hiddenSprites } from '../core/mapState';
-import { routeArrival, sideOf } from '../core/guides';
+import { roadMenu, routeArrival, sideOf } from '../core/guides';
 import { earning, goalObjects, nextHop, storyGoals } from '../core/waymarks';
 import { biggestBike, bikeImage, zoneFor } from '../core/worldMap';
 import { ROUTE, spawnTile, stepTriggerAt, type Arrival, type StepResult } from '../core/travel';
@@ -1004,7 +1004,7 @@ export class WorldScene extends Phaser.Scene {
   // ---- mod tracks: player-made tracks raced from the road (core/modTracks.ts) ----
 
   /** The list of mod tracks, a few to a page, with importing one from this device. */
-  private openModTracks(page = 0): void {
+  private openModTracks(page = 0, back?: () => void): void {
     const mods = services.modTracks;
     const per = 3;
     const pages = Math.max(1, Math.ceil(mods.length / per));
@@ -1014,18 +1014,19 @@ export class WorldScene extends Phaser.Scene {
     const options: { label: string; note?: string; enabled?: boolean; onPick: () => void }[] = mods.slice(page * per, page * per + per).map((m) => ({
       label: short(m.name),
       note: `${m.file}${m.source === 'imported' ? ' (imported)' : ''}${m.problems.length ? "\nCan't be raced: pick it to see why." : ''}`,
-      onPick: () => this.pickModTrack(m, page),
+      onPick: () => this.pickModTrack(m, page, back),
     }));
-    if (pages > 1) options.push({ label: page + 1 < pages ? 'More tracks' : 'Back to the first', note: `Page ${page + 1} of ${pages}`, onPick: () => this.openModTracks(page + 1 < pages ? page + 1 : 0) });
-    options.push({ label: 'Import track file', note: 'Add a .track.json from this device. It stays in this browser.', onPick: () => this.importModTrack() });
-    options.push({ label: 'Not now', onPick: done });
+    if (pages > 1) options.push({ label: page + 1 < pages ? 'More tracks' : 'Back to the first', note: `Page ${page + 1} of ${pages}`, onPick: () => this.openModTracks(page + 1 < pages ? page + 1 : 0, back) });
+    options.push({ label: 'Import track', note: 'Add a .track.json from this device. It stays in this browser.', onPick: () => this.importModTrack(back) });
+    // From the road menu, Back returns to it (Boss, 30 Oct 2026).
+    options.push(back ? { label: 'Back', onPick: back } : { label: 'Not now', onPick: done });
     const text = mods.length
       ? `Player-made tracks, raced like a 50cc race day at Farmland MX. ${mods.length} installed or imported.`
       : "No mod tracks yet. Put .track.json files from the track editor in the game's mods/tracks folder, or import one.";
-    this.hud.choose('Mod Track', text, options, done);
+    this.hud.choose('Mod Tracks', text, options, done);
   }
 
-  private pickModTrack(m: ModTrack, page: number): void {
+  private pickModTrack(m: ModTrack, page: number, roadBack?: () => void): void {
     const remove = {
       label: 'Remove it',
       note: 'Take this imported track out of this browser.',
@@ -1033,11 +1034,11 @@ export class WorldScene extends Phaser.Scene {
         forgetImport(services.store, m.file);
         this.reloadMods();
         this.hud.toast(`Removed ${m.file}.`);
-        this.openModTracks(page);
+        this.openModTracks(page, roadBack);
       },
     };
     if (!m.track) {
-      const back = { label: 'Back', onPick: () => this.openModTracks(page) };
+      const back = { label: 'Back', onPick: () => this.openModTracks(page, roadBack) };
       this.hud.choose(m.name, `${m.file} can't be raced:\n${m.problems.slice(0, 4).join('\n')}`, m.source === 'imported' ? [remove, back] : [back], back.onPick);
       return;
     }
@@ -1048,7 +1049,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /** Reads a track file from this device, checks it, and keeps it in this browser if it can be raced. */
-  private importModTrack(): void {
+  private importModTrack(back?: () => void): void {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json,application/json';
@@ -1058,7 +1059,7 @@ export class WorldScene extends Phaser.Scene {
       void file.text().then((text) => {
         const m = readModTrack(services.content, file.name, text, 'imported');
         if (!m.track) {
-          this.hud.choose('Import track file', `${file.name} can't be raced, so it wasn't added:\n${m.problems.slice(0, 4).join('\n')}`, [{ label: 'OK', onPick: () => this.openModTracks() }], () => this.openModTracks());
+          this.hud.choose('Import track file', `${file.name} can't be raced, so it wasn't added:\n${m.problems.slice(0, 4).join('\n')}`, [{ label: 'OK', onPick: () => this.openModTracks(0, back) }], () => this.openModTracks(0, back));
           return;
         }
         try {
@@ -1070,7 +1071,7 @@ export class WorldScene extends Phaser.Scene {
         this.reloadMods();
         this.hud.toast(`Imported "${m.name}".`);
         const i = services.modTracks.findIndex((x) => x.source === 'imported' && x.file === file.name);
-        this.openModTracks(Math.max(0, Math.floor(i / 3)));
+        this.openModTracks(Math.max(0, Math.floor(i / 3)), back);
       });
     });
     input.click();
@@ -1387,8 +1388,8 @@ export class WorldScene extends Phaser.Scene {
   // ---- routes ----
 
   /**
-   * Where a route exit takes the rider, then `go` there: its only place straight away, otherwise a
-   * quick "Where to?" at the road itself. Returns true when it went straight away.
+   * Where a route exit takes the rider, then `go` there: its only place straight away, otherwise the
+   * road menu at the road itself. Returns true when it went straight away.
    */
   private routeTo(via: MapObject, go: (to: Arrival) => void): boolean {
     const to = routeArrival(this.map, via, services.content.world, services.maps, null);
@@ -1400,14 +1401,82 @@ export class WorldScene extends Phaser.Scene {
       go({ map: to.map, tile: to.tile });
       return true;
     }
-    const route = services.content.world.routes.find((r) => r.map === this.map.id && r.exit === via.name);
-    const options = [to.place, ...to.others].map((p) => ({
-      label: p.name,
-      note: p.note,
-      onPick: () => (p.mods ? this.openModTracks() : go({ map: p.map, tile: spawnTile(services.maps.get(p.map)!, p.spawn!)! })),
-    }));
-    this.hud.choose('Where to?', `${route ? `${route.road[0].toUpperCase()}${route.road.slice(1)}` : 'This road'} goes to ${options.length} places.`, options, () => {});
+    this.openRoad([to.place, ...to.others], go);
     return false;
+  }
+
+  /**
+   * The road menu (Boss, 30 Oct 2026): Tracks, by type, with the unlocked tracks of each and the
+   * unlocked championships; Areas; Mod Tracks; Not now. Built from the road's places
+   * (core/guides.ts roadMenu), with this map's own place shown as where you are.
+   */
+  private openRoad(places: PlaceDef[], go: (to: Arrival) => void): void {
+    const rc = services.content;
+    const here = rc.world.places.find((p) => p.map === this.map.id && !p.mods);
+    const menu = roadMenu(here ? [here, ...places] : places, rc.tracks.venues, (id) => rc.tracks.tracks.find((t) => t.id === id)?.kind, this.save.flags);
+    const done = () => {};
+    const top = () => this.openRoad(places, go);
+    const arrive = (p: PlaceDef) => go({ map: p.map, tile: spawnTile(services.maps.get(p.map)!, p.spawn!)! });
+    const item = (p: PlaceDef) =>
+      p.map === this.map.id ? { label: p.name, note: "You're here.", enabled: false, onPick: done } : { label: p.name, note: p.note, onPick: () => arrive(p) };
+    const champs = this.roadChampionships(arrive);
+    const tracks = menu.tracks.reduce((n, t) => n + t.places.filter((p) => p.map !== this.map.id).length, 0);
+    const areas = menu.areas.filter((p) => p.map !== this.map.id);
+    const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
+
+    const openTracks = (): void => {
+      const back = top;
+      const types = menu.tracks.map((t) => ({
+        label: t.name,
+        note: t.places.length ? t.places.map((p) => p.name).join(', ') : 'None unlocked yet.',
+        enabled: t.places.length > 0,
+        onPick: () => this.roadList(t.name, `${t.name} tracks you can ride.`, t.places.map(item), openTracks),
+      }));
+      this.hud.choose('Tracks', 'Pick a type of track.', [
+        ...types,
+        {
+          label: 'Championship',
+          note: champs.length ? champs.map((c) => c.label).join(', ') : 'None unlocked yet.',
+          enabled: champs.length > 0,
+          onPick: () => this.roadList('Championship', 'Go to the track where its next round is. Enter rounds at the race office.', champs, openTracks),
+        },
+        { label: 'Back', onPick: back },
+      ], back);
+    };
+
+    this.hud.choose('Where to?', 'Pick a track, another area, or a mod track.', [
+      { label: 'Tracks', note: `${plural(tracks, 'track')} to go to${champs.length ? `, ${plural(champs.length, 'championship')}` : ''}.`, onPick: openTracks },
+      { label: 'Areas', note: areas.length ? areas.map((p) => p.name).join(', ') : 'No other areas on this road.', enabled: areas.length > 0, onPick: () => this.roadList('Areas', 'Head into an area.', menu.areas.map(item), top) },
+      ...(menu.mods ? [{ label: 'Mod Tracks', note: `${plural(services.modTracks.length, 'track')} installed or imported. Race one, or import a track file.`, onPick: () => this.openModTracks(0, top) }] : []),
+      { label: 'Not now', onPick: done },
+    ], done);
+  }
+
+  /** The unlocked championships, for the road menu: picking one goes to its next round's track. */
+  private roadChampionships(arrive: (p: PlaceDef) => void): { label: string; note: string; enabled?: boolean; onPick: () => void }[] {
+    const rc = services.content;
+    const career = this.save.career;
+    return rc.championships.championships.flatMap((def) => {
+      const active = career.champs?.active[def.id];
+      if (!active && champProblem(rc, def, this.save.flags)) return [];
+      const venue = rc.tracks.venues.find((v) => v.id === (active ? nextRoundVenue(def, active) : def.rounds[0]));
+      const place = venue && rc.world.places.find((p) => p.map === venue.map && p.spawn && services.maps.get(p.map) && spawnTile(services.maps.get(p.map)!, p.spawn));
+      if (!venue || !place) return [];
+      const n = active ? active.rounds.length + 1 : 1;
+      const note = `${active ? 'Entered' : 'Not entered'}. Round ${n} of ${def.rounds.length} is at ${venue.name}.`;
+      if (venue.map === this.map.id) return [{ label: def.short, note: `${note} You're here: see the race office.`, enabled: false, onPick: () => {} }];
+      return [{ label: def.short, note, onPick: () => arrive(place) }];
+    });
+  }
+
+  /** A list on the road menu, a few to a page, with Back. */
+  private roadList(title: string, text: string, items: { label: string; note?: string; enabled?: boolean; onPick: () => void }[], back: () => void, page = 0): void {
+    const per = 4;
+    const pages = Math.max(1, Math.ceil(items.length / per));
+    page = Math.min(page, pages - 1);
+    const options = items.slice(page * per, page * per + per);
+    if (pages > 1) options.push({ label: page + 1 < pages ? 'More' : 'Back to the first', note: `Page ${page + 1} of ${pages}`, onPick: () => this.roadList(title, text, items, back, page + 1 < pages ? page + 1 : 0) });
+    this.hud.choose(title, text, [...options, { label: 'Back', onPick: back }], back);
   }
 
   /** A small ring where the player clicked, so a click always shows a response. */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { checkContent, npcsOnMap, type RawContent } from '../src/core/content';
-import { routeArrival, routePlaces, waysOut } from '../src/core/guides';
+import { ROAD_TRACK_TYPES, roadMenu, routeArrival, routePlaces, waysOut } from '../src/core/guides';
 import { Grid } from '../src/core/grid';
 import { ROUTE, spawnTile, stepTriggerAt, Travel } from '../src/core/travel';
 import { loadManifest, loadMaps, rawContent } from './helpers';
@@ -133,5 +133,47 @@ describe('NPCs stand on the path, not in the road', () => {
         if (imgs.some((i) => /street-(00001000|10000000)\.png$/.test(i))) expect(standLift(m, p.x, p.y), `${p.npc.id} on ${m.id}`).toBeGreaterThan(0);
       }
     }
+  });
+});
+
+describe('the road menu (Boss, 30 Oct 2026)', () => {
+  const kindOf = (id: string) => content.tracks.tracks.find((t) => t.id === id)?.kind;
+  const homeRoad = world.routes.find((r) => r.map === 'area1-home-town')!;
+  const lane = world.routes.find((r) => r.map === 'area1-venue-farmland')!;
+  const names = (ps: { name: string }[]) => ps.map((p) => p.name);
+  const FOUND = { 'found.venue-farmland': true };
+
+  it('lists the track types in order: Motocross, Supercross, Enduro Loop, Enduro Sprint, EnduroCross', () => {
+    expect(ROAD_TRACK_TYPES.map((t) => t.name)).toEqual(['Motocross', 'Supercross', 'Enduro Loop', 'Enduro Sprint', 'EnduroCross']);
+  });
+
+  it('puts each unlocked track under its type, and the places that are not tracks under Areas', () => {
+    const menu = roadMenu(routePlaces(world, maps, lane), content.tracks.venues, kindOf, FOUND);
+    expect(menu.tracks.map((t) => [t.name, names(t.places)])).toEqual([
+      ['Motocross', []],
+      ['Supercross', ['Riverside Arena']],
+      ['Enduro Loop', ['Longmoor Enduro']],
+      ['Enduro Sprint', []],
+      ['EnduroCross', []],
+    ]);
+    expect(names(menu.areas)).toEqual(['Home Town']);
+    expect(menu.mods).toBe(true);
+  });
+
+  it('leaves out a track until it is unlocked, and the backyard loop is never a track', () => {
+    const menu = roadMenu(routePlaces(world, maps, homeRoad), content.tracks.venues, kindOf, {});
+    expect(menu.tracks.every((t) => t.places.length === 0)).toBe(true);
+    expect(menu.areas).toEqual([]);
+    const open = roadMenu(routePlaces(world, maps, homeRoad), content.tracks.venues, kindOf, FOUND);
+    expect(names(open.tracks[0].places)).toEqual(['Farmland MX']);
+    const home = world.places.find((p) => p.map === 'area1-home-town')!;
+    expect(names(roadMenu([home], content.tracks.venues, kindOf, FOUND).areas)).toEqual(['Home Town']);
+  });
+
+  it('lists an enduro sprint venue under Enduro Sprint', () => {
+    const venues = content.tracks.venues.map((v) => (v.id === 'venue-longmoor' ? { ...v, track: 'quarry' } : v));
+    const menu = roadMenu(routePlaces(world, maps, lane), venues, (id) => (id === 'quarry' ? 'enduro_sprint' : kindOf(id)), FOUND);
+    expect(names(menu.tracks[3].places)).toEqual(['Longmoor Enduro']);
+    expect(menu.tracks[2].places).toEqual([]);
   });
 });
