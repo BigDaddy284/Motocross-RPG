@@ -60,7 +60,7 @@ Kept part: the employer gives one random part from each finished batch (Spec 15.
 
 | Slot | Buy it at | Batch job that can give it as the kept part |
 |---|---|---|
-| Frame | Moto78: a stock Grade 1 frame of your brand, for every class you've unlocked (proposed, see below) | Frame works (A5), Race department (A8) |
+| Frame | Moto78: a stock Grade 1 frame of your brand, for every class you've unlocked (see below) | Frame works (A5), Race department (A8) |
 | Top end | Phoenix MX | Engine rebuilder (A1) |
 | Bottom end | Phoenix MX | Gearbox works (A6) |
 | Intake and exhaust | Phoenix MX | Exhaust and intake works (A7) |
@@ -101,7 +101,7 @@ Tools also open some work:
 
 Frames wear (1,000 km at full condition), and a big crash or random breakage can break one. Today that's a dead end for a new player: the 50cc frame is Grade 1, so it can't be repaired (Spec 7.4), a broken part can only be dumped (Spec 7.2), and no shop sells frames. The bike would be stuck at 10% of its frame stats for good.
 
-Proposed fix: **Moto78 sells a stock Grade 1 frame of your bike's brand** for every class you've unlocked, at the normal price (£400 for a 50cc). A sponsored rider gets a broken frame replaced free by their sponsor. Better frames still come only from sponsors, the Frame works (A5) and the Race department (A8). This needs adding to Area 1 now, as it can already happen in the current build.
+Agreed fix (Boss, 30 Oct 2026): **Moto78 sells a stock Grade 1 frame of your bike's brand** for every class you've unlocked, at the normal price (£400 for a 50cc). A sponsored rider gets a broken frame replaced free by their sponsor. Better frames still come only from sponsors, the Frame works (A5) and the Race department (A8). This needs adding to Area 1 now, as it can already happen in the current build.
 
 ## The travelling NPCs
 
@@ -305,5 +305,5 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 10. ~~Houses~~ Settled: a house in every town. Area 4 gets a reskinned Area 3 Semi, and Area 7 a reskinned Area 8 estate with no trophy and bike display room (Boss, 30 Oct 2026). House prices go up every area; the Area 7 house is £1,000,000.
 11. ~~The fitness spread~~ Settled: weights (A2), agility ladder (A3), yoga (A4), rowing (A5), cycling (A6), dojo (A7), ice bath (A8) (Boss, 30 Oct 2026).
 12. ~~Tools~~ Settled: three versions of each set (first, Pro and Master), all sold at the Area 1 tool shop; a second tool shop in Area 5 is a maybe (Boss, 30 Oct 2026).
-13. **Frames:** Moto78 sells a stock Grade 1 frame of your brand as a replacement, and sponsors replace theirs free?
+13. ~~Frames~~ Settled: Moto78 always sells a stock Grade 1 frame of your brand for any unlocked class, and sponsors replace their broken frames free (Boss, 30 Oct 2026).
 14. **Names** for Local Champions, challengers, the Area 2 practice coach, Big Pete's full name, and every venue in Areas 2 to 8.
