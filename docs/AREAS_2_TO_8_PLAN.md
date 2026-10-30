@@ -38,7 +38,7 @@ Today only racing (all Rider Ability skills), bodyweight drills (Strength), runn
 | | Overtaking | Racing | Shadow passing (A5) |
 | | Consistency | Racing | Repetition laps (A6) |
 | Mechanical Engineer | Bodywork | Nothing | Fabrication shift (A1 fix), Plastics moulding (A6), Bodywork fitting at home |
-| | Wheels | Nothing | Tyre change at Phoenix MX (A1 fix), Wheel works (A2), Brake works (A3) |
+| | Wheels | Nothing | Tyre change at Moto78 (A1 fix), Wheel works (A2), Brake works (A3) |
 | | Suspension | Nothing | Suspension shop (A4) |
 | | Engine Components | Nothing | Engine shift (A1 fix), Exhaust and intake works (A5), Gearbox works (A6) |
 | | Engine Assembly | Nothing | Engine build at the engine rebuilder (A1 fix), Gearbox works (A6) |
@@ -55,17 +55,17 @@ Each new area also raises the facility tier of earlier activities (Spec 2.2), so
 
 ### Every bike part can be bought or earned
 
-Kept part: the employer gives one random part from each finished batch (Spec 15.1). The contract's class follows the area, so a part can be made for a class the player hasn't reached yet.
+Kept part: the employer gives one random part from each finished batch (Spec 15.1). The contract's class follows the area. The player can make parts for a class they haven't reached yet, as Spec 15.5 has it, but they **can't fit** a kept part until that class is unlocked; it waits in storage. (**Decision**, Boss asked 30 Oct 2026: keep this, or stop players making parts above their class.)
 
 | Slot | Buy it at | Batch job that can give it as the kept part |
 |---|---|---|
-| Frame | Not sold in shops (sponsor or class dealer, Spec 18.9) | Frame works (A7), Race department (A8) |
-| Top end | Moto78 | Engine rebuilder (A1) |
-| Bottom end | Moto78 | Gearbox works (A6) |
-| Intake and exhaust | Moto78 | Exhaust and intake works (A5) |
-| Drivetrain | Moto78 | Gearbox works (A6) |
-| Forks | Moto78 | Suspension shop (A4) |
-| Shock | Moto78 | Suspension shop (A4) |
+| Frame | Moto78: a stock Grade 1 frame of your brand, for every class you've unlocked (proposed, see below) | Frame works (A7), Race department (A8) |
+| Top end | Phoenix MX | Engine rebuilder (A1) |
+| Bottom end | Phoenix MX | Gearbox works (A6) |
+| Intake and exhaust | Phoenix MX | Exhaust and intake works (A5) |
+| Drivetrain | Phoenix MX | Gearbox works (A6) |
+| Forks | Phoenix MX | Suspension shop (A4) |
+| Shock | Phoenix MX | Suspension shop (A4) |
 | Wheels and tyres | Tyres and Wheels | Wheel works (A2) |
 | Brakes | Tyres and Wheels | Brake works (A3) |
 | Bodywork and controls | Moto78 | Fabrication shop (A1), Plastics moulding (A6) |
@@ -85,16 +85,22 @@ There are four tool sets, one per part group. Each set gets its first version in
 | Engine tools | Top end, Bottom end, Intake and exhaust, Drivetrain | A3, £3,000 | Grade 5 | Pro in A6 (Grade 7), Master in A8 (Grade 9) |
 | Suspension tools | Forks, Shock | A4, £1,500 | Grade 5 | Pro in A6 (Grade 7), Master in A8 (Grade 9) |
 
-Grade 10 parts always go to Phoenix MX. Pro and Master prices follow the 10% to 20% of the matching house tier rule (Spec 17.2a), so Pro sets cost £1,200 to £2,400 and Master sets £8,000 to £16,000 (provisional).
+Tools don't wear out: a set is bought once and lasts for good, like the motors (Spec 17.3 says vehicles never need maintenance, and the Spec gives tools no condition). Grade 10 parts always go to Phoenix MX. Pro and Master prices follow the 10% to 20% of the matching house tier rule (Spec 17.2a), so Pro sets cost £1,200 to £2,400 and Master sets £8,000 to £16,000 (provisional).
 
 Tools also open some work:
 
 - **Bodywork fitting at home** (Bodywork) needs bodywork tools.
-- **Tyre change** away from Phoenix MX needs wheel and brake tools.
+- **Tyre change** away from Moto78 needs wheel and brake tools.
 - **Customer repair tickets** on the Phoenix MX job board ask for the tool set for that ticket's slot, so better tools open better-paying tickets.
 - **House workshop upgrades** (engine stand, suspension tools, tyre machine, Spec 17.1) are separate from the tool sets. They're bought for the house, not carried.
 
 **Where tools are sold (Decision).** Area 1 already has a tool shop building with no owner. Either the tool shop is a fifth shop in every area, or Area 1's tool shop stays the only one and stocks each new set as each area opens. I'd go with the second, since it's already on the map, plus one tool stall in Area 5's City for the Pro and Master sets.
+
+### When a frame breaks
+
+Frames wear (1,000 km at full condition), and a big crash or random breakage can break one. Today that's a dead end for a new player: the 50cc frame is Grade 1, so it can't be repaired (Spec 7.4), a broken part can only be dumped (Spec 7.2), and no shop sells frames. The bike would be stuck at 10% of its frame stats for good.
+
+Proposed fix: **Moto78 sells a stock Grade 1 frame of your bike's brand** for every class you've unlocked, at the normal price (£400 for a 50cc). A sponsored rider gets a broken frame replaced free by their sponsor. Better frames still come only from sponsors, the Frame works (A7) and the Race department (A8). This needs adding to Area 1 now, as it can already happen in the current build.
 
 ## The four travelling NPCs
 
@@ -102,8 +108,8 @@ They each have a shop or stand in every area, in a building that looks the same 
 
 | NPC | Every area | Grows as the game goes on |
 |---|---|---|
-| **Paul Phoenix**, Phoenix MX | Repairs (one grade down, Grade 2 and up), bench fitting, customer repair job board, tyre change training | Clothing and riding gear from Area 2 (**Decision:** which area), bigger workshop, reputation hints about sponsors (Spec 16.0) |
-| **Bill Rothon**, Moto78 | Engine, suspension and bodywork parts | Grade range and classes rise each area (table below). Class dealer for new bikes and frames when unsponsored (**Decision**) |
+| **Paul Phoenix**, Phoenix MX | Repairs (one grade down, Grade 2 and up), bench fitting, customer repair job board, and engine and suspension parts (top end, bottom end, intake and exhaust, drivetrain, forks, shock; Boss, 30 Oct 2026) | Clothing and riding gear from Area 2 (**Decision:** which area), bigger workshop, reputation hints about sponsors (Spec 16.0) |
+| **Bill Rothon**, Moto78 | Bodywork and controls, stock frames, and the tyre changer: tyres fitted there, and tyre change training (Boss, 30 Oct 2026) | Grade range and classes rise each area (table below). Class dealer for new bikes and frames when unsponsored (**Decision**) |
 | **Jedrick Nicholls**, Nicholls Used Motors | The motor for that area | Sells the next motor each area (Old Rusty Van in A2 to Motor 7 in A7). Area 8 could be trade-ins only, or a showroom of the Factory Hauler in other colours |
 | **Manny Festo**, the news man | News about the next championship, the new Area Champion, and rumours that point to hidden venues and storylines | He sells nothing today. **Decision:** keep him as the news man in every area, or give him a stall (for example energy drinks, see below) |
 
@@ -111,7 +117,7 @@ The **Tyres and Wheels** shop is in Boss's Locations list for every area, but it
 
 ### Shop stock by area (proposed)
 
-Area 1 is agreed (Grades 1 to 3, 50cc and 65cc). Each later area adds a grade at the top and the next class, and keeps earlier classes. Grades 9 and 10 never appear in shops: only batch jobs, the Race department and set NPC rewards give them (Spec 14.4).
+Area 1 is agreed (Grades 1 to 3, 50cc and 65cc). The grades apply to Phoenix MX, Moto78 and Tyres and Wheels alike. Each later area adds a grade at the top and the next class, and keeps earlier classes. Grades 9 and 10 never appear in shops: only batch jobs, the Race department and set NPC rewards give them (Spec 14.4).
 
 | Area | Grades on the shelf | Classes stocked (adds) | Badge challenge class (Spec 18.1) |
 |---|---|---|---|
@@ -252,23 +258,24 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 4. **The tool shop is empty and has no owner.** Tool sets gate DIY repairs (Spec 17.2a), and DIY repair itself isn't built yet. Tool slots in the house and motor aren't counted yet either.
 5. **Job boards are missing.** That covers customer repairs at Phoenix MX (needed in every area), fabrication jobs and engine jobs.
 6. **No Rider Ability drills at all.** Racing is the only training. Area 1 could get one drill (for example gate drop at the backyard) so the pattern is set before Area 2.
-7. **The Area 1 main championship** is still "comes with Area 2", and it's the gate to Area 2 (Spec 18.2).
+7. **A broken Grade 1 frame can't be replaced** (see [When a frame breaks](#when-a-frame-breaks)).
+8. **The Area 1 main championship** is still "comes with Area 2", and it's the gate to Area 2 (Spec 18.2).
 
 ### Missing for Areas 2 to 8
 
-8. **Rider pools.** Every CPU rider is in the Area 1 pool except Neal Gizard (Area 8). Each area needs its own pool, and the Area Champions need moving to their areas and levelling up. Today Taylor Heart is level 10 and Aidan Gizard is level 4.
-9. **Local Champions.** Areas 2 to 8 have no Local Champion names yet (the L= column is blank).
-10. **Challengers.** Two per area, so 14 names and 14 challenge tracks.
-11. **Bike classes.** Only 50cc is in `bikes.json`. Every class from 65cc to Vets needs a stat ceiling, and the class milestone flow (win the championship, collect the new bike) needs building.
-12. **Motor prices and storage.** There are seven motors now, but the Spec priced five (£600 to £160,000). Motors 2 to 7 need a price, bike slots and part slots.
-13. **Weather and rain.** Rain is due in Area 2 (Spec 10.5) and isn't in yet. Sand, roots, rock and wind conditions follow in Areas 3, 4, 6 and 7.
-14. **Bike setup sliders** (Spec 8). These are what make the Mechanical Engineer level matter on race day, and they aren't in yet.
-15. **Sponsors and reputation** (Spec 16) are needed for Area 5's Sponsored Rides.
-16. **House tiers.** None can be bought yet, and shared storage across houses (Boss's rule) needs building.
-17. **Clothing.** The wardrobe isn't built. It's needed for Phoenix MX clothing and sponsor outfits.
-18. **Unnamed NPCs.** The tyres and wheels specialist, fabrication shop boss, engine rebuilder, modifier machine owner, neighbour and scrapyard owner still have job titles.
-19. **The Area 2 name clashes.** The Spec calls Area 2 "Riverside", but Riverside Arena is already Area 1's supercross venue.
-20. **Hidden venues.** The Spec has optional venues found by exploring or NPC tasks (for example a secret sand pit on the coast). None are planned per area yet.
+9. **Rider pools.** Every CPU rider is in the Area 1 pool except Neal Gizard (Area 8). Each area needs its own pool, and the Area Champions need moving to their areas and levelling up. Today Taylor Heart is level 10 and Aidan Gizard is level 4.
+10. **Local Champions.** Areas 2 to 8 have no Local Champion names yet (the L= column is blank).
+11. **Challengers.** Two per area, so 14 names and 14 challenge tracks.
+12. **Bike classes.** Only 50cc is in `bikes.json`. Every class from 65cc to Vets needs a stat ceiling, and the class milestone flow (win the championship, collect the new bike) needs building.
+13. **Motor prices and storage.** There are seven motors now, but the Spec priced five (£600 to £160,000). Motors 2 to 7 need a price, bike slots and part slots.
+14. **Weather and rain.** Rain is due in Area 2 (Spec 10.5) and isn't in yet. Sand, roots, rock and wind conditions follow in Areas 3, 4, 6 and 7.
+15. **Bike setup sliders** (Spec 8). These are what make the Mechanical Engineer level matter on race day, and they aren't in yet.
+16. **Sponsors and reputation** (Spec 16) are needed for Area 5's Sponsored Rides.
+17. **House tiers.** None can be bought yet, and shared storage across houses (Boss's rule) needs building.
+18. **Clothing.** The wardrobe isn't built. It's needed for Phoenix MX clothing and sponsor outfits.
+19. **Unnamed NPCs.** The tyres and wheels specialist, fabrication shop boss, engine rebuilder, modifier machine owner, neighbour and scrapyard owner still have job titles.
+20. **The Area 2 name clashes.** The Spec calls Area 2 "Riverside", but Riverside Arena is already Area 1's supercross venue.
+21. **Hidden venues.** The Spec has optional venues found by exploring or NPC tasks (for example a secret sand pit on the coast). None are planned per area yet.
 
 ## Open decisions for Boss
 
@@ -284,4 +291,6 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 10. **Houses:** one tier in Areas 2, 3, 5, 6 and 8 (none new in 4 and 7), or a different spread?
 11. **The fitness spread:** weights (A2), agility ladder (A3), yoga (A4), dojo (A5), cycling (A6), rowing (A7), ice bath (A8).
 12. **Tools:** grade limits with Pro and Master versions, or one version of each set? And is the Area 1 tool shop the only tool shop?
-13. **Names** for Local Champions, challengers, the Area 2 practice coach, Big Pete's full name, and every venue in Areas 2 to 8.
+13. **Making parts above your class:** keep it (they wait in storage until the class unlocks), or block it?
+14. **Frames:** Moto78 sells a stock Grade 1 frame of your brand as a replacement, and sponsors replace theirs free?
+15. **Names** for Local Champions, challengers, the Area 2 practice coach, Big Pete's full name, and every venue in Areas 2 to 8.
