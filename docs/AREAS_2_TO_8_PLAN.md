@@ -1,0 +1,287 @@
+# Areas 2 to 8: content plan
+
+Draft for Boss to review (30 Oct 2026). This is a plan only: nothing here is built yet, and no game code changes with it.
+
+It starts from Boss's plan table (project chat, 30 Oct 2026), whose Areas 2 to 8 Locations and NPCs columns repeated the Home Town list as placeholders. Everything else comes from the Systems Specification v1 (the "Spec" below), `public/data/*.json` on `test/v1.5`, and `alpha-v1.1/area1-whats-missing.md`.
+
+Names marked *(placeholder)* are mine, to be replaced by Boss. Anything marked **Decision** is listed again in [Open decisions](#open-decisions-for-boss).
+
+## What Boss has set
+
+- **Four NPCs in every area:** Paul Phoenix (Phoenix MX), Bill Rothon (Moto78), Jedrick Nicholls (Nicholls Used Motors) and Manny Festo. They offer better parts as the game goes on, and their shops may grow. Phoenix MX will sell clothing as well as fixing bikes.
+- **Joseph Halden at every track venue.** This is already in on `test/v1.5` (he runs the race office at every track), so each new venue just places him.
+- **Dan Smyth** stays an Area 1 NPC (the Industrial Zone challenger).
+- **Every area from 2 to 8** gets parts making (batch jobs) and at least one new fitness activity.
+- **Energy drinks from Area 4 to 8.** Where they're sold isn't decided.
+- **Area 5** has a storyline that unlocks and introduces the Modifying Machine.
+- **Story beats from the table:** Area 3 is Big Pete, the Rider Trainer who trained all the top riders (he also unlocks whips and scrubs, per PR 46). Area 4 is Energy Drinks. Area 5 is Sponsored Rides. Every area has shop tasks and new Local and Area Champions.
+- **Track types:** Enduro Sprint opens in Area 5, No-Turn Takedown in Area 7 and EnduroCross in Area 8.
+- **Area Champions:** Area 2 Taylor Heart, Area 3 Aidan Gizard, Area 4 Kate Gizard, Area 5 Louie Gizard, Area 6 James Nestor, Area 7 Harvey Gizard, Area 8 Neal Gizard.
+- **Vehicles:** Area 2 Old Rusty Van, then Motor 3 to Motor 7 in Areas 3 to 7, and none new in Area 8.
+- **Houses:** buying a house shares storage across all houses, so there's no back and forth.
+
+## The goal: nothing left without a source
+
+By the end of Area 8, every one of the 19 child skills should have at least one activity that trains it, and every one of the 10 bike part slots should be both **buyable** and **earned as the kept part from a batch job**. Every part group should also have a **tool set** to buy, so the player can repair it themselves. The tables in the next three sections check all three.
+
+### Every skill has something to train on
+
+Today only racing (all Rider Ability skills), bodyweight drills (Strength), running (Endurance) and walking (Agility) give XP. Shifts pay money but no Mechanical Engineer XP. That needs fixing in Area 1 before Area 2 (see [Gaps](#gaps-found)).
+
+| Lead | Skill | Today | Planned activity (area it opens) |
+|---|---|---|---|
+| Rider Ability | Balance | Racing | Rut riding (A2), Whoops and sand (A3), Rock garden (A7) |
+| | Riding Position | Racing | Body position drills (A2) |
+| | Cornering and Braking | Racing | Cone braking (A2), Berm and flat corner (A4) |
+| | Jumps and Ruts | Racing | Jump timing and tricks with Big Pete (A3), Supercross rhythm (A5) |
+| | Starts | Racing | Gate drop (A3), Drag launch (A7) |
+| | Overtaking | Racing | Shadow passing (A5) |
+| | Consistency | Racing | Repetition laps (A6) |
+| Mechanical Engineer | Bodywork | Nothing | Fabrication shift (A1 fix), Plastics moulding (A6), Bodywork fitting at home |
+| | Wheels | Nothing | Tyre change at Phoenix MX (A1 fix), Wheel works (A2), Brake works (A3) |
+| | Suspension | Nothing | Suspension shop (A4) |
+| | Engine Components | Nothing | Engine shift (A1 fix), Exhaust and intake works (A5), Gearbox works (A6) |
+| | Engine Assembly | Nothing | Engine build at the engine rebuilder (A1 fix), Gearbox works (A6) |
+| | Welding | Nothing | Fabrication shift (A1 fix), Exhaust and intake works (A5), Frame works (A7) |
+| | Machining | Nothing | Engine shift (A1 fix), Brake works (A3), Gearbox works (A6) |
+| | Customer repairs (mixed) | Nothing | Phoenix MX job board, every area (A1 fix) |
+| Fitness | Agility | Walking | Agility ladder (A3) |
+| | Strength | Bodyweight drills | Weight training at the gym (A2) |
+| | Endurance | Running | Cycling (A6), Rowing (A7) |
+| | Martial Arts | Nothing | Dojo (A5) |
+| | Wellbeing | Nothing | Yoga (A4), Ice bath at the recovery centre (A8) |
+
+Each new area also raises the facility tier of earlier activities (Spec 2.2), so older training spots don't go stale: Tier 1 in Area 1, Tier 2 from Area 2, Tier 3 from Area 4, Tier 4 from Area 6, and Tier 5 in Area 8.
+
+### Every bike part can be bought or earned
+
+Kept part: the employer gives one random part from each finished batch (Spec 15.1). The contract's class follows the area, so a part can be made for a class the player hasn't reached yet.
+
+| Slot | Buy it at | Batch job that can give it as the kept part |
+|---|---|---|
+| Frame | Not sold in shops (sponsor or class dealer, Spec 18.9) | Frame works (A7), Race department (A8) |
+| Top end | Moto78 | Engine rebuilder (A1) |
+| Bottom end | Moto78 | Gearbox works (A6) |
+| Intake and exhaust | Moto78 | Exhaust and intake works (A5) |
+| Drivetrain | Moto78 | Gearbox works (A6) |
+| Forks | Moto78 | Suspension shop (A4) |
+| Shock | Moto78 | Suspension shop (A4) |
+| Wheels and tyres | Tyres and Wheels | Wheel works (A2) |
+| Brakes | Tyres and Wheels | Brake works (A3) |
+| Bodywork and controls | Moto78 | Fabrication shop (A1), Plastics moulding (A6) |
+
+The Race department in Area 8 takes contracts for any slot, at higher pay (Spec 15.2: Mechanical Engineer 70 plus an NPC chain).
+
+### Every tool set can be bought, and gets better each area
+
+Tools let the player repair and fit parts themselves instead of paying Phoenix MX (Spec 17.2a), and they take up tool slots in the house and motor (Spec 17.1, 17.3). Today the Area 1 tool shop counter does nothing.
+
+There are four tool sets, one per part group. Each set gets its first version in the area its parts start being made, then a better version later. The better version repairs higher grades, so the tools keep pace with the parts. **Decision:** whether to use these grade limits, or have just one version of each set.
+
+| Tool set | Covers slots | First version (area, price) | Repairs up to | Better versions |
+|---|---|---|---|---|
+| Bodywork tools | Bodywork and controls, Frame | A1, £300 | Grade 3 | Pro in A4 (Grade 6), Master in A7 (Grade 9) |
+| Wheel and brake tools | Wheels and tyres (fitting only, as tyres are only replaced), Brakes | A2, £600 | Grade 4 | Pro in A5 (Grade 6), Master in A8 (Grade 9) |
+| Engine tools | Top end, Bottom end, Intake and exhaust, Drivetrain | A3, £3,000 | Grade 5 | Pro in A6 (Grade 7), Master in A8 (Grade 9) |
+| Suspension tools | Forks, Shock | A4, £1,500 | Grade 5 | Pro in A6 (Grade 7), Master in A8 (Grade 9) |
+
+Grade 10 parts always go to Phoenix MX. Pro and Master prices follow the 10% to 20% of the matching house tier rule (Spec 17.2a), so Pro sets cost £1,200 to £2,400 and Master sets £8,000 to £16,000 (provisional).
+
+Tools also open some work:
+
+- **Bodywork fitting at home** (Bodywork) needs bodywork tools.
+- **Tyre change** away from Phoenix MX needs wheel and brake tools.
+- **Customer repair tickets** on the Phoenix MX job board ask for the tool set for that ticket's slot, so better tools open better-paying tickets.
+- **House workshop upgrades** (engine stand, suspension tools, tyre machine, Spec 17.1) are separate from the tool sets. They're bought for the house, not carried.
+
+**Where tools are sold (Decision).** Area 1 already has a tool shop building with no owner. Either the tool shop is a fifth shop in every area, or Area 1's tool shop stays the only one and stocks each new set as each area opens. I'd go with the second, since it's already on the map, plus one tool stall in Area 5's City for the Pro and Master sets.
+
+## The four travelling NPCs
+
+They each have a shop or stand in every area, in a building that looks the same everywhere (the facility blueprint idea from Spec 18.0), so players recognise them at once.
+
+| NPC | Every area | Grows as the game goes on |
+|---|---|---|
+| **Paul Phoenix**, Phoenix MX | Repairs (one grade down, Grade 2 and up), bench fitting, customer repair job board, tyre change training | Clothing and riding gear from Area 2 (**Decision:** which area), bigger workshop, reputation hints about sponsors (Spec 16.0) |
+| **Bill Rothon**, Moto78 | Engine, suspension and bodywork parts | Grade range and classes rise each area (table below). Class dealer for new bikes and frames when unsponsored (**Decision**) |
+| **Jedrick Nicholls**, Nicholls Used Motors | The motor for that area | Sells the next motor each area (Old Rusty Van in A2 to Motor 7 in A7). Area 8 could be trade-ins only, or a showroom of the Factory Hauler in other colours |
+| **Manny Festo**, the news man | News about the next championship, the new Area Champion, and rumours that point to hidden venues and storylines | He sells nothing today. **Decision:** keep him as the news man in every area, or give him a stall (for example energy drinks, see below) |
+
+The **Tyres and Wheels** shop is in Boss's Locations list for every area, but its owner isn't one of the four and still has no name. **Decision:** make them a fifth travelling NPC with a name, or have a new local tyre specialist in each area.
+
+### Shop stock by area (proposed)
+
+Area 1 is agreed (Grades 1 to 3, 50cc and 65cc). Each later area adds a grade at the top and the next class, and keeps earlier classes. Grades 9 and 10 never appear in shops: only batch jobs, the Race department and set NPC rewards give them (Spec 14.4).
+
+| Area | Grades on the shelf | Classes stocked (adds) | Badge challenge class (Spec 18.1) |
+|---|---|---|---|
+| 1 | 1 to 3 | 50cc, 65cc | 50cc |
+| 2 | 1 to 4 | 85cc SW | 65cc |
+| 3 | 2 to 5 | 85cc BW | 85cc SW |
+| 4 | 2 to 5 | 125cc Youth | 85cc BW |
+| 5 | 3 to 6 | 125cc | 125cc Youth |
+| 6 | 3 to 7 | 250cc F | 125cc |
+| 7 | 4 to 7 | 450cc F, Vets | 250cc F |
+| 8 | 4 to 8 | All | 450cc F |
+
+## Area by area
+
+Area names and themes follow Spec 18.1. Track and NPC names are placeholders unless Boss gave them.
+
+Every area has the same base set, so the columns below list only what's **new**:
+
+- Phoenix MX, Moto78, Nicholls Used Motors, Tyres and Wheels, and Manny Festo.
+- A Motocross venue, a Supercross venue and an Enduro Loop venue, each with Joseph Halden at the race office.
+- Two challengers, each with their own challenge track.
+- A Local Champion championship (one round per area venue) for the badge, then the main area championship (two rounds per venue, and from Area 2 it can include earlier areas' tracks).
+- A route marshal at the exit, and a Road menu entry under Areas.
+- Shop tasks: errands like the scrapyard owner's (lend a worn part to repair), deliveries between the area's shops, and a short task chain that opens the area's hidden venue or practice track.
+
+### Area 2: Riverside (river valley, clay, rain and mud)
+
+- **Story:** shop tasks and the new Local and Area Champions (Area Champion Taylor Heart). The rain arrives.
+- **Batch job:** **Wheel works** (wheels and tyres). Minigame: wheel building (Wheels). Pay £1 a part, batch 50.
+- **Fitness:** **Town gym, weight training** (Strength, Tier 2). The Spec already puts the gym in Area 2, unlocked by a gym NPC task. Rowing on the river is an option here too.
+- **Rider training:** practice track coach *(placeholder name)* with body position drills (Riding Position) and cone braking (Cornering and Braking). Rut riding in the mud (Balance, Jumps and Ruts).
+- **Venues:** Riverside MX *(placeholder)*, a clay outdoor track; Mud bog *(placeholder)* Enduro Loop; a supercross venue *(placeholder)*.
+- **Tool shop:** wheel and brake tools (£600).
+- **House:** Starter terrace (£3,000), with the shed workshop interior that's already drawn.
+- **Motor:** Old Rusty Van.
+
+### Area 3: Coast (dunes and sand)
+
+- **Story:** **Big Pete, the Rider Trainer.** He trained all the top riders, and finishing his chain unlocks whips (from Rider Ability 30) and scrubs (from 60) for the player. Area Champion Aidan Gizard.
+- **Batch job:** **Brake works** (brakes). Minigame: machining (Machining, Wheels). Pay £1 a part, batch 50.
+- **Fitness:** **Agility ladder** on the beach (Agility). Agility only comes from walking today.
+- **Rider training (Big Pete):** jump timing and tricks (Jumps and Ruts), gate drop (Starts), whoops and sand on the sand track (Balance, Jumps and Ruts).
+- **Venues:** sand MX track, beach endurance loop, a supercross venue *(placeholders)*.
+- **Tool shop:** engine tools (£3,000).
+- **House:** Semi with garage (£12,000).
+- **Motor:** Motor 3, MX Van Short.
+
+### Area 4: Forest (roots, loam, wet woods)
+
+- **Story:** **Energy drinks** arrive. A short task introduces them (for example, a drinks rep needs help at the race office), then they're on sale for Areas 4 to 8. Area Champion Kate Gizard.
+- **Batch job:** **Suspension shop** (forks and shock). Minigame: suspension service (Suspension). Pay £1.50 a part, batch 100.
+- **Fitness:** **Yoga** at a woodland retreat (Wellbeing). Wellbeing has nothing to train on today.
+- **Rider training:** berm and flat corner (Cornering and Braking), rut riding over roots (Balance).
+- **Venues:** woodland MX, forest enduro loop, a supercross venue *(placeholders)*.
+- **Tool shop:** suspension tools (£1,500) and Pro bodywork tools.
+- **Energy drinks:** see [Energy drinks](#energy-drinks-areas-4-to-8).
+- **Motor:** Motor 4, MX Van Medium.
+
+### Area 5: City (stadium and indoor arena)
+
+- **Story:** **the Modifying Machine** (below) and **Sponsored Rides**. Sponsor offers open after the Local Champion championship (Spec 16), and the first sponsor brings a branded frame and an outfit. Area Champion Louie Gizard.
+- **Batch job:** **Exhaust and intake works**. Minigames: welding and engine build (Welding, Engine Components). Pay £1.25 a part, batch 50.
+- **Fitness:** **Martial arts dojo** (Martial Arts, with some Agility and Strength). The dojo unlocks through a short task, as the Spec says.
+- **Rider training:** supercross rhythm in the indoor arena (Jumps and Ruts, Riding Position), shadow passing with a local pro (Overtaking).
+- **Tool shop:** Pro wheel and brake tools.
+- **Venues:** supercross stadium, arenacross, outdoor MX on the city edge, and the **first Enduro Sprint**.
+- **House:** Detached house (£80,000).
+- **Motor:** Motor 5, MX Sports Motorhome Medium.
+
+#### The Modifying Machine storyline (Area 5)
+
+The modifier unit in the Industrial Zone is already built, and its owner stands in it saying nothing until later. This story uses that unit rather than building a second machine.
+
+1. **The rumour.** When Area 5 opens, Manny Festo's news mentions a city tuner whose parts "keep turning up on podium bikes".
+2. **The tuner.** In the City, the player finds the modifier machine's owner *(name needed)* trying to get the machine running again. It was in storage while they worked the city circuit.
+3. **The tasks.** Three steps, each teaching part of the rules:
+   - Run a short batch at the Exhaust and intake works, to show that manufacturing is the skilled way to get modifiers.
+   - Bring back a part with no modifiers at 80% condition or better, which is the machine's entry rule.
+   - Help move the machine back to the Industrial Zone unit, with the motor loaded.
+4. **The first go.** It's free and can't break the part. After it, the normal rules apply: a fee of £20 at Grade 1 that doubles each grade, a 1 in 10 chance the part breaks, no rerolls, and all three modifiers positive about 1 in 10,000 (Spec 6).
+5. **After that**, the machine is open in the Industrial Zone unit for good. **Decision:** should there also be a machine in the City, so the player doesn't have to go back to Area 1 each time?
+
+### Area 6: Highlands (hills, moorland, wind, long climbs)
+
+- **Story:** shop tasks and the new champions. Area Champion James Nestor.
+- **Batch jobs:** **Gearbox works** (bottom end and drivetrain). Minigames: machining and engine build (Machining, Engine Assembly, Engine Components). Pay £1.25 a part, batch 100. Plus **Plastics moulding** (bodywork and controls). Minigame: bodywork fitting (Bodywork). Pay £1 a part, batch 50.
+- **Fitness:** **Cycling** hill climbs (Endurance).
+- **Rider training:** repetition laps on the hill track (Consistency).
+- **Tool shop:** Pro engine and Pro suspension tools.
+- **Venues:** hill MX, large endurance course, a supercross venue, Enduro Sprint *(placeholders)*.
+- **House:** Farmhouse with land (£400,000, needs three badges), with its own private practice track.
+- **Motor:** Motor 6, MX Sports Motorhome Long.
+
+### Area 7: Northern Works (quarry, old industry, rock and dust)
+
+- **Story:** shop tasks and the new champions. Area Champion Harvey Gizard.
+- **Batch job:** **Frame works** (frames). Minigame: welding (Welding). This is the only way to get a frame without a sponsor or a dealer. Pay about £2 a part, batch 50 (**Decision:** frames are worth 10 times a top end, so maybe a smaller batch).
+- **Fitness:** **Rowing** on the old canal (Endurance).
+- **Rider training:** rock garden (Balance), drag launch on the No-Turn strip (Starts).
+- **Tool shop:** Master bodywork tools.
+- **Venues:** quarry MX, rock endurance loop, a supercross venue, Enduro Sprint, and the **first No-Turn Takedown**.
+- **Motor:** Motor 7, Factory Hauler.
+
+### Area 8: Capital (national venues, all weather)
+
+- **Story:** shop tasks and the final champions. Area Champion Neal Gizard. Winning Area 8 leads to the Super Event (Spec 19).
+- **Batch job:** **Race department** (any slot, £2.50 a part, batch 100). It needs Mechanical Engineer 70 and an NPC chain.
+- **Fitness:** **Recovery centre** with an ice bath (Wellbeing), plus Tier 5 versions of every fitness drill.
+- **Rider training:** Tier 5 versions of the rider drills.
+- **Tool shop:** Master wheel and brake, engine and suspension tools.
+- **Venues:** national MX, national supercross, a national endurance course, Enduro Sprint, No-Turn Takedown, the **first EnduroCross**, and the Super Event venue.
+- **House:** Champion's estate (£2,000,000, needs all badges).
+- **Motor:** none new.
+
+## Energy drinks (Areas 4 to 8)
+
+The rules are already agreed in Spec 4: drinks boost XP for one race day, never race speed. The number of active drinks is limited by Fitness level (1, then 2 at 50, then 3 at 80). Each skill has its own drink.
+
+**Where to sell them (Decision).** My recommendation is a **drinks van parked by the race office at every venue** from Area 4, with Moto78 stocking a few as well:
+
+- Drinks are only used on race day, so selling them at the track is where the player needs them.
+- A van can turn up at every venue without a new building in every area. It's one sprite and one stall.
+- Moto78 stocking a few covers players who plan ahead.
+
+The other options are its own shop in each town, which means a new building and NPC per area, or Moto78 only, which is simplest but means a trip back to town before every race day.
+
+**Clash to settle:** the Spec says drinks unlock with the 125cc Youth class and are sold at the town gym. Boss's plan opens them in Area 4, whose badge class is 85cc Big Wheel. I've followed Boss's Area 4.
+
+## Gaps found
+
+### Area 1 must come first
+
+These are Area 1 gaps, but Areas 2 to 8 build on them:
+
+1. **Mechanical Engineer can't be levelled.** Shifts pay money but give no XP. The fabrication and engine shifts need XP for Welding, Bodywork, Machining and Engine Components, and the engine rebuild work needs Engine Assembly XP.
+2. **No kept part from a batch.** A finished batch should give one random part (Spec 15.1). Without this, the "every part from a batch job" goal can't work anywhere.
+3. **The batch rules aren't in.** The facility lock (one open job per facility, stop and come back later) and the batch sizes of 50 and 100 from the Spec still need building. Today's shifts are 20 brackets and 16 pistons.
+4. **The tool shop is empty and has no owner.** Tool sets gate DIY repairs (Spec 17.2a), and DIY repair itself isn't built yet. Tool slots in the house and motor aren't counted yet either.
+5. **Job boards are missing.** That covers customer repairs at Phoenix MX (needed in every area), fabrication jobs and engine jobs.
+6. **No Rider Ability drills at all.** Racing is the only training. Area 1 could get one drill (for example gate drop at the backyard) so the pattern is set before Area 2.
+7. **The Area 1 main championship** is still "comes with Area 2", and it's the gate to Area 2 (Spec 18.2).
+
+### Missing for Areas 2 to 8
+
+8. **Rider pools.** Every CPU rider is in the Area 1 pool except Neal Gizard (Area 8). Each area needs its own pool, and the Area Champions need moving to their areas and levelling up. Today Taylor Heart is level 10 and Aidan Gizard is level 4.
+9. **Local Champions.** Areas 2 to 8 have no Local Champion names yet (the L= column is blank).
+10. **Challengers.** Two per area, so 14 names and 14 challenge tracks.
+11. **Bike classes.** Only 50cc is in `bikes.json`. Every class from 65cc to Vets needs a stat ceiling, and the class milestone flow (win the championship, collect the new bike) needs building.
+12. **Motor prices and storage.** There are seven motors now, but the Spec priced five (£600 to £160,000). Motors 2 to 7 need a price, bike slots and part slots.
+13. **Weather and rain.** Rain is due in Area 2 (Spec 10.5) and isn't in yet. Sand, roots, rock and wind conditions follow in Areas 3, 4, 6 and 7.
+14. **Bike setup sliders** (Spec 8). These are what make the Mechanical Engineer level matter on race day, and they aren't in yet.
+15. **Sponsors and reputation** (Spec 16) are needed for Area 5's Sponsored Rides.
+16. **House tiers.** None can be bought yet, and shared storage across houses (Boss's rule) needs building.
+17. **Clothing.** The wardrobe isn't built. It's needed for Phoenix MX clothing and sponsor outfits.
+18. **Unnamed NPCs.** The tyres and wheels specialist, fabrication shop boss, engine rebuilder, modifier machine owner, neighbour and scrapyard owner still have job titles.
+19. **The Area 2 name clashes.** The Spec calls Area 2 "Riverside", but Riverside Arena is already Area 1's supercross venue.
+20. **Hidden venues.** The Spec has optional venues found by exploring or NPC tasks (for example a secret sand pit on the coast). None are planned per area yet.
+
+## Open decisions for Boss
+
+1. **Area 2's name**, since Riverside is taken by Area 1's arena.
+2. **The Tyres and Wheels owner:** a named fifth travelling NPC, or a new local specialist in each area?
+3. **Manny Festo:** news man only, or a stall as well?
+4. **Phoenix MX clothing:** which area it starts in (I suggest Area 2).
+5. **The class dealer:** should Bill Rothon at Moto78 sell the new bike and frame at each class step for unsponsored riders?
+6. **Energy drinks:** a drinks van at the venues (my recommendation), their own shop, or Moto78 only. And confirm Area 4 over the Spec's "from 125cc Youth".
+7. **The Modifying Machine:** in the Industrial Zone only after the Area 5 story, or in the City as well?
+8. **The modifier machine owner's name.**
+9. **Batch jobs per area:** is one new facility per area right (Area 6 gets two), and are you happy with the Frame works in Area 7 as the only non-sponsor way to make a frame?
+10. **Houses:** one tier in Areas 2, 3, 5, 6 and 8 (none new in 4 and 7), or a different spread?
+11. **The fitness spread:** weights (A2), agility ladder (A3), yoga (A4), dojo (A5), cycling (A6), rowing (A7), ice bath (A8).
+12. **Tools:** grade limits with Pro and Master versions, or one version of each set? And is the Area 1 tool shop the only tool shop?
+13. **Names** for Local Champions, challengers, the Area 2 practice coach, Big Pete's full name, and every venue in Areas 2 to 8.
