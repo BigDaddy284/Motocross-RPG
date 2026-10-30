@@ -1,9 +1,9 @@
 import type { BikesData } from './career';
 import { mixSeed, seededRng, type LapTrace, type MessageDef, type MistakeOutcome, type MotoSim, type TrackDef, type TrackSection } from './race';
 import { riderProfile, type RiderProfile } from './riderProfile';
-import { lapGeom, lapMetres, sectionBounds, sectionTurns, START_PAD, startGeom, type StartGeom } from './trackGeom';
+import { isSprint, lapGeom, lapMetres, pointAt, sectionBounds, sectionTurns, SPRINT_QUEUE, START_PAD, startGeom, type StartGeom } from './trackGeom';
 import { DEFAULT_HEIGHTS, HOP_JUMPS, landingOf, pickWay, type Way } from './jumps';
-import { TrackSurface, type Flight } from './trackSurface';
+import { HILLS, sectionShape, TrackSurface, type Flight } from './trackSurface';
 
 export { DEFAULT_HEIGHTS };
 
@@ -80,6 +80,16 @@ interface Finish {
   from: number;
   edge: number;
 }
+/** Seconds the race screen shows before an enduro sprint's first rider leaves the start line. */
+export const SPRINT_LEAD = 3;
+/** Grid units between riders queueing single file at a sprint's start line: a bike and a bit. */
+const QUEUE_GAP = 1.45;
+/** Seconds a sprint's queue takes to close up a place once the rider at the front has gone. */
+const QUEUE_CLOSE = 1.6;
+/** How far down the return lane a sprint's finishers ride before pulling off, as a share of it, and the room each takes there (grid units). */
+const PARK_AT = 0.2;
+const PARK_GAP = 1.5;
+
 /** Gates in a start row, and the most riders the start takes (two rows; Boss, 28 Oct 2026: 16 looks cleaner than 20). */
 export const ROW_SIZE = 8;
 export const MAX_GRID = 16;
@@ -145,6 +155,8 @@ export class RaceDirector {
   /** Each rider's way through each jump on each lap, picked once (id|lap|section). */
   private readonly ways = new Map<string, Way | null>();
   private finishCache: { key: string; plan: Map<string, Finish> } | null = null;
+  /** An enduro sprint: riders leave the start line one at a time, queue for it single file, and ride the return lane single file. */
+  readonly sprint: boolean;
 
   constructor(
     readonly track: TrackDef,
@@ -163,6 +175,7 @@ export class RaceDirector {
     this.surface = new TrackSurface(track);
     this.bounds = sectionBounds(track);
     this.start = startGeom(track, g);
+    this.sprint = isSprint(track);
     // Each rider's gate is their slot: gates 1 to 8 (0 to 7 here) are the front row, from the inside
     // of the first corner outwards, gates 9 to 16 the second row and 17 to 24 the third, each
     // straight behind the gate eight before it. A field of 8 or fewer is one row spread across the start.
@@ -182,6 +195,14 @@ export class RaceDirector {
       this.gateLane.set(id, firstTurn * (perRow > 1 ? 0.9 - step * (gate % ROW_SIZE) : 0));
     }
     for (const id of profiles.keys()) this.segs.set(id, []);
+    if (this.sprint) {
+      // A sprint has no grid: everyone queues single file in the middle of the return lane, in
+      // their start order, and the first rider leaves SPRINT_LEAD seconds after the screen opens.
+      for (const id of gates.keys()) this.gateLane.set(id, 0);
+      this.prep = 0;
+      this.prestart = laps === null ? 0 : SPRINT_LEAD;
+      return;
+    }
 
     // The line-up, for a race. Riders reach their slots in the order they picked their gates, front
     // row first, as at a real start, so the gate fills unevenly: the first few (4 for a full field)
@@ -315,9 +336,66 @@ export class RaceDirector {
   poses(t: number): RiderPose[] {
     const poses: RiderPose[] = [];
     for (const [id, list] of this.segs) poses.push(this.pose(id, list, t));
-    this.coolDown(poses, t);
+    if (this.sprint) this.queue(poses, t);
+    else this.coolDown(poses, t);
     this.keepApart(poses);
     return poses;
+  }
+
+  /**
+   * A sprint rider's next time away from the start line at race time t: the end of the wait they
+   * are in or have still to come to, or null once they have left it for the last lap simulated.
+   */
+  private nextAway(list: Seg[], t: number): number | null {
+    if (!list.length) return null;
+    if (t <= list[0].t0) return list[0].t0;
+    for (const s of list) if (s.si === SPRINT_QUEUE && s.t1 > t) return s.t1;
+    return null;
+  }
+
+  /**
+   * The queue at a sprint's start line: riders waiting to leave stand single file back down the
+   * return lane in the order they leave, the front one on the line, closing up a place over
+   * QUEUE_CLOSE seconds each time someone goes; a rider rolling down the return lane stops behind
+   * the back of it. One who has left rides away from the line as the race says.
+   */
+  private queue(poses: RiderPose[], t: number): void {
+    const line = frac(this.start.from);
+    const gap = QUEUE_GAP / this.lapUnits;
+    const away = new Map<string, number>();
+    for (const [id, list] of this.segs) {
+      const a = this.nextAway(list, t);
+      if (a !== null) away.set(id, a);
+    }
+    // Everyone who has gone from the line lately, for the queue to close up after them.
+    const gone: number[] = [];
+    for (const list of this.segs.values()) {
+      for (const s of list) {
+        if (s.si !== SPRINT_QUEUE && s !== list[0]) continue;
+        const at = s.si === SPRINT_QUEUE ? s.t1 : s.t0;
+        if (at < t - 1e-9 && t - at < QUEUE_CLOSE) gone.push(at);
+      }
+    }
+    const waiting = poses.filter((p) => p.state === 'grid' && away.has(p.id)).sort((a, b) => away.get(a.id)! - away.get(b.id)!);
+    const closing = gone.reduce((sum, at) => sum + (1 - smooth((t - at) / QUEUE_CLOSE)), 0);
+    // Lap fractions: the start line is at `line`, and the queue runs back from it down the lane.
+    let back = Infinity;
+    waiting.forEach((p, k) => {
+      p.dist -= (k + closing) * gap;
+      p.lane = 0;
+      back = frac(p.dist);
+    });
+    // Riders rolling down the return lane (short of the start line) stop behind the back of the queue.
+    if (back === Infinity) return;
+    const rolling = poses.filter((p) => (p.state === 'riding' || p.state === 'waiting') && frac(p.dist) < line).sort((a, b) => frac(b.dist) - frac(a.dist));
+    for (const p of rolling) {
+      const cap = back - gap;
+      if (frac(p.dist) > cap) {
+        p.dist = Math.floor(p.dist) + Math.max(0, cap);
+        p.speed = 0;
+      }
+      back = frac(p.dist);
+    }
   }
 
   private pose(id: string, list: Seg[], t: number, pulled = true): RiderPose {
@@ -326,6 +404,7 @@ export class RaceDirector {
       if (off) return off;
     }
     const p = this.profiles.get(id)!;
+    if (this.sprint && (!list.length || t <= list[0].t0)) return { id, dist: this.start.from, lane: 0, air: 0, elev: 0, flight: null, state: 'grid', speed: 0 };
     if (!list.length || t <= list[0].t0) return this.lineUp(id, t);
     // The section the rider is in now: the first one that ends after t.
     let lo = 0;
@@ -338,6 +417,8 @@ export class RaceDirector {
     if (lo >= list.length) return this.afterLast(id, p, list, t);
     const seg = list[lo];
     const prev = lo > 0 ? list[lo - 1] : null;
+    // A sprint's wait at the start line: in the queue (queue() says where).
+    if (seg.si === SPRINT_QUEUE) return { id, dist: seg.d0, lane: 0, air: 0, elev: 0, flight: null, state: 'grid', speed: 0 };
     const sec = this.section(seg.si);
     const dur = Math.max(1e-6, seg.t1 - seg.t0);
     const s = t - seg.t0;
@@ -391,6 +472,7 @@ export class RaceDirector {
       // Pulled off the track where they stopped.
       return { id, dist: last.d1, lane: side * (1 + 0.45 * smooth((t - Math.max(outAt, last.t1)) / 2)), air: 0, elev: 0, flight: null, state: 'retired', speed: 0 };
     }
+    if (this.laps !== null && last.d1 >= this.laps - 1e-9 && this.sprint) return this.parked(id, last, t);
     if (this.laps !== null && last.d1 >= this.laps - 1e-9) {
       // A cool-down after the flag: ease off to a steady slow ride down one edge of the track and
       // keep rolling round, so finishers never park on the track where the riders behind are still
@@ -400,6 +482,50 @@ export class RaceDirector {
       return { id, dist: this.coolDist(f, t), lane: f.from + (f.edge * 0.7 - f.from) * smooth(dt / 3), air: 0, elev: 0, flight: null, state: 'finished', speed: f.cruise + (f.v - f.cruise) * Math.exp(-dt / 2) };
     }
     return { id, dist: last.d1, lane: this.target(id, p, last), air: 0, elev: 0, flight: null, state: 'waiting', speed: 0 };
+  }
+
+  /**
+   * A sprint finisher after the flag: easing down to the return lane's pace, they roll a little
+   * way down it and pull off to the side away from the test, each a bike's room further on than
+   * the one who finished before, so they never block the lane for riders still to queue.
+   */
+  private parked(id: string, last: Seg, t: number): RiderPose {
+    const order = [...this.segs.entries()].filter(([, l]) => l.at(-1)?.d1 !== undefined && l.at(-1)!.d1 >= this.laps! - 1e-9).sort((a, b) => a[1].at(-1)!.t1 - b[1].at(-1)!.t1).map(([k]) => k);
+    const k = order.indexOf(id);
+    const lane = this.start.from;
+    const spot = this.laps! + Math.min(lane * 0.9, lane * PARK_AT + (k * PARK_GAP) / this.lapUnits);
+    const v0 = ((last.d1 - last.d0) * this.metres) / Math.max(1e-6, last.t1 - last.t0);
+    const dt = Math.max(0, t - last.t1);
+    const cruise = Math.min(v0, COOL_DOWN);
+    const rolled = last.d1 + (cruise * dt + (v0 - cruise) * 2 * (1 - Math.exp(-dt / 2))) / this.metres;
+    const dist = Math.min(rolled, spot);
+    const there = rolled >= spot;
+    const reach = there ? (rolled - spot) * this.metres / Math.max(0.5, cruise) : 0;
+    const side = this.parkSide(spot);
+    return { id, dist, lane: side * 3.2 * smooth(reach / 1.5), air: 0, elev: 0, flight: null, state: 'finished', speed: there ? cruise * (1 - smooth(reach / 1.5)) : cruise + (v0 - cruise) * Math.exp(-dt / 2) };
+  }
+
+  private parkSides = new Map<number, number>();
+
+  /** Which side of the return lane a finisher parks on at race distance d: the one further from the rest of the track. */
+  private parkSide(d: number): number {
+    const key = Math.round(d * 1e4);
+    const got = this.parkSides.get(key);
+    if (got) return got;
+    const f = d - Math.floor(d);
+    const g = lapGeom(this.track.path);
+    const room = (side: number) => {
+      const p = this.surface.spot(f, side * 3.2);
+      let near = Infinity;
+      for (let u = this.start.join; u < 1; u += 0.5 / g.total) {
+        const q = pointAt(g, u);
+        near = Math.min(near, Math.hypot(q.x - p.x, q.y - p.z));
+      }
+      return near;
+    };
+    const side = room(1) >= room(-1) ? 1 : -1;
+    this.parkSides.set(key, side);
+    return side;
   }
 
   /**
@@ -484,6 +610,8 @@ export class RaceDirector {
 
   private ownLine(id: string, p: RiderProfile, seg: Seg): number {
     if (seg.si < 0) return this.gateLane.get(id) ?? 0;
+    // Single file down the middle of a sprint's return lane, and straight off the start line.
+    if (this.sprint && seg.si === 0) return 0;
     const sec = this.section(seg.si);
     const turn = this.turn(seg.si);
     if (CORNERS.has(sec.type) && turn) {
@@ -504,6 +632,9 @@ export class RaceDirector {
     if (type === 'straight' || type === 'start_gate' || type === 'downhill') return 0.15 + 0.35 * p.drive;
     if (type === 'uphill') return -0.1 * (1 - p.drive);
     if (type === 'whoops' || type === 'rollers' || type === 'braking_bumps') return -0.2 * (1 - p.skim);
+    // Enduro going: slowest picking through the middle of the rocks, roots and logs, and the climb steepest near its top.
+    if (type === 'rocks' || type === 'roots' || type === 'logs' || type === 'woods' || type === 'water_crossing') return -0.25 * (1 - 0.5 * p.skim);
+    if (type === 'hill_climb') return -0.2 * (1 - p.drive);
     return 0;
   }
 
@@ -565,8 +696,11 @@ export class RaceDirector {
       else if (type === 'whoops') air = h * (1 - p.skim) * Math.abs(Math.sin(u * Math.PI * 10));
       else if (type === 'rollers') air = 0.3 * h * (1 - p.skim) * Math.abs(Math.sin(u * Math.PI * 4));
       else if (type === 'braking_bumps') air = 0.15 * (1 - p.skim) * Math.abs(Math.sin(u * Math.PI * 14));
+      // The bike bucks over rocks and roots, and the front wheel lifts over each log.
+      else if (type === 'rocks' || type === 'roots') air = 0.12 * (1 - 0.6 * p.skim) * Math.abs(Math.sin(u * Math.PI * (type === 'rocks' ? 17 : 11) + p.seed * 9));
+      else if (type === 'logs' || type === 'log_step') air = 0.2 * h * sectionShape(type, Math.min(1, u + 0.02));
     }
-    if (type === 'uphill' || type === 'downhill') elev = h * Math.sin(Math.PI * u);
+    if (HILLS.has(type)) elev = h * (type === 'hill_climb' ? sectionShape(type, u) : Math.sin(Math.PI * u));
     return { air, elev };
   }
 
@@ -624,7 +758,7 @@ export function groundElev(track: TrackDef, bounds: number[], f: number): number
   let si = 0;
   while (si < track.sections.length - 1 && bounds[si + 1] <= at) si++;
   const sec = track.sections[si];
-  if (sec.type !== 'uphill' && sec.type !== 'downhill') return 0;
+  if (!HILLS.has(sec.type)) return 0;
   const u = (at - bounds[si]) / Math.max(1e-9, bounds[si + 1] - bounds[si]);
-  return (sec.height ?? DEFAULT_HEIGHTS[sec.type]) * Math.sin(Math.PI * u);
+  return (sec.height ?? DEFAULT_HEIGHTS[sec.type]) * (sec.type === 'hill_climb' ? sectionShape(sec.type, u) : Math.sin(Math.PI * u));
 }

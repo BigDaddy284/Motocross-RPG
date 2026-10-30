@@ -1,7 +1,7 @@
 import type { TrackDef } from './race';
 import { Elevation, hillsAt } from './elevation';
 import { DEFAULT_HEIGHTS, HOP_JUMPS, jumpShape } from './jumps';
-import { headingAt, lapGeom, lapMetres, nearestOnLap, pointAt, sectionBounds, sectionTurns, startGeom, startHalfWidth, startHeadingAt, startPointAt, type LapGeom, type StartGeom } from './trackGeom';
+import { headingAt, isSprint, lapGeom, lapMetres, nearestOnLap, pointAt, sectionBounds, sectionTurns, startGeom, startHalfWidth, startHeadingAt, startPointAt, widthShare, type LapGeom, type StartGeom } from './trackGeom';
 import { DEFAULT_TRACK_WIDTH } from './trackParts';
 
 // The track as a solid surface (no graphics), shared by the 3D race view and its tests. Every
@@ -106,10 +106,35 @@ export function sectionShape(type: string, u: number): number {
     case 'uphill':
     case 'downhill':
       return Math.sin(Math.PI * u);
+    case 'hill_climb':
+      // A long steep climb to the crest, then a short drop off the top.
+      return u < HILL_CREST ? smooth(u / HILL_CREST) : 1 - smooth((u - HILL_CREST) / (1 - HILL_CREST));
+    case 'rocks':
+      // Rocks of all sizes: uneven ground that never repeats in step.
+      return (0.5 * (1 - Math.cos(2 * Math.PI * 13 * u)) * (0.55 + 0.45 * Math.sin(2 * Math.PI * 5.3 * u))) * ramp(u, 0, 0.04) * (1 - ramp(u, 0.96, 1));
+    case 'roots':
+      return 0.5 * (1 - Math.cos(2 * Math.PI * 9 * u)) * Math.abs(Math.sin(2 * Math.PI * 2.7 * u)) * ramp(u, 0, 0.05) * (1 - ramp(u, 0.95, 1));
+    case 'logs':
+      // Logs laid across the track, each a hump of its own.
+      return LOGS_AT.reduce((h, at) => Math.max(h, logHump((u - at) / LOG_HALF)), 0);
+    case 'log_step':
+      return logHump((u - 0.5) / (LOG_HALF * 1.6));
     default:
       return 0;
   }
 }
+
+/** Where a hill climb crests, as a share of the section: a steep climb, then a longer run down the back. */
+export const HILL_CREST = 0.42;
+/** Where the logs of a log crossing lie, as shares of the section, and half a log's width there. */
+export const LOGS_AT = [0.18, 0.39, 0.61, 0.82];
+export const LOG_HALF = 0.045;
+/** The hump of a log lying across the track: 1 over its middle, 0 beyond its edges (x from -1 to 1). */
+function logHump(x: number): number {
+  return Math.abs(x) >= 1 ? 0 : Math.sqrt(1 - x * x);
+}
+/** Section types whose ground rises with the track: hills, not built-up jumps. */
+export const HILLS = new Set(['uphill', 'downhill', 'hill_climb']);
 
 export interface WheelSpot {
   x: number;
@@ -123,8 +148,10 @@ export class TrackSurface {
   readonly turns: number[];
   /** Metres of the lap per grid unit of the drawing. */
   readonly mpu: number;
-  /** Half the track width in grid units. */
+  /** Half the track's full width in grid units (hwAt for the width at a spot: a sprint's return lane is narrower). */
   readonly hw: number;
+  /** An enduro sprint, whose return lane is narrower than the rest of the track. */
+  private readonly narrows: boolean;
   private readonly heights: number[];
   /** The start straight from the gate to where it joins the lap. */
   readonly start: StartGeom;
@@ -141,6 +168,7 @@ export class TrackSurface {
     this.turns = sectionTurns(track, this.g);
     this.mpu = lapMetres(track) / this.g.total;
     this.hw = (track.width ?? DEFAULT_TRACK_WIDTH) / 2;
+    this.narrows = isSprint(track);
     this.heights = track.sections.map((s) => {
       const metres = s.height ?? (s.type === 'braking_bumps' ? 0.25 : DEFAULT_HEIGHTS[s.type] ?? 0);
       return this.units(metres);
@@ -243,6 +271,11 @@ export class TrackSurface {
     return 1 - smooth((d - open) / 2);
   }
 
+  /** Half the track's width at lap fraction f, in grid units: the full width but along a sprint's return lane. */
+  hwAt(f: number): number {
+    return this.narrows ? this.hw * widthShare(this.track, this.g, f, this.bounds) : this.hw;
+  }
+
   /** Metres of height to grid units, drawn a little taller than life. */
   units(metres: number): number {
     return ((metres * 2 * this.hw) / TRACK_METRES) * EXAGGERATE;
@@ -273,6 +306,12 @@ export class TrackSurface {
     const { si, u } = this.at(f);
     const sec = this.track.sections[si];
     const turn = this.turns[si];
+    if (sec.type === 'off_camber') {
+      // The other way to a berm: the track falls away to the outside of the corner (to the right, on a straight).
+      const high = turn || -1;
+      const across = smooth((lane * high + 1) / 2);
+      return this.units(0.9) * across * Math.sin(Math.PI * u);
+    }
     if (!turn) return 0;
     const out = -turn;
     const across = smooth((lane * out + 1) / 2);
@@ -282,8 +321,7 @@ export class TrackSurface {
 
   /** True where the lap runs over a hill, whose sides slope gently away into the grass. */
   onHill(f: number): boolean {
-    const t = this.track.sections[this.at(f).si].type;
-    return t === 'uphill' || t === 'downhill';
+    return HILLS.has(this.track.sections[this.at(f).si].type);
   }
 
   /**
@@ -293,7 +331,7 @@ export class TrackSurface {
   skirt(f: number, lane: number): number {
     const side = lane < 0 ? -1 : 1;
     const top = (this.onHill(f) ? 0 : this.centre(f)) + this.bank(f, side) + LIP_H;
-    return Math.max(0.35, top * 0.9) / this.hw;
+    return Math.max(0.35, top * 0.9) / this.hwAt(f);
   }
 
   /** Height of the surface at lap fraction f and lane (-1 left edge, 1 right edge, further is off the track). */
@@ -438,7 +476,8 @@ export class TrackSurface {
     const m = this.miter(f, lane);
     if (m) return { x: m.x, z: m.y, ang };
     const p = pointAt(this.g, f);
-    return { x: p.x - Math.sin(ang) * lane * this.hw, z: p.y + Math.cos(ang) * lane * this.hw, ang };
+    const hw = this.hwAt(f);
+    return { x: p.x - Math.sin(ang) * lane * hw, z: p.y + Math.cos(ang) * lane * hw, ang };
   }
 
   /**
@@ -452,7 +491,7 @@ export class TrackSurface {
     if (Math.abs(lane) <= 0.5 || Math.abs(lane) * this.hw * this.sharpest() <= 1) return lane;
     const c = this.curvature(f);
     if (lane * c <= 0) return lane;
-    const most = Math.max(0, 1 / Math.abs(c) - 0.02) / this.hw;
+    const most = Math.max(0, 1 / Math.abs(c) - 0.02) / this.hwAt(f);
     return Math.abs(lane) <= most ? lane : Math.sign(lane) * most;
   }
 
@@ -464,7 +503,7 @@ export class TrackSurface {
    * mitred, like the inside of any road's kerb at a sharp bend. Null where the lane does not fold.
    */
   miter(f: number, lane: number): { x: number; y: number } | null {
-    const d = Math.abs(lane) * this.hw;
+    const d = Math.abs(lane) * this.hwAt(f);
     if (d * this.sharpest() <= 1) return null;
     const fr = f - Math.floor(f);
     for (const l of this.lobesFor(lane)) {
@@ -482,8 +521,9 @@ export class TrackSurface {
     const n = k.length;
     const d = Math.abs(lane) * this.hw;
     const turning = (i: number, by: number) => {
-      const c = k[((i % n) + n) % n];
-      return lane * c > 0 && Math.abs(c) * d > by;
+      const j = ((i % n) + n) % n;
+      const c = k[j];
+      return lane * c > 0 && Math.abs(c) * d * (this.narrows ? this.hwAt(j / n) / this.hw : 1) > by;
     };
     const folded = (i: number) => turning(i, 1);
     const out: Lobe[] = [];
@@ -512,7 +552,8 @@ export class TrackSurface {
   private edge(f: number, lane: number): { x: number; y: number; tx: number; ty: number } {
     const p = pointAt(this.g, f);
     const a = headingAt(this.g, f);
-    return { x: p.x - Math.sin(a) * lane * this.hw, y: p.y + Math.cos(a) * lane * this.hw, tx: Math.cos(a), ty: Math.sin(a) };
+    const hw = this.hwAt(f);
+    return { x: p.x - Math.sin(a) * lane * hw, y: p.y + Math.cos(a) * lane * hw, tx: Math.cos(a), ty: Math.sin(a) };
   }
 
   /**

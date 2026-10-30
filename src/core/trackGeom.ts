@@ -218,6 +218,13 @@ export const JOIN_WRAP = 0.5;
 export function startGeom(track: TrackDef, g: LapGeom = lapGeom(track.path)): StartGeom {
   const lap = lapMetres(track);
   const path = track.start?.path;
+  if (isSprint(track)) {
+    // A sprint has no start straight: riders leave one at a time from the start line at the end
+    // of the return lane, and lap 1 is the test from there to the finish line.
+    const join = sprintStart(track);
+    const p = pointAt(g, join);
+    return { pts: [p, p], cum: [0, 0], total: 0, join, metres: 0, joinAt: join, from: join };
+  }
   if (!path || path.length < 2) {
     // No start straight: the field starts on the finish line and rides the whole lap.
     const p = pointAt(g, 0);
@@ -265,6 +272,17 @@ export function lapPlan(track: TrackDef, lap: number, bounds: number[] = section
   const n = track.sections.length;
   // Each stretch as it is ridden: the section, the lap fractions it covers and the race distance at its end.
   const legs: { si: number; a: number; b: number; end: number; metres: number }[] = [];
+  if (isSprint(track)) {
+    // A sprint lap: after lap 1, the roll down the return lane from the finish line and the wait
+    // in the queue at the start line (SPRINT_QUEUE, no distance), then the timed test.
+    track.sections.forEach((s, i) => {
+      if (i === 0 && lap === 1) return;
+      legs.push({ si: i, a: bounds[i], b: bounds[i + 1], end: lap - 1 + bounds[i + 1], metres: s.length });
+      if (i === 0) legs.push({ si: SPRINT_QUEUE, a: bounds[1], b: bounds[1], end: lap - 1 + bounds[1], metres: 0 });
+    });
+    const marks = [lap === 1 ? start.from : lap - 1, ...legs.map((l) => l.end)];
+    return { marks, secs: legs.map((l) => l.si), metres: legs.map((l) => l.metres), spans: legs.map((l) => [l.a, l.b]) };
+  }
   if (lap > 1 || start.metres <= 0) {
     track.sections.forEach((s, i) => legs.push({ si: i, a: bounds[i], b: bounds[i + 1], end: lap - 1 + bounds[i + 1], metres: s.length }));
   } else {
@@ -289,6 +307,51 @@ export function lapPlan(track: TrackDef, lap: number, bounds: number[] = section
   const marks = [legs.length ? legs[0].si < 0 ? start.from : lap - 1 : lap - 1];
   for (const l of legs) marks.push(l.end);
   return { marks, secs: legs.map((l) => l.si), metres: legs.map((l) => l.metres), spans: legs.map((l) => [l.a, l.b]) };
+}
+
+// ---- enduro sprints (Boss, 29 Oct 2026) ----
+//
+// An enduro sprint is a timed test ridden one rider at a time. The lap is drawn as a loop like any
+// other, starting at the finish line, but its first section is the return lane: a single-file
+// lane a quarter of the track's width from the finish line back round to the start line, ridden
+// at half speed and never timed. Riders leave the start line one at a time, a few seconds apart,
+// ride the test to the finish line, roll down the return lane and queue at the start line in the
+// order they get there, and go again until every lap is done. Lowest total test time wins.
+
+/** The track kind for an enduro sprint (trackParts.json kinds). */
+export const SPRINT_KIND = 'enduro_sprint';
+/** The section type of the return lane, a sprint's first section. */
+export const RETURN_LANE = 'return_lane';
+/** The stretch of a sprint lap spent waiting in the queue at the start line (lapPlan secs); it has no length. */
+export const SPRINT_QUEUE = -3;
+/** The return lane is this share of the track's width. */
+export const RETURN_WIDTH = 0.25;
+/** Grid units at each end of the return lane over which it widens to the full track. */
+export const RETURN_TAPER = 3;
+
+/** True for an enduro sprint: the Enduro Sprint kind, with its return lane as the first section. */
+export function isSprint(track: Pick<TrackDef, 'kind' | 'sections'>): boolean {
+  return track.kind === SPRINT_KIND && track.sections[0]?.type === RETURN_LANE;
+}
+
+/** Where a sprint's start line is, as a lap fraction: the end of the return lane. */
+export function sprintStart(track: TrackDef): number {
+  return sectionBounds(track)[1];
+}
+
+/**
+ * How wide the track is at lap fraction f, as a share of its full width: a quarter along a
+ * sprint's return lane, widening to the full width over RETURN_TAPER grid units at each end,
+ * so the finish line and the start line are the full width. 1 everywhere on any other track.
+ */
+export function widthShare(track: TrackDef, g: LapGeom, f: number, bounds: number[] = sectionBounds(track)): number {
+  if (!isSprint(track)) return 1;
+  const x = ((f % 1) + 1) % 1;
+  const end = bounds[1];
+  if (x > end) return 1;
+  const d = Math.min(x, end - x) * g.total;
+  const t = Math.max(0, Math.min(1, d / RETURN_TAPER));
+  return 1 - (1 - RETURN_WIDTH) * t * t * (3 - 2 * t);
 }
 
 /** The first corner: the end of the start straight, from `from` grid units up it to its join with the lap. */

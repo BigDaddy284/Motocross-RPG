@@ -11,7 +11,7 @@ import { services } from '../services';
 import { COLORS, textStyle } from '../ui/theme';
 import { button, panel, penMeter, type Button, type PenMeter } from '../ui/widgets';
 import { directorFor, ROW_SIZE, type RaceDirector } from '../core/riderAI';
-import { startGeom } from '../core/trackGeom';
+import { SPRINT_QUEUE, startGeom } from '../core/trackGeom';
 import { RaceView } from '../world/RaceView';
 import { view } from '../ui/view';
 import { gearColour, kitFor, type RaceLook } from '../world/raceBike';
@@ -313,6 +313,7 @@ export class RaceScene extends Phaser.Scene {
 
   private showGatePick(): void {
     const day = this.day!;
+    if (day.sprint) return this.showStartOrder();
     this.clear();
     const n = day.motoNumber;
     this.header(this.dayTitle(), `Moto ${n} of ${day.motoCount} · ${day.laps} laps · ${day.field.length} riders`);
@@ -368,6 +369,71 @@ export class RaceScene extends Phaser.Scene {
     if (n > 1) this.btn(W / 2, 682, 'Leave early', () => this.confirmLeave(), 200, 44);
   }
 
+  /**
+   * An enduro sprint's moto: no gates to pick. Riders leave the start line one at a time, the
+   * interval apart, in qualifying order for moto 1 (fastest first) and moto 1's finishing order
+   * for moto 2.
+   */
+  private showStartOrder(): void {
+    const day = this.day!;
+    this.clear();
+    const n = day.motoNumber;
+    const { racing } = services.content;
+    const gap = this.sprintInterval();
+    this.header(this.dayTitle(), `Moto ${n} of ${day.motoCount} · ${day.laps} timed laps · ${day.field.length} riders · one at a time`);
+    const myTurn = day.pickOrder.indexOf(PLAYER_ID) + 1;
+    const how = n > 1 ? 'Riders leave in moto 1 finishing order.' : 'Riders leave in qualifying order, fastest first.';
+    this.text(W / 2, 108, `${how} You go ${ordinal(myTurn)}, ${(myTurn - 1) * gap} seconds after the first rider.`, 22).setOrigin(0.5, 0);
+    this.text(W / 2, 146, `One rider leaves the start every ${gap} seconds. After each lap you roll back down the return lane and queue to go again. Lowest total time over the ${day.laps} timed laps wins.`, 18, COLORS.muted, { wordWrap: { width: 1100 }, align: 'center' }).setOrigin(0.5, 0);
+    const order = day.pickOrder.map((id, i) => `${String(i + 1).padStart(2)} ${id === PLAYER_ID ? '▶ You' : (this.names.get(id) ?? id)}`);
+    const half = Math.ceil(order.length / 2);
+    this.text(220, 196, order.slice(0, half).join('\n'), 15, COLORS.cream, { lineSpacing: 2 }).setFontFamily('Consolas, "Courier New", monospace');
+    this.text(700, 196, order.slice(half).join('\n'), 15, COLORS.cream, { lineSpacing: 2 }).setFontFamily('Consolas, "Courier New", monospace');
+    this.box(100, 340, 1080, 300);
+    const message = this.messagePicker(352);
+    this.text(130, 508, `The pit board comes out as you finish each lap, and you can change your message ${racing.ink} times a moto. Auto-complete holds your message all race. You retire at ${racing.sim.retireAtBroken} broken parts.`, 19, COLORS.cream, { wordWrap: { width: 1020 }, lineSpacing: 2 });
+    this.btn(W / 2 - 300, 600, 'Race', () => this.go(-1, message(), false), 260, 52);
+    this.btn(W / 2, 600, 'Auto-complete', () => this.go(-1, message(), true), 260, 52);
+    this.btn(W / 2 + 300, 600, 'Bike check', () => this.showBike(), 260, 52);
+    if (n > 1) this.btn(W / 2, 682, 'Leave early', () => this.confirmLeave(), 200, 44);
+  }
+
+  /** Seconds between riders leaving a sprint's start line. */
+  private sprintInterval(): number {
+    return services.content.racing.sim.sprint?.interval ?? 10;
+  }
+
+  /**
+   * A sprint rider's timed tests finished by the clock: from leaving the start line to the
+   * finish line, lap by lap (the return lane and the queue aren't timed).
+   */
+  private sprintTimes(id: string): number[] {
+    const out: number[] = [];
+    for (const tr of this.traces) {
+      const t = tr.times[id];
+      if (!t || t.length !== tr.marks.length) continue;
+      const away = tr.secs[0] === 0 && tr.secs[1] === SPRINT_QUEUE ? t[2] : t[0];
+      if (t.at(-1)! <= this.clock) out.push(t.at(-1)! - away);
+    }
+    return out;
+  }
+
+  /** What a sprint rider is doing now, for the overlay: on the test, rolling back, or waiting to go (and how long). */
+  private sprintStatus(id: string): string {
+    for (const tr of this.traces) {
+      const t = tr.times[id];
+      if (!t) continue;
+      const queued = tr.secs[1] === SPRINT_QUEUE;
+      const away = queued ? t[2] : t[0];
+      if (away === undefined) continue;
+      if (queued && this.clock < t[1]) return 'Rolling back down the return lane';
+      if (this.clock < away) return `Waiting at the start: away in ${Math.ceil(away - this.clock)}s`;
+      if (t.length === tr.marks.length && this.clock >= t.at(-1)!) continue;
+      return `On test ${tr.lap}: ${formatTime(this.clock - away)}`;
+    }
+    return 'Finished';
+  }
+
   /** The starting message buttons, from y down: returns the message picked. */
   private messagePicker(y: number): () => string {
     const { racing } = services.content;
@@ -390,6 +456,7 @@ export class RaceScene extends Phaser.Scene {
 
   private showQualifyingStart(): void {
     const day = this.day!;
+    if (day.sprint) return this.showSprintQualifying();
     const laps = day.round!.qualifyingLaps;
     this.clear();
     this.header(this.dayTitle(), `Qualifying · an out lap and ${laps} timed laps · ${day.field.length} riders`);
@@ -399,6 +466,21 @@ export class RaceScene extends Phaser.Scene {
     const message = this.messagePicker(300);
     const { racing } = services.content;
     this.text(130, 462, `The pit board comes out each lap as in a moto, with ${racing.ink} message changes. Auto-complete holds your message all session. Parts wear as in a race, and there are no repairs at the track.`, 19, COLORS.cream, { wordWrap: { width: 1020 }, lineSpacing: 2 });
+    this.btn(W / 2 - 300, 600, 'Qualify', () => this.goQualifying(message(), false), 260, 52);
+    this.btn(W / 2, 600, 'Auto-complete', () => this.goQualifying(message(), true), 260, 52);
+    this.btn(W / 2 + 300, 600, 'Bike check', () => this.showBike(), 260, 52);
+  }
+
+  /** A sprint's qualifying: one timed lap, one rider at a time in a random order, to set the start order. */
+  private showSprintQualifying(): void {
+    const day = this.day!;
+    this.clear();
+    this.header(this.dayTitle(), `Qualifying · one timed lap · ${day.field.length} riders · one at a time`);
+    this.text(W / 2, 108, 'Your time on one timed lap sets your place in the start order for moto 1: the fastest go first. Qualifying scores no points.', 22, COLORS.cream, { wordWrap: { width: 1100 }, align: 'center' }).setOrigin(0.5, 0);
+    this.text(W / 2, 176, `Riders leave the start line one at a time, ${this.sprintInterval()} seconds apart, in a random order. You go ${ordinal(day.pickOrder.indexOf(PLAYER_ID) + 1)}.`, 18, COLORS.muted).setOrigin(0.5, 0);
+    this.box(100, 286, 1080, 356);
+    const message = this.messagePicker(300);
+    this.text(130, 462, 'Auto-complete holds your message for the lap. Parts wear as in a race, and there are no repairs at the track.', 19, COLORS.cream, { wordWrap: { width: 1020 }, lineSpacing: 2 });
     this.btn(W / 2 - 300, 600, 'Qualify', () => this.goQualifying(message(), false), 260, 52);
     this.btn(W / 2, 600, 'Auto-complete', () => this.goQualifying(message(), true), 260, 52);
     this.btn(W / 2 + 300, 600, 'Bike check', () => this.showBike(), 260, 52);
@@ -432,9 +514,9 @@ export class RaceScene extends Phaser.Scene {
     this.text(764, 126, 'Your qualifying', 24, COLORS.accent);
     const xp = Object.values(rec.xp).reduce((a, b) => a + b, 0);
     this.text(764, 170, [
-      me.bestLap === null ? 'No timed lap' : `${ordinal(me.position)} fastest${me.position === 1 ? ': pole position!' : ''}`,
-      `Best timed lap: ${me.bestLap !== null ? formatTime(me.bestLap, 3) : '—'}`,
-      `You pick your gate ${ordinal(me.position)} for moto 1.`,
+      me.bestLap === null ? 'No timed lap' : `${ordinal(me.position)} fastest${me.position === 1 ? (day.sprint ? ': you go first!' : ': pole position!') : ''}`,
+      `${day.sprint ? 'Timed lap' : 'Best timed lap'}: ${me.bestLap !== null ? formatTime(me.bestLap, 3) : '—'}`,
+      day.sprint ? `You leave the start ${ordinal(me.position)} in moto 1.` : `You pick your gate ${ordinal(me.position)} for moto 1.`,
       `Rider XP: ${xp.toFixed(0)}`,
     ].join('\n'), 20, COLORS.cream, { lineSpacing: 10, wordWrap: { width: 450 } });
     this.btn(990, 640, 'Moto 1', () => this.showGatePick(), 260, 50);
@@ -471,7 +553,8 @@ export class RaceScene extends Phaser.Scene {
 
   private go(gate: number, message: string, auto: boolean): void {
     const day = this.day!;
-    day.assignGates(gate);
+    // A sprint has no gates: riders leave in the start order (RaceDay.startMoto).
+    if (!day.sprint) day.assignGates(gate);
     this.sim = day.startMoto(message);
     this.auto = auto;
     if (auto) {
@@ -739,8 +822,10 @@ export class RaceScene extends Phaser.Scene {
     const gap = (p: (typeof pos)[0]) => this.behind(leader, p);
     this.refreshDetail();
     const poses = this.director?.poses(this.clock) ?? [];
-    // In qualifying the numbers over the bikes are the order of best timed laps, as in the tower.
-    const labels = this.qualifying ? this.qualifyingOrder(pos).map((r) => r.p) : order;
+    // In qualifying the numbers over the bikes are the order of best timed laps, as in the tower;
+    // in a sprint, the order on time.
+    const sprint = !!this.day?.sprint && !practice;
+    const labels = sprint ? this.sprintOrder(pos).map((r) => r.p) : this.qualifying ? this.qualifyingOrder(pos).map((r) => r.p) : order;
     this.view?.update(poses.map((p) => ({
       pose: p,
       color: this.colors.get(p.id) ?? COLORS.accent,
@@ -766,6 +851,10 @@ export class RaceScene extends Phaser.Scene {
       return;
     }
     const total = sim.totalLaps!;
+    if (sprint) {
+      this.renderSprint(pos, me);
+      return;
+    }
     if (this.qualifying) {
       this.renderQualifying(pos, me);
       return;
@@ -863,6 +952,61 @@ export class RaceScene extends Phaser.Scene {
       return `${String(i + 1).padStart(2)}  ${r.p.id === PLAYER_ID ? '▶ ' : '  '}${name} ${g.padStart(7)}`;
     });
     this.ui.tower.setText(['Best timed laps', ...towerWindow(tower, mine, this.towerRows - 1)].join('\n'));
+    this.ui.tower.setFontFamily('Consolas, "Courier New", monospace');
+    if (!this.skipButton && (me.out || me.finished)) {
+      this.skipButton = this.btn(16 + (this.dw - 380) / 2, this.dh - 50, 'Skip to results', () => {
+        while (!sim.finished) this.addLap(sim.nextLap());
+        this.live = false;
+        this.finishMoto();
+      }, 300, 40);
+    }
+  }
+
+  /**
+   * A sprint's order on time: riders with the most timed laps done first, then the lowest total
+   * time over them; riders yet to finish a lap in the order they leave; anyone out at the bottom.
+   */
+  private sprintOrder<T extends { id: string; out: boolean; gate: number }>(pos: T[]): { p: T; times: number[]; total: number }[] {
+    const rows = pos.map((p) => {
+      const times = this.sprintTimes(p.id);
+      return { p, times, total: times.reduce((a, b) => a + b, 0) };
+    });
+    return rows.sort((a, b) => Number(a.p.out) - Number(b.p.out) || b.times.length - a.times.length || a.total - b.total || a.p.gate - b.p.gate);
+  }
+
+  /** The live screen in an enduro sprint (or its qualifying): the tower is the order on total time. */
+  private renderSprint(pos: ReturnType<RaceScene['positions']>, me: ReturnType<RaceScene['positions']>[number]): void {
+    const sim = this.sim!;
+    const total = sim.totalLaps!;
+    const mineTimes = this.sprintTimes(PLAYER_ID);
+    const myLap = Math.min(mineTimes.length + 1, total);
+    const msg = services.content.racing.messages.find((m) => m.id === sim.playerMessage)!;
+    const what = this.qualifying ? 'Qualifying · one timed lap' : `Moto ${this.day!.motoNumber} · Lap ${myLap} of ${total}`;
+    this.ui.title.setText(`${this.args.venue.name} · ${what}${this.auto ? ' · Auto-complete' : ''}`);
+    const until = this.auto || this.boardAt === Infinity ? ' to the flag' : this.boardAt > this.myLaps ? ` to lap ${this.boardAt}` : '';
+    this.ui.ink.setText(`${msg.name}${until}`);
+    this.pen?.setLevel(sim.ink);
+    const rows = this.sprintOrder(pos);
+    const lead = rows[0];
+    const rank = rows.findIndex((r) => r.p.id === PLAYER_ID);
+    const mine = rows[rank];
+    const lines = [];
+    if (me.out) lines.push(this.qualifying ? 'You are out of qualifying.' : 'You are out of this moto.');
+    else {
+      lines.push(mine.times.length ? `On time: ${ordinal(rank + 1)} of ${rows.length}` : `Started ${ordinal(me.gate + 1)} of ${rows.length}: no time yet`);
+      lines.push(this.sprintStatus(PLAYER_ID));
+      if (mineTimes.length) lines.push(`Last lap: ${formatTime(mineTimes.at(-1)!, 3)}   Total: ${formatTime(mine.total, 3)}`);
+      const broken = this.brokenParts();
+      lines.push(broken.length ? `Broken: ${broken.join(', ')}` : 'Bike: nothing broken');
+    }
+    this.ui.me.setText(lines.join('\n'));
+    this.ui.feed.setText(this.feed.slice(-5).join('\n'));
+    const tower = rows.map((r, i) => {
+      const name = (this.names.get(r.p.id) ?? '').padEnd(15).slice(0, 15);
+      const g = r.p.out ? 'OUT' : !r.times.length ? '—' : i === 0 ? formatTime(r.total) : r.times.length < lead.times.length ? `${r.times.length}/${total}` : `+${(r.total - lead.total).toFixed(1)}`;
+      return `${String(i + 1).padStart(2)}  ${r.p.id === PLAYER_ID ? '▶ ' : '  '}${name} ${g.padStart(7)}`;
+    });
+    this.ui.tower.setText([this.qualifying ? 'Qualifying times' : 'Total time', ...towerWindow(tower, rank, this.towerRows - 2)].join('\n'));
     this.ui.tower.setFontFamily('Consolas, "Courier New", monospace');
     if (!this.skipButton && (me.out || me.finished)) {
       this.skipButton = this.btn(16 + (this.dw - 380) / 2, this.dh - 50, 'Skip to results', () => {
