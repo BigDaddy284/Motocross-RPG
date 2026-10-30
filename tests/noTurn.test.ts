@@ -178,6 +178,23 @@ describe('No-Turn Takedown knockouts', () => {
     }
   });
 
+  it('is late-game content: the pool\'s 31 best riders, buffed, on runs with less luck', () => {
+    const k = knockout();
+    const rc = checkContent(rawContent(), loadManifest(), loadMaps()).content!;
+    const rules = rc.racing.sim.knockout!;
+    expect(rules.buff).toBeGreaterThan(0);
+    expect(rules.noise).toBeLessThan(1);
+    const pool = rc.riders.fields['area1.local'].map((id) => rc.riders.riders.find((r) => r.id === id)!);
+    const cut = pool.map((r) => r.level).sort((a, b) => b - a)[30];
+    for (const e of k.field.filter((x) => !x.player)) {
+      const def = pool.find((r) => r.id === e.id)!;
+      expect(def.level).toBeGreaterThanOrEqual(cut);
+      expect(e.bike.parts && Object.values(e.bike.parts).every((p) => p.condition >= Math.min(1, def.bike.condition * (1 + rules.buff)) - 1e-9)).toBe(true);
+    }
+    const s = k.startSeeding('steady');
+    expect(s.opts.noiseScale).toBe(rules.noise);
+  });
+
   it('runs every other heat by itself, stopping at the player’s, and the same seed gives the same day', () => {
     const play = (seed: number) => {
       const k = knockout(seed);

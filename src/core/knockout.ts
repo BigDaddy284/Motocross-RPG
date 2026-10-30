@@ -1,13 +1,19 @@
 import { pence } from './career';
+import { buffRider } from './championship';
 import { KNOCKOUT_DEFAULTS, MotoSim, formatTime, mixSeed, seededRng, type Entrant, type KnockoutRules, type RiderResult } from './race';
 import { cpuEntrant, drawPool, motoPrize, PLAYER_ID, scaleXp, sumXp, trackById, type RaceContent, type VenueDef } from './raceDay';
 
 // A No-Turn Takedown race day (Boss, 30 Oct 2026): a knockout on a straight drag strip. Everyone
 // rides a timed seeding run on their own, leaving the gate a few seconds apart; the seeding order
 // splits the field into heats of four (the fastest kept apart), each one run from the gate to the
-// finish line; the first two in each heat go through to the next round, re-seeded, until four are
-// left for the final. The final is the best of three runs: each run scores its finishing place
-// (1 to 4) and the lowest total wins. Pure rules with no graphics.
+// finish line; the first two in each heat go through to the box beside it in a fixed bracket, until
+// four are left for the final. The final is the best of three runs: each run scores its finishing
+// place (1 to 4) and the lowest total wins. Pure rules with no graphics.
+//
+// It is late-game content, as hard to win as a race day at the same level (Boss, 30 Oct 2026):
+// the field is the pool's 31 best riders, made better by sim.knockout.buff, and a run of a few
+// sections rides with sim.knockout.noise of the sim's noise, so skill counts as much as over a
+// moto's many laps. tools/sim/knockout.ts measures both against a race day.
 
 /** Riders in a knockout: 32, the player one of them, when the field's pool is big enough. */
 export const KNOCKOUT_FIELD = 32;
@@ -116,8 +122,9 @@ export class Knockout {
     this.cls = venue.class ?? '50cc';
     this.rules = { ...KNOCKOUT_DEFAULTS, ...rc.racing.sim.knockout };
     this.rng = seededRng(seed);
-    const cpus = alone ? [] : drawPool(rc, venue, seed, KNOCKOUT_FIELD - 1);
-    this.field = [player, ...cpus.map((d) => cpuEntrant(rc, d, this.cls))];
+    // The pool's best riders, drawn in the day's order so equal levels vary.
+    const cpus = alone ? [] : drawPool(rc, venue, seed, Infinity).sort((a, b) => b.level - a.level).slice(0, KNOCKOUT_FIELD - 1);
+    this.field = [player, ...cpus.map((d) => cpuEntrant(rc, buffRider(d, this.rules.buff), this.cls))];
   }
 
   get track() {
@@ -144,6 +151,7 @@ export class Knockout {
       seed: mixSeed(this.seed, 0x73656564),
       message,
       interval: this.rules.seedInterval,
+      noiseScale: this.rules.noise,
     });
   }
 
@@ -268,6 +276,7 @@ export class Knockout {
       motoIndex: heat.round,
       seed: mixSeed(this.seed, 1 + heat.round * 64 + heat.index * 4 + heat.runs.length),
       message,
+      noiseScale: this.rules.noise,
     });
   }
 

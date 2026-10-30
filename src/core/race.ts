@@ -39,10 +39,17 @@ export interface KnockoutRules {
   through: number;
   /** Runs in the final, scored on points. */
   finalRuns: number;
+  /**
+   * Every CPU rider made this share better (skills and bike condition), as in a championship, so
+   * the knockout is as hard to win as a race day at the same level (Boss, 30 Oct 2026: late game).
+   */
+  buff: number;
+  /** The share of the sim's noise on a knockout run (MotoOptions.noiseScale). */
+  noise: number;
 }
 
 /** A knockout's rules when racing.json leaves them out. */
-export const KNOCKOUT_DEFAULTS: KnockoutRules = { seedInterval: 8, heatSize: 4, through: 2, finalRuns: 3 };
+export const KNOCKOUT_DEFAULTS: KnockoutRules = { seedInterval: 8, heatSize: 4, through: 2, finalRuns: 3, buff: 0, noise: 1 };
 
 /** A sprint's rules when racing.json leaves them out. */
 export const SPRINT_DEFAULTS: SprintRules = { interval: 10, returnSpeed: 0.5 };
@@ -350,6 +357,11 @@ export interface MotoOptions {
    * apart in gate order, each on their own, timed from when they go. No clean air or traffic.
    */
   interval?: number;
+  /**
+   * A share of the sim's noise (1 when left out). A knockout run is a handful of sections, so it
+   * rides with less noise to stay as much a test of skill as a moto of many laps.
+   */
+  noiseScale?: number;
 }
 
 /** A small seeded generator (mulberry32), so a race can be replayed exactly. */
@@ -745,7 +757,7 @@ export class MotoSim {
     const pace = 1 - (msg.pace * me.pacePct) / 100 + (msg.consistency * me.consistencyTimePct) / 100;
     const gateK = gate >= 0 ? 1 - gateBonus(this.track, gate) / 100 : 1;
     const cons = r.e.skills.consistency ?? 1;
-    const sd = sim.noise * (1 - (sim.consistencyNoiseCut * cons) / 99) * Math.max(0.2, 1 - me.consistencyNoise * msg.consistency);
+    const sd = sim.noise * (this.opts.noiseScale ?? 1) * (1 - (sim.consistencyNoiseCut * cons) / 99) * Math.max(0.2, 1 - me.consistencyNoise * msg.consistency);
     const noise = Math.max(0.7, 1 + this.gauss() * sd);
     return base * this.difficulty(sec, def) * (1 - sim.spread * (perf - 0.5)) * pace * gateK * noise * (1 - this.fitnessCut(r, sec));
   }

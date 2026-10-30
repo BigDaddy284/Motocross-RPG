@@ -68,7 +68,7 @@ export const RACING_SCHEMA: Schema = {
         firstCorner: { type: 'object', fields: { chance: SHARE, riders: RANGE } },
         loopOut: { type: 'object', fields: { chance: SHARE } },
         sprint: { type: 'object', fields: { interval: { type: 'number', min: 1 }, returnSpeed: { type: 'number', min: 0.1, max: 1 } } },
-        knockout: { type: 'object', fields: { seedInterval: { type: 'number', min: 1 }, heatSize: { type: 'number', integer: true, min: 2 }, through: { type: 'number', integer: true, min: 1 }, finalRuns: { type: 'number', integer: true, min: 1 } } },
+        knockout: { type: 'object', optional: ['buff', 'noise'], fields: { seedInterval: { type: 'number', min: 1 }, heatSize: { type: 'number', integer: true, min: 2 }, through: { type: 'number', integer: true, min: 1 }, finalRuns: { type: 'number', integer: true, min: 1 }, buff: { type: 'number', min: 0, max: 1 }, noise: { type: 'number', min: 0, max: 1 } } },
         pileup: { type: 'object', fields: { chance: SHARE, window: N0, most: { type: 'number', integer: true, min: 1 } } },
         spread: N0,
         noise: N0,
