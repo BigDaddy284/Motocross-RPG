@@ -112,7 +112,7 @@ They each have a shop or stand in every area, in a building that looks the same 
 | **Paul Phoenix**, Phoenix MX | Repairs (one grade down, Grade 2 and up), bench fitting, customer repair job board, and engine and suspension parts (top end, bottom end, intake and exhaust, drivetrain, forks, shock; Boss, 30 Oct 2026) | Clothing and riding gear from Area 2 (**Decision:** which area), bigger workshop, reputation hints about sponsors (Spec 16.0) |
 | **Bill Rothon**, Moto78 | Bodywork and controls, stock frames, and the tyre changer: tyres fitted there, and tyre change training (Boss, 30 Oct 2026) | Grade range and classes rise each area (table below). Class dealer for new bikes and frames when unsponsored (**Decision**) |
 | **Jedrick Nicholls**, Nicholls Used Motors | The motor for that area | Sells the next motor each area (Old Rusty Van in A2 to Motor 7 in A7). Area 8 could be trade-ins only, or a showroom of the Factory Hauler in other colours |
-| **Manny Festo**, the news man | News about the next championship, the new Area Champion, and rumours that point to hidden venues and storylines | He sells nothing today. **Decision:** keep him as the news man in every area, or give him a stall (for example energy drinks, see below) |
+| **Manny Festo**, the news man | News about the next championship, the new Area Champion, and rumours that point to hidden venues and storylines | He stays the news man in every area, with no stall (Boss, 30 Oct 2026), and starts each area's story |
 
 **Lee Stocky**, Lee's T's & Wheels, is the **fifth travelling NPC** (Boss, 30 Oct 2026). He runs the tyres and wheels shop in every area, selling wheels and tyres and brakes.
 
@@ -291,7 +291,7 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 
 1. ~~Area 2's name~~ Settled: Mountain Town (Boss, 30 Oct 2026).
 2. ~~The Tyres and Wheels owner~~ Settled: Lee Stocky, Lee's T's & Wheels, travels to every area (Boss, 30 Oct 2026).
-3. **Manny Festo:** news man only, or a stall as well?
+3. ~~Manny Festo~~ Settled: the news man in every area, no stall (Boss, 30 Oct 2026).
 4. **Phoenix MX clothing:** which area it starts in (I suggest Area 2).
 5. **The class dealer:** should Bill Rothon at Moto78 sell the new bike and frame at each class step for unsponsored riders?
 6. **Energy drinks (parked until closer to Area 4):** a drinks van at the venues (my recommendation), their own shop, or Moto78 only. And confirm Area 4 over the Spec's "from 125cc Youth".
