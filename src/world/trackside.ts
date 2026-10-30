@@ -138,6 +138,32 @@ export function sprintOfficials(b: Build, x: number, z: number, ry: number, i: n
   });
 }
 
+/**
+ * The starter's box on a No-Turn Takedown's start platform (Boss, 30 Oct 2026), between the two
+ * pairs of gates: a waist-high booth `w` metres across and deep, its open back at -z, with the
+ * starter standing in it facing +z (down the run) and the gate's push-button lever by the front
+ * wall. Built in metres at (0, 0, 0), on the platform's deck.
+ */
+export function starterBox(w: number, i: number): Build['parts'] {
+  const b = new Build();
+  const h = 1.05;
+  const t = 0.06;
+  const RED = 0xc8302a;
+  b.box(0, 0, 0, w, 0.06, w, 0x5a5a60);
+  b.box(0, 0, w / 2 - t / 2, w, h, t, RED);
+  for (const sx of [-1, 1]) b.box(sx * (w / 2 - t / 2), 0, 0, t, h, w, RED);
+  b.box(0, h, w / 2 - t / 2, w + 0.06, 0.06, t + 0.08, WHITE);
+  for (const sx of [-1, 1]) b.box(sx * (w / 2 - t / 2), h, 0, t + 0.08, 0.06, w, WHITE);
+  // A canopy on two poles at the back corners.
+  for (const sx of [-1, 1]) b.pole(sx * (w / 2 - 0.05), 0, -w / 2 + 0.05, 2.3, STEEL, 0.05);
+  b.box(0, 2.3, 0, w + 0.2, 0.06, w + 0.2, RED);
+  // The gate lever on its post by the front wall, and the starter behind it.
+  b.pole(w * 0.25, 0, w / 2 - 0.2, 0.95, STEEL, 0.06);
+  b.box(w * 0.25, 0.95, w / 2 - 0.2, 0.12, 0.08, 0.12, 0xf0c020);
+  b.person(-0.05, -0.05, 0, i, { shirt: HIVIS, trousers: BLACK, arms: 'forward' });
+  return b.parts;
+}
+
 const builders: Record<string, (c: Ctx) => void> = {
   sprint_start({ b, col, L, i, text, labels }) {
     // An enduro sprint's start line: the sponsor arch over the line, the timing beam across the

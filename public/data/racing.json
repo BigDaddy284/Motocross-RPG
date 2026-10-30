@@ -23,7 +23,8 @@
     "firstCorner": { "chance": 0.3, "riders": [1, 3] },
     "loopOut": { "chance": 0.3 },
     "pileup": { "chance": 0.35, "window": 0.8, "most": 3 },
-    "sprint": { "interval": 10, "returnSpeed": 0.5 }
+    "sprint": { "interval": 10, "returnSpeed": 0.5 },
+    "knockout": { "seedInterval": 8, "heatSize": 4, "through": 2, "finalRuns": 3 }
   },
   "xp": {
     "sectionFactor": 2.0,
@@ -88,7 +89,8 @@
     "off_camber": { "name": "Off-camber", "diff": 1.3, "skills": { "cornering": 0.6, "balance": 0.4 }, "stats": ["grip", "handling"], "riderWeight": 0.6, "damage": "corner", "shapes": ["straight", "sweeper", "corner"] },
     "hill_climb": { "name": "Hill climb", "diff": 1.5, "skills": { "riding_position": 0.6, "balance": 0.4 }, "stats": ["power", "grip", "response"], "riderWeight": 0.45, "damage": "speed", "shapes": ["straight", "sweeper"] },
     "woods": { "name": "Woods singletrack", "diff": 1.25, "skills": { "cornering": 0.5, "balance": 0.3, "riding_position": 0.2 }, "stats": ["handling", "braking"], "riderWeight": 0.65, "damage": "corner", "shapes": ["straight", "sweeper", "corner", "hairpin"] },
-    "return_lane": { "name": "Return lane", "diff": 1.0, "skills": { "riding_position": 1.0 }, "stats": ["power"], "riderWeight": 0.3, "damage": "speed", "shapes": ["straight", "sweeper", "corner", "hairpin"] }
+    "return_lane": { "name": "Return lane", "diff": 1.0, "skills": { "riding_position": 1.0 }, "stats": ["power"], "riderWeight": 0.3, "damage": "speed", "shapes": ["straight", "sweeper", "corner", "hairpin"] },
+    "run_off": { "name": "Run-off", "diff": 1.0, "skills": { "riding_position": 1.0 }, "stats": ["power"], "riderWeight": 0.3, "damage": "speed", "shapes": ["straight", "sweeper", "corner", "hairpin"] }
   },
   "damageSlots": {
     "landing": ["forks", "shock", "wheels_tyres"],

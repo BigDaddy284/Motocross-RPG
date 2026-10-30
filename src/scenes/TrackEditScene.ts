@@ -5,7 +5,7 @@ import { CHEER_ITEM } from '../core/cheer';
 import { OFFICIAL_ITEM, placedOfficial } from '../core/startOfficial';
 import { sectionBounds } from '../core/trackGeom';
 import type { TrackPartsData } from '../core/trackParts';
-import { GRID_H, GRID_W } from '../core/trackParts';
+import { gridOf } from '../core/trackParts';
 import { services } from '../services';
 import { COLORS, textStyle } from '../ui/theme';
 import { RaceView } from '../world/RaceView';
@@ -440,11 +440,12 @@ export class TrackEditScene extends Phaser.Scene {
     // is placed can be seen against it (a section may cross it while the track is built).
     {
       const edge: { x: number; z: number }[] = [];
+      const { w: gw, h: gh } = gridOf(t);
       const corners = [
         [0, 0],
-        [GRID_W, 0],
-        [GRID_W, GRID_H],
-        [0, GRID_H],
+        [gw, 0],
+        [gw, gh],
+        [0, gh],
       ];
       for (let i = 0; i < 4; i++) {
         const [ax, az] = corners[i];

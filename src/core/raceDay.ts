@@ -501,6 +501,19 @@ export function drawField(rc: RaceContent, venue: VenueDef, seed: number): CpuRi
   return [...regulars, ...drawn].slice(0, Math.max(size, regulars.length));
 }
 
+/**
+ * `n` CPU riders drawn at random (seeded by the day) from the field's whole pool, whatever the
+ * field's usual size: a No-Turn Takedown knockout races 32 (Boss, 30 Oct 2026). The regulars first.
+ */
+export function drawPool(rc: RaceContent, venue: VenueDef, seed: number, n: number): CpuRiderDef[] {
+  const id = venue.field ?? '';
+  const pool = (rc.riders.fields[id] ?? []).map((r) => rc.riders.riders.find((x) => x.id === r)!).filter(Boolean);
+  const always = new Set([...(rc.riders.regulars?.[id] ?? []), ...(venue.regulars ?? [])]);
+  const regulars = pool.filter((r) => always.has(r.id));
+  const drawn = shuffle(pool.filter((r) => !always.has(r.id)), seededRng(mixSeed(seed, 0x6b6e6f63)));
+  return [...regulars, ...drawn].slice(0, n);
+}
+
 /** How many CPU riders race a race day here. */
 export function fieldCount(rc: RaceContent, venue: VenueDef): number {
   const id = venue.field ?? '';

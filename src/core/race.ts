@@ -30,6 +30,20 @@ export interface SprintRules {
   returnSpeed: number;
 }
 
+export interface KnockoutRules {
+  /** Seconds between riders leaving the gate on the seeding run. */
+  seedInterval: number;
+  /** Riders in a heat: one per gate. */
+  heatSize: number;
+  /** Riders from each heat who go through to the next round. */
+  through: number;
+  /** Runs in the final, scored on points. */
+  finalRuns: number;
+}
+
+/** A knockout's rules when racing.json leaves them out. */
+export const KNOCKOUT_DEFAULTS: KnockoutRules = { seedInterval: 8, heatSize: 4, through: 2, finalRuns: 3 };
+
 /** A sprint's rules when racing.json leaves them out. */
 export const SPRINT_DEFAULTS: SprintRules = { interval: 10, returnSpeed: 0.5 };
 
@@ -100,6 +114,8 @@ export interface RacingData {
     fitness?: { roughPct: number; rough: string[]; strengthLatePct: number; enduranceLatePct: number; capPct: number };
     /** Enduro sprints (trackGeom.isSprint): seconds between riders leaving the start line, and the return lane's speed as a share of the class's reference speed. */
     sprint?: SprintRules;
+    /** No-Turn Takedown knockouts (core/knockout.ts): the seeding run's interval, heat size, riders through from each heat and the final's runs. */
+    knockout?: KnockoutRules;
   };
   xp: {
     sectionFactor: number;
@@ -329,6 +345,11 @@ export interface MotoOptions {
   message?: string;
   /** Retire automatically at this many broken parts (auto-complete option). */
   retireAtBroken?: number;
+  /**
+   * A staggered start (a No-Turn Takedown's seeding run): riders leave the gate this many seconds
+   * apart in gate order, each on their own, timed from when they go. No clean air or traffic.
+   */
+  interval?: number;
 }
 
 /** A small seeded generator (mulberry32), so a race can be replayed exactly. */
@@ -404,7 +425,7 @@ export class MotoSim {
       return {
         e: { ...e, bike },
         // A sprint sends riders off the start line in their start order, the interval apart.
-        time: opts.practice ? (e.startAt ?? 0) : this.sprint ? e.gate * this.sprintRules.interval : 0,
+        time: opts.practice ? (e.startAt ?? 0) : this.sprint ? e.gate * this.sprintRules.interval : opts.interval ? e.gate * opts.interval : 0,
         laps: 0,
         lapTimes: [],
         sprintTime: 0,
@@ -551,7 +572,8 @@ export class MotoSim {
       for (const r of order) {
         if (out.has(r)) continue;
         this.rng = draws.get(r)!;
-        let t = this.sectionTime(r, sec, def, isStart ? r.e.gate : -1) * (air.get(r) ?? 1) * (si >= 0 ? this.grades[si] : 1);
+        // A start one at a time (a No-Turn Takedown's seeding run) has no gate to gain or lose on.
+        let t = this.sectionTime(r, sec, def, isStart && !this.opts.interval ? r.e.gate : -1) * (air.get(r) ?? 1) * (si >= 0 ? this.grades[si] : 1);
         let m = this.mistake(r, def, share);
         let withWhom: string | undefined;
         if (leg === startLeg && r === looper) {
@@ -609,7 +631,7 @@ export class MotoSim {
       order = done.slice().sort((a, b) => cur.get(a)! - cur.get(b)!);
       // Clean air and traffic after the first stretch of the lap the field joins on lap 1 (Spec 10.4).
       // A sprint has no pack to get clear of.
-      if (lap === 1 && leg === Math.min(1, plan.secs.length - 1) && !this.opts.practice && !this.sprint) {
+      if (lap === 1 && leg === Math.min(1, plan.secs.length - 1) && !this.opts.practice && !this.sprint && !this.opts.interval) {
         const ca = sim.cleanAir;
         order.forEach((r, i) => {
           if (i < ca.top) air.set(r, 1 - ca.bonusPct / 100);
