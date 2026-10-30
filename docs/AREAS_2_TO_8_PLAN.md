@@ -8,7 +8,7 @@ Names marked *(placeholder)* are mine, to be replaced by Boss. Anything marked *
 
 ## What Boss has set
 
-- **Five NPCs in every area:** Lee Stock (Lee's T's & Wheels) joined the four below (Boss, 30 Oct 2026).
+- **Five NPCs in every area:** Lee Stocky (Lee's T's & Wheels) joined the four below (Boss, 30 Oct 2026).
 - **The original four:** Paul Phoenix (Phoenix MX), Bill Rothon (Moto78), Jedrick Nicholls (Nicholls Used Motors) and Manny Festo. They offer better parts as the game goes on, and their shops may grow. Phoenix MX will sell clothing as well as fixing bikes.
 - **Joseph Halden at every track venue.** This is already in on `test/v1.5` (he runs the race office at every track), so each new venue just places him.
 - **Dan Smyth** stays an Area 1 NPC (the Industrial Zone challenger).
@@ -114,12 +114,12 @@ They each have a shop or stand in every area, in a building that looks the same 
 | **Jedrick Nicholls**, Nicholls Used Motors | The motor for that area | Sells the next motor each area (Old Rusty Van in A2 to Motor 7 in A7). Area 8 could be trade-ins only, or a showroom of the Factory Hauler in other colours |
 | **Manny Festo**, the news man | News about the next championship, the new Area Champion, and rumours that point to hidden venues and storylines | He sells nothing today. **Decision:** keep him as the news man in every area, or give him a stall (for example energy drinks, see below) |
 
-**Lee Stock**, Lee's T's & Wheels, is the **fifth travelling NPC** (Boss, 30 Oct 2026). He runs the tyres and wheels shop in every area, selling wheels and tyres and brakes.
+**Lee Stocky**, Lee's T's & Wheels, is the **fifth travelling NPC** (Boss, 30 Oct 2026). He runs the tyres and wheels shop in every area, selling wheels and tyres and brakes.
 
 - **Back story:** he won the Area Championship a few seasons back, then was out injured. He's getting back to racing this season, so the player sees him at some of their races.
 - **Look:** late 40s, white, bald with a five o'clock shadow, blue jeans, white trainers, and a black T-shirt with the shop logo on it.
 - **Art to update:** his sprite (the current tyre specialist, `npc-04-tyre-specialist`), the logo on his shirt, and the shop's building name and sign, which become "Lee's T's & Wheels". His name replaces "Tyres and wheels specialist" in `npcs.json` and the shop name in `shops.json`.
-- **Check (Boss):** the rider list already has **Lee Stocky**, a level 2 racer in the Area 1 pool. If that's him, his level wants raising to fit a former Area Champion. If not, Lee Stock needs his own rider entry.
+- **Racing:** he's the same Lee Stocky who's in the rider list (Boss, 30 Oct 2026). He's level 2 in the Area 1 pool today, so his level wants raising to fit a former Area Champion coming back from injury, and he should be in the pool of every area.
 
 ### Shop stock by area (proposed)
 
@@ -290,7 +290,7 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 ## Open decisions for Boss
 
 1. ~~Area 2's name~~ Settled: Mountain Town (Boss, 30 Oct 2026).
-2. ~~The Tyres and Wheels owner~~ Settled: Lee Stock, Lee's T's & Wheels, travels to every area (Boss, 30 Oct 2026).
+2. ~~The Tyres and Wheels owner~~ Settled: Lee Stocky, Lee's T's & Wheels, travels to every area (Boss, 30 Oct 2026).
 3. **Manny Festo:** news man only, or a stall as well?
 4. **Phoenix MX clothing:** which area it starts in (I suggest Area 2).
 5. **The class dealer:** should Bill Rothon at Moto78 sell the new bike and frame at each class step for unsponsored riders?
