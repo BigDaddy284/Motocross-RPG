@@ -10,6 +10,7 @@ import { isSprint, lapMetres, nearestOnLap, pointAt, RETURN_LANE, START_PAD, sta
 import { DEFAULT_TRACK_WIDTH, GRID_H, GRID_W, trackKind, type SceneryDef, type TrackPartsData } from '../core/trackParts';
 import { archSpan, SPANS_TRACK, sprintPlace, SPRINT_START_ITEM, SurfaceIndex, surfacePoints } from '../core/trackClearance';
 import { BIKE_LENGTH, CAM_AZ, LIP_AT, LOGS_AT, TrackSurface, type Flight } from '../core/trackSurface';
+import { downPhase } from '../core/crashRecovery';
 import { APPROACH as TRICK_APPROACH, trickPose, type Trick } from '../core/tricks';
 import { COLORS, TEXT_RES } from '../ui/theme';
 import { isPaddock } from '../core/paddock';
@@ -51,6 +52,8 @@ const TRICK_PIVOT = new THREE.Vector3();
 const LOOP_AXLE = new THREE.Vector3();
 const LOOP_TMP = new THREE.Vector3();
 const Z_AXIS = new THREE.Vector3(0, 0, 1);
+const IDENTITY = new THREE.Quaternion();
+const ORIGIN = new THREE.Vector3();
 
 export interface ViewRider {
   pose: RiderPose;
@@ -135,7 +138,28 @@ interface Bike {
   seat: THREE.Vector3;
   /** Which side a rider who comes off lands, 1 or -1. */
   side: number;
+  /** The rider's kit colours, for their figure on foot. */
+  kit: Kit;
+  /** The rider on foot after a crash (crashRecovery.ts), made the first time they need it. */
+  runner?: Runner;
   label: Phaser.GameObjects.Text;
+}
+
+interface Kit {
+  helmet: number;
+  visor: number;
+  jersey: number;
+  pants: number;
+  boot: number;
+  glove: number;
+}
+
+/** A rider on foot: legs and arms swing at the hip and shoulder, the upper body bends at the hips. */
+interface Runner {
+  group: THREE.Group;
+  upper: THREE.Group;
+  legs: [THREE.Group, THREE.Group];
+  arms: [THREE.Group, THREE.Group];
 }
 
 interface Puff {
@@ -2098,7 +2122,9 @@ export class RaceView {
     if (look) {
       const all = raceBikeParts(look, BIKE_LENGTH);
       const bikeOnly = raceBikeParts(look, BIKE_LENGTH, { rider: false }).length;
-      return this.finishBike(root, body, all.slice(0, bikeOnly), all.slice(bikeOnly));
+      const g = look.gear;
+      const kit = { helmet: g.helmet, visor: g.visor, jersey: g.jersey, pants: g.pants, boot: g.boot, glove: g.glove };
+      return this.finishBike(root, body, all.slice(0, bikeOnly), all.slice(bikeOnly), kit);
     }
     const L = BIKE_LENGTH;
     const r = 0.22;
@@ -2139,10 +2165,10 @@ export class RaceView {
     helmet.position.set(0.12, r + 0.98, 0);
     parts.push(helmet);
     piece(0.08, 0.06, 0.18, this.mat(c.visor), 0.24, r + 0.97); // visor
-    return this.finishBike(root, body, parts.slice(0, riderFrom), parts.slice(riderFrom));
+    return this.finishBike(root, body, parts.slice(0, riderFrom), parts.slice(riderFrom), { helmet: c.helmet, visor: c.visor, jersey: c.torso, pants: c.legs, boot: 0x1c1c22, glove: c.arms });
   }
 
-  private finishBike(root: THREE.Group, body: THREE.Group, parts: THREE.Mesh[], riderParts: THREE.Mesh[]): Bike {
+  private finishBike(root: THREE.Group, body: THREE.Group, parts: THREE.Mesh[], riderParts: THREE.Mesh[], kit: Kit): Bike {
     // One mesh for the bike and one for the rider, coloured per part, so a field costs two draws each.
     body.add(this.mergeParts(parts));
     const rider = new THREE.Group();
@@ -2158,7 +2184,39 @@ export class RaceView {
     this.scene3.add(root);
     const label = this.scene.add.text(0, 0, '', { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '13px', color: '#ffffff', fontStyle: 'bold', stroke: '#14141e', strokeThickness: 3, resolution: TEXT_RES }).setOrigin(0.5, 1);
     this.labels.add(label);
-    return { root, body, rider, seat, side: (this.bikes.size % 2) * 2 - 1, label };
+    return { root, body, rider, seat, side: (this.bikes.size % 2) * 2 - 1, kit, label };
+  }
+
+  /** A rider on foot in their kit, feet at the origin, facing +x, about as tall as the seated rider. */
+  private makeRunner(root: THREE.Group, kit: Kit): Runner {
+    const group = new THREE.Group();
+    const part = (geo: THREE.BufferGeometry, color: number, x: number, y: number, z: number, parent: THREE.Object3D) => {
+      const m = new THREE.Mesh(geo, this.mat(color));
+      m.position.set(x, y, z);
+      m.castShadow = true;
+      parent.add(m);
+      return m;
+    };
+    const HIP = 0.36;
+    const limb = (len: number, r: number, color: number, end: number, endR: number, x: number, y: number, z: number, parent: THREE.Object3D) => {
+      const pivot = new THREE.Group();
+      pivot.position.set(x, y, z);
+      part(new THREE.CapsuleGeometry(r, len - 2 * r, 3, 8), color, 0, -len / 2, 0, pivot);
+      part(new THREE.SphereGeometry(endR, 8, 6), end, 0.02, -len, 0, pivot);
+      parent.add(pivot);
+      return pivot;
+    };
+    const legs: [THREE.Group, THREE.Group] = [limb(HIP - 0.04, 0.065, kit.pants, kit.boot, 0.07, 0, HIP, -0.08, group), limb(HIP - 0.04, 0.065, kit.pants, kit.boot, 0.07, 0, HIP, 0.08, group)];
+    const upper = new THREE.Group();
+    upper.position.set(0, HIP, 0);
+    group.add(upper);
+    part(new THREE.BoxGeometry(0.2, 0.3, 0.3), kit.jersey, 0, 0.15, 0, upper);
+    part(new THREE.SphereGeometry(0.17, 12, 10), kit.helmet, 0.02, 0.45, 0, upper);
+    part(new THREE.BoxGeometry(0.06, 0.08, 0.2), kit.visor, 0.17, 0.45, 0, upper);
+    const arms: [THREE.Group, THREE.Group] = [limb(0.28, 0.05, kit.jersey, kit.glove, 0.05, 0, 0.27, -0.19, upper), limb(0.28, 0.05, kit.jersey, kit.glove, 0.05, 0, 0.27, 0.19, upper)];
+    group.visible = false;
+    root.add(group);
+    return { group, upper, legs, arms };
   }
 
   /** Bakes meshes (each with a plain coloured material) into one vertex-coloured, shadow-casting mesh. */
@@ -2219,7 +2277,13 @@ export class RaceView {
       b.root.rotation.set(0, -yaw, 0);
       b.body.rotation.set(0, 0, 0, 'XYZ');
       b.body.position.set(0, 0, 0);
-      if (p.state === 'crashed') {
+      if (p.down) {
+        // Thrown off, back on foot, back to the bike and on again (crashRecovery.ts); after a whip or
+        // scrub gone wrong it goes down on the side it was laid over to.
+        const bail = onStart ? null : this.bailAt(p.flight, f);
+        this.recover(b, p.down, p.stunt?.kind === 'loop', bail?.dir ?? b.side);
+        lean = 0;
+      } else if (p.state === 'crashed') {
         // Down on its side, sliding: after a whip or scrub gone wrong, on the side it was laid over to.
         const bail = onStart ? null : this.bailAt(p.flight, f);
         b.body.rotation.set((bail?.dir ?? 1) * (Math.PI / 2.2), bail ? -bail.dir * 0.5 : 0, 0);
@@ -2238,12 +2302,16 @@ export class RaceView {
           b.body.position.copy(TRICK_PIVOT).sub(TRICK_PIVOT.clone().applyEuler(b.body.rotation));
         }
       }
-      if (p.stunt?.kind === 'loop' && p.state !== 'remount') this.loopOut(b, p.stunt.t);
-      else {
-        b.rider.position.copy(b.body.position);
-        b.rider.quaternion.copy(b.body.quaternion);
+      if (!p.down) {
+        if (b.runner) b.runner.group.visible = false;
+        b.rider.visible = true;
+        if (p.stunt?.kind === 'loop') this.loopOut(b, p.stunt.t);
+        else {
+          b.rider.position.copy(b.body.position);
+          b.rider.quaternion.copy(b.body.quaternion);
+        }
       }
-      b.root.visible = !(p.state === 'remount' && !blink);
+      b.root.visible = !!p.down || !(p.state === 'remount' && !blink);
       if (p.id === focus) target = new THREE.Vector3(mx, my, mz);
       if (r.player) this.marker.position.set(mx, my + 1.75 + 0.08 * Math.sin(clock * 4), mz);
       b.label.setText(r.player ? '' : r.label).setVisible(!r.player && p.state !== 'retired');
@@ -2281,6 +2349,93 @@ export class RaceView {
     this.drawMap(riders);
     this.frameMs.push(performance.now() - t0);
     if (this.frameMs.length > 600) this.frameMs.shift();
+  }
+
+  /**
+   * A rider down after a crash, t seconds in (crashRecovery.ts): thrown a short way off the bike
+   * (or off the back, after a loop-out), down a moment, up, running back to it, lifting it upright
+   * by the bars from its top side, and back on. `side` is the side the bike goes down on.
+   */
+  private recover(b: Bike, down: { t: number; lost: number }, loop: boolean, side: number): void {
+    const smooth = (x: number) => { const k = Math.max(0, Math.min(1, x)); return k * k * (3 - 2 * k); };
+    const { phase, k } = downPhase(down.t, down.lost);
+    const runner = (b.runner ??= this.makeRunner(b.root, b.kit));
+    const thrown = phase === 'thrown';
+    // The bike lying where it fell, and the rider lying where they landed.
+    const LIE = new THREE.Euler(side * 0.35, 0, Math.PI / 2, 'XYZ');
+    let hip: THREE.Vector3;
+    if (loop) {
+      this.loopOut(b, thrown ? Math.min(k * 0.7, 0.7) : 0.7);
+      hip = new THREE.Vector3(-BIKE_LENGTH / 2 - 0.55, 0.12, b.side * 0.5);
+      side = b.side;
+    } else {
+      const fall = thrown ? smooth(k / 0.5) : 1;
+      b.body.rotation.set(side * (Math.PI / 2.2) * fall, -side * 0.5 * fall, 0, 'XYZ');
+      b.body.position.set(0, 0.12 * fall, 0);
+      hip = new THREE.Vector3(BIKE_LENGTH * 1.5, 0.12, side * 0.85);
+      if (thrown) {
+        // Over the bars in a short tumbling arc, landing on their back.
+        const start = b.seat.clone();
+        const at = start.clone().lerp(hip, smooth(k));
+        at.y = start.y + (0.12 - start.y) * smooth(k) + 0.35 * Math.sin(Math.PI * k);
+        b.rider.rotation.set(side * (0.35 + 2 * Math.PI * smooth(k)), 0, (Math.PI / 2) * smooth(k), 'XYZ');
+        b.rider.position.copy(at).sub(b.seat.clone().applyEuler(b.rider.rotation));
+      }
+    }
+    if (thrown || phase === 'down') {
+      runner.group.visible = false;
+      b.rider.visible = true;
+      if (phase === 'down') {
+        b.rider.rotation.copy(LIE);
+        b.rider.position.copy(hip).sub(b.seat.clone().applyEuler(LIE));
+      }
+      return;
+    }
+    // Back on foot. The spot to lift the bike from: beside its bars on its top side.
+    const lying = { pos: b.body.position.clone(), quat: b.body.quaternion.clone() };
+    const spot = new THREE.Vector3(BIKE_LENGTH * 0.25, 0, side * 0.75);
+    const g = runner.group;
+    const face = (dx: number, dz: number) => Math.atan2(-dz, dx);
+    const pose = (legSwing: number, armSwing: number, bend: number, reach: number) => {
+      runner.legs[0].rotation.set(0, 0, legSwing);
+      runner.legs[1].rotation.set(0, 0, -legSwing);
+      runner.arms[0].rotation.set(0, 0, -armSwing + reach);
+      runner.arms[1].rotation.set(0, 0, armSwing + reach);
+      runner.upper.rotation.set(0, 0, -bend);
+    };
+    b.rider.visible = phase === 'mount' && k >= 0.6;
+    g.visible = !b.rider.visible;
+    if (phase === 'up') {
+      // Up off their back, turning to face the bike.
+      const e = smooth(k);
+      g.position.set(hip.x, 0, hip.z);
+      g.rotation.set(0, face(spot.x - hip.x, spot.z - hip.z), (Math.PI / 2) * (1 - e), 'YXZ');
+      pose(0.6 * (1 - e), 0, 0.5 * (1 - e), 0.4 * (1 - e));
+    } else if (phase === 'run') {
+      const at = hip.clone().lerp(spot, smooth(k));
+      g.position.set(at.x, 0.04 * Math.abs(Math.sin(k * Math.PI * 4)), at.z);
+      g.rotation.set(0, face(spot.x - hip.x, spot.z - hip.z), 0, 'YXZ');
+      const swing = 0.9 * Math.sin(k * Math.PI * 4) * Math.min(1, k * 4, (1 - k) * 4);
+      pose(swing, swing * 0.8, 0.25, 0);
+    } else if (phase === 'lift') {
+      // Bent over the bars, then straightening as the bike comes up.
+      g.position.set(spot.x, 0, spot.z);
+      g.rotation.set(0, face(0, -side), 0, 'YXZ');
+      const e = smooth(k);
+      pose(0.15, 0, 0.9 * (1 - e) + 0.15, 1.3 - 0.5 * e);
+      b.body.quaternion.slerpQuaternions(lying.quat, IDENTITY, e);
+      b.body.position.lerpVectors(lying.pos, ORIGIN, e);
+    } else {
+      // A leg over and sat on.
+      b.body.rotation.set(0, 0, 0, 'XYZ');
+      b.body.position.set(0, 0, 0);
+      const e = smooth(k / 0.6);
+      g.position.set(spot.x + (b.seat.x - spot.x) * e, 0.1 * Math.sin(Math.PI * e), spot.z * (1 - e));
+      g.rotation.set(0, face(1, 0) * e + face(0, -side) * (1 - e), 0, 'YXZ');
+      pose(0.8 * Math.sin(Math.PI * e), 0, 0.2, 1.1);
+      b.rider.position.set(0, 0, 0);
+      b.rider.rotation.set(0, 0, 0);
+    }
   }
 
   /**

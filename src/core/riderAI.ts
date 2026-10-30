@@ -5,6 +5,7 @@ import { isSprint, lapGeom, lapMetres, pointAt, sectionBounds, sectionTurns, SPR
 import { DEFAULT_HEIGHTS, HOP_JUMPS, landingOf, pickWay, type Way } from './jumps';
 import { HILLS, sectionShape, TrackSurface, type Flight } from './trackSurface';
 import { showmanOf, trickFor, type Trick } from './tricks';
+import { downPhase } from './crashRecovery';
 
 export { DEFAULT_HEIGHTS };
 
@@ -42,6 +43,8 @@ export interface RiderPose {
    * still coming up).
    */
   stunt?: { kind: 'loop'; t: number };
+  /** Down after a crash: seconds since it and how long it costs, for the view to act out (crashRecovery.ts). */
+  down?: { t: number; lost: number };
 }
 
 interface Seg {
@@ -469,17 +472,19 @@ export class RaceDirector {
     let state: RiderState = 'riding';
     const loop = this.loopsOut(p, seg);
     let stunt: RiderPose['stunt'];
+    let down: RiderPose['down'];
     if (loop) {
       const since = s - at * ride;
-      if (since > -LOOP_RISE) stunt = { kind: 'loop', t: since };
+      if (since > -LOOP_RISE && since < lost) stunt = { kind: 'loop', t: since };
     }
     if (stopped && seg.mistake) {
       const crash = seg.mistake.outcome === 'minor_crash' || seg.mistake.outcome === 'serious_crash';
-      if (crash && loop) state = s - at * ride < lost * 0.6 ? 'crashed' : 'remount';
-      else if (crash) {
-        state = s - at * ride < lost * 0.6 ? 'crashed' : 'remount';
-        // A crashed bike slides towards the outside of the track.
-        lane += (this.turn(seg.si) ? -this.turn(seg.si) : 1) * 0.25 * smooth((s - at * ride) / 0.6);
+      if (crash) {
+        // Down until they are getting back on (crashRecovery.ts), then remounting.
+        down = { t: s - at * ride, lost };
+        state = downPhase(down.t, lost).phase === 'mount' ? 'remount' : 'crashed';
+        // A crashed bike slides towards the outside of the track; a loop-out stays where it went over.
+        if (!loop) lane += (this.turn(seg.si) ? -this.turn(seg.si) : 1) * 0.25 * smooth((s - at * ride) / 0.6);
       } else state = 'wobble';
     }
 
@@ -488,6 +493,7 @@ export class RaceDirector {
     if (air > 0.05 && state === 'riding') state = 'air';
     const pose: RiderPose = { id, dist, lane: clamp(lane, -1, 1), air, elev, flight, state, speed };
     if (stunt) pose.stunt = stunt;
+    if (down) pose.down = down;
     return pose;
   }
 
