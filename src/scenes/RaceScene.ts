@@ -1119,9 +1119,9 @@ export class RaceScene extends Phaser.Scene {
         const crash = e.outcome === 'minor_crash' || e.outcome === 'serious_crash';
         if (e.rider === PLAYER_ID) {
           const what = e.outcome === 'small' ? 'Small mistake' : e.outcome === 'big' ? 'Big moment' : e.outcome === 'minor_crash' ? 'You went down' : 'Big crash';
-          line = `${what} at the ${section(e.section)} (−${e.lost.toFixed(1)}s).`;
+          line = e.with === 'loop_out' ? `You looped it out of the gate (−${e.lost.toFixed(1)}s).` : `${what} at the ${section(e.section)} (−${e.lost.toFixed(1)}s).`;
           if (e.damaged.length) line += ` ${e.outcome === 'serious_crash' ? 'Broken' : 'Damaged'}: ${e.damaged.map(slot).join(', ')}.`;
-        } else if (crash) line = `${name(e.rider)} crashed at the ${section(e.section)}.`;
+        } else if (crash) line = e.with === 'loop_out' ? `${name(e.rider)} looped it out of the gate!` : `${name(e.rider)} crashed at the ${section(e.section)}.`;
         break;
       }
       case 'breakdown':

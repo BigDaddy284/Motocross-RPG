@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { SceneryItem, TrackDef } from '../core/race';
-import { START_HOLD, type RiderPose, type RiderState } from '../core/riderAI';
+import { LOOP_RISE, START_HOLD, type RiderPose, type RiderState } from '../core/riderAI';
 import { CHEER_ITEM, CHEER_RANGE, CHEER_WALK, cheerAction, cheerColour, cheerRoute, cheerTiming, cheerVariant, REACT_SECONDS, VARIANT_SCALE, type CheerAction } from '../core/cheer';
 import { alongRoute, OFFICIAL_ITEM, OFFICIAL_SCALE, officialPlan, placedOfficial, routeLength, walkProgress, BOARD_MOVE, BOARD_SIDEWAYS, WALK_FROM, WALK_TO, type OfficialSpot } from '../core/startOfficial';
 import { isSprint, lapMetres, nearestOnLap, pointAt, RETURN_LANE, START_PAD, startPointAt } from '../core/trackGeom';
@@ -48,6 +48,9 @@ const CROWD = [0xc0607a, 0xe0c060, 0x60a0e0, 0xf0f0f0, 0x80c080, 0xe08040, 0x907
 
 let counter = 0;
 const TRICK_PIVOT = new THREE.Vector3();
+const LOOP_AXLE = new THREE.Vector3();
+const LOOP_TMP = new THREE.Vector3();
+const Z_AXIS = new THREE.Vector3(0, 0, 1);
 
 export interface ViewRider {
   pose: RiderPose;
@@ -124,7 +127,14 @@ export interface Cheer {
 }
 interface Bike {
   root: THREE.Group;
+  /** The bike itself. */
   body: THREE.Group;
+  /** The rider, posed with the bike unless they have come off it (a loop-out). */
+  rider: THREE.Group;
+  /** Where the rider sat, in the bike's frame (their hips), for throwing them off. */
+  seat: THREE.Vector3;
+  /** Which side a rider who comes off lands, 1 or -1. */
+  side: number;
   label: Phaser.GameObjects.Text;
 }
 
@@ -2085,7 +2095,11 @@ export class RaceView {
     const root = new THREE.Group();
     const body = new THREE.Group();
     root.add(body);
-    if (look) return this.finishBike(root, body, raceBikeParts(look, BIKE_LENGTH));
+    if (look) {
+      const all = raceBikeParts(look, BIKE_LENGTH);
+      const bikeOnly = raceBikeParts(look, BIKE_LENGTH, { rider: false }).length;
+      return this.finishBike(root, body, all.slice(0, bikeOnly), all.slice(bikeOnly));
+    }
     const L = BIKE_LENGTH;
     const r = 0.22;
     const c = bikeColours(color, player, look);
@@ -2115,6 +2129,7 @@ export class RaceView {
     piece(0.42, 0.04, 0.14, paint, L / 2 - 0.12, r + 0.27, 0, -0.1); // front guard
     piece(0.3, 0.04, 0.14, paint, -L / 2 + 0.05, r + 0.3, 0, 0.25); // rear guard
     // Rider: legs, body leaning over the bars, arms and helmet.
+    const riderFrom = parts.length;
     piece(0.34, 0.1, 0.1, this.mat(c.legs), -0.04, r + 0.42, 0.13, -0.6);
     piece(0.34, 0.1, 0.1, this.mat(c.legs), -0.04, r + 0.42, -0.13, -0.6);
     piece(0.2, 0.4, 0.28, this.mat(c.torso), -0.02, r + 0.68, 0, -0.45);
@@ -2124,16 +2139,26 @@ export class RaceView {
     helmet.position.set(0.12, r + 0.98, 0);
     parts.push(helmet);
     piece(0.08, 0.06, 0.18, this.mat(c.visor), 0.24, r + 0.97); // visor
-    return this.finishBike(root, body, parts);
+    return this.finishBike(root, body, parts.slice(0, riderFrom), parts.slice(riderFrom));
   }
 
-  private finishBike(root: THREE.Group, body: THREE.Group, parts: THREE.Mesh[]): Bike {
-    // One mesh per bike, coloured per part, so a field of bikes costs one draw each.
+  private finishBike(root: THREE.Group, body: THREE.Group, parts: THREE.Mesh[], riderParts: THREE.Mesh[]): Bike {
+    // One mesh for the bike and one for the rider, coloured per part, so a field costs two draws each.
     body.add(this.mergeParts(parts));
+    const rider = new THREE.Group();
+    const seat = new THREE.Vector3(0, 0.55, 0);
+    if (riderParts.length) {
+      const mesh = this.mergeParts(riderParts);
+      mesh.geometry.computeBoundingBox();
+      const box = mesh.geometry.boundingBox!;
+      seat.set((box.min.x + box.max.x) / 2, box.min.y + (box.max.y - box.min.y) * 0.35, 0);
+      rider.add(mesh);
+    }
+    root.add(rider);
     this.scene3.add(root);
     const label = this.scene.add.text(0, 0, '', { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '13px', color: '#ffffff', fontStyle: 'bold', stroke: '#14141e', strokeThickness: 3, resolution: TEXT_RES }).setOrigin(0.5, 1);
     this.labels.add(label);
-    return { root, body, label };
+    return { root, body, rider, seat, side: (this.bikes.size % 2) * 2 - 1, label };
   }
 
   /** Bakes meshes (each with a plain coloured material) into one vertex-coloured, shadow-casting mesh. */
@@ -2213,6 +2238,11 @@ export class RaceView {
           b.body.position.copy(TRICK_PIVOT).sub(TRICK_PIVOT.clone().applyEuler(b.body.rotation));
         }
       }
+      if (p.stunt?.kind === 'loop' && p.state !== 'remount') this.loopOut(b, p.stunt.t);
+      else {
+        b.rider.position.copy(b.body.position);
+        b.rider.quaternion.copy(b.body.quaternion);
+      }
       b.root.visible = !(p.state === 'remount' && !blink);
       if (p.id === focus) target = new THREE.Vector3(mx, my, mz);
       if (r.player) this.marker.position.set(mx, my + 1.75 + 0.08 * Math.sin(clock * 4), mz);
@@ -2251,6 +2281,40 @@ export class RaceView {
     this.drawMap(riders);
     this.frameMs.push(performance.now() - t0);
     if (this.frameMs.length > 600) this.frameMs.shift();
+  }
+
+  /**
+   * A loop-out out of the gate (riderAI LOOP_RISE), t seconds from the rider coming off: the front
+   * comes up as the rider holds it wide open, the wheelie goes past the balance point and the bike
+   * goes over backwards on its rear wheel, landing upside down behind it. The rider is pitched off
+   * the back as it passes the point of no return and lands on their back to one side, clear of it.
+   */
+  private loopOut(b: Bike, t: number): void {
+    const smooth = (x: number) => { const k = Math.max(0, Math.min(1, x)); return k * k * (3 - 2 * k); };
+    const ease = (x: number) => { const k = Math.max(0, Math.min(1, x)); return k * k; };
+    const axle = LOOP_AXLE.set(-BIKE_LENGTH / 2, 0.22, 0);
+    const lost = 1.25;
+    const pivot = (theta: number, out: THREE.Vector3, from: THREE.Vector3) => out.copy(from).sub(axle).applyAxisAngle(Z_AXIS, theta).add(axle);
+    // The bike: up to the balance point, then over, then lying on its back (lifted onto its bars and seat).
+    const over = ease(t / 0.7);
+    const theta = t < 0 ? lost * ease((t + LOOP_RISE) / LOOP_RISE) : lost + (Math.PI - lost) * over;
+    b.body.rotation.set(t < 0 ? 0 : b.side * 0.35 * smooth(t / 0.7), 0, theta, 'XYZ');
+    // Turned about the rear axle, which stays on the ground.
+    b.body.position.copy(axle).sub(LOOP_TMP.copy(axle).applyEuler(b.body.rotation));
+    b.body.position.y += 0.34 * smooth(t / 0.7);
+    if (t < 0) {
+      b.rider.position.copy(b.body.position);
+      b.rider.quaternion.copy(b.body.quaternion);
+      return;
+    }
+    // The rider: from the seat at the balance point, off the back in a short arc, onto their back to the side.
+    const k = smooth(t / 0.55);
+    const start = pivot(lost, LOOP_TMP, b.seat);
+    const hip = new THREE.Vector3(-BIKE_LENGTH / 2 - 0.55, 0.12, b.side * 0.5);
+    hip.lerp(start, 1 - k);
+    hip.y = start.y + (0.12 - start.y) * k + 0.25 * Math.sin(Math.PI * k);
+    b.rider.rotation.set(b.side * 0.35 * k, 0, lost + (Math.PI / 2 - lost) * k, 'XYZ');
+    b.rider.position.copy(hip).sub(b.seat.clone().applyEuler(b.rider.rotation));
   }
 
   /**

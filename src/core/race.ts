@@ -84,6 +84,12 @@ export interface RacingData {
      * field, so it is never every race and never always the same rider.
      */
     firstCorner?: { chance: number; riders: [number, number] };
+    /**
+     * A loop-out (Boss, 30 Oct 2026): on lap 1 of a race, this chance that one rider pulls such a
+     * big wheelie out of the gate that the bike goes over backwards, a crash on the start straight.
+     * The weaker a rider's starts, the likelier it is them.
+     */
+    loopOut?: { chance: number };
     /** A crash collecting riders close behind: each rider arriving within `window` seconds has this chance of going down too, up to `most` of them. */
     pileup?: { chance: number; window: number; most: number };
     /**
@@ -260,7 +266,7 @@ export interface Entrant {
 export type RaceEvent =
   | { kind: 'pass'; t: number; rider: string; other: string; section: number }
   | { kind: 'failedPass'; t: number; rider: string; other: string; section: number }
-  | { kind: 'mistake'; t: number; rider: string; section: number; outcome: MistakeOutcome['id']; lost: number; damaged: string[]; /** The rider whose crash this one went down in, or 'first_corner' for a first-corner incident. */ with?: string }
+  | { kind: 'mistake'; t: number; rider: string; section: number; outcome: MistakeOutcome['id']; lost: number; damaged: string[]; /** The rider whose crash this one went down in, or 'first_corner' for a first-corner incident, or 'loop_out' for a loop-out out of the gate. */ with?: string }
   | { kind: 'breakdown'; t: number; rider: string; section: number; slot: string }
   | { kind: 'retire'; t: number; rider: string; reason: string };
 
@@ -506,6 +512,18 @@ export class MotoSim {
       const n = Math.min(pool.length, fc.riders[0] + Math.floor(lapRng() * (fc.riders[1] - fc.riders[0] + 1)));
       for (let i = 0; i < n; i++) incident.add(pool.splice(Math.floor(lapRng() * pool.length), 1)[0]);
     }
+    // A loop-out out of the gate on lap 1, from its own draw so the first-corner draws stay as they were.
+    const startLeg = lap === 1 && sim.loopOut && !this.opts.practice && !this.sprint ? plan.secs.indexOf(-1) : -1;
+    let looper: RiderState | null = null;
+    if (startLeg >= 0) {
+      const loopRng = seededRng(mixSeed(this.opts.seed, lap * 256 + 254));
+      if (loopRng() < sim.loopOut!.chance && active.length) {
+        const weight = (r: RiderState) => 1.15 - (r.e.skills.starts ?? 1) / 99;
+        let x = loopRng() * active.reduce((a, r) => a + weight(r), 0);
+        looper = active.find((r) => (x -= weight(r)) < 0) ?? active[active.length - 1];
+        incident.delete(looper);
+      }
+    }
 
     // A sprint times each test from when the rider leaves the start line.
     const away = new Map(active.map((r) => [r, r.time]));
@@ -536,7 +554,10 @@ export class MotoSim {
         let t = this.sectionTime(r, sec, def, isStart ? r.e.gate : -1) * (air.get(r) ?? 1) * (si >= 0 ? this.grades[si] : 1);
         let m = this.mistake(r, def, share);
         let withWhom: string | undefined;
-        if (!m?.crash && leg === firstCornerLeg && incident.has(r)) {
+        if (leg === startLeg && r === looper) {
+          m = this.crashOutcome();
+          withWhom = 'loop_out';
+        } else if (!m?.crash && leg === firstCornerLeg && incident.has(r)) {
           m = this.crashOutcome();
           withWhom = 'first_corner';
         } else if (!m?.crash && sim.pileup && si >= 0) {
