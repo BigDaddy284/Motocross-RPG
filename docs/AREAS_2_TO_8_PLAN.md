@@ -188,7 +188,7 @@ Every area has the same base set, so the columns below list only what's **new**:
 ### Area 5: Northern Works (quarry, old industry, rock and dust)
 
 - **Story:** **the Modifying Machine** quest starts here (below), and **Sponsored Rides**. Sponsor offers open after the Local Champion championship (Spec 16), and the first sponsor brings a branded frame and an outfit. Area Champion Louie Gizard.
-- **Batch job:** **Frame works** (frames). Minigame: welding (Welding). This is the only way to get a better frame without a sponsor. Pay about £2 a part, batch 50 (**Decision:** frames are worth 10 times a top end, so maybe a smaller batch).
+- **Batch job:** **Frame works** (frames). Minigame: welding (Welding). This is the only way to get a better frame without a sponsor. Pay about £2 a part, batch 100, double the usual, since frames are worth about 10 times a top end (Boss, 30 Oct 2026).
 - **Fitness:** **Rowing** on the old canal (Endurance).
 - **Rider training:** rock garden (Balance), shadow passing with a local pro (Overtaking).
 - **New at the Area 1 tool shop:** Pro wheel and brake tools.
@@ -299,7 +299,7 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 6. **Energy drinks (parked until closer to Area 4):** a drinks van at the venues (my recommendation), their own shop, or Moto78 only. And confirm Area 4 over the Spec's "from 125cc Youth".
 7. ~~A second Modifying Machine~~ Settled: one machine, in Area 1, fixed by a quest line that starts in Area 5 (Boss, 30 Oct 2026). Fixing it needs Mechanical Engineer 30.
 8. ~~The modifier machine owner's name~~ Settled: Mad Maggie, keeping her current look (Boss, 30 Oct 2026).
-9. **Batch jobs per area:** is one new facility per area right (Area 6 gets two), and are you happy with the Frame works in Area 5 as the way to make better frames without a sponsor?
+9. ~~Batch jobs per area~~ Settled: one new facility per area as planned, and a Frame works batch of 100 (Boss, 30 Oct 2026).
 10. **Houses:** one tier in Areas 2, 3, 5, 6 and 8 (none new in 4 and 7), or a different spread?
 11. **The fitness spread:** weights (A2), agility ladder (A3), yoga (A4), rowing (A5), cycling (A6), dojo (A7), ice bath (A8).
 12. **Tools:** grade limits with Pro and Master versions, or one version of each set? And is there a second tool shop in Area 5?
