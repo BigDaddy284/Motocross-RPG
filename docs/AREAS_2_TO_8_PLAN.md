@@ -306,4 +306,4 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 11. ~~The fitness spread~~ Settled: weights (A2), agility ladder (A3), yoga (A4), rowing (A5), cycling (A6), dojo (A7), ice bath (A8) (Boss, 30 Oct 2026).
 12. ~~Tools~~ Settled: three versions of each set (first, Pro and Master), all sold at the Area 1 tool shop; a second tool shop in Area 5 is a maybe (Boss, 30 Oct 2026).
 13. ~~Frames~~ Settled: Moto78 always sells a stock Grade 1 frame of your brand for any unlocked class, and sponsors replace their broken frames free (Boss, 30 Oct 2026).
-14. **Names** for Local Champions, challengers, the Area 2 practice coach, Big Pete's full name, and every venue in Areas 2 to 8.
+14. **Names (parked for now, Boss, 30 Oct 2026)** for Local Champions, challengers, the Area 2 practice coach, Big Pete's full name, and every venue in Areas 2 to 8.
