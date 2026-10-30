@@ -19,7 +19,7 @@ Names marked *(placeholder)* are mine, to be replaced by Boss. Anything marked *
 - **Track types:** Enduro Sprint opens in Area 5, No-Turn Takedown in Area 7 and EnduroCross in Area 8.
 - **Area Champions:** Area 2 Taylor Heart, Area 3 Aidan Gizard, Area 4 Kate Gizard, Area 5 Louie Gizard, Area 6 James Nestor, Area 7 Harvey Gizard, Area 8 Neal Gizard.
 - **Vehicles:** Area 2 Old Rusty Van, then Motor 3 to Motor 7 in Areas 3 to 7, and none new in Area 8.
-- **Houses:** there is one shared storage box, reached from every house the player owns, from the rented room to the end-game house. It gets bigger with each house bought, so there's no carrying things back and forth (Boss, 30 Oct 2026).
+- **Houses:** every town from Area 2 has a house to buy (Boss, 30 Oct 2026). There is one shared storage box, reached from every house the player owns, from the rented room to the end-game house. It gets bigger with each house bought, so there's no carrying things back and forth (Boss, 30 Oct 2026).
 
 ## The goal: nothing left without a source
 
@@ -182,6 +182,7 @@ Every area has the same base set, so the columns below list only what's **new**:
 - **Rider training:** berm and flat corner (Cornering and Braking), rut riding over roots (Balance).
 - **Venues:** woodland MX, forest enduro loop, a supercross venue *(placeholders)*.
 - **New at the Area 1 tool shop:** suspension tools (£1,500) and Pro bodywork tools.
+- **House:** a reskin of the Area 3 Semi with garage, at the same tier and price (£12,000) (Boss, 30 Oct 2026). It's for convenience: a home in town that reaches the shared storage.
 - **Energy drinks:** see [Energy drinks](#energy-drinks-areas-4-to-8).
 - **Motor:** Motor 4, MX Van Medium.
 
@@ -228,6 +229,7 @@ The machine stays in the Industrial Zone unit in Area 1, where it's already buil
 - **Fitness:** **Martial arts dojo** (Martial Arts, with some Agility and Strength). The dojo unlocks through a short task, as the Spec says.
 - **Rider training:** supercross rhythm in the indoor arena (Jumps and Ruts, Riding Position), drag launch on the No-Turn strip (Starts).
 - **New at the Area 1 tool shop:** Master bodywork tools.
+- **House:** a reskin of the Area 8 Champion's estate, without the trophy and bike display room (Boss, 30 Oct 2026). Price and storage to be set between the Farmhouse (£400,000) and the estate (£2,000,000).
 - **Venues:** supercross stadium, arenacross, outdoor MX on the city edge, Enduro Sprint, and the **first No-Turn Takedown** *(placeholders)*.
 - **Motor:** Motor 7, Factory Hauler.
 
@@ -300,7 +302,7 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 7. ~~A second Modifying Machine~~ Settled: one machine, in Area 1, fixed by a quest line that starts in Area 5 (Boss, 30 Oct 2026). Fixing it needs Mechanical Engineer 30.
 8. ~~The modifier machine owner's name~~ Settled: Mad Maggie, keeping her current look (Boss, 30 Oct 2026).
 9. ~~Batch jobs per area~~ Settled: one new facility per area as planned, and a Frame works batch of 100 (Boss, 30 Oct 2026).
-10. **Houses:** one tier in Areas 2, 3, 5, 6 and 8 (none new in 4 and 7), or a different spread?
+10. ~~Houses~~ Settled: a house in every town. Area 4 gets a reskinned Area 3 Semi, and Area 7 a reskinned Area 8 estate with no trophy and bike display room (Boss, 30 Oct 2026). Still open: the Area 7 house's price and storage.
 11. **The fitness spread:** weights (A2), agility ladder (A3), yoga (A4), rowing (A5), cycling (A6), dojo (A7), ice bath (A8).
 12. **Tools:** grade limits with Pro and Master versions, or one version of each set? And is there a second tool shop in Area 5?
 13. **Frames:** Moto78 sells a stock Grade 1 frame of your brand as a replacement, and sponsors replace theirs free?
