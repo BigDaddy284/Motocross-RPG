@@ -77,7 +77,7 @@ The Race department in Area 8 takes contracts for any slot, at higher pay (Spec 
 
 Tools let the player repair and fit parts themselves instead of paying Phoenix MX (Spec 17.2a), and they take up tool slots in the house and motor (Spec 17.1, 17.3). Today the Area 1 tool shop counter does nothing.
 
-There are four tool sets, one per part group. Each set gets its first version in the area its parts start being made, then a better version later. The better version repairs higher grades, so the tools keep pace with the parts. **Decision:** whether to use these grade limits, or have just one version of each set.
+There are four tool sets, one per part group. Each set gets its first version in the area its parts start being made, then a better version later. The better version repairs higher grades, so the tools keep pace with the parts. Three versions of each set, with these grade limits (Boss, 30 Oct 2026).
 
 | Tool set | Covers slots | First version (area, price) | Repairs up to | Better versions |
 |---|---|---|---|---|
@@ -182,7 +182,7 @@ Every area has the same base set, so the columns below list only what's **new**:
 - **Rider training:** berm and flat corner (Cornering and Braking), rut riding over roots (Balance).
 - **Venues:** woodland MX, forest enduro loop, a supercross venue *(placeholders)*.
 - **New at the Area 1 tool shop:** suspension tools (£1,500) and Pro bodywork tools.
-- **House:** a reskin of the Area 3 Semi with garage (Boss, 30 Oct 2026). House prices still go up every area, so it costs more than Area 3's: £30,000 proposed. It's for convenience, a home in town that reaches the shared storage.
+- **House:** a reskin of the Area 3 Semi with garage (Boss, 30 Oct 2026). House prices still go up every area, so it costs more than Area 3's: £30,000 (Boss, 30 Oct 2026). It's for convenience, a home in town that reaches the shared storage.
 - **Energy drinks:** see [Energy drinks](#energy-drinks-areas-4-to-8).
 - **Motor:** Motor 4, MX Van Medium.
 
@@ -304,6 +304,6 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 9. ~~Batch jobs per area~~ Settled: one new facility per area as planned, and a Frame works batch of 100 (Boss, 30 Oct 2026).
 10. ~~Houses~~ Settled: a house in every town. Area 4 gets a reskinned Area 3 Semi, and Area 7 a reskinned Area 8 estate with no trophy and bike display room (Boss, 30 Oct 2026). House prices go up every area; the Area 7 house is £1,000,000.
 11. ~~The fitness spread~~ Settled: weights (A2), agility ladder (A3), yoga (A4), rowing (A5), cycling (A6), dojo (A7), ice bath (A8) (Boss, 30 Oct 2026).
-12. **Tools:** grade limits with Pro and Master versions, or one version of each set? And is there a second tool shop in Area 5?
+12. ~~Tools~~ Settled: three versions of each set (first, Pro and Master), all sold at the Area 1 tool shop; a second tool shop in Area 5 is a maybe (Boss, 30 Oct 2026).
 13. **Frames:** Moto78 sells a stock Grade 1 frame of your brand as a replacement, and sponsors replace theirs free?
 14. **Names** for Local Champions, challengers, the Area 2 practice coach, Big Pete's full name, and every venue in Areas 2 to 8.
