@@ -470,9 +470,11 @@ export class HudScene extends Phaser.Scene {
     const { width, height, k } = this.page();
     const w = Math.min(720, width - 32);
     const textObj = this.add.text(0, 0, text, textStyle(this.pts(18), COLORS.cream, { wordWrap: { width: w - 60 }, lineSpacing: 4 }));
+    // A menu with no text starts its buttons just under the title.
+    const textH = text ? textObj.height : -20;
     // Rows close up (down to 54 apart) when a long list would run off the page.
-    const gap = options.length > 1 ? Math.max(54, Math.min(64, Math.floor((height - 24 - 166 - textObj.height) / (options.length - 1)))) : 64;
-    const h = 166 + textObj.height + (options.length - 1) * gap;
+    const gap = options.length > 1 ? Math.max(54, Math.min(64, Math.floor((height - 24 - 166 - textH) / (options.length - 1)))) : 64;
+    const h = 166 + textH + (options.length - 1) * gap;
     const c = this.add.container((width / 2) * k, (height / 2) * k).setScale(k);
     this.backdrop(c, w, h, false);
     c.add(this.add.text(0, -h / 2 + 32, title, textStyle(26, COLORS.accent)).setOrigin(0.5));
@@ -480,7 +482,7 @@ export class HudScene extends Phaser.Scene {
     c.add(textObj);
     let picked = false;
     options.forEach((o, i) => {
-      const y = -h / 2 + 116 + textObj.height + i * gap;
+      const y = -h / 2 + 116 + textH + i * gap;
       const b = button(this, centre ? 0 : -w / 2 + 150, y, o.label, () => {
         picked = true;
         this.closeModal();

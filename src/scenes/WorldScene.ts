@@ -1435,7 +1435,7 @@ export class WorldScene extends Phaser.Scene {
             ? this.hud.choose(t.name, 'Coming soon.', [{ label: 'Back', onPick: openTracks }], openTracks, true)
             : this.roadList(t.name, t.places.length ? `${t.name} tracks you can ride.` : 'None unlocked yet.', t.places.map(item), openTracks),
       }));
-      this.hud.choose('Tracks', 'Pick a type of track.', [
+      this.hud.choose('Tracks', '', [
         ...types,
         {
           label: 'Championship',
