@@ -279,7 +279,7 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 3. **The batch rules aren't in.** The facility lock (one open job per facility, stop and come back later) and the batch sizes of 50 and 100 from the Spec still need building. Today's shifts are 20 brackets and 16 pistons.
 4. **The tool shop is empty.** Its owner is now Jason Styles, at J's Tools. Tool sets gate DIY repairs (Spec 17.2a), and DIY repair itself isn't built yet. Tool slots in the house and motor aren't counted yet either.
 5. **Job boards are missing.** Only one board gets built: customer repairs at Phoenix MX, in every area (Boss, 30 Oct 2026). The fabrication and engine boards are dropped, as the batch shifts cover them. A repair ticket plays as a station minigame, like the shifts (strip, fix, refit, test), never a single click on the bike like the tutorial.
-6. **No Rider Ability drills at all.** Racing is the only training. Area 1 could get one drill (for example gate drop at the backyard) so the pattern is set before Area 2.
+6. **No Rider Ability drills at all.** Area 1 gets one: a **gate drop drill** at the backyard track for Starts (Boss, 30 Oct 2026). The view is a close-up of the front wheel by the gate. You watch the gate drop and react. It gets easier as Starts rises, as if the gate drops slower, but only at much later levels, so nobody gets the easier version from Area 1 alone without thousands of hours on it. This is a change from Spec 3 (Round 122, 4B), where a minigame stays the same as the skill rises.
 7. **A broken Grade 1 frame can't be replaced** (see [When a frame breaks](#when-a-frame-breaks)).
 8. **The Area 1 main championship** is still "comes with Area 2", and it's the gate to Area 2 (Spec 18.2).
 
