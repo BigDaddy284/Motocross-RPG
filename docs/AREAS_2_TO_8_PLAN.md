@@ -266,6 +266,8 @@ The other options are its own shop in each town, which means a new building and 
 
 These are Area 1 gaps, but Areas 2 to 8 build on them:
 
+**Gaps 1 to 3 go in together as one piece of work** (Boss, 30 Oct 2026): XP per part made, a kept part at the end of each batch, and the batch rules. Area 1 uses the Spec's batch sizes, 50 at fabrication and 100 at the engine shop. The **tutorial** also changes: the first time the player talks to the engine rebuilder, they're told that a finished batch earns them a free part.
+
 1. **Mechanical Engineer can't be levelled.** Shifts pay money but give no XP. The fabrication and engine shifts need XP for Welding, Bodywork, Machining and Engine Components, and the engine rebuild work needs Engine Assembly XP.
 2. **No kept part from a batch.** A finished batch should give one random part (Spec 15.1). Without this, the "every part from a batch job" goal can't work anywhere.
 3. **The batch rules aren't in.** The facility lock (one open job per facility, stop and come back later) and the batch sizes of 50 and 100 from the Spec still need building. Today's shifts are 20 brackets and 16 pistons.
