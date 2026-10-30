@@ -19,7 +19,7 @@ Names marked *(placeholder)* are mine, to be replaced by Boss. Anything marked *
 - **Track types:** Enduro Sprint opens in Area 5, No-Turn Takedown in Area 7 and EnduroCross in Area 8.
 - **Area Champions:** Area 2 Taylor Heart, Area 3 Aidan Gizard, Area 4 Kate Gizard, Area 5 Louie Gizard, Area 6 James Nestor, Area 7 Harvey Gizard, Area 8 Neal Gizard.
 - **Vehicles:** Area 2 Old Rusty Van, then Motor 3 to Motor 7 in Areas 3 to 7, and none new in Area 8.
-- **Houses:** buying a house shares storage across all houses, so there's no back and forth.
+- **Houses:** there is one shared storage box, reached from every house the player owns, from the rented room to the end-game house. It gets bigger with each house bought, so there's no carrying things back and forth (Boss, 30 Oct 2026).
 
 ## The goal: nothing left without a source
 
@@ -109,7 +109,7 @@ They each have a shop or stand in every area, in a building that looks the same 
 
 | NPC | Every area | Grows as the game goes on |
 |---|---|---|
-| **Paul Phoenix**, Phoenix MX | Repairs (one grade down, Grade 2 and up), bench fitting, customer repair job board, and engine and suspension parts (top end, bottom end, intake and exhaust, drivetrain, forks, shock; Boss, 30 Oct 2026) | Clothing and riding gear from Area 2 (**Decision:** which area), bigger workshop, reputation hints about sponsors (Spec 16.0) |
+| **Paul Phoenix**, Phoenix MX | Repairs (one grade down, Grade 2 and up), bench fitting, customer repair job board, and engine and suspension parts (top end, bottom end, intake and exhaust, drivetrain, forks, shock; Boss, 30 Oct 2026) | Clothing from Area 2: a small rack on the garage side of the same-size shop, with nothing buyable until the Area 2 house is bought, which unlocks the wardrobe (Boss, 30 Oct 2026), bigger workshop, reputation hints about sponsors (Spec 16.0) |
 | **Bill Rothon**, Moto78 | Bodywork and controls, stock frames, and the tyre changer: tyres fitted there, and tyre change training (Boss, 30 Oct 2026) | Grade range and classes rise each area (table below). Class dealer for new bikes and frames when unsponsored (**Decision**) |
 | **Jedrick Nicholls**, Nicholls Used Motors | The motor for that area | Sells the next motor each area (Old Rusty Van in A2 to Motor 7 in A7). Area 8 could be trade-ins only, or a showroom of the Factory Hauler in other colours |
 | **Manny Festo**, the news man | News about the next championship, the new Area Champion, and rumours that point to hidden venues and storylines | He stays the news man in every area, with no stall (Boss, 30 Oct 2026), and starts each area's story |
@@ -159,7 +159,8 @@ Every area has the same base set, so the columns below list only what's **new**:
 - **Rider training:** practice track coach *(placeholder name)* with body position drills (Riding Position) and cone braking (Cornering and Braking). Rut riding in the mud (Balance, Jumps and Ruts).
 - **Venues:** a clay outdoor MX track and a mud bog Enduro Loop *(placeholders)*; a supercross venue *(placeholder)*.
 - **New at the Area 1 tool shop:** wheel and brake tools (£600).
-- **House:** Starter terrace (£3,000), with the shed workshop interior that's already drawn.
+- **House:** Starter terrace (£3,000), with the shed workshop interior that's already drawn. Buying it **unlocks the wardrobe**, and with it clothing (Boss, 30 Oct 2026).
+- **Clothing:** Phoenix MX, same size shop, gets a small clothing rack on the garage side. The rack is there from Area 2, but nothing on it can be bought until the Starter terrace is bought.
 - **Motor:** Old Rusty Van.
 
 ### Area 3: Beach Town (dunes and sand)
@@ -292,7 +293,7 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 1. ~~Area 2's name~~ Settled: Mountain Town (Boss, 30 Oct 2026).
 2. ~~The Tyres and Wheels owner~~ Settled: Lee Stocky, Lee's T's & Wheels, travels to every area (Boss, 30 Oct 2026).
 3. ~~Manny Festo~~ Settled: the news man in every area, no stall (Boss, 30 Oct 2026).
-4. **Phoenix MX clothing:** which area it starts in (I suggest Area 2).
+4. ~~Phoenix MX clothing~~ Settled: a small rack at Phoenix MX in Area 2, buyable once the Area 2 house unlocks the wardrobe (Boss, 30 Oct 2026).
 5. **The class dealer:** should Bill Rothon at Moto78 sell the new bike and frame at each class step for unsponsored riders?
 6. **Energy drinks (parked until closer to Area 4):** a drinks van at the venues (my recommendation), their own shop, or Moto78 only. And confirm Area 4 over the Spec's "from 125cc Youth".
 7. **The Modifying Machine:** in the Industrial Zone only after the Area 5 story, or in Northern Works as well?
