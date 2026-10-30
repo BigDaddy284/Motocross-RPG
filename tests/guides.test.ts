@@ -143,8 +143,9 @@ describe('the road menu (Boss, 30 Oct 2026)', () => {
   const names = (ps: { name: string }[]) => ps.map((p) => p.name);
   const FOUND = { 'found.venue-farmland': true };
 
-  it('lists the track types in order: Motocross, Supercross, Enduro Loop, Enduro Sprint, EnduroCross', () => {
-    expect(ROAD_TRACK_TYPES.map((t) => t.name)).toEqual(['Motocross', 'Supercross', 'Enduro Loop', 'Enduro Sprint', 'EnduroCross']);
+  it('lists the track types in order, with Enduro Sprint, EnduroCross and No-Turn Takedown coming soon', () => {
+    expect(ROAD_TRACK_TYPES.map((t) => t.name)).toEqual(['Motocross', 'Supercross', 'Enduro Loop', 'Enduro Sprint', 'EnduroCross', 'No-Turn Takedown']);
+    expect(ROAD_TRACK_TYPES.filter((t) => t.comingSoon).map((t) => t.name)).toEqual(['Enduro Sprint', 'EnduroCross', 'No-Turn Takedown']);
   });
 
   it('puts each unlocked track under its type, and the places that are not tracks under Areas', () => {
@@ -155,6 +156,7 @@ describe('the road menu (Boss, 30 Oct 2026)', () => {
       ['Enduro Loop', ['Longmoor Enduro']],
       ['Enduro Sprint', []],
       ['EnduroCross', []],
+      ['No-Turn Takedown', []],
     ]);
     expect(names(menu.areas)).toEqual(['Home Town']);
     expect(menu.mods).toBe(true);
@@ -170,10 +172,10 @@ describe('the road menu (Boss, 30 Oct 2026)', () => {
     expect(names(roadMenu([home], content.tracks.venues, kindOf, FOUND).areas)).toEqual(['Home Town']);
   });
 
-  it('lists an enduro sprint venue under Enduro Sprint', () => {
+  it('lists nothing under a coming soon type, even a venue of its kind', () => {
     const venues = content.tracks.venues.map((v) => (v.id === 'venue-longmoor' ? { ...v, track: 'quarry' } : v));
     const menu = roadMenu(routePlaces(world, maps, lane), venues, (id) => (id === 'quarry' ? 'enduro_sprint' : kindOf(id)), FOUND);
-    expect(names(menu.tracks[3].places)).toEqual(['Longmoor Enduro']);
+    expect(menu.tracks.find((t) => t.name === 'Enduro Sprint')).toMatchObject({ comingSoon: true, places: [] });
     expect(menu.tracks[2].places).toEqual([]);
   });
 });

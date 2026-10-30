@@ -1044,7 +1044,7 @@ export class WorldScene extends Phaser.Scene {
     }
     this.openVenue(modVenue(m, this.map.id), () => this.player.idle(), {
       intro: `Mod track from ${m.file}${m.source === 'imported' ? ' (imported in this browser)' : ''}.`,
-      extra: m.source === 'imported' ? [remove] : [],
+      extra: [...(m.source === 'imported' ? [remove] : []), { label: 'Back', note: 'Back to the mod track list.', onPick: () => this.openModTracks(page, roadBack) }],
     });
   }
 
@@ -1407,7 +1407,8 @@ export class WorldScene extends Phaser.Scene {
 
   /**
    * The road menu (Boss, 30 Oct 2026): Tracks, by type, with the unlocked tracks of each and the
-   * unlocked championships; Areas; Mod Tracks; Not now. Built from the road's places
+   * unlocked championships (Enduro Sprint, EnduroCross and No-Turn Takedown say Coming soon);
+   * Areas; Mod Tracks; Not now. Every menu under it has Back. Built from the road's places
    * (core/guides.ts roadMenu), with this map's own place shown as where you are.
    */
   private openRoad(places: PlaceDef[], go: (to: Arrival) => void): void {
@@ -1426,12 +1427,16 @@ export class WorldScene extends Phaser.Scene {
 
     const openTracks = (): void => {
       const back = top;
-      const types = menu.tracks.map((t) => ({
-        label: t.name,
-        note: t.places.length ? t.places.map((p) => p.name).join(', ') : 'None unlocked yet.',
-        enabled: t.places.length > 0,
-        onPick: () => this.roadList(t.name, `${t.name} tracks you can ride.`, t.places.map(item), openTracks),
-      }));
+      const types = menu.tracks.map((t) =>
+        t.comingSoon
+          ? { label: t.name, note: 'Coming soon.', onPick: () => this.hud.choose(t.name, 'Coming soon.', [{ label: 'Back', onPick: openTracks }], openTracks) }
+          : {
+              label: t.name,
+              note: t.places.length ? t.places.map((p) => p.name).join(', ') : 'None unlocked yet.',
+              enabled: t.places.length > 0,
+              onPick: () => this.roadList(t.name, `${t.name} tracks you can ride.`, t.places.map(item), openTracks),
+            },
+      );
       this.hud.choose('Tracks', 'Pick a type of track.', [
         ...types,
         {
