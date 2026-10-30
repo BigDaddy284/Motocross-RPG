@@ -200,6 +200,8 @@ Every area has the same base set, so the columns below list only what's **new**:
 
 The machine stays in the Industrial Zone unit in Area 1, where it's already built, and it's broken until this quest line fixes it (Boss, 30 Oct 2026).
 
+**How other characters talk about her** (Boss, 30 Oct 2026): "Mad Maggie" is her name on screen, but other characters call her Maggie the scientist, along the lines of "Go and see Maggie the scientist. She's a bit eccentric, if you know what I mean." She's never the butt of the joke.
+
 1. **The start.** When Area 5 opens, Manny Festo's news mentions **Mad Maggie**, the modifier machine owner (Boss, 30 Oct 2026: a brilliant, eccentric mad-scientist tinkerer, keeping her current look of lab coat, goggles pushed up and messy grey hair), whose machine in the Industrial Zone has been broken for years. In Northern Works the player meets someone who knows her and sends the player to help.
 2. **Back through the past areas.** The tasks take the player back through Areas 1 to 4, tracking down what the machine needs. Along the way the player gets **two parts** for the machine's first test. Each is either a worn part they have to repair on the way, or the kept part from a batch they complete.
 3. **Fixing the machine.** The quest ends in the Industrial Zone unit with the player fixing the machine themselves. This step needs **Mechanical Engineer 30** (Boss, 30 Oct 2026).
