@@ -178,7 +178,7 @@ Markers come from `story.json` and the maps' doors and exits, so a new step need
 ### Fitness training (Boss, 29 Oct 2026)
 
 - **Strength:** bodyweight drills on the exercise mat in your room. It's a rep timing bar: tap as the marker crosses the green zone.
-- **Endurance:** running sessions with **Tasha Reid**, the running coach by the Running Club pavilion. Hold to run faster and keep your pace in the green band for each lap split.
+- **Endurance:** running sessions with **Tasha Reid**, the running coach, on the running track by the Running Club pavilion (moved there so she is easy to find, Boss, 30 Oct 2026). Hold to run faster and keep your pace in the green band for each lap split.
 - **Agility:** comes from walking about, 1 XP every 10 tiles.
 - **How rounds work:** a round lasts about 40 seconds, can't be failed and gives 50 XP whatever the score (`training.json`, `src/core/training.ts`).
 - **In races** (`racing.json` `sim.fitness`), at level 99:
