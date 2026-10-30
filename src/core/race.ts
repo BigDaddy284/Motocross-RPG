@@ -272,7 +272,10 @@ export interface Entrant {
   player: boolean;
   /** Child skill levels. */
   skills: Record<string, number>;
-  /** The player only: their Rider Ability (lead skill) level, which unlocks whips and scrubs on the race screen (tricks.ts). */
+  /**
+   * The player only, once the Rider Trainer has taught whips and scrubs (TRICKS_FLAG): their Rider
+   * Ability level, which sets how often they throw them on the race screen (tricks.ts). Left out until then.
+   */
   riderLevel?: number;
   bike: Bike;
   tactic: Tactic;

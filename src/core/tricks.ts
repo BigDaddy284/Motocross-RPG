@@ -22,9 +22,13 @@ export interface Trick {
 /**
  * The player's tricks come with their Rider Ability level (Boss, 30 Oct 2026): whips from level 30,
  * a rare one at first and more often each level up to `max` at level 70; scrubs from level 60 the
- * same way, up to `max` at 99. Later an NPC Rider Trainer in Area 3 will unlock them instead of
- * the level alone.
+ * same way, up to `max` at 99. The level builds in the background, but the player throws none
+ * until the Rider Trainer (an NPC planned for Area 3) has taught them, which sets TRICKS_FLAG in the
+ * save; nothing sets it yet, so for now only the CPU riders throw them.
  */
+/** The save flag the Rider Trainer sets once they have taught the player whips and scrubs. */
+export const TRICKS_FLAG = 'rider_trainer_tricks';
+
 export const PLAYER_TRICKS = {
   whip: { from: 30, full: 70 },
   scrub: { from: 60, full: 99 },
@@ -70,7 +74,8 @@ export function playerTricks(level: number): { whip: number; scrub: number } {
 export function trickChance(p: RiderProfile, showman: boolean): number {
   if (showman) return SHOWMAN;
   if (p.player) {
-    const { whip, scrub } = playerTricks(p.riderLevel ?? 1);
+    if (p.riderLevel === undefined) return 0;
+    const { whip, scrub } = playerTricks(p.riderLevel);
     return Math.max(whip, scrub);
   }
   if (p.jump < TRICK_JUMP) return 0;
@@ -89,7 +94,7 @@ export function trickFor(p: RiderProfile, showman: boolean, lap: number, si: num
   if (rnd() >= chance) return null;
   // Scrubbers scrub, floaters whip; a showman mixes them up. The player throws only what their level has
   // brought in, the newer trick less often.
-  const learned = p.player && !showman ? playerTricks(p.riderLevel ?? 1) : null;
+  const learned = p.player && !showman ? playerTricks(p.riderLevel ?? 0) : null;
   const scrub = learned ? rnd() < learned.scrub / (learned.whip + learned.scrub) : rnd() < Math.max(showman ? 0.4 : 0, 0.2 + 0.6 * p.scrub);
   // Each rider has a side they like to throw it, and now and then goes the other way.
   const side: 1 | -1 = p.seed * 97 - Math.floor(p.seed * 97) < 0.5 ? 1 : -1;

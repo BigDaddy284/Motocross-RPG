@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { TrackSurface } from '../src/core/trackSurface';
 import type { RiderProfile } from '../src/core/riderProfile';
-import { PLAYER_TRICKS, TRICK_JUMP, playerTricks, trickFor, trickPose, type Trick } from '../src/core/tricks';
+import { newCareerState } from '../src/core/career';
+import { playerEntrant } from '../src/core/raceDay';
+import { riderProfile } from '../src/core/riderProfile';
+import { xpForLevel } from '../src/core/skills';
+import { PLAYER_TRICKS, TRICK_JUMP, TRICKS_FLAG, playerTricks, trickChance, trickFor, trickPose, type Trick } from '../src/core/tricks';
 import { content, race } from './raceHelpers';
 
 /** Every trick thrown in a race, by rider, read off the riders' flights over the whole race. */
@@ -129,6 +133,19 @@ describe('whips and scrubs over the jumps (Boss, 30 Oct 2026)', () => {
       expect(top.length).toBeGreaterThan(0.6 * 2000);
       expect(top.filter((t) => t.kind === 'scrub').length).toBeGreaterThan(0.3 * top.length);
       expect(top.filter((t) => t.kind === 'whip').length).toBeGreaterThan(0.3 * top.length);
+    });
+
+    it('need the Rider Trainer: the level builds, but without the flag the player never throws one', () => {
+      const career = newCareerState(content.bikes, content.story, content.bikes.brands[0].id);
+      for (const c of content.skills.leads.find((l) => l.id === 'rider')!.children) career.skills.xp[c.id] = xpForLevel(80);
+      const before = playerEntrant(content, career, 'You');
+      expect(before.riderLevel).toBeUndefined();
+      const p = { ...riderProfile(before, {}, 1), jump: 1 };
+      expect(trickChance(p, false)).toBe(0);
+      expect(trickFor(p, false, 0, 0, 0, 20)).toBeNull();
+      const after = playerEntrant(content, career, 'You', 0, { [TRICKS_FLAG]: true });
+      expect(after.riderLevel).toBeGreaterThanOrEqual(70);
+      expect(trickChance(riderProfile(after, {}, 1), false)).toBeCloseTo(0.7);
     });
   });
 });
