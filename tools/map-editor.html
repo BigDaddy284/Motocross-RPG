@@ -102,39 +102,86 @@ input[type=file] { display: none; }
 #bldInfo.bad, #bldProblems .bad { color: #f0a0a0; }
 #bldProblems .warn { color: #f0d090; }
 #bldProblems .good { color: var(--ok); }
-dialog#bldDlg { max-width: min(1100px, 96vw); width: 96vw; }
-#bldDlg .cols { display: grid; grid-template-columns: 330px 1fr; gap: 12px; align-items: start; }
-#bldDlg .side { max-height: 70vh; overflow-y: auto; padding-right: 4px; }
-#bldDlg label.f { display: grid; grid-template-columns: 96px 1fr; align-items: center; gap: 6px; margin: 3px 0; color: var(--dim); }
-#bldDlg input[type=number] { width: 58px; font: inherit; color: var(--text); background: var(--panel2); border: 1px solid var(--line); border-radius: 5px; padding: 3px 4px; }
-#bldDlg h4 { margin: 10px 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); }
-#bldDlg .item { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 3px 4px; border: 1px solid var(--line); border-radius: 5px; margin: 3px 0; }
-#bldDlg .item input[type=number] { width: 50px; }
-#bldDlg .item select { max-width: 180px; }
-#bldDlg .stage { position: relative; overflow: auto; max-height: 62vh; background: #0d0e11; border-radius: 6px; }
+/* Tiles and Buildings: workspaces that take the place of the map (header tabs). */
+#modes { display: flex; gap: 2px; background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 2px; }
+#modes button { border: 0; background: transparent; padding: 4px 12px; }
+#modes button.on { background: var(--accent); color: #111; font-weight: 600; }
+body.in-studio #left, body.in-studio main, body.in-studio #right, body.in-studio .maponly { display: none; }
+.studio label.f input[type=text] { min-width: 0; width: 100%; }
+#mkBox select { max-width: 100%; min-width: 0; }
+#mkBox input[type=number] { width: 46px; }
+.studio { grid-row: 2; grid-column: 1 / 4; display: none; min-height: 0; overflow: hidden; background: var(--bg); }
+body.mode-tiles #tileStudio { display: grid; grid-template-columns: 250px 1fr 290px; }
+body.mode-buildings #bldStudio { display: grid; grid-template-columns: 360px 1fr; }
+.studio > .side { background: var(--panel); overflow-y: auto; padding: 8px; border-right: 1px solid var(--line); }
+.studio > .side:last-child { border-right: 0; border-left: 1px solid var(--line); }
+.studio > .centre { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 8px; gap: 6px; }
+.studio label.f { display: grid; grid-template-columns: 96px 1fr; align-items: center; gap: 6px; margin: 3px 0; color: var(--dim); }
+.studio input[type=number], #mkBox input[type=number] { width: 58px; font: inherit; color: var(--text); background: var(--panel2); border: 1px solid var(--line); border-radius: 5px; padding: 3px 4px; }
+.studio h4 { margin: 10px 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); }
+.studio .empty { margin: auto; max-width: 420px; color: var(--dim); text-align: center; }
+#bldStudio .item { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 3px 4px; border: 1px solid var(--line); border-radius: 5px; margin: 3px 0; }
+#bldStudio .item input[type=number] { width: 50px; }
+#bldStudio .item select { max-width: 180px; }
+#bldStudio .stage { position: relative; overflow: auto; flex: 1; min-height: 0; background: #0d0e11; border-radius: 6px; }
+#bLayout, #bPicture { display: flex; flex-direction: column; gap: 6px; flex: 1; min-height: 0; }
+#bLayout[hidden], #bPicture[hidden] { display: none; }
+#bPadHost, #tsPadHost { display: flex; flex: 1; min-height: 0; }
+#tsList { display: grid; grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)); gap: 4px; margin: 6px 0; max-height: calc(100vh - 290px); overflow-y: auto; }
+#tsList .pt { position: relative; aspect-ratio: 1; background: #111 center/contain no-repeat; border: 2px solid transparent; border-radius: 4px; cursor: pointer; padding: 0; image-rendering: pixelated; }
+#tsList .pt:hover { border-color: #666; }
+#tsList .pt.sel { border-color: var(--accent); }
+#tsList .pt.mine::after { content: "✎"; position: absolute; right: 2px; bottom: 0; font-size: 10px; color: var(--accent); }
+#tsPreview { display: block; width: 192px; height: 192px; margin: 4px auto; background: #111; image-rendering: pixelated; }
+/* The pixel editor, shared by Tiles and Buildings. */
+#pad { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; min-height: 0; }
+.padbar { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.padbar button { padding: 3px 7px; }
+.padbar label { color: var(--dim); display: flex; gap: 4px; align-items: center; }
+.padstage { flex: 1; min-height: 0; overflow: auto; background: #0d0e11; border-radius: 6px; display: grid; place-items: center; }
+#padCanvas { display: block; cursor: crosshair; image-rendering: pixelated; background: repeating-conic-gradient(#3a3d44 0 25%, #2c2f35 0 50%) 0 0 / 16px 16px; }
+.padcolours { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+#padColor { width: 38px; height: 30px; padding: 0; border: 1px solid var(--line); background: none; }
+.swatches { display: flex; flex-wrap: wrap; gap: 2px; max-width: 100%; }
+.swatches button { width: 16px; height: 16px; padding: 0; border: 1px solid #0006; border-radius: 2px; }
+.swatches button.on { outline: 2px solid #fff; }
+/* Markers */
+.mkadd { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
+.mkadd button { padding: 4px 2px; font-size: 12px; }
+.mkadd button i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+#mkBox { background: var(--panel2); border-radius: 6px; padding: 6px; }
+#mkBox label.f { display: grid; grid-template-columns: 104px 1fr; gap: 6px; align-items: center; margin: 3px 0; color: var(--dim); }
+#mkBox input[type=text] { width: 100%; }
+#mkBox .tilepick { display: flex; gap: 4px; align-items: center; }
+#mkBox .tilepick img { width: 28px; height: 28px; image-rendering: pixelated; background: #111; }
 #bCanvas { display: block; cursor: crosshair; image-rendering: pixelated; }
-#bldProblems { font-size: 12px; margin-top: 6px; max-height: 120px; overflow-y: auto; }
+#bldProblems { font-size: 12px; max-height: 120px; overflow-y: auto; }
 </style>
 </head>
 <body>
 <header>
   <a id="toolkitLink" href="index.html" title="Back to the toolkit: all the editors">🧰 Toolkit</a>
   <h1>🏍 <span>Motocross RPG</span> Map Editor</h1>
+  <nav id="modes" title="What you're editing: the map, the tiles it is painted with, or the buildings that stand on it">
+    <button data-mode="map" class="on">Map</button>
+    <button data-mode="tiles">Tiles</button>
+    <button data-mode="buildings">Buildings</button>
+  </nav>
   <button id="btnOpen" class="primary" title="Pick the repo, public/assets, or the art folder">Open folder…</button>
   <input type="file" id="dirInput" webkitdirectory multiple>
   <select id="mapSelect" disabled><option>No folder open</option></select>
-  <span class="sep"></span>
-  <button id="btnSave" disabled title="Ctrl+S">Save</button>
-  <button id="btnDownload" disabled title="Download the map file">Download</button>
-  <span id="dirty"></span>
-  <span class="sep"></span>
-  <button id="btnUndo" disabled title="Ctrl+Z">↶ Undo</button>
-  <button id="btnRedo" disabled title="Ctrl+Y / Ctrl+Shift+Z">↷ Redo</button>
-  <span class="sep"></span>
-  <button id="btnZoomOut" title="Zoom out (-)">−</button>
-  <span id="zoomLabel" style="min-width:44px;text-align:center">100%</span>
-  <button id="btnZoomIn" title="Zoom in (+)">+</button>
-  <button id="btnFit" title="Fit the whole map (0)">Fit</button>
+  <span class="sep maponly"></span>
+  <button class="maponly" id="btnSave" disabled title="Ctrl+S">Save</button>
+  <button class="maponly" id="btnDownload" disabled title="Download the map file">Download</button>
+  <span class="maponly" id="dirty"></span>
+  <span class="sep maponly"></span>
+  <button class="maponly" id="btnUndo" disabled title="Ctrl+Z">↶ Undo</button>
+  <button class="maponly" id="btnRedo" disabled title="Ctrl+Y / Ctrl+Shift+Z">↷ Redo</button>
+  <span class="sep maponly"></span>
+  <button class="maponly" id="btnZoomOut" title="Zoom out (-)">−</button>
+  <span class="maponly" id="zoomLabel" style="min-width:44px;text-align:center">100%</span>
+  <button class="maponly" id="btnZoomIn" title="Zoom in (+)">+</button>
+  <button class="maponly" id="btnFit" title="Fit the whole map (0)">Fit</button>
   <span class="grow"></span>
   <button id="btnHelp">Help</button>
 </header>
@@ -157,8 +204,8 @@ dialog#bldDlg { max-width: min(1100px, 96vw); width: 96vw; }
     <canvas id="bldThumb" width="216" height="96"></canvas>
     <div class="row">
       <button id="btnBldPlace" disabled title="Place the building on the map (click to set it down, Esc cancels)">Place</button>
-      <button id="btnBldEdit" disabled title="Edit the building: its footprint, pictures, doors and interiors">Edit…</button>
-      <button id="btnBldNew" disabled title="Start a new building">New…</button>
+      <button id="btnBldEdit" disabled title="Edit the building in the Buildings tab: its footprint, pictures, doors and interiors">Edit</button>
+      <button id="btnBldNew" disabled title="Start a new building in the Buildings tab">New</button>
     </div>
     <div id="bldPlaced" hidden>
       <div class="hint" id="bldPlacedName"></div>
@@ -170,6 +217,10 @@ dialog#bldDlg { max-width: min(1100px, 96vw); width: 96vw; }
     </div>
     <div class="hint" id="bldInfo"></div>
   </div>
+
+  <h2>Markers</h2>
+  <div class="mkadd" id="mkAdd"></div>
+  <div class="hint" id="mkHint">Spawns, exits, doors, block zones and other triggers. Pick one and click the map (drag for an area); click a marker with Objects (V) to edit it.</div>
 
   <h2>Layers</h2>
   <div id="layers"><div class="hint">Open a map to see its layers.</div></div>
@@ -214,7 +265,8 @@ dialog#bldDlg { max-width: min(1100px, 96vw); width: 96vw; }
       <h3>Open your map files</h3>
       <p>Click <b>Open folder…</b> and pick one of these folders:</p>
       <ul>
-        <li><code>the-motocross-rpg/public/assets</code> to edit the <b>game maps</b> exactly as the game loads them (fastest to pick).</li>
+        <li><code>the-motocross-rpg/public</code> to edit the <b>game maps</b> exactly as the game loads them, with their tiles and the building library (best).</li>
+        <li><code>the-motocross-rpg/public/assets</code> works for the maps and tiles, but not the buildings.</li>
         <li>The shared <code>art</code> folder to edit the <b>Tiled source maps</b> (<code>.tmj</code>) that <code>npm run import-art</code> bakes into the game.</li>
         <li>The whole repo folder also works; <code>node_modules</code> is skipped where the browser allows it.</li>
       </ul>
@@ -226,6 +278,7 @@ dialog#bldDlg { max-width: min(1100px, 96vw); width: 96vw; }
 </main>
 
 <aside id="right">
+  <div id="mkBox" hidden></div>
   <h2>Brush</h2>
   <div id="brushBox"><div class="sw" id="brushSw"></div><div><div id="brushName">Nothing selected</div><div class="hint" id="brushHint">Click a tile below, or use the Picker on the map.</div></div></div>
   <h2>Palette</h2>
@@ -251,7 +304,10 @@ dialog#bldDlg { max-width: min(1100px, 96vw); width: 96vw; }
     <li><b>Fill</b> <kbd>F</kbd>: floods connected matching tiles; stays inside the selection when there is one.</li>
     <li><b>Select</b> <kbd>M</kbd>: drag a box. Drag inside it to move it, <kbd>Alt</kbd>+drag to move a copy. <kbd>Ctrl+C</kbd>/<kbd>X</kbd>/<kbd>V</kbd> copy, cut and paste (click to place). <kbd>Del</kbd> clears. <b>Swap with…</b> exchanges two regions. <kbd>Esc</kbd> cancels.</li>
     <li><b>Objects</b> <kbd>V</kbd>: click a prop or marker to select it, drag to move (snaps to the grid; hold <kbd>Alt</kbd> for pixels), <kbd>Del</kbd> deletes a prop. With a prop picked in the palette, click empty ground to place it on the active props layer. Buildings and their doors move together: click one and use Move, or the Select tool.</li>
-    <li><b>Buildings:</b> pick one from the list and <b>Place</b> it: it follows the pointer, green where it fits and red with the reason where it doesn't; click to set it down, <kbd>Esc</kbd> cancels. Placing writes its pictures, doors, returns and solid tiles. Click a placed building to <b>Move</b>, <b>Replace</b> or <b>Remove</b> it (<kbd>Del</kbd>). <b>Edit…</b> and <b>New…</b> change the building itself: its footprint (any size or shape), its pictures, its doors and returns and its interior. They are saved in <code>public/data/buildings.json</code>; open the repo folder (or <code>public</code>) so the editor can find it.</li>
+    <li><b>Tabs:</b> <b>Map</b> edits the map; <b>Tiles</b> draws and changes tiles (saved to <code>public/assets/custom/tiles</code> and added to the palette); <b>Buildings</b> edits the building library, with pictures you draw or import. With <code>npm run dev</code> and <b>Load the game maps from this server</b>, Save writes straight into the game.</li>
+    <li><b>Markers:</b> pick Spawn, Exit, Door, Block zone, Gate, Travel, Venue, NPC or Interact on the left and click the map (drag for an area). Set it up on the right: where an exit leads, the flag that lifts a block zone and the tile drawn when it's cleared, and so on. Click a marker with Objects (<kbd>V</kbd>) to change it, drag to move it, <kbd>Del</kbd> deletes it.</li>
+    <li><b>Tiles tab:</b> Pencil <kbd>P</kbd>, Eraser <kbd>E</kbd>, Fill <kbd>F</kbd>, Picker <kbd>I</kbd> (or <kbd>Alt</kbd>+click), Line <kbd>L</kbd>, Box <kbd>R</kbd> (<kbd>Shift</kbd> fills). <b>Seams</b> brings a tile's edges to the middle to fix how it joins itself. <kbd>Ctrl+S</kbd> saves the tile.</li>
+    <li><b>Buildings:</b> pick one from the list and <b>Place</b> it: it follows the pointer, green where it fits and red with the reason where it doesn't; click to set it down, <kbd>Esc</kbd> cancels. Placing writes its pictures, doors, returns and solid tiles. Click a placed building to <b>Move</b>, <b>Replace</b> or <b>Remove</b> it (<kbd>Del</kbd>). <b>Edit</b> and <b>New</b> open it in the Buildings tab: its footprint (any size or shape), its pictures (draw one, import a PNG, or edit one), its doors and returns and its interior. They are saved in <code>public/data/buildings.json</code>; open the repo folder (or <code>public</code>) so the editor can find it.</li>
     <li><b>Region scope:</b> "All layers" moves tiles, collision, props, markers and partitions together. Copies never duplicate markers (doors, spawns), and Clear never deletes them.</li>
     <li><b>Collision:</b> make Collision the active layer; Brush blocks a tile, Eraser frees it.</li>
     <li><b>Layers:</b> click a layer to edit it, the eye hides it, the slider sets its opacity. <kbd>[</kbd> <kbd>]</kbd> step through layers, <kbd>G</kbd> grid, <kbd>C</kbd> collision overlay.</li>
@@ -261,10 +317,10 @@ dialog#bldDlg { max-width: min(1100px, 96vw); width: 96vw; }
   <div class="row"><button id="btnHelpClose">Close</button></div>
 </dialog>
 
-<dialog id="bldDlg">
-  <h3 style="margin-top:0" id="bldDlgTitle">Building</h3>
-  <div class="cols">
-    <div class="side">
+<section id="bldStudio" class="studio">
+  <div class="side">
+    <div class="row"><select id="bPick" style="flex:1" title="The building to edit"></select><button id="bNewB" title="Start a new building">New</button></div>
+    <h3 id="bldDlgTitle" style="margin:8px 0 4px">Building</h3>
       <label class="f">Name <input type="text" id="bName"></label>
       <label class="f">Id <input type="text" id="bId" title="Lower case, like bld.iz.engine_rebuilder"></label>
       <label class="f">Who works there <input type="text" id="bNpc" placeholder="(nobody)"></label>
@@ -281,28 +337,87 @@ dialog#bldDlg { max-width: min(1100px, 96vw); width: 96vw; }
       </div>
       <h4>Pictures</h4>
       <div id="bParts"></div>
-      <div class="row"><select id="bPartFrom" style="flex:1"></select><button id="bAddPart">Add</button></div>
+      <div class="row"><button id="bDrawPic" title="Draw a picture for this building from scratch, the size of its footprint">✎ Draw a new picture</button><button id="bImportPic" title="Use a PNG you drew elsewhere">Import PNG…</button></div>
+      <div class="row" style="margin-top:4px"><select id="bPartFrom" style="flex:1"></select><button id="bAddPart" title="Use part of another building's picture, or a prop">Add</button></div>
       <h4>Doors</h4>
       <div id="bDoors"><div class="hint">None. Pick Door and click a tile.</div></div>
       <h4>Returns</h4>
       <div id="bReturns"><div class="hint">None.</div></div>
       <h4>Interior</h4>
       <div class="row"><select id="bIntFrom" style="flex:1"></select><button id="bNewInt" title="Copy that interior as this building's own and point its doors at it">New interior from this</button></div>
-      <div class="hint">The copy is a new interior map, opened and edited here like any other map.</div>
-    </div>
-    <div>
+      <div class="hint">The copy is a new interior map: open it from the map list in the Map tab to furnish it.</div>
+  </div>
+  <div class="centre">
+    <div id="bLayout">
       <div class="stage"><canvas id="bCanvas"></canvas></div>
       <div id="bldProblems"></div>
     </div>
+    <div id="bPicture" hidden>
+      <div class="hint" id="bPicInfo"></div>
+      <div id="bPadHost"></div>
+      <div class="row"><button id="bPicSave" class="primary">Use this picture</button><button id="bPicCancel">Cancel</button></div>
+    </div>
+    <div class="row">
+      <button id="bSave" class="primary">Save to library</button>
+      <button id="bSaveNew" title="Save these changes as a new building, leaving the original as it was">Save as new building</button>
+      <span class="grow"></span>
+      <button id="bDelete">Delete from library</button>
+      <button id="bClose">Back to the map</button>
+    </div>
   </div>
-  <div class="row" style="margin-top:8px">
-    <button id="bSave" class="primary">Save to library</button>
-    <button id="bSaveNew" title="Save these changes as a new building, leaving the original as it was">Save as new building</button>
-    <span class="grow"></span>
-    <button id="bDelete">Delete from library</button>
-    <button id="bClose">Close</button>
+</section>
+
+<section id="tileStudio" class="studio">
+  <div class="side">
+    <h2>Tiles</h2>
+    <div class="row"><select id="tsGroup" style="flex:1"></select></div>
+    <input type="search" id="tsSearch" placeholder="Search tiles…" style="width:100%;margin-top:4px">
+    <div id="tsList"></div>
+    <div class="row"><button id="tsNew" title="Start a blank tile">New tile</button><button id="tsImport" title="Open a PNG you drew elsewhere">Import PNG…</button></div>
+    <div class="row" style="margin-top:4px">Size <select id="tsSize" title="Size of a new tile, in map tiles"><option value="1x1">1×1 (ground)</option><option value="1x2">1×2 (tall prop)</option><option value="2x2">2×2</option><option value="2x3">2×3</option><option value="3x3">3×3</option></select></div>
+    <div class="hint">Pick any tile to edit it. Tiles marked ✎ are ones you made. Editing one of the game's own tiles saves your version as a new tile, so the original stays as it is.</div>
   </div>
-</dialog>
+  <div class="centre" id="tsPadHost">
+    <div id="pad">
+      <div class="padbar">
+        <span class="row" id="padTools">
+          <button data-pt="pencil" title="Pencil (P)">✏ Pencil</button>
+          <button data-pt="eraser" title="Eraser (E): makes pixels see-through">Eraser</button>
+          <button data-pt="fill" title="Fill (F): fills the touching pixels of one colour">Fill</button>
+          <button data-pt="picker" title="Colour picker (I), or Alt+click with any tool">Picker</button>
+          <button data-pt="line" title="Line (L)">Line</button>
+          <button data-pt="rect" title="Rectangle (R); Shift fills it">Box</button>
+        </span>
+        <label title="Pen size in pixels. The game's art uses 2×2 pixel blocks.">Size <select id="padSize"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>8</option></select></label>
+        <button id="padUndo" title="Undo (Ctrl+Z)">↶</button><button id="padRedo" title="Redo (Ctrl+Y)">↷</button>
+        <button id="padFlipH" title="Flip left to right">⇋</button><button id="padFlipV" title="Flip top to bottom">⇵</button><button id="padRot" title="Turn a quarter turn clockwise">⟳</button>
+        <button id="padSeams" title="Slide the picture half way across and down, wrapping round, so the edges that meet when tiles sit side by side are in the middle where you can fix them. Press again to slide it back.">Seams</button>
+        <label title="Picture size in pixels (a map tile is 64)">W <input type="number" id="padW" min="8" max="2048" step="8"> H <input type="number" id="padH" min="8" max="2048" step="8"></label>
+        <button id="padZoomOut" title="Zoom out">−</button><span id="padZoom" style="min-width:34px;text-align:center">8×</span><button id="padZoomIn" title="Zoom in">+</button>
+        <label class="chk"><input type="checkbox" id="padGrid" checked> Grid</label>
+      </div>
+      <div class="padstage"><canvas id="padCanvas"></canvas></div>
+      <div class="padcolours">
+        <input type="color" id="padColor" value="#4d7437" title="The pen colour">
+        <div><div class="hint" style="margin:0">Game palette</div><div class="swatches" id="padPalette"></div></div>
+        <div><div class="hint" style="margin:0">In this picture</div><div class="swatches" id="padUsed"></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="side">
+    <h2>Save</h2>
+    <label class="f">Name <input type="text" id="tsName" placeholder="my-tile"></label>
+    <label class="f">Folder <input type="text" id="tsFolder" list="tsFolders" placeholder="my-tiles" title="Its group in the map palette"></label>
+    <datalist id="tsFolders"></datalist>
+    <div class="hint" id="tsPath"></div>
+    <div class="row"><button id="tsSave" class="primary" title="Ctrl+S">Save tile</button><button id="tsPaint" title="Back to the map with this tile on the brush">Paint with it</button></div>
+    <h2>Preview</h2>
+    <canvas id="tsPreview" width="192" height="192"></canvas>
+    <label class="chk"><input type="checkbox" id="tsTiled" checked> Tiled 3×3, to check the edges join</label>
+    <div class="hint" id="tsInfo"></div>
+  </div>
+</section>
+<input type="file" id="pngInput" accept="image/png,image/*">
 
 <script>
 'use strict';
@@ -350,7 +465,7 @@ class DirSource {
   has(p) { return this.files.has(p); }
   async blob(p) { const h = this.files.get(p); if (!h) throw new Error(`Missing file: ${p}`); return h.getFile(); }
   async text(p) { return (await this.blob(p)).text(); }
-  async write(p, text) {
+  async write(p, text) { // text: a string, or a Blob for a picture
     const h = this.files.get(p);
     if (h.requestPermission && (await h.requestPermission({ mode: 'readwrite' })) !== 'granted') throw new Error('The browser did not allow saving into the folder.');
     const w = await h.createWritable();
@@ -361,7 +476,7 @@ class DirSource {
   async create(p, text) {
     let dir = this.root;
     const parts = p.split('/');
-    for (const s of parts.slice(0, -1)) dir = await dir.getDirectoryHandle(s);
+    for (const s of parts.slice(0, -1)) dir = await dir.getDirectoryHandle(s, { create: true });
     const h = await dir.getFileHandle(parts[parts.length - 1], { create: true });
     this.files.set(p, h);
     await this.write(p, text);
@@ -387,10 +502,26 @@ class ListSource {
 
 class HttpSource {
   constructor(base, mapPaths) { this.base = base; this.name = base; this.files = new Map(mapPaths.map((p) => [p, true])); this.canWrite = false; this.http = true; }
-  async scan() {}
+  /** On `npm run dev` the server saves too (vite.config.ts, /__toolkit/), and lists the pictures made here. */
+  async scan() {
+    try {
+      const r = await fetch('/__toolkit/pictures');
+      if (!r.ok || !(r.headers.get('content-type') ?? '').includes('json')) return;
+      for (const p of await r.json()) this.files.set(p, true);
+      this.canWrite = true;
+      this.name = 'the game (npm run dev)';
+    } catch { /* a published site: read only */ }
+  }
   has(p) { return this.files.has(p); }
-  async blob(p) { const r = await fetch(this.base + p); if (!r.ok) throw new Error(`Could not load ${p} (${r.status})`); return r.blob(); }
+  async blob(p) { const r = await fetch(this.base + p, { cache: 'no-store' }); if (!r.ok) throw new Error(`Could not load ${p} (${r.status})`); return r.blob(); }
   async text(p) { return (await this.blob(p)).text(); }
+  /** The file's path under public/, which the server saves to. */
+  publicPath(p) { return normPath(this.base.replace(/^(\.\.\/)*\/?(public\/)?/, '') + p); }
+  async write(p, data) {
+    const r = await fetch(`/__toolkit/save/${encodeURI(this.publicPath(p))}`, { method: 'POST', body: data });
+    if (!r.ok) throw new Error(await r.text());
+  }
+  async create(p, data) { await this.write(p, data); this.files.set(p, true); }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -447,6 +578,16 @@ function imageAt(path) {
       e.img.src = e.url;
     }).catch(() => { e.failed = true; });
   }
+  return e;
+}
+/** Shows a picture just saved (a tile or a building's) everywhere it is drawn, without reloading. */
+function setImage(path, blob) {
+  const old = images.get(path);
+  if (old?.url) URL.revokeObjectURL(old.url);
+  const e = { img: new Image(), ready: false, failed: false, url: URL.createObjectURL(blob) };
+  e.img.onload = () => { e.ready = true; requestDraw(); };
+  e.img.src = e.url;
+  images.set(path, e);
   return e;
 }
 function clearImages() {
@@ -558,6 +699,7 @@ async function useSource(src) {
   sel.disabled = false;
   $('#welcome').style.display = 'none';
   await loadLibrary();
+  await loadKnown();
   const first = catalog.find((c) => c.format === 'baked' && stem(c.path) === 'area1-home-town') ?? catalog.find((c) => /home-town/.test(c.path)) ?? catalog[0];
   sel.value = first.path;
   await openMap(first);
@@ -609,7 +751,7 @@ async function loadBaked(c) {
   raw.images.forEach(addTile);
   // Palette: every tile image in the folder, plus images other game maps use.
   for (const p of source.files.keys()) {
-    if (!p.endsWith('.png') || !p.startsWith(c.assets ? `${c.assets}/art/` : 'art/')) continue;
+    if (!p.endsWith('.png') || !['art/', 'custom/tiles/'].some((d) => p.startsWith(c.assets ? `${c.assets}/${d}` : d))) continue;
     const rel = c.assets ? p.slice(c.assets.length + 1) : p;
     if (/^art\/(characters|buildings\/sheets)\//.test(rel)) continue;
     addTile(rel);
@@ -634,7 +776,7 @@ async function loadBaked(c) {
   const propLayers = [kindLabel, 'Overhead'];
   return {
     format: 'baked', path: c.path, name: raw.id, width, height, raw, tiles, state, newline: text.endsWith('\n'),
-    propLayers, layerDefs: makeLayerDefs(state, propLayers),
+    propLayers, layerDefs: makeLayerDefs(state, propLayers, true, true),
   };
 }
 
@@ -655,6 +797,7 @@ function exportBaked(doc) {
   const use = (k) => { if (k != null && !usedSet.has(k)) { usedSet.add(k); used.push(k); } };
   for (const l of state.layers) l.cells.forEach(use);
   for (const p of state.props) { p.frames?.forEach((f) => use(f.key)); use(p.key); }
+  for (const m of state.markers) use(m.clearedKey);
   // Keep every original image in its place, so an unchanged map saves identically and images only
   // the game uses (story patches such as the running track, by index) stay; new images go last.
   const imgs = [...raw.images];
@@ -681,7 +824,13 @@ function exportBaked(doc) {
     blocked,
     edgeWalls: state.walls.map((w) => [w.pts[0][0], w.pts[0][1], w.pts[1][0], w.pts[1][1]]),
     // Markers placed here (a building's doors and returns) carry their whole object.
-    objects: state.markers.map((m) => ({ ...(m.ref != null ? raw.objects[m.ref] : m.obj), x: m.x, y: m.y })),
+    // A marker added or changed here carries its own object (obj); the rest are the file's as they were.
+    objects: state.markers.map((m) => {
+      const o = { ...(m.obj ?? raw.objects[m.ref]), x: m.x, y: m.y };
+      if (m.obj) Object.assign(o, { w: m.w, h: m.h });
+      if (m.clearedKey != null) o.props = { ...o.props, cleared_img: idx.get(m.clearedKey) };
+      return o;
+    }),
   };
   return `${JSON.stringify(out)}${doc.newline ? '\n' : ''}`;
 }
@@ -843,13 +992,13 @@ function exportTmj(doc) {
 // ---------------------------------------------------------------------------------------------
 // Layers panel
 
-function makeLayerDefs(state, propLayers, hasCollision = true) {
+function makeLayerDefs(state, propLayers, hasCollision = true, markers = false) {
   const hints = { Ground: 'background', 'Ground detail': 'decor', Room: 'floor and walls', Building: 'building', Objects: 'props, sorted with the rider', Furniture: 'props, sorted with the rider', Overhead: 'foreground, above the rider' };
   const defs = [];
   state.layers.forEach((l, i) => defs.push({ id: `tile:${l.name}`, kind: 'tile', index: i, label: l.name, hint: hints[l.name] ?? 'tiles' }));
   for (const name of propLayers) defs.push({ id: `props:${name}`, kind: 'props', name, label: name, hint: hints[name] ?? 'props' });
   if (hasCollision) defs.push({ id: 'collision', kind: 'collision', label: 'Collision', hint: 'red = blocked' });
-  if (state.markers.length) defs.push({ id: 'markers', kind: 'markers', label: 'Data', hint: 'doors, spawns, triggers' });
+  if (state.markers.length || markers) defs.push({ id: 'markers', kind: 'markers', label: 'Data', hint: 'doors, spawns, triggers' });
   if (state.walls.length) defs.push({ id: 'walls', kind: 'walls', label: 'Partitions', hint: 'thin walls', noedit: true });
   defs.push({ id: 'grid', kind: 'grid', label: 'Grid', hint: '', noedit: true });
   return defs;
@@ -932,7 +1081,7 @@ function buildPalette() {
   if (!doc) return;
   const kind = app.activeLayer?.kind;
   if (kind === 'collision' || kind === 'markers') {
-    pal.innerHTML = `<div id="palEmpty">${kind === 'collision' ? 'Collision layer: the Brush blocks tiles, the Eraser frees them. Fill and Select work too.' : 'Data markers (doors, spawns, triggers) are moved with the Objects tool (V) or with a region move. They are never copied or deleted here.'}</div>`;
+    pal.innerHTML = `<div id="palEmpty">${kind === 'collision' ? 'Collision layer: the Brush blocks tiles, the Eraser frees them. Fill and Select work too.' : 'Data markers (spawns, exits, doors, block zones, triggers): add them with Markers on the left; click one with the Objects tool (V) to change it, drag to move it, Del to delete it. Copies never duplicate them.'}</div>`;
     groupSel.innerHTML = '';
     return;
   }
@@ -1337,6 +1486,12 @@ function draw() {
     ctx.strokeRect(r.x * T, r.y * T, r.w * T, r.h * T);
     ctx.setLineDash([]);
   }
+  // Adding a marker: the tile under the pointer in its colour.
+  if (app.addMarker && h && !app.drag) {
+    ctx.strokeStyle = MARKER_COLORS[app.addMarker]; ctx.lineWidth = 3 / scale;
+    ctx.strokeRect(h.x * T, h.y * T, T, T);
+  }
+  renderMarkerBox();
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1613,7 +1768,7 @@ function placeProp(h, px, free) {
 function deleteSelectedEnt() {
   const s = app.selectedEnt;
   if (!s) return;
-  if (s.kind === 'marker') { status('Markers (doors, spawns, triggers) are game data and cannot be deleted here.', 'err'); return; }
+  if (s.kind === 'marker') { deleteMarker(s.index); return; }
   const p = app.doc.state.props[s.index];
   if (p.building) { if (selectBuildingAt(s)) removeSelectedBuilding(); else status('This building isn\'t in the building library, so it can only be moved with the Select tool.', 'err'); return; }
   beginChange();
@@ -1621,6 +1776,208 @@ function deleteSelectedEnt() {
   app.selectedEnt = null;
   status('Deleted the prop.');
   requestDraw();
+}
+
+// --- Markers ---------------------------------------------------------------------------------------
+// The Data layer's objects: where the player arrives, the ways in and out, block zones and the other
+// triggers the game reads (src/core/travel.ts, mapState.ts, WorldScene.ts). Added and changed here,
+// each saves as the map object the game expects; a building's own doors and returns come with it.
+
+const MARKER_TYPES = {
+  spawn: { label: 'Spawn', point: true, what: 'Where the player arrives on this map. The first spawn is where they arrive by default; an exit or door can name another.', fields: [] },
+  exit: { label: 'Exit', what: 'Step on it to leave. On an area map: To is the map it leads to (world_map for a road with a choice of places) and Spawn where you arrive there. In an interior: Interior is the one you leave, and you come out by its building.', fields: [['to', 'map', 'To map'], ['spawn', 'text', 'Arrive at spawn'], ['interior', 'interior', 'Leaves interior'], ['return', 'text', 'Come out at return'], ['locked', 'bool', 'Locked'], ['unlock', 'flag', 'Unlocked by flag']] },
+  door: { label: 'Door', what: 'Step on it to go inside. A building from the library brings its own doors (Buildings, Place); add one here for a doorway drawn with tiles.', fields: [['interior', 'interior', 'Into interior'], ['spawn', 'text', 'Arrive at spawn'], ['building', 'building', 'Building'], ['locked', 'bool', 'Locked'], ['unlock', 'flag', 'Unlocked by flag']] },
+  blocker: { label: 'Block zone', what: 'Tiles kept blocked until a story flag is set, then opened (like the roadworks): the barriers and cones on and around it go too, and the cleared tile is drawn over the dug-up ground. Its tiles are blocked when you add it.', fields: [['cleared_by', 'flag', 'Lifted by flag'], ['cleared_img', 'tile', 'Cleared tile'], ['cleared_tile', 'text', 'Cleared tile name']] },
+  gate: { label: 'Gate', what: 'A gate the player is told is locked.', fields: [['locked', 'bool', 'Locked'], ['unlock', 'flag', 'Unlocked by flag']] },
+  travel: { label: 'Travel', point: true, what: 'A bus stop or similar: To world_map offers the places along the road (data/world.json).', fields: [['to', 'map', 'To']] },
+  venue: { label: 'Venue', what: 'The way into a race venue or practice track.', fields: [['venue', 'venue', 'Venue']] },
+  npc: { label: 'NPC', point: true, what: 'Where a person stands (their id is in data/npcs.json).', fields: [['npc', 'npc', 'Who']] },
+  interact: { label: 'Interact', what: 'Something the player can use, like a desk PC or a noticeboard. The story and the shops look for its action.', fields: [['action', 'text', 'Action'], ['on_wall', 'bool', 'On a wall']] },
+};
+/** Ids the marker fields suggest, gathered from the game's data and maps. */
+const known = { flags: new Set(), npcs: [], venues: [] };
+
+async function loadKnown() {
+  known.flags = new Set(); known.npcs = []; known.venues = [];
+  if (!lib.path) return;
+  const dir = dirOf(lib.path);
+  const read = async (f) => { const p = joinPath(dir, f); try { return source.has(p) ? await source.text(p) : null; } catch { return null; } };
+  const story = await read('story.json');
+  if (story) for (const m of story.matchAll(/"flags":\s*\[([^\]]*)\]/g)) for (const f of m[1].matchAll(/"([^"]+)"/g)) known.flags.add(f[1]);
+  try { known.npcs = JSON.parse(await read('npcs.json')).npcs.map((n) => n.id); } catch { /* none */ }
+  try { known.venues = JSON.parse(await read('tracks.json')).venues.map((v) => v.id); } catch { /* none */ }
+  for (const m of lib.maps.values()) for (const o of m.objects ?? []) for (const k of ['cleared_by', 'unlock']) if (typeof o.props?.[k] === 'string') known.flags.add(o.props[k]);
+}
+
+function suggestions(kind) {
+  if (kind === 'map') return ['world_map', ...[...lib.maps.entries()].filter(([, m]) => m.kind === 'area').map(([id]) => id)];
+  if (kind === 'interior') return interiorChoices().map((c) => c.id);
+  if (kind === 'flag') return [...known.flags].sort();
+  if (kind === 'npc') return known.npcs;
+  if (kind === 'venue') return known.venues;
+  if (kind === 'building') return lib.data?.buildings.map((b) => b.id) ?? [];
+  return [];
+}
+
+function renderMarkerButtons() {
+  const box = $('#mkAdd');
+  box.innerHTML = '';
+  for (const [type, t] of Object.entries(MARKER_TYPES)) {
+    const b = document.createElement('button');
+    b.innerHTML = `<i style="background:${MARKER_COLORS[type]}"></i>${t.label}`;
+    b.title = t.what;
+    b.dataset.type = type;
+    b.addEventListener('click', () => startAddMarker(type));
+    box.appendChild(b);
+  }
+}
+
+function startAddMarker(type) {
+  if (!app.doc) return;
+  if (app.doc.format !== 'baked') { status('Markers are added on game maps; in a Tiled map add them in Tiled.', 'err'); return; }
+  setTool('props');
+  app.addMarker = type;
+  for (const b of document.querySelectorAll('#mkAdd button')) b.classList.toggle('on', b.dataset.type === type);
+  const t = MARKER_TYPES[type];
+  const def = app.doc.layerDefs.find((d) => d.id === 'markers');
+  if (def) setActiveLayer(def);
+  setTool('props');
+  app.addMarker = type;
+  for (const b of document.querySelectorAll('#mkAdd button')) b.classList.toggle('on', b.dataset.type === type);
+  status(`${t.label}: ${t.point ? 'click the tile it goes on' : 'click a tile, or drag over the tiles it covers'}. Esc cancels.`);
+}
+
+function endAddMarker() {
+  app.addMarker = null;
+  for (const b of document.querySelectorAll('#mkAdd button')) b.classList.remove('on');
+}
+
+function addMarker(type, r) {
+  const t = MARKER_TYPES[type];
+  const st = app.doc.state;
+  const n = st.markers.filter((m) => m.type === type).length + 1;
+  const name = type === 'spawn' && n === 1 ? 'spawn' : `${t.label} ${n}`;
+  const props = Object.fromEntries(t.fields.filter(([, k]) => k === 'bool').map(([f]) => [f, f === 'locked']));
+  beginChange();
+  const m = t.point
+    ? { ref: null, name, type, x: r.x * TILE + TILE / 2, y: r.y * TILE + TILE / 2, w: 0, h: 0, point: true }
+    : { ref: null, name, type, x: r.x * TILE, y: r.y * TILE, w: r.w * TILE, h: r.h * TILE, point: false };
+  m.obj = { type, name, x: m.x, y: m.y, w: m.w, h: m.h, ...(m.point ? { point: true } : {}), props };
+  st.markers.push(m);
+  if (type === 'blocker') for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) st.collision[y * app.doc.width + x] = 1;
+  app.selectedEnt = { kind: 'marker', index: st.markers.length - 1 };
+  endAddMarker();
+  runChecks();
+  status(`Added ${t.label.toLowerCase()} "${name}". Set it up on the right.`, 'ok');
+  requestDraw();
+}
+
+/** The marker's own object, made from the file's the first time it is changed here. */
+function ownObj(m) {
+  if (!m.obj) m.obj = structuredClone(app.doc.raw.objects[m.ref]);
+  m.obj.props ??= {};
+  return m.obj;
+}
+
+let mkShown = '';
+function renderMarkerBox(force) {
+  const box = $('#mkBox');
+  const s = app.selectedEnt;
+  const m = s?.kind === 'marker' && app.mode === 'map' ? app.doc?.state.markers[s.index] : null;
+  const key = m ? `${s.index}:${app.undo.length}:${app.redo.length}` : '';
+  if (!force && key === mkShown) return;
+  mkShown = key;
+  box.hidden = !m;
+  if (!m) return;
+  const t = MARKER_TYPES[m.type];
+  const props = markerProps(m);
+  const owned = m.type === 'building' || (props.building && ['door', 'return', 'click'].includes(m.type) && libDef(String(props.building)));
+  box.innerHTML = '';
+  const h = document.createElement('h2');
+  h.style.marginTop = '0';
+  h.innerHTML = `<i style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${MARKER_COLORS[m.type] ?? '#ccc'}"></i> ${t?.label ?? m.type}`;
+  box.appendChild(h);
+  if (t) box.appendChild(Object.assign(document.createElement('div'), { className: 'hint', textContent: t.what }));
+  const change = (fn) => { beginChange(); fn(ownObj(m)); setDirty(true); runChecks(); renderMarkerBox(true); requestDraw(); };
+  const field = (label, el) => { const l = document.createElement('label'); l.className = 'f'; l.append(label, el); box.appendChild(l); return el; };
+  const nm = field('Name', Object.assign(document.createElement('input'), { type: 'text', value: m.name ?? '' }));
+  nm.title = m.type === 'spawn' ? 'An exit or door arrives here when its Spawn names it' : 'Shown in the game, and how the story finds it';
+  nm.addEventListener('change', () => change((o) => { m.name = o.name = nm.value.trim(); }));
+  if (!m.point && m.w) {
+    const sz = document.createElement('span');
+    sz.className = 'row';
+    const wi = Object.assign(document.createElement('input'), { type: 'number', min: 1, max: 60, value: Math.round(m.w / TILE) });
+    const hi = Object.assign(document.createElement('input'), { type: 'number', min: 1, max: 60, value: Math.round(m.h / TILE) });
+    sz.append(wi, '×', hi, ' tiles');
+    field('Size', sz);
+    const resize = () => change(() => { m.w = clamp(Math.round(Number(wi.value)) || 1, 1, 60) * TILE; m.h = clamp(Math.round(Number(hi.value)) || 1, 1, 60) * TILE; });
+    wi.addEventListener('change', resize); hi.addEventListener('change', resize);
+  }
+  for (const [f, kind, label] of t?.fields ?? []) {
+    if (kind === 'bool') {
+      const c = Object.assign(document.createElement('input'), { type: 'checkbox', checked: !!props[f] });
+      field(label, c).addEventListener('change', () => change((o) => { o.props[f] = c.checked; }));
+    } else if (kind === 'tile') {
+      const span = document.createElement('span');
+      span.className = 'tilepick';
+      const key = m.clearedKey ?? (typeof props[f] === 'number' ? app.doc.raw.images[props[f]] : null);
+      const img = key != null ? tileThumb(key, 28) : null;
+      if (img) span.appendChild(img); else span.append('(none)');
+      // The tiles this map uses, the likely ones (roads, patches) first.
+      const pick = document.createElement('select');
+      pick.appendChild(Object.assign(document.createElement('option'), { value: '', textContent: key != null ? tileInfo(key)?.name ?? '(this tile)' : '(pick a tile)' }));
+      const usedHere = [...new Set(app.doc.state.layers.flatMap((l) => l.cells).filter((k) => k != null))].map((k) => tileInfo(k)).filter(Boolean);
+      usedHere.sort((a, b) => /road|patch|tarmac|concrete/.test(b.name) - /road|patch|tarmac|concrete/.test(a.name) || a.group.localeCompare(b.group) || a.name.localeCompare(b.name, undefined, { numeric: true }));
+      for (const tl of usedHere) pick.appendChild(Object.assign(document.createElement('option'), { value: tl.key, textContent: `${tl.name} (${tl.group})` }));
+      pick.addEventListener('change', () => { const k = pick.value; if (k) change((o) => { m.clearedKey = k; o.props.cleared_tile = tileInfo(k)?.name ?? ''; }); });
+      span.appendChild(pick);
+      field(label, span);
+    } else {
+      const inp = Object.assign(document.createElement('input'), { type: 'text', value: props[f] == null ? '' : String(props[f]) });
+      const list = suggestions(kind);
+      if (list.length) {
+        const dl = document.createElement('datalist');
+        dl.id = `mk-${f}`;
+        for (const v of list) dl.appendChild(Object.assign(document.createElement('option'), { value: v }));
+        box.appendChild(dl);
+        inp.setAttribute('list', dl.id);
+        inp.placeholder = 'type or pick…';
+      }
+      field(label, inp).addEventListener('change', () => change((o) => { const v = inp.value.trim(); if (v) o.props[f] = v; else delete o.props[f]; }));
+    }
+  }
+  const at = markerAnchor(m);
+  box.appendChild(Object.assign(document.createElement('div'), { className: 'hint', textContent: `At tile ${at.x},${at.y}. Drag it to move it.` }));
+  const del = Object.assign(document.createElement('button'), { textContent: 'Delete marker', title: 'Del' });
+  if (owned) { del.disabled = true; del.title = 'Part of a building: remove the building instead'; }
+  del.addEventListener('click', deleteSelectedEnt);
+  box.appendChild(del);
+}
+
+function deleteMarker(i) {
+  const st = app.doc.state;
+  const m = st.markers[i];
+  const props = markerProps(m);
+  if (m.type === 'building' || (props.building && ['door', 'return', 'click'].includes(m.type) && libDef(String(props.building)))) {
+    status('This belongs to a building: click the building and Remove it instead.', 'err');
+    return;
+  }
+  beginChange();
+  st.markers.splice(i, 1);
+  if (m.type === 'blocker') {
+    for (const tl of objectTilesOf(m)) if (inMap(tl.x, tl.y)) st.collision[tl.y * app.doc.width + tl.x] = 0;
+    status(`Deleted ${m.type} "${m.name}" and freed its tiles.`);
+  } else status(`Deleted ${m.type} "${m.name}".`);
+  app.selectedEnt = null;
+  runChecks();
+  requestDraw();
+}
+function objectTilesOf(m) {
+  const t0 = markerAnchor(m);
+  if (m.point || !m.w || !m.h) return [t0];
+  const out = [];
+  for (let y = 0; y < Math.round(m.h / TILE); y++) for (let x = 0; x < Math.round(m.w / TILE); x++) out.push({ x: t0.x + x, y: t0.y + y });
+  return out;
 }
 
 // --- Buildings -----------------------------------------------------------------------------------
@@ -1641,7 +1998,7 @@ function fpCells(d) {
   return out;
 }
 const libDef = (id) => lib.data?.buildings.find((b) => b.id === id) ?? null;
-const markerProps = (m) => (m.ref != null && app.doc.format === 'baked' ? app.doc.raw.objects[m.ref]?.props : m.obj?.props) ?? {};
+const markerProps = (m) => (m.obj ?? (m.ref != null && app.doc.format === 'baked' ? app.doc.raw.objects[m.ref] : null))?.props ?? {};
 
 async function loadLibrary() {
   Object.assign(lib, { path: null, data: null, manifest: null, manifestPath: null, maps: new Map() });
@@ -1683,7 +2040,7 @@ async function writeFile(path, text, isNew) {
     } catch (e) { console.error(e); status(`Saving ${path} failed (${e.message}); downloading instead.`, 'err'); }
   }
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  a.href = URL.createObjectURL(text instanceof Blob ? text : new Blob([text], { type: 'application/json' }));
   a.download = baseName(path);
   document.body.appendChild(a);
   a.click();
@@ -1934,7 +2291,7 @@ function drawBuilding(c, def, { scale, ox = 0, oy = 0, grid = false, extra = 0 }
   for (const p of def.parts) {
     const e = imageAt(joinPath(lib.assets, p.sheet));
     if (e.ready) g.drawImage(e.img, p.crop[0], p.crop[1], p.crop[2], p.crop[3], ox + p.at[0] * T, oy + p.at[1] * T, p.crop[2] * scale, p.crop[3] * scale);
-    else e.img.addEventListener('load', () => { requestDraw(); drawBldThumb(libDef($('#bldList').value)); if ($('#bldDlg').open) drawBed(); }, { once: true });
+    else e.img.addEventListener('load', () => { requestDraw(); drawBldThumb(libDef($('#bldList').value)); if (app.mode === 'buildings') drawBed(); }, { once: true });
   }
   for (const cell of fpCells(def)) {
     g.fillStyle = cell.solid ? 'rgba(224,40,40,0.28)' : 'rgba(79,195,247,0.22)';
@@ -2059,8 +2416,9 @@ function openBuildingEditor(def, isNew) {
     ints.appendChild(o);
   }
   setBedBrush('#');
-  renderBed();
-  $('#bldDlg').showModal();
+  if (bed.pic) bedClosePicture();
+  if (app.mode !== 'buildings' && !setMode('buildings')) return;
+  renderBuildingStudio();
 }
 
 function setBedBrush(b) {
@@ -2084,11 +2442,11 @@ function renderBed() {
   $('#bH').value = h;
   // Pictures
   const parts = $('#bParts');
-  parts.innerHTML = d.parts.length ? '' : '<div class="hint">None: draw it with tiles on the map instead, or add one below.</div>';
+  parts.innerHTML = d.parts.length ? '' : '<div class="hint">None yet: draw one, import a PNG, or use part of another building\'s picture. (Or leave it out and draw the building with tiles on the map.)</div>';
   d.parts.forEach((p, i) => {
     const el = document.createElement('div');
     el.className = 'item';
-    el.innerHTML = `<span title="${p.sheet}">${stem(p.sheet)}</span> at <input type="number" data-k="ax"> <input type="number" data-k="ay"> crop <input type="number" data-k="c0"> <input type="number" data-k="c1"> <input type="number" data-k="c2"> <input type="number" data-k="c3"> <button title="Remove this picture">✕</button>`;
+    el.innerHTML = `<span title="${p.sheet}">${stem(p.sheet)}</span> at <input type="number" data-k="ax"> <input type="number" data-k="ay"> crop <input type="number" data-k="c0"> <input type="number" data-k="c1"> <input type="number" data-k="c2"> <input type="number" data-k="c3"> <button class="edit" title="Draw on this picture">✎ Edit</button> <button class="del" title="Remove this picture">✕</button>`;
     const vals = { ax: p.at[0], ay: p.at[1], c0: p.crop[0], c1: p.crop[1], c2: p.crop[2], c3: p.crop[3] };
     for (const inp of el.querySelectorAll('input')) {
       inp.value = vals[inp.dataset.k];
@@ -2099,7 +2457,8 @@ function renderBed() {
         bedChanged();
       });
     }
-    el.querySelector('button').addEventListener('click', () => { d.parts.splice(i, 1); bedChanged(); });
+    el.querySelector('button.edit').addEventListener('click', () => bedEditPicture(i));
+    el.querySelector('button.del').addEventListener('click', () => { d.parts.splice(i, 1); bedChanged(); });
     parts.appendChild(el);
   });
   // Doors
@@ -2154,7 +2513,8 @@ function bedGeom() {
   const { w, h } = fpSize(d);
   const pw = Math.max(w + 1, ...d.parts.map((p) => p.at[0] + Math.ceil(p.crop[2] / TILE)));
   const ph = Math.max(h + 1, ...d.parts.map((p) => p.at[1] + Math.ceil(p.crop[3] / TILE)));
-  const scale = clamp(Math.min(720 / (pw * TILE), 520 / (ph * TILE)), 0.12, 1);
+  const r = $('#bldStudio .stage').getBoundingClientRect();
+  const scale = clamp(Math.min(((r.width || 736) - 16) / (pw * TILE), ((r.height || 536) - 16) / (ph * TILE)), 0.12, 1);
   return { w, h, pw, ph, scale };
 }
 
@@ -2330,8 +2690,9 @@ async function saveBuilding(asNew) {
   renderBuildings();
   $('#bldList').value = d.id;
   showBldInfo();
-  renderBed();
-  status(`${saved ? 'Saved' : 'Downloaded'} ${d.name} ${d.draft ? 'as unfinished ' : ''}to ${saved ? lib.path : `${baseName(lib.path)}; copy it over ${lib.path}`}.`, 'ok');
+  renderBuildingStudio();
+  const where = source.http ? `public/${source.publicPath(lib.path)}` : lib.path;
+  status(`${saved ? 'Saved' : 'Downloaded'} ${d.name} ${d.draft ? 'as unfinished ' : ''}to ${saved ? where : `${baseName(lib.path)}; copy it over ${where}`}.`, 'ok');
 }
 
 async function newInterior() {
@@ -2372,22 +2733,18 @@ $('#bSave').addEventListener('click', () => saveBuilding(false));
 $('#bSaveNew').addEventListener('click', () => saveBuilding(true));
 $('#bNewInt').addEventListener('click', newInterior);
 $('#bDelete').addEventListener('click', async () => {
-  if (!bed.origId) { $('#bldDlg').close(); return; }
+  if (!bed.origId) { bed.dirty = false; openBuildingEditor(lib.data.buildings[0], false); return; }
   const where = placedOn(bed.origId);
   if (where.length) { status(`Can't delete it: it is placed on ${where.join(', ')}. Remove it from the map first.`, 'err'); return; }
   if (!confirm(`Delete ${bed.def.name} from the building library?`)) return;
   lib.data.buildings = lib.data.buildings.filter((b) => b.id !== bed.origId);
   await writeFile(lib.path, libText(lib.data));
   bed.dirty = false;
-  $('#bldDlg').close();
   renderBuildings();
+  openBuildingEditor(lib.data.buildings[0], false);
   status('Deleted from the library.', 'ok');
 });
-$('#bClose').addEventListener('click', () => {
-  if (bed.dirty && !confirm('This building has unsaved changes. Close and lose them?')) return;
-  $('#bldDlg').close();
-});
-$('#bldDlg').addEventListener('cancel', (e) => { if (bed.dirty && !confirm('This building has unsaved changes. Close and lose them?')) e.preventDefault(); });
+$('#bClose').addEventListener('click', () => setMode('map'));
 $('#btnBldEdit').addEventListener('click', () => { const d = libDef($('#bldList').value); if (d) openBuildingEditor(d, false); });
 $('#btnBldNew').addEventListener('click', () => openBuildingEditor(blankBuilding(), true));
 
@@ -2618,6 +2975,12 @@ canvas.addEventListener('pointerdown', (e) => {
   }
   if (e.button !== 0) return;
   const kind = app.activeLayer?.kind;
+  if (app.addMarker) {
+    if (!inMap(p.x, p.y)) return;
+    if (MARKER_TYPES[app.addMarker].point) addMarker(app.addMarker, { x: p.x, y: p.y, w: 1, h: 1 });
+    else app.drag = { rect: { a: { x: p.x, y: p.y }, b: { x: p.x, y: p.y } }, addMarker: true };
+    return;
+  }
 
   if (app.float) {
     app.float.x = p.x - app.float.grab.x; app.float.y = p.y - app.float.grab.y;
@@ -2766,6 +3129,7 @@ function endDrag(e) {
   if (d.rect) {
     const r = clipRect(normRect(d.rect.a, d.rect.b));
     if (d.select) { app.sel = r; updateButtons(); requestDraw(); return; }
+    if (d.addMarker) { if (r && app.addMarker) addMarker(app.addMarker, r); return; }
     if (d.pick && r) { if (r.w * r.h === 1) pickAt(r.x, r.y); else pickStamp(r); if (app.tool === 'picker') setTool('brush'); requestDraw(); return; }
     if (d.paintRect && r) {
       const n = fillRectWith(r, d.erase);
@@ -2820,6 +3184,7 @@ function setTool(t, keepFloat) {
   if (!keepFloat && app.float) cancelFloat();
   if (!keepFloat && app.placing) cancelPlacing();
   app.pendingSwap = false;
+  endAddMarker();
   app.tool = t;
   for (const b of document.querySelectorAll('#tools button')) b.classList.toggle('on', b.dataset.tool === t);
   canvas.style.cursor = cursorFor(t);
@@ -2865,9 +3230,14 @@ $('#btnHelp2').addEventListener('click', () => help.showModal());
 $('#btnHelpClose').addEventListener('click', () => help.close());
 
 window.addEventListener('keydown', (e) => {
-  if (e.target.matches('input[type=text], input[type=search], select') && !e.ctrlKey && !e.metaKey) return;
+  if (e.target.matches('input[type=text], input[type=search], input[type=number], select') && !e.ctrlKey && !e.metaKey) return;
   const mod = e.ctrlKey || e.metaKey;
   const k = e.key.toLowerCase();
+  if (app.mode !== 'map') {
+    if (mod && k === 's') { e.preventDefault(); if (app.mode === 'tiles') tsSave(); else if (bed.pic) bedSavePicture(); else saveBuilding(false); return; }
+    if (app.mode === 'tiles' || bed.pic) padKey(e);
+    return;
+  }
   if (e.key === ' ') { spaceDown = true; canvas.style.cursor = 'grab'; if (e.target === document.body) e.preventDefault(); return; }
   if (mod && k === 's') { e.preventDefault(); if (app.doc) save(); return; }
   if (mod && k === 'o') { e.preventDefault(); openFolder(); return; }
@@ -2880,7 +3250,8 @@ window.addEventListener('keydown', (e) => {
   if (mod && k === 'a') { e.preventDefault(); app.sel = { x: 0, y: 0, w: app.doc.width, h: app.doc.height }; setTool('select'); updateButtons(); return; }
   if (mod) return;
   if (e.key === 'Escape') {
-    if (app.placing) cancelPlacing();
+    if (app.addMarker) { endAddMarker(); status('Cancelled.'); }
+    else if (app.placing) cancelPlacing();
     else if (app.float) cancelFloat();
     else if (app.pendingSwap) { app.pendingSwap = false; status('Swap cancelled.'); }
     else { app.sel = null; app.selectedEnt = null; updateButtons(); }
@@ -2995,6 +3366,558 @@ function status(text, kind = '') {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Pixel editor: one picture at a time, for the Tiles tab (a tile) and the Buildings tab (a
+// building's picture). The same editor moves between the two tabs.
+
+// The art's reference palette (art/palette/palette-ref-v1.hex in the shared art folder).
+const GAME_PALETTE = '000000 272a2c 3b3c45 4b4c57 55555e 6c686b 7f797b 6f7381 918b7d 918e93 958a83 939f8c a39997 aea39d b1aeaf cfc5bf eaebeb 47302d 64201f 8e322a 8f293d a82727 b3614d c21c15 d47d7f d75b4f df333a ee191d 655239 69554b 6b4a31 7c4c37 7e604b 8e5e3e 90755e 96876c 988242 a5673f a68161 a87750 aca28c b97f30 bbaa7c bcac9f c08d56 c25b2a cb8e57 cead7e d7a175 d89d60 d9c096 e18c5e e49a23 e8dbb8 ebb68d ef6c18 272920 6c6859 818863 979a4d c4a94b dad65d e8d184 ecbe2a e3ee33 414636 515942 5d6c33 4d7437 6e8b35 6f8c57 6a9f50 85a13e 94a66c 81a76f 7fa95b 8bac5b 87b354 85b34a a0c33e 29492a 326136 447f3c 518959 72b667 92c393 1e2f23 3e624f 62957f 35b968 48ef88 031a21 0d1d33 292f3d 142947 364560 58687f 446286 215099 4771a2 638fa4 3b86da a1c6dc 216ce4 78b5e9 14141e 2b32aa 1c3edf 1123ec 8d2376 e180ca f067d5 f235cb 26191f 481020 743c64 bd1f55 cc2b9d e7b1d8 e82469'.split(' ');
+
+const pad = {
+  w: 64, h: 64, px: new Uint8ClampedArray(64 * 64 * 4), undo: [], redo: [], tool: 'pencil', size: 2,
+  color: [77, 116, 55, 255], zoom: 8, grid: true, drag: null, seams: false, dirty: false, onChange: null,
+};
+const padCanvas = $('#padCanvas');
+const padImg = document.createElement('canvas');
+
+function padSet(w, h, px) {
+  pad.w = w; pad.h = h;
+  pad.px = px ?? new Uint8ClampedArray(w * h * 4);
+  pad.seams = false;
+  $('#padSeams').classList.remove('on');
+  $('#padW').value = w; $('#padH').value = h;
+  padFitZoom();
+  padDraw();
+  padUsedColours();
+}
+/** Opens a picture (an image, or part of one) in the editor. */
+function padLoad(img, crop) {
+  const [x, y, w, h] = crop ?? [0, 0, img.naturalWidth || img.width, img.naturalHeight || img.height];
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  c.getContext('2d').drawImage(img, x, y, w, h, 0, 0, w, h);
+  pad.undo = []; pad.redo = []; pad.dirty = false;
+  padSet(w, h, c.getContext('2d').getImageData(0, 0, w, h).data);
+}
+function padBlank(w, h) { pad.undo = []; pad.redo = []; pad.dirty = false; padSet(w, h); }
+function padFitZoom() {
+  const r = $('.padstage').getBoundingClientRect();
+  const fit = Math.min((r.width || 600) - 24, (r.height || 500) - 24) / Math.max(pad.w, pad.h);
+  pad.zoom = clamp(Math.floor(fit), 1, 16);
+}
+function padCanvasOut() {
+  padImg.width = pad.w; padImg.height = pad.h;
+  padImg.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(pad.px), pad.w, pad.h), 0, 0);
+  return padImg;
+}
+function padBlob() {
+  const c = padCanvasOut();
+  return new Promise((res) => c.toBlob(res, 'image/png'));
+}
+
+function padDraw(preview) {
+  const z = pad.zoom;
+  padCanvas.width = pad.w * z; padCanvas.height = pad.h * z;
+  $('#padZoom').textContent = `${z}×`;
+  const g = padCanvas.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  g.drawImage(padCanvasOut(), 0, 0, pad.w * z, pad.h * z);
+  if (preview) {
+    g.fillStyle = pad.tool === 'eraser' ? 'rgba(255,255,255,0.5)' : `rgba(${pad.color[0]},${pad.color[1]},${pad.color[2]},0.85)`;
+    for (const [x, y] of preview) g.fillRect(x * z, y * z, z, z);
+  }
+  if (pad.grid && z >= 6) {
+    g.strokeStyle = 'rgba(255,255,255,0.08)'; g.lineWidth = 1;
+    g.beginPath();
+    for (let x = 0; x <= pad.w; x += 1) { g.moveTo(x * z + 0.5, 0); g.lineTo(x * z + 0.5, pad.h * z); }
+    for (let y = 0; y <= pad.h; y += 1) { g.moveTo(0, y * z + 0.5); g.lineTo(pad.w * z, y * z + 0.5); }
+    g.stroke();
+  }
+  // The map's tile grid, every 64 pixels.
+  if (pad.w > TILE || pad.h > TILE) {
+    g.strokeStyle = 'rgba(240,160,32,0.6)'; g.lineWidth = 1;
+    g.beginPath();
+    for (let x = TILE; x < pad.w; x += TILE) { g.moveTo(x * z + 0.5, 0); g.lineTo(x * z + 0.5, pad.h * z); }
+    for (let y = pad.h - TILE; y > 0; y -= TILE) { g.moveTo(0, y * z + 0.5); g.lineTo(pad.w * z, y * z + 0.5); }
+    g.stroke();
+  }
+  if (pad.seams) {
+    g.strokeStyle = 'rgba(79,195,247,0.8)'; g.setLineDash([4, 4]);
+    g.beginPath(); g.moveTo(Math.floor(pad.w / 2) * z + 0.5, 0); g.lineTo(Math.floor(pad.w / 2) * z + 0.5, pad.h * z);
+    g.moveTo(0, Math.floor(pad.h / 2) * z + 0.5); g.lineTo(pad.w * z, Math.floor(pad.h / 2) * z + 0.5); g.stroke();
+    g.setLineDash([]);
+  }
+  pad.onChange?.();
+}
+
+const padIdx = (x, y) => (y * pad.w + x) * 4;
+function padGet(x, y) { const i = padIdx(x, y); return [pad.px[i], pad.px[i + 1], pad.px[i + 2], pad.px[i + 3]]; }
+/** The pixels a pen dab covers: a block of the pen size, on the pen-size grid (the art's 2×2 clusters). */
+function padDab(x, y) {
+  const s = pad.size;
+  const x0 = s > 1 ? Math.floor(x / s) * s : x, y0 = s > 1 ? Math.floor(y / s) * s : y;
+  const out = [];
+  for (let dy = 0; dy < s; dy++) for (let dx = 0; dx < s; dx++) if (x0 + dx < pad.w && y0 + dy < pad.h && x0 + dx >= 0 && y0 + dy >= 0) out.push([x0 + dx, y0 + dy]);
+  return out;
+}
+function padPaint(cells, erase) {
+  const c = erase ? [0, 0, 0, 0] : pad.color;
+  for (const [x, y] of cells) pad.px.set(c, padIdx(x, y));
+}
+function padLine(a, b) {
+  const out = [];
+  let [x0, y0] = a; const [x1, y1] = b;
+  const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+  for (;;) {
+    out.push(...padDab(x0, y0));
+    if (x0 === x1 && y0 === y1) break;
+    const e2 = 2 * err;
+    if (e2 >= dy) { err += dy; x0 += sx; }
+    if (e2 <= dx) { err += dx; y0 += sy; }
+  }
+  return out;
+}
+function padRect(a, b, filled) {
+  const x0 = Math.min(a[0], b[0]), x1 = Math.max(a[0], b[0]), y0 = Math.min(a[1], b[1]), y1 = Math.max(a[1], b[1]);
+  if (filled) { const out = []; for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) out.push(...padDab(x, y)); return out; }
+  return [...padLine([x0, y0], [x1, y0]), ...padLine([x1, y0], [x1, y1]), ...padLine([x1, y1], [x0, y1]), ...padLine([x0, y1], [x0, y0])];
+}
+function padFill(x, y) {
+  const want = padGet(x, y).join();
+  const c = pad.tool === 'eraser' ? [0, 0, 0, 0] : pad.color;
+  if (want === c.join()) return;
+  const seen = new Uint8Array(pad.w * pad.h);
+  const stack = [[x, y]];
+  while (stack.length) {
+    const [cx, cy] = stack.pop();
+    if (cx < 0 || cy < 0 || cx >= pad.w || cy >= pad.h || seen[cy * pad.w + cx]) continue;
+    seen[cy * pad.w + cx] = 1;
+    if (padGet(cx, cy).join() !== want) continue;
+    pad.px.set(c, padIdx(cx, cy));
+    stack.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
+  }
+}
+function padSnapshot() { pad.undo.push({ w: pad.w, h: pad.h, px: new Uint8ClampedArray(pad.px) }); if (pad.undo.length > 80) pad.undo.shift(); pad.redo = []; pad.dirty = true; }
+function padHistory(from, to) {
+  const s = from.pop();
+  if (!s) return;
+  to.push({ w: pad.w, h: pad.h, px: new Uint8ClampedArray(pad.px) });
+  pad.w = s.w; pad.h = s.h; pad.px = s.px;
+  $('#padW').value = pad.w; $('#padH').value = pad.h;
+  pad.dirty = true;
+  padDraw(); padUsedColours();
+}
+function padSetColor(rgba) {
+  pad.color = rgba;
+  $('#padColor').value = `#${rgba.slice(0, 3).map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+  for (const b of document.querySelectorAll('.swatches button')) b.classList.toggle('on', b.dataset.c === $('#padColor').value);
+}
+function padSetTool(t) {
+  pad.tool = t;
+  for (const b of document.querySelectorAll('#padTools button')) b.classList.toggle('on', b.dataset.pt === t);
+}
+function padUsedColours() {
+  const count = new Map();
+  for (let i = 0; i < pad.px.length; i += 4) {
+    if (pad.px[i + 3] < 128) continue;
+    const k = `#${[pad.px[i], pad.px[i + 1], pad.px[i + 2]].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+    count.set(k, (count.get(k) ?? 0) + 1);
+  }
+  swatches($('#padUsed'), [...count.entries()].sort((a, b) => b[1] - a[1]).slice(0, 40).map(([k]) => k));
+}
+function swatches(box, cols) {
+  box.innerHTML = '';
+  for (const c of cols) {
+    const b = document.createElement('button');
+    b.style.background = c; b.dataset.c = c; b.title = c;
+    b.addEventListener('click', () => { padSetColor(hexRgba(c)); if (['eraser', 'picker'].includes(pad.tool)) padSetTool('pencil'); });
+    box.appendChild(b);
+  }
+}
+const hexRgba = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16), 255];
+
+function padAt(e) {
+  const r = padCanvas.getBoundingClientRect();
+  return [clamp(Math.floor((e.clientX - r.left) / pad.zoom), 0, pad.w - 1), clamp(Math.floor((e.clientY - r.top) / pad.zoom), 0, pad.h - 1)];
+}
+padCanvas.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  padCanvas.setPointerCapture(e.pointerId);
+  const at = padAt(e);
+  if (pad.tool === 'picker' || e.altKey) {
+    const c = padGet(...at);
+    if (c[3] < 128) { padSetTool('eraser'); status('That pixel is see-through: switched to the Eraser.'); } else { padSetColor(c); if (pad.tool === 'picker') padSetTool('pencil'); }
+    return;
+  }
+  padSnapshot();
+  if (pad.tool === 'fill') { padFill(...at); padDraw(); padUsedColours(); return; }
+  pad.drag = { start: at, last: at };
+  if (pad.tool === 'pencil' || pad.tool === 'eraser') { padPaint(padDab(...at), pad.tool === 'eraser'); padDraw(); }
+  else padDraw([at]);
+});
+padCanvas.addEventListener('pointermove', (e) => {
+  const at = padAt(e);
+  $('#posLabel').textContent = `pixel ${at[0]}, ${at[1]} of ${pad.w}×${pad.h}`;
+  const d = pad.drag;
+  if (!d) return;
+  if (pad.tool === 'pencil' || pad.tool === 'eraser') { padPaint(padLine(d.last, at), pad.tool === 'eraser'); d.last = at; padDraw(); }
+  else if (pad.tool === 'line') padDraw(padLine(d.start, at));
+  else if (pad.tool === 'rect') padDraw(padRect(d.start, at, e.shiftKey));
+});
+padCanvas.addEventListener('pointerup', (e) => {
+  const d = pad.drag;
+  pad.drag = null;
+  if (!d) return;
+  const at = padAt(e);
+  if (pad.tool === 'line') padPaint(padLine(d.start, at));
+  else if (pad.tool === 'rect') padPaint(padRect(d.start, at, e.shiftKey));
+  padDraw();
+  padUsedColours();
+});
+
+function padTransform(fn) {
+  padSnapshot();
+  const { w, h, px } = pad;
+  const out = fn(w, h, px);
+  pad.w = out.w; pad.h = out.h; pad.px = out.px;
+  $('#padW').value = pad.w; $('#padH').value = pad.h;
+  padDraw();
+}
+const remap = (w, h, nw, nh, from) => {
+  const px = new Uint8ClampedArray(nw * nh * 4);
+  for (let y = 0; y < nh; y++) for (let x = 0; x < nw; x++) { const s = from(x, y); if (s) px.set(pad.px.subarray((s[1] * w + s[0]) * 4, (s[1] * w + s[0]) * 4 + 4), (y * nw + x) * 4); }
+  return { w: nw, h: nh, px };
+};
+$('#padFlipH').addEventListener('click', () => padTransform((w, h) => remap(w, h, w, h, (x, y) => [w - 1 - x, y])));
+$('#padFlipV').addEventListener('click', () => padTransform((w, h) => remap(w, h, w, h, (x, y) => [x, h - 1 - y])));
+$('#padRot').addEventListener('click', () => padTransform((w, h) => remap(w, h, h, w, (x, y) => [y, h - 1 - x])));
+$('#padSeams').addEventListener('click', () => {
+  // Half way round and back again: undo-free, it changes nothing for good.
+  const hx = Math.floor(pad.w / 2), hy = Math.floor(pad.h / 2);
+  const back = pad.seams;
+  const r = remap(pad.w, pad.h, pad.w, pad.h, (x, y) => (back ? [(x + hx) % pad.w, (y + hy) % pad.h] : [(x - hx + pad.w) % pad.w, (y - hy + pad.h) % pad.h]));
+  pad.px = r.px;
+  pad.seams = !back;
+  $('#padSeams').classList.toggle('on', pad.seams);
+  status(pad.seams ? 'The tile\'s edges now meet in the middle (blue lines): fix the seams, then press Seams again before saving.' : 'Back as it was.');
+  padDraw();
+});
+function padResize() {
+  const w = clamp(Math.round(Number($('#padW').value)) || pad.w, 8, 2048), h = clamp(Math.round(Number($('#padH').value)) || pad.h, 8, 2048);
+  if (w === pad.w && h === pad.h) return;
+  // Grows or shrinks from the top-left for width; keeps the bottom edge (where it meets the ground) for height.
+  padTransform((ow, oh) => remap(ow, oh, w, h, (x, y) => { const sy = y - (h - oh); return x < ow && sy >= 0 && sy < oh ? [x, sy] : null; }));
+}
+$('#padW').addEventListener('change', padResize);
+$('#padH').addEventListener('change', padResize);
+$('#padUndo').addEventListener('click', () => padHistory(pad.undo, pad.redo));
+$('#padRedo').addEventListener('click', () => padHistory(pad.redo, pad.undo));
+$('#padZoomIn').addEventListener('click', () => { pad.zoom = clamp(pad.zoom + (pad.zoom >= 4 ? 2 : 1), 1, 32); padDraw(); });
+$('#padZoomOut').addEventListener('click', () => { pad.zoom = clamp(pad.zoom - (pad.zoom > 4 ? 2 : 1), 1, 32); padDraw(); });
+$('#padGrid').addEventListener('change', () => { pad.grid = $('#padGrid').checked; padDraw(); });
+$('#padSize').addEventListener('change', () => { pad.size = Number($('#padSize').value); });
+$('#padColor').addEventListener('input', () => { padSetColor(hexRgba($('#padColor').value)); if (['eraser', 'picker'].includes(pad.tool)) padSetTool('pencil'); });
+for (const b of document.querySelectorAll('#padTools button')) b.addEventListener('click', () => padSetTool(b.dataset.pt));
+padCanvas.addEventListener('wheel', (e) => { if (!e.ctrlKey && !e.altKey) return; e.preventDefault(); pad.zoom = clamp(pad.zoom + (e.deltaY < 0 ? 1 : -1), 1, 32); padDraw(); }, { passive: false });
+swatches($('#padPalette'), GAME_PALETTE.map((h) => `#${h}`));
+padSetTool('pencil');
+padSetColor(pad.color);
+
+function padKey(e) {
+  const mod = e.ctrlKey || e.metaKey;
+  const k = e.key.toLowerCase();
+  if (mod && k === 'z') { e.preventDefault(); padHistory(e.shiftKey ? pad.redo : pad.undo, e.shiftKey ? pad.undo : pad.redo); return true; }
+  if (mod && k === 'y') { e.preventDefault(); padHistory(pad.redo, pad.undo); return true; }
+  if (mod) return false;
+  const tools = { p: 'pencil', b: 'pencil', e: 'eraser', f: 'fill', i: 'picker', l: 'line', r: 'rect' };
+  if (tools[k]) { padSetTool(tools[k]); return true; }
+  if (k === '+' || k === '=') { $('#padZoomIn').click(); return true; }
+  if (k === '-') { $('#padZoomOut').click(); return true; }
+  return false;
+}
+
+/** A PNG the user picks, as an image. */
+function pickPng() {
+  return new Promise((resolve) => {
+    const inp = $('#pngInput');
+    inp.value = '';
+    inp.onchange = () => {
+      const f = inp.files[0];
+      if (!f) return resolve(null);
+      const img = new Image();
+      img.onload = () => resolve({ img, name: f.name.replace(/\.[^.]+$/, '') });
+      img.onerror = () => { status(`${f.name} isn't a picture the browser can open.`, 'err'); resolve(null); };
+      img.src = URL.createObjectURL(f);
+    };
+    inp.click();
+  });
+}
+const slug = (s) => s.toLowerCase().trim().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'untitled';
+
+// ---------------------------------------------------------------------------------------------
+// Tabs: the map, its tiles, and the buildings that stand on it.
+
+app.mode = 'map';
+const tstudio = { key: null, stash: null };
+const padStash = () => ({ w: pad.w, h: pad.h, px: pad.px, undo: pad.undo, redo: pad.redo, dirty: pad.dirty, seams: pad.seams });
+function padRestore(s) { Object.assign(pad, s); $('#padW').value = pad.w; $('#padH').value = pad.h; $('#padSeams').classList.toggle('on', pad.seams); padFitZoom(); padDraw(); padUsedColours(); }
+
+function setMode(m) {
+  if (m === app.mode) return true;
+  if (m !== 'map' && (!app.doc || app.doc.format !== 'baked')) { status(app.doc ? 'Tiles and buildings are edited with a game map open: pick one from the map list.' : 'Open the game first (Open folder…, or Load the game maps from this server).', 'err'); return false; }
+  if (m === 'buildings' && !lib.data) { status('The building library (public/data/buildings.json) isn\'t in the folder you opened: open the repo folder or its public folder.', 'err'); return false; }
+  if (app.mode === 'tiles') tstudio.stash = padStash();
+  if (app.mode === 'buildings' && !$('#bPicture').hidden) bedClosePicture();
+  if (app.placing) cancelPlacing();
+  endAddMarker();
+  app.mode = m;
+  document.body.classList.toggle('in-studio', m !== 'map');
+  for (const c of ['map', 'tiles', 'buildings']) document.body.classList.toggle(`mode-${c}`, m === c);
+  for (const b of document.querySelectorAll('#modes button')) b.classList.toggle('on', b.dataset.mode === m);
+  if (m === 'tiles') {
+    $('#tsPadHost').appendChild($('#pad'));
+    pad.onChange = tsPreview;
+    if (tstudio.stash) padRestore(tstudio.stash);
+    else { padBlank(TILE, TILE); $('#tsName').value = 'my-tile'; $('#tsFolder').value = 'my-tiles'; }
+    renderTileStudio();
+  } else if (m === 'buildings') {
+    pad.onChange = null;
+    if (!bed.def) openBuildingEditor(libDef($('#bldList').value) ?? lib.data.buildings[0], false);
+    else renderBuildingStudio();
+  } else {
+    pad.onChange = null;
+    resizeCanvas();
+    renderBuildings();
+    buildPalette();
+    requestDraw();
+  }
+  return true;
+}
+for (const b of document.querySelectorAll('#modes button')) b.addEventListener('click', () => setMode(b.dataset.mode));
+
+// --- Tiles tab -------------------------------------------------------------------------------------
+// Draw a tile, or change one, and save it as a picture of the game's: public/assets/custom/tiles/
+// <folder>/<name>.png, where the game finds it by the path the maps use. The tiles the art imports
+// (art/) are left alone, since npm run import-art copies them afresh; a change to one is saved as a
+// new tile of your own.
+
+const isMine = (key) => typeof key === 'string' && key.startsWith('custom/');
+function studioTiles() { return [...app.doc.tiles.values()].filter((t) => !t.hidden && /^(art|custom)\//.test(t.key) && !/^art\/buildings\/sheets\//.test(t.key)); }
+
+function renderTileStudio() {
+  const all = studioTiles();
+  const groups = [...new Set(all.map((t) => t.group))].sort();
+  const sel = $('#tsGroup');
+  const prev = sel.value || '@used';
+  sel.innerHTML = '';
+  const used = new Set(app.doc.state.layers.flatMap((l) => l.cells).filter((k) => k != null));
+  const opt = (v, t) => sel.appendChild(Object.assign(document.createElement('option'), { value: v, textContent: t }));
+  opt('@used', `Used in this map (${all.filter((t) => used.has(t.key)).length})`);
+  opt('@mine', `Made here (${all.filter((t) => isMine(t.key)).length})`);
+  opt('@all', `All tiles (${all.length})`);
+  for (const g of groups) opt(g, g);
+  sel.value = [...sel.options].some((o) => o.value === prev) ? prev : '@used';
+  const dl = $('#tsFolders');
+  dl.innerHTML = '';
+  for (const g of new Set(['my-tiles', ...all.filter((t) => isMine(t.key)).map((t) => t.group), ...groups])) dl.appendChild(Object.assign(document.createElement('option'), { value: g }));
+  renderTsList();
+  tsShowPath();
+  tsPreview();
+}
+
+function renderTsList() {
+  const box = $('#tsList');
+  const g = $('#tsGroup').value;
+  const q = $('#tsSearch').value.trim().toLowerCase();
+  const used = new Set(app.doc.state.layers.flatMap((l) => l.cells).filter((k) => k != null));
+  let list = studioTiles().filter((t) => (g === '@all' ? true : g === '@used' ? used.has(t.key) : g === '@mine' ? isMine(t.key) : t.group === g));
+  if (q) list = list.filter((t) => t.name.toLowerCase().includes(q) || t.group.toLowerCase().includes(q));
+  list.sort((a, b) => a.group.localeCompare(b.group) || a.name.localeCompare(b.name, undefined, { numeric: true }));
+  box.innerHTML = list.length ? '' : '<div class="hint" style="grid-column:1/-1">No tiles here yet.</div>';
+  for (const t of list) {
+    const b = document.createElement('button');
+    b.className = `pt${isMine(t.key) ? ' mine' : ''}${t.key === tstudio.key ? ' sel' : ''}`;
+    b.title = `${t.name}\n${t.group}${isMine(t.key) ? '\n(made here)' : ''}`;
+    const e = imageAt(t.path);
+    const show = () => { b.style.backgroundImage = `url("${e.url}")`; };
+    if (e.ready) show(); else e.img.addEventListener('load', show, { once: true });
+    b.addEventListener('click', () => tsOpen(t));
+    box.appendChild(b);
+  }
+}
+$('#tsGroup').addEventListener('change', renderTsList);
+$('#tsSearch').addEventListener('input', renderTsList);
+
+const loaded = (e) => (e.ready ? Promise.resolve() : new Promise((res) => { e.img.addEventListener('load', res, { once: true }); e.img.addEventListener('error', res, { once: true }); }));
+
+async function tsOpen(t) {
+  if (pad.dirty && !confirm('The tile you are drawing isn\'t saved. Open another anyway?')) return;
+  const e = imageAt(t.path);
+  await loaded(e);
+  if (!e.ready) { status(`Could not load ${t.key}.`, 'err'); return; }
+  padLoad(e.img);
+  tstudio.key = t.key;
+  $('#tsName').value = isMine(t.key) ? t.name : `${t.name}-mine`;
+  $('#tsFolder').value = t.group;
+  for (const b of document.querySelectorAll('#tsList .pt')) b.classList.remove('sel');
+  renderTsList();
+  tsShowPath();
+  status(isMine(t.key) ? `Editing your tile ${t.name}. Save replaces it, and every map using it changes too.` : `Editing a copy of the game's tile ${t.name}: Save makes it a new tile of your own.`);
+}
+
+function tsTarget() { return `custom/tiles/${slug($('#tsFolder').value || 'my-tiles')}/${slug($('#tsName').value || 'my-tile')}.png`; }
+function tsShowPath() {
+  const rel = tsTarget();
+  const exists = app.doc?.tiles.has(rel);
+  $('#tsPath').textContent = `Saves as public/assets/${rel}${rel === tstudio.key ? ', replacing it: maps that use it change too.' : exists ? ', replacing the tile of that name.' : ', a new tile.'}`;
+}
+$('#tsName').addEventListener('input', tsShowPath);
+$('#tsFolder').addEventListener('input', tsShowPath);
+
+function tsPreview() {
+  if (app.mode !== 'tiles') return;
+  const c = $('#tsPreview');
+  const g = c.getContext('2d');
+  g.clearRect(0, 0, c.width, c.height);
+  g.imageSmoothingEnabled = false;
+  const img = padCanvasOut();
+  const n = $('#tsTiled').checked ? 3 : 1;
+  const s = Math.min(c.width / (pad.w * n), c.height / (pad.h * n));
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) g.drawImage(img, x * pad.w * s, y * pad.h * s, pad.w * s, pad.h * s);
+  const odd = pad.w % TILE || pad.h % TILE;
+  $('#tsInfo').textContent = `${pad.w}×${pad.h} pixels${pad.w === TILE && pad.h === TILE ? ': one map tile.' : odd ? '. Map tiles are 64 pixels across; this size won\'t line up with the grid.' : `: ${pad.w / TILE}×${pad.h / TILE} tiles, drawn standing on its bottom-left tile.`}`;
+}
+$('#tsTiled').addEventListener('change', tsPreview);
+
+$('#tsNew').addEventListener('click', () => {
+  if (pad.dirty && !confirm('The tile you are drawing isn\'t saved. Start a new one anyway?')) return;
+  const [w, h] = $('#tsSize').value.split('x').map(Number);
+  padBlank(w * TILE, h * TILE);
+  tstudio.key = null;
+  let n = 1;
+  while (app.doc.tiles.has(`custom/tiles/${slug($('#tsFolder').value || 'my-tiles')}/new-tile-${n}.png`)) n++;
+  $('#tsName').value = `new-tile-${n}`;
+  if (!$('#tsFolder').value) $('#tsFolder').value = 'my-tiles';
+  renderTsList();
+  tsShowPath();
+  status('A blank tile: draw it, then Save tile. Fill (F) is quickest for a ground colour.');
+});
+$('#tsImport').addEventListener('click', async () => {
+  if (pad.dirty && !confirm('The tile you are drawing isn\'t saved. Open a PNG anyway?')) return;
+  const got = await pickPng();
+  if (!got) return;
+  padLoad(got.img);
+  tstudio.key = null;
+  $('#tsName').value = slug(got.name);
+  if (!$('#tsFolder').value) $('#tsFolder').value = 'my-tiles';
+  tsShowPath();
+  status(`Opened ${got.name} (${pad.w}×${pad.h}).${pad.w % TILE || pad.h % TILE ? ' Map tiles are 64 pixels across: set W and H to fit.' : ''} Save tile to add it to the palette.`);
+});
+
+async function tsSave() {
+  if (pad.seams) $('#padSeams').click();
+  const rel = tsTarget();
+  if (app.doc.tiles.has(rel) && rel !== tstudio.key && !confirm(`There is already a tile ${rel}. Replace it?`)) return;
+  const blob = await padBlob();
+  const path = joinPath(lib.assets, rel);
+  const saved = await writeFile(path, blob, !source.has(path));
+  setImage(path, blob);
+  app.doc.tiles.set(rel, { key: rel, path, name: stem(rel), group: baseName(dirOf(rel)), w: 0, h: 0 });
+  tstudio.key = rel;
+  pad.dirty = false;
+  renderTileStudio();
+  status(saved ? `Saved ${rel}. It's in the map palette, in ${baseName(dirOf(rel))}; Paint with it to use it now.` : `Downloaded ${baseName(rel)}: put it in public/assets/${dirOf(rel)}/ in the game, then reopen the editor.`, 'ok');
+}
+$('#tsSave').addEventListener('click', tsSave);
+$('#tsPaint').addEventListener('click', () => {
+  if (!tstudio.key || !isMine(tstudio.key) || pad.dirty) { status('Save the tile first, then paint with it.', 'err'); return; }
+  const key = tstudio.key;
+  setMode('map');
+  if (app.activeLayer?.kind !== 'tile') setActiveLayer(app.doc.layerDefs.find((d) => d.kind === 'tile'));
+  setBrushKey(key);
+  setTool('brush');
+  status(`Painting with ${stem(key)}: click or drag on the map.`, 'ok');
+});
+
+// --- Buildings tab ---------------------------------------------------------------------------------
+
+function renderBuildingStudio() {
+  const sel = $('#bPick');
+  sel.innerHTML = '';
+  if (!bed.origId) sel.appendChild(Object.assign(document.createElement('option'), { value: '', textContent: `${bed.def?.name ?? 'New building'} (not saved yet)` }));
+  for (const b of lib.data.buildings) sel.appendChild(Object.assign(document.createElement('option'), { value: b.id, textContent: `${b.name}${b.draft ? ' · unfinished' : ''}` }));
+  sel.value = bed.origId ?? '';
+  renderBed();
+}
+$('#bPick').addEventListener('change', () => {
+  const d = libDef($('#bPick').value);
+  if (!d) return;
+  if (bed.dirty && !confirm('This building has unsaved changes. Open another and lose them?')) { $('#bPick').value = bed.origId ?? ''; return; }
+  openBuildingEditor(d, false);
+});
+$('#bNewB').addEventListener('click', () => {
+  if (bed.dirty && !confirm('This building has unsaved changes. Start a new one and lose them?')) return;
+  openBuildingEditor(blankBuilding(), true);
+});
+
+/** Draws or changes one of the building's pictures (index), or a new one (-1, blank or from img). */
+async function bedEditPicture(index, img) {
+  const d = bed.def;
+  bed.pic = { index };
+  $('#bPadHost').appendChild($('#pad'));
+  $('#bLayout').hidden = true;
+  $('#bPicture').hidden = false;
+  if (index >= 0) {
+    const p = d.parts[index];
+    const e = imageAt(joinPath(lib.assets, p.sheet));
+    await loaded(e);
+    if (!e.ready) { bedClosePicture(); status(`Could not load ${p.sheet}.`, 'err'); return; }
+    padLoad(e.img, p.crop);
+    const own = isMine(p.sheet) && p.crop[0] === 0 && p.crop[1] === 0 && p.crop[2] === e.img.naturalWidth && p.crop[3] === e.img.naturalHeight;
+    bed.pic.own = own;
+    $('#bPicInfo').textContent = own ? `Editing ${baseName(p.sheet)}, this building's own picture: maps showing it change too.` : `Editing a copy of ${baseName(p.sheet)} (${p.crop[2]}×${p.crop[3]}): it becomes a picture of this building's own, and the shared sheet stays as it is.`;
+  } else {
+    if (img) padLoad(img);
+    else { const { w, h } = fpSize(d); padBlank(w * TILE, (h + 1) * TILE); }
+    $('#bPicInfo').textContent = img ? `Imported ${pad.w}×${pad.h}. Use this picture adds it at the building's top-left; drag it into place with Move picture.` : `A blank picture the width of the footprint and a tile taller, for the roof. The orange lines are the map's tiles. Change W and H for another size.`;
+  }
+  padSetTool('pencil');
+}
+function bedClosePicture() {
+  bed.pic = null;
+  $('#bPicture').hidden = true;
+  $('#bLayout').hidden = false;
+  drawBed();
+}
+async function bedSavePicture() {
+  if (pad.seams) $('#padSeams').click();
+  const d = bed.def;
+  const { index, own } = bed.pic;
+  const old = index >= 0 ? d.parts[index] : null;
+  let rel = own ? old.sheet : null;
+  if (!rel) {
+    const taken = new Set(lib.data.buildings.flatMap((b) => b.parts.map((p) => p.sheet)).concat(d.parts.map((p) => p.sheet)));
+    for (let n = 1; !rel || taken.has(rel) || source.has(joinPath(lib.assets, rel)); n++) rel = `custom/buildings/${slug(d.id.replace(/^bld\./, ''))}${n > 1 ? `-${n}` : ''}.png`;
+  }
+  const blob = await padBlob();
+  const path = joinPath(lib.assets, rel);
+  const saved = await writeFile(path, blob, !source.has(path));
+  setImage(path, blob);
+  ensureSheet(rel);
+  const part = { sheet: rel, crop: [0, 0, pad.w, pad.h], at: old ? old.at : [0, 0] };
+  if (old) d.parts[index] = part; else d.parts.push(part);
+  pad.dirty = false;
+  bedClosePicture();
+  if (!old) setBedBrush('part');
+  bedChanged();
+  status(saved ? `Saved the picture ${rel}.${old ? '' : ' Drag it into place (Move picture).'} Save to library to keep the building.` : `Downloaded ${baseName(rel)}: put it in public/assets/custom/buildings/, then Save to library.`, 'ok');
+}
+$('#bPicSave').addEventListener('click', bedSavePicture);
+$('#bPicCancel').addEventListener('click', () => { if (pad.dirty && !confirm('Lose the changes to this picture?')) return; pad.dirty = false; bedClosePicture(); });
+$('#bDrawPic').addEventListener('click', () => bedEditPicture(-1));
+$('#bImportPic').addEventListener('click', async () => { const got = await pickPng(); if (got) bedEditPicture(-1, got.img); });
+
+// ---------------------------------------------------------------------------------------------
 // Served over http (for example `npm run dev`, then /tools/map-editor.html): load the game maps
 // straight from the server. Saving downloads the file.
 
@@ -3010,13 +3933,19 @@ async function tryServer() {
       hint.innerHTML = '';
       const b = document.createElement('button');
       b.textContent = `Load the ${manifest.maps.length} game maps from this server`;
-      b.addEventListener('click', () => useSource(new HttpSource(base, manifest.maps.map((m) => `maps/${m.id}.json`).concat('manifest.json', '../data/buildings.json'))));
-      hint.append('Or: ', b, ' (saving downloads the file).');
+      b.addEventListener('click', async () => {
+        const src = new HttpSource(base, manifest.maps.map((m) => `maps/${m.id}.json`).concat('manifest.json', ['buildings', 'story', 'npcs', 'tracks'].map((f) => `../data/${f}.json`)));
+        await src.scan();
+        await useSource(src);
+        status(src.canWrite ? 'Loaded the game. Save writes straight into it (maps, tiles and buildings).' : 'Loaded the game maps. This server is read only, so saving downloads the file.', 'ok');
+      });
+      hint.append('Or: ', b, ' (on npm run dev, Save writes straight into the game; elsewhere it downloads the file).');
       return;
     } catch { /* try the next */ }
   }
 }
 
+renderMarkerButtons();
 setTool('brush');
 updateButtons();
 tryServer();
