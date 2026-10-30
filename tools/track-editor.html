@@ -328,7 +328,7 @@ body.final .final-hide { display: none !important; }
   </div>
 
   <div class="pane" id="pane-scenery">
-    <div class="hint">Pick an item: it follows the pointer, see-through, where a click would place it; <kbd>Q</kbd> <kbd>E</kbd> turn it first. Click an item to select it, drag to move it (arrow keys nudge it), <kbd>Q</kbd> <kbd>E</kbd> turn it 15°, with <kbd>Shift</kbd> 5°, with <kbd>Alt</kbd> 1° (or type any angle in Turn; left empty, a marshal, flag man, pit crew, fan or TV crew faces the track on its own), <kbd>Del</kbd> removes it. <kbd>Shift</kbd>-click adds items to the selection and <kbd>Shift</kbd>-drag on open ground boxes them (<kbd>Ctrl+A</kbd> all); a selection drags, nudges, turns, copies and deletes together. <kbd>Ctrl+C</kbd> copies, <kbd>Ctrl+X</kbd> cuts, <kbd>Ctrl+V</kbd> pastes at the pointer, <kbd>Ctrl+D</kbd> duplicates. <b>Snap object</b> joins it onto a nearby item, end to end or side by side; <kbd>Alt</kbd> drops the snapping. Snapped, <kbd>Q</kbd> <kbd>E</kbd> swing it round the join, so a fence can turn off another and stay joined. The white arrow shows which way it faces.</div>
+    <div class="hint">Pick an item: it follows the pointer, see-through, where a click would place it; <kbd>Q</kbd> <kbd>E</kbd> turn it first. Click an item to select it, drag to move it (arrow keys nudge it), <kbd>Q</kbd> <kbd>E</kbd> turn it 15°, with <kbd>Shift</kbd> 5°, with <kbd>Ctrl</kbd> 1° (or type any angle in Turn; left empty, a marshal, flag man, pit crew, fan or TV crew faces the track on its own), <kbd>Del</kbd> removes it. <kbd>Shift</kbd>-click adds items to the selection and <kbd>Shift</kbd>-drag on open ground boxes them (<kbd>Ctrl+A</kbd> all); a selection drags, nudges, turns, copies and deletes together. <kbd>Ctrl+C</kbd> copies, <kbd>Ctrl+X</kbd> cuts, <kbd>Ctrl+V</kbd> pastes at the pointer, <kbd>Ctrl+D</kbd> duplicates. <b>Snap object</b> joins it onto a nearby item, end to end or side by side; <kbd>Alt</kbd> drops the snapping. Snapped, <kbd>Q</kbd> <kbd>E</kbd> swing it round the join, so a fence can turn off another and stay joined. The white arrow shows which way it faces.</div>
     <div class="pal" id="sceneryPal"></div>
     <div class="box" id="sceneryDetail"></div>
   </div>
@@ -7221,7 +7221,8 @@ window.addEventListener('keydown', (e) => {
   if (mod && app.mode === 'scenery' && e.key.toLowerCase() === 'x') { e.preventDefault(); if (copyItems()) deleteItem(); return; }
   if (mod && app.mode === 'scenery' && e.key.toLowerCase() === 'v') { e.preventDefault(); pasteItems(); return; }
   if (mod && app.mode === 'scenery' && e.key.toLowerCase() === 'a') { e.preventDefault(); selectAllItems(); return; }
-  if (mod) return;
+  // Ctrl+Q and Ctrl+E are the fine turn (below); Alt+E would open the browser's menu on Windows (Boss, 30 Oct 2026).
+  if (mod && !(app.mode === 'scenery' && /^[qe]$/i.test(e.key))) return;
   const modes = { 1: 'layout', 2: 'surface', 3: 'ground', 4: 'scenery', 5: 'height' };
   if (modes[e.key]) { setMode(modes[e.key]); return; }
   if (e.key.toLowerCase() === 'p') { $('#btnPlay').click(); return; }
@@ -7247,9 +7248,9 @@ window.addEventListener('keydown', (e) => {
     if (del && app.selRoute > 0) { e.preventDefault(); deleteRoutePoint(app.selRoute); }
     else if (del) { e.preventDefault(); deleteItem(); }
     else if (e.key.toLowerCase() === 'q' || e.key.toLowerCase() === 'e') {
-      // 15° a press; Shift for 5°, Alt for 1°. With nothing selected, it turns the item about to be placed.
+      // 15° a press; Shift for 5°, Ctrl for 1° (Alt still works where the browser leaves it alone). With nothing selected, it turns the item about to be placed.
       e.preventDefault();
-      const step = (e.altKey ? 1 : e.shiftKey ? 5 : 15) * (e.key.toLowerCase() === 'q' ? -1 : 1);
+      const step = (mod || e.altKey ? 1 : e.shiftKey ? 5 : 15) * (e.key.toLowerCase() === 'q' ? -1 : 1);
       // Snapped while placed or dragged, it swings round the join instead (Snap object).
       if (drag?.kind === 'item' && drag.started) {
         // Turned while dragged: snapped, it swings round the join; free, the turn is kept with the
