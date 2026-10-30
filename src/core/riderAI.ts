@@ -4,6 +4,7 @@ import { riderProfile, type RiderProfile } from './riderProfile';
 import { isSprint, lapGeom, lapMetres, pointAt, sectionBounds, sectionTurns, SPRINT_QUEUE, START_PAD, startGeom, type StartGeom } from './trackGeom';
 import { DEFAULT_HEIGHTS, HOP_JUMPS, landingOf, pickWay, type Way } from './jumps';
 import { HILLS, sectionShape, TrackSurface, type Flight } from './trackSurface';
+import { showmanOf, trickFor, type Trick } from './tricks';
 
 export { DEFAULT_HEIGHTS };
 
@@ -52,6 +53,8 @@ interface Seg {
 const CORNERS = new Set(['first_corner', 'flat_corner', 'berm', 'rutted_corner', 'hairpin', 'fast_sweeper']);
 /** Where a mistake on a jump ridden without a hop (rolled) happens, as a share of the section. */
 const LANDING = 0.72;
+/** The showman (tricks.ts) picks ways over the jumps as a jumper this good at least. */
+const SHOWMAN_JUMP = 0.85;
 /** Riders closer than this many metres, on near lines, ease apart. */
 const ROOM = 5;
 /** Seconds the whole field stands still at the gate, with the start board out, before it drops. */
@@ -154,6 +157,10 @@ export class RaceDirector {
   private readonly bounds: number[];
   /** Each rider's way through each jump on each lap, picked once (id|lap|section). */
   private readonly ways = new Map<string, Way | null>();
+  /** Each rider's tricks over the hops of their way through each jump on each lap (id|lap|section). */
+  private readonly tricks = new Map<string, (Trick | null)[]>();
+  /** The field's showman: the best jumper who isn't the player, who whips and scrubs the big hops (tricks.ts). */
+  readonly showman: string | null;
   private finishCache: { key: string; plan: Map<string, Finish> } | null = null;
   /** An enduro sprint: riders leave the start line one at a time, queue for it single file, and ride the return lane single file. */
   readonly sprint: boolean;
@@ -176,6 +183,7 @@ export class RaceDirector {
     this.bounds = sectionBounds(track);
     this.start = startGeom(track, g);
     this.sprint = isSprint(track);
+    this.showman = showmanOf(profiles.values());
     // Each rider's gate is their slot: gates 1 to 8 (0 to 7 here) are the front row, from the inside
     // of the first corner outwards, gates 9 to 16 the second row and 17 to 24 the third, each
     // straight behind the gate eight before it. A field of 8 or fewer is one row spread across the start.
@@ -325,6 +333,8 @@ export class RaceDirector {
   dropLap(trace: LapTrace): void {
     for (const list of this.segs.values()) while (list.length && list[list.length - 1].lap === trace.lap) list.pop();
     for (const e of trace.events) if (e.kind === 'retire' && this.out.get(e.rider) === e.t) this.out.delete(e.rider);
+    // Its ways and tricks are picked again, as its mistakes may fall differently.
+    for (const m of [this.ways, this.tricks]) for (const k of [...m.keys()]) if (k.split('|')[1] === String(trace.lap)) m.delete(k);
   }
 
   /** The player pulled off (the pit board's "It's over, bike blown"), at race time t. */
@@ -665,14 +675,48 @@ export class RaceDirector {
     const got = this.ways.get(key);
     if (got !== undefined) return got;
     const type = this.track.sections[seg.si].type;
-    const way = HOP_JUMPS.has(type) ? pickWay(type, p.jump, frac(p.seed * 31.7 + seg.lap * 0.618 + seg.si * 0.3819), !!seg.mistake) : null;
+    let way: Way | null = null;
+    if (HOP_JUMPS.has(type)) {
+      const r = frac(p.seed * 31.7 + seg.lap * 0.618 + seg.si * 0.3819);
+      // The showman goes big, so there are always hops to throw tricks off (only the view; the referee sets the time).
+      const jumping = p.id === this.showman ? Math.max(p.jump, SHOWMAN_JUMP) : p.jump;
+      way = pickWay(type, jumping, r, !!seg.mistake);
+      // A rider who would have thrown a trick off the last hop of their usual way overdoes it
+      // there instead of coming up short: the mistake is the trick gone wrong.
+      if (seg.mistake) {
+        const usual = pickWay(type, jumping, r);
+        const last = usual ? usual.hops.length - 1 : -1;
+        if (usual && last >= 0 && this.hopTrick(p, seg, usual, last)) way = usual;
+      }
+    }
     this.ways.set(key, way);
     return way;
+  }
+
+  /** The trick a rider would throw on hop i of a way through a section (tricks.ts), before any mistake. */
+  private hopTrick(p: RiderProfile, seg: Seg, way: Way, i: number): Trick | null {
+    const [a, b] = way.hops[i];
+    const metres = (b - a) * (this.bounds[seg.si + 1] - this.bounds[seg.si]) * this.metres;
+    const next = this.turns.slice(seg.si + 1).find((t) => t !== 0) ?? this.turns.find((t) => t !== 0) ?? 0;
+    return trickFor(p, p.id === this.showman, seg.lap, seg.si, i, metres, next);
+  }
+
+  /** A rider's tricks over each hop of their way through a section; the last is overdone (bail) on a mistake. */
+  private tricksOn(p: RiderProfile, seg: Seg, way: Way): (Trick | null)[] {
+    const key = `${p.id}|${seg.lap}|${seg.si}`;
+    const got = this.tricks.get(key);
+    if (got) return got;
+    const out = way.short ? way.hops.map(() => null) : way.hops.map((_, i) => this.hopTrick(p, seg, way, i));
+    const last = out.length - 1;
+    if (seg.mistake && last >= 0 && out[last]) out[last] = { ...out[last]!, bail: true };
+    this.tricks.set(key, out);
+    return out;
   }
 
   /** A rider's flight plan through a section and the one after it, as lap fractions, or null with no hops. */
   private flight(p: RiderProfile, seg: Seg, list: Seg[], i: number): Flight | null {
     const hops: [number, number][] = [];
+    const tricks: (Trick | null)[] = [];
     for (const sg of [seg, list[i + 1]]) {
       if (!sg || sg.si < 0 || sg.lap !== seg.lap) continue;
       const way = this.way(p, sg);
@@ -680,9 +724,12 @@ export class RaceDirector {
       const f0 = this.bounds[sg.si];
       const span = this.bounds[sg.si + 1] - f0;
       for (const [a, b] of way.hops) hops.push([f0 + a * span, f0 + b * span]);
+      tricks.push(...this.tricksOn(p, sg, way));
     }
     if (!hops.length) return null;
-    return { hops, launch: 1 - 0.45 * p.scrub };
+    const flight: Flight = { hops, launch: 1 - 0.45 * p.scrub };
+    if (tricks.some(Boolean)) flight.tricks = tricks;
+    return flight;
   }
 
   /** How high the rider is off the ground (metres) and how high the ground is (hills), at lap fraction f. */

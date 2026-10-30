@@ -6,10 +6,11 @@ import type { SceneryItem, TrackDef } from '../core/race';
 import { START_HOLD, type RiderPose, type RiderState } from '../core/riderAI';
 import { CHEER_ITEM, CHEER_RANGE, CHEER_WALK, cheerAction, cheerColour, cheerRoute, cheerTiming, cheerVariant, REACT_SECONDS, VARIANT_SCALE, type CheerAction } from '../core/cheer';
 import { alongRoute, OFFICIAL_ITEM, OFFICIAL_SCALE, officialPlan, placedOfficial, routeLength, walkProgress, BOARD_MOVE, BOARD_SIDEWAYS, WALK_FROM, WALK_TO, type OfficialSpot } from '../core/startOfficial';
-import { isSprint, nearestOnLap, pointAt, RETURN_LANE, START_PAD, startPointAt } from '../core/trackGeom';
+import { isSprint, lapMetres, nearestOnLap, pointAt, RETURN_LANE, START_PAD, startPointAt } from '../core/trackGeom';
 import { DEFAULT_TRACK_WIDTH, GRID_H, GRID_W, trackKind, type SceneryDef, type TrackPartsData } from '../core/trackParts';
 import { archSpan, SPANS_TRACK, sprintPlace, SPRINT_START_ITEM, SurfaceIndex, surfacePoints } from '../core/trackClearance';
-import { BIKE_LENGTH, CAM_AZ, LIP_AT, LOGS_AT, TrackSurface } from '../core/trackSurface';
+import { BIKE_LENGTH, CAM_AZ, LIP_AT, LOGS_AT, TrackSurface, type Flight } from '../core/trackSurface';
+import { APPROACH as TRICK_APPROACH, trickPose, type Trick } from '../core/tricks';
 import { COLORS, TEXT_RES } from '../ui/theme';
 import { isPaddock } from '../core/paddock';
 import { paddockParts, U as METRE } from './paddock';
@@ -46,6 +47,7 @@ const SURFACES: Record<string, number> = { hard_pack: 0xb07a45, loam: 0x8a5a33, 
 const CROWD = [0xc0607a, 0xe0c060, 0x60a0e0, 0xf0f0f0, 0x80c080, 0xe08040, 0x9070c0];
 
 let counter = 0;
+const TRICK_PIVOT = new THREE.Vector3();
 
 export interface ViewRider {
   pose: RiderPose;
@@ -148,6 +150,8 @@ function noise(i: number): number {
 
 export class RaceView {
   readonly surface: TrackSurface;
+  /** The lap in metres, for distances along it in the race view (tricks). */
+  private readonly lapMetres: number;
   readonly follow: boolean;
   private readonly key: string;
   private readonly renderer: THREE.WebGLRenderer;
@@ -238,6 +242,7 @@ export class RaceView {
     this.gapFrom = opts.gapFrom ?? 1;
     this.gaps = [...(opts.gaps ?? []), ...(this.gapFrom < 1 ? [[this.gapFrom, 1] as [number, number]] : [])];
     this.surface = new TrackSurface(track);
+    this.lapMetres = lapMetres(track);
     const kind = trackKind(parts, track);
     this.follow = true;
     // A view wider than scaleWidth shows more track at the same scale, rather than the same track bigger.
@@ -2187,16 +2192,26 @@ export class RaceView {
       if (p.state === 'wobble') yaw += 0.35 * Math.sin(clock * 16);
       b.root.position.set(mx, my, mz);
       b.root.rotation.set(0, -yaw, 0);
-      b.body.rotation.set(0, 0, 0);
+      b.body.rotation.set(0, 0, 0, 'XYZ');
       b.body.position.set(0, 0, 0);
       if (p.state === 'crashed') {
-        // Down on its side, sliding.
-        b.body.rotation.set(Math.PI / 2.2, 0, 0);
+        // Down on its side, sliding: after a whip or scrub gone wrong, on the side it was laid over to.
+        const bail = onStart ? null : this.bailAt(p.flight, f);
+        b.body.rotation.set((bail?.dir ?? 1) * (Math.PI / 2.2), bail ? -bail.dir * 0.5 : 0, 0);
         b.body.position.set(0, 0.12, 0);
         lean = 0;
       } else {
         b.body.rotation.z = pitch;
         b.body.rotation.x = lean;
+        const trick = onStart ? null : this.trickAt(p.flight, f);
+        if (trick) {
+          // Swung across the line of flight and laid over, about the bike's middle, not its wheels; a
+          // whip swings the rear out round the headstock.
+          b.body.rotation.order = 'YXZ';
+          b.body.rotation.set(lean + trick.roll, trick.yaw, pitch);
+          TRICK_PIVOT.set(trick.kind === 'whip' ? BIKE_LENGTH * 0.35 : 0, 0.45, 0);
+          b.body.position.copy(TRICK_PIVOT).sub(TRICK_PIVOT.clone().applyEuler(b.body.rotation));
+        }
       }
       b.root.visible = !(p.state === 'remount' && !blink);
       if (p.id === focus) target = new THREE.Vector3(mx, my, mz);
@@ -2236,6 +2251,34 @@ export class RaceView {
     this.drawMap(riders);
     this.frameMs.push(performance.now() - t0);
     if (this.frameMs.length > 600) this.frameMs.shift();
+  }
+
+  /**
+   * A whip or scrub in progress at lap fraction f of a flight, as the turn of the bike (tricks.ts),
+   * or null. A scrub starts leaning over on the face, APPROACH metres before the lip.
+   */
+  private trickAt(flight: Flight | null, f: number): { yaw: number; roll: number; kind: Trick['kind'] } | null {
+    if (!flight?.tricks) return null;
+    const pre = TRICK_APPROACH / this.lapMetres;
+    for (let i = 0; i < flight.hops.length; i++) {
+      const [f0, f1] = flight.hops[i];
+      const t = flight.tricks[i];
+      if (!t || f >= f1) continue;
+      if (f > f0) return { ...trickPose(t, (f - f0) / (f1 - f0)), kind: t.kind };
+      if (t.kind === 'scrub' && f > f0 - pre) return { ...trickPose(t, (f - f0) / pre), kind: t.kind };
+    }
+    return null;
+  }
+
+  /** The trick gone wrong a rider has just landed from at lap fraction f, if any: they go down on its side. */
+  private bailAt(flight: Flight | null, f: number): Trick | null {
+    if (!flight?.tricks) return null;
+    const near = 6 / this.lapMetres;
+    for (let i = 0; i < flight.hops.length; i++) {
+      const t = flight.tricks[i];
+      if (t?.bail && f >= flight.hops[i][1] - near && f <= flight.hops[i][1] + near) return t;
+    }
+    return null;
   }
 
   private softDot(): THREE.Texture {
