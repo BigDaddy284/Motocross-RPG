@@ -29,7 +29,7 @@ Dev URL params (handled in `src/scenes/BootScene.ts`): `?testtrack=<track id>` j
 
 **Content is data.** Nearly all game content (NPCs, dialogue, bikes, items, shops, tracks, riders, championships, skills, training, errands, world map, locks) lives in `public/data/*.json`. `src/core/content.ts` lists the files in `CONTENT_FILES`, validates each against a schema (`src/core/validate.ts` plus per-module `*_SCHEMA` / `check*` functions), then cross-checks them against each other and the baked maps (missing sprites, dialogue, NPCs on blocked tiles…). `BootScene` refuses to start the game and shows the errors if any check fails, and `tests/content.test.ts` runs the same checks, so a bad content edit fails the tests. When adding a content field, update the TypeScript type, the schema and any cross-check together.
 
-**Maps are baked, never hand-edited.** Art and maps come from Tiled sources in the shared art folder (outside this repo). `tools/import-art.mjs` copies images into `public/assets/art/` and bakes each `.tmj` into one JSON in `public/assets/maps/` (collision, buildings, doors, data objects resolved), listed in `public/assets/manifest.json`. The game never reads `.tmj`/`.tsj`. Don't edit `public/assets/` by hand; re-run the import and commit the output.
+**Maps are baked.** Art and maps come from Tiled sources in the shared art folder (outside this repo). `tools/import-art.mjs` copies images into `public/assets/art/` and bakes each `.tmj` into one JSON in `public/assets/maps/` (collision, buildings, doors, data objects resolved), listed in `public/assets/manifest.json`. The game never reads `.tmj`/`.tsj`. Prefer re-running the import over editing `public/assets/` by hand. Small fixes are sometimes made straight in a baked map (Home Town's lamp, the rented room's doormat wall) or with the map editor (`tools/map-editor.html`, which can save into the game under `npm run dev`); note them in the commit, because a fresh import from the Tiled sources would undo them.
 
 **Shared state.** `src/services.ts` is the global holding loaded content, maps, the save manager, settings and mod tracks; Boot fills it in. Scene flow: Boot → Menu / NewCareer → World, which launches Hud as an overlay and launches Race for race days and practice. `careerFlow.ts` handles starting or loading a career.
 
@@ -47,3 +47,8 @@ Dev URL params (handled in `src/scenes/BootScene.ts`): `?testtrack=<track id>` j
 - The README is updated alongside features (what the build offers, controls, project status). Update the relevant section when behaviour players see changes.
 - Testing aids to remove before final release are listed under "Before release" in the README (currently `testPayMultiplier` in `public/data/world.json`).
 - Version strings: `package.json` `version` and `BUILD_LABEL` in `src/services.ts`.
+
+## Branches (Boss, 30 Oct 2026)
+
+- `main` is the released game (Alpha v1.1). Nothing goes to `main` until Boss explicitly says "Merge to Main".
+- `test/v1.5` is the test branch for v1.5. When Boss says "push" or "merge", he means into `test/v1.5`: open PRs against `test/v1.5`, not `main`.
