@@ -266,6 +266,8 @@ export class RaceView {
   private board: { stand: THREE.Group; panel: THREE.Group; arms: THREE.Group[]; legs: THREE.Group[]; route: OfficialSpot[]; length: number } | null = null;
   /** False for practice, which has no start procedure: the start board stays down. */
   hasStart = true;
+  /** False where nobody races to the line first (qualifying, a No-Turn Takedown's seeding run): no finish fireworks. */
+  showFireworks = true;
   /** Frame times in ms (whole update, the 3D draw, and handing the picture to Phaser), for the performance check. */
   readonly frameMs: number[] = [];
   readonly renderMs: number[] = [];
@@ -2462,7 +2464,7 @@ export class RaceView {
       }
     }
     this.agePuffs(Math.min(1, dc * 1.4 + dt * 0.3));
-    if (this.laps && hasFireworks(this.track.kind)) this.updateFireworks(dc, riders);
+    if (this.laps && this.showFireworks && hasFireworks(this.track.kind)) this.updateFireworks(dc, riders);
     this.updateStart(clock);
     if (this.marshals.length) this.updateMarshals(Math.min(0.1, dt), clock, riders.map((r) => r.pose));
     if (this.flaggers.length || this.crews.length) this.updateFinishCrew(Math.min(0.1, dt), clock, riders);
