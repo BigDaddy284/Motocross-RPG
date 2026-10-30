@@ -8,7 +8,8 @@ Names marked *(placeholder)* are mine, to be replaced by Boss. Anything marked *
 
 ## What Boss has set
 
-- **Four NPCs in every area:** Paul Phoenix (Phoenix MX), Bill Rothon (Moto78), Jedrick Nicholls (Nicholls Used Motors) and Manny Festo. They offer better parts as the game goes on, and their shops may grow. Phoenix MX will sell clothing as well as fixing bikes.
+- **Five NPCs in every area:** Lee Stock (Lee's T's & Wheels) joined the four below (Boss, 30 Oct 2026).
+- **The original four:** Paul Phoenix (Phoenix MX), Bill Rothon (Moto78), Jedrick Nicholls (Nicholls Used Motors) and Manny Festo. They offer better parts as the game goes on, and their shops may grow. Phoenix MX will sell clothing as well as fixing bikes.
 - **Joseph Halden at every track venue.** This is already in on `test/v1.5` (he runs the race office at every track), so each new venue just places him.
 - **Dan Smyth** stays an Area 1 NPC (the Industrial Zone challenger).
 - **Every area from 2 to 8** gets parts making (batch jobs) and at least one new fitness activity.
@@ -66,8 +67,8 @@ Kept part: the employer gives one random part from each finished batch (Spec 15.
 | Drivetrain | Phoenix MX | Gearbox works (A6) |
 | Forks | Phoenix MX | Suspension shop (A4) |
 | Shock | Phoenix MX | Suspension shop (A4) |
-| Wheels and tyres | Tyres and Wheels | Wheel works (A2) |
-| Brakes | Tyres and Wheels | Brake works (A3) |
+| Wheels and tyres | Lee's T's & Wheels | Wheel works (A2) |
+| Brakes | Lee's T's & Wheels | Brake works (A3) |
 | Bodywork and controls | Moto78 | Fabrication shop (A1), Plastics moulding (A6) |
 
 The Race department in Area 8 takes contracts for any slot, at higher pay (Spec 15.2: Mechanical Engineer 70 plus an NPC chain).
@@ -102,7 +103,7 @@ Frames wear (1,000 km at full condition), and a big crash or random breakage can
 
 Proposed fix: **Moto78 sells a stock Grade 1 frame of your bike's brand** for every class you've unlocked, at the normal price (£400 for a 50cc). A sponsored rider gets a broken frame replaced free by their sponsor. Better frames still come only from sponsors, the Frame works (A5) and the Race department (A8). This needs adding to Area 1 now, as it can already happen in the current build.
 
-## The four travelling NPCs
+## The travelling NPCs
 
 They each have a shop or stand in every area, in a building that looks the same everywhere (the facility blueprint idea from Spec 18.0), so players recognise them at once.
 
@@ -113,11 +114,16 @@ They each have a shop or stand in every area, in a building that looks the same 
 | **Jedrick Nicholls**, Nicholls Used Motors | The motor for that area | Sells the next motor each area (Old Rusty Van in A2 to Motor 7 in A7). Area 8 could be trade-ins only, or a showroom of the Factory Hauler in other colours |
 | **Manny Festo**, the news man | News about the next championship, the new Area Champion, and rumours that point to hidden venues and storylines | He sells nothing today. **Decision:** keep him as the news man in every area, or give him a stall (for example energy drinks, see below) |
 
-The **Tyres and Wheels** shop is in Boss's Locations list for every area, but its owner isn't one of the four and still has no name. **Decision:** make them a fifth travelling NPC with a name, or have a new local tyre specialist in each area.
+**Lee Stock**, Lee's T's & Wheels, is the **fifth travelling NPC** (Boss, 30 Oct 2026). He runs the tyres and wheels shop in every area, selling wheels and tyres and brakes.
+
+- **Back story:** he won the Area Championship a few seasons back, then was out injured. He's getting back to racing this season, so the player sees him at some of their races.
+- **Look:** late 40s, white, bald with a five o'clock shadow, blue jeans, white trainers, and a black T-shirt with the shop logo on it.
+- **Art to update:** his sprite (the current tyre specialist, `npc-04-tyre-specialist`), the logo on his shirt, and the shop's building name and sign, which become "Lee's T's & Wheels". His name replaces "Tyres and wheels specialist" in `npcs.json` and the shop name in `shops.json`.
+- **Check (Boss):** the rider list already has **Lee Stocky**, a level 2 racer in the Area 1 pool. If that's him, his level wants raising to fit a former Area Champion. If not, Lee Stock needs his own rider entry.
 
 ### Shop stock by area (proposed)
 
-Area 1 is agreed (Grades 1 to 3, 50cc and 65cc). The grades apply to Phoenix MX, Moto78 and Tyres and Wheels alike. Each later area adds a grade at the top and the next class, and keeps earlier classes. Grades 9 and 10 never appear in shops: only batch jobs, the Race department and set NPC rewards give them (Spec 14.4).
+Area 1 is agreed (Grades 1 to 3, 50cc and 65cc). The grades apply to Phoenix MX, Moto78 and Lee's T's & Wheels alike. Each later area adds a grade at the top and the next class, and keeps earlier classes. Grades 9 and 10 never appear in shops: only batch jobs, the Race department and set NPC rewards give them (Spec 14.4).
 
 | Area | Grades on the shelf | Classes stocked (adds) | Badge challenge class (Spec 18.1) |
 |---|---|---|---|
@@ -136,7 +142,7 @@ Area names are locked in by Boss (30 Oct 2026): 2 Mountain Town, 3 Beach Town, 4
 
 Every area has the same base set, so the columns below list only what's **new**:
 
-- Phoenix MX, Moto78, Nicholls Used Motors, Tyres and Wheels, and Manny Festo.
+- Phoenix MX, Moto78, Nicholls Used Motors, Lee's T's & Wheels, and Manny Festo.
 - A Motocross venue, a Supercross venue and an Enduro Loop venue, each with Joseph Halden at the race office.
 - Two challengers, each with their own challenge track.
 - A Local Champion championship (one round per area venue) for the badge, then the main area championship (two rounds per venue, and from Area 2 it can include earlier areas' tracks).
@@ -277,14 +283,14 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 16. **Sponsors and reputation** (Spec 16) are needed for Area 5's Sponsored Rides.
 17. **House tiers.** None can be bought yet, and shared storage across houses (Boss's rule) needs building.
 18. **Clothing.** The wardrobe isn't built. It's needed for Phoenix MX clothing and sponsor outfits.
-19. **Unnamed NPCs.** The tyres and wheels specialist, fabrication shop boss, engine rebuilder, modifier machine owner, neighbour and scrapyard owner still have job titles.
+19. **Unnamed NPCs.** The fabrication shop boss, engine rebuilder, modifier machine owner, neighbour and scrapyard owner still have job titles.
 20. **Mountain backdrop tiles** for Mountain Town (Area 2) need making (Boss, 30 Oct 2026).
 21. **Hidden venues.** The Spec has optional venues found by exploring or NPC tasks (for example a secret sand pit on the coast). None are planned per area yet.
 
 ## Open decisions for Boss
 
 1. ~~Area 2's name~~ Settled: Mountain Town (Boss, 30 Oct 2026).
-2. **The Tyres and Wheels owner:** a named fifth travelling NPC, or a new local specialist in each area?
+2. ~~The Tyres and Wheels owner~~ Settled: Lee Stock, Lee's T's & Wheels, travels to every area (Boss, 30 Oct 2026).
 3. **Manny Festo:** news man only, or a stall as well?
 4. **Phoenix MX clothing:** which area it starts in (I suggest Area 2).
 5. **The class dealer:** should Bill Rothon at Moto78 sell the new bike and frame at each class step for unsponsored riders?
