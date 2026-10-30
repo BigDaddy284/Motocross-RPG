@@ -1,15 +1,16 @@
 import Phaser from 'phaser';
 import { Motion, restPlace, tuningFor, type Place } from '../core/vanMotion';
 import { lerpAngle } from '../core/vanPath';
-import { type Heading, type Move, type VanDesign, type VanPose, type VanSheet } from '../core/vehicles';
+import { bikeShape, standMask, withoutStand, type BikeShape, type Rgba } from '../core/loadedBike';
+import { type BedPoint, type Heading, type Move, type VanDesign, type VanPose, type VanSheet } from '../core/vehicles';
 import { services } from '../services';
 import { TILE } from './Character';
 
 // Draws the player's van on an area map from its sheets (art/vehicles/sheets/map): parked, the
 // heading's closed or rear-open cell; on the move, the turning sheet's 32 headings, so it turns
 // smoothly. A soft shadow sits on the footprint, and the rider shows through the cab window while
-// driving. A motor with an open bed (the Old Rusty Truck) carries the player's bike on its stand
-// once it is loaded, in the bike's brand colours. Driving runs every frame: the scene hands over grid moves (vanMotion.ts turns them
+// driving. A motor with an open bed (the Old Rusty Truck) carries the player's bike once it is
+// loaded, in the bike's brand colours, strapped down to the front of the bed. Driving runs every frame: the scene hands over grid moves (vanMotion.ts turns them
 // into one smooth trip with speeding up, cornering and braking) and hears back as each one ends.
 
 /** The driver is drawn a little smaller than the rider on foot, sat down behind the glass. */
@@ -28,10 +29,14 @@ const LOOKAHEAD = 0.5;
 /** Seconds to ease onto the parked pose when the back hasn't quite straightened up behind the cab. */
 const SETTLE_S = 0.3;
 
-/** How far the upright bike's middle sits above the bed's middle, side on (from the parked truck props). */
-const BIKE_LIFT = 9;
+/** How far below the bed's middle the wheels stand, side on (from the parked truck props). */
+const WHEEL_DROP = 5;
+/** The tie-down straps: black, a little wider than a pixel at the map's scale. */
+const STRAP_COLOUR = 0x16161c;
+const STRAP_WIDTH = 2;
 
 export const vanTexture = (id: string) => `veh:${id}`;
+export const vanTurnTexture = (id: string) => `veh:${id}:turn`;
 /** The bike on its stand (area-map bike props) for a model (youth or adult), brand and heading. */
 export const bikeTexture = (model: string, brand: string, h: Heading) => `bike:${model}-${brand}-${h}`;
 export const bikeImagePath = (model: string, brand: string, h: Heading) => `art/area-map/tiled/tiles/bike-props/bike-on-stand-${model}-${brand}-${h}.png`;
@@ -42,27 +47,35 @@ export interface VanLoad {
   brand: string;
 }
 
-/** The middle of each bike texture's drawn pixels, found once: the bike pictures have empty space round them. */
-const bikeMiddles = new Map<string, [number, number]>();
-function bikeMiddle(scene: Phaser.Scene, key: string): [number, number] {
-  let m = bikeMiddles.get(key);
-  if (m) return m;
-  const src = scene.textures.get(key).getSourceImage();
-  let [x0, y0, x1, y1] = [Infinity, Infinity, -1, -1];
-  for (let y = 0; y < src.height; y++) {
-    for (let x = 0; x < src.width; x++) {
-      if (!scene.textures.getPixelAlpha(x, y, key)) continue;
-      x0 = Math.min(x0, x);
-      y0 = Math.min(y0, y);
-      x1 = Math.max(x1, x);
-      y1 = Math.max(y1, y);
-    }
-  }
-  m = x1 < 0 ? [src.width / 2, src.height / 2] : [(x0 + x1 + 1) / 2, (y0 + y1 + 1) / 2];
-  bikeMiddles.set(key, m);
-  return m;
+/** The bike on its stand in a brand's colours, with the stand taken off (loadedBike.ts): made once per picture. */
+const loadedShapes = new Map<string, BikeShape>();
+function loadedBike(scene: Phaser.Scene, model: string, brand: string, h: Heading): { key: string; shape: BikeShape } | null {
+  const key = `bike:loaded:${model}-${brand}-${h}`;
+  const known = loadedShapes.get(key);
+  if (known) return { key, shape: known };
+  if (!scene.textures.exists(bikeTexture(model, brand, h))) return null;
+  const pixels = (id: string): Rgba => {
+    const src = scene.textures.get(bikeTexture(model, id, h)).getSourceImage() as HTMLImageElement;
+    const c = document.createElement('canvas');
+    c.width = src.width;
+    c.height = src.height;
+    const ctx = c.getContext('2d')!;
+    ctx.drawImage(src, 0, 0);
+    const d = ctx.getImageData(0, 0, c.width, c.height);
+    return { data: d.data, width: d.width, height: d.height };
+  };
+  const brands = services.content.bikes.brands.map((b) => b.id).filter((id) => scene.textures.exists(bikeTexture(model, id, h)));
+  const sideOn = h === 'east' || h === 'west';
+  const img = withoutStand(pixels(brand), sideOn ? standMask(brands.map(pixels)) : null);
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width;
+  canvas.height = img.height;
+  canvas.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(img.data), img.width, img.height), 0, 0);
+  if (!scene.textures.exists(key)) scene.textures.addCanvas(key, canvas);
+  const shape = bikeShape(img, sideOn);
+  loadedShapes.set(key, shape);
+  return { key, shape };
 }
-export const vanTurnTexture = (id: string) => `veh:${id}:turn`;
 
 /** Adds the sheets' named frames (east:closed, east:open, ... and t0 to t31) once. */
 function ensureFrames(scene: Phaser.Scene, id: string, sheet: VanSheet): void {
@@ -95,6 +108,7 @@ export class VanView {
   private driver: Phaser.GameObjects.Image | null = null;
   private driverSheet: string | null = null;
   private bike: Phaser.GameObjects.Image | null = null;
+  private straps: Phaser.GameObjects.Graphics | null = null;
   private load: VanLoad | null = null;
   private open = false;
   /** The pose the van is at or heading for: the last move handed over. */
@@ -163,10 +177,13 @@ export class VanView {
     this.load = load;
     if (!load) {
       this.bike?.destroy();
+      this.straps?.destroy();
       this.bike = null;
+      this.straps = null;
       return;
     }
     if (!this.bike) this.bike = this.scene.add.image(0, 0, '__MISSING');
+    if (!this.straps) this.straps = this.scene.add.graphics();
     if (this.moving) this.draw(this.drawn, null);
     else this.place(this.pose);
   }
@@ -253,6 +270,7 @@ export class VanView {
     this.shadow.destroy();
     this.driver?.destroy();
     this.bike?.destroy();
+    this.straps?.destroy();
   }
 
   /**
@@ -266,7 +284,7 @@ export class VanView {
     const turn = this.sheet.turn;
     let anchor: [number, number];
     let win: [number, number, number, number] | null | undefined;
-    let bed: [number, number] | undefined;
+    let bed: BedPoint | undefined;
     /** The angle of the picture drawn: a parked view's heading or the turning frame's. */
     let shown: number;
     if (parked || !turn || !this.scene.textures.exists(vanTurnTexture(this.design.id))) {
@@ -307,27 +325,42 @@ export class VanView {
   }
 
   /**
-   * The loaded bike stood on the bed's middle, facing the way the motor does. Between the four
-   * bike views (on the turning frames) the nearest one is turned to the frame's angle.
+   * The loaded bike stood in the bed's middle, facing the way the motor does, with a strap from
+   * each side of its handlebars to the bed's front corners behind the cab. Between the four bike
+   * views (on the turning frames) the nearest one is turned to the frame's angle.
    */
-  private placeBike(bed: [number, number] | undefined, shown: number): void {
+  private placeBike(bed: BedPoint | undefined, shown: number): void {
     const b = this.bike;
+    const g = this.straps;
     const load = this.load;
-    if (!b || !load) return;
+    if (!b || !g || !load) return;
     const h = nearestHeading(shown);
-    const key = bikeTexture(load.model, load.brand, h);
-    if (!bed || !this.scene.textures.exists(key)) {
+    const pic = bed ? loadedBike(this.scene, load.model, load.brand, h) : null;
+    if (!bed || !pic) {
       b.setVisible(false);
+      g.setVisible(false);
       return;
     }
-    if (b.texture.key !== key) b.setTexture(key);
-    const [mx, my] = bikeMiddle(this.scene, key);
-    const a = (shown * Math.PI) / 180;
-    b.setOrigin(mx / b.width, my / b.height)
-      .setRotation(-(((shown - HEADING_ANGLE[h] + 540) % 360) - 180) * (Math.PI / 180))
-      .setPosition(this.sprite.x + bed[0], this.sprite.y + bed[1] - BIKE_LIFT * Math.abs(Math.cos(a)))
-      .setDepth(this.sprite.depth + 0.005)
-      .setVisible(true);
+    if (b.texture.key !== pic.key) b.setTexture(pic.key);
+    const { middle, bottom, bars } = pic.shape;
+    const side = Math.abs(Math.cos((shown * Math.PI) / 180));
+    const rot = -(((shown - HEADING_ANGLE[h] + 540) % 360) - 180) * (Math.PI / 180);
+    const x = this.sprite.x + bed.mid[0];
+    const y = this.sprite.y + bed.mid[1] + side * (WHEEL_DROP - (bottom - middle[1]));
+    b.setOrigin(middle[0] / b.width, middle[1] / b.height).setRotation(rot).setPosition(x, y).setDepth(this.sprite.depth + 0.004).setVisible(true);
+    // The handlebar ends in the world, turned with the bike.
+    const [cos, sin] = [Math.cos(rot), Math.sin(rot)];
+    const ends = bars.map(([bx, by]) => [x + (bx - middle[0]) * cos - (by - middle[1]) * sin, y + (bx - middle[0]) * sin + (by - middle[1]) * cos]);
+    const hooks = bed.straps.map(([sx, sy]) => [this.sprite.x + sx, this.sprite.y + sy]);
+    // Each corner takes the nearer bar end (both take the one point side on).
+    const d = (p: number[], q: number[]) => Math.hypot(p[0] - q[0], p[1] - q[1]);
+    const pair = ends.length < 2 || d(ends[0], hooks[0]) + d(ends[1], hooks[1]) <= d(ends[0], hooks[1]) + d(ends[1], hooks[0]) ? [0, 1] : [1, 0];
+    g.clear().lineStyle(STRAP_WIDTH, STRAP_COLOUR, 1);
+    hooks.forEach((hk, i) => {
+      const e = ends[Math.min(pair[i], ends.length - 1)];
+      g.lineBetween(e[0], e[1], hk[0], hk[1]);
+    });
+    g.setDepth(this.sprite.depth + 0.006).setVisible(true);
   }
 
   /** The rider's face in the cab window, cropped to the glass. Hidden when the window can't be seen. */

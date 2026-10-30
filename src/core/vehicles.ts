@@ -58,10 +58,18 @@ export interface VanDesign {
   /** Milliseconds per tile when driving. */
   stepMs: number;
   /**
-   * An open load bed (Boss, 30 Oct 2026: the Old Rusty Truck shows the loaded bike on its back):
-   * the bed's middle in each parked view and turning frame, in sheet pixels from the anchor.
+   * An open load bed (Boss, 30 Oct 2026: the Old Rusty Truck shows the loaded bike on its back)
+   * in each parked view and turning frame.
    */
-  bed?: { views: Record<Heading, [number, number]>; turn: [number, number][] };
+  bed?: { views: Record<Heading, BedPoint>; turn: BedPoint[] };
+}
+
+/** Where a bed is in one picture of the van, in sheet pixels from the anchor. */
+export interface BedPoint {
+  /** The middle of the bed, where the bike stands. */
+  mid: [number, number];
+  /** The bed's two front corners behind the cab, where the bike's straps are hooked. */
+  straps: [[number, number], [number, number]];
 }
 
 /** One heading of a van sheet: cell rects in the sheet, the ground anchor and the driver window in the cell. */
@@ -113,6 +121,7 @@ export interface VehiclesData {
 const ID = /^[a-z0-9_.-]+$/;
 const HEADING_ENUM = { type: 'string', enum: HEADINGS } as const;
 const POINT: Schema = { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number', integer: true } };
+const BED_POINT: Schema = { type: 'object', fields: { mid: POINT, straps: { type: 'array', minItems: 2, maxItems: 2, items: POINT } } };
 
 export const VEHICLES_SCHEMA: Schema = {
   type: 'object',
@@ -174,8 +183,8 @@ export const VEHICLES_SCHEMA: Schema = {
           bed: {
             type: 'object',
             fields: {
-              views: { type: 'object', fields: Object.fromEntries(HEADINGS.map((h) => [h, POINT])) },
-              turn: { type: 'array', minItems: 1, items: POINT },
+              views: { type: 'object', fields: Object.fromEntries(HEADINGS.map((h) => [h, BED_POINT])) },
+              turn: { type: 'array', minItems: 1, items: BED_POINT },
             },
           },
         },
