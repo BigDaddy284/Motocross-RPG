@@ -13,6 +13,8 @@ export const AREA_MAPS = [
   'area-map/tiled/maps/venue-motocross.tmj',
   'area-map/tiled/maps/venue-enduro.tmj',
   'area-map/tiled/maps/venue-supercross.tmj',
+  // Drawn towns (Areas 2 to 8 maps): never stamped again by tools/gen-area.mjs.
+  'area-map/tiled/maps/area2-mountain-town.tmj',
 ];
 /**
  * Venue maps kept for later, not on any road (one venue per race type; Boss, 30 Oct 2026): baked
