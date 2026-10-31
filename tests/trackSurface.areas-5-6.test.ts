@@ -1,3 +1,3 @@
 import { trackSurfaceTests } from './trackSurfaceTrack';
 
-trackSurfaceTests('areas-6-8');
+trackSurfaceTests('areas-5-6');
