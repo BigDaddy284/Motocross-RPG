@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { modsLabel } from '../core/modifiers';
 import { bikeProblem, bikeStats, formatMoney, journal, pence, statMax, type CareerState } from '../core/career';
-import { addXp, childLevel, childXp, leadLevel, leadXp, levelProgress } from '../core/skills';
+import { addXp, childLevel, childXp, leadLevel, leadXp, levelProgress, levelStatus } from '../core/skills';
 import { nextRoundVenue, rewardTexture, standings } from '../core/championship';
 import {
   buyPart,
@@ -990,6 +990,45 @@ export class HudScene extends Phaser.Scene {
       // The note goes at the foot first, so the rows can share out the room above it.
       const foot = body(left, 0, 'Racing and practice train Rider Ability. Training minigames for every skill come in later builds.', 14, COLORS.muted);
       foot.setY(h / 2 - 14 - foot.height);
+      // Hover a skill with the mouse, or tap it on a phone, to see its XP and the XP the next level
+      // starts at (Boss, 31 Oct 2026). One box at a time; tapping the panel's empty space hides it.
+      let tip: Phaser.GameObjects.Container | null = null;
+      const hideTip = () => {
+        tip?.destroy();
+        tip = null;
+      };
+      (c.list[1] as Phaser.GameObjects.Rectangle).on('pointerdown', hideTip);
+      const showTip = (xp: number, multiplier: number, x: number, y: number, rowH: number) => {
+        hideTip();
+        const st = levelStatus(xp, multiplier, skills.maxLevel);
+        const fmt = (n: number) => Math.floor(n).toLocaleString();
+        // No level line: the menu already shows it. Kept to two short lines so millions of XP still
+        // fit beside the next column (Boss, 31 Oct 2026).
+        const lines = st.next === null
+          ? [`${fmt(st.xp)} XP`, 'Top level']
+          : [`${fmt(st.xp)} / ${fmt(st.next)} XP`, `${fmt(st.toGo)} to the next level`];
+        const t = this.add.text(12, 10, lines.join('\n'), textStyle(this.pts(14), COLORS.cream, { lineSpacing: 4 }));
+        const bw = t.width + 24;
+        const bh = t.height + 20;
+        // Under the row, kept inside the panel; above it when there's no room below.
+        const tx = Math.min(x, w / 2 - 12 - bw);
+        const ty = y + rowH + bh <= h / 2 - 12 ? y + rowH : y - bh;
+        tip = this.add.container(tx, ty, [this.add.rectangle(0, 0, bw, bh, COLORS.ink, 0.97).setOrigin(0).setStrokeStyle(2, COLORS.accent), t]);
+        c.add(tip);
+      };
+      /** An invisible hit area over a skill's row: hover shows its box, leaving hides it, a tap shows it. */
+      const hover = (x: number, y: number, rowW: number, rowH: number, xp: () => number, multiplier: number) => {
+        const zone = this.add.rectangle(x, y, rowW, rowH, 0, 0.001).setOrigin(0).setInteractive();
+        const show = () => showTip(xp(), multiplier, x, y, rowH);
+        zone.on('pointerover', show);
+        zone.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, ev: Phaser.Types.Input.EventData) => {
+          ev.stopPropagation();
+          show();
+        });
+        // A finger lifting counts as leaving the row, so on a phone the box stays until the next tap.
+        zone.on('pointerout', (p: Phaser.Input.Pointer) => !p.wasTouch && hideTip());
+        c.add(zone);
+      };
       skills.leads.forEach((lead, i) => {
         const x = left + i * colW;
         const lx = leadXp(career.skills, lead);
@@ -999,6 +1038,7 @@ export class HudScene extends Phaser.Scene {
         const leadBarY = Math.max(y0 + 58, level.y + level.height + 6);
         c.add(this.add.rectangle(x, leadBarY, barW, 8, COLORS.panelLight).setOrigin(0, 0.5));
         c.add(this.add.rectangle(x, leadBarY, Math.max(1, barW * levelProgress(lx, lead.multiplier, skills.maxLevel)), 8, COLORS.accent).setOrigin(0, 0.5));
+        hover(x, y0, barW, leadBarY + 6 - y0, () => lx, lead.multiplier);
         const first = leadBarY + 18;
         const rowH = Math.min(48, (foot.y - 6 - first) / Math.max(1, lead.children.length));
         lead.children.forEach((ch, j) => {
@@ -1010,6 +1050,7 @@ export class HudScene extends Phaser.Scene {
           const barY = y + Math.min(rowH - 8, Math.max(26, name.height + 4));
           c.add(this.add.rectangle(x, barY, barW, 6, COLORS.panelLight).setOrigin(0, 0.5));
           c.add(this.add.rectangle(x, barY, Math.max(1, barW * levelProgress(xp, 1, skills.maxLevel)), 6, 0x6fa84a).setOrigin(0, 0.5));
+          hover(x, y - 4, barW, barY + 6 - (y - 4), () => xp, 1);
         });
       });
     }

@@ -50,6 +50,7 @@ It runs in a browser on desktop or on a phone held sideways, and saves automatic
 | Zoom (50% to 200%) | Mouse wheel, + and -, or the on-screen zoom control | The on-screen zoom control: a Zoom button with a slider, or + and − buttons (Settings > Display > Zoom control) |
 | Bike, bag and current task | Tab, I or B | Bike button |
 | Skills | K, or the Skills tab in the Bike panel | Bike button, then Skills |
+| A skill's XP and the XP for its next level | Hover over the skill on the Skills tab | Tap the skill; tap empty space to hide it |
 | Pause menu (save, settings) | Esc | ☰ button |
 
 ### Playing on a phone

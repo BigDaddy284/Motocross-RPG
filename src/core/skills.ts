@@ -137,3 +137,14 @@ export function levelProgress(xp: number, multiplier = 1, maxLevel = 99): number
   const hi = xpForLevel(l + 1) * multiplier;
   return (xp - lo) / (hi - lo);
 }
+
+/**
+ * Where a skill stands, for the Skills tab's hover and tap box (Boss, 31 Oct 2026): its level, its
+ * XP, and the XP the next level starts at, or null at the top level.
+ */
+export function levelStatus(xp: number, multiplier = 1, maxLevel = 99): { level: number; xp: number; next: number | null; toGo: number } {
+  const level = levelForXp(xp, multiplier, maxLevel);
+  if (level >= maxLevel) return { level, xp, next: null, toGo: 0 };
+  const next = Math.ceil(xpForLevel(level + 1) * multiplier);
+  return { level, xp, next, toGo: Math.max(0, next - xp) };
+}
