@@ -398,6 +398,12 @@ export function mixSeed(seed: number, n: number): number {
 
 const logistic = (x: number) => 1 / (1 + Math.exp(-x));
 
+/** TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 31 Oct 2026): when on, the player wins every moto (results()). */
+let testAlwaysWin = false;
+export function setTestAlwaysWin(on: boolean): void {
+  testAlwaysWin = on;
+}
+
 export class MotoSim {
   readonly riders: RiderState[];
   readonly player: RiderState | undefined;
@@ -720,6 +726,9 @@ export class MotoSim {
     // A sprint is won on the timed tests added up, not on who crosses the line first.
     const raced = (r: RiderState) => (this.sprint ? r.sprintTime : r.time);
     const sorted = [...this.riders].sort((a, b) => Number(a.retired) - Number(b.retired) || b.laps - a.laps || raced(a) - raced(b));
+    // TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 31 Oct 2026): Settings > Gameplay >
+    // "TEST: Always win" puts the player first in every moto, heat and sprint, DNF or not.
+    if (testAlwaysWin && this.player) sorted.splice(0, 0, ...sorted.splice(sorted.indexOf(this.player), 1));
     const leader = sorted[0];
     return sorted.map((r, i) => ({
       id: r.e.id,
@@ -730,9 +739,9 @@ export class MotoSim {
       laps: r.laps,
       time: raced(r),
       bestLap: r.lapTimes.length ? Math.min(...r.lapTimes) : null,
-      retired: r.retired,
-      reason: r.reason,
-      gap: i === 0 ? formatTime(raced(r)) : r.retired ? 'DNF' : r.laps < leader.laps ? `+${leader.laps - r.laps} lap${leader.laps - r.laps > 1 ? 's' : ''}` : `+${(raced(r) - raced(leader)).toFixed(1)}s`,
+      retired: testAlwaysWin && r.e.player ? false : r.retired,
+      reason: testAlwaysWin && r.e.player ? undefined : r.reason,
+      gap: i === 0 ? formatTime(raced(r)) : r.retired ? 'DNF' : r.laps < leader.laps ? `+${leader.laps - r.laps} lap${leader.laps - r.laps > 1 ? 's' : ''}` : `+${Math.max(0, raced(r) - raced(leader)).toFixed(1)}s`,
     }));
   }
 

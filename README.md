@@ -248,6 +248,7 @@ To resume: `npm install`, `npm test`, `npm run dev`, then open `/tools/` (the to
 
 Testing aids to take out before the final release:
 
+- **Always win (MUST REMOVE before the final merge to `main`, after the merge to `test/v1.5`; Boss, 31 Oct 2026).** Settings > Gameplay > "TEST: Always win": the player is first in every moto, heat and sprint, even after a DNF (`setTestAlwaysWin` and `testAlwaysWin` in `core/race.ts` `results()`, `testAlwaysWin` in `settings.ts`, `SettingsScene.ts`, `RaceScene.ts`). Off by default; it stays on until switched off.
 - **Shift pay boost.** `testPayMultiplier` in `world.json` (5× for Alpha v1.1).
 - **Money cheat.** A new rider named `moneymoneymoney` starts with £50,000 (`TEST_MONEY_NAME` in `careerFlow.ts`). Back in for test v1.5.
 - **Ride alone.** Settings > Gameplay > "TEST: Ride alone (no AI)": practice and race days with no AI riders (`testRideAlone` in `settings.ts`, `alone` in `raceDay.ts`, `RaceScene.ts`, `SettingsScene.ts`).

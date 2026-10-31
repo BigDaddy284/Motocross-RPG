@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { newCareerState, type CareerState } from '../src/core/career';
 import { checkContent } from '../src/core/content';
-import { MotoSim, gateBonus, mixSeed } from '../src/core/race';
+import { MotoSim, gateBonus, mixSeed, setTestAlwaysWin } from '../src/core/race';
 import { PLAYER_ID, RaceDay, applyRide, cpuEntrant, drawField, entryFee, motoPrize, playerEntrant, practiceSim, venueProblem } from '../src/core/raceDay';
 import { addXp, childLevel, leadLevel, levelForXp, newSkillState, xpForLevel } from '../src/core/skills';
 import { loadManifest, loadMaps, rawContent } from './helpers';
@@ -405,5 +405,32 @@ describe('the race day field: regulars plus a random draw from the pool', () => 
       expect(content.riders.fields['area1.local']).not.toContain(r.id);
       expect(content.riders.fields[`area${area}.local`]).toContain(r.id);
     }
+  });
+});
+
+// TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 31 Oct 2026) with the switch itself.
+describe('the always-win test switch', () => {
+  it('puts the player first, never retired, and leaves the results alone when off', () => {
+    const run = () => {
+      const track = content.tracks.tracks.find((t) => t.id === 'farmland')!;
+      const novice = playerEntrant(content, rider(), 'A');
+      const entrants = () => [novice, ...content.riders.riders.slice(0, 5).map((r, i) => ({ ...cpuEntrant(content, r, '50cc'), gate: i + 1 }))];
+      const sim = new MotoSim(content.racing, content.bikes, track, '50cc', entrants(), { laps: 2, motoIndex: 0, seed: 7 });
+      sim.runToEnd();
+      return sim.results();
+    };
+    setTestAlwaysWin(true);
+    try {
+      const on = run();
+      expect(on[0].player).toBe(true);
+      expect(on[0].position).toBe(1);
+      expect(on[0].retired).toBe(false);
+      expect(on.map((r) => r.position)).toEqual(on.map((_, i) => i + 1));
+    } finally {
+      setTestAlwaysWin(false);
+    }
+    const off = run();
+    expect(off[0].player).toBe(false);
+    expect(off.every((r, i) => r.position === i + 1)).toBe(true);
   });
 });

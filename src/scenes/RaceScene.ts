@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { bikeStats, conditionFactor, formatMoney, type Bike } from '../core/career';
-import { formatTime, gateBonus, type LapTrace, type MotoSim, type RaceEvent, type RiderResult } from '../core/race';
+import { formatTime, gateBonus, setTestAlwaysWin, type LapTrace, type MotoSim, type RaceEvent, type RiderResult } from '../core/race';
 import { PLAYER_ID, RaceDay, applyRide, playerEntrant, practiceSim, sumXp, trackById, type MotoRecord, type VenueDef } from '../core/raceDay';
 import { Knockout, type KnockoutHeat, roundName } from '../core/knockout';
 import { addReputation, makeOffers, settleDay, sponsorsOpen } from '../core/sponsors';
@@ -175,6 +175,8 @@ export class RaceScene extends Phaser.Scene {
       const round = champ ? roundOptions(services.content, champ.def, champ.active) : undefined;
       // TEST ONLY, REMOVE BEFORE RELEASE: Settings > Gameplay > "TEST: Ride alone" races with no AI riders.
       const alone = services.settings.get().gameplay.testRideAlone;
+      // TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 31 Oct 2026): "TEST: Always win" puts the player first.
+      setTestAlwaysWin(services.settings.get().gameplay.testAlwaysWin);
       const seed = (Math.random() * 2 ** 32) >>> 0;
       if (!champ && this.args.venue.track && isNoTurn(trackById(services.content, this.args.venue.track))) {
         // A No-Turn Takedown: a knockout, not motos (Boss, 30 Oct 2026).
