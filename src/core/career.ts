@@ -76,11 +76,23 @@ export interface StoryStep {
   toast?: string;
 }
 
+/**
+ * A later chain of steps (the area intros, Areas 2 to 8 plan, Boss 31 Oct 2026): played like the
+ * opening chain once it has started (openChains), after the opening chain and any chain before it.
+ */
+export interface StoryChain {
+  id: string;
+  /** The flag that starts it: the area's open flag. */
+  needs: string;
+  steps: StoryStep[];
+}
+
 export interface StoryData {
   startMoney: number;
   intro: string;
   steps: StoryStep[];
   done: string;
+  chains?: StoryChain[];
   /** Task lines once the opening chain is over: the first whose if is set, or whose unless is not. */
   /** The task line once the opening chain is done: the first whose if is set, or whose unless is not. talk marks that NPC on the map, as a story step's NPC is. */
   after?: { if?: string; unless?: string; text: string; talk?: string }[];
@@ -116,6 +128,8 @@ export interface PlaceDef {
   note: string;
   /** Not a map: picking it opens the list of mod tracks to race (core/modTracks.ts). */
   mods?: boolean;
+  /** The flag that puts the place on the road menu (an area's open flag). */
+  needs?: string;
 }
 
 export interface RouteDef {
@@ -166,6 +180,8 @@ export interface CareerState {
   bag: BagItem[];
   /** Index of the current opening-chain step, and the objects already used for a multi-use step. */
   story: { step: number; used: string[] };
+  /** Later chains (story.json chains) by id, once started: where the rider is in each. */
+  chains?: Record<string, { step: number; used: string[] }>;
   /** Running totals such as batches finished per employer, race days and wins. */
   counters: Record<string, number>;
   skills: SkillState;
@@ -288,8 +304,39 @@ export type StoryMatch =
   | { kind: 'notReady'; step: StoryStep; short: number }
   | { kind: 'alreadyUsed'; step: StoryStep };
 
+/** The chain the rider is on: the opening chain while it lasts, then each started chain in turn. */
+function activeChain(story: StoryData, state: CareerState): { steps: StoryStep[]; st: { step: number; used: string[] } } | null {
+  if (state.story.step < story.steps.length) return { steps: story.steps, st: state.story };
+  for (const c of story.chains ?? []) {
+    const st = state.chains?.[c.id];
+    if (st && st.step < c.steps.length) return { steps: c.steps, st };
+  }
+  return null;
+}
+
+/**
+ * Starts every chain whose flag is set and which hasn't started (called when flags change, and
+ * on loading a save). Returns the chains started.
+ */
+export function openChains(story: StoryData, state: CareerState, flags: Record<string, boolean>): StoryChain[] {
+  const started: StoryChain[] = [];
+  for (const c of story.chains ?? []) {
+    if (!flags[c.needs] || state.chains?.[c.id]) continue;
+    (state.chains ??= {})[c.id] = { step: 0, used: [] };
+    started.push(c);
+  }
+  return started;
+}
+
+/** Whether a chain has been played to its end. */
+export const chainDone = (story: StoryData, state: CareerState, id: string): boolean => {
+  const c = story.chains?.find((x) => x.id === id);
+  return !!c && (state.chains?.[id]?.step ?? 0) >= c.steps.length;
+};
+
 export function currentStep(story: StoryData, state: CareerState): StoryStep | null {
-  return story.steps[state.story.step] ?? null;
+  const c = activeChain(story, state);
+  return c ? (c.steps[c.st.step] ?? null) : null;
 }
 
 /** Whether a talk or object use is the current step, and whether the rider can do it yet. */
@@ -300,7 +347,7 @@ export function matchStory(story: StoryData, state: CareerState, ev: StoryEvent)
     if (step.on.talk !== ev.talk) return null;
   } else {
     if (step.on.use !== ev.use || (step.on.map && step.on.map !== ev.map)) return null;
-    if (state.story.used.includes(ev.object)) return { kind: 'alreadyUsed', step };
+    if (activeChain(story, state)!.st.used.includes(ev.object)) return { kind: 'alreadyUsed', step };
   }
   const needMoney = pence(step.needs?.money ?? 0);
   if (state.money < needMoney || !hasItems(state, step.needs?.items)) return { kind: 'notReady', step, short: Math.max(0, needMoney - state.money) };
@@ -309,12 +356,14 @@ export function matchStory(story: StoryData, state: CareerState, ev: StoryEvent)
 
 /** Records one use of the current step. Returns true when the step finished and its effects applied. */
 export function advanceStory(story: StoryData, state: CareerState, flags: Record<string, boolean>, items: Record<string, ItemDef>, object?: string): boolean {
-  const step = currentStep(story, state);
-  if (!step) return false;
-  if (object) state.story.used.push(object);
-  if (state.story.used.length < (step.times ?? 1) && object) return false;
+  const c = activeChain(story, state);
+  const step = c?.steps[c.st.step];
+  if (!c || !step) return false;
+  if (object) c.st.used.push(object);
+  if (c.st.used.length < (step.times ?? 1) && object) return false;
   applyEffects(state, flags, items, step.effects);
-  state.story = { step: state.story.step + 1, used: [] };
+  c.st.step += 1;
+  c.st.used = [];
   return true;
 }
 
@@ -328,7 +377,7 @@ export function journal(story: StoryData, state: CareerState, flags: Record<stri
   const step = currentStep(story, state);
   if (!step) return afterTask(story, flags)?.text ?? story.done;
   const n = step.times ?? 1;
-  return n > 1 ? `${step.journal} (${state.story.used.length} of ${n})` : step.journal;
+  return n > 1 ? `${step.journal} (${activeChain(story, state)!.st.used.length} of ${n})` : step.journal;
 }
 
 export function fillText(text: string, vars: Record<string, string>): string {

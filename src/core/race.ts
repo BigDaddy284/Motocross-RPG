@@ -142,6 +142,8 @@ export interface RacingData {
    * A kind left out uses the class's laps.
    */
   kindLaps?: { race?: Record<string, number>; championship?: Record<string, number> };
+  /** Weather kinds (Spec 10.5): factor multiplies every section time, risk every mistake chance. */
+  weather?: Record<string, { name: string; factor: number; risk: number }>;
   messages: MessageDef[];
   messageEffects: {
     pacePct: number;
@@ -369,6 +371,8 @@ export interface MotoOptions {
    * rides with less noise to stay as much a test of skill as a moto of many laps.
    */
   noiseScale?: number;
+  /** The day's weather (racing.json weather): its time factor and mistake risk (Spec 10.5). */
+  weather?: { factor: number; risk: number };
 }
 
 /** A small seeded generator (mulberry32), so a race can be replayed exactly. */
@@ -766,7 +770,7 @@ export class MotoSim {
     const cons = r.e.skills.consistency ?? 1;
     const sd = sim.noise * (this.opts.noiseScale ?? 1) * (1 - (sim.consistencyNoiseCut * cons) / 99) * Math.max(0.2, 1 - me.consistencyNoise * msg.consistency);
     const noise = Math.max(0.7, 1 + this.gauss() * sd);
-    return base * this.difficulty(sec, def) * (1 - sim.spread * (perf - 0.5)) * pace * gateK * noise * (1 - this.fitnessCut(r, sec));
+    return base * this.difficulty(sec, def) * (1 - sim.spread * (perf - 0.5)) * pace * gateK * noise * (1 - this.fitnessCut(r, sec)) * (this.opts.weather?.factor ?? 1);
   }
 
   /** The share of a section's time a rider's Strength and Endurance take off (sim.fitness), never over its cap. */
@@ -786,7 +790,7 @@ export class MotoSim {
     const msg = this.message(r);
     const perf = this.performance(r, def);
     const cons = r.e.skills.consistency ?? 1;
-    const p = share * sim.mistakeBase * def.diff * (1.4 - perf) * Math.max(0.2, 1 + me.paceMistakes * msg.pace) * (1 - (sim.mistakeConsistencyCut * cons) / 99);
+    const p = share * sim.mistakeBase * def.diff * (1.4 - perf) * Math.max(0.2, 1 + me.paceMistakes * msg.pace) * (1 - (sim.mistakeConsistencyCut * cons) / 99) * (this.opts.weather?.risk ?? 1);
     if (this.rng() >= p) return null;
     // Risk moves share from small errors to crashes.
     const crashScale = Math.max(0.2, 1 + me.riskCrashShare * msg.risk);

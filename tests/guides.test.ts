@@ -90,8 +90,8 @@ describe('leaving by a route', () => {
 describe('route checks', () => {
   it('refuse a route exit with no route, a route to a place that isn’t listed, or one back to itself', () => {
     expect(errorsWith((r) => { r.world.routes = r.world.routes.slice(1); })).toEqual([expect.stringMatching(/the exit "To the venue route" on area1-home-town leads to a choice of places, but no route lists them/)]);
-    expect(errorsWith((r) => { r.world.routes[0].to.push('area1-industrial-zone'); })).toEqual([expect.stringMatching(/routes\[0\]\.to\[4\]: "area1-industrial-zone" isn't one of the places/)]);
-    expect(errorsWith((r) => { r.world.routes[1].to.push('venue-motocross'); })).toEqual([expect.stringMatching(/routes\[1\]\.to\[4\]: leads back to venue-motocross/)]);
+    expect(errorsWith((r) => { r.world.routes[0].to.push('area1-industrial-zone'); })).toEqual([expect.stringMatching(/routes\[0\]\.to\[5\]: "area1-industrial-zone" isn't one of the places/)]);
+    expect(errorsWith((r) => { r.world.routes[1].to.push('venue-motocross'); })).toEqual([expect.stringMatching(/routes\[1\]\.to\[5\]: leads back to venue-motocross/)]);
     expect(errorsWith((r) => { r.world.routes[0].exit = 'To the Industrial Zone'; })).toEqual(expect.arrayContaining([expect.stringMatching(/goes straight to area1-industrial-zone, not to a choice of places/)]));
   });
 });

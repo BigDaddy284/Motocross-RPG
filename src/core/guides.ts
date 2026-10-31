@@ -34,9 +34,11 @@ export function sideOf(map: BakedMap, o: MapObject): string {
  * The places a route really leads to: listed in places, on a map that exists, with the spawn to
  * arrive on; or the mod track list, which is raced from the road without going anywhere.
  */
-export function routePlaces(world: WorldData, maps: Map<string, BakedMap>, route: RouteDef): PlaceDef[] {
+export function routePlaces(world: WorldData, maps: Map<string, BakedMap>, route: RouteDef, flags: Record<string, boolean> = {}): PlaceDef[] {
   return route.to.flatMap((id) => {
     const place = world.places.find((p) => p.map === id);
+    // A place with needs (an area not yet open) isn't on the road until its flag is set.
+    if (place?.needs && !flags[place.needs]) return [];
     if (place?.mods) return [place];
     const m = place && maps.get(place.map);
     return place?.spawn && m && spawnTile(m, place.spawn) && place.map !== route.map ? [place] : [];
@@ -56,7 +58,7 @@ export function waysOut(map: BakedMap, world: WorldData, maps: Map<string, Baked
     const side = sideOf(map, exit);
     if (exit.props.to === ROUTE) {
       const route = routeFor(world, map, exit);
-      ways.push({ exit, side, route, places: route ? routePlaces(world, maps, route) : [], shut });
+      ways.push({ exit, side, route, places: route ? routePlaces(world, maps, route, flags) : [], shut });
     } else if (typeof exit.props.to === 'string') {
       const m = maps.get(exit.props.to);
       ways.push({ exit, side, to: m ? { map: m.id, title: m.title } : undefined, places: [], shut });
@@ -70,9 +72,9 @@ export function waysOut(map: BakedMap, world: WorldData, maps: Map<string, Baked
  * A string is why it can't take you anywhere.
  * The mod track list is never where a road takes you by itself: it is picked (WorldScene.routeTo).
  */
-export function routeArrival(map: BakedMap, exit: MapObject, world: WorldData, maps: Map<string, BakedMap>, pick: string | null): (Arrival & { place: PlaceDef; others: PlaceDef[] }) | string {
+export function routeArrival(map: BakedMap, exit: MapObject, world: WorldData, maps: Map<string, BakedMap>, pick: string | null, flags: Record<string, boolean> = {}): (Arrival & { place: PlaceDef; others: PlaceDef[] }) | string {
   const route = routeFor(world, map, exit);
-  const places = route ? routePlaces(world, maps, route) : [];
+  const places = route ? routePlaces(world, maps, route, flags) : [];
   const real = places.filter((p) => !p.mods);
   if (!real.length) return "This road doesn't go anywhere yet.";
   const place = real.find((p) => p.map === pick) ?? real[0];
@@ -120,6 +122,7 @@ export function roadMenu(
   const areas: PlaceDef[] = [];
   for (const p of places) {
     if (p.mods) continue;
+    if (p.needs && !flags[p.needs]) continue;
     const venue = venues.find((v) => v.map === p.map && !v.practiceOnly);
     if (!venue) {
       areas.push(p);

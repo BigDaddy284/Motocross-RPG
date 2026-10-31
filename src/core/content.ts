@@ -18,6 +18,7 @@ import { CHALLENGES_SCHEMA, checkChallenges, type ChallengesData } from './chall
 import { WORLD_MAP_SCHEMA, checkWorldMap } from './worldMap';
 import { TOOLS_SCHEMA, checkTools, type ToolsData } from './tools';
 import { JOB_BOARD_SCHEMA, checkJobBoard, type JobBoardData } from './jobBoard';
+import { AREAS_SCHEMA, checkAreas, type AreasData } from './areas';
 import { validate, type ContentError, type Schema } from './validate';
 
 // Game content loaded from public/data. Each file is checked against its schema, then the files
@@ -78,6 +79,7 @@ export interface Content {
   challenges: ChallengesData;
   tools: ToolsData;
   jobboard: JobBoardData;
+  areas: AreasData;
 }
 
 export interface Manifest {
@@ -218,22 +220,7 @@ export const ITEMS_SCHEMA: Schema = {
 
 const IDS: Schema = { type: 'array', items: { type: 'string', pattern: ID } };
 
-export const STORY_SCHEMA: Schema = {
-  type: 'object',
-  optional: ['note', 'after'],
-  fields: {
-    note: { type: 'string' },
-    startMoney: { type: 'number', min: 0 },
-    intro: { type: 'string', pattern: ID },
-    done: { type: 'string', nonEmpty: true },
-    after: {
-      type: 'array',
-      items: { type: 'object', optional: ['if', 'unless', 'talk'], fields: { if: { type: 'string', pattern: ID }, unless: { type: 'string', pattern: ID }, text: { type: 'string', nonEmpty: true }, talk: { type: 'string', pattern: ID } } },
-    },
-    steps: {
-      type: 'array',
-      minItems: 1,
-      items: {
+const STORY_STEP_SCHEMA: Schema = {
         type: 'object',
         optional: ['times', 'needs', 'notReady', 'earn', 'markVan', 'confirm', 'lines', 'effects', 'toast'],
         fields: {
@@ -250,8 +237,25 @@ export const STORY_SCHEMA: Schema = {
           effects: { type: 'object', optional: ['money', 'give', 'take', 'fit', 'flags'], fields: { money: NUM, give: IDS, take: IDS, fit: { type: 'string', pattern: ID }, flags: IDS } },
           toast: { type: 'string', nonEmpty: true },
         },
-      },
+      };
+
+export const STORY_SCHEMA: Schema = {
+  type: 'object',
+  optional: ['note', 'after', 'chains'],
+  fields: {
+    note: { type: 'string' },
+    startMoney: { type: 'number', min: 0 },
+    chains: {
+      type: 'array',
+      items: { type: 'object', fields: { id: { type: 'string', pattern: ID }, needs: { type: 'string', pattern: ID }, steps: { type: 'array', minItems: 1, items: STORY_STEP_SCHEMA } } },
     },
+    intro: { type: 'string', pattern: ID },
+    done: { type: 'string', nonEmpty: true },
+    after: {
+      type: 'array',
+      items: { type: 'object', optional: ['if', 'unless', 'talk'], fields: { if: { type: 'string', pattern: ID }, unless: { type: 'string', pattern: ID }, text: { type: 'string', nonEmpty: true }, talk: { type: 'string', pattern: ID } } },
+    },
+    steps: { type: 'array', minItems: 1, items: STORY_STEP_SCHEMA },
   },
 };
 
@@ -268,7 +272,7 @@ export const WORLD_SCHEMA: Schema = {
     },
     places: {
       type: 'array',
-      items: { type: 'object', optional: ['spawn', 'mods'], fields: { map: { type: 'string', pattern: ID }, spawn: { type: 'string', pattern: ID }, name: { type: 'string', nonEmpty: true }, note: { type: 'string' }, mods: { type: 'boolean' } } },
+      items: { type: 'object', optional: ['spawn', 'mods', 'needs'], fields: { map: { type: 'string', pattern: ID }, spawn: { type: 'string', pattern: ID }, name: { type: 'string', nonEmpty: true }, note: { type: 'string' }, mods: { type: 'boolean' }, needs: { type: 'string', pattern: ID } } },
     },
     routes: {
       type: 'array',
@@ -327,6 +331,7 @@ export const CONTENT_FILES = {
   challenges: 'data/challenges.json',
   tools: 'data/tools.json',
   jobboard: 'data/jobboard.json',
+  areas: 'data/areas.json',
 } as const;
 
 export type RawContent = Record<keyof typeof CONTENT_FILES, unknown>;
@@ -352,6 +357,7 @@ const SCHEMAS: Record<keyof typeof CONTENT_FILES, Schema> = {
   challenges: CHALLENGES_SCHEMA,
   tools: TOOLS_SCHEMA,
   jobboard: JOB_BOARD_SCHEMA,
+  areas: AREAS_SCHEMA,
 };
 
 /** Checks raw file contents and returns the typed content, or every problem found. */
@@ -389,6 +395,7 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
     challenges: raw.challenges as ChallengesData,
     tools: raw.tools as ToolsData,
     jobboard: raw.jobboard as JobBoardData,
+    areas: raw.areas as AreasData,
   };
   const file = CONTENT_FILES.npcs;
   const seen = new Set<string>();
@@ -415,13 +422,14 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
   errors.push(...checkRaceContent(content, maps));
   errors.push(...checkChampionships(content.championships, content));
   errors.push(...checkErrands(CONTENT_FILES.errands, content.errands, { ...content, consumables: content.shops.consumables }));
-  errors.push(...checkTraining(CONTENT_FILES.training, content.training, content));
+  errors.push(...checkTraining(CONTENT_FILES.training, content.training, content, maps));
   errors.push(...checkChallenges(CONTENT_FILES.challenges, content.challenges, content, new Set(maps.keys())));
   if (content.world.worldMap) errors.push(...checkWorldMap(CONTENT_FILES.world, content.world.worldMap, maps));
   // Tile art isn't listed at run time; tests check it exists (tests/tracks.test.ts).
   errors.push(...checkTrackParts(content.trackParts, content.tracks.tracks, () => true));
   errors.push(...checkShopContent(CONTENT_FILES.shops, content.shops, content.bikes, seen, maps));
   errors.push(...checkTools(CONTENT_FILES.tools, content.tools, content.bikes, content.skills));
+  errors.push(...checkAreas(CONTENT_FILES.areas, content.areas, { fields: content.riders.fields, chains: (content.story.chains ?? []).map((c) => c.id), designs: content.vehicles.designs.map((d) => d.id), npcs: content.npcs.map((n) => n.id), weather: Object.keys(content.racing.weather ?? {}) }, maps));
   errors.push(...checkJobBoard(CONTENT_FILES.jobboard, content.jobboard, maps));
   errors.push(...checkVehicles(CONTENT_FILES.vehicles, raw.vehicles, maps).errors);
   errors.push(...checkBuildings(content.buildings, maps));
@@ -474,8 +482,12 @@ function checkCareerContent(c: Content, maps: Map<string, BakedMap>): ContentErr
   const lines = (field: string, id: string | undefined) => id && !c.dialogue[id] && err(CONTENT_FILES.story, field, `no dialogue "${id}" in ${CONTENT_FILES.dialogue}`);
   lines('intro', story.intro);
   story.after?.forEach((a, i) => a.talk && !npcIds.has(a.talk) && err(CONTENT_FILES.story, `after[${i}].talk`, `no NPC "${a.talk}"`));
-  story.steps.forEach((s, i) => {
-    const at = (f: string) => `steps[${i}].${f}`;
+  const chainSteps = (story.chains ?? []).flatMap((c, k) => c.steps.map((s, i) => ({ s, at: (f: string) => `chains[${k}].steps[${i}].${f}` })));
+  (story.chains ?? []).forEach((c, k) => {
+    if (!c.needs.startsWith('area.')) err(CONTENT_FILES.story, `chains[${k}].needs`, `a chain starts with an area's open flag (area.N.open), not "${c.needs}"`);
+    if (story.chains!.findIndex((x) => x.id === c.id) !== k) err(CONTENT_FILES.story, `chains[${k}].id`, `"${c.id}" is used twice`);
+  });
+  [...story.steps.map((s, i) => ({ s, at: (f: string) => `steps[${i}].${f}` })), ...chainSteps].forEach(({ s, at }) => {
     if (!!s.on.talk === !!s.on.use) err(CONTENT_FILES.story, at('on'), 'needs exactly one of talk or use');
     if (s.on.talk && !npcIds.has(s.on.talk)) err(CONTENT_FILES.story, at('on.talk'), `no NPC "${s.on.talk}"`);
     if (s.on.use) {

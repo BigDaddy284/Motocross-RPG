@@ -228,6 +228,119 @@
       { "speaker": "npc", "text": "Area 2 is under construction right now. It's due to be ready in December 2026." },
       { "speaker": "npc", "text": "Come back and see me again to check for more updates." }
     ] },
+    "news.a2.welcome": { "lines": [
+      { "speaker": "npc", "text": "Manny Festo! Told you I'd see you here. Welcome to Mountain Town: clay, rain and more rain." },
+      { "speaker": "npc", "text": "Taylor Heart is the Area 2 Champion and Cal Mercer the Local Champion. Cal's the one you want: he opens the tracks round here." },
+      { "speaker": "npc", "text": "The same faces run the shops: Paul, Bill, Lee and Jedrick all came up the valley with you. Paul's got something new on the racks." }
+    ] },
+    "story.a2.news": { "lines": [
+      { "speaker": "npc", "text": "There you are! Mountain Town. Bigger bikes, wetter tracks and a champion who's never been beaten in the mud." },
+      { "speaker": "npc", "text": "Go and see Paul at Phoenix MX first. He wants a word about what's new up here." }
+    ] },
+    "story.a2.shops": { "lines": [
+      { "speaker": "npc", "text": "Good, you made it. Same garage, new town: repairs, the bench, the job board, and now a clothing rack by the door." },
+      { "speaker": "npc", "text": "The rack's shut till you've got a wardrobe to hang things in. The Starter terrace by the road is for sale: buy it and the rack opens." },
+      { "speaker": "npc", "text": "While you're here: take this parts order up to Lee at the tyre shop. He's waiting on it." }
+    ] },
+    "story.a2.errand": { "lines": [
+      { "speaker": "npc", "text": "That's my order! Cheers. Paul said you'd be along." },
+      { "speaker": "npc", "text": "Wheels and tyres, same as ever, Grades 1 to 4 up here. And I'm racing again this season, so I'll see you at the gate." }
+    ] },
+    "story.a2.works": { "lines": [
+      { "speaker": "npc", "text": "You'll be the rider Paul mentioned. This is the Wheel works: we lace and true wheels for half the valley." },
+      { "speaker": "npc", "text": "Work a batch of 50 and you're paid a pound a wheel, Wheels XP every pass, and when the batch is done the best wheel of the lot is yours to keep." },
+      { "speaker": "npc", "text": "Start at the blue bench when you're ready. Stop whenever you like: the batch waits for you." }
+    ] },
+    "story.a2.training": { "lines": [
+      { "speaker": "npc", "text": "The gym? Through here. Weights build Strength, and Strength is what keeps a 65 pointed straight through the clay." },
+      { "speaker": "npc", "text": "A round is forty seconds. Press on the beat, and every round counts whatever you lift. Come back whenever you want." }
+    ] },
+    "story.a2.champion": { "lines": [
+      { "speaker": "npc", "text": "Cal Mercer. Local Champion. You'll have heard I know every line on the mountain." },
+      { "speaker": "npc", "text": "The tracks are open to you now: Clayhill MX, Valley Arena and Bog End Enduro. Sign on with Joseph at any race office." },
+      { "speaker": "npc", "text": "Win the Local Champion Championship here and the Area 2 badge is yours. Then it's Taylor Heart for the Area 2 title, and I'd bring a towel." }
+    ] },
+    "garage_mechanic.a2.hello": { "lines": [
+      { "speaker": "npc", "text": "Phoenix MX, Mountain Town branch. Repairs, the bench, the job board, and the clothing rack once you've a wardrobe to use." }
+    ] },
+    "van_seller.a2.hello": { "lines": [
+      { "speaker": "npc", "text": "Jedrick Nicholls, still the man for motors. Up here I've got the Old Rusty Van: twice the room of the truck, with yours in part exchange." }
+    ] },
+    "bike_shop_owner.a2.hello": { "lines": [
+      { "speaker": "npc", "text": "Moto78! Bigger shelves up here: engine, suspension and bodywork to Grade 4, for the 50s, 65s and the 85 small wheels." }
+    ] },
+    "tyre_specialist.a2.hello": { "lines": [
+      { "speaker": "npc", "text": "Lee's T's & Wheels. Wheels, tyres and brakes to Grade 4. Mud tyres are the ones you want up here." }
+    ] },
+    "works_boss.a2.hello": { "lines": [
+      { "speaker": "npc", "text": "Wheel works. Fifty wheels a batch, a pound each, Wheels XP every pass, and the best wheel's yours when the batch is done. Blue bench to start." }
+    ] },
+    "local_champion.a2.hello": { "lines": [
+      { "speaker": "npc", "text": "Cal Mercer, Local Champion. Nobody beats me in the mud. Enter the Local Champion Championship at any race office if you fancy trying." }
+    ] },
+    "local_champion.a2.after": { "lines": [
+      { "speaker": "npc", "text": "The badge is yours, fair and square. Taylor Heart's next: the Area 2 Championship, six rounds. Go on then." }
+    ] },
+    "area_champion.a2.hello": { "lines": [
+      { "speaker": "npc", "text": "Taylor Heart. Area 2 Champion, three years running. The Area 2 Championship is six rounds, two at every track, and I win most of them." }
+    ] },
+    "area_champion.a2.after": { "lines": [
+      { "speaker": "npc", "text": "You beat me. Properly. The road east is open and Beach Town's waiting. Don't forget where you learned to ride in the wet." }
+    ] },
+    "gym_coach.a2.hello": { "lines": [
+      { "speaker": "npc", "text": "Town gym. Weights for Strength. Forty seconds a round, press on the beat, and every round counts." }
+    ] },
+    "yard_coach.a2.hello": { "lines": [
+      { "speaker": "npc", "text": "The practice yard's yours: body position, cone braking and rut riding. Pick a drill at the yard. Every round counts." }
+    ] },
+    "challenger_kyle.building": { "lines": [
+      { "speaker": "npc", "text": "Kyle Brooks. I've a race for you, but my forks are shot and I'm skint. Get them repaired for me and I'll race you for \u00a380 on my own track." }
+    ] },
+    "challenger_kyle.offer": { "lines": [
+      { "speaker": "npc", "text": "Forks sorted? Then let's race. \u00a380 says you can't live with me on the mountain loop." }
+    ] },
+    "challenger_kyle.short": { "lines": [
+      { "speaker": "npc", "text": "Come back with \u00a380. I don't race for nothing." }
+    ] },
+    "challenger_kyle.won": { "lines": [
+      { "speaker": "npc", "text": "You had me there. Take it: you earned it. Rematch any time." }
+    ] },
+    "challenger_kyle.lost": { "lines": [
+      { "speaker": "npc", "text": "Told you. Easy money. Come back when you've done some laps." }
+    ] },
+    "challenger_freya.building": { "lines": [
+      { "speaker": "npc", "text": "Freya Collins. Want a race? My brakes are gone and the garage won't look at them till they're paid for. Sort them and I'll race you for \u00a380." }
+    ] },
+    "challenger_freya.offer": { "lines": [
+      { "speaker": "npc", "text": "Brakes done? Right. \u00a380, my track, no excuses." }
+    ] },
+    "challenger_freya.short": { "lines": [
+      { "speaker": "npc", "text": "\u00a380 or no race." }
+    ] },
+    "challenger_freya.won": { "lines": [
+      { "speaker": "npc", "text": "Ugh. Fine. Yours. I'll have it back next time." }
+    ] },
+    "challenger_freya.lost": { "lines": [
+      { "speaker": "npc", "text": "Thanks for the \u00a380. The rut by the pond gets everyone." }
+    ] },
+    "errand.kyle.offer": { "lines": [
+      { "speaker": "npc", "text": "My forks. Dead. Take them down to Phoenix MX, get them repaired and bring them back. I'll pay the repair back plus \u00a310, and then we race." }
+    ] },
+    "errand.kyle.waiting": { "lines": [
+      { "speaker": "npc", "text": "Forks back yet? Phoenix MX, on the high street." }
+    ] },
+    "errand.kyle.thanks": { "lines": [
+      { "speaker": "npc", "text": "That's them! Here's the repair money and a tenner. Now we race, whenever you're ready." }
+    ] },
+    "errand.freya.offer": { "lines": [
+      { "speaker": "npc", "text": "Brakes. Get them repaired at Phoenix MX and bring them back. Repair money plus \u00a310 for you, then we race." }
+    ] },
+    "errand.freya.waiting": { "lines": [
+      { "speaker": "npc", "text": "No brakes, no race. Phoenix MX will sort them." }
+    ] },
+    "errand.freya.thanks": { "lines": [
+      { "speaker": "npc", "text": "Perfect. Repair money and a tenner. Now, about that race." }
+    ] },
     "pro_racer.hello": { "lines": [
       { "speaker": "npc", "text": "You're not skilled enough for me to waste my time on. Go and practise, and come back when you're on a 450cc." }
     ] }

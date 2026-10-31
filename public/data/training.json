@@ -3,6 +3,10 @@
   "drills": [
     { "id": "train.bodyweight", "name": "Bodyweight drills", "skill": "strength", "xp": 50, "game": "reps", "ms": 40000, "how": "Press Space or tap as the marker crosses the green zone for a good rep. Every round counts, whatever your reps." },
     { "id": "train.gate_drop", "name": "Gate drop drill", "skill": "starts", "xp": 50, "game": "react", "ms": 40000, "venue": "backyard", "how": "Your front wheel at the gate. Watch the gate: press Space or tap the moment it drops. Too early is a jumped start, too late a slow one. Every round counts." },
+    {"id": "train.weights", "name": "Weight training", "skill": "strength", "xp": 60, "game": "reps", "ms": 40000, "venue": "fitness-a2", "how": "Press Space or tap as the marker crosses the green zone for a clean lift. Tier 2: every round counts, whatever you lift."},
+    {"id": "train.body_position", "name": "Body position drills", "skill": "riding_position", "xp": 50, "game": "reps", "ms": 40000, "venue": "yard-a2", "how": "Attack position over the bumps: press Space or tap as the marker crosses the green zone to get forward at the right moment."},
+    {"id": "train.cone_braking", "name": "Cone braking", "skill": "cornering", "xp": 50, "game": "pace", "ms": 40000, "venue": "yard-a2", "how": "Hold Space or press and hold to carry speed, let go to brake. Keep the marker in the green band through each cone."},
+    {"id": "train.rut_riding", "name": "Rut riding", "skill": "balance", "xp": 50, "game": "react", "ms": 40000, "venue": "yard-a2", "how": "Watch the rut: press Space or tap the moment the front wheel drops in. Early and you wash out, late and you cross-rut."},
     { "id": "train.running", "name": "Running session", "skill": "endurance", "xp": 50, "game": "pace", "ms": 40000, "npc": "npc.running_coach", "how": "Hold Space or press and hold to run faster, let go to ease off. Keep your pace in the green band for each lap split." }
   ],
   "walk": { "skill": "agility", "tiles": 10, "xp": 1 }

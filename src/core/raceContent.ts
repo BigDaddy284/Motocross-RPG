@@ -57,9 +57,10 @@ const KIND_LAPS: Schema = {
 
 export const RACING_SCHEMA: Schema = {
   type: 'object',
-  optional: ['note', 'kindLaps'],
+  optional: ['note', 'kindLaps', 'weather'],
   fields: {
     note: { type: 'string' },
+    weather: { type: 'record', values: { type: 'object', fields: { name: S, factor: { type: 'number', min: 0.5, max: 2 }, risk: { type: 'number', min: 0.5, max: 4 } } } },
     sim: {
       type: 'object',
       optional: ['firstCorner', 'loopOut', 'pileup', 'fitness', 'sprint', 'knockout'],
@@ -220,7 +221,7 @@ export const TRACKS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['track', 'class', 'field', 'office', 'needs', 'practiceFeePct', 'firstRaceFree', 'practiceOnly', 'area', 'locked', 'regulars', 'practiceRiders'],
+        optional: ['track', 'class', 'field', 'office', 'needs', 'practiceFeePct', 'firstRaceFree', 'practiceOnly', 'area', 'locked', 'regulars', 'practiceRiders', 'town'],
         fields: {
           id: IDS,
           name: S,
@@ -235,6 +236,7 @@ export const TRACKS_SCHEMA: Schema = {
           firstRaceFree: { type: 'boolean' },
           practiceOnly: { type: 'boolean' },
           area: { type: 'array', items: { type: 'number', integer: true, min: 0 }, minItems: 4, maxItems: 4 },
+          town: IDS,
           locked: S,
           practiceRiders: { type: 'number', integer: true, min: 0, max: 15 },
         },
@@ -271,7 +273,7 @@ export const RIDERS_SCHEMA: Schema = {
         },
       },
     },
-    fields: { type: 'record', values: { type: 'object', fields: { area: { type: 'number', integer: true, min: 1, max: 8 } } } },
+    fields: { type: 'record', values: { type: 'object', optional: ['level'], fields: { area: { type: 'number', integer: true, min: 1, max: 8 }, level: LEVEL } } },
     fieldSize: { type: 'record', values: { type: 'number', integer: true, min: 1, max: 15 } },
     regulars: { type: 'record', values: { type: 'array', items: IDS } },
   },

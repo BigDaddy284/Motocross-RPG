@@ -23,7 +23,7 @@
         { "money": 40 }
       ],
       "replay": 0.5,
-      "won": "You beat Louis Jonez to the Area 1 badge. The Area 1 Championship comes with Area 2, in a later build."
+      "won": "You beat Louis Jonez to the Area 1 badge. The Area 1 Championship is open: win it and the road to Mountain Town opens with your 65cc."
     },
     {
       "id": "area1.main",
@@ -39,7 +39,7 @@
       "entryTimes": 2.0,
       "purseTimes": 2.6,
       "qualifyingLaps": 3,
-      "needs": ["badge.area1", "area2.ready"],
+      "needs": ["badge.area1"], "opens": 2,
       "rewards": [
         { "money": 300, "flag": "trophy.area1.main", "title": "the Area 1 Championship trophy" },
         { "money": 150 },
@@ -48,6 +48,8 @@
       "replay": 0.5,
       "milestone": "65cc",
       "won": "Area 1 champion! Collect your 65cc from Bill at Moto78: the champion's sponsor has a bike for you, or buy a stock one."
-    }
+    },
+    {"id": "area2.local_champion", "name": "Mountain Town Local Champion Championship", "short": "Area 2 Local", "class": "65cc", "field": "area2.local", "size": 15, "regulars": ["cpu.a2.local"], "without": ["cpu.r21"], "main": "cpu.a2.local", "buff": 0.1, "rounds": ["venue-a2-mx", "venue-a2-sx", "venue-a2-enduro"], "entryTimes": 1.5, "purseTimes": 1.8, "qualifyingLaps": 3, "needs": ["area2.intro_done", "first_race_done"], "rewards": [{"money": 300, "flag": "badge.area2", "title": "the Area 2 badge", "image": "art/ui/badge-area1.png"}, {"money": 150}, {"money": 80}], "replay": 0.5, "won": "You beat Cal Mercer to the Area 2 badge. The Area 2 Championship is open: win it for your 85cc and the road to Area 3."},
+    {"id": "area2.main", "name": "Area 2 Championship", "short": "Area 2", "class": "65cc", "field": "area2.local", "size": 15, "regulars": ["cpu.a2.local"], "main": "cpu.r21", "buff": 0.1, "rounds": ["venue-a2-mx", "venue-a2-sx", "venue-a2-enduro", "venue-a2-mx", "venue-a2-sx", "venue-a2-enduro"], "entryTimes": 2.0, "purseTimes": 2.6, "qualifyingLaps": 3, "needs": ["badge.area2"], "opens": 3, "milestone": "85cc-small", "rewards": [{"money": 600, "flag": "trophy.area2.main", "title": "the Area 2 Championship trophy"}, {"money": 300}, {"money": 150}], "replay": 0.5, "won": "Area 2 champion! Collect your 85cc small wheel from Bill at Moto78 in Home Town: the champion's sponsor has a bike for you, or buy a stock one."}
   ]
 }

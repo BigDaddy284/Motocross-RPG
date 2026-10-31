@@ -49,6 +49,9 @@
       "actions": ["service.paid_repair"], "fitAction": "workshop.fit_tune", "needs": "tutorial_done",
       "greeting": "Grade 2 and up, I'll bring it back to new, one grade down. Got spares? I'll fit them on the bench.",
       "repairs": true, "fitFee": 5
-    }
+    },
+    {"id": "shop.a2.garage", "name": "Phoenix MX", "npc": "npc.a2.garage_mechanic", "map": "int-a2-local-garage", "actions": ["service.paid_repair", "workshop.fit_tune"], "fitAction": "workshop.fit_tune", "greeting": "Grade 2 and up, back to new, one grade down. Spares fitted on the bench. Engine and suspension parts to Grade 4 for the 50s, 65s and 85 small wheels.", "sells": {"slots": ["top_end", "bottom_end", "intake_exhaust", "drivetrain", "forks", "shock"], "grades": [1, 4], "classes": ["50cc", "65cc", "85cc-small"], "extraChance": {"2": 0.6, "3": 0.35, "4": 0.15}}, "repairs": true, "fitFee": 5},
+    {"id": "shop.a2.bike", "name": "Moto78", "npc": "npc.a2.bike_shop_owner", "map": "int-a2-bike-shop", "actions": ["shop.bike_parts"], "greeting": "Frames, bodywork and controls to Grade 4 for the 50s, 65s and 85 small wheels. Stock frames in your brand, Grade 1, for any class you've unlocked.", "sells": {"slots": ["frame", "bodywork"], "grades": [1, 4], "classes": ["50cc", "65cc", "85cc-small"], "extraChance": {"2": 0.6, "3": 0.35, "4": 0.15}, "stockOnly": ["frame"]}},
+    {"id": "shop.a2.tyres", "name": "Lee's T's & Wheels", "npc": "npc.a2.tyre_specialist", "map": "int-a2-tyre-shop", "actions": ["shop.tyres_wheels"], "greeting": "Wheels, tyres and brakes to Grade 4. Mud tyres for the mountain.", "sells": {"slots": ["wheels_tyres", "brakes"], "grades": [1, 4], "classes": ["50cc", "65cc", "85cc-small"], "extraChance": {"2": 0.6, "3": 0.35, "4": 0.15}}}
   ]
 }

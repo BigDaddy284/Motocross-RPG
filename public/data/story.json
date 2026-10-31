@@ -105,7 +105,13 @@
     { "unless": "first_race_done", "talk": "npc.track_official", "text": "Race at Farmland MX: sign on with Joseph Halden, whose family runs all the tracks, at the race office. Your first race is free." },
     { "unless": "first_race_finished", "text": "Finish both motos of a race day at Farmland MX. Practise on the backyard loop behind your rented room." },
     { "unless": "badge.area1", "text": "Win the Local Champion Championship for the Area 1 badge: enter at any track's race office, under Championships." },
-    { "unless": "trophy.area1.main", "text": "You hold the Area 1 badge. The Area 1 Championship comes with Area 2, in a later build: race on, keep the bike sharp, or make your own tracks." },
-    { "unless": "class.65cc", "talk": "npc.bike_shop_owner", "text": "Area 1 champion! Collect your 65cc from Bill at Moto78: take the champion's sponsor's bike, or buy a stock one. You'll need Rider Ability 10 to ride it." }
+    { "unless": "trophy.area1.main", "text": "You hold the Area 1 badge. Win the Area 1 Championship (6 rounds, enter at any race office) for your 65cc and the road to Mountain Town." },
+    { "unless": "class.65cc", "talk": "npc.bike_shop_owner", "text": "Area 1 champion! Collect your 65cc from Bill at Moto78: take the champion's sponsor's bike, or buy a stock one. You'll need Rider Ability 10 to ride it." },
+    {"if": "area.2.open", "unless": "badge.area2", "text": "Mountain Town: win the Local Champion Championship for the Area 2 badge. Enter at any Mountain Town race office."},
+    {"if": "area.2.open", "unless": "trophy.area2.main", "text": "You hold the Area 2 badge. Win the Area 2 Championship (6 rounds) for your 85cc and the road to Area 3."},
+    {"if": "area.2.open", "unless": "class.85cc-small", "talk": "npc.bike_shop_owner", "text": "Area 2 champion! Collect your 85cc small wheel from Bill at Moto78 in Home Town. You'll need Rider Ability 20 to ride it."}
+  ],
+  "chains": [
+    {"id": "area2", "needs": "area.2.open", "steps": [{"id": "a2_news", "journal": "Mountain Town. Find Manny Festo, up by the top field, for the news.", "on": {"talk": "npc.a2.news"}, "lines": "story.a2.news"}, {"id": "a2_shops", "journal": "See Paul at Phoenix MX, Mountain Town, about what's new in town.", "on": {"talk": "npc.a2.garage_mechanic"}, "lines": "story.a2.shops", "effects": {"give": ["task.parts_order"]}}, {"id": "a2_errand", "journal": "Take the parts order up to Lee at Lee's T's & Wheels.", "on": {"talk": "npc.a2.tyre_specialist"}, "lines": "story.a2.errand", "effects": {"take": ["task.parts_order"], "money": 30}}, {"id": "a2_works", "journal": "Call in at the Wheel works and meet the boss.", "on": {"talk": "npc.a2.works_boss"}, "lines": "story.a2.works"}, {"id": "a2_training", "journal": "See the coach at the town gym.", "on": {"talk": "npc.a2.gym_coach"}, "lines": "story.a2.training"}, {"id": "a2_champion", "journal": "Meet Cal Mercer, the Local Champion, by the practice yard.", "on": {"talk": "npc.a2.local_champion"}, "lines": "story.a2.champion", "effects": {"flags": ["area2.intro_done"]}, "toast": "Mountain Town's tracks are open: Clayhill MX, Valley Arena and Bog End Enduro."}]}
   ]
 }

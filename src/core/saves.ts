@@ -233,6 +233,7 @@ function isCareer(v: unknown): boolean {
     (c.tools === undefined || (typeof c.tools === 'object' && c.tools !== null && Object.values(c.tools).every((v) => typeof v === 'string'))) &&
     (c.retired === undefined || (Array.isArray(c.retired) && c.retired.every((r) => isBike((r as Record<string, unknown>)?.bike) && typeof (r as Record<string, unknown>).milestone === 'string'))) &&
     !!story && Number.isInteger(story.step) && Array.isArray(story.used) &&
+    (c.chains === undefined || (typeof c.chains === 'object' && c.chains !== null && Object.values(c.chains as Record<string, Record<string, unknown>>).every((ch) => Number.isInteger(ch?.step) && Array.isArray(ch?.used)))) &&
     typeof c.counters === 'object' && c.counters !== null &&
     isSkills(c.skills)
   );

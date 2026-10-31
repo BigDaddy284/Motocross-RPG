@@ -30,6 +30,8 @@
       "offer": "scrapyard_owner.offer",
       "waiting": "scrapyard_owner.waiting",
       "thanks": "scrapyard_owner.thanks"
-    }
+    },
+    {"id": "a2.kyle.forks", "npc": "npc.a2.challenger_kyle", "owner": "Kyle", "reward": 10, "class": "65cc", "slots": ["forks"], "grades": [2, 3], "condition": [0.3, 0.6], "needs": "area2.intro_done", "sets": "a2.kyle.task_done", "offer": "errand.kyle.offer", "waiting": "errand.kyle.waiting", "thanks": "errand.kyle.thanks"},
+    {"id": "a2.freya.brakes", "npc": "npc.a2.challenger_freya", "owner": "Freya", "reward": 10, "class": "65cc", "slots": ["brakes"], "grades": [2, 3], "condition": [0.3, 0.6], "needs": "area2.intro_done", "sets": "a2.freya.task_done", "offer": "errand.freya.offer", "waiting": "errand.freya.waiting", "thanks": "errand.freya.thanks"}
   ]
 }

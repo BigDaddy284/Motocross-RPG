@@ -83,6 +83,8 @@
       "short": "challenger_iz.short",
       "won": "challenger_iz.won",
       "lost": "challenger_iz.lost"
-    }
+    },
+    {"id": "a2.kyle", "npc": "npc.a2.challenger_kyle", "name": "Kyle's challenge", "track": "challenge-a2-kyle", "map": "area2-mountain-town", "area": 2, "class": "65cc", "entry": 80, "laps": 3, "challenger": "cpu.r26", "field": "area2.local", "others": 6, "needs": "a2.kyle.task_done", "odds": {"classes": {"65cc": {"at75": 0.5, "cap": 0.85}, "85cc-small": {"at75": 0.85, "cap": 0.95}, "85cc-big": {"at75": 0.97, "cap": 0.99}}, "perCondition": 1.0, "floor": 0.05}, "building": "challenger_kyle.building", "offer": "challenger_kyle.offer", "short": "challenger_kyle.short", "won": "challenger_kyle.won", "lost": "challenger_kyle.lost"},
+    {"id": "a2.freya", "npc": "npc.a2.challenger_freya", "name": "Freya's challenge", "track": "challenge-a2-freya", "map": "area2-mountain-town", "area": 2, "class": "65cc", "entry": 80, "laps": 3, "challenger": "cpu.r31", "field": "area2.local", "others": 6, "needs": "a2.freya.task_done", "odds": {"classes": {"65cc": {"at75": 0.5, "cap": 0.85}, "85cc-small": {"at75": 0.85, "cap": 0.95}, "85cc-big": {"at75": 0.97, "cap": 0.99}}, "perCondition": 1.0, "floor": 0.05}, "building": "challenger_freya.building", "offer": "challenger_freya.offer", "short": "challenger_freya.short", "won": "challenger_freya.won", "lost": "challenger_freya.lost"}
   ]
 }

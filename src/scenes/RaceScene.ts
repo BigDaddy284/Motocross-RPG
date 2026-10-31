@@ -206,6 +206,13 @@ export class RaceScene extends Phaser.Scene {
     return def && active ? { def, active, round: active.rounds.length + 1 } : null;
   }
 
+  /** " · Light rain" on a wet day (Spec 10.5), nothing when it's dry. */
+  private weatherNote(): string {
+    const w = this.day?.weather;
+    const def = w ? services.content.racing.weather?.[w] : undefined;
+    return def && def.factor !== 1 ? ` · ${def.name}` : '';
+  }
+
   /** "Farmland MX · 50cc race day", or the championship and round. */
   private dayTitle(): string {
     if (this.ko) return `${this.args.venue.name} · ${this.ko.cls} No-Turn Takedown`;
@@ -333,7 +340,7 @@ export class RaceScene extends Phaser.Scene {
     if (day.sprint) return this.showStartOrder();
     this.clear();
     const n = day.motoNumber;
-    this.header(this.dayTitle(), `Moto ${n} of ${day.motoCount} · ${day.laps} laps · ${day.field.length} riders`);
+    this.header(this.dayTitle(), `Moto ${n} of ${day.motoCount} · ${day.laps} laps · ${day.field.length} riders${this.weatherNote()}`);
     const { taken, free } = day.gatesForPlayer();
     const myTurn = day.pickOrder.indexOf(PLAYER_ID) + 1;
     const how = n > 1 ? 'Gate picks for moto 2 go in moto 1 finishing order.' : day.qualifying ? 'Gate picks for moto 1 go in qualifying order.' : 'Gate picks for moto 1 are drawn at random.';

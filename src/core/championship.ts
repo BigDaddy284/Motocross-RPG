@@ -1,7 +1,8 @@
 import { className, dayClass, milestoneFlag, nextClass } from './classes';
+import { areaFlag } from './areas';
 import { pence, type CareerState } from './career';
 import { mixSeed, seededRng } from './race';
-import { PLAYER_ID, type CpuRiderDef, type RaceContent, type RaceDay, type VenueDef } from './raceDay';
+import { PLAYER_ID, fieldRider, type CpuRiderDef, type RaceContent, type RaceDay, type VenueDef } from './raceDay';
 import type { ContentError, Schema } from './validate';
 
 // Championships (Spec 12.5, 18.6): a series of rounds at the area's venues, each entered
@@ -43,6 +44,8 @@ export interface ChampionshipDef {
   won?: string;
   /** The class this championship is the milestone for (Spec 18.3): its first win sets milestone.<class>. */
   milestone?: string;
+  /** The area a first win opens (Spec 18.2): sets area.N.open. */
+  opens?: number;
 }
 
 export interface ChampionshipsData {
@@ -80,7 +83,7 @@ export const CHAMPIONSHIPS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['regulars', 'without', 'main', 'buff', 'needs', 'won', 'milestone'],
+        optional: ['regulars', 'without', 'main', 'buff', 'needs', 'won', 'milestone', 'opens'],
         fields: {
           id: { type: 'string', pattern: /^[a-z0-9_.-]+$/ },
           name: { type: 'string', nonEmpty: true },
@@ -105,6 +108,7 @@ export const CHAMPIONSHIPS_SCHEMA: Schema = {
           replay: { type: 'number', min: 0, max: 1 },
           won: { type: 'string', nonEmpty: true },
           milestone: { type: 'string', nonEmpty: true },
+          opens: { type: 'number', integer: true, min: 2, max: 8 },
         },
       },
     },
@@ -133,8 +137,9 @@ export function checkChampionships(data: ChampionshipsData, rc: Pick<RaceContent
     if (c.main && c.without?.includes(c.main)) err('main', `"${c.main}" is left out of it`);
     if (c.main && pool) {
       // The main rider is the one to beat on skill, with everyone else buffed.
-      const main = rc.riders.riders.find((r) => r.id === c.main);
-      const best = pool.filter((id) => id !== c.main && !c.without?.includes(id)).map((id) => rc.riders.riders.find((r) => r.id === id)!).map((r) => buffRider(r, c.buff ?? 0).level);
+      // Everyone races at the field's level where it has one (raceDay.ts fieldRider).
+      const main = fieldRider(rc, c.field, c.main);
+      const best = pool.filter((id) => id !== c.main && !c.without?.includes(id)).map((id) => fieldRider(rc, c.field, id)!).map((r) => buffRider(r, c.buff ?? 0).level);
       if (main && best.some((l) => l >= main.level)) err('main', `${main.name} (level ${main.level}) isn't the best rider in it once the others are buffed (up to level ${Math.max(...best)})`);
     }
     if (!rc.racing.classes[c.class]) err('class', `no class "${c.class}" in data/racing.json`);
@@ -199,7 +204,7 @@ export function champRiders(rc: Pick<RaceContent, 'riders'>, def: ChampionshipDe
   const others = active.field.filter((id) => id !== def.main);
   const ids = active.field.length > def.size ? [...(def.main && active.field.includes(def.main) ? [def.main] : []), ...others].slice(0, def.size) : active.field;
   return ids
-    .map((id) => rc.riders.riders.find((r) => r.id === id))
+    .map((id) => fieldRider(rc, def.field, id))
     .filter((r): r is CpuRiderDef => !!r)
     .map((r) => (r.id === def.main ? r : buffRider(r, def.buff ?? 0)));
 }
@@ -209,8 +214,6 @@ export function champProblem(rc: Pick<RaceContent, 'tracks' | 'bikes'>, def: Cha
   if (bikeClass !== undefined && !dayClass(rc.bikes, def.class, bikeClass)) return `A ${className(rc.bikes, def.class)} championship: your ${className(rc.bikes, bikeClass)} is too small.`;
   const missing = (def.needs ?? []).find((f) => !flags[f]);
   if (missing === 'first_race_done') return 'Locked: finish one normal race day first, at any track. Then the championship opens.';
-  // The Area 1 Championship waits for Area 2 (Boss, 29 Oct 2026): nothing sets area2.ready in this build.
-  if (missing === 'area2.ready') return 'Comes with Area 2, in a later build.';
   if (missing?.startsWith('badge.')) return 'Needs the badge from this area’s Local Champion Championship.';
   if (missing) return 'Not open to you yet.';
   for (const v of def.rounds) {
@@ -333,5 +336,6 @@ export function finishChampionship(career: CareerState, flags: Record<string, bo
   career.money += money;
   if (reward?.flag) flags[reward.flag] = true;
   if (me.position === 1 && def.milestone) flags[milestoneFlag(def.milestone)] = true;
+  if (me.position === 1 && def.opens) flags[areaFlag(def.opens)] = true;
   return { position: me.position, money, flag: reward?.flag, title: me.position === 1 && !firstWin ? undefined : reward?.title, firstWin };
 }

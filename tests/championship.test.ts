@@ -63,8 +63,6 @@ describe('championships (Spec 12.5, 18.6)', () => {
     expect(champProblem(content, local, flags)).toBeNull();
     expect(champProblem(content, main, flags)).toMatch(/badge/);
     flags['badge.area1'] = true;
-    expect(champProblem(content, main, flags)).toMatch(/Area 2/);
-    flags['area2.ready'] = true;
     expect(champProblem(content, main, flags)).toBeNull();
   });
 

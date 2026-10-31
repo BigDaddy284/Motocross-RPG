@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { advanceStory, bikeProblem, currentStep, fillText, formatMoney, jobPay, matchStory, pence, type JobDef, type PlaceDef, type StoryEvent, type StoryStep } from '../core/career';
+import { advanceStory, bikeProblem, currentStep, fillText, formatMoney, jobPay, matchStory, openChains, pence, type JobDef, type PlaceDef, type StoryEvent, type StoryStep } from '../core/career';
 import { newsRead, npcsOnMap, properName, type DialogueLine, type NpcDef, type NpcPlacement } from '../core/content';
 import { Grid, STEPS } from '../core/grid';
 import { objectTiles, type BakedMap, type Facing, type MapObject, type Tile } from '../core/mapTypes';
@@ -11,6 +11,7 @@ import { roadMenu, routeArrival, sideOf } from '../core/guides';
 import { earning, goalObjects, nextHop, storyGoals } from '../core/waymarks';
 import { biggestBike, bikeImage, zoneFor } from '../core/worldMap';
 import { ROUTE, spawnTile, stepTriggerAt, type Arrival, type StepResult } from '../core/travel';
+import { areaOfMap, buyHouse, buyMotor, houseFlag, motorProblem } from '../core/areas';
 import { DriveMap, FACING_OF, bayFor, ensureVan, exitTile, footprint, inwardHeading, nearestFree, placeNear, planDrive, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
 import { venueClassFor, entryFee, fieldCount, lapsFor, practiceFee, trackById, venueProblem, type VenueDef } from '../core/raceDay';
@@ -432,6 +433,16 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
     const venue = o.type === 'venue' ? services.content.tracks.venues.find((v) => v.id === o.props.venue) : undefined;
+    const drills = o.type === 'venue' && !venue ? drillsAtVenue(services.content.training, String(o.props.venue)) : [];
+    if (drills.length) {
+      // A training spot with no track (the gym, the drill yard): its drills, nothing to ride.
+      const skillName = (id: string) => services.content.skills.leads.flatMap((l) => l.children).find((c) => c.id === id)?.name ?? id;
+      this.hud.choose(o.name, 'Pick a drill. Every round counts, whatever the score.', [
+        ...drills.map((d) => ({ label: d.name, note: `${skillName(d.skill)} XP every round.`, onPick: () => this.runDrill(d) })),
+        { label: 'Not now', onPick: () => this.player.idle() },
+      ], () => this.player.idle());
+      return;
+    }
     if (venue) {
       if (venue.office && !venue.locked) {
         const official = services.content.npcs.find((n) => n.id === venue.office);
@@ -498,6 +509,7 @@ export class WorldScene extends Phaser.Scene {
     if (errand && !rule) return this.errandTalk(npc, errand, back);
     const drill = drillForNpc(services.content.training, npc.id);
     if (drill && !rule) return this.say(npc.name, npc.dialogue, () => this.runDrill(drill, back));
+    if (!rule && this.offerMotor(npc, back)) return;
     const shop = services.content.shops.shops.find((s) => s.npc === npc.id);
     if (shop && !rule && this.openShop(shop, 'buy', back)) return;
     this.say(npc.name, rule?.dialogue ?? npc.dialogue, () => {
@@ -558,7 +570,11 @@ export class WorldScene extends Phaser.Scene {
     const stage = errandStage(career, def);
     if (stage === 'waiting') return this.say(npc.name, def.waiting, back);
     if (stage === 'ready') {
-      return this.say(npc.name, def.thanks, () => saved(finishErrand(career, def).message));
+      return this.say(npc.name, def.thanks, () => {
+        const r = finishErrand(career, def);
+        if (r.ok && def.sets) this.save.flags[def.sets] = true;
+        saved(r.message);
+      });
     }
     this.say(npc.name, def.offer, () => {
       this.hud.confirm(`Take ${def.owner}'s part to the garage for repair?\nYou pay for the repair and get it back on return, plus ${formatMoney(pence(def.reward))}.`, 'Take it', () => {
@@ -617,6 +633,47 @@ export class WorldScene extends Phaser.Scene {
     const all = { rider: this.save.rider.name, ...vars };
     const lines: DialogueLine[] = services.content.dialogue[key].lines.map((l) => ({ ...l, text: fillText(l.text, all) }));
     this.hud.openDialogue(speaker, this.save.rider.name, lines, onClose);
+  }
+
+  /** The area's house, for sale at its locked door (core/areas.ts): offers it, or says why not. Returns false if this isn't the house door. */
+  private offerHouse(door: MapObject): boolean {
+    const area = areaOfMap(services.content.areas, this.map.id);
+    if (!area?.house || door.type !== 'door' || door.props.unlock !== houseFlag(area.n) || door.name !== area.house.door) return false;
+    const career = this.save.career;
+    const extras = area.house.unlocks?.includes('wardrobe') ? ' It comes with a wardrobe, so the clothing rack at Phoenix MX opens to you.' : '';
+    this.hud.confirm(`${area.house.name}: for sale at £${area.house.price}.${extras}\nBuy it?`, 'Buy', () => {
+      const r = buyHouse(area, career, this.save.flags);
+      this.hud.toast(r.message);
+      if (!r.ok) return;
+      this.hud.showCareer(career, this.save.flags);
+      this.refreshMapState();
+      this.milestoneSave();
+    }, () => {});
+    return true;
+  }
+
+  /** Nicholls Used Motors in a later area sells that area's motor (core/areas.ts): offers it, or says why not. */
+  private offerMotor(npc: NpcDef, back: () => void): boolean {
+    const area = services.content.areas.areas.find((a) => a.motor?.npc === npc.id);
+    if (!area?.motor) return false;
+    const { vehicles } = services.content;
+    const career = this.save.career;
+    const design = vehicles.designs.find((d) => d.id === area.motor!.design);
+    const problem = motorProblem(vehicles, area, career, this.save.van);
+    this.say(npc.name, npc.dialogue, () => {
+      if (problem) return void this.hud.toast(problem), back();
+      this.hud.confirm(`${design?.name ?? area.motor!.design}: £${area.motor!.price} with your old motor in part exchange. Bigger than the old one, and it never needs looking after.\nBuy it?`, 'Buy', () => {
+        const r = buyMotor(vehicles, area, career, this.save.van!);
+        this.hud.toast(r.message);
+        if (r.ok) {
+          this.hud.showCareer(career, this.save.flags);
+          this.milestoneSave();
+          this.hud.toast("It's parked where the old one stood: you'll see it when you next step outside.");
+        }
+        back();
+      }, back);
+    });
+    return true;
   }
 
   /**
@@ -680,6 +737,8 @@ export class WorldScene extends Phaser.Scene {
     this.waymarks.clear();
     this.markPoint = null;
     const career = this.save.career;
+    // An area just opened starts its intro chain (core/career.ts openChains).
+    for (const c of openChains(services.content.story, career, this.save.flags)) this.hud.toast(`${services.content.areas.areas.find((a) => a.intro === c.id)?.name ?? 'A new area'}: a new task.`);
     this.markEarning = earning(services.content, career);
     const goals = storyGoals(services.content, services.maps, career, this.save.flags, this.save.van ?? null);
     if (!goals.length) return;
@@ -978,8 +1037,10 @@ export class WorldScene extends Phaser.Scene {
     const laps = lapsFor(rc, trackById(rc, venue.track!), dayCls, false);
     const field = fieldCount(rc, venue) + 1;
     const first = fee === 0 && venue.firstRaceFree;
+    const area = venue.town ? areaOfMap(rc.areas, venue.town) : undefined;
+    const forecast = area?.weather ? ` Weather here: ${Object.keys(area.weather).map((k) => rc.racing.weather?.[k]?.name.toLowerCase() ?? k).join(', ')}; you find out at the gate.` : '';
     const text = [
-      mod ? mod.intro : first ? "First time here? Your first race day is on us." : 'Race office. What can I do for you?',
+      (mod ? mod.intro : first ? "First time here? Your first race day is on us." : 'Race office. What can I do for you?') + forecast,
       `${className(rc.bikes, dayCls)} race day: ${field} riders including the Local Champion, 2 motos of ${laps} laps. Prize money to 10th in each moto.`,
     ].join('\n\n');
     const short = (p: number) => career.money < p;
@@ -1477,7 +1538,7 @@ export class WorldScene extends Phaser.Scene {
    * road menu at the road itself. Returns true when it went straight away.
    */
   private routeTo(via: MapObject, go: (to: Arrival) => void): boolean {
-    const to = routeArrival(this.map, via, services.content.world, services.maps, null);
+    const to = routeArrival(this.map, via, services.content.world, services.maps, null, this.save.flags);
     if (typeof to === 'string') {
       this.hud.toast(to);
       return false;
@@ -1648,7 +1709,7 @@ export class WorldScene extends Phaser.Scene {
     if (r.kind === 'blocked') {
       this.path = [];
       this.onArrive = null;
-      this.hud.toast(r.message);
+      if (!this.offerHouse(via)) this.hud.toast(r.message);
       return false;
     }
     if (r.kind === 'route') {

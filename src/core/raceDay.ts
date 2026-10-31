@@ -4,6 +4,7 @@ import { isSprint, lapMetres } from './trackGeom';
 import { MotoSim, formatTime, gateBonus, mixSeed, seededRng, type Entrant, type RacingData, type RiderResult, type Tactic, type TrackDef } from './race';
 import { addXp, childLevels, leadLevel, type LevelUp, type SkillsData } from './skills';
 import { TRICKS_FLAG } from './tricks';
+import { areaOfMap, rollWeather, type AreasData } from './areas';
 import type { RiderStyle } from './riderProfile';
 
 // Race days, practice and venues (Spec 12.2a, 14): who is in the field, gate picks, prize money,
@@ -33,21 +34,37 @@ export interface RidersData {
   fieldSize?: Record<string, number>;
   /** Riders in a field who race every race day it is raced (the Local Champion). */
   regulars?: Record<string, string[]>;
+  /** A field's rider level: every pool rider races at least at it there (AI skill follows the track's area, Boss 31 Oct 2026). */
+  fieldLevel?: Record<string, number>;
 }
 
-/** riders.json as written: each field names its area, and the riders say which areas they race in. */
-export type RidersFile = Omit<RidersData, 'fields'> & { fields: Record<string, { area: number }> };
+/** riders.json as written: each field names its area (and its rider level), and the riders say which areas they race in. */
+export type RidersFile = Omit<RidersData, 'fields' | 'fieldLevel'> & { fields: Record<string, { area: number; level?: number }> };
 
 /** Each field's pool from the riders' areas, in the riders' listed order. */
 export function riderPools(file: RidersFile): RidersData {
   const fields = Object.fromEntries(Object.entries(file.fields).map(([id, f]) => [id, file.riders.filter((r) => r.areas.includes(f.area)).map((r) => r.id)]));
-  return { ...file, fields };
+  const fieldLevel = Object.fromEntries(Object.entries(file.fields).flatMap(([id, f]) => (f.level === undefined ? [] : [[id, f.level]])));
+  return { ...file, fields, fieldLevel };
+}
+
+/**
+ * A rider as they race in a field: at least the field's level where it has one (AI skill follows
+ * the track's area, Boss 31 Oct 2026), so the pool rides to the area while its champions keep the
+ * edge their own level gives them.
+ */
+export function fieldRider(rc: Pick<RaceContent, 'riders'>, field: string | undefined, id: string): CpuRiderDef | undefined {
+  const r = rc.riders.riders.find((x) => x.id === id);
+  const level = field !== undefined ? rc.riders.fieldLevel?.[field] : undefined;
+  return r && level !== undefined && level > r.level ? { ...r, level } : r;
 }
 
 export interface VenueDef {
   id: string;
   name: string;
   map: string;
+  /** The town map of the area the venue belongs to (areas.json): its weather. */
+  town?: string;
   track?: string;
   class?: string;
   field?: string;
@@ -76,6 +93,7 @@ export interface TracksData {
 }
 
 export interface RaceContent {
+  areas?: AreasData;
   racing: RacingData;
   tracks: TracksData;
   riders: RidersData;
@@ -225,6 +243,8 @@ export class RaceDay {
    * moto 1, fastest first, and each moto's results the order for the next. Nobody picks a gate.
    */
   readonly sprint: boolean;
+  /** The day's weather (racing.json weather, Spec 10.5), rolled from the venue's area's odds. */
+  readonly weather: string;
   private readonly rng: () => number;
 
   constructor(
@@ -248,6 +268,7 @@ export class RaceDay {
     this.laps = custom?.laps ?? lapsFor(rc, this.track, this.cls, !!round);
     this.motoCount = custom?.motos ?? 2;
     this.rng = seededRng(seed);
+    this.weather = rollWeather(rc.areas ? areaOfMap(rc.areas, venue.town ?? '') : undefined, this.rng);
     const cpus = alone ? [] : (custom?.cpus ?? round?.cpus ?? drawField(rc, venue, seed));
     this.field = [player, ...cpus.map((d) => cpuEntrant(rc, d, this.cls))];
     this.pickOrder = shuffle(this.field.map((e) => e.id), this.rng);
@@ -368,6 +389,7 @@ export class RaceDay {
       motoIndex: 0,
       seed: mixSeed(this.seed, 0x7175616c),
       message,
+      weather: this.rc.racing.weather?.[this.weather],
     });
   }
 
@@ -407,6 +429,7 @@ export class RaceDay {
       seed: mixSeed(this.seed, this.motos.length + 1),
       message,
       retireAtBroken,
+      weather: this.rc.racing.weather?.[this.weather],
     });
   }
 
@@ -503,7 +526,7 @@ export function sumXp(...sets: Record<string, number>[]): Record<string, number>
  */
 export function drawField(rc: RaceContent, venue: VenueDef, seed: number): CpuRiderDef[] {
   const id = venue.field ?? '';
-  const pool = (rc.riders.fields[id] ?? []).map((r) => rc.riders.riders.find((x) => x.id === r)!).filter(Boolean);
+  const pool = (rc.riders.fields[id] ?? []).map((r) => fieldRider(rc, id, r)!).filter(Boolean);
   const size = rc.riders.fieldSize?.[id];
   if (size === undefined || size >= pool.length) return pool;
   const always = new Set([...(rc.riders.regulars?.[id] ?? []), ...(venue.regulars ?? [])]);
@@ -518,7 +541,7 @@ export function drawField(rc: RaceContent, venue: VenueDef, seed: number): CpuRi
  */
 export function drawPool(rc: RaceContent, venue: VenueDef, seed: number, n: number): CpuRiderDef[] {
   const id = venue.field ?? '';
-  const pool = (rc.riders.fields[id] ?? []).map((r) => rc.riders.riders.find((x) => x.id === r)!).filter(Boolean);
+  const pool = (rc.riders.fields[id] ?? []).map((r) => fieldRider(rc, id, r)!).filter(Boolean);
   const always = new Set([...(rc.riders.regulars?.[id] ?? []), ...(venue.regulars ?? [])]);
   const regulars = pool.filter((r) => always.has(r.id));
   const drawn = shuffle(pool.filter((r) => !always.has(r.id)), seededRng(mixSeed(seed, 0x6b6e6f63)));
@@ -549,7 +572,7 @@ function shuffle<T>(a: T[], rng: () => number): T[] {
 export function practiceSim(rc: RaceContent, venue: VenueDef, player: Entrant, seed: number, alone = false): MotoSim {
   const track = trackById(rc, venue.track!);
   const cls = dayClass(rc.bikes, venue.class, player.bike.class) ?? venue.class ?? '50cc';
-  const pool = (rc.riders.fields[venue.field ?? ''] ?? []).map((id) => rc.riders.riders.find((r) => r.id === id)).filter((r): r is CpuRiderDef => !!r);
+  const pool = (rc.riders.fields[venue.field ?? ''] ?? []).map((id) => fieldRider(rc, venue.field, id)).filter((r): r is CpuRiderDef => !!r);
   // TEST ONLY, REMOVE BEFORE RELEASE (Boss, 30 Oct 2026): `alone` sends nobody else out.
   const n = alone ? 0 : Math.min(venue.practiceRiders ?? 0, pool.length);
   const drawn = shuffle(pool, seededRng(mixSeed(seed, 0x70726163))).slice(0, n);

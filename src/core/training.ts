@@ -112,7 +112,7 @@ export const TRAINING_SCHEMA: Schema = {
 };
 
 /** Checks training.json against the skills and NPCs. */
-export function checkTraining(file: string, data: TrainingData, c: { skills: SkillsData; npcs: { id: string }[]; tracks?: { venues: { id: string }[] } }): ContentError[] {
+export function checkTraining(file: string, data: TrainingData, c: { skills: SkillsData; npcs: { id: string }[]; tracks?: { venues: { id: string }[] } }, maps: Map<string, { objects: { type: string; props: Record<string, unknown> }[] }> = new Map()): ContentError[] {
   const errors: ContentError[] = [];
   const err = (field: string, message: string) => errors.push({ file, field, message });
   const children = new Set(c.skills.leads.flatMap((l) => l.children.map((k) => k.id)));
@@ -123,7 +123,8 @@ export function checkTraining(file: string, data: TrainingData, c: { skills: Ski
     seen.add(d.id);
     if (!children.has(d.skill)) err(at('skill'), `no skill "${d.skill}"`);
     if (d.npc && !c.npcs.some((n) => n.id === d.npc)) err(at('npc'), `no NPC "${d.npc}"`);
-    if (d.venue && c.tracks && !c.tracks.venues.some((v) => v.id === d.venue)) err(at('venue'), `no venue "${d.venue}"`);
+    // A drill's venue is a track venue, or a venue object on a map with no track of its own (a gym, a drill yard).
+    if (d.venue && c.tracks && !c.tracks.venues.some((v) => v.id === d.venue) && ![...maps.values()].some((m) => m.objects.some((o) => o.type === 'venue' && o.props.venue === d.venue))) err(at('venue'), `no venue "${d.venue}" in tracks.json or on a map`);
   });
   if (!children.has(data.walk.skill)) err('walk.skill', `no skill "${data.walk.skill}"`);
   return errors;

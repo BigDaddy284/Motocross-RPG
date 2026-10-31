@@ -385,7 +385,11 @@ describe('the race day field: regulars plus a random draw from the pool', () => 
   });
 
   it('includes every new rider by name, with average stats', () => {
-    const names = ['Harvey Gizard', 'Louie Gizard', 'Kate Gizard', 'Aidan Gizard', 'Taylor Heart', 'Jason Styles', 'Jordan Styles', 'James Nestor', 'Mickey Alington', 'Louis Jonez', 'Andy McLaren', 'Justin Smyth', 'Dan Smyth'];
+    // Taylor Heart joins in Area 2 as its champion (Areas 2 to 8 plan, Boss 31 Oct 2026), so she is in Area 2's pool, not Area 1's.
+    const taylor = content.riders.riders.find((x) => x.name === 'Taylor Heart')!;
+    expect(content.riders.fields['area2.local']).toContain(taylor.id);
+    expect(content.riders.fields['area1.local']).not.toContain(taylor.id);
+    const names = ['Harvey Gizard', 'Louie Gizard', 'Kate Gizard', 'Aidan Gizard', 'Jason Styles', 'Jordan Styles', 'James Nestor', 'Mickey Alington', 'Louis Jonez', 'Andy McLaren', 'Justin Smyth', 'Dan Smyth'];
     const champ = content.riders.riders.find((r) => r.id === 'cpu.local_champion')!;
     for (const n of names) {
       const r = content.riders.riders.find((x) => x.name === n)!;

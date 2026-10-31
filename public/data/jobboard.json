@@ -11,6 +11,7 @@
         { "object": "bike_on_stand", "label": "Refit it", "ms": 900 },
         { "object": "engine_stand", "label": "Test it", "ms": 800 }
       ]
-    }
+    },
+    {"id": "board.a2", "name": "Phoenix MX job board (Mountain Town)", "map": "int-a2-local-garage", "action": "jobs.customer_repairs", "offers": 3, "grades": [1, 4], "pay": {"base": 12, "perGrade": 8}, "xpPerStation": 12, "customers": ["Ellie", "Rhys", "Tilly", "Owen", "Isla", "Kian"], "stations": [{"object": "bike_on_stand", "label": "Strip the part", "ms": 1200}, {"object": "bench_long", "label": "Fix it on the bench", "ms": 1500}, {"object": "bike_on_stand", "label": "Refit it", "ms": 1200}, {"object": "engine_stand", "label": "Test it", "ms": 900}]}
   ]
 }

@@ -1,5 +1,11 @@
 {
   "note": "Race rules (Spec 2.3, 7.3, 9.2, 10, 11, 12, 14). Every number is a provisional tuning value: change it here, not in the code. classes: laps and entry fees from Spec 12.1 and 14.2; refSpeed and classXp step up with the class (provisional). A class's own kindLaps replaces the kindLaps below for it (endurance and sprint races at twice the class laps, Spec 12.1; 50cc keeps the 8 laps Boss set). A section's shapes are the drawn shapes it may sit on (straight, sweeper, corner, hairpin), checked against the track drawing.",
+  "weather": {
+    "dry": { "name": "Sunny and dry", "factor": 1.0, "risk": 1.0 },
+    "overcast": { "name": "Overcast", "factor": 1.0, "risk": 1.0 },
+    "light_rain": { "name": "Light rain", "factor": 1.04, "risk": 1.3 },
+    "heavy_rain": { "name": "Heavy rain", "factor": 1.10, "risk": 1.8 }
+  },
   "sim": {
     "spread": 0.67,
     "noise": 0.05,

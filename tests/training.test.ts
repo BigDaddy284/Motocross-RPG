@@ -24,8 +24,8 @@ describe('Fitness training (Boss, 29 Oct 2026)', () => {
   });
 
   it('gives a round its fixed XP whatever the score, at about Tier 1 pace (Spec 2.2)', () => {
-    const s = newSkillState();
     for (const d of training.drills) {
+      const s = newSkillState();
       finishRound(skills, s, d);
       expect(s.xp[d.skill]).toBe(d.xp);
       const perHour = (d.xp * 3600000) / d.ms;
@@ -33,6 +33,8 @@ describe('Fitness training (Boss, 29 Oct 2026)', () => {
       expect(perHour).toBeLessThanOrEqual(6000);
     }
     // Two rounds of bodyweight drills take Strength to level 2 (83 XP).
+    const s = newSkillState();
+    finishRound(skills, s, drillForAction(training, 'train.bodyweight')!);
     finishRound(skills, s, drillForAction(training, 'train.bodyweight')!);
     expect(childLevel(skills, s, 'strength')).toBe(2);
   });
