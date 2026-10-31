@@ -355,7 +355,7 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
    - Each rider's role (NPC or pool), joining area and champion area is being set on the rider sign-on sheet (an artifact for Boss).
 10. **Local Champions.** Placeholders and an intro chain for every area are in [Arriving in a new area](#arriving-in-a-new-area-the-area-intro-boss-31-oct-2026). Boss will rename pool riders into these spots later.
 11. **Challengers.** Two per area, so 14 names and 14 challenge tracks.
-12. **Bike classes.** Only 50cc is in `bikes.json`. Every class from 65cc to Vets needs a stat ceiling, and the class milestone flow (win the championship, collect the new bike) needs building.
+12. **Bike classes.** Only 50cc is in `bikes.json`. Every class from 65cc to Vets needs a stat ceiling, and the class milestone flow (win the championship, collect the new bike) needs building. Needed for Area 2. The class order follows the areas as in Spec 18.1 (Boss, 31 Oct 2026).
 13. **Motor prices and storage.** There are seven motors now, but the Spec priced five (£600 to £160,000). Motors 2 to 7 need a price, bike slots and part slots.
 14. **Weather and rain.** Rain is due in Area 2 (Spec 10.5) and isn't in yet. Sand, roots, rock and wind conditions follow in Areas 3, 4, 6 and 7.
 15. **Bike setup sliders** (Spec 8). These are what make the Mechanical Engineer level matter on race day, and they aren't in yet.
