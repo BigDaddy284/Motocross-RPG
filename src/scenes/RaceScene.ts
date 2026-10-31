@@ -138,6 +138,10 @@ export class RaceScene extends Phaser.Scene {
   /** A No-Turn Takedown's knockout (core/knockout.ts), in place of a race day; the heat being ridden, or null for the seeding run. */
   private ko: Knockout | null = null;
   private koHeat: KnockoutHeat | null = null;
+  /** The player's seeding time and seed, shown over the first bracket. */
+  private koSeedNote = '';
+  /** The seeding run is wrapping up: the player has their time. */
+  private koSeedDone = false;
 
   constructor() {
     super('race');
@@ -1585,14 +1589,14 @@ export class RaceScene extends Phaser.Scene {
     this.clear();
     const gap = ko.rules.seedInterval;
     this.header(this.dayTitle(), `Seeding run · ${ko.field.length} riders · one at a time`);
-    this.text(W / 2, 108, `A straight drag strip, four riders at a time. First, everyone rides one timed seeding run on their own, ${gap} seconds apart, in a random order.`, 21, COLORS.cream, { wordWrap: { width: 1100 }, align: 'center' }).setOrigin(0.5, 0);
+    this.text(W / 2, 108, `A straight drag strip, four riders at a time. First, everyone rides one timed seeding run on their own, ${gap} seconds apart. You go second, and the bracket comes up as soon as you have your time.`, 21, COLORS.cream, { wordWrap: { width: 1100 }, align: 'center' }).setOrigin(0.5, 0);
     this.text(W / 2, 176, `Seeding times split the field into heats of ${ko.rules.heatSize}, the fastest kept apart. The first ${ko.rules.through} in each heat go through, round by round, to a final of ${ko.rules.heatSize}: the best of ${ko.rules.finalRuns} runs, each scoring its place (1 for a win), lowest total wins.`, 18, COLORS.muted, { wordWrap: { width: 1100 }, align: 'center' }).setOrigin(0.5, 0);
     this.box(100, 286, 1080, 356);
     const message = this.messagePicker(300);
     this.text(130, 462, 'There is no pit board on a run this short: your starting message holds to the finish line. Parts wear as in a race, and there are no repairs at the track.', 19, COLORS.cream, { wordWrap: { width: 1020 }, lineSpacing: 2 });
-    this.btn(W / 2 - 300, 600, 'Seeding run', () => this.goKo(null, message(), false), 260, 52);
-    this.btn(W / 2, 600, 'Auto-complete', () => this.goKo(null, message(), true), 260, 52);
-    this.btn(W / 2 + 300, 600, 'Bike check', () => this.showBike(), 260, 52);
+    // No Auto-complete on a No-Turn Takedown: every run is a single short one (Boss, 31 Oct 2026).
+    this.btn(W / 2 - 150, 600, 'Seeding run', () => this.goKo(null, message()), 260, 52);
+    this.btn(W / 2 + 150, 600, 'Bike check', () => this.showBike(), 260, 52);
   }
 
   /** A heat's start: who is in it, the four gates (two each side of the starter's box) and the message. */
@@ -1637,16 +1641,16 @@ export class RaceScene extends Phaser.Scene {
     this.box(100, 296, 1080, 290);
     const message = this.messagePicker(310);
     this.text(130, 470, 'Your starting message holds to the finish line.', 19, COLORS.cream);
-    this.btn(W / 2 - 300, 630, 'Race', () => this.goKo(heat, message(), false, chosen), 260, 52);
-    this.btn(W / 2, 630, 'Auto-complete', () => this.goKo(heat, message(), true, chosen), 260, 52);
-    this.btn(W / 2 + 300, 630, 'Bike check', () => this.showBike(), 260, 52);
+    this.btn(W / 2 - 150, 630, 'Race', () => this.goKo(heat, message(), chosen), 260, 52);
+    this.btn(W / 2 + 150, 630, 'Bike check', () => this.showBike(), 260, 52);
   }
 
-  private goKo(heat: KnockoutHeat | null, message: string, auto: boolean, gate?: number): void {
+  private goKo(heat: KnockoutHeat | null, message: string, gate?: number): void {
     const ko = this.ko!;
     this.koHeat = heat;
+    this.koSeedDone = false;
     this.sim = heat ? ko.startHeat(heat, message, gate) : ko.startSeeding(message);
-    this.auto = auto;
+    this.auto = false;
     this.startLive();
   }
 
@@ -1670,7 +1674,7 @@ export class RaceScene extends Phaser.Scene {
     let rank: number;
     let head: string;
     if (!heat) {
-      this.ui.title.setText(`${this.args.venue.name} · Seeding run${this.auto ? ' · Auto-complete' : ''}`);
+      this.ui.title.setText(`${this.args.venue.name} · Seeding run`);
       const rows = pos.map((p) => ({ p, t: this.seedTime(p) })).sort((a, b) => Number(a.p.out) - Number(b.p.out) || (a.t ?? Infinity) - (b.t ?? Infinity) || a.p.gate - b.p.gate);
       rank = rows.findIndex((r) => r.p.id === PLAYER_ID);
       const best = rows[0].t;
@@ -1685,9 +1689,20 @@ export class RaceScene extends Phaser.Scene {
         return `${String(i + 1).padStart(2)}  ${r.p.id === PLAYER_ID ? '▶ ' : '  '}${name(r.p.id)} ${g.padStart(7)}`;
       });
       head = 'Seeding times';
+      // Once the player has their time, the rest of the field's runs are done off screen and the
+      // bracket comes up, rather than watching 30 more riders go (Boss, 31 Oct 2026).
+      if ((me.finished || me.out) && !this.koSeedDone) {
+        this.koSeedDone = true;
+        this.time.delayedCall(2000, () => {
+          if (!this.live || this.sim !== sim) return;
+          while (!sim.finished) this.addLap(sim.nextLap());
+          this.live = false;
+          this.finishMoto();
+        });
+      }
     } else {
       const round = ko.rounds[heat.round];
-      this.ui.title.setText(`${this.args.venue.name} · ${round.final ? `Final · run ${heat.runs.length + 1} of ${ko.rules.finalRuns}` : `${round.name} · heat ${heat.index + 1}`}${this.auto ? ' · Auto-complete' : ''}`);
+      this.ui.title.setText(`${this.args.venue.name} · ${round.final ? `Final · run ${heat.runs.length + 1} of ${ko.rules.finalRuns}` : `${round.name} · heat ${heat.index + 1}`}`);
       rank = order.findIndex((o) => o.id === PLAYER_ID);
       if (me.out) lines.push('You are out of this run.');
       else lines.push(`Position: ${ordinal(rank + 1)} of ${order.length}`, round.final ? 'Each run scores its place: lowest total wins' : `The first ${ko.rules.through} go through`);
@@ -1703,7 +1718,7 @@ export class RaceScene extends Phaser.Scene {
     this.ui.feed.setText(this.feed.slice(-5).join('\n'));
     this.ui.tower.setText([head, ...towerWindow(tower, rank, this.towerRows - 1)].join('\n'));
     this.ui.tower.setFontFamily('Consolas, "Courier New", monospace');
-    if (!this.skipButton && (me.out || me.finished)) {
+    if (heat && !this.skipButton && (me.out || me.finished)) {
       this.skipButton = this.btn(16 + (this.dw - 380) / 2, this.dh - 50, 'Skip to results', () => {
         while (!sim.finished) this.addLap(sim.nextLap());
         this.live = false;
@@ -1717,21 +1732,11 @@ export class RaceScene extends Phaser.Scene {
     const ko = this.ko!;
     const heat = this.koHeat;
     if (!heat) {
+      // Straight to the bracket with the player's time and seed (Boss, 31 Oct 2026).
       const rec = ko.finishSeeding(this.sim!);
-      this.clear();
-      this.header('Seeding results', this.dayTitle());
-      const rows = rec.results.map((r) => {
-        const name = (r.player ? `${this.save.rider.name} (you)` : r.name).padEnd(22).slice(0, 22);
-        return `${String(r.position).padStart(2)}  ${name} ${(r.bestLap !== null ? formatTime(r.bestLap, 3) : '—').padStart(8)}  ${(r.position === 1 && r.bestLap !== null ? 'Top seed' : r.gap).padStart(9)}`;
-      });
-      const half = Math.ceil(rows.length / 2);
-      const mine = rec.results.findIndex((r) => r.player);
-      this.text(40, 110, ['Seed Rider                   Time        Gap', ...rows.slice(0, half)].join('\n'), 14, COLORS.cream, { lineSpacing: 4 }).setFontFamily('Consolas, "Courier New", monospace');
-      this.text(640, 110, ['Seed Rider                   Time        Gap', ...rows.slice(half)].join('\n'), 14, COLORS.cream, { lineSpacing: 4 }).setFontFamily('Consolas, "Courier New", monospace');
-      const first = ko.rounds[0];
-      const myHeat = first.heats.find((h) => h.riders.includes(PLAYER_ID))!;
-      this.text(W / 2, 560, `You are seed ${mine + 1}: ${first.name}, heat ${myHeat.index + 1} of ${first.heats.length}, against ${myHeat.riders.filter((id) => id !== PLAYER_ID).map((id) => this.names.get(id)).join(', ')}.`, 19, COLORS.accent, { wordWrap: { width: 1100 }, align: 'center' }).setOrigin(0.5, 0);
-      this.btn(990, 650, first.name, () => this.koNext(), 260, 50);
+      const me = rec.results.find((r) => r.player)!;
+      this.koSeedNote = `Your seeding run: ${me.bestLap !== null ? formatTime(me.bestLap, 3) : 'no time'}, seed ${me.position} of ${rec.results.length}`;
+      this.koNext();
       return;
     }
     const results = ko.finishHeat(heat, this.sim!);
@@ -1773,7 +1778,8 @@ export class RaceScene extends Phaser.Scene {
   private showKoBracket(next: KnockoutHeat): void {
     const ko = this.ko!;
     this.clear();
-    this.header('The bracket', this.dayTitle());
+    this.header('The bracket', this.koSeedNote || this.dayTitle());
+    this.koSeedNote = '';
     const first = ko.rounds[0].heats.length;
     if (first < 2 || (first & (first - 1)) !== 0) return this.showKoBracketColumns(next);
     const depth = Math.log2(first);
