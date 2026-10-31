@@ -27,7 +27,13 @@ export interface ShopDef {
     classes: string[];
     /** Chance at each stock refresh that one part of this grade is in for a slot (GDD 8.3: rarer stock rotates). */
     extraChance: Record<string, number>;
+    /** Slots only ever stocked at the lowest grade: Moto78's stock frames (Boss, 30 Oct 2026). */
+    stockOnly?: string[];
   };
+  /** Sells the tool sets (core/tools.ts). */
+  tools?: boolean;
+  /** Not a shop in the data: the rider's own tools at their cabinet or motor (core/tools.ts). */
+  diy?: boolean;
   /** Paid condition repairs on the fitted parts (Spec 7.4). */
   repairs?: boolean;
   /** Pounds to fit a spare from the bag on the bench. */
@@ -54,6 +60,8 @@ export interface ShopsData {
   rotation: { raceDays: number; activities: number };
   /** Spare parts the rider can carry (the van holds twenty parts). */
   spareLimit: number;
+  /** The shop where a new class's bike is collected (core/classes.ts). */
+  classDealer?: string;
   shops: ShopDef[];
 }
 
@@ -136,7 +144,8 @@ export function shopStock(data: ShopsData, shop: ShopDef, career: CareerState, c
   const out: StockItem[] = [];
   const [lo, hi] = sells.grades;
   for (const slot of sells.slots) {
-    for (let g = lo; g <= hi; g++) {
+    const top = sells.stockOnly?.includes(slot) ? lo : hi;
+    for (let g = lo; g <= top; g++) {
       const key = `${shop.id}:${cls}:${slot}:${g}`;
       const always = g === lo;
       if (!always && roll(s, key) >= (sells.extraChance[String(g)] ?? 0)) continue;
@@ -186,24 +195,25 @@ export function spareCount(career: CareerState): number {
  */
 function swapIn(bikes: BikesData, career: CareerState, slot: string, part: Part): string {
   const old = career.bike.parts[slot];
-  career.bike.parts[slot] = { grade: part.grade, condition: part.condition };
+  // A part keeps its modifiers (core/modifiers.ts) on and off the bike.
+  career.bike.parts[slot] = { grade: part.grade, condition: part.condition, ...(part.mods?.length ? { mods: part.mods } : {}) };
   const name = slotName(bikes, slot);
   if (!old) return '';
   if (old.condition <= 0) return ` Taken off: your broken ${name}, sent to the dump.`;
-  career.bag.push({ id: SPARE, part: { slot, class: career.bike.class, grade: old.grade, condition: old.condition } });
+  career.bag.push({ id: SPARE, part: { slot, class: career.bike.class, grade: old.grade, condition: old.condition, ...(old.mods?.length ? { mods: old.mods } : {}) } });
   return ` Taken off: G${old.grade} ${name} (${Math.round(old.condition * 100)}%), now a spare in your bag.`;
 }
 
 export const slotName = (bikes: BikesData, slot: string) => (bikes.slots.find((s) => s.id === slot)?.name ?? slot).toLowerCase();
 
 /** Whether there is room for one more spare after this action, which may free a bag space first. */
-function roomFor(data: ShopsData, career: CareerState, slot: string | null, freed = 0): boolean {
+export function roomFor(data: ShopsData, career: CareerState, slot: string | null, freed = 0): boolean {
   const old = slot ? career.bike.parts[slot] : undefined;
   const adds = slot === null ? 1 : old && old.condition > 0 ? 1 : 0;
   return spareCount(career) - freed + adds <= data.spareLimit;
 }
 
-const fullMessage = (data: ShopsData) => `Your spares are full (${data.spareLimit} parts). Sell or dump some first.`;
+export const fullMessage = (data: ShopsData) => `Your spares are full (${data.spareLimit} parts). Sell or dump some first.`;
 
 /**
  * Pence off a new set of tyres for trading in the set on the bike (Boss, 28 Oct 2026): what the
@@ -276,7 +286,7 @@ export function repairPart(data: ShopsData, bikes: BikesData, career: CareerStat
   if (!q.ok) return { ok: false, message: q.reason };
   if (career.money < q.cost) return { ok: false, message: "You can't afford it." };
   career.money -= q.cost;
-  career.bike.parts[slot] = { grade: q.grade, condition: 1 };
+  career.bike.parts[slot] = { ...part, grade: q.grade, condition: 1 };
   return { ok: true, message: `Your ${slotName(bikes, slot)} is repaired: G${q.grade} at 100%.` };
 }
 
@@ -317,7 +327,7 @@ const GRADE = { type: 'number', integer: true, min: 1, max: 10 } as const;
 
 export const SHOPS_SCHEMA: Schema = {
   type: 'object',
-  optional: ['note', 'consumables'],
+  optional: ['note', 'consumables', 'classDealer'],
   fields: {
     note: { type: 'string' },
     slotBase: { type: 'record', values: N0 },
@@ -331,12 +341,13 @@ export const SHOPS_SCHEMA: Schema = {
     },
     rotation: { type: 'object', fields: { raceDays: { type: 'number', integer: true, min: 1 }, activities: { type: 'number', integer: true, min: 1 } } },
     spareLimit: { type: 'number', integer: true, min: 1 },
+    classDealer: { type: 'string', pattern: /^[a-z0-9_.-]+$/ },
     shops: {
       type: 'array',
       minItems: 1,
       items: {
         type: 'object',
-        optional: ['needs', 'sells', 'repairs', 'fitFee', 'fitAction'],
+        optional: ['needs', 'sells', 'repairs', 'fitFee', 'fitAction', 'tools'],
         fields: {
           id: IDS,
           name: S,
@@ -347,16 +358,19 @@ export const SHOPS_SCHEMA: Schema = {
           needs: IDS,
           sells: {
             type: 'object',
+            optional: ['stockOnly'],
             fields: {
               slots: { type: 'array', minItems: 1, items: IDS },
               grades: { type: 'array', items: GRADE, minItems: 2, maxItems: 2 },
               classes: { type: 'array', minItems: 1, items: IDS },
               extraChance: { type: 'record', values: { type: 'number', min: 0, max: 1 } },
+              stockOnly: { type: 'array', items: { type: 'string', pattern: /^[a-z0-9_.-]+$/ } },
             },
           },
           repairs: { type: 'boolean' },
           fitFee: N0,
           fitAction: IDS,
+          tools: { type: 'boolean' },
         },
       },
     },
@@ -372,6 +386,7 @@ export function checkShopContent(file: string, data: ShopsData, bikes: BikesData
   for (const k of Object.keys(data.slotBase)) if (!slotIds.has(k)) err(`slotBase.${k}`, `no slot "${k}"`);
   for (const c of bikes.classes) if (data.classPriceFactor[c.id] === undefined) err('classPriceFactor', `no factor for class "${c.id}"`);
   if (data.resale.demand[0] > data.resale.demand[1]) err('resale.demand', 'the lowest demand is above the highest');
+  if (data.classDealer && !data.shops.some((s) => s.id === data.classDealer)) err('classDealer', `no shop "${data.classDealer}"`);
   const seen = new Set<string>();
   data.shops.forEach((s, i) => {
     const at = (f: string) => `shops[${i}].${f}`;
@@ -383,9 +398,10 @@ export function checkShopContent(file: string, data: ShopsData, bikes: BikesData
     const hasAction = (a: string) => m?.objects.some((o) => o.props.action === a);
     s.actions.forEach((a, j) => m && !hasAction(a) && err(at(`actions[${j}]`), `no object with action "${a}" on ${s.map}`));
     if (s.fitAction && m && !hasAction(s.fitAction)) err(at('fitAction'), `no object with action "${s.fitAction}" on ${s.map}`);
-    if (!s.sells && !s.repairs && s.fitFee === undefined) err(at('sells'), 'the shop neither sells, repairs nor fits anything');
+    if (!s.sells && !s.repairs && s.fitFee === undefined && !s.tools) err(at('sells'), 'the shop neither sells, repairs nor fits anything');
     if (s.sells) {
       s.sells.slots.forEach((sl, j) => !slotIds.has(sl) && err(at(`sells.slots[${j}]`), `no slot "${sl}"`));
+      s.sells.stockOnly?.forEach((sl, j) => !s.sells!.slots.includes(sl) && err(at(`sells.stockOnly[${j}]`), `"${sl}" isn't one of the shop's slots`));
       if (s.sells.grades[0] > s.sells.grades[1]) err(at('sells.grades'), 'the lowest grade is above the highest');
     }
   });

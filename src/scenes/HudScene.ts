@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
+import { modsLabel } from '../core/modifiers';
 import { bikeProblem, bikeStats, formatMoney, journal, pence, statMax, type CareerState } from '../core/career';
-import { childLevel, childXp, leadLevel, leadXp, levelProgress } from '../core/skills';
+import { addXp, childLevel, childXp, leadLevel, leadXp, levelProgress } from '../core/skills';
 import { nextRoundVenue, rewardTexture, standings } from '../core/championship';
 import {
   buyPart,
@@ -22,8 +23,11 @@ import {
   type StockItem,
 } from '../core/shops';
 import type { DialogueLine } from '../core/content';
+import { awardOutfit, championsKit, type RiderLook } from '../core/house';
+import { className, collectBike, milestoneOf, milestoneStatus, sponsorBrand, stockBikePrice } from '../core/classes';
+import { buyTools, diyFitProblem, diyRepair, diyRepairQuote, nextVersion, ownedVersion, toolsFor } from '../core/tools';
 import { repairLent } from '../core/errands';
-import { PACE_BAND, REP_ZONE, goodRep, onPace, type DrillDef } from '../core/training';
+import { PACE_BAND, REP_ZONE, gateHoldMs, gateStart, gateWindowMs, goodRep, onPace, type DrillDef } from '../core/training';
 import { ensureAnims } from '../world/Character';
 import { careerRecords, recordText } from '../core/records';
 import { services } from '../services';
@@ -39,7 +43,7 @@ import { worldMapTexture, type WorldMapData, type WorldMapZone } from '../core/w
 // touch buttons. Runs alongside the world scene at a fixed zoom.
 
 type PanelTab = 'bike' | 'bag' | 'task' | 'skills' | 'records';
-export type ShopTab = 'buy' | 'sell' | 'repair' | 'fit';
+export type ShopTab = 'buy' | 'sell' | 'repair' | 'fit' | 'newbike' | 'tools';
 
 /** The smallest page panels are laid out on (see page()). */
 const PAGE_W = 940;
@@ -180,6 +184,8 @@ export class HudScene extends Phaser.Scene {
   private bagPage = 0;
   /** Saves and refreshes the money line after a shop, repair or bag change. Set by the world. */
   onShopChange: (() => void) | null = null;
+  /** The rider's look and wardrobe (the save's rider), for the champion's kit that comes with the sponsor's free bike. */
+  rider: RiderLook | null = null;
 
   private layout(): void {
     const { width, height } = view(this);
@@ -526,7 +532,7 @@ export class HudScene extends Phaser.Scene {
    * it gave with Again and Done. A round can't be failed: `onFinish` runs for every finished round
    * and returns the lines to show (the XP and any level-ups). Esc or Done leaves.
    */
-  openDrill(drill: DrillDef, who: { player: string; coach?: string }, onFinish: () => string[], onClose: () => void): void {
+  openDrill(drill: DrillDef, who: { player: string; coach?: string; level?: number }, onFinish: () => string[], onClose: () => void): void {
     const { width, height, k } = this.page();
     const w = Math.min(860, width - 32);
     const h = 360;
@@ -575,7 +581,7 @@ export class HudScene extends Phaser.Scene {
       const timeBg = this.add.rectangle(-bw / 2, -h / 2 + 66, bw, 8, COLORS.panelLight).setOrigin(0, 0.5);
       const timeFill = this.add.rectangle(-bw / 2, -h / 2 + 66, bw, 8, COLORS.blue).setOrigin(0, 0.5);
       const label = this.add.text(rx, 80, '', textStyle(this.pts(20), COLORS.cream, { align: 'center' })).setOrigin(0.5);
-      const tip = this.add.text(rx, 120, drill.game === 'reps' ? 'Space or tap' : 'Hold Space or press and hold', textStyle(this.pts(14), COLORS.muted)).setOrigin(0.5);
+      const tip = this.add.text(rx, 120, drill.game === 'pace' ? 'Hold Space or press and hold' : 'Space or tap', textStyle(this.pts(14), COLORS.muted)).setOrigin(0.5);
       // The whole box is the button, so a tap anywhere on it counts.
       const pad = this.add.rectangle(0, 20, w, h - 40, 0, 0.001).setInteractive();
       body.add([pad, vis, timeBg, timeFill, label, tip]);
@@ -643,6 +649,76 @@ export class HudScene extends Phaser.Scene {
           streakText.setText(streak >= 2 ? `Streak x${streak}` : '');
         };
         finish = () => `${good} good reps out of ${tries}.`;
+      } else if (drill.game === 'react') {
+        // The gate drop (core/training.ts): the front wheel at the gate, close up. The gate holds for
+        // a random while, then falls; a press in the window after it is a good start.
+        const level = who.level ?? 1;
+        const window = gateWindowMs(level);
+        const rng = () => Math.random();
+        // Dirt, the gate's frame, the gate bar and the wheel behind it.
+        vis.add(this.add.rectangle(0, 60, 370, 70, 0x7a5a3a));
+        vis.add(this.add.rectangle(0, 95, 370, 20, 0x5e4229));
+        const wheel = this.add.circle(40, 20, 44, 0x1c1c1c).setStrokeStyle(6, 0x3a3a3a);
+        const hub = this.add.circle(40, 20, 14, 0x9a9a9a);
+        const post = this.add.rectangle(-120, 10, 12, 110, 0x8c8c8c);
+        const gate = this.add.rectangle(-40, -25, 170, 14, 0xd9d9d9).setOrigin(0, 0.5);
+        const light = this.add.circle(-120, -60, 10, 0xc0392b);
+        vis.add([wheel, hub, post, gate, light]);
+        const result = this.add.text(rx, -40, '', textStyle(this.pts(22), COLORS.cream, { align: 'center' })).setOrigin(0.5);
+        body.add(result);
+        label.setY(30);
+        let drops = 0;
+        let good = 0;
+        let jumped = 0;
+        let hold = gateHoldMs(rng);
+        let since = -hold;
+        let pressed = false;
+        let settle = 0;
+        const reset = () => {
+          hold = gateHoldMs(rng);
+          since = -hold;
+          pressed = false;
+          gate.setAngle(0);
+          light.setFillStyle(0xc0392b);
+          result.setText('');
+        };
+        const press = () => {
+          if (pressed || settle > 0) return;
+          pressed = true;
+          const how = gateStart(since, level);
+          drops += 1;
+          if (how === 'good') good += 1;
+          if (how === 'jumped') jumped += 1;
+          result.setText(how === 'good' ? `Good start!  ${Math.round(since)} ms` : how === 'jumped' ? 'Jumped it: wait for the drop' : `Slow: ${Math.round(since)} ms`);
+          result.setColor(how === 'good' ? '#9fe07a' : '#e0705a');
+          pop(vis, 40, -60, how === 'good' ? 'Go!' : how === 'jumped' ? 'Too early' : 'Late', how === 'good' ? 0x9fe07a : 0xe0705a);
+          settle = 1100;
+        };
+        pad.on('pointerdown', press);
+        kb.on('keydown-SPACE', press);
+        stop = () => kb.off('keydown-SPACE', press);
+        tick = (dt) => {
+          if (settle > 0) {
+            settle -= dt;
+            if (settle <= 0) reset();
+            return;
+          }
+          since += dt;
+          if (since >= 0) {
+            // The gate falls flat over about a quarter of a second.
+            gate.setAngle(Math.min(90, (since / 250) * 90));
+            light.setFillStyle(0x27ae60);
+            if (!pressed && since > window * 3) {
+              // Missed it altogether: counts as a slow start.
+              drops += 1;
+              result.setText('Asleep at the gate');
+              result.setColor('#e0705a');
+              settle = 900;
+            }
+          }
+          label.setText(`Good starts: ${good} of ${drops}`);
+        };
+        finish = () => `${good} good starts out of ${drops}${jumped ? `, ${jumped} jumped` : ''}.`;
       } else {
         // Holding speeds up, letting go eases off. Inside the green band the rider keeps a steady
         // full pace round the track; outside it they slow, so more green means more laps.
@@ -800,7 +876,7 @@ export class HudScene extends Phaser.Scene {
       const bike = career.bike;
       const brand = bikes.brands.find((b) => b.id === bike.brand);
       const px = 20;
-      line(left, y0, `${brand?.starter ?? bike.brand}  ·  ${bike.class}`, 22, COLORS.accent, px - 16 - left);
+      line(left, y0, `${bike.class === bikes.starter.class ? (brand?.starter ?? bike.brand) : (brand?.name ?? bike.brand)}  ·  ${className(bikes, bike.class)}`, 22, COLORS.accent, px - 16 - left);
       const problem = bikeProblem(bikes, bike);
       const note = body(left, y0 + 32, problem ?? 'Runs. Ready for the backyard, and for the tracks once you have a motor.', 16, problem ? COLORS.accent : COLORS.muted, w / 2 - 40);
       const stats = bikeStats(bikes, bike);
@@ -822,6 +898,9 @@ export class HudScene extends Phaser.Scene {
         c.add(this.add.rectangle(px + 230, y + 10, Math.max(1, (barW * cond) / 100), 10, cond === 0 ? 0xb03030 : cond <= 20 ? COLORS.accent : 0x6fa84a).setOrigin(0, 0.5));
         line(pctX, y, cond === 0 ? 'Broken' : `${cond}%`, 15, cond === 0 ? COLORS.accent : COLORS.cream, w / 2 - 12 - pctX);
       });
+      // Part modifiers (core/modifiers.ts, Spec 6), summed across the bike.
+      const modded = bikes.slots.filter((s) => bike.parts[s.id]?.mods?.length);
+      if (modded.length) line(px, y0 + 40 + bikes.slots.length * 32 + 4, `Modifiers: ${modded.map((s) => `${s.name} ${modsLabel(services.content.modifiers, bike.parts[s.id].mods)}`).join('; ')}`, 13, COLORS.muted, w / 2 - 12 - px);
     } else if (tab === 'bag') {
       const limit = services.content.shops.spareLimit;
       body(left, y0, 'Bag', 22, COLORS.accent);
@@ -847,7 +926,7 @@ export class HudScene extends Phaser.Scene {
             continue;
           }
           body(left, y, `G${p.grade} ${name} (spare)`, 17);
-          body(left, y + 24, `${cond} · ${p.class}. Fit it at the garage bench, or sell it at a parts shop.`, 14, COLORS.muted, w - 220);
+          body(left, y + 24, `${cond} · ${p.class}. ${p.mods?.length ? modsLabel(services.content.modifiers, p.mods) + '. ' : ''}Fit it at the garage bench, or sell it at a parts shop.`, 14, COLORS.muted, w - 220);
           c.add(button(this, w / 2 - 90, y + 20, 'Dump', () => {
             this.confirm(`Send your G${p.grade} ${name.toLowerCase()} to the dump?\nIt's gone for good, with nothing back.`, 'Dump it', () => {
               dumpSpare(career, i);
@@ -962,6 +1041,13 @@ export class HudScene extends Phaser.Scene {
     if (shop.sells) tabs.push(['buy', 'Buy'], ['sell', 'Sell']);
     if (shop.repairs) tabs.push(['repair', 'Repairs']);
     if (shop.fitFee !== undefined) tabs.push(['fit', 'Fit a spare']);
+    if (shop.tools) tabs.push(['tools', 'Tool sets']);
+    // The class dealer (Bill at Moto78): a new class's bike, once its milestone championship is won.
+    const milestone = shops.classDealer === shop.id ? milestoneStatus(bikes, services.content.skills, career, this.flags) : { kind: 'none' as const };
+    if (milestone.kind !== 'none') {
+      tabs.push(['newbike', 'New bike']);
+      if (tab === 'buy' && milestone.kind === 'ready' && page === 0) tab = 'newbike';
+    }
     if (!tabs.some(([t]) => t === tab)) tab = tabs[0][0];
     // Laid out at 900 × 600, then scaled down to fit a small screen such as a phone on its side.
     const { width, height } = view(this);
@@ -1037,7 +1123,8 @@ export class HudScene extends Phaser.Scene {
         const name = bikes.slots.find((s) => s.id === slot)?.name ?? slot;
         line(left, y + 8, name, 16, COLORS.cream, 215);
         line(left + 222, y + 8, yours(slot), 15, career.bike.parts[slot]?.condition <= 0 ? COLORS.accent : COLORS.muted, 170);
-        for (let g = lo; g <= hi; g++) {
+        const top = shop.sells!.stockOnly?.includes(slot) ? lo : hi;
+        for (let g = lo; g <= top; g++) {
           const item = stock.find((s) => s.slot === slot && s.grade === g);
           const label = !item ? `G${g}: none in` : item.soldOut ? `G${g}: sold out` : `G${g}  ${formatMoney(item.price)}`;
           const b = button(this, left + 400 + (g - lo) * 160, y + 18, label, () => item && inner(() => this.offerPart(shop, item, () => reopen(), (r) => done(r))), 150, 40);
@@ -1076,6 +1163,25 @@ export class HudScene extends Phaser.Scene {
         line(left, y + 4, slot.name, 15, COLORS.cream, 200);
         line(left + 210, y + 4, yours(slot.id), 15, part?.condition <= 0 ? COLORS.accent : COLORS.muted, 112);
         if (!part) return;
+        if (shop.diy) {
+          const dq = diyRepairQuote(shops, services.content.tools, career, slot.id, part);
+          if (!dq.ok) return void line(left + 330, y + 4, dq.reason, 14, COLORS.muted, w / 2 - 20 - (left + 330));
+          const db = button(this, left + 420, y + 12, 'Repair: free', () => inner(() => {
+            this.confirm(
+              `Repair your G${part.grade} ${slot.name.toLowerCase()} (${Math.round(part.condition * 100)}%) with your own tools?\nIt comes back as G${dq.grade} at 100%, for nothing. Every repair drops a grade.`,
+              'Repair',
+              () => {
+                const r = diyRepair(shops, services.content.tools, bikes, services.content.skills, career, slot.id);
+                for (const u of r.ups ?? []) this.toast(`Level up! ${u.name} is now level ${u.level}.`);
+                done(r);
+              },
+              () => reopen(),
+            );
+          }), 170, 32);
+          c.add(db);
+          line(left + 600, y + 4, `→ G${dq.grade} at 100%`, 14, COLORS.muted, w / 2 - 20 - (left + 600));
+          return;
+        }
         const q = repairQuote(shops, slot.id, part, cls);
         if (!q.ok) {
           line(left + 330, y + 4, q.reason, 14, COLORS.muted, w / 2 - 20 - (left + 330));
@@ -1114,6 +1220,58 @@ export class HudScene extends Phaser.Scene {
         c.add(b);
         line(left + 520, y + 4, `→ G${q.grade} at 100%`, 14, COLORS.muted, w / 2 - 20 - (left + 520));
       });
+    } else if (tab === 'newbike' && milestone.kind !== 'none') {
+      const next = milestone.cls;
+      const champ = milestoneOf(services.content.championships, next.id);
+      text(left, y0, `${champ?.name ?? 'The championship'} is yours, so you've earned a ${next.name}.`, 17, COLORS.cream);
+      if (milestone.kind === 'needLevel') {
+        text(left, y0 + 36, `You'll need Rider Ability ${milestone.level} to ride it; you're level ${milestone.have}. Race on and come back.`, 15, COLORS.muted);
+      } else {
+        const collect = (brand: string, price: number) => inner(() => {
+          const name = bikes.brands.find((b) => b.id === brand)?.name ?? brand;
+          this.confirm(
+            `Take the ${name} ${next.name}${price ? ` for ${formatMoney(price)}` : ', free from the champion\'s sponsor'}?\nYour ${className(bikes, career.bike.class)} retires to the display as it is, parts and all. Spares for it stay in your bag to sell.`,
+            'Take it',
+            () => {
+              const r = collectBike(bikes, services.content.championships, career, this.flags, brand, price);
+              // The champion's offer brings the sponsor's kit too, up to Area 4 (Boss, 31 Oct 2026).
+              const kit = r.ok && !price && champ && this.rider ? championsKit(services.content.house, champ) : null;
+              const given = kit ? awardOutfit(kit, this.rider!) : null;
+              done(given?.ok ? { ...r, message: `${r.message} ${given.message}` } : r, 'buy');
+            },
+            () => reopen(),
+          );
+        });
+        const sponsor = sponsorBrand(bikes, career, next.id);
+        const sponsorName = bikes.brands.find((b) => b.id === sponsor)?.name ?? sponsor;
+        text(left, y0 + 36, `The champion's sponsor rides ${sponsorName}: a new stock ${next.name}, Grade 1 all round, for nothing and no strings. Or buy a stock bike of any brand.`, 15, COLORS.muted);
+        c.add(button(this, left + 160, y0 + 100, `${sponsorName} ${next.name}: free`, () => collect(sponsor, 0), 320, 42));
+        const price = stockBikePrice(shops, bikes, next.id);
+        bikes.brands.forEach((b, i) => {
+          const btn = button(this, left + 160, y0 + 160 + i * 46, `${b.name}: ${formatMoney(price)}`, () => collect(b.id, price), 320, 40);
+          btn.setEnabled(career.money >= price);
+          c.add(btn);
+          line(left + 340, y0 + 150 + i * 46, b.character, 13, COLORS.muted, w / 2 - 40 - (left + 340));
+        });
+      }
+    } else if (tab === 'tools') {
+      const data = services.content.tools;
+      data.sets.forEach((set, i) => {
+        const y = y0 - 6 + i * 64;
+        const owned = ownedVersion(career, set);
+        const next = nextVersion(career, this.flags, set);
+        line(left, y + 2, set.name, 16, COLORS.cream, 300);
+        line(left, y + 24, `${set.slots.map((sl) => slotName(bikes, sl)).join(', ')}. ${owned ? `Yours: ${owned.name}, up to Grade ${owned.grade}.` : 'None yet.'}`, 13, COLORS.muted, 390);
+        if (!next) return void line(left + 410, y + 10, 'The best there are.', 14, COLORS.muted, 300);
+        const price = pence(next.version.price);
+        const b = button(this, left + 520, y + 20, next.open ? `${owned ? 'Upgrade' : 'Buy'} ${formatMoney(price)}` : `Area ${next.version.area}`, () => inner(() => {
+          this.confirm(`${next.version.name} for ${formatMoney(price)}?\nRepairs up to Grade ${next.version.grade}${owned ? `, replacing your ${owned.name.toLowerCase()}` : ''}. Yours for good.`, 'Buy', () => done(buyTools(career, this.flags, set), 'tools'), () => reopen('tools'));
+        }), 230, 40);
+        b.setEnabled(next.open && career.money >= price);
+        c.add(b);
+        line(left + 410, y + 10, next.open ? `${next.version.name}: Grade ${next.version.grade}` : `${next.version.name} come with Area ${next.version.area}`, 13, COLORS.muted, 100);
+      });
+      text(left, h / 2 - 30, 'Use your tools at the red cabinet in your room, or at the back of your motor. Grade 10 parts always go to Phoenix MX.', 13, COLORS.muted);
     } else {
       const fee = pence(shop.fitFee ?? 0);
       if (!spareRows.length) text(left, y0, 'You have no spare parts to fit. Buy one as a spare at a parts shop.', 16, COLORS.muted);
@@ -1123,8 +1281,17 @@ export class HudScene extends Phaser.Scene {
         const y = y0 + k * 46;
         line(left, y + 6, `G${p.grade} ${bikes.slots.find((s) => s.id === p.slot)?.name ?? p.slot} · ${Math.round(p.condition * 100)}%`, 16, COLORS.cream, 300);
         line(left + 310, y + 6, `Replaces your ${yours(p.slot)}`, 14, COLORS.muted, w / 2 - 200 - (left + 310));
-        const b = button(this, w / 2 - 110, y + 16, fee ? `Fit ${formatMoney(fee)}` : 'Fit', () => done(fitSpare(shops, bikes, shop, career, i), 'fit', pg), 170, 38);
-        b.setEnabled(!!p.owner || (career.money >= fee && p.class === cls));
+        const diyProblem = shop.diy ? diyFitProblem(services.content.tools, career, p) : null;
+        const b = button(this, w / 2 - 110, y + 16, fee ? `Fit ${formatMoney(fee)}` : 'Fit', () => {
+          const r = fitSpare(shops, bikes, shop, career, i);
+          if (r.ok && shop.diy) {
+            const set = toolsFor(services.content.tools, career, p.slot)!.set;
+            for (const u of addXp(services.content.skills, career.skills, { [set.skill]: services.content.tools.xp.fit })) this.toast(`Level up! ${u.name} is now level ${u.level}.`);
+          }
+          done(r, 'fit', pg);
+        }, 170, 38);
+        b.setEnabled(!diyProblem && (!!p.owner || (career.money >= fee && p.class === cls)));
+        if (diyProblem) line(left + 310, y + 26, diyProblem, 12, COLORS.accent, w / 2 - 200 - (left + 310));
         c.add(b);
       });
     }

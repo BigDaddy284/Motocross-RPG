@@ -46,11 +46,21 @@ export const SKILLS_SCHEMA: Schema = {
   },
 };
 
+const KIND_LAPS: Schema = {
+      type: 'object',
+      optional: ['race', 'championship'],
+      fields: {
+        race: { type: 'record', values: { type: 'number', integer: true, min: 1 } },
+        championship: { type: 'record', values: { type: 'number', integer: true, min: 1 } },
+      },
+    };
+
 export const RACING_SCHEMA: Schema = {
   type: 'object',
-  optional: ['note', 'kindLaps'],
+  optional: ['note', 'kindLaps', 'weather'],
   fields: {
     note: { type: 'string' },
+    weather: { type: 'record', values: { type: 'object', fields: { name: S, factor: { type: 'number', min: 0.5, max: 2 }, risk: { type: 'number', min: 0.5, max: 4 } } } },
     sim: {
       type: 'object',
       optional: ['firstCorner', 'loopOut', 'pileup', 'fitness', 'sprint', 'knockout'],
@@ -98,15 +108,15 @@ export const RACING_SCHEMA: Schema = {
       type: 'object',
       fields: { sectionFactor: N0, practiceFactor: N0, finishBonus: N0, positionStep: N0, positionFloor: N0, overtakeXp: N0, consistencyWeight: N0 },
     },
-    classes: { type: 'record', values: { type: 'object', fields: { laps: { type: 'number', integer: true, min: 1 }, entry: N0, classXp: N0, refSpeed: { type: 'number', min: 1 }, youth: { type: 'boolean' } } } },
-    kindLaps: {
-      type: 'object',
-      optional: ['race', 'championship'],
-      fields: {
-        race: { type: 'record', values: { type: 'number', integer: true, min: 1 } },
-        championship: { type: 'record', values: { type: 'number', integer: true, min: 1 } },
+    classes: {
+      type: 'record',
+      values: {
+        type: 'object',
+        optional: ['kindLaps'],
+        fields: { laps: { type: 'number', integer: true, min: 1 }, entry: N0, classXp: N0, refSpeed: { type: 'number', min: 1 }, youth: { type: 'boolean' }, kindLaps: KIND_LAPS },
       },
     },
+    kindLaps: KIND_LAPS,
     messages: {
       type: 'array',
       minItems: 1,
@@ -211,7 +221,7 @@ export const TRACKS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['track', 'class', 'field', 'office', 'needs', 'practiceFeePct', 'firstRaceFree', 'practiceOnly', 'area', 'locked', 'regulars', 'practiceRiders'],
+        optional: ['track', 'class', 'field', 'office', 'needs', 'practiceFeePct', 'firstRaceFree', 'practiceOnly', 'area', 'locked', 'regulars', 'practiceRiders', 'town'],
         fields: {
           id: IDS,
           name: S,
@@ -226,6 +236,7 @@ export const TRACKS_SCHEMA: Schema = {
           firstRaceFree: { type: 'boolean' },
           practiceOnly: { type: 'boolean' },
           area: { type: 'array', items: { type: 'number', integer: true, min: 0 }, minItems: 4, maxItems: 4 },
+          town: IDS,
           locked: S,
           practiceRiders: { type: 'number', integer: true, min: 0, max: 15 },
         },
@@ -262,7 +273,7 @@ export const RIDERS_SCHEMA: Schema = {
         },
       },
     },
-    fields: { type: 'record', values: { type: 'object', fields: { area: { type: 'number', integer: true, min: 1, max: 8 } } } },
+    fields: { type: 'record', values: { type: 'object', optional: ['level'], fields: { area: { type: 'number', integer: true, min: 1, max: 8 }, level: LEVEL } } },
     fieldSize: { type: 'record', values: { type: 'number', integer: true, min: 1, max: 15 } },
     regulars: { type: 'record', values: { type: 'array', items: IDS } },
   },
@@ -286,6 +297,7 @@ export function checkRaceContent(c: { skills: SkillsData; racing: RacingData; tr
   const messageIds = new Set(racing.messages.map((m) => m.id));
   if (!messageIds.has('steady')) err(F.racing, 'messages', 'needs a "steady" message');
   for (const id of Object.keys(racing.classes)) if (!classIds.has(id)) err(F.racing, `classes.${id}`, `no class "${id}" in data/bikes.json`);
+  for (const id of classIds) if (!racing.classes[id]) err(F.racing, 'classes', `no race rules for class "${id}"`);
   for (const [id, s] of Object.entries(racing.sections)) {
     for (const k of Object.keys(s.skills)) if (!childIds.has(k)) err(F.racing, `sections.${id}.skills.${k}`, `no skill "${k}"`);
     s.stats.forEach((st, j) => !statIds.has(st) && err(F.racing, `sections.${id}.stats[${j}]`, `no bike stat "${st}"`));

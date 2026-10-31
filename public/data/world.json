@@ -1,5 +1,5 @@
 {
-  "note": "Story locks on map objects, where the roads out go, and the repeatable shift jobs (Spec 14.5a, 15.5). places are where a route can take you (the map and the spawn you arrive on); the place with mods: true is the mod track list, raced from the road without going anywhere (src/core/modTracks.ts). routes are exits with a choice of places at the end (an exit whose to is world_map, a name kept from the old world map screen so the maps did not change): the route marshal by the exit (npcs.json, guide: true) says where each goes and lets you pick, then you leave by the exit. Without a pick, leaving by the exit asks where to, so the marshal is never in the way. Pay is in pounds per part. testPayMultiplier boosts all shift pay while testing (Boss: 5× for Alpha v1.1): set it back to 1, or remove it, before Final v1.",
+  "note": "Story locks on map objects, where the roads out go, and the repeatable shift jobs (Spec 14.5a, 15.5). places are where a route can take you (the map and the spawn you arrive on); the place with mods: true is the mod track list, raced from the road without going anywhere (src/core/modTracks.ts). routes are exits with a choice of places at the end (an exit whose to is world_map, a name kept from the old world map screen so the maps did not change): the route marshal by the exit (npcs.json, guide: true) says where each goes and lets you pick, then you leave by the exit. Without a pick, leaving by the exit asks where to, so the marshal is never in the way. Pay is in pounds per part. Batch jobs (Spec 15, Boss 30 Oct 2026): batch is the parts in one batch (50 at the fabrication shop, 100 at the engine shop), each station gives its xp in child skills every pass, one job is open per facility at a time and can be left and picked up again, and a finished batch gives the rider one new part at random from keeps, of their current class, at a grade from Mechanical Engineer and facilityBonus (Spec 15.3). testPayMultiplier boosts all shift pay while testing (Boss: 5× for Alpha v1.1): set it back to 1, or remove it, before Final v1.",
   "testPayMultiplier": 5,
   "worldMap": {
     "note": "The world map (Boss, 28 Oct 2026), drawn by tools/art/world-map.py. Each zone lists its area maps (a building's inside is in the zone of the map its door is on) and where the rider's biggest bike stands, in the image's pixels.",
@@ -7,9 +7,16 @@
     "size": [1440, 1080],
     "bikes": "art/ui/world-map-bikes",
     "zones": [
-      { "id": "home", "name": "Home Town", "maps": ["area1-home-town"], "at": [1110, 526], "image": "art/ui/world-map-home.png" },
-      { "id": "iz", "name": "Industrial Zone", "maps": ["area1-industrial-zone"], "at": [1345, 502], "image": "art/ui/world-map-iz.png" },
-      { "id": "hub", "name": "Race Hub", "maps": ["venue-motocross", "venue-supercross", "venue-enduro"], "at": [720, 604] }
+      {"id": "home", "name": "Home Town", "maps": ["area1-home-town"], "at": [1110, 526], "image": "art/ui/world-map-home.png"},
+      {"id": "iz", "name": "Industrial Zone", "maps": ["area1-industrial-zone"], "at": [1345, 502], "image": "art/ui/world-map-iz.png"},
+      {"id": "hub", "name": "Race Hub", "maps": ["venue-motocross", "venue-supercross", "venue-enduro"], "at": [720, 604]},
+      {"id": "a2", "name": "Mountain Town", "maps": ["area2-mountain-town"], "at": [1100, 215]},
+      {"id": "a3", "name": "Beach Town", "maps": ["area3-beach-town"], "at": [720, 215]},
+      {"id": "a4", "name": "Forest Town", "maps": ["area4-forest-town"], "at": [340, 215]},
+      {"id": "a5", "name": "Northern Works", "maps": ["area5-northern-works"], "at": [340, 480]},
+      {"id": "a6", "name": "Highlands", "maps": ["area6-highlands"], "at": [340, 790]},
+      {"id": "a7", "name": "The City", "maps": ["area7-the-city"], "at": [720, 820]},
+      {"id": "a8", "name": "Capital", "maps": ["area8-capital"], "at": [1100, 790]}
     ]
   },
   "locks": [
@@ -17,36 +24,66 @@
     { "map": "area1-home-town", "object": "Bus stop", "flag": "van_loaded", "message": "The bus won't take a bike. You'll need a motor to get to the tracks." }
   ],
   "places": [
-    { "map": "area1-home-town", "spawn": "from_world_map", "name": "Home Town", "note": "Your rented room, the garage and the shops." },
-    { "map": "venue-motocross", "spawn": "from_world_map", "name": "Farmland MX", "note": "Hard-pack local track. The local champion's favourite." },
-    { "map": "venue-supercross", "spawn": "from_world_map", "name": "Riverside Arena", "note": "Supercross in the arena by the river: tight turns and tuff blocks." },
-    { "map": "venue-enduro", "spawn": "from_world_map", "name": "Longmoor Enduro", "note": "A long loop under the trees." },
-    { "map": "mod-tracks", "mods": true, "name": "Mod Track", "note": "Race a player-made track: pick one from the list and go straight to the gate." }
+    {"map": "area1-home-town", "spawn": "from_world_map", "name": "Home Town", "note": "Your rented room, the garage and the shops."},
+    {"map": "venue-motocross", "spawn": "from_world_map", "name": "Motocross Venue", "note": "The MX track gate. Every motocross track races here."},
+    {"map": "venue-supercross", "spawn": "from_world_map", "name": "Supercross Arena", "note": "The arena: tight turns and tuff blocks. Every supercross track races here."},
+    {"map": "venue-enduro", "spawn": "from_world_map", "name": "Enduro Venue", "note": "The enduro gate. Every enduro loop races here."},
+    {"map": "area2-mountain-town", "spawn": "from_west", "name": "Mountain Town", "note": "Area 2: clay, rain and mud. The same five shops, the Wheel works and the town gym.", "needs": "area.2.open"},
+    {"map": "area3-beach-town", "spawn": "from_west", "name": "Beach Town", "note": "Area 3: dunes, sand and sea wind. The same five shops, the Brake works and the beach agility ladder.", "needs": "area.3.open"},
+    {"map": "area4-forest-town", "spawn": "from_west", "name": "Forest Town", "note": "Area 4: roots, loam and wet woods. The same five shops, the Suspension shop and the woodland yoga retreat.", "needs": "area.4.open"},
+    {"map": "area5-northern-works", "spawn": "from_west", "name": "Northern Works", "note": "Area 5: quarry rock, old industry and dust. The same five shops, the Frame works and the canal rowing club.", "needs": "area.5.open"},
+    {"map": "area6-highlands", "spawn": "from_west", "name": "Highlands", "note": "Area 6: hills, moorland, wind and long climbs. The same five shops, the Gearbox works and the hill cycling club.", "needs": "area.6.open"},
+    {"map": "area7-the-city", "spawn": "from_west", "name": "The City", "note": "Area 7: the stadium, the indoor arena and city lights. The same five shops, the Exhaust works and the city dojo.", "needs": "area.7.open"},
+    {"map": "area8-capital", "spawn": "from_west", "name": "Capital", "note": "Area 8: the national venues, in all weathers. The same five shops, the Race department and the recovery centre.", "needs": "area.8.open"},
+    {"map": "mod-tracks", "mods": true, "name": "Mod Track", "note": "Race a player-made track: pick one from the list and go straight to the gate."}
   ],
   "routes": [
-    { "map": "area1-home-town", "exit": "To the venue route", "road": "the venue road", "to": ["venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"] },
-    { "map": "venue-motocross", "exit": "To the world map", "road": "the lane", "to": ["area1-home-town", "venue-supercross", "venue-enduro", "mod-tracks"] },
-    { "map": "venue-supercross", "exit": "To the world map", "road": "the lane", "to": ["area1-home-town", "venue-motocross", "venue-enduro", "mod-tracks"] },
-    { "map": "venue-enduro", "exit": "To the world map", "road": "the lane", "to": ["area1-home-town", "venue-motocross", "venue-supercross", "mod-tracks"] }
+    {"map": "area1-home-town", "exit": "To the venue route", "road": "the venue road", "to": ["venue-motocross", "venue-supercross", "venue-enduro", "area2-mountain-town", "area8-capital", "mod-tracks"]},
+    {"map": "venue-motocross", "exit": "To the world map", "road": "the lane", "to": ["area1-home-town", "venue-supercross", "venue-enduro", "area2-mountain-town", "area3-beach-town", "area4-forest-town", "area5-northern-works", "area6-highlands", "area7-the-city", "area8-capital", "mod-tracks"]},
+    {"map": "venue-supercross", "exit": "To the world map", "road": "the lane", "to": ["area1-home-town", "venue-motocross", "venue-enduro", "area2-mountain-town", "area3-beach-town", "area4-forest-town", "area5-northern-works", "area6-highlands", "area7-the-city", "area8-capital", "mod-tracks"]},
+    {"map": "venue-enduro", "exit": "To the world map", "road": "the lane", "to": ["area1-home-town", "venue-motocross", "venue-supercross", "area2-mountain-town", "area3-beach-town", "area4-forest-town", "area5-northern-works", "area6-highlands", "area7-the-city", "area8-capital", "mod-tracks"]},
+    {"map": "area2-mountain-town", "exit": "West road", "road": "the mountain road", "to": ["area3-beach-town", "venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"]},
+    {"map": "area2-mountain-town", "exit": "East road", "road": "the valley road", "to": ["area1-home-town", "venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"]},
+    {"map": "area3-beach-town", "exit": "West road", "road": "the coast road", "to": ["area4-forest-town", "venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"]},
+    {"map": "area3-beach-town", "exit": "East road", "road": "the dune road", "to": ["area2-mountain-town", "venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"]},
+    {"map": "area4-forest-town", "exit": "West road", "road": "the forest road", "to": ["area5-northern-works", "venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"]},
+    {"map": "area4-forest-town", "exit": "East road", "road": "the ridge road", "to": ["area3-beach-town", "venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"]},
+    {"map": "area5-northern-works", "exit": "West road", "road": "the quarry road", "to": ["area4-forest-town", "venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"]},
+    {"map": "area5-northern-works", "exit": "East road", "road": "the canal road", "to": ["area6-highlands", "venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"]},
+    {"map": "area6-highlands", "exit": "West road", "road": "the glen road", "to": ["area5-northern-works", "venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"]},
+    {"map": "area6-highlands", "exit": "East road", "road": "the moor road", "to": ["area7-the-city", "venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"]},
+    {"map": "area7-the-city", "exit": "West road", "road": "the ring road", "to": ["area6-highlands", "venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"]},
+    {"map": "area7-the-city", "exit": "East road", "road": "the motorway", "to": ["area8-capital", "venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"]},
+    {"map": "area8-capital", "exit": "West road", "road": "the national road", "to": ["area7-the-city", "venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"]},
+    {"map": "area8-capital", "exit": "East road", "road": "the north road", "to": ["area1-home-town", "venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"]}
   ],
   "jobs": [
     {
       "id": "job.fabrication", "name": "Fabrication shift", "map": "int-iz-fabrication-shop", "start": "bench_blue",
-      "product": "frame bracket", "batch": 20, "pay": 0.75, "needs": "tutorial_done",
+      "product": "frame bracket", "batch": 50, "pay": 0.75, "needs": "tutorial_done",
+      "facilityBonus": 0.3, "keeps": ["bodywork"],
       "stations": [
-        { "object": "bench_blue", "label": "Cut the steel", "ms": 900 },
-        { "object": "welder", "label": "Weld the bracket", "ms": 1200 },
-        { "object": "weld_table", "label": "Grind and finish", "ms": 900 }
+        { "object": "bench_blue", "label": "Cut the steel", "ms": 900, "xp": { "bodywork": 3 } },
+        { "object": "welder", "label": "Weld the bracket", "ms": 1200, "xp": { "welding": 6 } },
+        { "object": "weld_table", "label": "Grind and finish", "ms": 900, "xp": { "bodywork": 3 } }
       ]
     },
     {
       "id": "job.engine", "name": "Engine shop shift", "map": "int-iz-engine-rebuilder", "start": "bench_long",
-      "product": "piston", "batch": 16, "pay": 1.25, "needs": "tutorial_done",
+      "product": "piston", "batch": 100, "pay": 1.25, "needs": "tutorial_done",
+      "facilityBonus": 0.5, "keeps": ["top_end"],
       "stations": [
-        { "object": "bench_long", "label": "Clean the blank", "ms": 900 },
-        { "object": "lathe", "label": "Turn it on the lathe", "ms": 1300 },
-        { "object": "engine_stand", "label": "Test fit", "ms": 900 }
+        { "object": "bench_long", "label": "Clean the blank", "ms": 900, "xp": { "engine_components": 3 } },
+        { "object": "lathe", "label": "Turn it on the lathe", "ms": 1300, "xp": { "machining": 6 } },
+        { "object": "engine_stand", "label": "Test fit", "ms": 900, "xp": { "engine_components": 3, "engine_assembly": 3 } }
       ]
-    }
+    },
+    {"id": "job.a2.wheels", "name": "Wheel works shift", "map": "int-a2-tool-shop", "start": "bench_blue", "product": "wheel", "batch": 50, "pay": 1, "facilityBonus": 0.3, "keeps": ["wheels_tyres"], "stations": [{"object": "bench_blue", "label": "Lace the spokes", "ms": 900, "xp": {"wheels": 3}}, {"object": "welder", "label": "True the rim", "ms": 1200, "xp": {"wheels": 4, "machining": 2}}, {"object": "weld_table", "label": "Fit the tyre", "ms": 900, "xp": {"wheels": 3}}]},
+    {"id": "job.a3.brakes", "name": "Brake works shift", "map": "int-a3-tool-shop", "start": "bench_blue", "product": "brake caliper", "batch": 50, "pay": 1, "facilityBonus": 0.3, "keeps": ["brakes"], "stations": [{"object": "bench_blue", "label": "Turn the disc", "ms": 900, "xp": {"machining": 4}}, {"object": "welder", "label": "Bore the caliper", "ms": 1200, "xp": {"machining": 3, "wheels": 2}}, {"object": "weld_table", "label": "Fit the pads and bleed", "ms": 900, "xp": {"wheels": 3}}]},
+    {"id": "job.a4.works", "name": "Suspension shop shift", "map": "int-a4-tool-shop", "start": "bench_blue", "product": "suspension unit", "batch": 100, "pay": 1.5, "facilityBonus": 0.3, "keeps": ["forks", "shock"], "stations": [{"object": "bench_blue", "label": "Strip the unit", "ms": 900, "xp": {"suspension": 3}}, {"object": "welder", "label": "Hone and reseal", "ms": 1200, "xp": {"suspension": 3, "machining": 2}}, {"object": "weld_table", "label": "Fill, bleed and set", "ms": 900, "xp": {"suspension": 4}}]},
+    {"id": "job.a5.frame", "name": "Frame works shift", "map": "int-a5-tool-shop", "start": "bench_blue", "product": "frame", "batch": 100, "pay": 2, "facilityBonus": 0.3, "keeps": ["frame"], "stations": [{"object": "bench_blue", "label": "Jig the tubes", "ms": 900, "xp": {"welding": 3, "machining": 2}}, {"object": "welder", "label": "Weld the frame", "ms": 1300, "xp": {"welding": 4}}, {"object": "weld_table", "label": "Dress and check", "ms": 900, "xp": {"welding": 3}}]},
+    {"id": "job.a6.works", "name": "Gearbox works shift", "map": "int-a6-tool-shop", "start": "bench_blue", "product": "gearbox", "batch": 100, "pay": 1.25, "facilityBonus": 0.3, "keeps": ["bottom_end", "drivetrain"], "stations": [{"object": "bench_blue", "label": "Machine the shafts", "ms": 900, "xp": {"machining": 4}}, {"object": "welder", "label": "Build the cluster", "ms": 1300, "xp": {"engine_assembly": 4, "engine_components": 3}}, {"object": "weld_table", "label": "Shim and test", "ms": 900, "xp": {"engine_components": 3}}]},
+    {"id": "job.a7.intake_exhaust", "name": "Exhaust works shift", "map": "int-a7-tool-shop", "start": "bench_blue", "product": "exhaust system", "batch": 50, "pay": 1.25, "facilityBonus": 0.3, "keeps": ["intake_exhaust"], "stations": [{"object": "bench_blue", "label": "Cut and bend the tubes", "ms": 900, "xp": {"welding": 3}}, {"object": "welder", "label": "Weld the system", "ms": 1200, "xp": {"welding": 4, "engine_components": 2}}, {"object": "weld_table", "label": "Fit and flow test", "ms": 900, "xp": {"engine_components": 3}}]},
+    {"id": "job.a8.works", "name": "Race department shift", "map": "int-a8-tool-shop", "start": "bench_blue", "product": "race part", "batch": 100, "pay": 2.5, "facilityBonus": 0.3, "keeps": ["frame", "top_end", "bottom_end", "intake_exhaust", "drivetrain", "forks", "shock", "wheels_tyres", "brakes", "bodywork"], "stations": [{"object": "bench_blue", "label": "Machine the part", "ms": 900, "xp": {"machining": 4, "welding": 2}}, {"object": "welder", "label": "Build it up", "ms": 1300, "xp": {"engine_assembly": 3, "suspension": 2, "wheels": 2}}, {"object": "weld_table", "label": "Dyno and sign off", "ms": 900, "xp": {"machining": 2, "engine_components": 3, "bodywork": 2}}]}
   ]
 }

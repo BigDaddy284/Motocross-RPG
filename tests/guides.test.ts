@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { checkContent, npcsOnMap, type RawContent } from '../src/core/content';
-import { ROAD_TRACK_TYPES, roadMenu, routeArrival, routePlaces, waysOut } from '../src/core/guides';
+import { ROAD_TRACK_TYPES, roadMenu, routeArrival, routePlaces, venueHere, venueMapFor, waysOut } from '../src/core/guides';
 import { Grid } from '../src/core/grid';
 import { ROUTE, spawnTile, stepTriggerAt, Travel } from '../src/core/travel';
 import { loadManifest, loadMaps, rawContent } from './helpers';
@@ -42,7 +42,7 @@ describe('the roads out', () => {
     const w = structuredClone(world);
     w.places.push({ map: 'area1-nowhere', spawn: 'x', name: 'Nowhere', note: '' });
     w.routes[0].to.push('area1-nowhere');
-    expect(routePlaces(w, maps, w.routes[0]).map((p) => p.name)).toEqual(['Farmland MX', 'Riverside Arena', 'Longmoor Enduro', 'Mod Track']);
+    expect(routePlaces(w, maps, w.routes[0]).map((p) => p.name)).toEqual(['Motocross Venue', 'Supercross Arena', 'Enduro Venue', 'Mod Track']);
   });
 });
 
@@ -90,8 +90,8 @@ describe('leaving by a route', () => {
 describe('route checks', () => {
   it('refuse a route exit with no route, a route to a place that isn’t listed, or one back to itself', () => {
     expect(errorsWith((r) => { r.world.routes = r.world.routes.slice(1); })).toEqual([expect.stringMatching(/the exit "To the venue route" on area1-home-town leads to a choice of places, but no route lists them/)]);
-    expect(errorsWith((r) => { r.world.routes[0].to.push('area1-industrial-zone'); })).toEqual([expect.stringMatching(/routes\[0\]\.to\[4\]: "area1-industrial-zone" isn't one of the places/)]);
-    expect(errorsWith((r) => { r.world.routes[1].to.push('venue-motocross'); })).toEqual([expect.stringMatching(/routes\[1\]\.to\[4\]: leads back to venue-motocross/)]);
+    expect(errorsWith((r) => { r.world.routes[0].to.push('area1-industrial-zone'); })).toEqual([expect.stringMatching(/routes\[0\]\.to\[6\]: "area1-industrial-zone" isn't one of the places/)]);
+    expect(errorsWith((r) => { r.world.routes[1].to.push('venue-motocross'); })).toEqual([expect.stringMatching(/routes\[1\]\.to\[11\]: leads back to venue-motocross/)]);
     expect(errorsWith((r) => { r.world.routes[0].exit = 'To the Industrial Zone'; })).toEqual(expect.arrayContaining([expect.stringMatching(/goes straight to area1-industrial-zone, not to a choice of places/)]));
   });
 });
@@ -170,6 +170,21 @@ describe('the road menu (Boss, 30 Oct 2026)', () => {
     expect(names(open.tracks[0].places)).toEqual(['Farmland MX']);
     const home = world.places.find((p) => p.map === 'area1-home-town')!;
     expect(names(roadMenu([home], content.tracks.venues, kindOf, FOUND).areas)).toEqual(['Home Town']);
+  });
+
+  it('lists every open track of a type on its venue map, by the venue\'s name (one venue per track type, Boss, 30 Oct 2026)', () => {
+    const flags = { ...FOUND, 'area.2.open': true, 'area2.intro_done': true, 'area.3.open': true };
+    const menu = roadMenu(routePlaces(world, maps, homeRoad, flags), content.tracks.venues, kindOf, flags);
+    // Area 3's tracks wait for its intro; Area 2's are open, each on the hub map of its type.
+    expect(menu.tracks[0].places.map((p) => [p.name, p.map, p.venue])).toEqual([['Farmland MX', 'venue-motocross', 'venue-farmland'], ['Clayhill MX', 'venue-motocross', 'venue-a2-mx']]);
+    expect(names(menu.tracks[1].places)).toEqual(['Riverside Arena', 'Valley Arena']);
+    expect(names(menu.tracks[2].places)).toEqual(['Longmoor Enduro', 'Bog End Enduro']);
+    expect(names(menu.areas)).toEqual(['Mountain Town']);
+    expect(venueHere(content.tracks.venues, 'venue-supercross', flags, 'venue-a2-sx')!.id).toBe('venue-a2-sx');
+    expect(venueHere(content.tracks.venues, 'venue-supercross', flags)!.id).toBe('venue-riverside');
+    expect(venueHere(content.tracks.venues, 'venue-supercross', {})!.id).toBe('venue-riverside');
+    expect(venueMapFor('stadium')).toBe('venue-supercross');
+    expect(venueMapFor('backyard')).toBeUndefined();
   });
 
   it('lists nothing under a coming soon type, even a venue of its kind', () => {

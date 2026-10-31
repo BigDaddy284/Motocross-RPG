@@ -1,4 +1,5 @@
 import { bikeStats, type Bike, type BikesData } from './career';
+import type { SetupState } from './setup';
 import { firstCorner, isSprint, lapPlan, RETURN_LANE, sectionBounds, SPRINT_QUEUE, startGeom, type DrawnShape, type FirstCorner, type StartGeom } from './trackGeom';
 import type { RiderStyle } from './riderProfile';
 import { sectionGrades, type TrackElevation, type TrackHill } from './elevation';
@@ -81,6 +82,8 @@ export interface ClassRules {
   /** Reference speed in metres per second: a section's base time is its length over this. */
   refSpeed: number;
   youth: boolean;
+  /** The class's own laps by track kind, in place of racing.json kindLaps. */
+  kindLaps?: { race?: Record<string, number>; championship?: Record<string, number> };
 }
 
 export interface RacingData {
@@ -140,6 +143,8 @@ export interface RacingData {
    * A kind left out uses the class's laps.
    */
   kindLaps?: { race?: Record<string, number>; championship?: Record<string, number> };
+  /** Weather kinds (Spec 10.5): factor multiplies every section time, risk every mistake chance. */
+  weather?: Record<string, { name: string; factor: number; risk: number }>;
   messages: MessageDef[];
   messageEffects: {
     pacePct: number;
@@ -277,6 +282,10 @@ export interface Entrant {
    * Ability level, which sets how often they throw them on the race screen (tricks.ts). Left out until then.
    */
   riderLevel?: number;
+  /** The player's bike setup (core/setup.ts), filled in by playerEntrant; raceDay turns it into tuning for each track. */
+  setup?: SetupState;
+  /** A time factor per track section from the bike setup (core/setup.ts tuningFactors); missing is 1. */
+  tuning?: number[];
   bike: Bike;
   tactic: Tactic;
   /** Gate number from 0, best first. Lap 1 starts in gate order; in a sprint, the order riders leave the start line. */
@@ -367,6 +376,8 @@ export interface MotoOptions {
    * rides with less noise to stay as much a test of skill as a moto of many laps.
    */
   noiseScale?: number;
+  /** The day's weather (racing.json weather): its time factor and mistake risk (Spec 10.5). */
+  weather?: { factor: number; risk: number };
 }
 
 /** A small seeded generator (mulberry32), so a race can be replayed exactly. */
@@ -386,6 +397,12 @@ export function mixSeed(seed: number, n: number): number {
 }
 
 const logistic = (x: number) => 1 / (1 + Math.exp(-x));
+
+/** TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 31 Oct 2026): when on, the player wins every moto (results()). */
+let testAlwaysWin = false;
+export function setTestAlwaysWin(on: boolean): void {
+  testAlwaysWin = on;
+}
 
 export class MotoSim {
   readonly riders: RiderState[];
@@ -590,7 +607,7 @@ export class MotoSim {
         if (out.has(r)) continue;
         this.rng = draws.get(r)!;
         // A start one at a time (a No-Turn Takedown's seeding run) has no gate to gain or lose on.
-        let t = this.sectionTime(r, sec, def, isStart && !this.opts.interval ? r.e.gate : -1) * (air.get(r) ?? 1) * (si >= 0 ? this.grades[si] : 1);
+        let t = this.sectionTime(r, sec, def, isStart && !this.opts.interval ? r.e.gate : -1) * (air.get(r) ?? 1) * (si >= 0 ? this.grades[si] * (r.e.tuning?.[si] ?? 1) : 1);
         let m = this.mistake(r, def, share);
         let withWhom: string | undefined;
         if (leg === startLeg && r === looper) {
@@ -709,6 +726,9 @@ export class MotoSim {
     // A sprint is won on the timed tests added up, not on who crosses the line first.
     const raced = (r: RiderState) => (this.sprint ? r.sprintTime : r.time);
     const sorted = [...this.riders].sort((a, b) => Number(a.retired) - Number(b.retired) || b.laps - a.laps || raced(a) - raced(b));
+    // TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 31 Oct 2026): Settings > Gameplay >
+    // "TEST: Always win" puts the player first in every moto, heat and sprint, DNF or not.
+    if (testAlwaysWin && this.player) sorted.splice(0, 0, ...sorted.splice(sorted.indexOf(this.player), 1));
     const leader = sorted[0];
     return sorted.map((r, i) => ({
       id: r.e.id,
@@ -719,9 +739,9 @@ export class MotoSim {
       laps: r.laps,
       time: raced(r),
       bestLap: r.lapTimes.length ? Math.min(...r.lapTimes) : null,
-      retired: r.retired,
-      reason: r.reason,
-      gap: i === 0 ? formatTime(raced(r)) : r.retired ? 'DNF' : r.laps < leader.laps ? `+${leader.laps - r.laps} lap${leader.laps - r.laps > 1 ? 's' : ''}` : `+${(raced(r) - raced(leader)).toFixed(1)}s`,
+      retired: testAlwaysWin && r.e.player ? false : r.retired,
+      reason: testAlwaysWin && r.e.player ? undefined : r.reason,
+      gap: i === 0 ? formatTime(raced(r)) : r.retired ? 'DNF' : r.laps < leader.laps ? `+${leader.laps - r.laps} lap${leader.laps - r.laps > 1 ? 's' : ''}` : `+${Math.max(0, raced(r) - raced(leader)).toFixed(1)}s`,
     }));
   }
 
@@ -764,7 +784,7 @@ export class MotoSim {
     const cons = r.e.skills.consistency ?? 1;
     const sd = sim.noise * (this.opts.noiseScale ?? 1) * (1 - (sim.consistencyNoiseCut * cons) / 99) * Math.max(0.2, 1 - me.consistencyNoise * msg.consistency);
     const noise = Math.max(0.7, 1 + this.gauss() * sd);
-    return base * this.difficulty(sec, def) * (1 - sim.spread * (perf - 0.5)) * pace * gateK * noise * (1 - this.fitnessCut(r, sec));
+    return base * this.difficulty(sec, def) * (1 - sim.spread * (perf - 0.5)) * pace * gateK * noise * (1 - this.fitnessCut(r, sec)) * (this.opts.weather?.factor ?? 1);
   }
 
   /** The share of a section's time a rider's Strength and Endurance take off (sim.fitness), never over its cap. */
@@ -784,7 +804,7 @@ export class MotoSim {
     const msg = this.message(r);
     const perf = this.performance(r, def);
     const cons = r.e.skills.consistency ?? 1;
-    const p = share * sim.mistakeBase * def.diff * (1.4 - perf) * Math.max(0.2, 1 + me.paceMistakes * msg.pace) * (1 - (sim.mistakeConsistencyCut * cons) / 99);
+    const p = share * sim.mistakeBase * def.diff * (1.4 - perf) * Math.max(0.2, 1 + me.paceMistakes * msg.pace) * (1 - (sim.mistakeConsistencyCut * cons) / 99) * (this.opts.weather?.risk ?? 1);
     if (this.rng() >= p) return null;
     // Risk moves share from small errors to crashes.
     const crashScale = Math.max(0.2, 1 + me.riskCrashShare * msg.risk);

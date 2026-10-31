@@ -1,0 +1,38 @@
+{
+  "note": "Part modifiers and the Modifying Machine (Spec 6; Boss, 30 Oct 2026: one machine, Mad Maggie's in the Industrial Zone unit, broken until her Area 5 quest fixes it). types: the section and condition modifiers; sections lists which section types each one speeds up or slows down; a condition applies to every section when the day's weather or the track's surface matches, and to its own section types. pools: the five types a part in each slot can roll (Spec 6.2). effect: raw points of one type across the fitted parts, effect% = sign(raw) x max x (1 - e^(-|raw| / scale)) (Spec 6.3: +-1 is 0.7%, +-5 2.8%, +-10 4.3%, cap 6%). machine (Spec 6.4): count modifiers per go, each positive with chance positive, values 1 to 5 at the weights; a part must have no modifiers and be at minCondition or better; breakChance it is lost for good; the fee is base pounds at Grade 1, times perGrade for each grade above. fixedFlag: set by the quest's last step (story.json chain maggie).",
+  "types": {
+    "starts": { "name": "Starts" }, "corners": { "name": "Corners" }, "ruts": { "name": "Ruts" }, "jumps": { "name": "Jumps" }, "whoops": { "name": "Whoops" }, "straights": { "name": "Straights" }, "rough": { "name": "Rough" },
+    "wet": { "name": "Wet" }, "mud": { "name": "Mud" }, "sand": { "name": "Sand" }, "hardpack": { "name": "Hard-pack" }, "loose": { "name": "Loose" }
+  },
+  "sections": {
+    "starts": ["start_gate"],
+    "corners": ["first_corner", "flat_corner", "berm", "rutted_corner", "hairpin", "fast_sweeper", "concrete_corner", "off_camber"],
+    "ruts": ["rutted_corner", "roots", "woods"],
+    "jumps": ["tabletop", "double", "step_up", "triple", "step_down", "step_on", "step_on_two", "step_on_three", "dragon_back", "quad", "on_off", "single_over_table", "table_over_single", "wall_jump", "ski_jump", "rhythm"],
+    "whoops": ["whoops", "rollers"],
+    "straights": ["straight", "concrete_straight", "uphill", "downhill", "hill_climb"],
+    "rough": ["braking_bumps", "rocks", "logs", "log_step"],
+    "mud": ["mud", "water_crossing"],
+    "sand": ["sand"]
+  },
+  "conditions": {
+    "wet": { "weather": ["light_rain", "heavy_rain"] },
+    "mud": { "weather": ["heavy_rain"] },
+    "hardpack": { "surfaces": ["hard_pack", "concrete"] },
+    "loose": { "surfaces": ["loam"] }
+  },
+  "pools": {
+    "top_end": ["starts", "straights", "mud", "sand", "corners"],
+    "bottom_end": ["starts", "straights", "mud", "sand", "corners"],
+    "intake_exhaust": ["starts", "straights", "mud", "sand", "corners"],
+    "forks": ["jumps", "whoops", "rough", "ruts", "corners"],
+    "shock": ["jumps", "whoops", "rough", "ruts", "corners"],
+    "wheels_tyres": ["corners", "wet", "mud", "sand", "loose"],
+    "brakes": ["corners", "rough", "wet", "straights", "ruts"],
+    "bodywork": ["ruts", "whoops", "corners", "rough", "jumps"],
+    "drivetrain": ["starts", "straights", "mud", "sand", "corners"],
+    "frame": ["corners", "ruts", "jumps", "rough", "straights"]
+  },
+  "effect": { "max": 6, "scale": 8 },
+  "machine": { "count": 3, "positive": 0.5, "values": [45, 30, 15, 8, 2], "minCondition": 0.8, "breakChance": 0.1, "fee": { "base": 20, "perGrade": 2 }, "fixedFlag": "machine.fixed", "map": "int-iz-modifier-unit", "action": "story.modifier_machine" }
+}

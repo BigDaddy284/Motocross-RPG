@@ -15,7 +15,7 @@ export interface SaveData {
   version: number;
   /** Real-world time of the save, for the Load screen only; the game has no clock. */
   savedAt: string;
-  rider: { name: string; look: string };
+  rider: { name: string; look: string; startLook?: string; outfits?: string[] };
   position: { map: string; x: number; y: number; facing: Facing };
   flags: Record<string, boolean>;
   stats: { playSeconds: number };
@@ -201,7 +201,7 @@ function isSaveData(o: Record<string, unknown>): o is SaveData & Record<string, 
   const r = o.rider as Record<string, unknown> | undefined;
   return (
     typeof o.savedAt === 'string' &&
-    !!r && typeof r.name === 'string' && typeof r.look === 'string' &&
+    !!r && typeof r.name === 'string' && typeof r.look === 'string' && (r.startLook === undefined || typeof r.startLook === 'string') && (r.outfits === undefined || (Array.isArray(r.outfits) && r.outfits.every((o) => typeof o === 'string'))) &&
     !!p && typeof p.map === 'string' && Number.isInteger(p.x) && Number.isInteger(p.y) &&
     ['down', 'left', 'right', 'up'].includes(p.facing as string) &&
     typeof o.flags === 'object' && o.flags !== null &&
@@ -224,21 +224,51 @@ function isCareer(v: unknown): boolean {
   const story = c.story as Record<string, unknown> | undefined;
   return (
     Number.isInteger(c.money) &&
-    !!bike && typeof bike.brand === 'string' && typeof bike.class === 'string' && typeof bike.parts === 'object' && bike.parts !== null &&
-    Object.values(bike.parts).every((p) => Number.isInteger(p?.grade) && typeof p?.condition === 'number') &&
+    isBike(bike) &&
     Array.isArray(c.bag) && c.bag.every((b) => typeof b?.id === 'string' && (b.part === undefined || isSpare(b.part))) &&
     (c.shops === undefined || isShopState(c.shops)) &&
     (c.champs === undefined || isChampState(c.champs)) &&
     (c.errands === undefined || isErrandState(c.errands)) &&
+    (c.jobs === undefined || isJobState(c.jobs)) &&
+    (c.tools === undefined || (typeof c.tools === 'object' && c.tools !== null && Object.values(c.tools).every((v) => typeof v === 'string'))) &&
+    (c.setup === undefined || (typeof c.setup === 'object' && c.setup !== null && ((c.setup as Record<string, unknown>).preset === null || typeof (c.setup as Record<string, unknown>).preset === 'string') && typeof (c.setup as Record<string, unknown>).sliders === 'object' && (c.setup as Record<string, unknown>).sliders !== null && Object.values((c.setup as Record<string, unknown>).sliders as Record<string, unknown>).every((v) => typeof v === 'number' && v >= -1 && v <= 1))) &&
+    (c.retired === undefined || (Array.isArray(c.retired) && c.retired.every((r) => isBike((r as Record<string, unknown>)?.bike) && typeof (r as Record<string, unknown>).milestone === 'string'))) &&
     !!story && Number.isInteger(story.step) && Array.isArray(story.used) &&
+    (c.reputation === undefined || (typeof c.reputation === 'number' && c.reputation >= 0)) &&
+    (c.sponsor === undefined || isContract(c.sponsor)) &&
+    (c.sponsorOffers === undefined || (Array.isArray(c.sponsorOffers) && c.sponsorOffers.every((o) => isOffer(o)))) &&
+    (c.storage === undefined || (Array.isArray(c.storage) && c.storage.every((p) => isSpare(p as Record<string, unknown>)))) &&
+    (c.venue === undefined || typeof c.venue === 'string') &&
+    (c.chains === undefined || (typeof c.chains === 'object' && c.chains !== null && Object.values(c.chains as Record<string, Record<string, unknown>>).every((ch) => Number.isInteger(ch?.step) && Array.isArray(ch?.used)))) &&
     typeof c.counters === 'object' && c.counters !== null &&
     isSkills(c.skills)
   );
 }
 
+function isOffer(v: unknown): boolean {
+  const o = v as Record<string, unknown> | undefined;
+  return !!o && typeof o === 'object' && typeof o.tier === 'string' && typeof o.name === 'string' && typeof o.pay === 'number' && Number.isInteger(o.days) && Number.isInteger(o.minGrade);
+}
+
+function isContract(v: unknown): boolean {
+  const c = v as Record<string, unknown> | undefined;
+  return isOffer(v) && Number.isInteger(c!.daysDone) && Number.isInteger(c!.failStreak) && Number.isInteger(c!.cashReceived) && Number.isInteger(c!.seed);
+}
+
+function isBike(v: unknown): boolean {
+  const bike = v as Record<string, unknown> | undefined;
+  return !!bike && typeof bike.brand === 'string' && typeof bike.class === 'string' && typeof bike.parts === 'object' && bike.parts !== null &&
+    Object.values(bike.parts as Record<string, Record<string, unknown>>).every((p) => Number.isInteger(p?.grade) && typeof p?.condition === 'number' && isMods(p.mods));
+}
+
+/** Modifiers on a part (core/modifiers.ts): none, or a list of type and whole value from -5 to 5. */
+function isMods(v: unknown): boolean {
+  return v === undefined || (Array.isArray(v) && v.every((m) => typeof m?.type === 'string' && Number.isInteger(m?.value) && m.value >= -5 && m.value <= 5 && m.value !== 0));
+}
+
 function isSpare(p: Record<string, unknown>): boolean {
   const o = p.owner as Record<string, unknown> | undefined;
-  return typeof p.slot === 'string' && typeof p.class === 'string' && Number.isInteger(p.grade) && typeof p.condition === 'number' &&
+  return typeof p.slot === 'string' && typeof p.class === 'string' && Number.isInteger(p.grade) && typeof p.condition === 'number' && isMods(p.mods) &&
     (o === undefined || (typeof o === 'object' && o !== null && typeof o.errand === 'string' && typeof o.name === 'string'));
 }
 
@@ -246,6 +276,16 @@ function isErrandState(v: unknown): boolean {
   const s = v as Record<string, unknown>;
   return typeof s === 'object' && s !== null && (s.active === null || typeof s.active === 'string') &&
     typeof s.done === 'object' && s.done !== null && Object.values(s.done).every(Number.isInteger);
+}
+
+function isJobState(v: unknown): boolean {
+  const s = v as Record<string, unknown>;
+  return typeof s === 'object' && s !== null && typeof s.open === 'object' && s.open !== null &&
+    Object.values(s.open).every((o) => {
+      const j = o as Record<string, unknown>;
+      const t = j?.ticket as Record<string, unknown> | undefined;
+      return typeof j?.job === 'string' && Number.isInteger(j.made) && (t === undefined || (typeof t.slot === 'string' && Number.isInteger(t.grade) && typeof t.pay === 'number' && typeof t.customer === 'string'));
+    });
 }
 
 function isShopState(v: unknown): boolean {

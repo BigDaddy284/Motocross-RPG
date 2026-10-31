@@ -52,6 +52,14 @@ describe('content files', () => {
     expect(errors.map(formatError)).toContain('data/tracks.json: venues[0].track: "new-track" (New track) is unfinished; mark it Ready to race in the track editor first');
   });
 
+  it('keeps every race venue on its track type\'s venue map (one venue per track type, Boss, 30 Oct 2026)', () => {
+    const r = raw() as ReturnType<typeof raw> & { tracks: { venues: Record<string, unknown>[] } };
+    const riverside = r.tracks.venues.find((v) => v.id === 'venue-riverside')!;
+    riverside.map = 'venue-motocross';
+    const { errors } = checkContent(r, manifest, maps);
+    expect(errors.map(formatError)).toContain(`data/tracks.json: venues[${r.tracks.venues.indexOf(riverside)}].map: "venue-motocross": a stadium track races at venue-supercross (one venue per track type)`);
+  });
+
   it('places map-spot NPCs and tile-placed NPCs', () => {
     const { content } = checkContent(raw(), manifest, maps);
     const town = npcsOnMap(content!, maps.get('area1-home-town')!);

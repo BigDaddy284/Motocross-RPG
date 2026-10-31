@@ -14,6 +14,7 @@ import { COLORS, textStyle } from '../ui/theme';
 import { START_MAP } from './careerFlow';
 import type { RaceSceneData } from './RaceScene';
 import { view } from '../ui/view';
+import type { VehiclesData } from '../core/vehicles';
 import { bikeImagePath, bikeTexture, vanTexture, vanTurnTexture } from '../world/VanView';
 import { HEADINGS } from '../core/vehicles';
 import { loadModModels } from '../world/modModels';
@@ -48,6 +49,13 @@ export class BootScene extends Phaser.Scene {
       this.load.image(vanTexture(id), `assets/${sheet.image}`);
       if (sheet.turn) this.load.image(vanTurnTexture(id), `assets/${sheet.turn.image}`);
     }
+    // A design drawn with another's sheets until its art exists (vehicles.json artOf: the sports car).
+    for (const d of (this.cache.json.get('content:vehicles') as VehiclesData | undefined)?.designs ?? []) {
+      const sheet = d.artOf && !manifest.vehicles?.[d.id] ? manifest.vehicles?.[d.artOf] : undefined;
+      if (!sheet) continue;
+      this.load.image(vanTexture(d.id), `assets/${sheet.image}`);
+      if (sheet.turn) this.load.image(vanTurnTexture(d.id), `assets/${sheet.turn.image}`);
+    }
     // The bike on its stand in each brand, for the load bed of the Old Rusty Truck.
     for (const b of (this.cache.json.get('content:bikes') as BikesData | undefined)?.brands ?? []) {
       for (const model of ['youth', 'adult']) for (const h of HEADINGS) this.load.image(bikeTexture(model, b.id, h), `assets/${bikeImagePath(model, b.id, h)}`);
@@ -61,7 +69,8 @@ export class BootScene extends Phaser.Scene {
     if (wm) {
       for (const img of [wm.image, ...wm.zones.flatMap((z) => (z.image ? [z.image] : []))]) this.load.image(worldMapTexture(img), `assets/${img}`);
       for (const c of bikes?.classes ?? []) for (const b of bikes?.brands ?? []) {
-        const img = bikeImage(wm, { class: c.id, brand: b.id, parts: {} });
+        if (c.mapImage) continue; // drawn with another class's picture for now
+        const img = bikeImage(wm, { class: c.id, brand: b.id, parts: {} }, bikes);
         this.load.image(worldMapTexture(img), `assets/${img}`);
       }
     }
