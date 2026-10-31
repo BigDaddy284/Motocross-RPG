@@ -1280,7 +1280,10 @@ export class HudScene extends Phaser.Scene {
         const b = button(this, w / 2 - 110, y + 16, v === null ? "Won't buy" : `Sell ${formatMoney(v)}`, () => {
           const sell = () => done(sellSpare(shops, shop, career, i), 'sell', pg);
           // Small sales are one click; bigger ones ask first (GDD 8.3).
-          if (v !== null && v >= 5000) inner(() => this.confirm(`Sell your G${p.grade} ${slotName(bikes, p.slot)} for ${formatMoney(v)}?`, 'Sell', sell, () => reopen('sell', pg)));
+          // A note under the question: the part's condition when it's still at half or better (Boss, 31 Oct 2026).
+          const pct = Math.round(p.condition * 100);
+          const sure = pct >= 50 ? `It's still at ${pct}%.\nAre you sure you want to sell it?` : 'Are you sure you want to sell it?';
+          if (v !== null && v >= 5000) inner(() => this.confirm(`Sell your G${p.grade} ${slotName(bikes, p.slot)} for ${formatMoney(v)}?\n${sure}`, 'Sell', sell, () => reopen('sell', pg)));
           else sell();
         }, 170, 38);
         b.setEnabled(v !== null);
