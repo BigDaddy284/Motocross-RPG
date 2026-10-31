@@ -107,8 +107,8 @@ export class RaceScene extends Phaser.Scene {
   private pen: PenMeter | null = null;
   private modal: Phaser.GameObjects.Container | null = null;
   private towerRows = 16;
-  /** The middle of the track view across, for buttons over it. */
-  private viewCX = 466;
+  /** Where Skip to results sits: the track view's bottom-right corner, clear of the race log. */
+  private skipX = 800;
   /** Name width in the standings, in characters: the field's longest name. */
   private nameW = 15;
   /** One standings row's height on screen, measured from the font. */
@@ -721,7 +721,7 @@ export class RaceScene extends Phaser.Scene {
     const detailSize = Math.max(10, Math.floor(14 * Math.min(1, colIn / detailW) * 2) / 2);
     const right = dw - 16 - sideW;
     const vw = right - 14 - 16;
-    this.viewCX = 16 + vw / 2;
+    this.skipX = 16 + vw - 14 - 110;
     // Riders ride up to the start in the order they picked their gates.
     this.director = directorFor(sim, services.content.bikes, services.content.racing.messages, this.day?.pickOrder);
     // The view keeps the 1280 × 720 layout's scale (900 wide), so a wider one shows more track, not bigger bikes.
@@ -755,8 +755,18 @@ export class RaceScene extends Phaser.Scene {
     // The log always starts under the last row.
     this.towerRows = Math.max(6, Math.floor((dh - 160 - 14 - 8) / this.towerLineH));
     // The race log floats over the track's bottom-left corner in the Position text one size down,
-    // five lines at most, clear of the Skip to results button (Boss, 31 Oct 2026).
-    this.ui.feed = this.text(30, dh - 50, '', 17, COLORS.cream, { lineSpacing: 3, ...OVERLAY, wordWrap: { width: Math.min(460, this.viewCX - 110 - 40) } }).setOrigin(0, 1);
+    // five lines at most. It is just wide enough for the longest line the log can write (a big crash
+    // at the longest-named section breaking three parts) to split over two near-equal lines
+    // (Boss, 31 Oct 2026): half that line, plus room for a word to spill over.
+    const racing = services.content.racing;
+    const longestOf = (names: string[]) => names.reduce((a, b) => (b.length > a.length ? b : a), '');
+    const sectionNames = Object.values(racing.sections).map((x) => x.name.toLowerCase());
+    const slotNames = services.content.bikes.slots.map((x) => x.name.toLowerCase()).sort((a, b) => b.length - a.length).slice(0, 3);
+    const longestLine = `Big crash at the ${longestOf(sectionNames)} (−12.4s). Broken: ${slotNames.join(', ')}.`;
+    this.ui.feed = this.text(30, dh - 50, longestLine, 17, COLORS.cream, { lineSpacing: 3, ...OVERLAY }).setOrigin(0, 1);
+    const wordW = this.ui.feed.setText('controls, ').width;
+    this.ui.feed.setText(longestLine);
+    this.ui.feed.setWordWrapWidth(Math.ceil(this.ui.feed.width / 2 + wordW * 0.6)).setText('');
     this.ui.detail = this.text(right + 12, 76, '', detailSize, COLORS.cream, { lineSpacing: 5 }).setVisible(false);
     // Details: the bike's parts, or section times.
     this.detailTabs = (['bike', 'sections'] as const).map((tab, i) => {
@@ -1056,7 +1066,7 @@ export class RaceScene extends Phaser.Scene {
     });
     this.setTower(towerWindow(rows, rank, this.towerRows));
     if (!this.skipButton && (me.out || me.finished)) {
-      this.skipButton = this.btn(this.viewCX, this.dh - 50, 'Skip to results', () => {
+      this.skipButton = this.btn(this.skipX, this.dh - 50, 'Skip to results', () => {
         while (!sim.finished) this.addLap(sim.nextLap());
         this.live = false;
         this.finishMoto();
@@ -1136,7 +1146,7 @@ export class RaceScene extends Phaser.Scene {
     });
     this.setTower(['Best timed laps', ...towerWindow(tower, mine, this.towerRows - 1)]);
     if (!this.skipButton && (me.out || me.finished)) {
-      this.skipButton = this.btn(this.viewCX, this.dh - 50, 'Skip to results', () => {
+      this.skipButton = this.btn(this.skipX, this.dh - 50, 'Skip to results', () => {
         while (!sim.finished) this.addLap(sim.nextLap());
         this.live = false;
         this.finishMoto();
@@ -1190,7 +1200,7 @@ export class RaceScene extends Phaser.Scene {
     });
     this.setTower([this.qualifying ? 'Qualifying times' : 'Total time', ...towerWindow(tower, rank, this.towerRows - 2)]);
     if (!this.skipButton && (me.out || me.finished)) {
-      this.skipButton = this.btn(this.viewCX, this.dh - 50, 'Skip to results', () => {
+      this.skipButton = this.btn(this.skipX, this.dh - 50, 'Skip to results', () => {
         while (!sim.finished) this.addLap(sim.nextLap());
         this.live = false;
         this.finishMoto();
@@ -1878,7 +1888,7 @@ export class RaceScene extends Phaser.Scene {
     this.setFeed(this.feed);
     this.setTower([head, ...towerWindow(tower, rank, this.towerRows - 1)]);
     if (heat && !this.skipButton && (me.out || me.finished)) {
-      this.skipButton = this.btn(this.viewCX, this.dh - 50, 'Skip to results', () => {
+      this.skipButton = this.btn(this.skipX, this.dh - 50, 'Skip to results', () => {
         while (!sim.finished) this.addLap(sim.nextLap());
         this.live = false;
         this.finishMoto();
