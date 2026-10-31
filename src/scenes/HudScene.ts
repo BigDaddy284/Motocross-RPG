@@ -36,7 +36,7 @@ import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
 import { button, panel, slider, statBar } from '../ui/widgets';
 import type { WorldScene } from './WorldScene';
 import { HUD_BAR, cssSize, view } from '../ui/view';
-import { worldMapTexture, type WorldMapData, type WorldMapZone } from '../core/worldMap';
+import { bikeImage, worldMapTexture, type WorldMapData, type WorldMapZone } from '../core/worldMap';
 
 // Screen-space layer over the world: map name, money and task, messages, the dialogue box, the
 // bike / bag / task panel, confirm boxes, the work progress bar, the pause menu and
@@ -889,6 +889,19 @@ export class HudScene extends Phaser.Scene {
       // The stats start below the note, however many lines it takes.
       const statsY = Math.max(y0 + 100, note.y + note.height + 22);
       bikes.stats.forEach((st, i) => c.add(statBar(this, left, statsY + i * 34, st.name, w / 2 - 260, max, 110).setValue(stats[st.id])));
+      // A picture of the rider's bike, brand and class, in the space under the stat bars (Boss, 31 Oct 2026).
+      // It's the world map's bike picture, scaled to fit and never past 2x so the pixels stay sharp.
+      const wm = services.content.world.worldMap;
+      const pic = wm ? worldMapTexture(bikeImage(wm, bike, bikes)) : '';
+      if (pic && this.textures.exists(pic)) {
+        const picTop = statsY + bikes.stats.length * 34 + 6;
+        const picW = px - 24 - left;
+        const picH = h / 2 - 20 - picTop;
+        const img = this.add.image(0, 0, pic);
+        const s = Math.min(2, picW / img.width, picH / img.height);
+        if (s >= 0.5) c.add(img.setScale(s).setPosition(left + picW / 2, picTop + picH / 2));
+        else img.destroy();
+      }
       line(px, y0, 'Parts', 20, COLORS.accent, w / 2 - 28 - px);
       // Columns: the part's name, its grade, a bar and the percentage, each kept to its own space.
       const barW = w / 2 - 330;
