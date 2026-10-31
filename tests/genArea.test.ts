@@ -45,7 +45,7 @@ describe('the town stamp skips drawn maps (tools/gen-area.mjs)', () => {
   it('leaves a drawn inside alone and stamps the rest of its town', () => {
     const steps = plan(artFolder(['buildings/tiled/maps/interiors/int-a8-tool-shop.tmj']));
     const a8 = steps.find((s) => s.n === 8)!;
-    expect(a8.skip).toEqual(['int-a8-tool-shop']);
+    expect(a8.skip).toEqual(['area8-capital', 'int-a8-tool-shop']);  // the Capital is drawn too (31 Oct 2026)
     expect(a8.stamp).toContain('int-a8-rented-room');
   });
 

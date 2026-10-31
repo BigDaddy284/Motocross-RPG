@@ -33,8 +33,8 @@
     {"map": "area4-forest-town", "spawn": "from_south_east", "name": "Forest Town", "note": "Area 4: roots, loam and wet woods. The same five shops, the Suspension shop and the woodland yoga retreat.", "needs": "area.4.open"},
     {"map": "area5-northern-works", "spawn": "from_east", "name": "Northern Works", "note": "Area 5: quarry rock, old industry and dust. The same five shops, the Frame works and the canal rowing club.", "needs": "area.5.open"},
     {"map": "area6-highlands", "spawn": "from_north_east", "name": "Highlands", "note": "Area 6: hills, moorland, wind and long climbs. The same five shops, the Gearbox works and the hill cycling club.", "needs": "area.6.open"},
-    {"map": "area7-the-city", "spawn": "from_west", "name": "The City", "note": "Area 7: the stadium, the indoor arena and city lights. The same five shops, the Exhaust works and the city dojo.", "needs": "area.7.open"},
-    {"map": "area8-capital", "spawn": "from_west", "name": "Capital", "note": "Area 8: the national venues, in all weathers. The same five shops, the Race department and the recovery centre.", "needs": "area.8.open"},
+    {"map": "area7-the-city", "spawn": "from_north", "name": "The City", "note": "Area 7: the stadium, the indoor arena and city lights. The same five shops, the Exhaust works and the city dojo.", "needs": "area.7.open"},
+    {"map": "area8-capital", "spawn": "from_north_west", "name": "Capital", "note": "Area 8: the national venues, in all weathers. The same five shops, the Race department and the recovery centre.", "needs": "area.8.open"},
     {"map": "mod-tracks", "mods": true, "name": "Mod Track", "note": "Race a player-made track: pick one from the list and go straight to the gate."}
   ],
   "routes": [
@@ -61,7 +61,8 @@
     {"map": "area7-the-city", "exit": "East road", "road": "the motorway", "to": ["area8-capital", "venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"]},
     {"map": "area7-the-city", "exit": "North road", "road": "the hub road", "to": ["venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"]},
     {"map": "area8-capital", "exit": "West road", "road": "the national road", "to": ["area7-the-city", "venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"]},
-    {"map": "area8-capital", "exit": "East road", "road": "the north road", "to": ["area1-home-town", "venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"]}
+    {"map": "area8-capital", "exit": "North road", "road": "the north road", "to": ["area1-home-town", "venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"]},
+    {"map": "area8-capital", "exit": "North-west road", "road": "the hub road", "to": ["venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"]}
   ],
   "jobs": [
     {
