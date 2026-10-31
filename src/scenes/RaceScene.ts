@@ -108,7 +108,7 @@ export class RaceScene extends Phaser.Scene {
   private pen: PenMeter | null = null;
   private modal: Phaser.GameObjects.Container | null = null;
   private towerRows = 16;
-  /** Name width in the standings, in characters: as wide as the side column allows. */
+  /** Name width in the standings, in characters: the field's longest name, as far as the side column allows. */
   private nameW = 15;
   /** One standings row's height on screen, measured from the font. */
   private towerLineH = TOWER_ROW;
@@ -738,6 +738,9 @@ export class RaceScene extends Phaser.Scene {
     this.nameW = Math.max(15, Math.floor(302 / this.ui.tower.setText('A'.repeat(20)).displayWidth * 20) - 12);
     this.ui.tower.setText('');
     this.towerRows = Math.max(6, Math.floor((dh - 160 - 14 - 8 - FEED_H) / this.towerLineH));
+    // Times sit just after the longest name in this field, not out at the column's edge (Boss, 31 Oct 2026).
+    const longest = Math.max(3, ...sim.riders.map((r) => (this.names.get(r.e.id) ?? '').length));
+    this.nameW = Math.min(this.nameW, longest);
     this.ui.feed = this.text(right + 16, 30 + this.towerRows * this.towerLineH + 8, '', 14, COLORS.cream, { lineSpacing: 5, wordWrap: { width: 302 } });
     this.ui.detail = this.text(right + 16, 76, '', 15, COLORS.cream, { lineSpacing: 5 }).setVisible(false);
     // Details: the bike's parts, or section times.
