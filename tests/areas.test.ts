@@ -288,9 +288,8 @@ describe('Areas 3 to 8 (Areas 2 to 8 plan; Boss, 31 Oct 2026: placeholder towns,
     expect(riders.riders.find((r) => r.id === 'cpu.r16')!.tag).toBe('Area 8 Champion');
   });
 
-  it('shops stock their area’s grades and classes, and the house and motor prices climb', () => {
-    // Area N stocks Grades N to N + 2, never 9 or 10 (Boss, 31 Oct 2026).
-    const grades: Record<number, [number, number]> = { 2: [2, 4], 3: [3, 5], 4: [4, 6], 5: [5, 7], 6: [6, 8], 7: [7, 8], 8: [8, 8] };
+  it('shops stock the plan’s grades and classes, and the house and motor prices climb', () => {
+    const grades: Record<number, [number, number]> = { 2: [1, 4], 3: [2, 5], 4: [2, 5], 5: [3, 6], 6: [3, 7], 7: [4, 7], 8: [4, 8] };
     // Moto78 sells every part but wheels, tyres and brakes in every area, as in Area 1; Phoenix MX
     // only repairs and fits (Boss, 31 Oct 2026).
     const moto78 = content.shops.shops.find((s) => s.id === 'shop.bike')!.sells!.slots;

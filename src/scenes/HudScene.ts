@@ -1053,7 +1053,10 @@ export class HudScene extends Phaser.Scene {
     // as well as its own parts, or a garage repairing every slot plus a lent part), then scaled down
     // to fit the screen, so rows and the note under them never overlap or spill out of the panel.
     const { width, height } = view(this);
-    const w = 900;
+    // A Buy tab with more than three grades (Area 8 sells 4 to 8) widens the panel rather than
+    // squeezing its buttons, keeping each at least 120 wide (Boss, 31 Oct 2026).
+    const gradeCount = tab === 'buy' && shop.sells ? shop.sells.grades[1] - shop.sells.grades[0] + 1 : 0;
+    const w = Math.max(900, 381 + gradeCount * 130 - 10);
     const cls = career.bike.class;
     const spareRows = career.bag.map((b, i) => ({ part: b.part, i })).filter((r) => r.part);
     const measure = (t: string, size: number) => {

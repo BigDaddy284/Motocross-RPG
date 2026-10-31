@@ -27,7 +27,7 @@ export interface ShopDef {
     classes: string[];
     /** Chance at each stock refresh that one part of this grade is in for a slot (GDD 8.3: rarer stock rotates). */
     extraChance: Record<string, number>;
-    /** Slots only ever stocked at the lowest grade: Moto78's stock frames (Boss, 30 Oct 2026). */
+    /** Slots only ever stocked at the lowest grade: Moto78's stock frames (Boss, 30 Oct 2026), so their grade rises with the area (Boss, 31 Oct 2026). */
     stockOnly?: string[];
   };
   /** Sells the tool sets (core/tools.ts). */
