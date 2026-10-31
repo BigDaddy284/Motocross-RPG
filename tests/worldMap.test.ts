@@ -33,7 +33,8 @@ describe('the world map (Boss, 28 Oct 2026)', () => {
   it('shows the biggest bike, with an image for every class and brand', () => {
     const c = newCareerState(content.bikes, content.story, 'kwakmoto', () => 0.5);
     expect(bikeImage(wm, biggestBike(content.bikes, c))).toBe('art/ui/world-map-bikes/50cc-kwakmoto.png');
-    for (const cls of content.bikes.classes) for (const b of content.bikes.brands) expect(publicFileExists(`assets/${bikeImage(wm, { class: cls.id, brand: b.id, parts: {} })}`), `${cls.id} ${b.id}`).toBe(true);
+    // Classes without a picture of their own borrow another class's (mapImage in bikes.json).
+    for (const cls of content.bikes.classes) for (const b of content.bikes.brands) expect(publicFileExists(`assets/${bikeImage(wm, { class: cls.id, brand: b.id, parts: {} }, content.bikes)}`), `${cls.id} ${b.id}`).toBe(true);
     for (const img of [wm.image, ...wm.zones.flatMap((z) => (z.image ? [z.image] : []))]) expect(publicFileExists(`assets/${img}`), img).toBe(true);
   });
 

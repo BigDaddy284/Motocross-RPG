@@ -1,0 +1,22 @@
+{
+  "note": "Sponsors and reputation (Spec 16; Boss, 31 Oct 2026: in Areas 1 to 4 the area champion's one-off bike offer stands on its own; from Area 5, Sponsored Rides brings contracts, paid only for objectives met, and the reputation table). reputation: the score changes (16.1), 0 to 1000; tierWeight by the kind of race day. cpuPerLevel: a CPU rider's fixed score per level, for the table. offers: how many open when a window opens (after a Local Champion or main championship from fromArea on): base + one per perRep points, up to max; the top tier on offer by the rider's share of the table (topShare: at or above that share of riders beaten, that tier opens; T1 and T2 always). tiers (16.2): pay per objective met in pounds (low to high), days per contract, minimum fitted part grade, early cancellation rate of objective cash received, and sponsor names. objectives (16.3): topN by tier; perDay one or two; a warning after warnAfter failures in a row and the end after endAfter.",
+  "fromArea": 5,
+  "reputation": { "max": 1000, "finish": 11, "championshipWin": 40, "objectiveMet": 10, "objectiveFailed": -8, "dropped": -50, "terminated": -80, "tierWeight": { "local": 0.5, "local_champion": 1, "main": 2, "major": 3 } },
+  "cpuPerLevel": 10,
+  "offers": { "base": 2, "perRep": 250, "max": 5, "topShare": { "T3": 0.5, "T4": 0.8, "T5": 0.95 } },
+  "tiers": [
+    { "id": "T1", "name": "Local shop", "pay": [30, 60], "days": 6, "minGrade": 1, "cancel": 0.01, "topN": 10, "names": ["Phoenix MX", "Moto78", "Lee's T's & Wheels", "Nicholls Used Motors"] },
+    { "id": "T2", "name": "Regional dealer", "pay": [90, 180], "days": 10, "minGrade": 2, "cancel": 0.1, "topN": 6, "names": ["Valley Motorcycles", "Coast Road Bikes", "Forest Edge MX", "Northern Dirt"] },
+    { "id": "T3", "name": "National brand", "pay": [400, 800], "days": 12, "minGrade": 4, "cancel": 0.25, "topN": 3, "names": ["Gripline Tyres", "Apex Suspension", "Torque Oils", "Clearview Goggles"] },
+    { "id": "T4", "name": "Factory support", "pay": [1500, 3000], "days": 16, "minGrade": 6, "cancel": 0.5, "topN": 2, "names": ["Yamamoto Support", "Hondmoto Support", "Kwakmoto Support", "Sukimoto Support"] },
+    { "id": "T5", "name": "Factory team", "pay": [7500, 15000], "days": 20, "minGrade": 7, "cancel": 0.75, "topN": 1, "names": ["Yamamoto Factory", "Hondmoto Factory", "Kwakmoto Factory", "Sukimoto Factory"] }
+  ],
+  "objectives": { "perDay": [1, 2], "warnAfter": 2, "endAfter": 3, "presentationCondition": 0.5 },
+  "factoryFlag": "factory_sponsor",
+  "hints": [
+    { "below": 60, "text": "Nobody's talking about you yet." },
+    { "below": 200, "text": "A couple of local firms have noticed you." },
+    { "below": 500, "text": "The dealers are asking about you." },
+    { "below": 1001, "text": "Big teams are watching." }
+  ]
+}

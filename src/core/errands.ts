@@ -22,6 +22,8 @@ export interface ErrandDef {
   condition: [number, number];
   /** Opening flag; the NPC talks of other things until it is set. */
   needs?: string;
+  /** A flag set when the part comes back: a challenger's pre-task opens their challenge (Boss, 31 Oct 2026). */
+  sets?: string;
   /** Dialogue keys: offering the job, waiting for the part, and thanks on return. */
   offer: string;
   waiting: string;
@@ -123,7 +125,7 @@ export const ERRANDS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['needs'],
+        optional: ['needs', 'sets'],
         fields: {
           id: { type: 'string', pattern: /^[a-z0-9_.-]+$/ },
           npc: { type: 'string', pattern: /^[a-z0-9_.-]+$/ },
@@ -134,6 +136,7 @@ export const ERRANDS_SCHEMA: Schema = {
           grades: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number', integer: true, min: 2, max: 10 } },
           condition: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number', min: 0.01, max: 0.99 } },
           needs: { type: 'string', pattern: /^[a-z0-9_.-]+$/ },
+          sets: { type: 'string', pattern: /^[a-z0-9_.-]+$/ },
           offer: { type: 'string', nonEmpty: true },
           waiting: { type: 'string', nonEmpty: true },
           thanks: { type: 'string', nonEmpty: true },

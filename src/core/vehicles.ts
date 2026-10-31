@@ -52,6 +52,11 @@ export interface VanDesign {
   reference: string;
   /** The model's van sheets in the art folder (map-<art>.png), named before the motors were (Boss, 28 Oct 2026). */
   art?: string;
+  /**
+   * Another design whose sheets this one is drawn with until its own art exists (Boss, 31 Oct
+   * 2026: the sports car needs new vehicle art). The game loads that design's images under this id.
+   */
+  artOf?: string;
   /** Footprint in tiles along the heading (always one tile wide). */
   length: number;
   lengthM: number;
@@ -88,6 +93,22 @@ export interface VanSheet {
   turn?: { image: string; frames: { cell: [number, number, number, number]; anchor: [number, number]; driver: [number, number, number, number] | null }[] };
 }
 
+export interface HaulerSpot extends VanPose {
+  map: string;
+}
+
+export interface HaulerDef {
+  note?: string;
+  /** A design in `designs`. */
+  design: string;
+  /** The flag that brings it: the factory sponsor's (sponsors.json factoryFlag). */
+  flag: string;
+  /** What it carries, for the words on screen (Boss, 31 Oct 2026: 11 bikes, 400 parts, 120 tools). */
+  room: { bikes: number; parts: number; tools: number };
+  /** Where it is parked, cab at x, y, on each venue map; every venue map needs one. */
+  spots: HaulerSpot[];
+}
+
 export interface VehiclesData {
   note?: string;
   /** Ground tiles a van can use, matched against the ground image paths. */
@@ -113,6 +134,12 @@ export interface VehiclesData {
    * parked here, cab at x, y, and leaves straight out by the map's exit.
    */
   bays?: { map: string; name: string; x: number; y: number; heading: Heading; minLength: number }[];
+  /**
+   * The Factory Hauler (Boss, 31 Oct 2026): never bought or driven. Once the rider has the flag
+   * (a factory sponsor), the team parks it on its spot at every venue, with room for the bikes,
+   * parts and tools, and the rider races out of it: bag, spares and tools are at the back.
+   */
+  hauler?: HaulerDef;
   /** The van the opening chain sells, and where it is parked when bought. */
   starter: { design: string; map: string; x: number; y: number; heading: Heading };
   designs: VanDesign[];
@@ -125,7 +152,7 @@ const BED_POINT: Schema = { type: 'object', fields: { mid: POINT, straps: { type
 
 export const VEHICLES_SCHEMA: Schema = {
   type: 'object',
-  optional: ['note', 'kerbs', 'verges', 'carParks', 'bays'],
+  optional: ['note', 'kerbs', 'verges', 'carParks', 'bays', 'hauler'],
   fields: {
     note: { type: 'string' },
     drivable: { type: 'array', minItems: 1, items: { type: 'string', nonEmpty: true } },
@@ -163,6 +190,20 @@ export const VEHICLES_SCHEMA: Schema = {
         },
       },
     },
+    hauler: {
+      type: 'object',
+      optional: ['note'],
+      fields: {
+        note: { type: 'string' },
+        design: { type: 'string', pattern: ID },
+        flag: { type: 'string', pattern: ID },
+        room: { type: 'object', fields: { bikes: { type: 'number', integer: true, min: 1 }, parts: { type: 'number', integer: true, min: 1 }, tools: { type: 'number', integer: true, min: 1 } } },
+        spots: {
+          type: 'array',
+          items: { type: 'object', fields: { map: { type: 'string', pattern: ID }, x: { type: 'number', integer: true, min: 0 }, y: { type: 'number', integer: true, min: 0 }, heading: HEADING_ENUM } },
+        },
+      },
+    },
     starter: {
       type: 'object',
       fields: { design: { type: 'string', pattern: ID }, map: { type: 'string', pattern: ID }, x: { type: 'number', integer: true }, y: { type: 'number', integer: true }, heading: HEADING_ENUM },
@@ -173,6 +214,7 @@ export const VEHICLES_SCHEMA: Schema = {
       items: {
         type: 'object',
         fields: {
+          artOf: { type: 'string', pattern: ID },
           id: { type: 'string', pattern: ID },
           name: { type: 'string', nonEmpty: true },
           reference: { type: 'string', nonEmpty: true },
@@ -188,7 +230,7 @@ export const VEHICLES_SCHEMA: Schema = {
             },
           },
         },
-        optional: ['bed'],
+        optional: ['bed', 'artOf'],
       },
     },
   },
@@ -241,6 +283,8 @@ export class DriveMap {
   private readonly laneEW: (-1 | 0 | 1)[];
   private readonly laneNS: (-1 | 0 | 1)[];
   private readonly npcs = new Set<string>();
+  /** Tiles under a parked vehicle that isn't the van (the Factory Hauler): solid to it. */
+  private readonly parked = new Set<string>();
 
   constructor(
     readonly map: BakedMap,
@@ -368,13 +412,19 @@ export class DriveMap {
 
   /** Free for the van right now: drivable and no NPC standing there. */
   isFree(x: number, y: number): boolean {
-    return this.isDrivable(x, y) && !this.npcs.has(key(x, y));
+    return this.isDrivable(x, y) && !this.npcs.has(key(x, y)) && !this.parked.has(key(x, y));
+  }
+
+  /** Marks the tiles under a parked vehicle (the Factory Hauler) solid, replacing the last set. */
+  setParkedTiles(tiles: Tile[]): void {
+    this.parked.clear();
+    for (const t of tiles) this.parked.add(key(t.x, t.y));
   }
 
   /** Free for a van's front or back: road, or open ground beside it (pavement, grass), with nobody there. */
   isEdgeFree(x: number, y: number): boolean {
     if (this.isFree(x, y)) return true;
-    return x >= 0 && y >= 0 && x < this.width && y < this.height && this.edge[y * this.width + x] && !this.tooSmall.has(key(x, y)) && !this.npcs.has(key(x, y));
+    return x >= 0 && y >= 0 && x < this.width && y < this.height && this.edge[y * this.width + x] && !this.tooSmall.has(key(x, y)) && !this.npcs.has(key(x, y)) && !this.parked.has(key(x, y));
   }
 
   /**
@@ -680,6 +730,31 @@ export function besideVan(p: VanPose, length: number, t: Tile): boolean {
  * the starter spot. `devDesign` (the ?van= address option) swaps the design for playtests.
  * Returns the van, or null when the rider has none.
  */
+/** The design's van sheet in the manifest: its own, or the one it is drawn with until its art exists (artOf). */
+export function sheetFor(sheets: Record<string, VanSheet> | undefined, design: VanDesign): VanSheet | undefined {
+  return sheets?.[design.id] ?? (design.artOf ? sheets?.[design.artOf] : undefined);
+}
+
+/**
+ * The Factory Hauler parked on this map, or null: it is there once the rider has its flag, on a map
+ * with a spot for it, unless the rider's own van is that design and parked here (the dev `?van=`
+ * motor-7, which takes the Riverside bay).
+ */
+export function haulerAt(
+  data: Pick<VehiclesData, 'hauler' | 'designs'>,
+  flags: Record<string, boolean>,
+  mapId: string,
+  van: { design: string; map: string } | null,
+): { design: VanDesign; pose: VanPose; room: HaulerDef['room'] } | null {
+  const h = data.hauler;
+  if (!h || !flags[h.flag]) return null;
+  const spot = h.spots.find((s) => s.map === mapId);
+  const design = data.designs.find((d) => d.id === h.design);
+  if (!spot || !design) return null;
+  if (van && van.design === design.id && van.map === mapId) return null;
+  return { design, pose: { x: spot.x, y: spot.y, heading: spot.heading }, room: h.room };
+}
+
 export function ensureVan(save: { flags: Record<string, boolean>; van: VanState | null }, data: VehiclesData, devDesign: string | null = null): VanState | null {
   const { design, map, x, y, heading } = data.starter;
   const dev = devDesign && data.designs.some((d) => d.id === devDesign) ? devDesign : null;
@@ -730,6 +805,24 @@ export function checkVehicles(file: string, raw: unknown, maps: Map<string, Bake
       }
     }
   });
+  const h = data.hauler;
+  if (h) {
+    const design = data.designs.find((d) => d.id === h.design);
+    if (!design) errors.push({ file, field: 'hauler.design', message: `no design "${h.design}"` });
+    h.spots.forEach((sp, i) => {
+      const m = maps.get(sp.map);
+      if (!m) return void errors.push({ file, field: `hauler.spots[${i}].map`, message: `no map "${sp.map}"` });
+      if (h.spots.findIndex((o) => o.map === sp.map) !== i) errors.push({ file, field: `hauler.spots[${i}].map`, message: `"${sp.map}" has two spots` });
+      if (!design) return;
+      const dm = new DriveMap(m, Grid.fromMap(m), data);
+      dm.setVanLength(design.length);
+      if (!dm.fits(sp, design.length)) errors.push({ file, field: `hauler.spots[${i}]`, message: `the ${design.name} doesn't fit at ${sp.x},${sp.y} heading ${sp.heading} on ${sp.map}` });
+    });
+    // Every venue has a spot (Boss, 31 Oct 2026: parked at every venue), so the team never leaves the bikes behind.
+    for (const id of maps.keys()) {
+      if (id.startsWith('venue-') && !h.spots.some((sp) => sp.map === id)) errors.push({ file, field: 'hauler.spots', message: `no spot on ${id}` });
+    }
+  }
   data.verges?.maps.forEach((id, i) => {
     if (!maps.has(id)) errors.push({ file, field: `verges.maps[${i}]`, message: `no map "${id}"` });
   });

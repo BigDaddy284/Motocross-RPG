@@ -101,7 +101,8 @@ describe('the opening chain', () => {
     expect(journal(story, state, { ...flags, first_race_done: true })).toBe(story.after![3].text);
     expect(journal(story, state, { ...flags, first_race_done: true, first_race_finished: true })).toBe(story.after![4].text);
     expect(journal(story, state, { ...flags, first_race_done: true, first_race_finished: true, 'badge.area1': true })).toBe(story.after![5].text);
-    expect(journal(story, state, { ...flags, first_race_done: true, first_race_finished: true, 'badge.area1': true, 'trophy.area1.main': true })).toBe(story.done);
+    expect(journal(story, state, { ...flags, first_race_done: true, first_race_finished: true, 'badge.area1': true, 'trophy.area1.main': true })).toBe(story.after![6].text);
+    expect(journal(story, state, { ...flags, first_race_done: true, first_race_finished: true, 'badge.area1': true, 'trophy.area1.main': true, 'class.65cc': true })).toBe(story.done);
   });
 
   it('fitting the top end costs £90 and leaves about £30 once the £120 is paid', () => {
@@ -130,6 +131,8 @@ describe('the opening chain', () => {
   it('only the opening chain NPCs talk before it is done (GDD 4.2)', () => {
     const inChain = new Set(story.steps.slice(0, story.steps.findIndex((s) => s.id === 'tutorial_end') + 1).flatMap((s) => (s.on.talk ? [s.on.talk] : [])));
     for (const n of content.npcs) {
+      // Areas 2 to 8 can't be reached before the opening chain is done, so their NPCs need no busy line.
+      if (/^npc\.a\d+\./.test(n.id)) continue;
       if (inChain.has(n.id)) expect(n.quietUntil, n.id).toBeUndefined();
       else expect(n.quietUntil, n.id).toBe('tutorial_done');
     }
@@ -142,12 +145,10 @@ describe('money', () => {
     expect(formatMoney(pence(0.75) * 3)).toBe('£2.25');
   });
 
-  it('a shift batch pays £10–£25, like the early repeatable jobs (Spec 14.1)', () => {
-    for (const j of world.jobs) {
-      const batch = j.batch * j.pay;
-      expect(batch, j.id).toBeGreaterThanOrEqual(10);
-      expect(batch, j.id).toBeLessThanOrEqual(25);
-    }
+  it('the Area 1 shifts are the Spec 15.5 batches: 50 brackets at 75p and 100 pistons at £1.25', () => {
+    const byId = Object.fromEntries(world.jobs.map((j) => [j.id, j]));
+    expect(byId['job.fabrication']).toMatchObject({ batch: 50, pay: 0.75, keeps: ['bodywork'] });
+    expect(byId['job.engine']).toMatchObject({ batch: 100, pay: 1.25, keeps: ['top_end'] });
   });
 });
 
