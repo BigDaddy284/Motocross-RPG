@@ -6,7 +6,7 @@ import type { BakedMap } from '../src/core/mapTypes';
 import { SAVE_VERSION, parseSave } from '../src/core/saves';
 import { Travel, spawnTile, stepTriggerAt } from '../src/core/travel';
 import {
-  DriveMap, HEADINGS, bayFor, OPPOSITE, centre, ensureVan, exitTile, footprint, forward, inwardHeading, overhang, placeNear, planDrive, reverse, steer, turn,
+  DriveMap, HEADINGS, bayFor, OPPOSITE, centre, ensureVan, exitTile, footprint, forward, inwardHeading, overhang, placeNear, planDrive, sheetFor, reverse, steer, turn,
   type Heading, type Move, type VanPose, type VehiclesData,
 } from '../src/core/vehicles';
 import { loadManifest, loadMaps, publicFileExists, rawContent } from './helpers';
@@ -41,7 +41,8 @@ function play(dm: DriveMap, start: VanPose, length: number, moves: Move[]): VanP
 describe('van sheets and footprints', () => {
   it('every design has a sheet with all four headings, closed and rear open', () => {
     for (const d of data.designs) {
-      const sheet = manifest.vehicles?.[d.id];
+      // Its own sheet, or the one it borrows until its art exists (artOf: the sports car, Boss, 31 Oct 2026).
+      const sheet = sheetFor(manifest.vehicles, d);
       expect(sheet, d.id).toBeDefined();
       expect(publicFileExists(`assets/${sheet!.image}`), sheet!.image).toBe(true);
       for (const h of HEADINGS) {

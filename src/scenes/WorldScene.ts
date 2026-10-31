@@ -13,7 +13,7 @@ import { biggestBike, bikeImage, zoneFor } from '../core/worldMap';
 import { ROUTE, spawnTile, stepTriggerAt, type Arrival, type StepResult } from '../core/travel';
 import { areaFlag, areaOfMap, buyHouse, buyMotor, houseFlag, motorProblem, openAreas } from '../core/areas';
 import { defaultSetup, effectiveSetup, positionValue, positionsFor, setupReport, sliderUnlocked, type SliderDef } from '../core/setup';
-import { DriveMap, FACING_OF, bayFor, ensureVan, exitTile, footprint, inwardHeading, nearestFree, placeNear, planDrive, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
+import { DriveMap, FACING_OF, bayFor, ensureVan, exitTile, footprint, haulerAt, inwardHeading, nearestFree, placeNear, planDrive, sheetFor, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
 import { venueClassFor, entryFee, fieldCount, lapsFor, practiceFee, trackById, venueProblem, type VenueDef } from '../core/raceDay';
 import { champProblem, enter, nextRoundVenue, roundEntry, roundsHere, standings, titlePossible, withdraw, type ChampionshipDef } from '../core/championship';
@@ -74,7 +74,8 @@ type Target =
   | { kind: 'npc'; placement: NpcPlacement; character: Character }
   | { kind: 'object'; object: MapObject; tiles: Tile[] }
   | { kind: 'venue'; venue: VenueDef; tiles: Tile[] }
-  | { kind: 'van'; tiles: Tile[] };
+  | { kind: 'van'; tiles: Tile[] }
+  | { kind: 'hauler'; tiles: Tile[] };
 
 export class WorldScene extends Phaser.Scene {
   private save!: SaveData;
@@ -97,6 +98,8 @@ export class WorldScene extends Phaser.Scene {
   private stationMarks: Phaser.GameObjects.GameObject[] = [];
   /** The player's van, when it is parked (or being driven) on this map. */
   private van: VanView | null = null;
+  /** The Factory Hauler the team parks at every venue once the rider has a factory sponsor (Boss, 31 Oct 2026). */
+  private hauler: VanView | null = null;
   private drive!: DriveMap;
   private moves: Move[] = [];
   /** E was pressed on the move: get out once the van has pulled up. */
@@ -154,6 +157,7 @@ export class WorldScene extends Phaser.Scene {
     }
     this.drive = new DriveMap(map, this.grid, services.content.vehicles);
     this.drive.setNpcTiles(this.npcs.map((n) => ({ x: n.placement.x, y: n.placement.y })));
+    this.setupHauler();
     this.setupVan();
     let { x, y } = this.save.position;
     const { facing } = this.save.position;
@@ -341,6 +345,10 @@ export class WorldScene extends Phaser.Scene {
       const tiles = footprint(this.van.pose, this.van.design.length);
       if (tiles.some((t) => t.x === tile.x && t.y === tile.y) || this.van.contains(wx, wy)) return { kind: 'van', tiles };
     }
+    if (this.hauler) {
+      const tiles = footprint(this.hauler.pose, this.hauler.design.length);
+      if (tiles.some((t) => t.x === tile.x && t.y === tile.y) || this.hauler.contains(wx, wy)) return { kind: 'hauler', tiles };
+    }
     for (const o of this.map.objects) {
       if (!actionMessage(o)) continue;
       const tiles = objectTiles(o, this.map.tileSize);
@@ -414,6 +422,10 @@ export class WorldScene extends Phaser.Scene {
     }
     if (target.kind === 'van') {
       this.offerVan();
+      return;
+    }
+    if (target.kind === 'hauler') {
+      this.offerHauler();
       return;
     }
     const o = target.object;
@@ -667,11 +679,11 @@ export class WorldScene extends Phaser.Scene {
     const { vehicles } = services.content;
     const career = this.save.career;
     const design = vehicles.designs.find((d) => d.id === area.motor!.design);
-    const problem = motorProblem(vehicles, area, career, this.save.van);
+    const problem = motorProblem(vehicles, area, career, this.save.van, this.save.flags);
     this.say(npc.name, npc.dialogue, () => {
       if (problem) return void this.hud.toast(problem), back();
-      this.hud.confirm(`${design?.name ?? area.motor!.design}: £${area.motor!.price} with your old motor in part exchange. Bigger than the old one, and it never needs looking after.\nBuy it?`, 'Buy', () => {
-        const r = buyMotor(vehicles, area, career, this.save.van!);
+      this.hud.confirm(`${design?.name ?? area.motor!.design}: £${area.motor!.price} with your old motor in part exchange. ${area.motor!.pitch ?? 'Bigger than the old one, and it never needs looking after.'}\nBuy it?`, 'Buy', () => {
+        const r = buyMotor(vehicles, area, career, this.save.van!, this.save.flags);
         this.hud.toast(r.message);
         if (r.ok) {
           this.hud.showCareer(career, this.save.flags);
@@ -1498,6 +1510,36 @@ export class WorldScene extends Phaser.Scene {
     return designs.find((d) => d.id === id) ?? designs.find((d) => d.id === starter.design)!;
   }
 
+  /**
+   * Parks the Factory Hauler on its spot when the team brings it here (a factory sponsor, at a
+   * venue): drawn like the van, solid to walkers and to the van, never driven.
+   */
+  private setupHauler(): void {
+    const h = haulerAt(services.content.vehicles, this.save.flags, this.map.id, this.save.van);
+    if (!h) return;
+    const sheet = sheetFor(services.manifest.vehicles, h.design);
+    if (!sheet) return;
+    this.hauler = new VanView(this, h.design, sheet, h.pose);
+    this.hauler.setLoad(this.vanLoad());
+    const tiles = footprint(h.pose, h.design.length);
+    for (const t of tiles) this.grid.setOccupied(t, true);
+    this.drive.setParkedTiles(tiles);
+  }
+
+  /** Clicked or used: the back of the hauler holds the bag and spares, and the team's tools. */
+  private offerHauler(): void {
+    const hauler = this.hauler;
+    if (!hauler) return;
+    this.player.reach();
+    const room = services.content.vehicles.hauler?.room;
+    const note = room ? ` Room for ${room.bikes} bikes, ${room.parts} parts and ${room.tools} tools.` : '';
+    this.hud.choose(hauler.design.name, `The team's hauler, parked up for you: your bikes, bag and spares are aboard.${note}`, [
+      { label: 'Open the back', note: 'Your bag and spares.', onPick: () => this.openBack(hauler) },
+      { label: 'Work on the bike', note: 'Repair and fit parts with your own tools.', onPick: () => void this.openWorkbench() },
+      { label: 'Not now', onPick: () => this.player.idle() },
+    ], () => this.player.idle());
+  }
+
   /** Draws the van if it is parked on this map and makes its tiles solid to walkers. */
   private setupVan(): void {
     const dev = new URLSearchParams(window.location.search).get('van');
@@ -1516,7 +1558,7 @@ export class WorldScene extends Phaser.Scene {
       if (moved) pose = moved;
     }
     Object.assign(state, pose);
-    const sheet = services.manifest.vehicles?.[design.id];
+    const sheet = sheetFor(services.manifest.vehicles, design);
     if (!sheet) {
       this.save.driving = false;
       return;
@@ -1561,8 +1603,7 @@ export class WorldScene extends Phaser.Scene {
     ], () => this.player.idle());
   }
 
-  private openBack(): void {
-    const van = this.van;
+  private openBack(van: VanView | null = this.van): void {
     if (!van) return;
     van.setOpen(true);
     this.hud.openPanel('bag', () => {
@@ -1738,9 +1779,12 @@ export class WorldScene extends Phaser.Scene {
     const van = this.van!;
     const target = services.maps.get(to.map);
     const bay = target && bayFor(services.content.vehicles, target.id, van.design.length);
+    // The Factory Hauler's spot over there is taken (setupHauler).
+    const hauler = target && haulerAt(services.content.vehicles, this.save.flags, target.id, { design: van.design.id, map: target.id });
+    const taken = new Set((hauler ? footprint(hauler.pose, hauler.design.length) : []).map((t) => `${t.x},${t.y}`));
     const pose = bay
       ? { x: bay.x, y: bay.y, heading: bay.heading }
-      : target && placeNear(this.driveMapFor(target, van.design.length), to.tile, van.design.length, inwardHeading(target, to.tile), 12, (t) => !!stepTriggerAt(target, t));
+      : target && placeNear(this.driveMapFor(target, van.design.length), to.tile, van.design.length, inwardHeading(target, to.tile), 12, (t) => !!stepTriggerAt(target, t) || taken.has(`${t.x},${t.y}`));
     if (!target || !pose) {
       this.hud.toast(`There's no room for the ${van.design.name} over there.`);
       return false;

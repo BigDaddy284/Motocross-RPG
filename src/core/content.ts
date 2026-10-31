@@ -10,7 +10,7 @@ import { RACING_SCHEMA, RIDERS_SCHEMA, SKILLS_SCHEMA, TRACKS_SCHEMA, checkRaceCo
 import { riderPools, type RidersData, type RidersFile, type TracksData } from './raceDay';
 import { SHOPS_SCHEMA, checkShopContent, type ShopsData } from './shops';
 import type { SkillsData } from './skills';
-import { VEHICLES_SCHEMA, checkVehicles, type VanSheet, type VehiclesData } from './vehicles';
+import { VEHICLES_SCHEMA, checkVehicles, sheetFor, type VanSheet, type VehiclesData } from './vehicles';
 import { MOD_PLACE } from './modTracks';
 import { ERRANDS_SCHEMA, checkErrands, type ErrandsData } from './errands';
 import { TRAINING_SCHEMA, checkTraining, type TrainingData } from './training';
@@ -458,7 +458,8 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
   errors.push(...checkVehicles(CONTENT_FILES.vehicles, raw.vehicles, maps).errors);
   errors.push(...checkBuildings(content.buildings, maps));
   content.vehicles.designs.forEach((d, i) => {
-    if (!manifest.vehicles?.[d.id]) errors.push({ file: CONTENT_FILES.vehicles, field: `designs[${i}].id`, message: `no van sheet for "${d.id}" in the manifest (run tools/import-art.mjs --vehicles)` });
+    if (!sheetFor(manifest.vehicles, d)) errors.push({ file: CONTENT_FILES.vehicles, field: `designs[${i}].id`, message: `no van sheet for "${d.id}" in the manifest (run tools/import-art.mjs --vehicles)` });
+    if (d.artOf && !manifest.vehicles?.[d.artOf]) errors.push({ file: CONTENT_FILES.vehicles, field: `designs[${i}].artOf`, message: `no van sheet for "${d.artOf}" in the manifest` });
   });
   return { content, errors };
 }

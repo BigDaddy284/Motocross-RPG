@@ -37,6 +37,10 @@ export interface MotorDef {
   price: number;
   /** The Nicholls Used Motors NPC in this area who sells it. */
   npc: string;
+  /** A flag the sale needs: the factory sponsor's for the sports car (Boss, 31 Oct 2026). */
+  needs?: string;
+  /** What Nicholls says of it in the sale, in place of the usual "bigger than the old one" line. */
+  pitch?: string;
 }
 
 export interface AreaDef {
@@ -84,10 +88,11 @@ export function buyHouse(area: AreaDef, career: CareerState, flags: Record<strin
 }
 
 /** Why the rider can't buy the area's motor, or null. */
-export function motorProblem(vehicles: VehiclesData, area: AreaDef, career: CareerState, van: { design: string } | null): string | null {
+export function motorProblem(vehicles: VehiclesData, area: AreaDef, career: CareerState, van: { design: string } | null, flags: Record<string, boolean> = {}): string | null {
   const motor = area.motor;
   if (!motor) return 'No motor for sale here.';
   if (!van) return 'Get your first motor at Nicholls in Home Town first.';
+  if (motor.needs && !flags[motor.needs]) return `The ${vehicles.designs.find((d) => d.id === motor.design)?.name ?? motor.design} is for factory riders: come back with a factory sponsor.`;
   const designs = vehicles.designs.map((d) => d.id);
   if (designs.indexOf(van.design) >= designs.indexOf(motor.design)) return `You already have a motor as good as the ${vehicles.designs.find((d) => d.id === motor.design)?.name ?? motor.design}.`;
   if (career.money < Math.round(motor.price * 100)) return `You're short: it's £${motor.price} with your old motor in part exchange.`;
@@ -95,8 +100,8 @@ export function motorProblem(vehicles: VehiclesData, area: AreaDef, career: Care
 }
 
 /** Buys the area's motor: the old one goes in part exchange, the new design takes its parking spot. */
-export function buyMotor(vehicles: VehiclesData, area: AreaDef, career: CareerState, van: { design: string }): Result {
-  const problem = motorProblem(vehicles, area, career, van);
+export function buyMotor(vehicles: VehiclesData, area: AreaDef, career: CareerState, van: { design: string }, flags: Record<string, boolean> = {}): Result {
+  const problem = motorProblem(vehicles, area, career, van, flags);
   if (problem) return { ok: false, message: problem };
   career.money -= Math.round(area.motor!.price * 100);
   van.design = area.motor!.design;
@@ -140,7 +145,7 @@ export const AREAS_SCHEMA: Schema = {
             optional: ['unlocks'],
             fields: { name: { type: 'string', nonEmpty: true }, price: { type: 'number', min: 0 }, door: { type: 'string', nonEmpty: true }, unlocks: { type: 'array', items: { type: 'string', pattern: ID } } },
           },
-          motor: { type: 'object', fields: { design: { type: 'string', pattern: ID }, price: { type: 'number', min: 0 }, npc: { type: 'string', pattern: ID } } },
+          motor: { type: 'object', optional: ['needs', 'pitch'], fields: { design: { type: 'string', pattern: ID }, price: { type: 'number', min: 0 }, npc: { type: 'string', pattern: ID }, needs: { type: 'string', pattern: ID }, pitch: { type: 'string', nonEmpty: true } } },
           weather: { type: 'record', values: { type: 'number', min: 0 } },
           town: {
             type: 'object',

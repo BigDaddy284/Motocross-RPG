@@ -9,6 +9,38 @@
   "bays": [
     { "map": "venue-supercross", "name": "Riverside West car park", "x": 10, "y": 17, "heading": "east", "minLength": 7 }
   ],
+  "hauler": {
+    "note": "The Factory Hauler is never bought or driven (Boss, 31 Oct 2026): once the rider has a factory sponsor (the flag), the team brings it to every venue, parked on its spot there with room for the bikes, parts and tools. The rider races out of it: bag, spares and tools are at the back.",
+    "design": "motor-7",
+    "flag": "factory_sponsor",
+    "room": { "bikes": 11, "parts": 400, "tools": 120 },
+    "spots": [
+      { "map": "venue-motocross", "x": 26, "y": 14, "heading": "east" },
+      { "map": "venue-enduro", "x": 27, "y": 16, "heading": "east" },
+      { "map": "venue-supercross", "x": 26, "y": 16, "heading": "east" },
+      { "map": "venue-a2-mx", "x": 26, "y": 14, "heading": "east" },
+      { "map": "venue-a2-enduro", "x": 27, "y": 16, "heading": "east" },
+      { "map": "venue-a2-sx", "x": 26, "y": 16, "heading": "east" },
+      { "map": "venue-a3-mx", "x": 26, "y": 14, "heading": "east" },
+      { "map": "venue-a3-enduro", "x": 27, "y": 16, "heading": "east" },
+      { "map": "venue-a3-sx", "x": 26, "y": 16, "heading": "east" },
+      { "map": "venue-a4-mx", "x": 26, "y": 14, "heading": "east" },
+      { "map": "venue-a4-enduro", "x": 27, "y": 16, "heading": "east" },
+      { "map": "venue-a4-sx", "x": 26, "y": 16, "heading": "east" },
+      { "map": "venue-a5-mx", "x": 26, "y": 14, "heading": "east" },
+      { "map": "venue-a5-enduro", "x": 27, "y": 16, "heading": "east" },
+      { "map": "venue-a5-sx", "x": 26, "y": 16, "heading": "east" },
+      { "map": "venue-a6-mx", "x": 26, "y": 14, "heading": "east" },
+      { "map": "venue-a6-enduro", "x": 27, "y": 16, "heading": "east" },
+      { "map": "venue-a6-sx", "x": 26, "y": 16, "heading": "east" },
+      { "map": "venue-a7-mx", "x": 26, "y": 14, "heading": "east" },
+      { "map": "venue-a7-enduro", "x": 27, "y": 16, "heading": "east" },
+      { "map": "venue-a7-sx", "x": 26, "y": 16, "heading": "east" },
+      { "map": "venue-a8-mx", "x": 26, "y": 14, "heading": "east" },
+      { "map": "venue-a8-enduro", "x": 27, "y": 16, "heading": "east" },
+      { "map": "venue-a8-sx", "x": 26, "y": 16, "heading": "east" }
+    ]
+  },
   "starter": { "design": "motor-1", "map": "area1-home-town", "x": 30, "y": 20, "heading": "north" },
   "designs": [
     { "id": "motor-1", "art": "van-1", "name": "Old Rusty Truck Short", "reference": "Motor 1  Old Rusty Truck Short.png", "length": 2, "lengthM": 4.9, "stepMs": 130,
@@ -54,6 +86,7 @@
     { "id": "motor-4", "art": "van-4", "name": "MX Van Medium", "reference": "Motor 4  MX Van Medium.png", "length": 3, "lengthM": 6.9, "stepMs": 120 },
     { "id": "motor-5", "art": "van-5", "name": "MX Sports Motorhome Medium", "reference": "Motor 5  MX Sports Motorhome Medium .png", "length": 3, "lengthM": 7.0, "stepMs": 130 },
     { "id": "motor-6", "art": "van-6", "name": "MX Sports Motorhome Long", "reference": "Motor 6  MX Sports Motorhome Long.png", "length": 5, "lengthM": 12.0, "stepMs": 140 },
-    { "id": "motor-7", "art": "van-7", "name": "Factory Hauler", "reference": "Motor 7  Factory Hauler Extra Long.png", "length": 9, "lengthM": 21.0, "stepMs": 150 }
+    { "id": "motor-7", "art": "van-7", "name": "Factory Hauler", "reference": "Motor 7  Factory Hauler Extra Long.png", "length": 9, "lengthM": 21.0, "stepMs": 150 },
+    { "id": "motor-8", "art": "van-2", "artOf": "motor-2", "name": "Sports Car", "reference": "none yet: drawn with the Old Rusty Van sheet until its art exists (Boss, 31 Oct 2026: it needs new vehicle art)", "length": 2, "lengthM": 4.5, "stepMs": 100 }
   ]
 }

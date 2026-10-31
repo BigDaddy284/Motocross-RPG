@@ -522,7 +522,7 @@
     "story.a8.training": {"lines": [{"speaker": "npc", "text": "The recovery centre. Ice bath recovery for Wellbeing."}, {"speaker": "npc", "text": "Forty seconds a round, every round counts whatever the score. Come back whenever you like."}]},
     "story.a8.champion": {"lines": [{"speaker": "npc", "text": "Max Sterling. Local Champion. You'll have heard about me."}, {"speaker": "npc", "text": "The tracks are open to you now: National MX, National Supercross and National Enduro. Sign on with Joseph at any race office."}, {"speaker": "npc", "text": "Win the Local Champion Championship here and the Area 8 badge is yours. Then it's Neal Gizard for the Area 8 title."}]},
     "garage_mechanic.a8.hello": {"lines": [{"speaker": "npc", "text": "Phoenix MX, Capital branch. Repairs, the bench and the job board, Grades 4 to 8."}]},
-    "van_seller.a8.hello": {"lines": [{"speaker": "npc", "text": "Jedrick Nicholls. You've got the best motor I sell. Keep it clean."}]},
+    "van_seller.a8.hello": {"lines": [{"speaker": "npc", "text": "Jedrick Nicholls. For the rider whose team hauls the bikes, I keep one sports car: £250,000, factory riders only."}]},
     "bike_shop_owner.a8.hello": {"lines": [{"speaker": "npc", "text": "Moto78! Engine, suspension and bodywork, Grades 4 to 8, up to the 450cc Fs and beyond."}]},
     "tyre_specialist.a8.hello": {"lines": [{"speaker": "npc", "text": "Lee's T's & Wheels. Wheels, tyres and brakes to Grade 8. The right rubber for the national venues."}]},
     "works_boss.a8.hello": {"lines": [{"speaker": "npc", "text": "Race department. 100 a batch, £2.5 a part, XP every pass, and the best of the batch is yours when it's done. Blue bench to start."}]},

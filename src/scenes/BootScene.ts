@@ -14,6 +14,7 @@ import { COLORS, textStyle } from '../ui/theme';
 import { START_MAP } from './careerFlow';
 import type { RaceSceneData } from './RaceScene';
 import { view } from '../ui/view';
+import type { VehiclesData } from '../core/vehicles';
 import { bikeImagePath, bikeTexture, vanTexture, vanTurnTexture } from '../world/VanView';
 import { HEADINGS } from '../core/vehicles';
 
@@ -46,6 +47,13 @@ export class BootScene extends Phaser.Scene {
     for (const [id, sheet] of Object.entries(manifest.vehicles ?? {})) {
       this.load.image(vanTexture(id), `assets/${sheet.image}`);
       if (sheet.turn) this.load.image(vanTurnTexture(id), `assets/${sheet.turn.image}`);
+    }
+    // A design drawn with another's sheets until its art exists (vehicles.json artOf: the sports car).
+    for (const d of (this.cache.json.get('content:vehicles') as VehiclesData | undefined)?.designs ?? []) {
+      const sheet = d.artOf && !manifest.vehicles?.[d.id] ? manifest.vehicles?.[d.artOf] : undefined;
+      if (!sheet) continue;
+      this.load.image(vanTexture(d.id), `assets/${sheet.image}`);
+      if (sheet.turn) this.load.image(vanTurnTexture(d.id), `assets/${sheet.turn.image}`);
     }
     // The bike on its stand in each brand, for the load bed of the Old Rusty Truck.
     for (const b of (this.cache.json.get('content:bikes') as BikesData | undefined)?.brands ?? []) {
