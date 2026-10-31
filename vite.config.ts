@@ -1,12 +1,28 @@
 /// <reference types="vitest/config" />
-import { copyFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { defineConfig } from 'vite';
+import { modelEntry } from './src/core/modModels';
 
 // Mod tracks (src/core/modTracks.ts): a website can't list a folder, so the game reads an index
 // of public/mods/tracks/, made here from whatever track files are in it.
 const MOD_DIR = 'public/mods/tracks';
 const modIndex = () => JSON.stringify(existsSync(MOD_DIR) ? readdirSync(MOD_DIR).filter((f) => /\.json$/i.test(f) && f !== 'index.json').sort() : []);
+
+// Mod models (src/core/modModels.ts): the same for public/mods/models/, with each model's size,
+// weight and problems read here, so the game and the track editor see the same list.
+const MODEL_DIR = 'public/mods/models';
+function modelIndex(): string {
+  if (!existsSync(MODEL_DIR)) return '[]';
+  let scenery: { id: string }[] = [];
+  try {
+    scenery = (JSON.parse(readFileSync('public/data/trackParts.json', 'utf8')) as { scenery: { id: string }[] }).scenery;
+  } catch {
+    /* no parts: every model is a new item */
+  }
+  const files = readdirSync(MODEL_DIR).filter((f) => /\.glb$/i.test(f)).sort();
+  return JSON.stringify(files.map((f) => modelEntry(f, new Uint8Array(readFileSync(`${MODEL_DIR}/${f}`)), scenery)));
+}
 
 // The map editor saves into the game while developing: these files under public/, and nothing else.
 const TOOLKIT_SAVES = [/^assets\/maps\/[A-Za-z0-9_-]+\.json$/, /^assets\/manifest\.json$/, /^assets\/custom\/[a-z0-9_-]+(\/[a-z0-9_-]+)*\.png$/, /^data\/(buildings|world)\.json$/];
@@ -28,9 +44,16 @@ export default defineConfig({
       name: 'mod-track-index',
       configureServer(server) {
         server.middlewares.use((req, res, next) => {
-          if (!req.url?.split('?')[0].endsWith('/mods/tracks/index.json')) return next();
-          res.setHeader('Content-Type', 'application/json');
-          res.end(modIndex());
+          const url = req.url?.split('?')[0] ?? '';
+          if (url.endsWith('/mods/tracks/index.json')) {
+            res.setHeader('Content-Type', 'application/json');
+            return res.end(modIndex());
+          }
+          if (url.endsWith('/mods/models/index.json')) {
+            res.setHeader('Content-Type', 'application/json');
+            return res.end(modelIndex());
+          }
+          next();
         });
         // The track editor saves player-made tracks here while developing: POST /__mods/tracks/<name>.track.json.
         server.middlewares.use('/__mods/tracks/', (req, res) => {
@@ -104,6 +127,8 @@ export default defineConfig({
         if (!existsSync('dist')) return;
         mkdirSync('dist/mods/tracks', { recursive: true });
         writeFileSync('dist/mods/tracks/index.json', `${modIndex()}\n`);
+        mkdirSync('dist/mods/models', { recursive: true });
+        writeFileSync('dist/mods/models/index.json', `${modelIndex()}\n`);
       },
     },
     {

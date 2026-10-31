@@ -24,6 +24,7 @@ The game loop: **earn money, keep the bike going, race, level up, repeat.**
 6. **Win the badge.** After your first race day, enter the **Local Champion Championship** at any race office: three rounds, one at each track, against the same 16 riders, with qualifying and points for every moto. Win it for the Area 1 badge. The six-round **Area 1 Championship** is listed but locked until Area 2 is ready (Boss, 29 Oct 2026); its prize money stays as it is until the game is further along.
 7. **Level up.** Racing and practice train your Rider Ability skills, and better skills and better parts make you faster.
 8. **Race your own tracks** with **Mod Tracks** on the venue road (see *Making and installing mod tracks* below).
+9. **Bring your own 3D models** from Blender: swap the scenery, the race bike and the rider, or add new scenery (see *Your own 3D models* below).
 
 It runs in a browser on desktop or on a phone held sideways, and saves automatically.
 
@@ -107,6 +108,10 @@ A No-Turn Takedown race day is a **knockout of 32 riders**: everyone rides a tim
 **Move whole track** (any Kind) picks the whole track up as one piece in the editor and drops it somewhere else on the grid, with its start, features, scenery, ground paint and heights.
 
 A track that fails stays in the list, and picking it shows the reasons. An import that fails isn't added. Each track is listed by its name, with its file name under it. Mod tracks get their own ids, so they never clash with the game's tracks. The code is in `src/core/modTracks.ts`.
+
+## Your own 3D models (Blender)
+
+Every object in the race view can be swapped for your own model, and new scenery added (Boss, 31 Oct 2026). Open **Models** from the toolkit (or the track editor's **Models…** button, or the game with `?models`), pick an object and **Export** it as a `.glb`. Open it in Blender, change it, export it as glTF Binary into `public/mods/models/`, and reload. A file named after a scenery item (`hay_bale.glb`) replaces it on every track; `race_bike.glb`, `race_bike_youth.glb` and `race_rider.glb` replace the race bike and rider, painted in each rider's colours through materials named Plastics, Frame, Plate, Helmet, Jersey and so on; any other name becomes a new item in the track editor's Scenery palette. The marshals, flag men, pit crews, fans, start official, start gate, finish arch and sprint start move or fit the track, so they stay as they are. A model that breaks a rule is skipped (the game draws its own) and the Models page says why. The rules for each type (size, triangles, ground, facing, colour slots) are in [docs/MODELS.md](docs/MODELS.md); the code is `src/core/modModels.ts`, `src/world/modModels.ts` and `src/scenes/ModelsScene.ts`.
 
 ## What's new in Alpha v1.1
 

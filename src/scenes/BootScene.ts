@@ -16,6 +16,7 @@ import type { RaceSceneData } from './RaceScene';
 import { view } from '../ui/view';
 import { bikeImagePath, bikeTexture, vanTexture, vanTurnTexture } from '../world/VanView';
 import { HEADINGS } from '../core/vehicles';
+import { loadModModels } from '../world/modModels';
 
 // Loads the manifest, every baked map's data and the content files, checks them all, then loads
 // the character and van sheets. Map images load later, the first time each map is visited.
@@ -81,7 +82,9 @@ export class BootScene extends Phaser.Scene {
     services.content = content;
     services.maps = maps;
     services.travel = new Travel(maps, content.world.locks);
-    void fetchFolder(import.meta.env.BASE_URL).then((folder) => {
+    void Promise.all([fetchFolder(import.meta.env.BASE_URL), loadModModels(import.meta.env.BASE_URL, content.trackParts.scenery)]).then(([folder, added]) => {
+      // New scenery from the models folder (world/modModels.ts), before mod tracks that may use it are checked.
+      content.trackParts.scenery.push(...added);
       services.modFolder = folder;
       services.modTracks = loadModTracks(content, folder, services.store);
       this.startGame();
@@ -93,6 +96,8 @@ export class BootScene extends Phaser.Scene {
     const params = new URLSearchParams(window.location.search);
     // The track editor's race view, in a frame inside the editor (TrackEditScene).
     if (params.has('editview')) return void this.scene.start('trackedit');
+    // The models page: export the game's objects for Blender, and see what the models folder holds (ModelsScene).
+    if (params.has('models')) return void this.scene.start('models');
     const test = params.get('testtrack');
     if (test && content.tracks.tracks.some((t) => t.id === test)) this.testRide(test);
     else this.scene.start('menu');
