@@ -13,6 +13,7 @@ import {
   resaleValue,
   tradeIn,
   sellSpare,
+  sellSpares,
   sellsFor,
   shopStock,
   slotName,
@@ -182,6 +183,8 @@ export class HudScene extends Phaser.Scene {
   /** True while the rider is driving the van: shows the Get out button. */
   private driving = false;
   private bagPage = 0;
+  /** Spares ticked on a shop's Sell tab, by bag entry, kept across its pages until the tab is left. */
+  private sellPicks = new Set<object>();
   /** Saves and refreshes the money line after a shop, repair or bag change. Set by the world. */
   onShopChange: (() => void) | null = null;
   /** The rider's look and wardrobe (the save's rider), for the champion's kit that comes with the sponsor's free bike. */
@@ -1108,6 +1111,7 @@ export class HudScene extends Phaser.Scene {
       if (tab === 'buy' && milestone.kind === 'ready' && page === 0) tab = 'newbike';
     }
     if (!tabs.some(([t]) => t === tab)) tab = tabs[0][0];
+    if (tab !== 'sell') this.sellPicks.clear();
     // Laid out 900 wide and at least 600 tall, taller when a tab's rows need it (a shop selling frames
     // as well as its own parts, or a garage repairing every slot plus a lent part), then scaled down
     // to fit the screen, so rows and the note under them never overlap or spill out of the panel.
@@ -1243,27 +1247,65 @@ export class HudScene extends Phaser.Scene {
       footNote();
     } else if (tab === 'sell') {
       if (!spareRows.length) text(left, y0, 'You have no spare parts to sell. Parts you take off the bike go in your bag.', 16, COLORS.muted);
+      const value = (p: NonNullable<(typeof spareRows)[number]['part']>) => (p.owner ? null : resaleValue(shops, shop, career, p));
+      const sellable = spareRows.filter((r) => value(r.part!) !== null);
+      // Ticks only stay on parts still in the bag.
+      for (const b of [...this.sellPicks]) if (!sellable.some((r) => career.bag[r.i] === b)) this.sellPicks.delete(b);
+      const picked = sellable.filter((r) => this.sellPicks.has(career.bag[r.i]));
+      const sum = (rows: typeof sellable) => rows.reduce((a, r) => a + (value(r.part!) ?? 0), 0);
       const { from, to, pg } = listPage(spareRows.length, 46);
       spareRows.slice(from, to).forEach(({ part, i }, k) => {
         const p = part!;
         const y = y0 + k * 46;
-        const value = resaleValue(shops, shop, career, p);
+        const v = value(p);
         const special = shop.sells!.slots.includes(p.slot);
-        line(left, y + 6, `G${p.grade} ${bikes.slots.find((s) => s.id === p.slot)?.name ?? p.slot}`, 16, COLORS.cream, 260);
-        line(left + 270, y + 6, `${Math.round(p.condition * 100)}%${special ? '' : ' · not their line, half price'}`, 14, COLORS.muted, w / 2 - 200 - (left + 270));
+        // A tick box for Sell selected, on every part the shop will buy (Boss, 31 Oct 2026).
+        if (v !== null) {
+          const entry = career.bag[i];
+          const on = this.sellPicks.has(entry);
+          const tick = button(this, left + 16, y + 16, on ? '✓' : '', () => {
+            if (on) this.sellPicks.delete(entry);
+            else this.sellPicks.add(entry);
+            inner(() => reopen('sell', pg));
+          }, 32, 32);
+          tick.setSelected(on);
+          c.add(tick);
+        }
+        line(left + 44, y + 6, `G${p.grade} ${bikes.slots.find((s) => s.id === p.slot)?.name ?? p.slot}`, 16, COLORS.cream, 226);
+        line(left + 280, y + 6, `${Math.round(p.condition * 100)}%${special ? '' : ' · not their line, half price'}`, 14, COLORS.muted, w / 2 - 200 - (left + 280));
         if (p.owner) {
           c.add(button(this, w / 2 - 110, y + 16, 'Not yours', () => this.toast(notMine(p)), 170, 38));
           return;
         }
-        const b = button(this, w / 2 - 110, y + 16, value === null ? "Won't buy" : `Sell ${formatMoney(value)}`, () => {
+        const b = button(this, w / 2 - 110, y + 16, v === null ? "Won't buy" : `Sell ${formatMoney(v)}`, () => {
           const sell = () => done(sellSpare(shops, shop, career, i), 'sell', pg);
           // Small sales are one click; bigger ones ask first (GDD 8.3).
-          if (value !== null && value >= 5000) inner(() => this.confirm(`Sell your G${p.grade} ${slotName(bikes, p.slot)} for ${formatMoney(value)}?`, 'Sell', sell, () => reopen('sell', pg)));
+          if (v !== null && v >= 5000) inner(() => this.confirm(`Sell your G${p.grade} ${slotName(bikes, p.slot)} for ${formatMoney(v)}?`, 'Sell', sell, () => reopen('sell', pg)));
           else sell();
         }, 170, 38);
-        b.setEnabled(value !== null);
+        b.setEnabled(v !== null);
         c.add(b);
       });
+      // Sell selected and Sell all, either side of the pager, always asking first.
+      const sellMany = (rows: typeof sellable, label: string) => inner(() => this.confirm(
+        `Sell ${rows.length === 1 ? '1 part' : `${rows.length} parts`} for ${formatMoney(sum(rows))}?`,
+        label,
+        () => {
+          this.sellPicks.clear();
+          done(sellSpares(shops, shop, career, rows.map((r) => r.i)), 'sell');
+        },
+        () => reopen('sell', pg),
+      ));
+      if (sellable.length) {
+        const bw = 230;
+        const sel = button(this, left + bw / 2, h / 2 - 32, picked.length ? `Sell selected (${picked.length})` : 'Sell selected', () => sellMany(picked, 'Sell'), bw, 38);
+        this.fitWidth(sel.list[1] as Phaser.GameObjects.Text, bw - 12);
+        sel.setEnabled(picked.length > 0);
+        c.add(sel);
+        const all = button(this, w / 2 - 28 - bw / 2, h / 2 - 32, `Sell all (${sellable.length})`, () => sellMany(sellable, 'Sell all'), bw, 38);
+        this.fitWidth(all.list[1] as Phaser.GameObjects.Text, bw - 12);
+        c.add(all);
+      }
     } else if (tab === 'repair') {
       bikes.slots.forEach((slot, i) => {
         const y = y0 - 12 + i * repairRowH;

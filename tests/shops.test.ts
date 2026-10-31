@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { newCareerState, type CareerState } from '../src/core/career';
+import { formatMoney, newCareerState, type CareerState } from '../src/core/career';
 import { checkContent } from '../src/core/content';
 import { parseSave } from '../src/core/saves';
 import {
@@ -13,6 +13,7 @@ import {
   repairQuote,
   resaleValue,
   sellSpare,
+  sellSpares,
   shopForAction,
   shopStock,
   shopState,
@@ -184,6 +185,21 @@ describe('buying, fitting and selling', () => {
     expect(sellSpare(shops, tyreShop, c, 0).ok).toBe(true);
     expect(c.money).toBe(100000 + tyreValue);
     expect(c.bag).toEqual([]);
+  });
+
+  it('sells several spares at once, leaving what the shop will not buy (Boss, 31 Oct 2026)', () => {
+    const c = career();
+    const brakes = { slot: 'brakes', class: '50cc', grade: 2, condition: 0.5 };
+    const forks = { slot: 'forks', class: '50cc', grade: 1, condition: 0.8 };
+    const broken = { slot: 'shock', class: '50cc', grade: 1, condition: 0 };
+    const lent = { slot: 'frame', class: '50cc', grade: 1, condition: 0.6, owner: { name: 'Louis', repaired: false } };
+    c.bag.push({ id: 'task.parts_order' }, { id: SPARE, part: brakes }, { id: SPARE, part: broken }, { id: SPARE, part: forks }, { id: SPARE, part: lent } as never);
+    const value = resaleValue(shops, bikeShop, c, brakes)! + resaleValue(shops, bikeShop, c, forks)!;
+    const r = sellSpares(shops, bikeShop, c, [1, 2, 3, 4, 3]);
+    expect(r).toEqual({ ok: true, message: `Sold 2 parts for ${formatMoney(value)}.` });
+    expect(c.money).toBe(100000 + value);
+    expect(c.bag.map((b) => b.part?.slot ?? b.id)).toEqual(['task.parts_order', 'shock', 'frame']);
+    expect(sellSpares(shops, bikeShop, c, [1, 2]).ok).toBe(false);
   });
 
   it('the garage fits a spare for the bench fee and swaps the old part into the bag', () => {
