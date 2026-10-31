@@ -1,7 +1,7 @@
 """Lee's T's & Wheels and J's Tools (Boss, 30 Oct 2026; drawn 31 Oct 2026): the Home Town shop signs.
 
-The tyre shop's board reads LEE'S T'S & WHEELS and the tool shop's J'S TOOLS, in the same white
-slanted letters on the same dark boards, with the red flash kept in front. The two owners' sprites
+The tyre shop's board carries Lee's T'S & WHEELS logo and the tool shop's the J'S TOOLS logo
+(tools/art/shop_logos.py; Boss, 31 Oct 2026: "I want the signs to be unique too"). The two owners' sprites
 come from the art folder's characters/tools/make_characters.py (npc-04-tyre-specialist is Lee
 Stocky, npc-20-jason-styles is Jason Styles). Writes the sheet in place and previews:
 
@@ -19,8 +19,8 @@ RED = (194, 28, 21)
 FONT = '/usr/share/fonts/truetype/freefont/FreeSansBoldOblique.ttf'
 # Each board on buildings-exterior-v3.png: the building's crop origin, then the board's face box in it.
 BOARDS = [
-    ((512, 320), (26, 110, 317, 146), "LEE'S T'S & WHEELS"),
-    ((512, 960), (84, 118, 285, 153), "J'S TOOLS"),
+    ((512, 320), (24, 109, 319, 147), "LEE'S T'S & WHEELS"),
+    ((512, 960), (82, 117, 287, 154), "J'S TOOLS"),
 ]
 
 
@@ -60,10 +60,12 @@ def repaint(sheet: Image.Image, origin, box, text):
 
 
 def main(repo: Path, preview: Path):
+    sys.path.insert(0, str(Path(__file__).parent))
+    from shop_logos import lee_logo, js_logo
     path = repo / 'public/assets/art/buildings/sheets/buildings-exterior-v3.png'
     sheet = Image.open(path).convert('RGBA')
-    for origin, box, text in BOARDS:
-        sheet = repaint(sheet, origin, box, text)
+    for ((ox, oy), (x0, y0, x1, y1), text), logo in zip(BOARDS, (lee_logo, js_logo)):
+        sheet.alpha_composite(logo(x1 - x0 + 1, y1 - y0 + 1), (ox + x0, oy + y0))
     sheet.save(path)
     preview.mkdir(parents=True, exist_ok=True)
     for (ox, oy), _, text in BOARDS:
