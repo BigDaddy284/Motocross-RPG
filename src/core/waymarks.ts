@@ -89,7 +89,7 @@ function links(map: BakedMap, maps: Map<string, BakedMap>, world: WorldData, tra
     if (r?.kind === 'travel') out.push({ via, to: r.to.map });
     else if (r?.kind === 'route') {
       const route = routeFor(world, map, via);
-      for (const p of route ? routePlaces(world, maps, route) : []) if (!p.mods) out.push({ via, to: p.map });
+      for (const p of route ? routePlaces(world, maps, route, flags) : []) if (!p.mods) out.push({ via, to: p.map });
     }
   }
   return out;

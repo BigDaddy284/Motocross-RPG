@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
+import { modsLabel } from '../core/modifiers';
 import { bikeProblem, bikeStats, formatMoney, journal, pence, statMax, type CareerState } from '../core/career';
-import { childLevel, childXp, leadLevel, leadXp, levelProgress } from '../core/skills';
+import { addXp, childLevel, childXp, leadLevel, leadXp, levelProgress, levelStatus } from '../core/skills';
 import { nextRoundVenue, rewardTexture, standings } from '../core/championship';
 import {
   buyPart,
@@ -22,8 +23,11 @@ import {
   type StockItem,
 } from '../core/shops';
 import type { DialogueLine } from '../core/content';
+import { awardOutfit, championsKit, type RiderLook } from '../core/house';
+import { className, collectBike, milestoneOf, milestoneStatus, sponsorBrand, stockBikePrice } from '../core/classes';
+import { buyTools, diyFitProblem, diyRepair, diyRepairQuote, nextVersion, ownedVersion, toolsFor } from '../core/tools';
 import { repairLent } from '../core/errands';
-import { PACE_BAND, REP_ZONE, goodRep, onPace, type DrillDef } from '../core/training';
+import { PACE_BAND, REP_ZONE, gateHoldMs, gateStart, gateWindowMs, goodRep, onPace, type DrillDef } from '../core/training';
 import { ensureAnims } from '../world/Character';
 import { careerRecords, recordText } from '../core/records';
 import { services } from '../services';
@@ -32,14 +36,14 @@ import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
 import { button, panel, slider, statBar } from '../ui/widgets';
 import type { WorldScene } from './WorldScene';
 import { HUD_BAR, cssSize, view } from '../ui/view';
-import { worldMapTexture, type WorldMapData, type WorldMapZone } from '../core/worldMap';
+import { bikeImage, worldMapTexture, type WorldMapData, type WorldMapZone } from '../core/worldMap';
 
 // Screen-space layer over the world: map name, money and task, messages, the dialogue box, the
 // bike / bag / task panel, confirm boxes, the work progress bar, the pause menu and
 // touch buttons. Runs alongside the world scene at a fixed zoom.
 
 type PanelTab = 'bike' | 'bag' | 'task' | 'skills' | 'records';
-export type ShopTab = 'buy' | 'sell' | 'repair' | 'fit';
+export type ShopTab = 'buy' | 'sell' | 'repair' | 'fit' | 'newbike' | 'tools';
 
 /** The smallest page panels are laid out on (see page()). */
 const PAGE_W = 940;
@@ -180,6 +184,8 @@ export class HudScene extends Phaser.Scene {
   private bagPage = 0;
   /** Saves and refreshes the money line after a shop, repair or bag change. Set by the world. */
   onShopChange: (() => void) | null = null;
+  /** The rider's look and wardrobe (the save's rider), for the champion's kit that comes with the sponsor's free bike. */
+  rider: RiderLook | null = null;
 
   private layout(): void {
     const { width, height } = view(this);
@@ -452,24 +458,34 @@ export class HudScene extends Phaser.Scene {
     const { width, height, k } = this.page();
     const w = Math.min(560, width - 32);
     const c = this.add.container((width / 2) * k, (height / 2) * k).setScale(k);
-    this.backdrop(c, w, 220, false);
-    c.add(this.add.text(0, -50, text, textStyle(this.pts(20), COLORS.cream, { align: 'center', wordWrap: { width: w - 60 } })).setOrigin(0.5));
+    // The box grows to fit its text, so a long question at a big Text size stays inside it (Boss, 31 Oct 2026).
+    const msg = this.add.text(0, 0, text, textStyle(this.pts(20), COLORS.cream, { align: 'center', wordWrap: { width: w - 60 } })).setOrigin(0.5, 0);
+    const h = Math.max(220, msg.height + 28 + 28 + 46 + 28);
+    this.backdrop(c, w, h, false);
+    msg.setY(-h / 2 + 28);
+    c.add(msg);
     let answered = false;
-    c.add(button(this, -120, 55, yes, () => {
+    const by = h / 2 - 28 - 23;
+    c.add(button(this, -120, by, yes, () => {
       answered = true;
       this.closeModal();
       onYes();
     }, 200, 46));
-    c.add(button(this, 120, 55, 'Not now', () => this.closeModal(), 200, 46));
+    c.add(button(this, 120, by, 'Not now', () => this.closeModal(), 200, 46));
     this.openModal(c, () => !answered && onNo());
   }
 
   /** A box with a few choices, such as the race office's menu. Esc or the last button closes it. */
-  choose(title: string, text: string, options: { label: string; note?: string; enabled?: boolean; onPick: () => void }[], onClose: () => void): void {
+  /** A menu of buttons with notes beside them; `centre` puts the buttons in the middle, for a menu without notes. */
+  choose(title: string, text: string, options: { label: string; note?: string; enabled?: boolean; onPick: () => void }[], onClose: () => void, centre = false): void {
     const { width, height, k } = this.page();
     const w = Math.min(720, width - 32);
     const textObj = this.add.text(0, 0, text, textStyle(this.pts(18), COLORS.cream, { wordWrap: { width: w - 60 }, lineSpacing: 4 }));
-    const h = 166 + textObj.height + (options.length - 1) * 64;
+    // A menu with no text starts its buttons just under the title.
+    const textH = text ? textObj.height : -20;
+    // Rows close up (down to 54 apart) when a long list would run off the page.
+    const gap = options.length > 1 ? Math.max(54, Math.min(64, Math.floor((height - 24 - 166 - textH) / (options.length - 1)))) : 64;
+    const h = 166 + textH + (options.length - 1) * gap;
     const c = this.add.container((width / 2) * k, (height / 2) * k).setScale(k);
     this.backdrop(c, w, h, false);
     c.add(this.add.text(0, -h / 2 + 32, title, textStyle(26, COLORS.accent)).setOrigin(0.5));
@@ -477,8 +493,8 @@ export class HudScene extends Phaser.Scene {
     c.add(textObj);
     let picked = false;
     options.forEach((o, i) => {
-      const y = -h / 2 + 116 + textObj.height + i * 64;
-      const b = button(this, -w / 2 + 150, y, o.label, () => {
+      const y = -h / 2 + 116 + textH + i * gap;
+      const b = button(this, centre ? 0 : -w / 2 + 150, y, o.label, () => {
         picked = true;
         this.closeModal();
         o.onPick();
@@ -521,7 +537,7 @@ export class HudScene extends Phaser.Scene {
    * it gave with Again and Done. A round can't be failed: `onFinish` runs for every finished round
    * and returns the lines to show (the XP and any level-ups). Esc or Done leaves.
    */
-  openDrill(drill: DrillDef, who: { player: string; coach?: string }, onFinish: () => string[], onClose: () => void): void {
+  openDrill(drill: DrillDef, who: { player: string; coach?: string; level?: number }, onFinish: () => string[], onClose: () => void): void {
     const { width, height, k } = this.page();
     const w = Math.min(860, width - 32);
     const h = 360;
@@ -570,7 +586,7 @@ export class HudScene extends Phaser.Scene {
       const timeBg = this.add.rectangle(-bw / 2, -h / 2 + 66, bw, 8, COLORS.panelLight).setOrigin(0, 0.5);
       const timeFill = this.add.rectangle(-bw / 2, -h / 2 + 66, bw, 8, COLORS.blue).setOrigin(0, 0.5);
       const label = this.add.text(rx, 80, '', textStyle(this.pts(20), COLORS.cream, { align: 'center' })).setOrigin(0.5);
-      const tip = this.add.text(rx, 120, drill.game === 'reps' ? 'Space or tap' : 'Hold Space or press and hold', textStyle(this.pts(14), COLORS.muted)).setOrigin(0.5);
+      const tip = this.add.text(rx, 120, drill.game === 'pace' ? 'Hold Space or press and hold' : 'Space or tap', textStyle(this.pts(14), COLORS.muted)).setOrigin(0.5);
       // The whole box is the button, so a tap anywhere on it counts.
       const pad = this.add.rectangle(0, 20, w, h - 40, 0, 0.001).setInteractive();
       body.add([pad, vis, timeBg, timeFill, label, tip]);
@@ -638,6 +654,76 @@ export class HudScene extends Phaser.Scene {
           streakText.setText(streak >= 2 ? `Streak x${streak}` : '');
         };
         finish = () => `${good} good reps out of ${tries}.`;
+      } else if (drill.game === 'react') {
+        // The gate drop (core/training.ts): the front wheel at the gate, close up. The gate holds for
+        // a random while, then falls; a press in the window after it is a good start.
+        const level = who.level ?? 1;
+        const window = gateWindowMs(level);
+        const rng = () => Math.random();
+        // Dirt, the gate's frame, the gate bar and the wheel behind it.
+        vis.add(this.add.rectangle(0, 60, 370, 70, 0x7a5a3a));
+        vis.add(this.add.rectangle(0, 95, 370, 20, 0x5e4229));
+        const wheel = this.add.circle(40, 20, 44, 0x1c1c1c).setStrokeStyle(6, 0x3a3a3a);
+        const hub = this.add.circle(40, 20, 14, 0x9a9a9a);
+        const post = this.add.rectangle(-120, 10, 12, 110, 0x8c8c8c);
+        const gate = this.add.rectangle(-40, -25, 170, 14, 0xd9d9d9).setOrigin(0, 0.5);
+        const light = this.add.circle(-120, -60, 10, 0xc0392b);
+        vis.add([wheel, hub, post, gate, light]);
+        const result = this.add.text(rx, -40, '', textStyle(this.pts(22), COLORS.cream, { align: 'center' })).setOrigin(0.5);
+        body.add(result);
+        label.setY(30);
+        let drops = 0;
+        let good = 0;
+        let jumped = 0;
+        let hold = gateHoldMs(rng);
+        let since = -hold;
+        let pressed = false;
+        let settle = 0;
+        const reset = () => {
+          hold = gateHoldMs(rng);
+          since = -hold;
+          pressed = false;
+          gate.setAngle(0);
+          light.setFillStyle(0xc0392b);
+          result.setText('');
+        };
+        const press = () => {
+          if (pressed || settle > 0) return;
+          pressed = true;
+          const how = gateStart(since, level);
+          drops += 1;
+          if (how === 'good') good += 1;
+          if (how === 'jumped') jumped += 1;
+          result.setText(how === 'good' ? `Good start!  ${Math.round(since)} ms` : how === 'jumped' ? 'Jumped it: wait for the drop' : `Slow: ${Math.round(since)} ms`);
+          result.setColor(how === 'good' ? '#9fe07a' : '#e0705a');
+          pop(vis, 40, -60, how === 'good' ? 'Go!' : how === 'jumped' ? 'Too early' : 'Late', how === 'good' ? 0x9fe07a : 0xe0705a);
+          settle = 1100;
+        };
+        pad.on('pointerdown', press);
+        kb.on('keydown-SPACE', press);
+        stop = () => kb.off('keydown-SPACE', press);
+        tick = (dt) => {
+          if (settle > 0) {
+            settle -= dt;
+            if (settle <= 0) reset();
+            return;
+          }
+          since += dt;
+          if (since >= 0) {
+            // The gate falls flat over about a quarter of a second.
+            gate.setAngle(Math.min(90, (since / 250) * 90));
+            light.setFillStyle(0x27ae60);
+            if (!pressed && since > window * 3) {
+              // Missed it altogether: counts as a slow start.
+              drops += 1;
+              result.setText('Asleep at the gate');
+              result.setColor('#e0705a');
+              settle = 900;
+            }
+          }
+          label.setText(`Good starts: ${good} of ${drops}`);
+        };
+        finish = () => `${good} good starts out of ${drops}${jumped ? `, ${jumped} jumped` : ''}.`;
       } else {
         // Holding speeds up, letting go eases off. Inside the green band the rider keeps a steady
         // full pace round the track; outside it they slow, so more green means more laps.
@@ -795,7 +881,7 @@ export class HudScene extends Phaser.Scene {
       const bike = career.bike;
       const brand = bikes.brands.find((b) => b.id === bike.brand);
       const px = 20;
-      line(left, y0, `${brand?.starter ?? bike.brand}  ·  ${bike.class}`, 22, COLORS.accent, px - 16 - left);
+      line(left, y0, `${bike.class === bikes.starter.class ? (brand?.starter ?? bike.brand) : (brand?.name ?? bike.brand)}  ·  ${className(bikes, bike.class)}`, 22, COLORS.accent, px - 16 - left);
       const problem = bikeProblem(bikes, bike);
       const note = body(left, y0 + 32, problem ?? 'Runs. Ready for the backyard, and for the tracks once you have a motor.', 16, problem ? COLORS.accent : COLORS.muted, w / 2 - 40);
       const stats = bikeStats(bikes, bike);
@@ -803,6 +889,19 @@ export class HudScene extends Phaser.Scene {
       // The stats start below the note, however many lines it takes.
       const statsY = Math.max(y0 + 100, note.y + note.height + 22);
       bikes.stats.forEach((st, i) => c.add(statBar(this, left, statsY + i * 34, st.name, w / 2 - 260, max, 110).setValue(stats[st.id])));
+      // A picture of the rider's bike, brand and class, in the space under the stat bars (Boss, 31 Oct 2026).
+      // It's the world map's bike picture, scaled to fit and never past 2x so the pixels stay sharp.
+      const wm = services.content.world.worldMap;
+      const pic = wm ? worldMapTexture(bikeImage(wm, bike, bikes)) : '';
+      if (pic && this.textures.exists(pic)) {
+        const picTop = statsY + bikes.stats.length * 34 + 6;
+        const picW = px - 24 - left;
+        const picH = h / 2 - 20 - picTop;
+        const img = this.add.image(0, 0, pic);
+        const s = Math.min(2, picW / img.width, picH / img.height);
+        if (s >= 0.5) c.add(img.setScale(s).setPosition(left + picW / 2, picTop + picH / 2));
+        else img.destroy();
+      }
       line(px, y0, 'Parts', 20, COLORS.accent, w / 2 - 28 - px);
       // Columns: the part's name, its grade, a bar and the percentage, each kept to its own space.
       const barW = w / 2 - 330;
@@ -817,6 +916,9 @@ export class HudScene extends Phaser.Scene {
         c.add(this.add.rectangle(px + 230, y + 10, Math.max(1, (barW * cond) / 100), 10, cond === 0 ? 0xb03030 : cond <= 20 ? COLORS.accent : 0x6fa84a).setOrigin(0, 0.5));
         line(pctX, y, cond === 0 ? 'Broken' : `${cond}%`, 15, cond === 0 ? COLORS.accent : COLORS.cream, w / 2 - 12 - pctX);
       });
+      // Part modifiers (core/modifiers.ts, Spec 6), summed across the bike.
+      const modded = bikes.slots.filter((s) => bike.parts[s.id]?.mods?.length);
+      if (modded.length) line(px, y0 + 40 + bikes.slots.length * 32 + 4, `Modifiers: ${modded.map((s) => `${s.name} ${modsLabel(services.content.modifiers, bike.parts[s.id].mods)}`).join('; ')}`, 13, COLORS.muted, w / 2 - 12 - px);
     } else if (tab === 'bag') {
       const limit = services.content.shops.spareLimit;
       body(left, y0, 'Bag', 22, COLORS.accent);
@@ -842,7 +944,7 @@ export class HudScene extends Phaser.Scene {
             continue;
           }
           body(left, y, `G${p.grade} ${name} (spare)`, 17);
-          body(left, y + 24, `${cond} · ${p.class}. Fit it at the garage bench, or sell it at a parts shop.`, 14, COLORS.muted, w - 220);
+          body(left, y + 24, `${cond} · ${p.class}. ${p.mods?.length ? modsLabel(services.content.modifiers, p.mods) + '. ' : ''}Fit it at the garage bench, or sell it at a parts shop.`, 14, COLORS.muted, w - 220);
           c.add(button(this, w / 2 - 90, y + 20, 'Dump', () => {
             this.confirm(`Send your G${p.grade} ${name.toLowerCase()} to the dump?\nIt's gone for good, with nothing back.`, 'Dump it', () => {
               dumpSpare(career, i);
@@ -906,6 +1008,45 @@ export class HudScene extends Phaser.Scene {
       // The note goes at the foot first, so the rows can share out the room above it.
       const foot = body(left, 0, 'Racing and practice train Rider Ability. Training minigames for every skill come in later builds.', 14, COLORS.muted);
       foot.setY(h / 2 - 14 - foot.height);
+      // Hover a skill with the mouse, or tap it on a phone, to see its XP and the XP the next level
+      // starts at (Boss, 31 Oct 2026). One box at a time; tapping the panel's empty space hides it.
+      let tip: Phaser.GameObjects.Container | null = null;
+      const hideTip = () => {
+        tip?.destroy();
+        tip = null;
+      };
+      (c.list[1] as Phaser.GameObjects.Rectangle).on('pointerdown', hideTip);
+      const showTip = (xp: number, multiplier: number, x: number, y: number, rowH: number) => {
+        hideTip();
+        const st = levelStatus(xp, multiplier, skills.maxLevel);
+        const fmt = (n: number) => Math.floor(n).toLocaleString();
+        // No level line: the menu already shows it. Kept to two short lines so millions of XP still
+        // fit beside the next column (Boss, 31 Oct 2026).
+        const lines = st.next === null
+          ? [`${fmt(st.xp)} XP`, 'Top level']
+          : [`${fmt(st.xp)} / ${fmt(st.next)} XP`, `${fmt(st.toGo)} to the next level`];
+        const t = this.add.text(12, 10, lines.join('\n'), textStyle(this.pts(14), COLORS.cream, { lineSpacing: 4 }));
+        const bw = t.width + 24;
+        const bh = t.height + 20;
+        // Under the row, kept inside the panel; above it when there's no room below.
+        const tx = Math.min(x, w / 2 - 12 - bw);
+        const ty = y + rowH + bh <= h / 2 - 12 ? y + rowH : y - bh;
+        tip = this.add.container(tx, ty, [this.add.rectangle(0, 0, bw, bh, COLORS.ink, 0.97).setOrigin(0).setStrokeStyle(2, COLORS.accent), t]);
+        c.add(tip);
+      };
+      /** An invisible hit area over a skill's row: hover shows its box, leaving hides it, a tap shows it. */
+      const hover = (x: number, y: number, rowW: number, rowH: number, xp: () => number, multiplier: number) => {
+        const zone = this.add.rectangle(x, y, rowW, rowH, 0, 0.001).setOrigin(0).setInteractive();
+        const show = () => showTip(xp(), multiplier, x, y, rowH);
+        zone.on('pointerover', show);
+        zone.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, ev: Phaser.Types.Input.EventData) => {
+          ev.stopPropagation();
+          show();
+        });
+        // A finger lifting counts as leaving the row, so on a phone the box stays until the next tap.
+        zone.on('pointerout', (p: Phaser.Input.Pointer) => !p.wasTouch && hideTip());
+        c.add(zone);
+      };
       skills.leads.forEach((lead, i) => {
         const x = left + i * colW;
         const lx = leadXp(career.skills, lead);
@@ -915,6 +1056,7 @@ export class HudScene extends Phaser.Scene {
         const leadBarY = Math.max(y0 + 58, level.y + level.height + 6);
         c.add(this.add.rectangle(x, leadBarY, barW, 8, COLORS.panelLight).setOrigin(0, 0.5));
         c.add(this.add.rectangle(x, leadBarY, Math.max(1, barW * levelProgress(lx, lead.multiplier, skills.maxLevel)), 8, COLORS.accent).setOrigin(0, 0.5));
+        hover(x, y0, barW, leadBarY + 6 - y0, () => lx, lead.multiplier);
         const first = leadBarY + 18;
         const rowH = Math.min(48, (foot.y - 6 - first) / Math.max(1, lead.children.length));
         lead.children.forEach((ch, j) => {
@@ -926,6 +1068,7 @@ export class HudScene extends Phaser.Scene {
           const barY = y + Math.min(rowH - 8, Math.max(26, name.height + 4));
           c.add(this.add.rectangle(x, barY, barW, 6, COLORS.panelLight).setOrigin(0, 0.5));
           c.add(this.add.rectangle(x, barY, Math.max(1, barW * levelProgress(xp, 1, skills.maxLevel)), 6, 0x6fa84a).setOrigin(0, 0.5));
+          hover(x, y - 4, barW, barY + 6 - (y - 4), () => xp, 1);
         });
       });
     }
@@ -957,11 +1100,61 @@ export class HudScene extends Phaser.Scene {
     if (shop.sells) tabs.push(['buy', 'Buy'], ['sell', 'Sell']);
     if (shop.repairs) tabs.push(['repair', 'Repairs']);
     if (shop.fitFee !== undefined) tabs.push(['fit', 'Fit a spare']);
+    if (shop.tools) tabs.push(['tools', 'Tool sets']);
+    // The class dealer (Bill at Moto78): a new class's bike, once its milestone championship is won.
+    const milestone = shops.classDealer === shop.id ? milestoneStatus(bikes, services.content.skills, career, this.flags) : { kind: 'none' as const };
+    if (milestone.kind !== 'none') {
+      tabs.push(['newbike', 'New bike']);
+      if (tab === 'buy' && milestone.kind === 'ready' && page === 0) tab = 'newbike';
+    }
     if (!tabs.some(([t]) => t === tab)) tab = tabs[0][0];
-    // Laid out at 900 × 600, then scaled down to fit a small screen such as a phone on its side.
+    // Laid out 900 wide and at least 600 tall, taller when a tab's rows need it (a shop selling frames
+    // as well as its own parts, or a garage repairing every slot plus a lent part), then scaled down
+    // to fit the screen, so rows and the note under them never overlap or spill out of the panel.
     const { width, height } = view(this);
-    const w = 900;
-    const h = 600;
+    // A Buy tab with more than three grades (Area 8 sells 4 to 8) widens the panel rather than
+    // squeezing its buttons, keeping each at least 120 wide (Boss, 31 Oct 2026).
+    const gradeCount = tab === 'buy' && shop.sells ? shop.sells.grades[1] - shop.sells.grades[0] + 1 : 0;
+    const w = Math.max(900, 381 + gradeCount * 130 - 10);
+    const cls = career.bike.class;
+    const spareRows = career.bag.map((b, i) => ({ part: b.part, i })).filter((r) => r.part);
+    const measure = (t: string, size: number) => {
+      if (!t) return 0;
+      const o = this.add.text(0, 0, t, textStyle(this.pts(size), COLORS.muted, { wordWrap: { width: w - 56 } }));
+      const ht = o.height;
+      o.destroy();
+      return ht;
+    };
+    const note =
+      tab === 'buy' ? 'New parts: 100%, no modifiers. Stock changes after 3 race days or 10 shifts and practice sessions.'
+      : tab === 'tools' ? 'Use your tools at the red cabinet in your room, or at the back of your motor. Grade 10 parts always go to Phoenix MX.'
+      : '';
+    const noteH = measure(note, 13);
+    // Row heights grow with the Text size so big text doesn't run into the next row.
+    const buyRowH = Math.max(46, Math.round(this.pts(16) * 1.25) + 16);
+    const repairRowH = Math.max(34, Math.round(this.pts(15) * 1.25) + 8);
+    const toolRowH = Math.max(64, Math.round((this.pts(16) + this.pts(13)) * 1.25) + 16);
+    const lentRows = spareRows.filter((r) => r.part!.owner).length;
+    // The New bike tab's words, worked out here so the panel can be sized to them.
+    const newBike = tab === 'newbike' && milestone.kind !== 'none' ? (() => {
+      const next = milestone.cls;
+      const champ = milestoneOf(services.content.championships, next.id);
+      const sponsor = sponsorBrand(bikes, career, next.id);
+      const sponsorName = bikes.brands.find((b) => b.id === sponsor)?.name ?? sponsor;
+      const won = `${champ?.name ?? 'The championship'} is yours, so you've earned a ${next.name}.`;
+      const more = milestone.kind === 'needLevel'
+        ? `You'll need Rider Ability ${milestone.level} to ride it; you're level ${milestone.have}. Race on and come back.`
+        : `The champion's sponsor rides ${sponsorName}: a new stock ${next.name}, Grade 1 all round, for nothing and no strings. Or buy a stock bike of any brand.`;
+      return { next, champ, sponsor, sponsorName, won, more };
+    })() : null;
+    const rowsH =
+      tab === 'buy' ? (sellsFor(shop, cls) ? shop.sells!.slots.length * buyRowH : 40)
+      : tab === 'repair' ? (bikes.slots.length + (lentRows ? lentRows + 0.5 : 0)) * repairRowH
+      : tab === 'tools' ? services.content.tools.sets.length * toolRowH
+      : newBike ? measure(newBike.won, 17) + 8 + measure(newBike.more, 15) + (milestone.kind === 'ready' ? 16 + 42 + 38 + bikes.brands.length * 46 : 0)
+      : 0;
+    // Title and tabs (118) and the greeting above the rows, the rows, then the note and a margin.
+    const h = Math.max(600, Math.ceil(118 + measure(shop.greeting, 15) + 34 + rowsH + (noteH ? noteH + 18 : 0) + 24));
     const k = Math.min(1, (width - 16) / w, (height - 16) / h);
     const c = this.add.container(width / 2, height / 2).setScale(k);
     const shade = this.add.rectangle(0, 0, width / k, height / k, 0, 0.5).setInteractive();
@@ -1007,8 +1200,8 @@ export class HudScene extends Phaser.Scene {
     });
     const greeting = text(left, top + 96, shop.greeting, 15, COLORS.muted);
     const y0 = greeting.y + greeting.height + 34;
-    const cls = career.bike.class;
-    const spareRows = career.bag.map((b, i) => ({ part: b.part, i })).filter((r) => r.part);
+    /** The note under a tab's rows, kept inside the bottom of the panel. */
+    const footNote = () => text(left, h / 2 - 16 - noteH, note, 13, COLORS.muted);
     const yours = (slot: string) => {
       const p = career.bike.parts[slot];
       return p ? `G${p.grade} ${p.condition <= 0 ? 'broken' : `${Math.round(p.condition * 100)}%`}` : 'none';
@@ -1025,22 +1218,29 @@ export class HudScene extends Phaser.Scene {
       if (!sellsFor(shop, cls)) text(left, y0, `Nothing here for a ${cls}.`, 17, COLORS.muted);
       const stock = shopStock(shops, shop, career, cls);
       const [lo, hi] = shop.sells!.grades;
+      // The grade buttons share the room from left + 325 to the panel's right edge: three at 150 wide,
+      // narrower for shops that sell four grades or more (Areas 2 and up).
+      const grades = hi - lo + 1;
+      const bw = Math.min(150, Math.floor((w / 2 - 28 - (left + 325) - (grades - 1) * 10) / grades));
       text(left + 222, y0 - 26, 'Yours', 14, COLORS.muted);
       shop.sells!.slots.forEach((slot, i) => {
         if (!sellsFor(shop, cls)) return;
-        const y = y0 - 6 + i * 46;
+        const y = y0 - 6 + i * buyRowH;
         const name = bikes.slots.find((s) => s.id === slot)?.name ?? slot;
         line(left, y + 8, name, 16, COLORS.cream, 215);
-        line(left + 222, y + 8, yours(slot), 15, career.bike.parts[slot]?.condition <= 0 ? COLORS.accent : COLORS.muted, 170);
-        for (let g = lo; g <= hi; g++) {
+        // Kept clear of the first grade's button, which starts at left + 325.
+        line(left + 222, y + 8, yours(slot), 15, career.bike.parts[slot]?.condition <= 0 ? COLORS.accent : COLORS.muted, 96);
+        const top = shop.sells!.stockOnly?.includes(slot) ? lo : hi;
+        for (let g = lo; g <= top; g++) {
           const item = stock.find((s) => s.slot === slot && s.grade === g);
           const label = !item ? `G${g}: none in` : item.soldOut ? `G${g}: sold out` : `G${g}  ${formatMoney(item.price)}`;
-          const b = button(this, left + 400 + (g - lo) * 160, y + 18, label, () => item && inner(() => this.offerPart(shop, item, () => reopen(), (r) => done(r))), 150, 40);
+          const b = button(this, left + 325 + bw / 2 + (g - lo) * (bw + 10), y + 18, label, () => item && inner(() => this.offerPart(shop, item, () => reopen(), (r) => done(r))), bw, 40);
+          this.fitWidth(b.list[1] as Phaser.GameObjects.Text, bw - 12);
           b.setEnabled(!!item && !item.soldOut && career.money >= item.price - tradeIn(shops, career, item));
           c.add(b);
         }
       });
-      text(left, h / 2 - 30, 'New parts: 100%, no modifiers. Stock changes after 3 race days or 10 shifts and practice sessions.', 13, COLORS.muted);
+      footNote();
     } else if (tab === 'sell') {
       if (!spareRows.length) text(left, y0, 'You have no spare parts to sell. Parts you take off the bike go in your bag.', 16, COLORS.muted);
       const { from, to, pg } = listPage(spareRows.length, 46);
@@ -1066,11 +1266,30 @@ export class HudScene extends Phaser.Scene {
       });
     } else if (tab === 'repair') {
       bikes.slots.forEach((slot, i) => {
-        const y = y0 - 12 + i * 34;
+        const y = y0 - 12 + i * repairRowH;
         const part = career.bike.parts[slot.id];
         line(left, y + 4, slot.name, 15, COLORS.cream, 200);
         line(left + 210, y + 4, yours(slot.id), 15, part?.condition <= 0 ? COLORS.accent : COLORS.muted, 112);
         if (!part) return;
+        if (shop.diy) {
+          const dq = diyRepairQuote(shops, services.content.tools, career, slot.id, part);
+          if (!dq.ok) return void line(left + 330, y + 4, dq.reason, 14, COLORS.muted, w / 2 - 20 - (left + 330));
+          const db = button(this, left + 420, y + 12, 'Repair: free', () => inner(() => {
+            this.confirm(
+              `Repair your G${part.grade} ${slot.name.toLowerCase()} (${Math.round(part.condition * 100)}%) with your own tools?\nIt comes back as G${dq.grade} at 100%, for nothing. Every repair drops a grade.`,
+              'Repair',
+              () => {
+                const r = diyRepair(shops, services.content.tools, bikes, services.content.skills, career, slot.id);
+                for (const u of r.ups ?? []) this.toast(`Level up! ${u.name} is now level ${u.level}.`);
+                done(r);
+              },
+              () => reopen(),
+            );
+          }), 170, 32);
+          c.add(db);
+          line(left + 600, y + 4, `→ G${dq.grade} at 100%`, 14, COLORS.muted, w / 2 - 20 - (left + 600));
+          return;
+        }
         const q = repairQuote(shops, slot.id, part, cls);
         if (!q.ok) {
           line(left + 330, y + 4, q.reason, 14, COLORS.muted, w / 2 - 20 - (left + 330));
@@ -1091,7 +1310,7 @@ export class HudScene extends Phaser.Scene {
       // Parts lent for an errand are repaired from the bag, the same way (core/errands.ts).
       spareRows.filter((r) => r.part!.owner).forEach(({ part, i }, k) => {
         const p = part!;
-        const y = y0 - 12 + (bikes.slots.length + 0.5 + k) * 34;
+        const y = y0 - 12 + (bikes.slots.length + 0.5 + k) * repairRowH;
         const name = slotName(bikes, p.slot);
         line(left, y + 4, `${p.owner!.name[0].toUpperCase()}${p.owner!.name.slice(1)}'s ${name.toLowerCase()}`, 15, COLORS.cream, 320);
         if (p.owner!.repaired) return void line(left + 330, y + 4, `Repaired: take it back.`, 14, COLORS.muted, w / 2 - 20 - (left + 330));
@@ -1109,6 +1328,62 @@ export class HudScene extends Phaser.Scene {
         c.add(b);
         line(left + 520, y + 4, `→ G${q.grade} at 100%`, 14, COLORS.muted, w / 2 - 20 - (left + 520));
       });
+    } else if (tab === 'newbike' && milestone.kind !== 'none') {
+      const { next, champ, sponsor, sponsorName } = newBike!;
+      const won = text(left, y0, newBike!.won, 17, COLORS.cream);
+      // Each line sits under the one before by its real height, so wrapped text never runs into the buttons (Boss, 31 Oct 2026).
+      const below = won.y + won.height + 8;
+      if (milestone.kind === 'needLevel') {
+        text(left, below, newBike!.more, 15, COLORS.muted);
+      } else {
+        const collect = (brand: string, price: number) => inner(() => {
+          const name = bikes.brands.find((b) => b.id === brand)?.name ?? brand;
+          this.confirm(
+            `Take the ${name} ${next.name}${price ? ` for ${formatMoney(price)}` : ', free from the champion\'s sponsor'}?\nYour ${className(bikes, career.bike.class)} retires to the display as it is, parts and all. Spares for it stay in your bag to sell.`,
+            'Take it',
+            () => {
+              const r = collectBike(bikes, services.content.championships, career, this.flags, brand, price);
+              // The champion's offer brings the sponsor's kit too, up to Area 4 (Boss, 31 Oct 2026).
+              const kit = r.ok && !price && champ && this.rider ? championsKit(services.content.house, champ) : null;
+              const given = kit ? awardOutfit(kit, this.rider!) : null;
+              done(given?.ok ? { ...r, message: `${r.message} ${given.message}` } : r, 'buy');
+            },
+            () => reopen(),
+          );
+        });
+        const offer = text(left, below, newBike!.more, 15, COLORS.muted);
+        const freeY = offer.y + offer.height + 16 + 21;
+        c.add(button(this, left + 160, freeY, `${sponsorName} ${next.name}: free`, () => collect(sponsor, 0), 320, 42));
+        const price = stockBikePrice(shops, bikes, next.id);
+        bikes.brands.forEach((b, i) => {
+          const by = freeY + 21 + 18 + 20 + i * 46;
+          const btn = button(this, left + 160, by, `${b.name}: ${formatMoney(price)}`, () => collect(b.id, price), 320, 40);
+          btn.setEnabled(career.money >= price);
+          c.add(btn);
+          line(left + 340, by, b.character, 13, COLORS.muted, w / 2 - 40 - (left + 340)).setOrigin(0, 0.5);
+        });
+      }
+    } else if (tab === 'tools') {
+      const data = services.content.tools;
+      data.sets.forEach((set, i) => {
+        const y = y0 - 6 + i * toolRowH;
+        const owned = ownedVersion(career, set);
+        const next = nextVersion(career, this.flags, set);
+        const head = line(left, y + 2, set.name, 16, COLORS.cream, 300);
+        line(left, y + 4 + head.displayHeight, `${set.slots.map((sl) => slotName(bikes, sl)).join(', ')}. ${owned ? `Yours: ${owned.name}, up to Grade ${owned.grade}.` : 'None yet.'}`, 13, COLORS.muted, 390);
+        if (!next) return void line(left + 410, y + 10, 'The best there are.', 14, COLORS.muted, 300);
+        const price = pence(next.version.price);
+        const b = button(this, left + 515, y + 20, next.open ? `${owned ? 'Upgrade' : 'Buy'} ${formatMoney(price)}` : `Area ${next.version.area}`, () => inner(() => {
+          this.confirm(`${next.version.name} for ${formatMoney(price)}?\nRepairs up to Grade ${next.version.grade}${owned ? `, replacing your ${owned.name.toLowerCase()}` : ''}. Yours for good.`, 'Buy', () => done(buyTools(career, this.flags, set), 'tools'), () => reopen('tools'));
+        }), 230, 40);
+        b.setEnabled(next.open && career.money >= price);
+        c.add(b);
+        // Beside the button, not under it, wrapping onto a second line when it needs to.
+        const what = text(left + 645, y + 20, next.open ? `${next.version.name}: Grade ${next.version.grade}` : `${next.version.name} come with Area ${next.version.area}`, 13, COLORS.muted, w / 2 - 28 - (left + 645));
+        what.setY(y + 20 - Math.min(what.height, 60) / 2);
+        if (what.height > 60) what.setScale(60 / what.height);
+      });
+      footNote();
     } else {
       const fee = pence(shop.fitFee ?? 0);
       if (!spareRows.length) text(left, y0, 'You have no spare parts to fit. Buy one as a spare at a parts shop.', 16, COLORS.muted);
@@ -1118,8 +1393,17 @@ export class HudScene extends Phaser.Scene {
         const y = y0 + k * 46;
         line(left, y + 6, `G${p.grade} ${bikes.slots.find((s) => s.id === p.slot)?.name ?? p.slot} · ${Math.round(p.condition * 100)}%`, 16, COLORS.cream, 300);
         line(left + 310, y + 6, `Replaces your ${yours(p.slot)}`, 14, COLORS.muted, w / 2 - 200 - (left + 310));
-        const b = button(this, w / 2 - 110, y + 16, fee ? `Fit ${formatMoney(fee)}` : 'Fit', () => done(fitSpare(shops, bikes, shop, career, i), 'fit', pg), 170, 38);
-        b.setEnabled(!!p.owner || (career.money >= fee && p.class === cls));
+        const diyProblem = shop.diy ? diyFitProblem(services.content.tools, career, p) : null;
+        const b = button(this, w / 2 - 110, y + 16, fee ? `Fit ${formatMoney(fee)}` : 'Fit', () => {
+          const r = fitSpare(shops, bikes, shop, career, i);
+          if (r.ok && shop.diy) {
+            const set = toolsFor(services.content.tools, career, p.slot)!.set;
+            for (const u of addXp(services.content.skills, career.skills, { [set.skill]: services.content.tools.xp.fit })) this.toast(`Level up! ${u.name} is now level ${u.level}.`);
+          }
+          done(r, 'fit', pg);
+        }, 170, 38);
+        b.setEnabled(!diyProblem && (!!p.owner || (career.money >= fee && p.class === cls)));
+        if (diyProblem) line(left + 310, y + 26, diyProblem, 12, COLORS.accent, w / 2 - 200 - (left + 310));
         c.add(b);
       });
     }

@@ -51,7 +51,7 @@ export class Character {
 
   constructor(
     private readonly scene: Phaser.Scene,
-    readonly sheet: string,
+    public sheet: string,
     tile: Tile,
     facing: Facing = 'down',
   ) {
@@ -109,6 +109,16 @@ export class Character {
 
   idle(): void {
     this.sprite.play(`${this.sheet}:idle-${this.facing}`, true);
+  }
+
+  /** A change of clothes (core/house.ts): the same character on another sheet. */
+  setSheet(sheet: string): void {
+    if (sheet === this.sheet) return;
+    ensureAnims(this.scene, sheet);
+    this.sheet = sheet;
+    this.sprite.stop();
+    this.sprite.setTexture(`chr:${sheet}:act`, 0);
+    if (!this.moving) this.idle();
   }
 
   /** The reach frame, used while talking or using something. */

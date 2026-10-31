@@ -3,6 +3,7 @@ import type { BikesData, ItemDef, StoryData, WorldData } from './career';
 import { Grid } from './grid';
 import { objectTile, type BakedMap, type Facing } from './mapTypes';
 import { ROUTE } from './travel';
+import { venueMapFor } from './guides';
 import type { RacingData } from './race';
 import { TRACK_PARTS_SCHEMA, checkTrackParts, type TrackPartsData } from './trackParts';
 import { CHAMPIONSHIPS_SCHEMA, checkChampionships, type ChampionshipsData } from './championship';
@@ -10,12 +11,19 @@ import { RACING_SCHEMA, RIDERS_SCHEMA, SKILLS_SCHEMA, TRACKS_SCHEMA, checkRaceCo
 import { riderPools, type RidersData, type RidersFile, type TracksData } from './raceDay';
 import { SHOPS_SCHEMA, checkShopContent, type ShopsData } from './shops';
 import type { SkillsData } from './skills';
-import { VEHICLES_SCHEMA, checkVehicles, type VanSheet, type VehiclesData } from './vehicles';
+import { VEHICLES_SCHEMA, checkVehicles, sheetFor, type VanSheet, type VehiclesData } from './vehicles';
 import { MOD_PLACE } from './modTracks';
 import { ERRANDS_SCHEMA, checkErrands, type ErrandsData } from './errands';
 import { TRAINING_SCHEMA, checkTraining, type TrainingData } from './training';
 import { CHALLENGES_SCHEMA, checkChallenges, type ChallengesData } from './challenge';
 import { WORLD_MAP_SCHEMA, checkWorldMap } from './worldMap';
+import { TOOLS_SCHEMA, checkTools, type ToolsData } from './tools';
+import { JOB_BOARD_SCHEMA, checkJobBoard, type JobBoardData } from './jobBoard';
+import { AREAS_SCHEMA, checkAreas, type AreasData } from './areas';
+import { SETUP_SCHEMA, checkSetup, type SetupData } from './setup';
+import { MODIFIERS_SCHEMA, checkModifiers, type ModifiersData } from './modifiers';
+import { HOUSE_SCHEMA, checkHouse, type HouseData } from './house';
+import { SPONSORS_SCHEMA, checkSponsors, type SponsorsData } from './sponsors';
 import { validate, type ContentError, type Schema } from './validate';
 
 // Game content loaded from public/data. Each file is checked against its schema, then the files
@@ -74,6 +82,13 @@ export interface Content {
   errands: ErrandsData;
   training: TrainingData;
   challenges: ChallengesData;
+  tools: ToolsData;
+  jobboard: JobBoardData;
+  areas: AreasData;
+  setup: SetupData;
+  modifiers: ModifiersData;
+  house: HouseData;
+  sponsors: SponsorsData;
 }
 
 export interface Manifest {
@@ -163,7 +178,15 @@ export const BIKES_SCHEMA: Schema = {
       minItems: 1,
       items: { type: 'object', optional: ['engine'], fields: { id: { type: 'string', pattern: ID }, name: { type: 'string', nonEmpty: true }, weights: WEIGHTS, engine: { type: 'boolean' } } },
     },
-    classes: { type: 'array', minItems: 1, items: { type: 'object', fields: { id: { type: 'string', pattern: ID }, name: { type: 'string', nonEmpty: true }, ceiling: { type: 'number', min: 1 } } } },
+    classes: {
+      type: 'array',
+      minItems: 1,
+      items: {
+        type: 'object',
+        optional: ['unlock', 'youth', 'mapImage'],
+        fields: { id: { type: 'string', pattern: ID }, name: { type: 'string', nonEmpty: true }, ceiling: { type: 'number', min: 1 }, unlock: { type: 'number', integer: true, min: 1, max: 99 }, youth: { type: 'boolean' }, mapImage: { type: 'string', pattern: ID } },
+      },
+    },
     starter: {
       type: 'object',
       fields: {
@@ -206,22 +229,7 @@ export const ITEMS_SCHEMA: Schema = {
 
 const IDS: Schema = { type: 'array', items: { type: 'string', pattern: ID } };
 
-export const STORY_SCHEMA: Schema = {
-  type: 'object',
-  optional: ['note', 'after'],
-  fields: {
-    note: { type: 'string' },
-    startMoney: { type: 'number', min: 0 },
-    intro: { type: 'string', pattern: ID },
-    done: { type: 'string', nonEmpty: true },
-    after: {
-      type: 'array',
-      items: { type: 'object', optional: ['if', 'unless', 'talk'], fields: { if: { type: 'string', pattern: ID }, unless: { type: 'string', pattern: ID }, text: { type: 'string', nonEmpty: true }, talk: { type: 'string', pattern: ID } } },
-    },
-    steps: {
-      type: 'array',
-      minItems: 1,
-      items: {
+const STORY_STEP_SCHEMA: Schema = {
         type: 'object',
         optional: ['times', 'needs', 'notReady', 'earn', 'markVan', 'confirm', 'lines', 'effects', 'toast'],
         fields: {
@@ -229,17 +237,34 @@ export const STORY_SCHEMA: Schema = {
           journal: { type: 'string', nonEmpty: true },
           on: { type: 'object', optional: ['talk', 'use', 'map'], fields: { talk: { type: 'string', pattern: ID }, use: { type: 'string', pattern: ID }, map: { type: 'string', pattern: ID } } },
           times: { type: 'number', integer: true, min: 1 },
-          needs: { type: 'object', optional: ['money', 'items'], fields: { money: { type: 'number', min: 0 }, items: IDS } },
+          needs: { type: 'object', optional: ['money', 'items', 'skills'], fields: { money: { type: 'number', min: 0 }, items: IDS, skills: { type: 'record', values: { type: 'number', integer: true, min: 1, max: 99 } } } },
           notReady: { type: 'string', pattern: ID },
           markVan: { type: 'string', pattern: ID },
           earn: { type: 'object', fields: { use: { type: 'string', pattern: ID }, maps: { type: 'array', minItems: 1, items: { type: 'string', pattern: ID } } } },
           confirm: { type: 'string', nonEmpty: true },
           lines: { type: 'string', pattern: ID },
-          effects: { type: 'object', optional: ['money', 'give', 'take', 'fit', 'flags'], fields: { money: NUM, give: IDS, take: IDS, fit: { type: 'string', pattern: ID }, flags: IDS } },
+          effects: { type: 'object', optional: ['money', 'give', 'take', 'fit', 'flags', 'giveParts'], fields: { money: NUM, give: IDS, take: IDS, fit: { type: 'string', pattern: ID }, flags: IDS, giveParts: { type: 'array', items: { type: 'object', optional: ['mods'], fields: { slot: { type: 'string', pattern: ID }, grade: { type: 'number', integer: true, min: 1, max: 10 }, condition: { type: 'number', min: 0, max: 1 }, mods: { type: 'array', items: { type: 'object', fields: { type: { type: 'string', pattern: ID }, value: { type: 'number', integer: true, min: -5, max: 5 } } } } } } } } },
           toast: { type: 'string', nonEmpty: true },
         },
-      },
+      };
+
+export const STORY_SCHEMA: Schema = {
+  type: 'object',
+  optional: ['note', 'after', 'chains'],
+  fields: {
+    note: { type: 'string' },
+    startMoney: { type: 'number', min: 0 },
+    chains: {
+      type: 'array',
+      items: { type: 'object', fields: { id: { type: 'string', pattern: ID }, needs: { type: 'string', pattern: ID }, steps: { type: 'array', minItems: 1, items: STORY_STEP_SCHEMA } } },
     },
+    intro: { type: 'string', pattern: ID },
+    done: { type: 'string', nonEmpty: true },
+    after: {
+      type: 'array',
+      items: { type: 'object', optional: ['if', 'unless', 'talk'], fields: { if: { type: 'string', pattern: ID }, unless: { type: 'string', pattern: ID }, text: { type: 'string', nonEmpty: true }, talk: { type: 'string', pattern: ID } } },
+    },
+    steps: { type: 'array', minItems: 1, items: STORY_STEP_SCHEMA },
   },
 };
 
@@ -256,7 +281,7 @@ export const WORLD_SCHEMA: Schema = {
     },
     places: {
       type: 'array',
-      items: { type: 'object', optional: ['spawn', 'mods'], fields: { map: { type: 'string', pattern: ID }, spawn: { type: 'string', pattern: ID }, name: { type: 'string', nonEmpty: true }, note: { type: 'string' }, mods: { type: 'boolean' } } },
+      items: { type: 'object', optional: ['spawn', 'mods', 'needs'], fields: { map: { type: 'string', pattern: ID }, spawn: { type: 'string', pattern: ID }, name: { type: 'string', nonEmpty: true }, note: { type: 'string' }, mods: { type: 'boolean' }, needs: { type: 'string', pattern: ID } } },
     },
     routes: {
       type: 'array',
@@ -266,7 +291,7 @@ export const WORLD_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['needs'],
+        optional: ['needs', 'facility', 'facilityBonus', 'keeps'],
         fields: {
           id: { type: 'string', pattern: ID },
           name: { type: 'string', nonEmpty: true },
@@ -276,10 +301,17 @@ export const WORLD_SCHEMA: Schema = {
           batch: { type: 'number', integer: true, min: 1 },
           pay: { type: 'number', min: 0 },
           needs: { type: 'string', pattern: ID },
+          facility: { type: 'string', pattern: ID },
+          facilityBonus: { type: 'number', min: 0, max: 1.5 },
+          keeps: { type: 'array', minItems: 1, items: { type: 'string', pattern: ID } },
           stations: {
             type: 'array',
             minItems: 1,
-            items: { type: 'object', fields: { object: { type: 'string', nonEmpty: true }, label: { type: 'string', nonEmpty: true }, ms: { type: 'number', integer: true, min: 0 } } },
+            items: {
+              type: 'object',
+              optional: ['xp'],
+              fields: { object: { type: 'string', nonEmpty: true }, label: { type: 'string', nonEmpty: true }, ms: { type: 'number', integer: true, min: 0 }, xp: { type: 'record', values: { type: 'number', min: 0 } } },
+            },
           },
         },
       },
@@ -306,6 +338,13 @@ export const CONTENT_FILES = {
   errands: 'data/errands.json',
   training: 'data/training.json',
   challenges: 'data/challenges.json',
+  tools: 'data/tools.json',
+  jobboard: 'data/jobboard.json',
+  areas: 'data/areas.json',
+  setup: 'data/setup.json',
+  modifiers: 'data/modifiers.json',
+  house: 'data/house.json',
+  sponsors: 'data/sponsors.json',
 } as const;
 
 export type RawContent = Record<keyof typeof CONTENT_FILES, unknown>;
@@ -329,6 +368,13 @@ const SCHEMAS: Record<keyof typeof CONTENT_FILES, Schema> = {
   errands: ERRANDS_SCHEMA,
   training: TRAINING_SCHEMA,
   challenges: CHALLENGES_SCHEMA,
+  tools: TOOLS_SCHEMA,
+  jobboard: JOB_BOARD_SCHEMA,
+  areas: AREAS_SCHEMA,
+  setup: SETUP_SCHEMA,
+  modifiers: MODIFIERS_SCHEMA,
+  house: HOUSE_SCHEMA,
+  sponsors: SPONSORS_SCHEMA,
 };
 
 /** Checks raw file contents and returns the typed content, or every problem found. */
@@ -364,6 +410,13 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
     errands: raw.errands as ErrandsData,
     training: raw.training as TrainingData,
     challenges: raw.challenges as ChallengesData,
+    tools: raw.tools as ToolsData,
+    jobboard: raw.jobboard as JobBoardData,
+    areas: raw.areas as AreasData,
+    setup: raw.setup as SetupData,
+    modifiers: raw.modifiers as ModifiersData,
+    house: raw.house as HouseData,
+    sponsors: raw.sponsors as SponsorsData,
   };
   const file = CONTENT_FILES.npcs;
   const seen = new Set<string>();
@@ -386,20 +439,32 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
   errors.push(...checkCareerContent(content, maps));
   content.tracks.venues.forEach((v, i) => {
     if (v.track && drafts.has(v.track)) errors.push({ file: CONTENT_FILES.tracks, field: `venues[${i}].track`, message: `"${v.track}" (${drafts.get(v.track)}) is unfinished; mark it Ready to race in the track editor first` });
+    // One venue map per track type (Boss, 30 Oct 2026): a race venue is on its track's type's map.
+    const kind = v.track && !v.practiceOnly ? content.tracks.tracks.find((t) => t.id === v.track)?.kind : undefined;
+    const map = kind && venueMapFor(kind);
+    if (map && v.map !== map) errors.push({ file: CONTENT_FILES.tracks, field: `venues[${i}].map`, message: `"${v.map}": a ${kind} track races at ${map} (one venue per track type)` });
   });
   errors.push(...checkRaceContent(content, maps));
   errors.push(...checkChampionships(content.championships, content));
   errors.push(...checkErrands(CONTENT_FILES.errands, content.errands, { ...content, consumables: content.shops.consumables }));
-  errors.push(...checkTraining(CONTENT_FILES.training, content.training, content));
+  errors.push(...checkTraining(CONTENT_FILES.training, content.training, content, maps));
   errors.push(...checkChallenges(CONTENT_FILES.challenges, content.challenges, content, new Set(maps.keys())));
   if (content.world.worldMap) errors.push(...checkWorldMap(CONTENT_FILES.world, content.world.worldMap, maps));
   // Tile art isn't listed at run time; tests check it exists (tests/tracks.test.ts).
   errors.push(...checkTrackParts(content.trackParts, content.tracks.tracks, () => true));
   errors.push(...checkShopContent(CONTENT_FILES.shops, content.shops, content.bikes, seen, maps));
+  errors.push(...checkTools(CONTENT_FILES.tools, content.tools, content.bikes, content.skills));
+  errors.push(...checkAreas(CONTENT_FILES.areas, content.areas, { fields: content.riders.fields, chains: (content.story.chains ?? []).map((c) => c.id), designs: content.vehicles.designs.map((d) => d.id), npcs: content.npcs.map((n) => n.id), weather: Object.keys(content.racing.weather ?? {}) }, maps));
+  errors.push(...checkJobBoard(CONTENT_FILES.jobboard, content.jobboard, maps));
+  errors.push(...checkSetup(CONTENT_FILES.setup, content.setup, { slots: content.bikes.slots.map((x) => x.id), sections: Object.keys(content.racing.sections) }));
+  errors.push(...checkSponsors(CONTENT_FILES.sponsors, content.sponsors));
+  errors.push(...checkHouse(CONTENT_FILES.house, content.house, { sheets: Object.keys(manifest.characters.sheets), shops: content.shops.shops.map((s) => s.id) }));
+  errors.push(...checkModifiers(CONTENT_FILES.modifiers, content.modifiers, { slots: content.bikes.slots.map((x) => x.id), sections: Object.keys(content.racing.sections), weather: Object.keys(content.racing.weather ?? {}), maps }));
   errors.push(...checkVehicles(CONTENT_FILES.vehicles, raw.vehicles, maps).errors);
   errors.push(...checkBuildings(content.buildings, maps));
   content.vehicles.designs.forEach((d, i) => {
-    if (!manifest.vehicles?.[d.id]) errors.push({ file: CONTENT_FILES.vehicles, field: `designs[${i}].id`, message: `no van sheet for "${d.id}" in the manifest (run tools/import-art.mjs --vehicles)` });
+    if (!sheetFor(manifest.vehicles, d)) errors.push({ file: CONTENT_FILES.vehicles, field: `designs[${i}].id`, message: `no van sheet for "${d.id}" in the manifest (run tools/import-art.mjs --vehicles)` });
+    if (d.artOf && !manifest.vehicles?.[d.artOf]) errors.push({ file: CONTENT_FILES.vehicles, field: `designs[${i}].artOf`, message: `no van sheet for "${d.artOf}" in the manifest` });
   });
   return { content, errors };
 }
@@ -425,6 +490,10 @@ function checkCareerContent(c: Content, maps: Map<string, BakedMap>): ContentErr
     if (Math.abs(total - bikes.stats.length) > 0.001) err(CONTENT_FILES.bikes, `brands[${i}].lean`, `adds up to ${total.toFixed(3)}, not ${bikes.stats.length}, so one brand would be better overall`);
   });
   if (!bikes.classes.some((k) => k.id === bikes.starter.class)) err(CONTENT_FILES.bikes, 'starter.class', `no class "${bikes.starter.class}"`);
+  bikes.classes.forEach((k, i) => {
+    if (i > 0 && (k.unlock ?? 1) < (bikes.classes[i - 1].unlock ?? 1)) err(CONTENT_FILES.bikes, `classes[${i}].unlock`, `${k.name} unlocks below the class before it`);
+    if (k.mapImage && !bikes.classes.some((o) => o.id === k.mapImage && !o.mapImage)) err(CONTENT_FILES.bikes, `classes[${i}].mapImage`, `no class "${k.mapImage}" with a picture of its own`);
+  });
   if (!slotIds.has(bikes.starter.brokenSlot)) err(CONTENT_FILES.bikes, 'starter.brokenSlot', `no slot "${bikes.starter.brokenSlot}"`);
 
   for (const [id, item] of Object.entries(c.items)) {
@@ -443,8 +512,12 @@ function checkCareerContent(c: Content, maps: Map<string, BakedMap>): ContentErr
   const lines = (field: string, id: string | undefined) => id && !c.dialogue[id] && err(CONTENT_FILES.story, field, `no dialogue "${id}" in ${CONTENT_FILES.dialogue}`);
   lines('intro', story.intro);
   story.after?.forEach((a, i) => a.talk && !npcIds.has(a.talk) && err(CONTENT_FILES.story, `after[${i}].talk`, `no NPC "${a.talk}"`));
-  story.steps.forEach((s, i) => {
-    const at = (f: string) => `steps[${i}].${f}`;
+  const chainSteps = (story.chains ?? []).flatMap((c, k) => c.steps.map((s, i) => ({ s, at: (f: string) => `chains[${k}].steps[${i}].${f}` })));
+  (story.chains ?? []).forEach((c, k) => {
+    if (!c.needs.startsWith('area.')) err(CONTENT_FILES.story, `chains[${k}].needs`, `a chain starts with an area's open flag (area.N.open), not "${c.needs}"`);
+    if (story.chains!.findIndex((x) => x.id === c.id) !== k) err(CONTENT_FILES.story, `chains[${k}].id`, `"${c.id}" is used twice`);
+  });
+  [...story.steps.map((s, i) => ({ s, at: (f: string) => `steps[${i}].${f}` })), ...chainSteps].forEach(({ s, at }) => {
     if (!!s.on.talk === !!s.on.use) err(CONTENT_FILES.story, at('on'), 'needs exactly one of talk or use');
     if (s.on.talk && !npcIds.has(s.on.talk)) err(CONTENT_FILES.story, at('on.talk'), `no NPC "${s.on.talk}"`);
     if (s.on.use) {
@@ -495,9 +568,14 @@ function checkCareerContent(c: Content, maps: Map<string, BakedMap>): ContentErr
       if (o.type === 'exit' && o.props.to === ROUTE && !world.routes.some((r) => r.map === m.id && r.exit === o.name)) err(CONTENT_FILES.world, 'routes', `the exit "${o.name}" on ${m.id} leads to a choice of places, but no route lists them`);
     }
   }
+  const childSkills = new Set(c.skills.leads.flatMap((l) => l.children.map((ch) => ch.id)));
   world.jobs.forEach((j, i) => {
     objectOn(`jobs[${i}].start`, j.map, j.start);
-    j.stations.forEach((s, k) => objectOn(`jobs[${i}].stations[${k}].object`, j.map, s.object));
+    j.stations.forEach((s, k) => {
+      objectOn(`jobs[${i}].stations[${k}].object`, j.map, s.object);
+      for (const skill of Object.keys(s.xp ?? {})) if (!childSkills.has(skill)) err(CONTENT_FILES.world, `jobs[${i}].stations[${k}].xp.${skill}`, `no child skill "${skill}"`);
+    });
+    j.keeps?.forEach((slot, k) => !slotIds.has(slot) && err(CONTENT_FILES.world, `jobs[${i}].keeps[${k}]`, `no slot "${slot}"`));
   });
   return errors;
 }

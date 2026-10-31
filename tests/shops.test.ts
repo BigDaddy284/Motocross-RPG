@@ -228,7 +228,7 @@ describe('shops on the maps', () => {
     r.shops.shops[1].map = 'int-home-nowhere';
     const { errors } = checkContent(r, loadManifest(), maps);
     expect(errors.map(formatError)).toEqual([
-      'data/shops.json: shops[0].sells.slots[7]: no slot "jetpack"',
+      'data/shops.json: shops[0].sells.slots[8]: no slot "jetpack"',
       'data/shops.json: shops[1].map: no map "int-home-nowhere"',
     ]);
   });

@@ -1,7 +1,12 @@
+import { className, dayClass } from './classes';
 import { bikeProblem, pence, type BikesData, type Bike, type CareerState } from './career';
-import { lapMetres } from './trackGeom';
+import { isSprint, lapMetres } from './trackGeom';
 import { MotoSim, formatTime, gateBonus, mixSeed, seededRng, type Entrant, type RacingData, type RiderResult, type Tactic, type TrackDef } from './race';
-import { addXp, childLevels, type LevelUp, type SkillsData } from './skills';
+import { addXp, childLevels, leadLevel, type LevelUp, type SkillsData } from './skills';
+import { TRICKS_FLAG } from './tricks';
+import { areaOfMap, rollWeather, type AreasData } from './areas';
+import { tuningFactors, type SetupData } from './setup';
+import { modifierFactors, type ModifiersData } from './modifiers';
 import type { RiderStyle } from './riderProfile';
 
 // Race days, practice and venues (Spec 12.2a, 14): who is in the field, gate picks, prize money,
@@ -31,21 +36,38 @@ export interface RidersData {
   fieldSize?: Record<string, number>;
   /** Riders in a field who race every race day it is raced (the Local Champion). */
   regulars?: Record<string, string[]>;
+  /** A field's rider level: every pool rider races at least at it there (AI skill follows the track's area, Boss 31 Oct 2026). */
+  fieldLevel?: Record<string, number>;
 }
 
-/** riders.json as written: each field names its area, and the riders say which areas they race in. */
-export type RidersFile = Omit<RidersData, 'fields'> & { fields: Record<string, { area: number }> };
+/** riders.json as written: each field names its area (and its rider level), and the riders say which areas they race in. */
+export type RidersFile = Omit<RidersData, 'fields' | 'fieldLevel'> & { fields: Record<string, { area: number; level?: number }> };
 
 /** Each field's pool from the riders' areas, in the riders' listed order. */
 export function riderPools(file: RidersFile): RidersData {
   const fields = Object.fromEntries(Object.entries(file.fields).map(([id, f]) => [id, file.riders.filter((r) => r.areas.includes(f.area)).map((r) => r.id)]));
-  return { ...file, fields };
+  const fieldLevel = Object.fromEntries(Object.entries(file.fields).flatMap(([id, f]) => (f.level === undefined ? [] : [[id, f.level]])));
+  return { ...file, fields, fieldLevel };
+}
+
+/**
+ * A rider as they race in a field: at least the field's level where it has one (AI skill follows
+ * the track's area, Boss 31 Oct 2026), so the pool rides to the area while its champions keep the
+ * edge their own level gives them.
+ */
+export function fieldRider(rc: Pick<RaceContent, 'riders'>, field: string | undefined, id: string): CpuRiderDef | undefined {
+  const r = rc.riders.riders.find((x) => x.id === id);
+  const level = field !== undefined ? rc.riders.fieldLevel?.[field] : undefined;
+  return r && level !== undefined && level > r.level ? { ...r, level } : r;
 }
 
 export interface VenueDef {
   id: string;
   name: string;
+  /** The map it is on: its track type's venue map, shared by every track of that type (Boss, 30 Oct 2026; core/guides.ts VENUE_MAPS). */
   map: string;
+  /** The town map of the area the venue belongs to (areas.json): its weather. */
+  town?: string;
   track?: string;
   class?: string;
   field?: string;
@@ -74,6 +96,9 @@ export interface TracksData {
 }
 
 export interface RaceContent {
+  areas?: AreasData;
+  setup?: SetupData;
+  modifiers?: ModifiersData;
   racing: RacingData;
   tracks: TracksData;
   riders: RidersData;
@@ -87,18 +112,22 @@ export const PLAYER_ID = 'player';
 export function venueProblem(rc: RaceContent, venue: VenueDef, career: CareerState, flags: Record<string, boolean>): string | null {
   if (venue.locked) return venue.locked;
   if (venue.needs && !flags[venue.needs]) return 'Not open to you yet.';
+  if (!dayClass(rc.bikes, venue.class, career.bike.class)) return `${className(rc.bikes, venue.class ?? rc.bikes.classes[0].id)} and up only here: your ${className(rc.bikes, career.bike.class)} is too small.`;
   return bikeProblem(rc.bikes, career.bike);
 }
 
+/** The class a race day here runs in for this rider (core/classes.ts dayClass), falling back to the venue's. */
+export const venueClassFor = (rc: RaceContent, venue: VenueDef, career: CareerState): string => dayClass(rc.bikes, venue.class, career.bike.class) ?? venue.class ?? rc.bikes.classes[0].id;
+
 /** Entry fee in pence for a race day here, after the free first race. */
-export function entryFee(rc: RaceContent, venue: VenueDef, flags: Record<string, boolean>): number {
+export function entryFee(rc: RaceContent, venue: VenueDef, flags: Record<string, boolean>, cls = venue.class ?? '50cc'): number {
   if (venue.firstRaceFree && !flags.first_race_done) return 0;
-  return pence(rc.racing.classes[venue.class ?? '50cc'].entry);
+  return pence(rc.racing.classes[cls].entry);
 }
 
-export function practiceFee(rc: RaceContent, venue: VenueDef): number {
+export function practiceFee(rc: RaceContent, venue: VenueDef, cls = venue.class ?? '50cc'): number {
   if (!venue.practiceFeePct) return 0;
-  return pence((rc.racing.classes[venue.class ?? '50cc'].entry * venue.practiceFeePct) / 100);
+  return pence((rc.racing.classes[cls].entry * venue.practiceFeePct) / 100);
 }
 
 /** A CPU rider's fixed bike: the same grade and condition in every slot. */
@@ -113,8 +142,20 @@ export function cpuEntrant(rc: RaceContent, def: CpuRiderDef, cls: string, gate 
   return { id: def.id, name: def.name, tag: def.tag, player: false, skills, bike: cpuBike(rc.bikes, def, cls), tactic: def.tactic, gate, ...(def.style ? { style: def.style } : {}), ...(def.kit ? { kit: def.kit } : {}) };
 }
 
-export function playerEntrant(rc: RaceContent, career: CareerState, name: string, gate = 0): Entrant {
-  return { id: PLAYER_ID, name, player: true, skills: childLevels(rc.skills, career.skills), bike: career.bike, tactic: { message: 'steady' }, gate };
+/** The player as they race. `flags` are the save's: with TRICKS_FLAG set, they whip and scrub by their Rider Ability level (tricks.ts). */
+export function playerEntrant(rc: RaceContent, career: CareerState, name: string, gate = 0, flags: Record<string, boolean> = {}): Entrant {
+  const e: Entrant = { id: PLAYER_ID, name, player: true, skills: childLevels(rc.skills, career.skills), bike: career.bike, tactic: { message: 'steady' }, gate };
+  const rider = rc.skills.leads.find((l) => l.id === 'rider');
+  if (flags[TRICKS_FLAG] && rider) e.riderLevel = leadLevel(rc.skills, career.skills, rider);
+  if (career.setup) e.setup = career.setup;
+  return e;
+}
+
+/** The entrant's section factors with their parts' modifiers multiplied in; unchanged (or still missing) for a bike with none. */
+function withModifiers(data: ModifiersData, e: Entrant, track: TrackDef, weather: string): number[] | undefined {
+  if (!Object.values(e.bike.parts).some((p) => p.mods?.length)) return e.tuning;
+  const m = modifierFactors(data, e.bike.parts, track, weather);
+  return m.map((f, i) => f * (e.tuning?.[i] ?? 1));
 }
 
 export function trackById(rc: RaceContent, id: string): TrackDef {
@@ -195,7 +236,7 @@ export interface QualifyingRecord {
 /** Laps per moto for a race day: by the track's kind where racing.json says (kindLaps), else the class's laps. */
 export function lapsFor(rc: RaceContent, track: TrackDef, cls: string, championship: boolean): number {
   const kind = track.kind ?? 'outdoor';
-  const byKind = rc.racing.kindLaps;
+  const byKind = rc.racing.classes[cls].kindLaps ?? rc.racing.kindLaps;
   return (championship ? byKind?.championship?.[kind] : undefined) ?? byKind?.race?.[kind] ?? rc.racing.classes[cls].laps;
 }
 
@@ -208,8 +249,15 @@ export class RaceDay {
   readonly cls: string;
   readonly laps: number;
   readonly motoCount: number;
-  /** The order riders pick gates for the next moto. */
+  /** The order riders pick gates for the next moto; in an enduro sprint, the order they leave the start line. */
   pickOrder: string[];
+  /**
+   * An enduro sprint (trackGeom.isSprint): a one-lap timed qualifying sets the start order for
+   * moto 1, fastest first, and each moto's results the order for the next. Nobody picks a gate.
+   */
+  readonly sprint: boolean;
+  /** The day's weather (racing.json weather, Spec 10.5), rolled from the venue's area's odds. */
+  readonly weather: string;
   private readonly rng: () => number;
 
   constructor(
@@ -223,13 +271,22 @@ export class RaceDay {
     readonly round?: RoundOptions,
     /** A challenge's own shape (core/challenge.ts): its motos, laps and riders. */
     custom?: { motos: number; laps: number; cpus: CpuRiderDef[] },
+    /** TEST ONLY, REMOVE BEFORE RELEASE (Boss, 30 Oct 2026): no CPU riders, to test ride a track. */
+    alone = false,
   ) {
     this.track = trackById(rc, venue.track!);
-    this.cls = venue.class ?? '50cc';
+    // The rider's own class when it's the venue's or bigger: every CPU rider races a bike of it too.
+    this.cls = dayClass(rc.bikes, venue.class, player.bike.class) ?? venue.class ?? '50cc';
+    this.sprint = isSprint(this.track);
     this.laps = custom?.laps ?? lapsFor(rc, this.track, this.cls, !!round);
     this.motoCount = custom?.motos ?? 2;
     this.rng = seededRng(seed);
-    const cpus = custom?.cpus ?? round?.cpus ?? drawField(rc, venue, seed);
+    this.weather = rollWeather(rc.areas ? areaOfMap(rc.areas, venue.town ?? '') : undefined, this.rng);
+    // The player's setup against this track in today's weather (Spec 8.2); CPU riders ride the default.
+    if (rc.setup && player.setup) player.tuning = tuningFactors(rc.setup, player.setup, player.bike, this.track, (rc.racing.weather?.[this.weather]?.factor ?? 1) > 1);
+    // Part modifiers (Spec 6) on top, for whoever has any (the player: CPU bikes carry none).
+    if (rc.modifiers) for (const e of [player]) e.tuning = withModifiers(rc.modifiers, e, this.track, this.weather);
+    const cpus = alone ? [] : (custom?.cpus ?? round?.cpus ?? drawField(rc, venue, seed));
     this.field = [player, ...cpus.map((d) => cpuEntrant(rc, d, this.cls))];
     this.pickOrder = shuffle(this.field.map((e) => e.id), this.rng);
   }
@@ -327,9 +384,14 @@ export class RaceDay {
     return best;
   }
 
-  /** True while a championship round's qualifying is still to ride. */
+  /** True while a championship round's or a sprint's qualifying is still to ride. */
   get qualifyingDue(): boolean {
-    return !!this.round && !this.qualifying;
+    return (!!this.round || this.sprint) && !this.qualifying;
+  }
+
+  /** A sprint: every rider leaves the start line in the pick order (their gate is their place in it). */
+  private startInPickOrder(): void {
+    this.pickOrder.forEach((id, i) => (this.field.find((e) => e.id === id)!.gate = i));
   }
 
   /**
@@ -337,19 +399,20 @@ export class RaceDay {
    * random order (the day's first pick order); nobody picks a gate for it.
    */
   startQualifying(message: string): MotoSim {
-    const r = this.round!;
-    this.pickOrder.forEach((id, i) => (this.field.find((e) => e.id === id)!.gate = i));
+    this.startInPickOrder();
+    // A sprint qualifies on one timed test, riders leaving in a random order; a round has an out lap first.
     return new MotoSim(this.rc.racing, this.rc.bikes, this.track, this.cls, this.field, {
-      laps: r.qualifyingLaps + 1,
+      laps: this.sprint ? 1 : this.round!.qualifyingLaps + 1,
       motoIndex: 0,
       seed: mixSeed(this.seed, 0x7175616c),
       message,
+      weather: this.rc.racing.weather?.[this.weather],
     });
   }
 
   /** Records qualifying: the order by best timed lap sets moto 1's gate pick order. No points or prize. */
   finishQualifying(sim: MotoSim): QualifyingRecord {
-    const timed = (laps: number[]) => (laps.length > 1 ? Math.min(...laps.slice(1)) : null);
+    const timed = (laps: number[]) => (this.sprint ? (laps[0] ?? null) : laps.length > 1 ? Math.min(...laps.slice(1)) : null);
     const rows = sim.riders.map((r) => ({ r, best: timed(r.lapTimes) }));
     rows.sort((a, b) => (a.best ?? Infinity) - (b.best ?? Infinity) || b.r.laps - a.r.laps || a.r.time - b.r.time || a.r.e.gate - b.r.e.gate);
     const pole = rows[0].best;
@@ -366,7 +429,7 @@ export class RaceDay {
       reason: r.reason,
       gap: best === null ? 'No time' : i === 0 || pole === null ? formatTime(best, 3) : `+${(best - pole).toFixed(3)}s`,
     }));
-    const xp = scaleXp(sim.xp, this.round!.xpTimes);
+    const xp = scaleXp(sim.xp, this.round?.xpTimes ?? 1);
     this.qualifying = { results, xp };
     if (sim.playerBike) this.player.bike = sim.playerBike;
     this.pickOrder = results.map((r) => r.id);
@@ -375,6 +438,7 @@ export class RaceDay {
 
   /** The moto simulation for the next moto. The caller runs it (live or auto-complete). */
   startMoto(message: string, retireAtBroken?: number): MotoSim {
+    if (this.sprint) this.startInPickOrder();
     return new MotoSim(this.rc.racing, this.rc.bikes, this.track, this.cls, this.field, {
       laps: this.laps,
       // Ruts deepen through the day, qualifying counting as one step (Spec 10, Round 111).
@@ -382,6 +446,7 @@ export class RaceDay {
       seed: mixSeed(this.seed, this.motos.length + 1),
       message,
       retireAtBroken,
+      weather: this.rc.racing.weather?.[this.weather],
     });
   }
 
@@ -478,13 +543,26 @@ export function sumXp(...sets: Record<string, number>[]): Record<string, number>
  */
 export function drawField(rc: RaceContent, venue: VenueDef, seed: number): CpuRiderDef[] {
   const id = venue.field ?? '';
-  const pool = (rc.riders.fields[id] ?? []).map((r) => rc.riders.riders.find((x) => x.id === r)!).filter(Boolean);
+  const pool = (rc.riders.fields[id] ?? []).map((r) => fieldRider(rc, id, r)!).filter(Boolean);
   const size = rc.riders.fieldSize?.[id];
   if (size === undefined || size >= pool.length) return pool;
   const always = new Set([...(rc.riders.regulars?.[id] ?? []), ...(venue.regulars ?? [])]);
   const regulars = pool.filter((r) => always.has(r.id));
   const drawn = shuffle(pool.filter((r) => !always.has(r.id)), seededRng(mixSeed(seed, 0x6669656c)));
   return [...regulars, ...drawn].slice(0, Math.max(size, regulars.length));
+}
+
+/**
+ * `n` CPU riders drawn at random (seeded by the day) from the field's whole pool, whatever the
+ * field's usual size: a No-Turn Takedown knockout races 32 (Boss, 30 Oct 2026). The regulars first.
+ */
+export function drawPool(rc: RaceContent, venue: VenueDef, seed: number, n: number): CpuRiderDef[] {
+  const id = venue.field ?? '';
+  const pool = (rc.riders.fields[id] ?? []).map((r) => fieldRider(rc, id, r)!).filter(Boolean);
+  const always = new Set([...(rc.riders.regulars?.[id] ?? []), ...(venue.regulars ?? [])]);
+  const regulars = pool.filter((r) => always.has(r.id));
+  const drawn = shuffle(pool.filter((r) => !always.has(r.id)), seededRng(mixSeed(seed, 0x6b6e6f63)));
+  return [...regulars, ...drawn].slice(0, n);
 }
 
 /** How many CPU riders race a race day here. */
@@ -508,14 +586,17 @@ function shuffle<T>(a: T[], rng: () => number): T[] {
  * the lap: each set off from the gate a share of a lap before the session starts, so the nearest is
  * well clear of the gate when you set off.
  */
-export function practiceSim(rc: RaceContent, venue: VenueDef, player: Entrant, seed: number): MotoSim {
+export function practiceSim(rc: RaceContent, venue: VenueDef, player: Entrant, seed: number, alone = false): MotoSim {
   const track = trackById(rc, venue.track!);
-  const cls = venue.class ?? '50cc';
-  const pool = (rc.riders.fields[venue.field ?? ''] ?? []).map((id) => rc.riders.riders.find((r) => r.id === id)).filter((r): r is CpuRiderDef => !!r);
-  const n = Math.min(venue.practiceRiders ?? 0, pool.length);
+  const cls = dayClass(rc.bikes, venue.class, player.bike.class) ?? venue.class ?? '50cc';
+  const pool = (rc.riders.fields[venue.field ?? ''] ?? []).map((id) => fieldRider(rc, venue.field, id)).filter((r): r is CpuRiderDef => !!r);
+  // TEST ONLY, REMOVE BEFORE RELEASE (Boss, 30 Oct 2026): `alone` sends nobody else out.
+  const n = alone ? 0 : Math.min(venue.practiceRiders ?? 0, pool.length);
   const drawn = shuffle(pool, seededRng(mixSeed(seed, 0x70726163))).slice(0, n);
   // A rough lap time: the lap's length at the class's reference speed.
   const lapSeconds = lapMetres(track) / rc.racing.classes[cls].refSpeed;
   const others = drawn.map((d, i) => ({ ...cpuEntrant(rc, d, cls, i + 1), startAt: -((i + 1) * lapSeconds) / (n + 1) }));
-  return new MotoSim(rc.racing, rc.bikes, track, cls, [{ ...player, gate: 0, startAt: 0 }, ...others], { laps: null, motoIndex: 0, seed, practice: true });
+  const tuned = { ...player, tuning: rc.setup && player.setup ? tuningFactors(rc.setup, player.setup, player.bike, track, false) : player.tuning };
+  const tuning = rc.modifiers ? withModifiers(rc.modifiers, tuned, track, 'dry') : tuned.tuning;
+  return new MotoSim(rc.racing, rc.bikes, track, cls, [{ ...player, gate: 0, startAt: 0, tuning }, ...others], { laps: null, motoIndex: 0, seed, practice: true });
 }
