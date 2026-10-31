@@ -87,3 +87,7 @@ The editor has five modes (keys 1 to 5):
 The lists of track kinds, surfaces, ground tiles and scenery are in `public/data/trackParts.json`, with tile art from `public/assets/art/area-map/tiled/tiles`. Its `sectionEditor` switch shows the section editing tools while the game is in development; Final v1 turns it off (preview with `?final=1`), leaving the layout, surface, ground and scenery editing. The section data and the race simulation work the same either way.
 
 A new track can be raced from the world once a venue in the `venues` list of `tracks.json` points at it. An unchanged file saves back byte for byte. After saving, run `npm test`.
+
+## Models
+
+The **Models** card (or **Models…** in the track editor, or the game with `?models`) lists the race view's objects: the race bike (adult and youth), the race rider and every scenery item that can be swapped. Pick one to see it turning on a 1 m grid with its size and triangle count, then click **Export** to save it as a `.glb` that Blender opens. Change it in Blender, export it as glTF Binary into `public/mods/models/` under the same name to replace it, or under a new name to add a new scenery item, and reload. The page's last list, **Your models**, shows every file in that folder with what it does in the game, or in red why it isn't used. The rules for each type are in [MODELS.md](MODELS.md).

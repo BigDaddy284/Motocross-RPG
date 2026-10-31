@@ -19,7 +19,9 @@ import { FACES_TRACK, flaggerParts, marshalParts, pitCrewParts, starterBox, trac
 import { FIREWORK_LEAD, fireworkShow, fireworksDue, hasFireworks, ROCKET_RISE, type Rocket } from '../core/fireworks';
 import { APPROACH, assignCrews, BOARD_PAST, boardOut, boardText, crewSpot, FLAGGER_ITEM, flagState, PIT_CREW_ITEM } from '../core/finishCrew';
 import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../core/marshal';
-import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
+import { bikeColours, modelFor as bikeKind, raceBikeParts, type RaceLook } from './raceBike';
+import { LOCKED_ITEMS } from '../core/modModels';
+import { BIKE_PAINT, bikeModel, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
 // isometric camera in the spirit of Super Off Road's overhead arcade view. The track is solid
@@ -268,6 +270,8 @@ export class RaceView {
   hasStart = true;
   /** False where nobody races to the line first (qualifying, a No-Turn Takedown's seeding run): no finish fireworks. */
   showFireworks = true;
+  /** Draws items the game's own way, ignoring the models folder, while builtInItem builds one for the models page. */
+  private builtIn = false;
   /** Frame times in ms (whole update, the 3D draw, and handing the picture to Phaser), for the performance check. */
   readonly frameMs: number[] = [];
   readonly renderMs: number[] = [];
@@ -1552,6 +1556,23 @@ export class RaceView {
     return i >= 0 ? i : this.ghostIndex;
   }
 
+  /**
+   * One scenery item built the game's own way (never from the models folder), standing at the
+   * origin at its default size and unturned, in grid units: what the models page exports.
+   */
+  builtInItem(type: string): THREE.Object3D | null {
+    const was = this.builtIn;
+    this.builtIn = true;
+    try {
+      const obj = this.buildItem({ type, x: 0, y: 0, rot: 0 });
+      obj?.position.set(0, 0, 0);
+      obj?.rotation.set(0, 0, 0);
+      return obj;
+    } finally {
+      this.builtIn = was;
+    }
+  }
+
   /** Builds one scenery item as 3D shapes standing on the ground. */
   private buildItem(it: SceneryItem): THREE.Object3D | null {
     // The start official placed as scenery is built with the start (startBoard).
@@ -1566,6 +1587,18 @@ export class RaceView {
     g.position.set(it.x, this.terrainAt(it.x, it.y), it.y);
     g.rotation.y = -(((it.rot ?? 0) * Math.PI) / 180);
     const add = (o: THREE.Object3D) => g.add(o);
+    // Your own model for this item (world/modModels.ts): its size in metres at the item's default
+    // size, stretched with the footprint when an item is placed longer or deeper (a long tyre wall
+    // or line of tape), its height going with the smaller stretch.
+    const custom = this.builtIn || LOCKED_ITEMS.has(it.type) ? null : modModel(it.type);
+    if (custom) {
+      const sx = def ? Math.max(0.1, w / def.w) : 1;
+      const sz = def ? Math.max(0.1, d / def.h) : 1;
+      custom.scale.set(sx, Math.min(sx, sz), sz);
+      add(custom);
+      if (it.rot === undefined && FACES_TRACK.has(it.type) && this.awayFromTrack(it) === 1) g.rotation.y += Math.PI;
+      return g;
+    }
     if (def && it.type === MARSHAL_ITEM) {
       this.marshalFigure(g, it, def);
       return g;
@@ -2247,12 +2280,16 @@ export class RaceView {
     const root = new THREE.Group();
     const body = new THREE.Group();
     root.add(body);
+    // Your own race bike and rider models (world/modModels.ts), painted in this rider's colours.
+    const c0 = bikeColours(color, player, look);
+    const custom = this.builtIn ? { bike: null, rider: null } : { bike: bikeModel(!!look && bikeKind(look.cls) === 'youth'), rider: riderModel() };
+    if (custom.bike) paintModel(custom.bike, { plastics: c0.plastics, frame: c0.frame, plate: c0.plate }, BIKE_PAINT);
     if (look) {
       const all = raceBikeParts(look, BIKE_LENGTH);
       const bikeOnly = raceBikeParts(look, BIKE_LENGTH, { rider: false }).length;
       const g = look.gear;
       const kit = { helmet: g.helmet, visor: g.visor, jersey: g.jersey, pants: g.pants, boot: g.boot, glove: g.glove };
-      return this.finishBike(root, body, all.slice(0, bikeOnly), all.slice(bikeOnly), kit);
+      return this.finishBike(root, body, all.slice(0, bikeOnly), all.slice(bikeOnly), kit, custom);
     }
     const L = BIKE_LENGTH;
     const r = 0.22;
@@ -2293,15 +2330,20 @@ export class RaceView {
     helmet.position.set(0.12, r + 0.98, 0);
     parts.push(helmet);
     piece(0.08, 0.06, 0.18, this.mat(c.visor), 0.24, r + 0.97); // visor
-    return this.finishBike(root, body, parts.slice(0, riderFrom), parts.slice(riderFrom), { helmet: c.helmet, visor: c.visor, jersey: c.torso, pants: c.legs, boot: 0x1c1c22, glove: c.arms });
+    return this.finishBike(root, body, parts.slice(0, riderFrom), parts.slice(riderFrom), { helmet: c.helmet, visor: c.visor, jersey: c.torso, pants: c.legs, boot: 0x1c1c22, glove: c.arms }, custom);
   }
 
-  private finishBike(root: THREE.Group, body: THREE.Group, parts: THREE.Mesh[], riderParts: THREE.Mesh[], kit: Kit): Bike {
+  private finishBike(root: THREE.Group, body: THREE.Group, parts: THREE.Mesh[], riderParts: THREE.Mesh[], kit: Kit, custom: { bike: THREE.Group | null; rider: THREE.Group | null } = { bike: null, rider: null }): Bike {
     // One mesh for the bike and one for the rider, coloured per part, so a field costs two draws each.
-    body.add(this.mergeParts(parts));
+    body.add(custom.bike ?? this.mergeParts(parts));
     const rider = new THREE.Group();
     const seat = new THREE.Vector3(0, 0.55, 0);
-    if (riderParts.length) {
+    if (custom.rider) {
+      paintModel(custom.rider, { helmet: kit.helmet, visor: kit.visor, jersey: kit.jersey, pants: kit.pants, boots: kit.boot, gloves: kit.glove }, RIDER_PAINT);
+      const box = new THREE.Box3().setFromObject(custom.rider);
+      seat.set((box.min.x + box.max.x) / 2, box.min.y + (box.max.y - box.min.y) * 0.35, 0);
+      rider.add(custom.rider);
+    } else if (riderParts.length) {
       const mesh = this.mergeParts(riderParts);
       mesh.geometry.computeBoundingBox();
       const box = mesh.geometry.boundingBox!;

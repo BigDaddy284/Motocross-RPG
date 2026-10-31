@@ -177,6 +177,7 @@ body.final .final-hide { display: none !important; }
   <button id="btnUndo" disabled title="Ctrl+Z">↶ Undo</button>
   <button id="btnRedo" disabled title="Ctrl+Y / Ctrl+Shift+Z">↷ Redo</button>
   <span class="grow"></span>
+  <button id="btnModels" title="Export the race view's objects for Blender, and see your own models">Models…</button>
   <button id="btnHelp">Help</button>
 </header>
 
@@ -679,6 +680,7 @@ function exportTracks(d) {
 // beside the game's own, marked with modFile: their file in public/mods/tracks/ ('' until named).
 // They are saved there, one file each, and never into tracks.json.
 const MOD_DIR = 'mods/tracks';
+const MODEL_DIR = 'mods/models';
 const isMod = (t) => t.modFile !== undefined;
 /** Whether a track is in the list: mod tracks always; the game's own only when Show the game's tracks is ticked (Development), or when there are no mod tracks to show. */
 const shown = (t) => isMod(t) || app.showGame || !app.data.tracks.some(isMod);
@@ -843,6 +845,8 @@ async function openFolder() {
     $('#dirInput').click();
   }
 }
+// The game's models page (src/scenes/ModelsScene.ts): this copy of the game when served, else the published one.
+$('#btnModels').addEventListener('click', () => window.open(/^https?:$/.test(location.protocol) ? new URL('../?models', location.href).href : `${PUBLISHED_GAME}?models`, '_blank'));
 $('#dirInput').addEventListener('change', async (e) => { if (e.target.files.length) await useSource(new ListSource(e.target.files)); });
 
 async function useSource(src) {
@@ -881,6 +885,15 @@ async function useSource(src) {
       t.modFile = file;
       data.tracks.push(t);
       modSaved[file] = modText(t);
+    }
+    // New scenery from the models folder (src/core/modModels.ts), as the game adds it: the dev
+    // server lists each model with its item; opened from disk the editor can't measure them.
+    if (src.http) {
+      try {
+        const r = await fetch(`${src.base}../${MODEL_DIR}/index.json`, { cache: 'no-store' });
+        const models = r.ok ? await r.json() : [];
+        for (const m of Array.isArray(models) ? models : []) if (m?.def && !parts.scenery.some((d) => d.id === m.def.id)) parts.scenery.push(m.def);
+      } catch { /* no models folder */ }
     }
     Object.assign(app, { tracksPath, modDir, modSaved, data, sectionDefs, parts, final, artBase, cur: 0, undo: [], redo: [], savedText: text, play: null, images: new Map() });
     // The editor opens on the mod tracks (the example, and any saved): the game's own four are for
