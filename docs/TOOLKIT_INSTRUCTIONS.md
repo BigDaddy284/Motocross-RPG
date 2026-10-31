@@ -8,7 +8,7 @@ The editors are kept apart from the game as the **Motocross RPG Toolkit**: its f
 
 ### Opening the toolkit as a desktop app (Windows)
 
-Double-click **`Toolkit.cmd`** in the repo's folder. It checks Node.js is installed (and offers the download page if not), runs `npm install` the first time, starts the dev server out of sight and opens the toolkit in Edge or Chrome's app mode: a plain window with no address bar or menus, so none of the editors' shortcuts are taken by the browser (Alt+E, for one, opens the browser's own menu in a normal tab). Closing the window stops the server. If a dev server is already running on port 5173, the window just opens on it. The script is `tools/toolkit.ps1`; the window's browser profile is kept in `.toolkit-browser/`, which git ignores.
+Double-click **`Toolkit.cmd`** in the repo's folder. It checks Node.js is installed (and offers the download page if not), runs `npm install` the first time, starts the dev server out of sight and opens the toolkit in Edge or Chrome's app mode: a plain window with no address bar or menus, so none of the editors' shortcuts are taken by the browser (Alt+E, for one, opens the browser's own menu in a normal tab). Closing the window stops the server. If a dev server is already running (`npm run dev` in a terminal), the window just opens on it; otherwise it starts one on the first free port from 5173 up. The script is `tools/toolkit.ps1`; the window's browser profile is kept in `.toolkit-browser/`, which git ignores.
 
 ## Editing maps
 

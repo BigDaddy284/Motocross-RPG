@@ -5,16 +5,29 @@
 # the editors' shortcuts are never taken by the browser. Closing the window stops the server.
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
-$port = 5173
-$url = "http://localhost:$port/tools/"
+$ports = 5173..5183
+$url = $null
 Add-Type -AssemblyName PresentationFramework
 
 function Say($text, $buttons = 'OK') {
   return [System.Windows.MessageBox]::Show($text, 'Motocross RPG Toolkit', $buttons)
 }
 
-function PortOpen {
-  try { $c = New-Object Net.Sockets.TcpClient; $c.Connect('127.0.0.1', $port); $c.Close(); return $true } catch { return $false }
+# Is the toolkit's own dev server answering on this port? (Asks over HTTP, so it finds the
+# server whether Windows has it on IPv4 or IPv6.)
+function Ours($port) {
+  try {
+    $r = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:$port/tools/index.html" -TimeoutSec 2
+    return ($r.Content -match 'Motocross RPG Toolkit')
+  } catch { return $false }
+}
+
+# Is anything at all listening on this port?
+function Busy($port) {
+  foreach ($addr in '127.0.0.1', '::1') {
+    try { $c = New-Object Net.Sockets.TcpClient; $c.Connect($addr, $port); $c.Close(); return $true } catch {}
+  }
+  return $false
 }
 
 # 1. Node.js (which brings npm).
@@ -31,20 +44,26 @@ if (-not (Test-Path (Join-Path $root 'node_modules'))) {
   if ($p.ExitCode -ne 0) { Say "npm install failed (exit code $($p.ExitCode)). Run 'npm install' in a terminal in $root to see why."; exit 1 }
 }
 
-# 3. The dev server, unless one is already running (then the window just opens on it).
+# 3. The dev server. If one of ours is already running (say, npm run dev in a terminal), the
+#    window just opens on it. Otherwise it starts on the first free port from 5173 up.
 $server = $null
-if (-not (PortOpen)) {
+foreach ($port in $ports) {
+  if (Ours $port) { $url = "http://localhost:$port/tools/"; break }
+  if (Busy $port) { continue }
   $server = Start-Process 'npm.cmd' -ArgumentList 'run', 'dev', '--', '--port', $port, '--strictPort' -WorkingDirectory $root -WindowStyle Hidden -PassThru
   $deadline = (Get-Date).AddSeconds(60)
-  while (-not (PortOpen)) {
+  while (-not (Ours $port)) {
     if ((Get-Date) -gt $deadline -or $server.HasExited) {
-      Say "The dev server didn't start. Run 'npm run dev' in a terminal in $root to see why."
+      Say "The dev server didn't start on port $port. Run 'npm run dev' in a terminal in $root to see why."
       if (-not $server.HasExited) { & taskkill /PID $server.Id /T /F | Out-Null }
       exit 1
     }
     Start-Sleep -Milliseconds 300
   }
+  $url = "http://localhost:$port/tools/"
+  break
 }
+if (-not $url) { Say "Ports 5173 to 5183 are all in use by something else. Close whatever is using them and try again."; exit 1 }
 
 # 4. Edge or Chrome in app mode, with its own profile folder so the window is its own process
 #    (then this script knows when it closes). Falls back to the default browser.
