@@ -21,6 +21,7 @@ import { JOB_BOARD_SCHEMA, checkJobBoard, type JobBoardData } from './jobBoard';
 import { AREAS_SCHEMA, checkAreas, type AreasData } from './areas';
 import { SETUP_SCHEMA, checkSetup, type SetupData } from './setup';
 import { MODIFIERS_SCHEMA, checkModifiers, type ModifiersData } from './modifiers';
+import { HOUSE_SCHEMA, checkHouse, type HouseData } from './house';
 import { validate, type ContentError, type Schema } from './validate';
 
 // Game content loaded from public/data. Each file is checked against its schema, then the files
@@ -84,6 +85,7 @@ export interface Content {
   areas: AreasData;
   setup: SetupData;
   modifiers: ModifiersData;
+  house: HouseData;
 }
 
 export interface Manifest {
@@ -338,6 +340,7 @@ export const CONTENT_FILES = {
   areas: 'data/areas.json',
   setup: 'data/setup.json',
   modifiers: 'data/modifiers.json',
+  house: 'data/house.json',
 } as const;
 
 export type RawContent = Record<keyof typeof CONTENT_FILES, unknown>;
@@ -366,6 +369,7 @@ const SCHEMAS: Record<keyof typeof CONTENT_FILES, Schema> = {
   areas: AREAS_SCHEMA,
   setup: SETUP_SCHEMA,
   modifiers: MODIFIERS_SCHEMA,
+  house: HOUSE_SCHEMA,
 };
 
 /** Checks raw file contents and returns the typed content, or every problem found. */
@@ -406,6 +410,7 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
     areas: raw.areas as AreasData,
     setup: raw.setup as SetupData,
     modifiers: raw.modifiers as ModifiersData,
+    house: raw.house as HouseData,
   };
   const file = CONTENT_FILES.npcs;
   const seen = new Set<string>();
@@ -442,6 +447,7 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
   errors.push(...checkAreas(CONTENT_FILES.areas, content.areas, { fields: content.riders.fields, chains: (content.story.chains ?? []).map((c) => c.id), designs: content.vehicles.designs.map((d) => d.id), npcs: content.npcs.map((n) => n.id), weather: Object.keys(content.racing.weather ?? {}) }, maps));
   errors.push(...checkJobBoard(CONTENT_FILES.jobboard, content.jobboard, maps));
   errors.push(...checkSetup(CONTENT_FILES.setup, content.setup, { slots: content.bikes.slots.map((x) => x.id), sections: Object.keys(content.racing.sections) }));
+  errors.push(...checkHouse(CONTENT_FILES.house, content.house, { sheets: Object.keys(manifest.characters.sheets), shops: content.shops.shops.map((s) => s.id) }));
   errors.push(...checkModifiers(CONTENT_FILES.modifiers, content.modifiers, { slots: content.bikes.slots.map((x) => x.id), sections: Object.keys(content.racing.sections), weather: Object.keys(content.racing.weather ?? {}), maps }));
   errors.push(...checkVehicles(CONTENT_FILES.vehicles, raw.vehicles, maps).errors);
   errors.push(...checkBuildings(content.buildings, maps));

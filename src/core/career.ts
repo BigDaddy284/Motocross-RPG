@@ -205,6 +205,8 @@ export interface CareerState {
   tools?: Record<string, string>;
   /** Bike setup (core/setup.ts): a preset or the rider's own slider values, once they have touched it. */
   setup?: SetupState;
+  /** Spare parts in the house storage chest (core/house.ts), shared by every house. */
+  storage?: SparePart[];
 }
 
 export const pence = (pounds: number) => Math.round(pounds * 100);

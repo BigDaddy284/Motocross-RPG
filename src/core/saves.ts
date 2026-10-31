@@ -15,7 +15,7 @@ export interface SaveData {
   version: number;
   /** Real-world time of the save, for the Load screen only; the game has no clock. */
   savedAt: string;
-  rider: { name: string; look: string };
+  rider: { name: string; look: string; startLook?: string; outfits?: string[] };
   position: { map: string; x: number; y: number; facing: Facing };
   flags: Record<string, boolean>;
   stats: { playSeconds: number };
@@ -201,7 +201,7 @@ function isSaveData(o: Record<string, unknown>): o is SaveData & Record<string, 
   const r = o.rider as Record<string, unknown> | undefined;
   return (
     typeof o.savedAt === 'string' &&
-    !!r && typeof r.name === 'string' && typeof r.look === 'string' &&
+    !!r && typeof r.name === 'string' && typeof r.look === 'string' && (r.startLook === undefined || typeof r.startLook === 'string') && (r.outfits === undefined || (Array.isArray(r.outfits) && r.outfits.every((o) => typeof o === 'string'))) &&
     !!p && typeof p.map === 'string' && Number.isInteger(p.x) && Number.isInteger(p.y) &&
     ['down', 'left', 'right', 'up'].includes(p.facing as string) &&
     typeof o.flags === 'object' && o.flags !== null &&
@@ -234,6 +234,7 @@ function isCareer(v: unknown): boolean {
     (c.setup === undefined || (typeof c.setup === 'object' && c.setup !== null && ((c.setup as Record<string, unknown>).preset === null || typeof (c.setup as Record<string, unknown>).preset === 'string') && typeof (c.setup as Record<string, unknown>).sliders === 'object' && (c.setup as Record<string, unknown>).sliders !== null && Object.values((c.setup as Record<string, unknown>).sliders as Record<string, unknown>).every((v) => typeof v === 'number' && v >= -1 && v <= 1))) &&
     (c.retired === undefined || (Array.isArray(c.retired) && c.retired.every((r) => isBike((r as Record<string, unknown>)?.bike) && typeof (r as Record<string, unknown>).milestone === 'string'))) &&
     !!story && Number.isInteger(story.step) && Array.isArray(story.used) &&
+    (c.storage === undefined || (Array.isArray(c.storage) && c.storage.every((p) => isSpare(p as Record<string, unknown>)))) &&
     (c.chains === undefined || (typeof c.chains === 'object' && c.chains !== null && Object.values(c.chains as Record<string, Record<string, unknown>>).every((ch) => Number.isInteger(ch?.step) && Array.isArray(ch?.used)))) &&
     typeof c.counters === 'object' && c.counters !== null &&
     isSkills(c.skills)

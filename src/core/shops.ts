@@ -207,13 +207,13 @@ function swapIn(bikes: BikesData, career: CareerState, slot: string, part: Part)
 export const slotName = (bikes: BikesData, slot: string) => (bikes.slots.find((s) => s.id === slot)?.name ?? slot).toLowerCase();
 
 /** Whether there is room for one more spare after this action, which may free a bag space first. */
-function roomFor(data: ShopsData, career: CareerState, slot: string | null, freed = 0): boolean {
+export function roomFor(data: ShopsData, career: CareerState, slot: string | null, freed = 0): boolean {
   const old = slot ? career.bike.parts[slot] : undefined;
   const adds = slot === null ? 1 : old && old.condition > 0 ? 1 : 0;
   return spareCount(career) - freed + adds <= data.spareLimit;
 }
 
-const fullMessage = (data: ShopsData) => `Your spares are full (${data.spareLimit} parts). Sell or dump some first.`;
+export const fullMessage = (data: ShopsData) => `Your spares are full (${data.spareLimit} parts). Sell or dump some first.`;
 
 /**
  * Pence off a new set of tyres for trading in the set on the bike (Boss, 28 Oct 2026): what the

@@ -1,0 +1,10 @@
+{
+  "note": "The rider's house: the wardrobe and the storage chest (Spec 17; Areas 2 to 8 plan; Boss, 30 Oct 2026: buying the Area 2 Starter terrace unlocks the wardrobe, and with it Phoenix MX's clothing rack; every later house reaches the same shared storage). outfits: what the rack sells, with a character sheet per rider (m or f, from the look chosen at the start); `start` is the rider's own clothes and is always owned. rack: the Phoenix MX shops with a rack, shut until needs is set. storage: spare parts the chest holds, base for one house plus perExtraHouse for every further house bought.",
+  "outfits": [
+    { "id": "start", "name": "Your own clothes", "price": 0, "sheets": {} },
+    { "id": "mxgear", "name": "MX race kit", "price": 60, "sheets": { "m": "player-m-mxgear", "f": "player-f-mxgear" }, "desc": "Full race kit, helmet and all, for walking about in." },
+    { "id": "mx_nohelmet", "name": "MX kit, no helmet", "price": 45, "sheets": { "m": "player-m-mx-nohelmet" }, "desc": "Race kit with the helmet off." }
+  ],
+  "rack": { "needs": "wardrobe", "shops": ["shop.a2.garage", "shop.a3.garage", "shop.a4.garage", "shop.a5.garage", "shop.a6.garage", "shop.a7.garage", "shop.a8.garage"] },
+  "storage": { "base": 10, "perExtraHouse": 10 }
+}

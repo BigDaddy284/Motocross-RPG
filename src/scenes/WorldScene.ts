@@ -19,6 +19,7 @@ import { venueClassFor, entryFee, fieldCount, lapsFor, practiceFee, trackById, v
 import { champProblem, enter, nextRoundVenue, roundEntry, roundsHere, standings, titlePossible, withdraw, type ChampionshipDef } from '../core/championship';
 import { noteActivity, shopForAction, slotName, type ShopDef } from '../core/shops';
 import { machineFee, machineProblem, modsLabel, runMachine } from '../core/modifiers';
+import { buyOutfit, outfitProblem, outfitSheet, ownsOutfit, rackOpen, storageLimit, storeSpare, stored, takeSpare, wearOutfit, wornOutfit } from '../core/house';
 import { errandStage, finishErrand, takeErrand, type ErrandDef } from '../core/errands';
 import { challengeReady, challengeVenue, lossHint, type ChallengeDef } from '../core/challenge';
 import { drillForAction, drillForNpc, drillsAtVenue, finishRound, walked, type DrillDef } from '../core/training';
@@ -423,6 +424,8 @@ export class WorldScene extends Phaser.Scene {
     if (shop && this.openShop(shop.shop, shop.fit ? 'fit' : 'buy')) return;
     if (action === 'storage.tools' && this.openWorkbench()) return;
     if (action === services.content.modifiers.machine.action && this.map.id === services.content.modifiers.machine.map) return this.openMachine();
+    if (action === 'outfit') return this.openWardrobe();
+    if (action === 'storage.parts') return this.openChest();
     const board = action ? services.content.jobboard.boards.find((b) => b.map === this.map.id && b.action === action) : null;
     if (board) return this.openBoard(board);
     const drill = action ? drillForAction(services.content.training, action) : undefined;
@@ -514,6 +517,7 @@ export class WorldScene extends Phaser.Scene {
     if (drill && !rule) return this.say(npc.name, npc.dialogue, () => this.runDrill(drill, back));
     if (!rule && this.offerMotor(npc, back)) return;
     const shop = services.content.shops.shops.find((s) => s.npc === npc.id);
+    if (shop && !rule && services.content.house.rack.shops.includes(shop.id) && (!shop.needs || this.save.flags[shop.needs])) return this.offerRack(npc, shop, back);
     if (shop && !rule && this.openShop(shop, 'buy', back)) return;
     this.say(npc.name, rule?.dialogue ?? npc.dialogue, () => {
       // A one-off talk (the mechanic's advice after the opening chain): said once, then the NPC's usual lines.
@@ -1069,6 +1073,74 @@ export class WorldScene extends Phaser.Scene {
       ...(!mod && this.save.flags[areaFlag(rc.setup.basicArea)] ? [{ label: 'Bike setup', note: 'Set the bike up for this track: a ready-made setup, or your own sliders.', onPick: () => this.openSetup(venue, () => this.openVenue(venue, onClose, mod)) }] : []),
       { label: 'Not now', onPick: onClose },
     ], onClose);
+  }
+
+  // ---- the house: wardrobe, chest and the Phoenix MX clothing rack (core/house.ts; Boss, 30 Oct 2026) ----
+
+  private openWardrobe(): void {
+    const data = services.content.house;
+    const rider = this.save.rider;
+    const back = () => this.player.idle();
+    const worn = wornOutfit(data, rider);
+    const owned = data.outfits.filter((o) => ownsOutfit(rider, o.id) && outfitSheet(o, rider));
+    this.hud.choose('Wardrobe', `Wearing: ${worn.name}. ${owned.length > 1 ? 'Pick something to put on.' : "Nothing else in here yet: Phoenix MX in Mountain Town has a clothing rack."}`, [
+      ...owned.map((o) => ({ label: o.name, note: o.id === worn.id ? 'On now.' : o.desc ?? '', enabled: o.id !== worn.id, onPick: () => {
+        const r = wearOutfit(o, rider);
+        this.hud.toast(r.message);
+        if (r.ok) {
+          this.player.setSheet(rider.look);
+          this.milestoneSave();
+        }
+        back();
+      } })),
+      { label: 'Close', onPick: back },
+    ], back);
+  }
+
+  private openChest(): void {
+    const { house, shops, bikes } = services.content;
+    const career = this.save.career;
+    const back = () => this.player.idle();
+    const limit = storageLimit(house, this.save.flags);
+    const again = () => this.openChest();
+    const label = (p: { grade: number; slot: string; condition: number }) => `G${p.grade} ${slotName(bikes, p.slot)} (${Math.round(p.condition * 100)}%)`;
+    const inBag = career.bag.map((b, i) => ({ part: b.part!, i })).filter((r) => r.part && !r.part.owner);
+    this.hud.choose('Storage chest', `${stored(career).length} of ${limit} parts put away. Every house you buy reaches the same chest${limit ? '' : ': buy one first'}.`, [
+      ...stored(career).map((p, i) => ({ label: `Take out: ${label(p)}`, note: p.mods?.length ? modsLabel(services.content.modifiers, p.mods) : '', onPick: () => { this.hud.toast(takeSpare(shops, career, i).message); again(); } })),
+      ...inBag.map(({ part, i }) => ({ label: `Put away: ${label(part)}`, note: part.mods?.length ? modsLabel(services.content.modifiers, part.mods) : '', enabled: stored(career).length < limit, onPick: () => { this.hud.toast(storeSpare(house, career, i, this.save.flags).message); again(); } })),
+      { label: 'Close', onPick: () => { this.hud.showCareer(career, this.save.flags); this.milestoneSave(); back(); } },
+    ], back);
+  }
+
+  /** Paul's shop in Mountain Town and on: parts and repairs, or the clothing rack by the door. */
+  private offerRack(npc: NpcDef, shop: ShopDef, back: () => void): void {
+    const data = services.content.house;
+    const open = rackOpen(data, this.save.flags);
+    this.hud.choose(npc.name, shop.greeting, [
+      { label: 'Parts and repairs', onPick: () => { if (!this.openShop(shop, 'buy', back)) back(); } },
+      { label: 'Clothing rack', note: open ? 'Race kit to wear about town. Hangs in your wardrobe.' : 'Nothing for sale until you have a wardrobe: buy the Starter terrace in Mountain Town.', enabled: open, onPick: () => this.openRack(npc, shop, back) },
+      { label: 'Not now', onPick: back },
+    ], back);
+  }
+
+  private openRack(npc: NpcDef, shop: ShopDef, back: () => void): void {
+    const data = services.content.house;
+    const career = this.save.career;
+    const rider = this.save.rider;
+    const again = () => this.openRack(npc, shop, back);
+    this.hud.choose('Clothing rack', 'Bought outfits hang in your wardrobe at home: put them on there.', [
+      ...data.outfits.filter((o) => o.id !== 'start').map((o) => {
+        const problem = outfitProblem(data, o, career, rider, this.save.flags);
+        return { label: `${o.name}: ${formatMoney(pence(o.price))}`, note: problem ?? o.desc ?? '', enabled: !problem, onPick: () => {
+          const r = buyOutfit(data, o, career, rider, this.save.flags);
+          this.hud.showCareer(career, this.save.flags);
+          this.hud.toast(r.message);
+          this.milestoneSave();
+          again();
+        } };
+      }),
+      { label: 'Back', onPick: () => this.offerRack(npc, shop, back) },
+    ], back);
   }
 
   // ---- the Modifying Machine (core/modifiers.ts, Spec 6; Boss, 30 Oct 2026: Mad Maggie's, fixed by her quest) ----
