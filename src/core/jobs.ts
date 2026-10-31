@@ -6,11 +6,14 @@ import type { CareerState, JobDef } from './career';
 import type { SkillsData } from './skills';
 import { addXp, childLevel, leadLevel, type LevelUp } from './skills';
 import { SPARE, type SparePart } from './shops';
+import type { Ticket } from './jobBoard';
 
 /** A job the rider has started and not finished: the parts made so far (Spec 15.1, the facility lock). */
 export interface OpenJob {
   job: string;
   made: number;
+  /** A customer repair ticket under way (core/jobBoard.ts), for the job to be rebuilt on return. */
+  ticket?: Ticket;
 }
 
 /** Jobs under way, by facility. Kept on the career, made on the first shift. */
@@ -67,7 +70,8 @@ export interface PassResult {
 export function finishPass(skills: SkillsData, career: CareerState, job: JobDef, payPerPart: number, rng: () => number = Math.random): PassResult {
   const open = startJob(career, job);
   if (!open.ok) return { parts: 0, pay: 0, ups: [], done: false };
-  const parts = rng() < doublePartChance(skills, career) ? 2 : 1;
+  // A double only when the batch has room for it: a one-part ticket is one part.
+  const parts = job.batch - open.open.made > 1 && rng() < doublePartChance(skills, career) ? 2 : 1;
   open.open.made += parts;
   const pay = payPerPart * parts;
   career.money += pay;

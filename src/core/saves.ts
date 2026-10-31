@@ -259,7 +259,11 @@ function isErrandState(v: unknown): boolean {
 function isJobState(v: unknown): boolean {
   const s = v as Record<string, unknown>;
   return typeof s === 'object' && s !== null && typeof s.open === 'object' && s.open !== null &&
-    Object.values(s.open).every((o) => typeof (o as Record<string, unknown>)?.job === 'string' && Number.isInteger((o as Record<string, unknown>).made));
+    Object.values(s.open).every((o) => {
+      const j = o as Record<string, unknown>;
+      const t = j?.ticket as Record<string, unknown> | undefined;
+      return typeof j?.job === 'string' && Number.isInteger(j.made) && (t === undefined || (typeof t.slot === 'string' && Number.isInteger(t.grade) && typeof t.pay === 'number' && typeof t.customer === 'string'));
+    });
 }
 
 function isShopState(v: unknown): boolean {

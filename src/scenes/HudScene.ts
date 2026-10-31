@@ -25,7 +25,7 @@ import type { DialogueLine } from '../core/content';
 import { className, collectBike, milestoneOf, milestoneStatus, sponsorBrand, stockBikePrice } from '../core/classes';
 import { buyTools, diyFitProblem, diyRepair, diyRepairQuote, nextVersion, ownedVersion, toolsFor } from '../core/tools';
 import { repairLent } from '../core/errands';
-import { PACE_BAND, REP_ZONE, goodRep, onPace, type DrillDef } from '../core/training';
+import { PACE_BAND, REP_ZONE, gateHoldMs, gateStart, gateWindowMs, goodRep, onPace, type DrillDef } from '../core/training';
 import { ensureAnims } from '../world/Character';
 import { careerRecords, recordText } from '../core/records';
 import { services } from '../services';
@@ -528,7 +528,7 @@ export class HudScene extends Phaser.Scene {
    * it gave with Again and Done. A round can't be failed: `onFinish` runs for every finished round
    * and returns the lines to show (the XP and any level-ups). Esc or Done leaves.
    */
-  openDrill(drill: DrillDef, who: { player: string; coach?: string }, onFinish: () => string[], onClose: () => void): void {
+  openDrill(drill: DrillDef, who: { player: string; coach?: string; level?: number }, onFinish: () => string[], onClose: () => void): void {
     const { width, height, k } = this.page();
     const w = Math.min(860, width - 32);
     const h = 360;
@@ -577,7 +577,7 @@ export class HudScene extends Phaser.Scene {
       const timeBg = this.add.rectangle(-bw / 2, -h / 2 + 66, bw, 8, COLORS.panelLight).setOrigin(0, 0.5);
       const timeFill = this.add.rectangle(-bw / 2, -h / 2 + 66, bw, 8, COLORS.blue).setOrigin(0, 0.5);
       const label = this.add.text(rx, 80, '', textStyle(this.pts(20), COLORS.cream, { align: 'center' })).setOrigin(0.5);
-      const tip = this.add.text(rx, 120, drill.game === 'reps' ? 'Space or tap' : 'Hold Space or press and hold', textStyle(this.pts(14), COLORS.muted)).setOrigin(0.5);
+      const tip = this.add.text(rx, 120, drill.game === 'pace' ? 'Hold Space or press and hold' : 'Space or tap', textStyle(this.pts(14), COLORS.muted)).setOrigin(0.5);
       // The whole box is the button, so a tap anywhere on it counts.
       const pad = this.add.rectangle(0, 20, w, h - 40, 0, 0.001).setInteractive();
       body.add([pad, vis, timeBg, timeFill, label, tip]);
@@ -645,6 +645,76 @@ export class HudScene extends Phaser.Scene {
           streakText.setText(streak >= 2 ? `Streak x${streak}` : '');
         };
         finish = () => `${good} good reps out of ${tries}.`;
+      } else if (drill.game === 'react') {
+        // The gate drop (core/training.ts): the front wheel at the gate, close up. The gate holds for
+        // a random while, then falls; a press in the window after it is a good start.
+        const level = who.level ?? 1;
+        const window = gateWindowMs(level);
+        const rng = () => Math.random();
+        // Dirt, the gate's frame, the gate bar and the wheel behind it.
+        vis.add(this.add.rectangle(0, 60, 370, 70, 0x7a5a3a));
+        vis.add(this.add.rectangle(0, 95, 370, 20, 0x5e4229));
+        const wheel = this.add.circle(40, 20, 44, 0x1c1c1c).setStrokeStyle(6, 0x3a3a3a);
+        const hub = this.add.circle(40, 20, 14, 0x9a9a9a);
+        const post = this.add.rectangle(-120, 10, 12, 110, 0x8c8c8c);
+        const gate = this.add.rectangle(-40, -25, 170, 14, 0xd9d9d9).setOrigin(0, 0.5);
+        const light = this.add.circle(-120, -60, 10, 0xc0392b);
+        vis.add([wheel, hub, post, gate, light]);
+        const result = this.add.text(rx, -40, '', textStyle(this.pts(22), COLORS.cream, { align: 'center' })).setOrigin(0.5);
+        body.add(result);
+        label.setY(30);
+        let drops = 0;
+        let good = 0;
+        let jumped = 0;
+        let hold = gateHoldMs(rng);
+        let since = -hold;
+        let pressed = false;
+        let settle = 0;
+        const reset = () => {
+          hold = gateHoldMs(rng);
+          since = -hold;
+          pressed = false;
+          gate.setAngle(0);
+          light.setFillStyle(0xc0392b);
+          result.setText('');
+        };
+        const press = () => {
+          if (pressed || settle > 0) return;
+          pressed = true;
+          const how = gateStart(since, level);
+          drops += 1;
+          if (how === 'good') good += 1;
+          if (how === 'jumped') jumped += 1;
+          result.setText(how === 'good' ? `Good start!  ${Math.round(since)} ms` : how === 'jumped' ? 'Jumped it: wait for the drop' : `Slow: ${Math.round(since)} ms`);
+          result.setColor(how === 'good' ? '#9fe07a' : '#e0705a');
+          pop(vis, 40, -60, how === 'good' ? 'Go!' : how === 'jumped' ? 'Too early' : 'Late', how === 'good' ? 0x9fe07a : 0xe0705a);
+          settle = 1100;
+        };
+        pad.on('pointerdown', press);
+        kb.on('keydown-SPACE', press);
+        stop = () => kb.off('keydown-SPACE', press);
+        tick = (dt) => {
+          if (settle > 0) {
+            settle -= dt;
+            if (settle <= 0) reset();
+            return;
+          }
+          since += dt;
+          if (since >= 0) {
+            // The gate falls flat over about a quarter of a second.
+            gate.setAngle(Math.min(90, (since / 250) * 90));
+            light.setFillStyle(0x27ae60);
+            if (!pressed && since > window * 3) {
+              // Missed it altogether: counts as a slow start.
+              drops += 1;
+              result.setText('Asleep at the gate');
+              result.setColor('#e0705a');
+              settle = 900;
+            }
+          }
+          label.setText(`Good starts: ${good} of ${drops}`);
+        };
+        finish = () => `${good} good starts out of ${drops}${jumped ? `, ${jumped} jumped` : ''}.`;
       } else {
         // Holding speeds up, letting go eases off. Inside the green band the rider keeps a steady
         // full pace round the track; outside it they slow, so more green means more laps.

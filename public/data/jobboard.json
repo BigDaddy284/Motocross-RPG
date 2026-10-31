@@ -1,0 +1,16 @@
+{
+  "note": "Customer repair tickets (Spec 3.2, 14.5a; Boss, 30 Oct 2026: the one job board, at Phoenix MX in every area). A ticket is a customer's part to put right, played at the board's stations like a shift (strip, fix, refit, test), never a single click. It pays base plus perGrade for each grade above 1 (£10 to £25 in Area 1, Spec 14.1), gives xpPerStation in the part's Mechanical Engineer skill at every station, and needs the tool set for its slot (data/tools.json) up to its grade. offers tickets are up at a time, fixed until one is finished; one open ticket per board, resumable (core/jobs.ts).",
+  "boards": [
+    {
+      "id": "board.phoenix", "name": "Phoenix MX job board", "map": "int-home-local-garage", "action": "jobs.customer_repairs", "needs": "tutorial_done",
+      "offers": 3, "grades": [1, 3], "pay": { "base": 10, "perGrade": 7.5 }, "xpPerStation": 10,
+      "customers": ["Mrs Patel", "Old Tom", "The Finch kids", "Gary from the yard", "Ruby Lane", "Alfie Ward", "Jeno Rothon", "Grace Moss"],
+      "stations": [
+        { "object": "bike_on_stand", "label": "Strip the part off the customer's bike", "ms": 1000 },
+        { "object": "bench_long", "label": "Fix it on the bench", "ms": 1400 },
+        { "object": "bike_on_stand", "label": "Refit it", "ms": 900 },
+        { "object": "engine_stand", "label": "Test it", "ms": 800 }
+      ]
+    }
+  ]
+}

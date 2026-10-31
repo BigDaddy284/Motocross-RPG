@@ -18,9 +18,11 @@ import { champProblem, enter, nextRoundVenue, roundEntry, roundsHere, standings,
 import { noteActivity, shopForAction, slotName, type ShopDef } from '../core/shops';
 import { errandStage, finishErrand, takeErrand, type ErrandDef } from '../core/errands';
 import { challengeReady, challengeVenue, lossHint, type ChallengeDef } from '../core/challenge';
-import { drillForAction, drillForNpc, finishRound, walked, type DrillDef } from '../core/training';
+import { drillForAction, drillForNpc, drillsAtVenue, finishRound, walked, type DrillDef } from '../core/training';
 import { finishBatch, finishPass, openJobAt, passXp, startJob } from '../core/jobs';
 import { className } from '../core/classes';
+import { ticketJob, ticketProblem, ticketsOffered, type BoardDef, type Ticket } from '../core/jobBoard';
+import { childLevel } from '../core/skills';
 import { leadLevel } from '../core/skills';
 import { challengeWins } from '../core/records';
 import { CAREER_SLOT, services } from '../services';
@@ -417,6 +419,8 @@ export class WorldScene extends Phaser.Scene {
     const shop = action ? shopForAction(services.content.shops, this.map.id, action) : null;
     if (shop && this.openShop(shop.shop, shop.fit ? 'fit' : 'buy')) return;
     if (action === 'storage.tools' && this.openWorkbench()) return;
+    const board = action ? services.content.jobboard.boards.find((b) => b.map === this.map.id && b.action === action) : null;
+    if (board) return this.openBoard(board);
     const drill = action ? drillForAction(services.content.training, action) : undefined;
     if (drill) return this.runDrill(drill);
     // The running track itself: the coach's session (Boss, 29 Oct 2026).
@@ -837,6 +841,42 @@ export class WorldScene extends Phaser.Scene {
     return true;
   }
 
+  /** The customer repair board (core/jobBoard.ts): pick a ticket, or carry on the one under way. */
+  private openBoard(board: BoardDef): void {
+    const career = this.save.career;
+    const { tools, bikes } = services.content;
+    if (board.needs && !this.save.flags[board.needs]) return void this.hud.toast("The job board. Paul will put you on it once you've finished helping out.");
+    const open = career.jobs?.open[board.id];
+    const begin = (job: JobDef, ticket: Ticket) => {
+      const r = startJob(career, job);
+      if (!r.ok) return void this.hud.toast(r.reason);
+      r.open.ticket = ticket;
+      this.shift = { job, made: r.open.made, station: 0 };
+      this.showShift();
+      this.hud.toast(`${job.name}: ${job.stations[0].label}.`);
+    };
+    if (open?.ticket) {
+      const job = ticketJob(board, tools, bikes, open.ticket);
+      const ticket = open.ticket;
+      this.hud.confirm(`${job.name} is still on the bench (${formatMoney(jobPay(services.content.world, job))} when it's done). Carry on?`, 'Carry on', () => begin(job, ticket), () => this.player.idle());
+      return;
+    }
+    const tickets = ticketsOffered(board, bikes, career);
+    this.hud.choose(board.name, 'Customer repairs: strip the part, fix it, refit it and test it. Each ticket needs the tools for its part.', [
+      ...tickets.map((t) => {
+        const problem = ticketProblem(tools, career, t);
+        const job = ticketJob(board, tools, bikes, t);
+        return {
+          label: `${t.customer}: G${t.grade} ${slotName(bikes, t.slot)}`,
+          note: `${formatMoney(jobPay(services.content.world, job))}, ${board.xpPerStation * board.stations.length} ${tools.sets.find((s) => s.slots.includes(t.slot))?.skill.replace('_', ' ') ?? ''} XP.${problem ? ` ${problem}` : ''}`,
+          enabled: !problem,
+          onPick: () => begin(job, t),
+        };
+      }),
+      { label: 'Not now', onPick: () => this.player.idle() },
+    ], () => this.player.idle());
+  }
+
   private async workStation(): Promise<void> {
     const shift = this.shift;
     if (!shift || this.busy) return;
@@ -862,7 +902,7 @@ export class WorldScene extends Phaser.Scene {
         const r = finishBatch(services.content.skills, career, shift.job, engine);
         noteActivity(services.content.shops, career, 'activity');
         const kept = r.kept ? ` The boss hands you a G${r.kept.grade} ${slotName(services.content.bikes, r.kept.slot)} from the batch: it's in your bag.` : '';
-        this.endShift(`Batch done: ${shift.made} ${shift.job.product}s made.${kept}`);
+        this.endShift(shift.job.batch === 1 ? `${shift.job.name}: done and paid.` : `Batch done: ${shift.made} ${shift.job.product}s made.${kept}`);
         this.milestoneSave();
         return;
       }
@@ -922,7 +962,16 @@ export class WorldScene extends Phaser.Scene {
     const dayCls = venueClassFor(rc, venue, career);
     const pFee = practiceFee(rc, venue, dayCls);
     if (venue.practiceOnly) {
-      this.hud.confirm(`Ride the ${venue.name.toLowerCase()}?\nFree. Laps wear your parts and give practice XP.`, 'Ride', () => this.ride('practice', venue, pFee, onClose), onClose);
+      const drills = drillsAtVenue(services.content.training, venue.id);
+      if (!drills.length) {
+        this.hud.confirm(`Ride the ${venue.name.toLowerCase()}?\nFree. Laps wear your parts and give practice XP.`, 'Ride', () => this.ride('practice', venue, pFee, onClose), onClose);
+        return;
+      }
+      this.hud.choose(venue.name, 'Ride laps, or work on your starts at the gate.', [
+        { label: 'Ride laps', note: 'Free. Laps wear your parts and give practice XP.', onPick: () => this.ride('practice', venue, pFee, onClose) },
+        ...drills.map((d) => ({ label: d.name, note: `${services.content.skills.leads.flatMap((l) => l.children).find((c) => c.id === d.skill)?.name ?? d.skill} XP every round. No wear.`, onPick: () => this.runDrill(d, onClose) })),
+        { label: 'Not now', onPick: onClose },
+      ], onClose);
       return;
     }
     const fee = entryFee(rc, venue, this.save.flags, dayCls);
@@ -1581,7 +1630,8 @@ export class WorldScene extends Phaser.Scene {
   private runDrill(drill: DrillDef, onClose: () => void = () => this.player.idle()): void {
     const skill = services.content.skills.leads.flatMap((l) => l.children).find((c) => c.id === drill.skill);
     const coach = drill.npc ? services.content.npcs.find((n) => n.id === drill.npc)?.sprite : undefined;
-    this.hud.openDrill(drill, { player: this.save.rider.look, coach }, () => {
+    const level = childLevel(services.content.skills, this.save.career.skills, drill.skill);
+    this.hud.openDrill(drill, { player: this.save.rider.look, coach, level }, () => {
       const ups = finishRound(services.content.skills, this.save.career.skills, drill);
       this.hud.showCareer(this.save.career, this.save.flags);
       this.milestoneSave();
