@@ -286,7 +286,21 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 ### Missing for Areas 2 to 8
 
 9. **Rider pools.** Rules agreed (Boss, 31 Oct 2026):
-   - **One pool of about 50 riders**, not 20 new riders per area. It shrinks as future Area Champions come out of it.
+   - **One pool of 44 riders**, not 20 new riders per area (Boss, 31 Oct 2026: six of Claude's newest names removed, leaving every name Boss gave). Local Champions for Areas 2 to 8 will come from this pool later, renamed and made NPCs.
+   - Riders by area, before Local Champions are picked (each area adds that area's champion):
+
+     | Area | Riders racing | Pool riders | NPCs who race | Joins here |
+     |---|---|---|---|---|
+     | 1 | 37 | 29 | 8 | Everyone not listed below |
+     | 2 | 38 | 30 | 8 | Taylor Heart |
+     | 3 | 39 | 31 | 8 | Aidan Gizard |
+     | 4 | 40 | 32 | 8 | Kate Gizard |
+     | 5 | 41 | 33 | 8 | Louie Gizard |
+     | 6 | 42 | 34 | 8 | James Nestor |
+     | 7 | 43 | 35 | 8 | Harvey Gizard |
+     | 8 | 44 | 35 | 9 | Neal Gizard (NPC) |
+
+     The 8 NPCs who race from Area 1 are Louis Jonez, Bill Rothon, Jedrick Nicholls, Joseph Halden, Lee Stocky, Jason Styles, Mickey Alington and Dan Smyth. A race day needs 15 CPU riders, a championship 19, and No-Turn Takedown (Area 7) 31.
    - **Future Area Champions are taken out of the pool** and added with their own area. There they win most of that area's races while the player levels up.
    - **NPCs who race join the pool in a set area**, their "area unlocked".
    - **AI skill follows the track's area, not the player.** Racing an Area 1 track late in the game puts the riders back at Area 1's skill set, so those races are easy and winnable most of the time. Area 8 still isn't guaranteed even at level 99.
