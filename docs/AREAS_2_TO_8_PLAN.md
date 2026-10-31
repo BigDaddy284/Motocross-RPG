@@ -346,6 +346,8 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 
      **Going back to an earlier area** (Boss, 31 Oct 2026): riders only ever race **forwards** from their own area, never backwards. A normal race day (not a championship) at an earlier area's track draws from that area's own row in the table above, at that area's skill level. So Area 1 race days always draw from Area 1's 30 riders, and a champion or challenger from a later area never turns up there. The one exception is a championship: a later area's main championship can hold rounds at earlier areas' tracks (Spec 18.6), and its field comes with it. For example, Neal Gizard races at Riverside Arena only in an Area 8 championship round held there, once the player has unlocked Area 8.
 
+     **Championships keep their area's level** (Boss, 31 Oct 2026). Every championship belongs to one area and has a fixed skill level and field, set by that area. Replaying an old one, such as the Area 1 Local Champion Championship or the Area 1 Championship, races it at that same level every time, however far the player has got. Each championship will need its own name (parked with the other names).
+
      The 8 NPCs who race from Area 1 are Louis Jonez, Bill Rothon, Jedrick Nicholls, Joseph Halden, Lee Stocky, Jason Styles, Mickey Alington and Dan Smyth. A race day needs 15 CPU riders, a championship 19, and No-Turn Takedown (Area 7) 31.
    - **Future Area Champions are taken out of the pool** and added with their own area. There they win most of that area's races while the player levels up.
    - **NPCs who race join the pool in a set area**, their "area unlocked".
