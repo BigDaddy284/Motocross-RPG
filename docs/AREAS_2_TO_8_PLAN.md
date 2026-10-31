@@ -372,7 +372,7 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 11. **Challengers.** Two per area, so 14 names and 14 challenge tracks.
 12. **Bike classes.** Only 50cc is in `bikes.json`. Every class from 65cc to Vets needs a stat ceiling, and the class milestone flow (win the championship, collect the new bike) needs building. Needed for Area 2. The class order follows the areas as in Spec 18.1 (Boss, 31 Oct 2026).
 13. **Motor prices and storage.** Settled, see [Motors](#motors). Still to build: the Factory Hauler at every venue, and the sports car.
-14. **Weather and rain.** Rain is due in Area 2 (Spec 10.5) and isn't in yet. Sand, roots, rock and wind conditions follow in Areas 3, 4, 6 and 7.
+14. **Weather and rain.** Rain arrives in Area 2, Mountain Town (Spec 10.5), and isn't in yet. Then sand in Area 3, roots and loam in Area 4, rock and dust in Area 5, wind in Area 6, indoor in Area 7 and all weathers in Area 8. Kept as planned (Boss, 31 Oct 2026).
 15. **Bike setup sliders** (Spec 8). These are what make the Mechanical Engineer level matter on race day, and they aren't in yet.
 16. **Sponsors and reputation** (Spec 16) are needed for Area 5's Sponsored Rides.
 17. **House tiers.** None can be bought yet, and shared storage across houses (Boss's rule) needs building.
