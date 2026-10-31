@@ -44,13 +44,7 @@
     { "id": "cpu.r41", "name": "Lola Grant", "areas": [1], "level": 5, "bike": { "brand": "sukimoto", "grade": 1, "condition": 0.59 }, "tactic": { "message": "steady" } },
     { "id": "cpu.r42", "name": "Archie Holt", "areas": [1], "level": 4, "skills": { "starts": 8 }, "bike": { "brand": "kwakmoto", "grade": 1, "condition": 0.77 }, "tactic": { "message": "steady", "push": 2, "pushGap": 2 } },
     { "id": "cpu.r43", "name": "Erin Fox", "areas": [1], "level": 4, "bike": { "brand": "yamamoto", "grade": 1, "condition": 0.75 }, "tactic": { "message": "push" } },
-    { "id": "cpu.r44", "name": "Toby Marsh", "areas": [1], "level": 4, "skills": { "cornering": 7 }, "bike": { "brand": "hondmoto", "grade": 1, "condition": 0.75 }, "tactic": { "message": "save_bike" } },
-    { "id": "cpu.r45", "name": "Ava Pearce", "areas": [1], "level": 3, "bike": { "brand": "sukimoto", "grade": 1, "condition": 0.69 }, "tactic": { "message": "steady", "push": 2, "pushGap": 2 } },
-    { "id": "cpu.r46", "name": "Reece Gill", "areas": [1], "level": 3, "skills": { "starts": 7 }, "bike": { "brand": "kwakmoto", "grade": 1, "condition": 0.57 }, "tactic": { "message": "steady" } },
-    { "id": "cpu.r47", "name": "Holly Wade", "areas": [1], "level": 3, "bike": { "brand": "yamamoto", "grade": 1, "condition": 0.85 }, "tactic": { "message": "steady" } },
-    { "id": "cpu.r48", "name": "Connor Lyle", "areas": [1], "level": 2, "skills": { "cornering": 7 }, "bike": { "brand": "hondmoto", "grade": 1, "condition": 0.7 }, "tactic": { "message": "push" } },
-    { "id": "cpu.r49", "name": "Megan Rowe", "areas": [1], "level": 2, "bike": { "brand": "sukimoto", "grade": 1, "condition": 0.74 }, "tactic": { "message": "save_bike" } },
-    { "id": "cpu.r50", "name": "Zac Fielding", "areas": [1], "level": 1, "skills": { "starts": 6 }, "bike": { "brand": "kwakmoto", "grade": 1, "condition": 0.75 }, "tactic": { "message": "steady" } }
+    { "id": "cpu.r44", "name": "Toby Marsh", "areas": [1], "level": 4, "skills": { "cornering": 7 }, "bike": { "brand": "hondmoto", "grade": 1, "condition": 0.75 }, "tactic": { "message": "save_bike" } }
   ],
   "fields": { "area1.local": { "area": 1 } },
   "fieldSize": { "area1.local": 15 },
