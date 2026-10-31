@@ -3,9 +3,9 @@ import Phaser from 'phaser';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { SceneryItem, TrackDef } from '../core/race';
-import { LOOP_RISE, START_HOLD, type RiderPose, type RiderState } from '../core/riderAI';
+import { LOOP_RISE, type RiderPose, type RiderState } from '../core/riderAI';
 import { CHEER_ITEM, CHEER_RANGE, CHEER_WALK, cheerAction, cheerColour, cheerRoute, cheerTiming, cheerVariant, REACT_SECONDS, VARIANT_SCALE, type CheerAction } from '../core/cheer';
-import { alongRoute, OFFICIAL_ITEM, OFFICIAL_SCALE, officialPlan, placedOfficial, routeLength, walkProgress, BOARD_MOVE, BOARD_SIDEWAYS, WALK_FROM, WALK_TO, type OfficialSpot } from '../core/startOfficial';
+import { alongRoute, boardPose, OFFICIAL_ITEM, OFFICIAL_SCALE, officialPlan, placedOfficial, routeLength, walkProgress, WALK_FROM, WALK_TO, type OfficialSpot } from '../core/startOfficial';
 import { gridOf, hiddenSpans, isSprint, NO_TURN_LANES, NO_TURN_PLATFORM, lapMetres, nearestOnLap, pointAt, RETURN_LANE, START_PAD, startPointAt } from '../core/trackGeom';
 import { DEFAULT_TRACK_WIDTH, trackKind, type SceneryDef, type TrackPartsData } from '../core/trackParts';
 import { archSpan, SPANS_TRACK, sprintPlace, SPRINT_START_ITEM, SurfaceIndex, surfacePoints } from '../core/trackClearance';
@@ -1387,16 +1387,12 @@ export class RaceView {
   private updateStart(clock: number): void {
     if (this.board) {
       const { stand, panel, arms, legs, route, length } = this.board;
-      const ease = (x: number) => {
-        const t = Math.max(0, Math.min(1, x));
-        return t * t * (3 - 2 * t);
-      };
-      // How far up the board is: 0 held low, 1 held high. Practice has no start, so it stays low.
-      const up = !this.hasStart ? 0 : clock < WALK_TO ? ease((clock + START_HOLD) / BOARD_MOVE) : 1 - ease((clock - WALK_TO) / BOARD_MOVE);
-      // Low: in front of the official's legs, turned round so the white back faces out.
-      panel.position.set(0, 0.72 + (2.45 - 0.72) * up, 0.42 + (0.12 - 0.42) * up);
-      panel.rotation.set(0, Math.PI * (1 - up), clock >= BOARD_SIDEWAYS ? (Math.PI / 2) * up : 0);
-      for (const arm of arms) arm.rotation.x = 2.7 * (1 - up);
+      // The board's path (core boardPose): raised in front, flipped face out above their head,
+      // turned sideways and lowered again, never through the official; the arms follow its height.
+      const b = boardPose(clock, this.hasStart);
+      panel.position.set(0, b.y, b.z);
+      panel.rotation.set(0, b.flip, b.side);
+      for (const arm of arms) arm.rotation.x = 2.7 * (1 - b.arms);
       // The walk from A along the route to B, setting off and stopping gently, with the legs swinging in step.
       const k = !this.hasStart ? 0 : Math.max(0, Math.min(1, (clock - WALK_FROM) / (WALK_TO - WALK_FROM)));
       const walked = this.hasStart ? length * walkProgress(clock) : 0;

@@ -37,6 +37,76 @@ export function walkProgress(clock: number): number {
 export const BOARD_UP = -5;
 export const BOARD_SIDEWAYS = -3;
 export const BOARD_MOVE = 0.4;
+
+/** The start board, in the official's own units (before OFFICIAL_SCALE): its size, and its centre held low and held high. */
+export const BOARD_W = 1.8;
+export const BOARD_H = 1.35;
+const LOW = { y: 0.72, z: 0.42 };
+const HIGH = { y: 2.45, z: 0.12 };
+/** Where the board is flipped face to back: above the official's head and raised hands, out in front, so it never turns through them. */
+const FLIP_Y = 2.57;
+/** How long turning the board sideways takes, from BOARD_SIDEWAYS (the count itself is unchanged). */
+export const BOARD_TURN = 0.25;
+
+/** Where the start board is and how it's turned, and how far up the official's arms are (0 down holding it low, 1 straight up). */
+export interface BoardPose {
+  y: number;
+  z: number;
+  /** Turn about the upright: π shows the white back, 0 the START 30 face. */
+  flip: number;
+  /** Turn in its own plane: 0 upright, π/2 sideways, turned anticlockwise as the riders see it. */
+  side: number;
+  arms: number;
+}
+
+const smooth = (x: number) => {
+  const t = Math.max(0, Math.min(1, x));
+  return t * t * (3 - 2 * t);
+};
+const mix = (a: number, b: number, t: number) => a + (b - a) * t;
+/** The board's centre height when turned `side` in its plane with its lowest corner kept where the upright board's bottom edge is, so it rolls over the hands rather than dipping through them. */
+const sideHeight = (side: number) => HIGH.y - BOARD_H / 2 + (BOARD_W / 2) * Math.sin(side) + (BOARD_H / 2) * Math.cos(side);
+
+/**
+ * The board at race time `clock` (Boss, 31 Oct 2026): held low, white side out, until the hold
+ * starts; then raised in front of the official to above their head, flipped face out up there and
+ * settled into their raised hands (BOARD_UP, over BOARD_MOVE); turned sideways anticlockwise at
+ * BOARD_SIDEWAYS, lifted as it turns so no corner dips into their hands or head; and from WALK_TO
+ * the same in reverse, back to low with the white side out. The counts are unchanged; it is only the
+ * path between them, so the board never passes through the official. `started`: false in practice,
+ * where there is no start and the board stays low.
+ */
+export function boardPose(clock: number, started = true): BoardPose {
+  const low: BoardPose = { y: LOW.y, z: LOW.z, flip: Math.PI, side: 0, arms: 0 };
+  if (!started || clock < BOARD_UP) return low;
+  const arms = (y: number) => Math.max(0, Math.min(1, (y - LOW.y) / (HIGH.y - LOW.y)));
+  const pose = (y: number, z: number, flip: number, side: number): BoardPose => ({ y, z, flip, side, arms: arms(y) });
+  if (clock < WALK_TO) {
+    const p = (clock - BOARD_UP) / BOARD_MOVE;
+    if (p < 0.5) return pose(mix(LOW.y, FLIP_Y, smooth(p / 0.5)), LOW.z, Math.PI, 0);
+    if (p < 0.8) {
+      const q = smooth((p - 0.5) / 0.3);
+      return pose(FLIP_Y, mix(LOW.z, HIGH.z, q), Math.PI * (1 - q), 0);
+    }
+    if (p < 1) return pose(mix(FLIP_Y, HIGH.y, smooth((p - 0.8) / 0.2)), HIGH.z, 0, 0);
+    const side = clock < BOARD_SIDEWAYS ? 0 : (Math.PI / 2) * smooth((clock - BOARD_SIDEWAYS) / BOARD_TURN);
+    return pose(sideHeight(side), HIGH.z, 0, side);
+  }
+  const d = (clock - WALK_TO) / BOARD_MOVE;
+  // Turned sideways by now unless the counts change; unwound first, then the raise in reverse.
+  const was = WALK_TO >= BOARD_SIDEWAYS + BOARD_TURN ? Math.PI / 2 : 0;
+  if (d < 0.25) {
+    const side = was * (1 - smooth(d / 0.25));
+    return pose(sideHeight(side), HIGH.z, 0, side);
+  }
+  if (d < 0.35) return pose(mix(HIGH.y, FLIP_Y, smooth((d - 0.25) / 0.1)), HIGH.z, 0, 0);
+  if (d < 0.65) {
+    const q = smooth((d - 0.35) / 0.3);
+    return pose(FLIP_Y, mix(HIGH.z, LOW.z, q), Math.PI * q, 0);
+  }
+  if (d < 1) return pose(mix(FLIP_Y, LOW.y, smooth((d - 0.65) / 0.35)), LOW.z, Math.PI, 0);
+  return low;
+}
 /** The scenery item a track places the official with. */
 export const OFFICIAL_ITEM = 'start_official';
 /**
