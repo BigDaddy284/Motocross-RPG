@@ -85,6 +85,15 @@ describe('the towns join up at their shared edges (Boss, 31 Oct 2026)', () => {
     }
   });
 
+  it('the south corner towns leave for the Hub at one level, as the north ones do', () => {
+    // The Highlands' North-east road and Capital's North-west road, a few rows down from the top as
+    // the north corners' are a few rows up from the bottom (Areas 2 to 8 maps, 31 Oct 2026).
+    if (!drawn('area6-highlands')) return;
+    const highlands = roadAt('area6-highlands', 'E', true).filter((y) => !roadAt('area6-highlands', 'E').includes(y));
+    expect(highlands.length).toBeGreaterThan(0);
+    if (drawn('area8-capital')) expect(roadAt('area8-capital', 'W', true).filter((y) => !roadAt('area8-capital', 'W').includes(y))).toEqual(highlands);
+  });
+
   it('the north corner towns leave for the Hub at one level', () => {
     // Mountain Town's South-west road and Forest Town's South-east road (Boss: "the same level").
     const mountain = roadAt('area2-mountain-town', 'W', true).filter((y) => !roadAt('area2-mountain-town', 'W').includes(y));

@@ -807,6 +807,131 @@
       ],
       "doors": [],
       "returns": []
+    },
+    {
+      "id": "bld.a6.farmhouse", "name": "Farmhouse with land (house, Highlands)", "zone": "Highlands",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [0,0,512,320], "at": [0,0]}],
+      "footprint": [
+        "#######",
+        "#######",
+        "#######",
+        "#######",
+        "###.###"
+      ],
+      "doors": [{"tile": [3,4], "interior": "int.a6.rented_room"}],
+      "returns": [{"tile": [3,5]}]
+    },
+    {
+      "id": "bld.a6.town_house", "name": "Town house (Highlands)", "zone": "Highlands",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [512,0,448,320], "at": [0,0]}],
+      "footprint": [
+        "######",
+        "######",
+        "######",
+        "######",
+        "##.###"
+      ],
+      "doors": [{"tile": [2,4], "interior": "int.a6.neighbour"}],
+      "returns": [{"tile": [2,5]}]
+    },
+    {
+      "id": "bld.a6.croft", "name": "Croft cottages (no entry, Highlands)", "zone": "Highlands",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [960,0,384,320], "at": [0,0]}],
+      "footprint": [
+        "#####",
+        "#####",
+        "#####",
+        "#####",
+        "#####"
+      ],
+      "doors": [],
+      "returns": []
+    },
+    {
+      "id": "bld.a6.phoenix_mx", "name": "Phoenix MX (Highlands)", "zone": "Highlands", "npc": "Paul Phoenix",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [0,320,512,256], "at": [0,0]}],
+      "footprint": [
+        "#######",
+        "#######",
+        "#######",
+        "#....##"
+      ],
+      "doors": [{"tile": [1,3], "interior": "int.a6.local_garage"},{"tile": [2,3], "interior": "int.a6.local_garage"},{"tile": [3,3], "interior": "int.a6.local_garage", "spawn": "side_door"},{"tile": [4,3], "interior": "int.a6.local_garage", "spawn": "side_door"}],
+      "returns": [{"tile": [1,4]},{"tile": [3,4], "name": "side_door"}]
+    },
+    {
+      "id": "bld.a6.moto78", "name": "Moto78 (Highlands)", "zone": "Highlands", "npc": "Bill Rothon",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [512,320,448,320], "at": [0,0]}],
+      "footprint": [
+        "######",
+        "######",
+        "######",
+        "######",
+        "###.##"
+      ],
+      "doors": [{"tile": [3,4], "interior": "int.a6.bike_shop"}],
+      "returns": [{"tile": [3,5]}]
+    },
+    {
+      "id": "bld.a6.tyre_shop", "name": "Lee's T's & Wheels (Highlands)", "zone": "Highlands", "npc": "Lee Stocky",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [960,320,448,256], "at": [0,0]}],
+      "footprint": [
+        "######",
+        "######",
+        "######",
+        "####.#"
+      ],
+      "doors": [{"tile": [4,3], "interior": "int.a6.tyre_shop"}],
+      "returns": [{"tile": [4,4]}]
+    },
+    {
+      "id": "bld.a6.gearbox_works", "name": "Gearbox works", "zone": "Highlands",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [0,640,512,320], "at": [0,0]}],
+      "footprint": [
+        "#######",
+        "#######",
+        "#######",
+        "#######",
+        "##.####"
+      ],
+      "doors": [{"tile": [2,4], "interior": "int.a6.tool_shop"}],
+      "returns": [{"tile": [2,5]}]
+    },
+    {
+      "id": "bld.a6.nicholls", "name": "Nicholls Used Motors (Highlands)", "zone": "Highlands", "npc": "Jedrick Nicholls",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [512,640,384,256], "at": [0,0]}],
+      "footprint": [
+        "#####",
+        "#####",
+        "#####",
+        "#.###"
+      ],
+      "doors": [{"tile": [1,3], "interior": "int.a6.van_office"}],
+      "returns": [{"tile": [1,4]}]
+    },
+    {
+      "id": "bld.a6.cycling_club", "name": "Hill cycling club", "zone": "Highlands",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [896,640,448,256], "at": [0,0]}],
+      "footprint": [
+        "######",
+        "######",
+        "######",
+        "######"
+      ],
+      "doors": [],
+      "returns": []
+    },
+    {
+      "id": "bld.a6.bothy", "name": "Hill practice track bothy", "zone": "Highlands",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [0,960,256,256], "at": [0,0]}],
+      "footprint": [
+        "###",
+        "###",
+        "###",
+        "###"
+      ],
+      "doors": [],
+      "returns": []
     }
   ]
 }
