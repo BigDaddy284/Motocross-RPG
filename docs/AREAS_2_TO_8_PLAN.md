@@ -329,22 +329,22 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 
      Once all 8 Local Champions are picked (Louis for Area 1, the other 7 from the pool, each waiting for their own area), each area adds two riders, its Local and Area Champion: **Area 1 30, Area 2 32, Area 3 34, Area 4 36, Area 5 38, Area 6 40, Area 7 42, Area 8 44** riders racing.
 
-     **Target (Boss, 31 Oct 2026): 32 riders from Area 2 onwards, held steady.** From Area 3, each area's two champions join and two default pool riders (the lowest level ones) stop racing there, so the count stays at 32. By Area 8 the field is mostly NPCs and champions, with 9 default pool riders left. Riders who drop off still race at the earlier areas' tracks, as each rider's `areas` list in `riders.json` sets where they turn up. More pool names may be added later. The 32 is the size of the field, not a target number of NPCs: NPCs are added only where they make sense and are needed.
+     **Who's in the field in each area** (Boss, 31 Oct 2026). Nobody the player has met ever leaves: every NPC, champion and challenger stays in the field from their own area onwards, through to Area 8. Their skill is set to the area of the track they're racing on, the same as everyone else. The 7 Local Champions (Areas 2 to 8) and 14 challengers (2 per area) are placeholders made from Claude's pool names, so the field grows by 2 each area, as each area's two champions join. More pool names may be added later.
 
-     **Who's in each area's field of 32** (Boss, 31 Oct 2026). Boss's riders are kept; the 7 Local Champions (Areas 2 to 8) and 14 challengers (Areas 2 to 8) are placeholders made from Claude's pool names. From Area 3, the two riders who drop off are the challengers from two areas back: they stop racing in the new area but keep their challenge in their home town. (Dropping plain pool riders instead would run out at Area 6.)
+     | Area | Boss's riders | Champions (Local + Area) | Challengers | Claude pool riders | Field |
+     |---|---|---|---|---|---|
+     | 1 | 10 | 2 | 2 | 16 | 30 |
+     | 2 | 10 | 4 | 4 | 14 | 32 |
+     | 3 | 10 | 6 | 6 | 12 | 34 |
+     | 4 | 10 | 8 | 8 | 10 | 36 |
+     | 5 | 10 | 10 | 10 | 8 | 38 |
+     | 6 | 10 | 12 | 12 | 6 | 40 |
+     | 7 | 10 | 14 | 14 | 4 | 42 |
+     | 8 | 10 | 16 | 16 | 2 | 44 |
 
-     | Area | Boss's riders | Champions (Local + Area) | Challengers racing | Claude pool riders | Claude riders dropped | Field |
-     |---|---|---|---|---|---|---|
-     | 1 | 10 | 2 | 2 | 16 | 0 | 30 |
-     | 2 | 10 | 4 | 4 | 14 | 0 | 32 |
-     | 3 | 10 | 6 | 4 | 12 | 2 | 32 |
-     | 4 | 10 | 8 | 4 | 10 | 4 | 32 |
-     | 5 | 10 | 10 | 4 | 8 | 6 | 32 |
-     | 6 | 10 | 12 | 4 | 6 | 8 | 32 |
-     | 7 | 10 | 14 | 4 | 4 | 10 | 32 |
-     | 8 | 10 | 16 | 4 | 2 | 12 | 32 |
+     Boss's riders here are the ones who aren't champions or challengers: Jeno Rothon, Bill Rothon, Jedrick Nicholls, Joseph Halden, Lee Stocky, Brandon Stocky, Jason Styles, Jordan Styles, Andy McLaren and Justin Smyth. Area 1's champions are Louis Jonez and Dean Marsh, and its challengers Mickey Alington and Dan Smyth. Claude's pool riders fall by 2 each area because those riders become that area's challengers.
 
-     Boss's riders here are the ones who aren't champions or challengers: Jeno Rothon, Bill Rothon, Jedrick Nicholls, Joseph Halden, Lee Stocky, Brandon Stocky, Jason Styles, Jordan Styles, Andy McLaren and Justin Smyth. Area 1's champions are Louis Jonez and Dean Marsh, and its challengers Mickey Alington and Dan Smyth, who never drop off.
+     **Going back to an earlier area** (Boss, 31 Oct 2026): a normal race day at any earlier area's track, at any time (not a championship), is filled with every NPC, champion and challenger the player has unlocked so far, at that area's skill level, topped up with pool riders where needed. A race day races 15 CPU riders, so once more named riders are unlocked than that (from Area 2), the day's 15 are drawn from the named riders first.
 
      The 8 NPCs who race from Area 1 are Louis Jonez, Bill Rothon, Jedrick Nicholls, Joseph Halden, Lee Stocky, Jason Styles, Mickey Alington and Dan Smyth. A race day needs 15 CPU riders, a championship 19, and No-Turn Takedown (Area 7) 31.
    - **Future Area Champions are taken out of the pool** and added with their own area. There they win most of that area's races while the player levels up.
