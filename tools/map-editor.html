@@ -4136,9 +4136,14 @@ async function fileCheck(show) {
     const entry = lib.manifest.maps.find((m) => m.id === id);
     if (!entry) {
       const clash = fixId && lib.manifest.maps.some((m) => m.id === raw.id);
+      // An exit to the world map needs a route in world.json listing where it can go, or the game
+      // won't start (content.ts): such a map is offered unticked, saying so (Boss, 31 Oct 2026).
+      const routes = known.world?.data.routes ?? [];
+      const unrouted = kind === 'area' && known.world ? (raw.objects ?? []).filter((o) => o.type === 'exit' && o.props?.to === 'world_map' && !routes.some((r) => r.map === id && r.exit === o.name)).map((o) => `"${o.name}"`) : [];
       const it = {
         kind: 'add',
-        text: `New ${kind === 'interior' ? 'interior' : 'map'} ${baseName(p)} ("${title}"): add it to the game's map list${kind === 'area' && known.world ? ', and to the world map in:' : '.'}${fixId ? ` The id inside it is ${raw.id}${clash ? ', which is already another map\'s,' : ''} so it's changed to ${id} to match the file name.` : ''}`,
+        off: unrouted.length > 0,
+        text: `New ${kind === 'interior' ? 'interior' : 'map'} ${baseName(p)} ("${title}")${unrouted.length ? ` (left unticked: its exit ${unrouted.join(', ')} goes to the world map and no route in world.json says where to, so the game won't start with it listed until one does)` : ''}: add it to the game's map list${kind === 'area' && known.world ? ', and to the world map in:' : '.'}${fixId ? ` The id inside it is ${raw.id}${clash ? ', which is already another map\'s,' : ''} so it's changed to ${id} to match the file name.` : ''}`,
         zone: kind === 'area' && known.world ? zoneSelect(title, zoneOf(id)?.id) : null,
         apply: async (c) => { if (fixId) await writeId(); lib.manifest.maps.push({ id, title, kind }); c.manifest = true; if (it.zone && putInZone(id, title, it.zone.value)) c.world = true; },
       };
