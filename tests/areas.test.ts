@@ -132,22 +132,22 @@ describe('areas (Spec 18.1, 18.2; Areas 2 to 8 plan, Boss 30 and 31 Oct 2026)', 
   });
 });
 
-describe('the stamped Mountain Town (tools/gen-area.mjs)', () => {
-  it('has the five travelling shops, the Wheel works, the house, the gym and the drill yard, and road exits both ways', () => {
+describe('Mountain Town (drawn, Boss, 31 Oct 2026)', () => {
+  it('has the five travelling shops, the Wheel works, the house, the gym and the drill yard, and three roads out', () => {
     const m = maps.get('area2-mountain-town')!;
     const names = m.objects.filter((o) => o.type === 'building').map((o) => o.name);
     for (const n of ['Phoenix MX', 'Moto78', "Lee's T's & Wheels", 'Nicholls Used Motors', 'Wheel works', 'Starter terrace', 'Town gym']) expect(names).toContain(n);
-    expect(m.objects.filter((o) => o.type === 'exit').map((o) => o.name).sort()).toEqual(['East road', 'West road']);
+    expect(m.objects.filter((o) => o.type === 'exit').map((o) => o.name).sort()).toEqual(['South road', 'South-west road', 'West road']);
     expect(m.objects.some((o) => o.type === 'blocker')).toBe(false);
     expect(m.objects.some((o) => o.type === 'venue' && o.props.venue === 'yard-a2')).toBe(true);
     expect(m.objects.some((o) => o.type === 'venue' && o.props.venue === 'fitness-a2')).toBe(true);
     // Its insides are its own, so the way back out lands in Mountain Town, not Home Town.
     for (const id of ['int-a2-local-garage', 'int-a2-bike-shop', 'int-a2-tyre-shop', 'int-a2-van-office', 'int-a2-rented-room', 'int-a2-tool-shop']) expect(maps.has(id)).toBe(true);
     const routes = content.world.routes.filter((r) => r.map === m.id);
-    expect(routes.map((r) => r.exit).sort()).toEqual(['East road', 'West road']);
-    // The roads match the world map: Home Town one way, the Race Hub the other. Its tracks race at the
-    // hub's venues, one per track type (Boss, 30 Oct 2026), reached from both roads; no venue maps of its own.
-    expect(routes.find((r) => r.exit === 'East road')!.to).toContain('area1-home-town');
+    expect(routes.map((r) => r.exit).sort()).toEqual(['South road', 'South-west road', 'West road']);
+    // The roads match the world map: Home Town to the south, the Race Hub to the south-west. Its tracks race at the
+    // hub's venues, one per track type (Boss, 30 Oct 2026), reached from every road; no venue maps of its own.
+    expect(routes.find((r) => r.exit === 'South road')!.to).toContain('area1-home-town');
     for (const r of routes) for (const v of ['venue-motocross', 'venue-supercross', 'venue-enduro']) expect(r.to).toContain(v);
     expect(content.world.places.some((p) => /^venue-a2-/.test(p.map))).toBe(false);
     expect([...maps.keys()].filter((id) => /^venue-a\d+-/.test(id))).toEqual([]);
