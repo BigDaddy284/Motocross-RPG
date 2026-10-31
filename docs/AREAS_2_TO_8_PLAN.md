@@ -150,10 +150,10 @@ Every area has the same base set, so the columns below list only what's **new**:
 
 - Phoenix MX, Moto78, Nicholls Used Motors, Lee's T's & Wheels, and Manny Festo.
 - A Motocross venue, a Supercross venue and an Enduro Loop venue, each with Joseph Halden at the race office.
-- Two challengers, each with their own challenge track.
+- Two challengers, each with their own challenge track. Each challenger gives the player a short task first, and the challenge opens once it's done (Boss, 31 Oct 2026).
 - A Local Champion championship (one round per area venue) for the badge, then the main area championship (two rounds per venue, and from Area 2 it can include earlier areas' tracks).
 - A route marshal at the exit, and a Road menu entry under Areas.
-- Shop tasks: errands like the scrapyard owner's (lend a worn part to repair), deliveries between the area's shops, and a short task chain that opens the area's hidden venue or practice track.
+- Shop tasks: errands like the scrapyard owner's (lend a worn part to repair), deliveries between the area's shops. No hidden venues: the challengers' tracks fill that role (Boss, 31 Oct 2026).
 
 ### Arriving in a new area: the area intro (Boss, 31 Oct 2026)
 
@@ -377,9 +377,9 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 16. **Sponsors and reputation** (Spec 16). Agreed split (Boss, 31 Oct 2026): in Areas 1 to 4, winning the area championship brings a one-off champion's offer, the new class frame and a kit with no contract (turn it down and buy the frame from Bill). From Area 5, Sponsored Rides brings proper contracts (set race days, pay per objective, tiers from local shops to factory teams) and the reputation table. The factory tier brings the Factory Hauler.
 17. **House tiers.** None can be bought yet. A house in every town and the one shared storage box need building (settled above).
 18. **Clothing.** The wardrobe isn't built. It's needed for the Phoenix MX rack (Area 2, settled above) and sponsor kits.
-19. **Unnamed NPCs.** The fabrication shop boss, engine rebuilder, neighbour and scrapyard owner still have job titles.
+19. **Unnamed NPCs.** The fabrication shop boss, engine rebuilder, neighbour and scrapyard owner keep their job titles for now (Boss, 31 Oct 2026).
 20. **Mountain backdrop tiles** for Mountain Town (Area 2) need making (Boss, 30 Oct 2026).
-21. **Hidden venues.** The Spec has optional venues found by exploring or NPC tasks (for example a secret sand pit on the coast). None are planned per area yet.
+21. **Hidden venues.** Dropped (Boss, 31 Oct 2026). The player is pointed to the challengers instead, and from Area 2 each challenger sets a short task before their challenge opens.
 
 ## Open decisions for Boss
 
