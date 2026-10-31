@@ -18,7 +18,7 @@ Names marked *(placeholder)* are mine, to be replaced by Boss. Anything marked *
 - **Story beats from the table:** Area 3 is Big Pete, the Rider Trainer who trained all the top riders (he also unlocks whips and scrubs, per PR 46). Area 4 is Energy Drinks. Area 5 is Sponsored Rides. Every area has shop tasks and new Local and Area Champions.
 - **Track types:** Enduro Sprint opens in Area 5, No-Turn Takedown in Area 7 and EnduroCross in Area 8.
 - **Area Champions:** Area 2 Taylor Heart, Area 3 Aidan Gizard, Area 4 Kate Gizard, Area 5 Louie Gizard, Area 6 James Nestor, Area 7 Harvey Gizard, Area 8 Neal Gizard.
-- **Vehicles:** Area 2 Old Rusty Van, then Motor 3 to Motor 7 in Areas 3 to 7, and none new in Area 8.
+- **Vehicles:** Area 2 Old Rusty Van, then Motor 3 to Motor 6 in Areas 3 to 6. The Factory Hauler (Motor 7) is never driven by the player (Boss, 31 Oct 2026): see [Motors](#motors).
 - **Houses:** every town from Area 2 has a house to buy, and prices go up every area (Boss, 30 Oct 2026). There is one shared storage box, reached from every house the player owns, from the rented room to the end-game house. It gets bigger with each house bought, so there's no carrying things back and forth (Boss, 30 Oct 2026).
 
 ## The goal: nothing left without a source
@@ -117,7 +117,7 @@ They each have a shop or stand in every area, in a building that looks the same 
 |---|---|---|
 | **Paul Phoenix**, Phoenix MX | Repairs (one grade down, Grade 2 and up), bench fitting, customer repair job board, and engine and suspension parts (top end, bottom end, intake and exhaust, drivetrain, forks, shock; Boss, 30 Oct 2026) | Clothing from Area 2: a small rack on the garage side of the same-size shop, with nothing buyable until the Area 2 house is bought, which unlocks the wardrobe (Boss, 30 Oct 2026), bigger workshop, reputation hints about sponsors (Spec 16.0) |
 | **Bill Rothon**, Moto78 | Bodywork and controls, stock frames, and the tyre changer: tyres fitted there, and tyre change training (Boss, 30 Oct 2026) | Grade range and classes rise each area (table below). Class dealer: winning a class's championship comes with a sponsorship offer that brings the new class frame; a rider who turns it down buys the new class frame from Bill instead (Boss, 30 Oct 2026) |
-| **Jedrick Nicholls**, Nicholls Used Motors | The motor for that area | Sells the next motor each area (Old Rusty Van in A2 to Motor 7 in A7). Area 8 could be trade-ins only, or a showroom of the Factory Hauler in other colours |
+| **Jedrick Nicholls**, Nicholls Used Motors | The motor for that area | Sells the next motor each area (Old Rusty Van in A2 to Motor 6 in A6), then the late-game sports car |
 | **Manny Festo**, the news man | News about the next championship, the new Area Champion, and rumours that point to hidden venues and storylines | He stays the news man in every area, with no stall (Boss, 30 Oct 2026), and starts each area's story |
 
 **Lee Stocky**, Lee's T's & Wheels, is the **fifth travelling NPC** (Boss, 30 Oct 2026). He runs the tyres and wheels shop in every area, selling wheels and tyres and brakes.
@@ -264,7 +264,7 @@ The machine stays in the Industrial Zone unit in Area 1, where it's already buil
 - **New at the Area 1 tool shop:** Master bodywork tools.
 - **House:** a reskin of the Area 8 Champion's estate, without the trophy and bike display room (Boss, 30 Oct 2026). £1,000,000, with storage just under the estate's (Boss, 30 Oct 2026).
 - **Venues:** supercross stadium, arenacross, outdoor MX on the city edge, Enduro Sprint, and the **first No-Turn Takedown** *(placeholders)*.
-- **Motor:** Motor 7, Factory Hauler.
+- **Motor:** the Factory Hauler arrives with full factory sponsorship, and Nicholls sells the sports car (see [Motors](#motors)).
 
 ### Area 8: Capital (national venues, all weather)
 
@@ -276,6 +276,21 @@ The machine stays in the Industrial Zone unit in Area 1, where it's already buil
 - **Venues:** national MX, national supercross, a national endurance course, Enduro Sprint, No-Turn Takedown, the **first EnduroCross**, and the Super Event venue.
 - **House:** Champion's estate (£2,000,000, needs all badges).
 - **Motor:** none new.
+
+## Motors
+
+Prices and space (bikes / parts / tool slots), proposed by Claude and agreed by Boss (31 Oct 2026). The old motor goes in part-exchange, and motors never need maintenance.
+
+| Area | Motor | Price | Space |
+|---|---|---|---|
+| 1 | Old Rusty Truck | £600 | 1 / 20 / 10 |
+| 2 | Old Rusty Van | £2,500 | 2 / 40 / 15 |
+| 3 | MX Van Short | £6,000 | 2 / 60 / 20 |
+| 4 | MX Van Medium | £14,000 | 3 / 90 / 35 |
+| 5 | MX Sports Motorhome Medium | £30,000 | 4 / 140 / 50 |
+| 6 | MX Sports Motorhome Long | £60,000 | 5 / 200 / 70 |
+
+**The Factory Hauler isn't bought or driven** (Boss, 31 Oct 2026). Once the player has a full factory sponsor in the late game, the team drives it: it's parked at **every venue** as if the team brought it, ready for the player to race out of, with room for 11 bikes (one per class), 400 parts and 120 tools. With the bikes at the track, Jedrick Nicholls sells the player an **expensive sports car** to get about in. **Decision:** the sports car's price and look (new vehicle art), and whether it needs the factory sponsor to buy.
 
 ## Energy drinks (Areas 4 to 8)
 
@@ -356,7 +371,7 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 10. **Local Champions.** Placeholders and an intro chain for every area are in [Arriving in a new area](#arriving-in-a-new-area-the-area-intro-boss-31-oct-2026). Boss will rename pool riders into these spots later.
 11. **Challengers.** Two per area, so 14 names and 14 challenge tracks.
 12. **Bike classes.** Only 50cc is in `bikes.json`. Every class from 65cc to Vets needs a stat ceiling, and the class milestone flow (win the championship, collect the new bike) needs building. Needed for Area 2. The class order follows the areas as in Spec 18.1 (Boss, 31 Oct 2026).
-13. **Motor prices and storage.** There are seven motors now, but the Spec priced five (£600 to £160,000). Motors 2 to 7 need a price, bike slots and part slots.
+13. **Motor prices and storage.** Settled, see [Motors](#motors). Still to build: the Factory Hauler at every venue, and the sports car.
 14. **Weather and rain.** Rain is due in Area 2 (Spec 10.5) and isn't in yet. Sand, roots, rock and wind conditions follow in Areas 3, 4, 6 and 7.
 15. **Bike setup sliders** (Spec 8). These are what make the Mechanical Engineer level matter on race day, and they aren't in yet.
 16. **Sponsors and reputation** (Spec 16) are needed for Area 5's Sponsored Rides.
