@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { modsLabel } from '../core/modifiers';
 import { bikeProblem, bikeStats, formatMoney, journal, pence, statMax, type CareerState } from '../core/career';
 import { addXp, childLevel, childXp, leadLevel, leadXp, levelProgress, levelStatus } from '../core/skills';
-import { nextRoundVenue, rewardTexture, standings } from '../core/championship';
+import { champLine, nextRoundVenue, rewardTexture, standings } from '../core/championship';
 import {
   buyPart,
   dumpSpare,
@@ -264,13 +264,23 @@ export class HudScene extends Phaser.Scene {
     return !!this.pause || !!this.modal || this.input.hitTestPointer(p).length > 0;
   }
 
-  /** Money and the current task, shown under the map name. */
+  /**
+   * Money and, under the map name, the championship in progress at a venue or the current task
+   * everywhere else (Boss, 31 Oct 2026). A venue with no championship on shows the task too.
+   */
   showCareer(career: CareerState, flags: Record<string, boolean>): void {
     this.career = career;
     this.flags = flags;
     this.moneyText.setText(formatMoney(career.money));
-    this.taskText.setText(`Task: ${journal(services.content.story, career, flags)}`);
+    const c = services.content;
+    // The backyard loop is a practice venue on the Home Town map, so it doesn't count.
+    const atVenue = !!this.mapId && c.tracks.venues.some((v) => v.map === this.mapId && !v.practiceOnly);
+    const champ = atVenue ? champLine(c, c.championships, career) : null;
+    this.taskText.setText(champ ? `Championship: ${champ}` : `Task: ${journal(c.story, career, flags)}`);
   }
+
+  /** The map the rider is on, for what the line under its name shows. */
+  private mapId: string | null = null;
 
   private wayArrow: Phaser.GameObjects.Container | null = null;
 
@@ -316,8 +326,9 @@ export class HudScene extends Phaser.Scene {
     this.shiftText.setText(text ?? '');
   }
 
-  showMapTitle(title: string): void {
+  showMapTitle(title: string, mapId?: string): void {
     this.titleText.setText(title);
+    this.mapId = mapId ?? null;
   }
 
   toast(message: string): void {

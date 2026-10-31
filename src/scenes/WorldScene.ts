@@ -16,7 +16,7 @@ import { defaultSetup, effectiveSetup, positionValue, positionsFor, setupReport,
 import { DriveMap, FACING_OF, bayFor, ensureVan, exitTile, footprint, haulerAt, inwardHeading, nearestFree, placeNear, planDrive, sheetFor, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
 import { venueClassFor, entryFee, fieldCount, lapsFor, practiceFee, trackById, venueProblem, type VenueDef } from '../core/raceDay';
-import { champProblem, enter, nextRoundVenue, roundEntry, roundsHere, standings, titlePossible, withdraw, type ChampionshipDef } from '../core/championship';
+import { champProblem, otherActive, enter, nextRoundVenue, roundEntry, roundsHere, standings, titlePossible, withdraw, type ChampionshipDef } from '../core/championship';
 import { noteActivity, shopForAction, slotName, type ShopDef } from '../core/shops';
 import { machineFee, machineProblem, modsLabel, runMachine } from '../core/modifiers';
 import { dayObjectives, dropPenalty, dropSponsor, objectiveText, offerProblem, reputationHint, signOffer, sponsorsOpen } from '../core/sponsors';
@@ -201,7 +201,7 @@ export class WorldScene extends Phaser.Scene {
 
     this.setupInput();
     this.time.addEvent({ delay: AUTOSAVE_MS, loop: true, callback: () => this.autosave('timer') });
-    this.hud.showMapTitle(map.title);
+    this.hud.showMapTitle(map.title, map.id);
     this.hud.showCareer(this.save.career, this.save.flags);
     this.hud.rider = this.save.rider;
     this.hud.showShift(null);
@@ -1332,7 +1332,9 @@ export class WorldScene extends Phaser.Scene {
     const options = list.map((def) => {
       const active = career.champs?.active[def.id];
       const record = career.champs?.done[def.id];
-      const problem = active ? null : champProblem(rc, def, this.save.flags, career.bike.class);
+      // One championship at a time: finish or give up the one you're in first (Boss, 31 Oct 2026).
+      const other = active ? null : otherActive(rc.championships, career, def);
+      const problem = active ? null : other ? `You're in the ${other.name}: finish it or give it up first.` : champProblem(rc, def, this.save.flags, career.bike.class);
       let note: string;
       if (active) {
         const me = standings(rc.racing.points, active).find((r) => r.player)!;
