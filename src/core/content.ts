@@ -20,6 +20,7 @@ import { TOOLS_SCHEMA, checkTools, type ToolsData } from './tools';
 import { JOB_BOARD_SCHEMA, checkJobBoard, type JobBoardData } from './jobBoard';
 import { AREAS_SCHEMA, checkAreas, type AreasData } from './areas';
 import { SETUP_SCHEMA, checkSetup, type SetupData } from './setup';
+import { MODIFIERS_SCHEMA, checkModifiers, type ModifiersData } from './modifiers';
 import { validate, type ContentError, type Schema } from './validate';
 
 // Game content loaded from public/data. Each file is checked against its schema, then the files
@@ -82,6 +83,7 @@ export interface Content {
   jobboard: JobBoardData;
   areas: AreasData;
   setup: SetupData;
+  modifiers: ModifiersData;
 }
 
 export interface Manifest {
@@ -230,13 +232,13 @@ const STORY_STEP_SCHEMA: Schema = {
           journal: { type: 'string', nonEmpty: true },
           on: { type: 'object', optional: ['talk', 'use', 'map'], fields: { talk: { type: 'string', pattern: ID }, use: { type: 'string', pattern: ID }, map: { type: 'string', pattern: ID } } },
           times: { type: 'number', integer: true, min: 1 },
-          needs: { type: 'object', optional: ['money', 'items'], fields: { money: { type: 'number', min: 0 }, items: IDS } },
+          needs: { type: 'object', optional: ['money', 'items', 'skills'], fields: { money: { type: 'number', min: 0 }, items: IDS, skills: { type: 'record', values: { type: 'number', integer: true, min: 1, max: 99 } } } },
           notReady: { type: 'string', pattern: ID },
           markVan: { type: 'string', pattern: ID },
           earn: { type: 'object', fields: { use: { type: 'string', pattern: ID }, maps: { type: 'array', minItems: 1, items: { type: 'string', pattern: ID } } } },
           confirm: { type: 'string', nonEmpty: true },
           lines: { type: 'string', pattern: ID },
-          effects: { type: 'object', optional: ['money', 'give', 'take', 'fit', 'flags'], fields: { money: NUM, give: IDS, take: IDS, fit: { type: 'string', pattern: ID }, flags: IDS } },
+          effects: { type: 'object', optional: ['money', 'give', 'take', 'fit', 'flags', 'giveParts'], fields: { money: NUM, give: IDS, take: IDS, fit: { type: 'string', pattern: ID }, flags: IDS, giveParts: { type: 'array', items: { type: 'object', optional: ['mods'], fields: { slot: { type: 'string', pattern: ID }, grade: { type: 'number', integer: true, min: 1, max: 10 }, condition: { type: 'number', min: 0, max: 1 }, mods: { type: 'array', items: { type: 'object', fields: { type: { type: 'string', pattern: ID }, value: { type: 'number', integer: true, min: -5, max: 5 } } } } } } } } },
           toast: { type: 'string', nonEmpty: true },
         },
       };
@@ -335,6 +337,7 @@ export const CONTENT_FILES = {
   jobboard: 'data/jobboard.json',
   areas: 'data/areas.json',
   setup: 'data/setup.json',
+  modifiers: 'data/modifiers.json',
 } as const;
 
 export type RawContent = Record<keyof typeof CONTENT_FILES, unknown>;
@@ -362,6 +365,7 @@ const SCHEMAS: Record<keyof typeof CONTENT_FILES, Schema> = {
   jobboard: JOB_BOARD_SCHEMA,
   areas: AREAS_SCHEMA,
   setup: SETUP_SCHEMA,
+  modifiers: MODIFIERS_SCHEMA,
 };
 
 /** Checks raw file contents and returns the typed content, or every problem found. */
@@ -401,6 +405,7 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
     jobboard: raw.jobboard as JobBoardData,
     areas: raw.areas as AreasData,
     setup: raw.setup as SetupData,
+    modifiers: raw.modifiers as ModifiersData,
   };
   const file = CONTENT_FILES.npcs;
   const seen = new Set<string>();
@@ -437,6 +442,7 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
   errors.push(...checkAreas(CONTENT_FILES.areas, content.areas, { fields: content.riders.fields, chains: (content.story.chains ?? []).map((c) => c.id), designs: content.vehicles.designs.map((d) => d.id), npcs: content.npcs.map((n) => n.id), weather: Object.keys(content.racing.weather ?? {}) }, maps));
   errors.push(...checkJobBoard(CONTENT_FILES.jobboard, content.jobboard, maps));
   errors.push(...checkSetup(CONTENT_FILES.setup, content.setup, { slots: content.bikes.slots.map((x) => x.id), sections: Object.keys(content.racing.sections) }));
+  errors.push(...checkModifiers(CONTENT_FILES.modifiers, content.modifiers, { slots: content.bikes.slots.map((x) => x.id), sections: Object.keys(content.racing.sections), weather: Object.keys(content.racing.weather ?? {}), maps }));
   errors.push(...checkVehicles(CONTENT_FILES.vehicles, raw.vehicles, maps).errors);
   errors.push(...checkBuildings(content.buildings, maps));
   content.vehicles.designs.forEach((d, i) => {

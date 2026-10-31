@@ -88,7 +88,7 @@ export function diyRepair(shops: ShopsData, data: ToolsData, bikes: BikesData, s
   if (!part) return { ok: false, message: 'Nothing fitted there.' };
   const q = diyRepairQuote(shops, data, career, slot, part);
   if (!q.ok) return { ok: false, message: q.reason };
-  career.bike.parts[slot] = { grade: q.grade, condition: 1 };
+  career.bike.parts[slot] = { ...part, grade: q.grade, condition: 1 };
   const set = toolsFor(data, career, slot)!.set;
   const ups = addXp(skills, career.skills, { [set.skill]: data.xp.repair });
   return { ok: true, message: `Your ${slotName(bikes, slot)} is repaired: G${q.grade} at 100%. +${data.xp.repair} ${set.skill.replace('_', ' ')} XP.`, ups };

@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { modsLabel } from '../core/modifiers';
 import { bikeProblem, bikeStats, formatMoney, journal, pence, statMax, type CareerState } from '../core/career';
 import { addXp, childLevel, childXp, leadLevel, leadXp, levelProgress } from '../core/skills';
 import { nextRoundVenue, rewardTexture, standings } from '../core/championship';
@@ -894,6 +895,9 @@ export class HudScene extends Phaser.Scene {
         c.add(this.add.rectangle(px + 230, y + 10, Math.max(1, (barW * cond) / 100), 10, cond === 0 ? 0xb03030 : cond <= 20 ? COLORS.accent : 0x6fa84a).setOrigin(0, 0.5));
         line(pctX, y, cond === 0 ? 'Broken' : `${cond}%`, 15, cond === 0 ? COLORS.accent : COLORS.cream, w / 2 - 12 - pctX);
       });
+      // Part modifiers (core/modifiers.ts, Spec 6), summed across the bike.
+      const modded = bikes.slots.filter((s) => bike.parts[s.id]?.mods?.length);
+      if (modded.length) line(px, y0 + 40 + bikes.slots.length * 32 + 4, `Modifiers: ${modded.map((s) => `${s.name} ${modsLabel(services.content.modifiers, bike.parts[s.id].mods)}`).join('; ')}`, 13, COLORS.muted, w / 2 - 12 - px);
     } else if (tab === 'bag') {
       const limit = services.content.shops.spareLimit;
       body(left, y0, 'Bag', 22, COLORS.accent);
@@ -919,7 +923,7 @@ export class HudScene extends Phaser.Scene {
             continue;
           }
           body(left, y, `G${p.grade} ${name} (spare)`, 17);
-          body(left, y + 24, `${cond} · ${p.class}. Fit it at the garage bench, or sell it at a parts shop.`, 14, COLORS.muted, w - 220);
+          body(left, y + 24, `${cond} · ${p.class}. ${p.mods?.length ? modsLabel(services.content.modifiers, p.mods) + '. ' : ''}Fit it at the garage bench, or sell it at a parts shop.`, 14, COLORS.muted, w - 220);
           c.add(button(this, w / 2 - 90, y + 20, 'Dump', () => {
             this.confirm(`Send your G${p.grade} ${name.toLowerCase()} to the dump?\nIt's gone for good, with nothing back.`, 'Dump it', () => {
               dumpSpare(career, i);

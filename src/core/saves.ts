@@ -243,12 +243,17 @@ function isCareer(v: unknown): boolean {
 function isBike(v: unknown): boolean {
   const bike = v as Record<string, unknown> | undefined;
   return !!bike && typeof bike.brand === 'string' && typeof bike.class === 'string' && typeof bike.parts === 'object' && bike.parts !== null &&
-    Object.values(bike.parts as Record<string, Record<string, unknown>>).every((p) => Number.isInteger(p?.grade) && typeof p?.condition === 'number');
+    Object.values(bike.parts as Record<string, Record<string, unknown>>).every((p) => Number.isInteger(p?.grade) && typeof p?.condition === 'number' && isMods(p.mods));
+}
+
+/** Modifiers on a part (core/modifiers.ts): none, or a list of type and whole value from -5 to 5. */
+function isMods(v: unknown): boolean {
+  return v === undefined || (Array.isArray(v) && v.every((m) => typeof m?.type === 'string' && Number.isInteger(m?.value) && m.value >= -5 && m.value <= 5 && m.value !== 0));
 }
 
 function isSpare(p: Record<string, unknown>): boolean {
   const o = p.owner as Record<string, unknown> | undefined;
-  return typeof p.slot === 'string' && typeof p.class === 'string' && Number.isInteger(p.grade) && typeof p.condition === 'number' &&
+  return typeof p.slot === 'string' && typeof p.class === 'string' && Number.isInteger(p.grade) && typeof p.condition === 'number' && isMods(p.mods) &&
     (o === undefined || (typeof o === 'object' && o !== null && typeof o.errand === 'string' && typeof o.name === 'string'));
 }
 

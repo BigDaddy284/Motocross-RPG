@@ -210,7 +210,9 @@ describe('Areas 3 to 8 (Areas 2 to 8 plan; Boss, 31 Oct 2026: placeholder towns,
       const career = fresh();
       const flags: Record<string, boolean> = { [areaFlag(a.n)]: true };
       career.story.step = story.steps.length;
-      expect(openChains(story, career, flags).map((c) => c.id)).toEqual([`area${a.n}`]);
+      // Area 5 also starts Mad Maggie's quest (tests/modifiers.test.ts), which waits its turn behind the intro.
+      expect(openChains(story, career, flags).map((c) => c.id)).toContain(`area${a.n}`);
+      expect(currentStep(story, career)?.id).toBe(`a${a.n}_news`);
       const chain = story.chains!.find((c) => c.id === `area${a.n}`)!;
       for (const step of chain.steps) {
         expect(matchStory(story, career, { talk: step.on.talk! })?.kind, `${a.name} ${step.id}`).toBe('ready');

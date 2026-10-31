@@ -56,6 +56,8 @@ export interface StoryEffects {
   /** Fits a part item from the bag into its bike slot. */
   fit?: string;
   flags?: string[];
+  /** Spare parts for the bag, in the bike's class (Mad Maggie's test part, Areas 2 to 8 plan). */
+  giveParts?: { slot: string; grade: number; condition: number; mods?: { type: string; value: number }[] }[];
 }
 
 export interface StoryStep {
@@ -64,7 +66,8 @@ export interface StoryStep {
   on: { talk?: string; use?: string; map?: string };
   /** Uses of different objects needed before the step completes (default 1). */
   times?: number;
-  needs?: { money?: number; items?: string[] };
+  /** Money, items, and lead skill levels (by lead id: Mad Maggie's machine needs Mechanical Engineer 30, Boss 30 Oct 2026). */
+  needs?: { money?: number; items?: string[]; skills?: Record<string, number> };
   /** Lines shown when the needs are not met. */
   notReady?: string;
   /** While the rider is short of needs.money, the tutorial markers point here to earn it (Boss, 28 Oct 2026). */
@@ -160,6 +163,8 @@ export interface Part {
   grade: number;
   /** 0 to 1. A part at 0 is broken. */
   condition: number;
+  /** Modifiers from the Modifying Machine (core/modifiers.ts, Spec 6); shop parts have none. */
+  mods?: { type: string; value: number }[];
 }
 
 export interface Bike {
@@ -296,6 +301,7 @@ export function applyEffects(state: CareerState, flags: Record<string, boolean>,
     }
   }
   for (const f of e.flags ?? []) flags[f] = true;
+  for (const p of e.giveParts ?? []) state.bag.push({ id: 'spare', part: { slot: p.slot, class: state.bike.class, grade: p.grade, condition: p.condition, ...(p.mods ? { mods: p.mods.map((m) => ({ ...m })) } : {}) } });
 }
 
 // ---- the opening chain ----
@@ -343,7 +349,7 @@ export function currentStep(story: StoryData, state: CareerState): StoryStep | n
 }
 
 /** Whether a talk or object use is the current step, and whether the rider can do it yet. */
-export function matchStory(story: StoryData, state: CareerState, ev: StoryEvent): StoryMatch | null {
+export function matchStory(story: StoryData, state: CareerState, ev: StoryEvent, levels: Record<string, number> = {}): StoryMatch | null {
   const step = currentStep(story, state);
   if (!step) return null;
   if ('talk' in ev) {
@@ -353,7 +359,8 @@ export function matchStory(story: StoryData, state: CareerState, ev: StoryEvent)
     if (activeChain(story, state)!.st.used.includes(ev.object)) return { kind: 'alreadyUsed', step };
   }
   const needMoney = pence(step.needs?.money ?? 0);
-  if (state.money < needMoney || !hasItems(state, step.needs?.items)) return { kind: 'notReady', step, short: Math.max(0, needMoney - state.money) };
+  const skilled = Object.entries(step.needs?.skills ?? {}).every(([lead, level]) => (levels[lead] ?? 0) >= level);
+  if (state.money < needMoney || !hasItems(state, step.needs?.items) || !skilled) return { kind: 'notReady', step, short: Math.max(0, needMoney - state.money) };
   return { kind: 'ready', step };
 }
 

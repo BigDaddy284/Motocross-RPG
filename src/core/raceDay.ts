@@ -6,6 +6,7 @@ import { addXp, childLevels, leadLevel, type LevelUp, type SkillsData } from './
 import { TRICKS_FLAG } from './tricks';
 import { areaOfMap, rollWeather, type AreasData } from './areas';
 import { tuningFactors, type SetupData } from './setup';
+import { modifierFactors, type ModifiersData } from './modifiers';
 import type { RiderStyle } from './riderProfile';
 
 // Race days, practice and venues (Spec 12.2a, 14): who is in the field, gate picks, prize money,
@@ -96,6 +97,7 @@ export interface TracksData {
 export interface RaceContent {
   areas?: AreasData;
   setup?: SetupData;
+  modifiers?: ModifiersData;
   racing: RacingData;
   tracks: TracksData;
   riders: RidersData;
@@ -146,6 +148,13 @@ export function playerEntrant(rc: RaceContent, career: CareerState, name: string
   if (flags[TRICKS_FLAG] && rider) e.riderLevel = leadLevel(rc.skills, career.skills, rider);
   if (career.setup) e.setup = career.setup;
   return e;
+}
+
+/** The entrant's section factors with their parts' modifiers multiplied in; unchanged (or still missing) for a bike with none. */
+function withModifiers(data: ModifiersData, e: Entrant, track: TrackDef, weather: string): number[] | undefined {
+  if (!Object.values(e.bike.parts).some((p) => p.mods?.length)) return e.tuning;
+  const m = modifierFactors(data, e.bike.parts, track, weather);
+  return m.map((f, i) => f * (e.tuning?.[i] ?? 1));
 }
 
 export function trackById(rc: RaceContent, id: string): TrackDef {
@@ -274,6 +283,8 @@ export class RaceDay {
     this.weather = rollWeather(rc.areas ? areaOfMap(rc.areas, venue.town ?? '') : undefined, this.rng);
     // The player's setup against this track in today's weather (Spec 8.2); CPU riders ride the default.
     if (rc.setup && player.setup) player.tuning = tuningFactors(rc.setup, player.setup, player.bike, this.track, (rc.racing.weather?.[this.weather]?.factor ?? 1) > 1);
+    // Part modifiers (Spec 6) on top, for whoever has any (the player: CPU bikes carry none).
+    if (rc.modifiers) for (const e of [player]) e.tuning = withModifiers(rc.modifiers, e, this.track, this.weather);
     const cpus = alone ? [] : (custom?.cpus ?? round?.cpus ?? drawField(rc, venue, seed));
     this.field = [player, ...cpus.map((d) => cpuEntrant(rc, d, this.cls))];
     this.pickOrder = shuffle(this.field.map((e) => e.id), this.rng);
@@ -584,6 +595,7 @@ export function practiceSim(rc: RaceContent, venue: VenueDef, player: Entrant, s
   // A rough lap time: the lap's length at the class's reference speed.
   const lapSeconds = lapMetres(track) / rc.racing.classes[cls].refSpeed;
   const others = drawn.map((d, i) => ({ ...cpuEntrant(rc, d, cls, i + 1), startAt: -((i + 1) * lapSeconds) / (n + 1) }));
-  const tuning = rc.setup && player.setup ? tuningFactors(rc.setup, player.setup, player.bike, track, false) : player.tuning;
+  const tuned = { ...player, tuning: rc.setup && player.setup ? tuningFactors(rc.setup, player.setup, player.bike, track, false) : player.tuning };
+  const tuning = rc.modifiers ? withModifiers(rc.modifiers, tuned, track, 'dry') : tuned.tuning;
   return new MotoSim(rc.racing, rc.bikes, track, cls, [{ ...player, gate: 0, startAt: 0, tuning }, ...others], { laps: null, motoIndex: 0, seed, practice: true });
 }

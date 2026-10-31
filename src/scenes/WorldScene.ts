@@ -18,6 +18,7 @@ import { forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type M
 import { venueClassFor, entryFee, fieldCount, lapsFor, practiceFee, trackById, venueProblem, type VenueDef } from '../core/raceDay';
 import { champProblem, enter, nextRoundVenue, roundEntry, roundsHere, standings, titlePossible, withdraw, type ChampionshipDef } from '../core/championship';
 import { noteActivity, shopForAction, slotName, type ShopDef } from '../core/shops';
+import { machineFee, machineProblem, modsLabel, runMachine } from '../core/modifiers';
 import { errandStage, finishErrand, takeErrand, type ErrandDef } from '../core/errands';
 import { challengeReady, challengeVenue, lossHint, type ChallengeDef } from '../core/challenge';
 import { drillForAction, drillForNpc, drillsAtVenue, finishRound, walked, type DrillDef } from '../core/training';
@@ -421,6 +422,7 @@ export class WorldScene extends Phaser.Scene {
     const shop = action ? shopForAction(services.content.shops, this.map.id, action) : null;
     if (shop && this.openShop(shop.shop, shop.fit ? 'fit' : 'buy')) return;
     if (action === 'storage.tools' && this.openWorkbench()) return;
+    if (action === services.content.modifiers.machine.action && this.map.id === services.content.modifiers.machine.map) return this.openMachine();
     const board = action ? services.content.jobboard.boards.find((b) => b.map === this.map.id && b.action === action) : null;
     if (board) return this.openBoard(board);
     const drill = action ? drillForAction(services.content.training, action) : undefined;
@@ -684,7 +686,7 @@ export class WorldScene extends Phaser.Scene {
   private runStory(ev: StoryEvent, speaker: string, onClose: () => void = () => this.player.idle(), onStart: () => void = () => this.player.reach()): boolean {
     const { story, items } = services.content;
     const career = this.save.career;
-    const m = matchStory(story, career, ev);
+    const m = matchStory(story, career, ev, Object.fromEntries(services.content.skills.leads.map((l) => [l.id, leadLevel(services.content.skills, career.skills, l)])));
     if (!m) return false;
     if (m.kind === 'alreadyUsed') {
       this.hud.toast("You've already done that one.");
@@ -1067,6 +1069,46 @@ export class WorldScene extends Phaser.Scene {
       ...(!mod && this.save.flags[areaFlag(rc.setup.basicArea)] ? [{ label: 'Bike setup', note: 'Set the bike up for this track: a ready-made setup, or your own sliders.', onPick: () => this.openSetup(venue, () => this.openVenue(venue, onClose, mod)) }] : []),
       { label: 'Not now', onPick: onClose },
     ], onClose);
+  }
+
+  // ---- the Modifying Machine (core/modifiers.ts, Spec 6; Boss, 30 Oct 2026: Mad Maggie's, fixed by her quest) ----
+
+  private openMachine(): void {
+    const rc = services.content;
+    const data = rc.modifiers;
+    const career = this.save.career;
+    const back = () => this.player.idle();
+    if (!this.save.flags[data.machine.fixedFlag]) {
+      this.hud.toast("The machine's dead: wires out, nothing on the dial. Maggie says it's been broken for years.");
+      back();
+      return;
+    }
+    const spares = career.bag.map((b, i) => ({ part: b.part!, i })).filter((r) => r.part);
+    const rules = `One go per part, at ${Math.round(data.machine.minCondition * 100)}% or better and nothing on it yet. £${data.machine.fee.base} a go at Grade 1, ${data.machine.fee.perGrade === 2 ? 'doubling' : `times ${data.machine.fee.perGrade}`} every grade. ${data.machine.count} modifiers come out, each as likely bad as good, and 1 in ${Math.round(1 / data.machine.breakChance)} parts never comes out at all.`;
+    if (!spares.length) {
+      this.hud.toast(`${rules} You've no spare part to put in.`);
+      back();
+      return;
+    }
+    this.hud.choose('The Modifying Machine', rules, [
+      ...spares.map(({ part, i }) => {
+        const problem = machineProblem(data, rc.bikes, career, i, this.save.flags);
+        const name = `G${part.grade} ${slotName(rc.bikes, part.slot)} (${Math.round(part.condition * 100)}%)`;
+        return {
+          label: name,
+          note: problem ?? `${formatMoney(machineFee(data, part.grade))} a go. ${part.mods?.length ? modsLabel(data, part.mods) : ''}`,
+          enabled: !problem,
+          onPick: () => this.hud.confirm(`Put your ${name} in the machine for ${formatMoney(machineFee(data, part.grade))}?\nIt might not come back out.`, 'Do it', () => {
+            const r = runMachine(data, rc.bikes, career, i, this.save.flags);
+            this.hud.showCareer(career, this.save.flags);
+            this.hud.toast(r.message);
+            this.milestoneSave();
+            back();
+          }, back),
+        };
+      }),
+      { label: 'Not now', onPick: back },
+    ], back);
   }
 
   // ---- bike setup (core/setup.ts, Spec 8.0 to 8.3) ----

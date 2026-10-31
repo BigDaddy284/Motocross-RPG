@@ -195,11 +195,12 @@ export function spareCount(career: CareerState): number {
  */
 function swapIn(bikes: BikesData, career: CareerState, slot: string, part: Part): string {
   const old = career.bike.parts[slot];
-  career.bike.parts[slot] = { grade: part.grade, condition: part.condition };
+  // A part keeps its modifiers (core/modifiers.ts) on and off the bike.
+  career.bike.parts[slot] = { grade: part.grade, condition: part.condition, ...(part.mods?.length ? { mods: part.mods } : {}) };
   const name = slotName(bikes, slot);
   if (!old) return '';
   if (old.condition <= 0) return ` Taken off: your broken ${name}, sent to the dump.`;
-  career.bag.push({ id: SPARE, part: { slot, class: career.bike.class, grade: old.grade, condition: old.condition } });
+  career.bag.push({ id: SPARE, part: { slot, class: career.bike.class, grade: old.grade, condition: old.condition, ...(old.mods?.length ? { mods: old.mods } : {}) } });
   return ` Taken off: G${old.grade} ${name} (${Math.round(old.condition * 100)}%), now a spare in your bag.`;
 }
 
@@ -285,7 +286,7 @@ export function repairPart(data: ShopsData, bikes: BikesData, career: CareerStat
   if (!q.ok) return { ok: false, message: q.reason };
   if (career.money < q.cost) return { ok: false, message: "You can't afford it." };
   career.money -= q.cost;
-  career.bike.parts[slot] = { grade: q.grade, condition: 1 };
+  career.bike.parts[slot] = { ...part, grade: q.grade, condition: 1 };
   return { ok: true, message: `Your ${slotName(bikes, slot)} is repaired: G${q.grade} at 100%.` };
 }
 
