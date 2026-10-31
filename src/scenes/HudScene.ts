@@ -1280,7 +1280,8 @@ export class HudScene extends Phaser.Scene {
         const b = button(this, w / 2 - 110, y + 16, v === null ? "Won't buy" : `Sell ${formatMoney(v)}`, () => {
           const sell = () => done(sellSpare(shops, shop, career, i), 'sell', pg);
           // Small sales are one click; bigger ones ask first (GDD 8.3).
-          if (v !== null && v >= 5000) inner(() => this.confirm(`Sell your G${p.grade} ${slotName(bikes, p.slot)} for ${formatMoney(v)}?`, 'Sell', sell, () => reopen('sell', pg)));
+          // The note says why the box came up (Boss, 31 Oct 2026).
+          if (v !== null && v >= 5000) inner(() => this.confirm(`Sell your G${p.grade} ${slotName(bikes, p.slot)} for ${formatMoney(v)}?\nIt's still at ${Math.round(p.condition * 100)}%, and worth £50 or more.\nAre you sure you want to sell it?`, 'Sell', sell, () => reopen('sell', pg)));
           else sell();
         }, 170, 38);
         b.setEnabled(v !== null);
