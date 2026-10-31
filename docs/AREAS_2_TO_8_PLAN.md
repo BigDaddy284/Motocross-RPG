@@ -290,7 +290,7 @@ Prices and space (bikes / parts / tool slots), proposed by Claude and agreed by 
 | 5 | MX Sports Motorhome Medium | £30,000 | 4 / 140 / 50 |
 | 6 | MX Sports Motorhome Long | £60,000 | 5 / 200 / 70 |
 
-**The Factory Hauler isn't bought or driven** (Boss, 31 Oct 2026). Once the player has a full factory sponsor in the late game, the team drives it: it's parked at **every venue** as if the team brought it, ready for the player to race out of, with room for 11 bikes (one per class), 400 parts and 120 tools. With the bikes at the track, Jedrick Nicholls sells the player an **expensive sports car** to get about in. **Decision:** the sports car's price and look (new vehicle art), and whether it needs the factory sponsor to buy.
+**The Factory Hauler isn't bought or driven** (Boss, 31 Oct 2026). Once the player has a full factory sponsor in the late game, the team drives it: it's parked at **every venue** as if the team brought it, ready for the player to race out of, with room for 11 bikes (one per class), 400 parts and 120 tools. With the bikes at the track, Jedrick Nicholls sells the player an **expensive sports car** to get about in. It costs **£250,000** and can only be bought once the player has the factory sponsor (Boss, 31 Oct 2026). It needs new vehicle art.
 
 ## Energy drinks (Areas 4 to 8)
 
