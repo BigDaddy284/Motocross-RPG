@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import * as THREE from 'three';
-import { LOCKED_ITEMS, MODEL_DIR, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, modelName } from '../core/modModels';
+import { FIGURE_PARTS, LOCKED_ITEMS, MODEL_DIR, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, modelName } from '../core/modModels';
 import { services } from '../services';
 import { glbOf, download, raceModels } from '../world/modelExport';
 import { modelList, modModel } from '../world/modModels';
@@ -78,7 +78,15 @@ export class ModelsScene extends Phaser.Scene {
     const builtIn: Row[] = scenery
       .filter((d) => !d.model && !LOCKED_ITEMS.has(d.id))
       .map((d) => ({ id: d.id, label: d.name, file: `${d.id}.glb`, note: d.id, make: () => view.builtInItem(d.id) }));
-    const role = { replace: 'Replaces the built-in one', new: 'New item in the track editor', bike: 'Replaces the race bike', rider: 'Replaces the race rider' };
+    // The moving figures export with their parts named, in their rest pose (core FIGURE_PARTS).
+    const figures: Row[] = Object.keys(FIGURE_PARTS).map((id) => ({
+      id,
+      label: scenery.find((d) => d.id === id)?.name ?? modelName(id),
+      file: `${id}.glb`,
+      note: `Parts: ${FIGURE_PARTS[id].join(', ')}`,
+      make: () => view.builtInItem(id),
+    }));
+    const role = { replace: 'Replaces the built-in one', new: 'New item in the track editor', bike: 'Replaces the race bike', rider: 'Replaces the race rider', figure: 'Moving figure: its parts replace the game\'s' };
     const mine: Row[] = modelList()
       .sort((a, b) => a.file.localeCompare(b.file))
       .map((m) => ({
@@ -90,6 +98,7 @@ export class ModelsScene extends Phaser.Scene {
       }));
     this.page([
       ['Race bike and rider', race],
+      ['Moving figures', figures],
       ['Scenery', builtIn],
       [`Your models (public/${MODEL_DIR})`, mine],
     ]);
@@ -116,6 +125,9 @@ export class ModelsScene extends Phaser.Scene {
     scene.add(sun);
     const camera = new THREE.PerspectiveCamera(35, 1, 0.01, 500);
     let shown: THREE.Object3D | null = null;
+    // A model's own animations, playing on a loop as they do in the race.
+    let mixer: THREE.AnimationMixer | null = null;
+    const clock = new THREE.Clock();
     let grid: THREE.GridHelper | null = null;
     let az = -0.7;
     let el = 0.35;
@@ -128,6 +140,12 @@ export class ModelsScene extends Phaser.Scene {
       if (shown) scene.remove(shown);
       if (grid) scene.remove(grid);
       shown = row.make();
+      mixer = null;
+      const clips = shown?.userData.clips as THREE.AnimationClip[] | undefined;
+      if (shown && clips?.length) {
+        mixer = new THREE.AnimationMixer(shown.userData.clipRoot as THREE.Object3D);
+        for (const clip of clips) mixer.clipAction(clip).play();
+      }
       bar.innerHTML = '';
       const title = document.createElement('b');
       title.textContent = row.label;
@@ -232,6 +250,7 @@ export class ModelsScene extends Phaser.Scene {
         camera.updateProjectionMatrix();
       }
       if (!drag) az += 0.003;
+      mixer?.update(Math.min(0.1, clock.getDelta()));
       camera.position.set(centre.x + Math.cos(el) * Math.cos(az) * dist, centre.y + Math.sin(el) * dist, centre.z + Math.cos(el) * Math.sin(az) * dist);
       camera.lookAt(centre);
       renderer.render(scene, camera);

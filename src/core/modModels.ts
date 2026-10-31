@@ -35,9 +35,10 @@ export const RACE_BIKE_YOUTH = 'race_bike_youth';
 export const RACE_RIDER = 'race_rider';
 
 /**
- * Scenery whose look the race view moves or sizes as it goes, so a still model can't stand in for
- * it: the start official, cheering fans, marshals, the flag man and pit crews (all animated), and
- * the start gate, finish arch and sprint start (stretched to the track's width).
+ * Scenery whose look the race view moves or sizes as it goes, so a plain model can't stand in for
+ * it: the start official, cheering fans, marshals, the flag man and pit crews (all animated: their
+ * models swap in part by part, FIGURE_PARTS), and the start gate, finish arch and sprint start
+ * (stretched to the track's width, never swapped).
  */
 export const LOCKED_ITEMS: ReadonlySet<string> = new Set(['start_official', 'cheer', 'marshal', 'flagger', 'pit_crew', 'start_gate', 'finish_arch', 'sprint_start']);
 
@@ -58,11 +59,13 @@ export const SCENERY_LIMITS: ModelLimits = { tris: 20000, long: 30, tall: 16 };
 /** On-track bikes and riders: up to 32 on track at once, so they are kept light. */
 export const BIKE_LIMITS: ModelLimits = { tris: 6000, long: 2.6, tall: 1.6, minLength: 1.4, maxLength: 2.6 };
 export const RIDER_LIMITS: ModelLimits = { tris: 6000, long: 2.4, tall: 2.0 };
-/** A model file's size at most, in bytes. */
+/** Moving figures: a crowd can have dozens of fans; a flag man's tower is about 5 m tall. */
+export const FIGURE_LIMITS: ModelLimits = { tris: 8000, long: 8, tall: 8 };
 /** The highest a rider model's lowest point (its boots on the pegs) can be, in metres. */
 export const RIDER_FEET = 0.6;
 /** Grid units a metre: world/paddock.ts U (trackSurface BIKE_LENGTH 1.1 over a 1.46 m bike), here so vite.config.ts can use it. */
 export const GRID_PER_METRE = 1.1 / 1.46;
+/** A model file's size at most, in bytes. */
 export const MAX_FILE_BYTES = 8 * 1024 * 1024;
 /** The colour used for a new item in the editor's 2D view and palette. */
 export const MODEL_COLOUR = '#9aa3ad';
@@ -86,6 +89,10 @@ export interface ModelInfo {
   tris: number;
   meshes: number;
   textures: number;
+  /** Every node's name, for a moving figure's named parts (FIGURE_PARTS). */
+  names?: string[];
+  /** How many animations it has: scenery plays them on a loop. */
+  animations?: number;
 }
 
 /** One file in the models folder, as the index lists it. */
@@ -102,7 +109,30 @@ export interface ModelEntry {
   def?: SceneryDef;
 }
 
-export type ModelRole = 'replace' | 'new' | 'bike' | 'rider';
+export type ModelRole = 'replace' | 'new' | 'bike' | 'rider' | 'figure';
+
+/**
+ * The moving figures whose parts can be swapped for a model's (Boss, 31 Oct 2026): each part is an
+ * object named for it in Blender, its origin at the joint it turns about, and the race view turns
+ * it there just as it turns its own (a marshal's flag arm up when a rider is down, a fan's arms
+ * as bikes pass). Body is the figure from the feet up, which leans; Base is a marshal's stand or
+ * the flag man's tower. A part left out keeps the game's own; objects with other names are left
+ * out. Start from the figure exported on the models page: it has every part, named, in its rest
+ * pose (a start official's arms point straight up, holding the board high; the rest hang down).
+ */
+export const FIGURE_PARTS: Readonly<Record<string, readonly string[]>> = {
+  marshal: ['Body', 'Arm', 'Base'],
+  flagger: ['Body', 'WhiteArm', 'ChequeredArm', 'Base'],
+  pit_crew: ['Body', 'Arms', 'Base'],
+  cheer: ['Body', 'LegL', 'LegR', 'ArmL', 'ArmR'],
+  start_official: ['Body', 'LegL', 'LegR', 'ArmL', 'ArmR'],
+};
+
+/** A node's part name, if it is one of `parts`: "armL.001" → ArmL. Case and Blender's .001 endings don't matter. */
+export function partName(name: string | undefined, parts: readonly string[]): string | null {
+  const n = (name ?? '').replace(/\.\d+$/, '').trim().toLowerCase();
+  return parts.find((p) => p.toLowerCase() === n) ?? null;
+}
 
 /** The id a file stands for: its name without .glb. */
 export function modelId(file: string): string {
@@ -119,12 +149,13 @@ export function modelName(id: string): string {
 export function modelRole(id: string, scenery: { id: string }[]): ModelRole {
   if (id === RACE_BIKE || id === RACE_BIKE_YOUTH) return 'bike';
   if (id === RACE_RIDER) return 'rider';
+  if (FIGURE_PARTS[id]) return 'figure';
   return scenery.some((s) => s.id === id) ? 'replace' : 'new';
 }
 
 /** The limits for a model of this role. */
 export function limitsFor(role: ModelRole): ModelLimits {
-  return role === 'bike' ? BIKE_LIMITS : role === 'rider' ? RIDER_LIMITS : SCENERY_LIMITS;
+  return role === 'bike' ? BIKE_LIMITS : role === 'rider' ? RIDER_LIMITS : role === 'figure' ? FIGURE_LIMITS : SCENERY_LIMITS;
 }
 
 /** The size of a model's box in metres: length (X), depth (glTF Z, Blender Y) and height (Y). */
@@ -143,7 +174,9 @@ export function checkModel(file: string, bytes: number, info: ModelInfo | null, 
   }
   const id = modelId(file);
   const role = modelRole(id, scenery);
-  if (role === 'replace' && LOCKED_ITEMS.has(id)) out.push(`The ${id} item moves or stretches to fit the track in the race, so it can't be swapped for a model.`);
+  if (role === 'replace' && LOCKED_ITEMS.has(id)) out.push(`The ${id} item stretches to fit the track in the race, so it can't be swapped for a model.`);
+  const parts = FIGURE_PARTS[id];
+  if (parts && !(info.names ?? []).some((n) => partName(n, parts))) out.push(`A ${modelName(id).toLowerCase()} moves in the race, so its model needs its parts as objects named ${parts.join(', ')}, each with its origin at its joint. Export it from the models page to start from.`);
   const lim = limitsFor(role);
   const { length, depth, height } = modelSize(info);
   const m = (v: number) => `${v.toFixed(2)} m`;
@@ -204,10 +237,11 @@ function apply(m: Mat4, p: Vec3): Vec3 {
 interface Gltf {
   scene?: number;
   scenes?: { nodes?: number[] }[];
-  nodes?: { children?: number[]; mesh?: number; matrix?: number[]; translation?: Vec3; rotation?: [number, number, number, number]; scale?: Vec3 }[];
+  nodes?: { name?: string; children?: number[]; mesh?: number; matrix?: number[]; translation?: Vec3; rotation?: [number, number, number, number]; scale?: Vec3 }[];
   meshes?: { primitives: { attributes: Record<string, number>; indices?: number; mode?: number }[] }[];
   accessors?: { count: number; min?: number[]; max?: number[] }[];
   textures?: unknown[];
+  animations?: unknown[];
 }
 
 /**
@@ -255,8 +289,9 @@ export function glbInfo(bytes: Uint8Array): ModelInfo | null {
   };
   const roots = json.scenes?.[json.scene ?? 0]?.nodes ?? (json.nodes ?? []).map((_, i) => i);
   for (const r of roots) visit(r, IDENTITY, 0);
-  if (!meshes || min[0] === Infinity) return { min: [0, 0, 0], max: [0, 0, 0], tris, meshes, textures: json.textures?.length ?? 0 };
-  return { min, max, tris, meshes, textures: json.textures?.length ?? 0 };
+  const extra = { textures: json.textures?.length ?? 0, names: (json.nodes ?? []).map((n) => n.name ?? '').filter(Boolean), animations: json.animations?.length ?? 0 };
+  if (!meshes || min[0] === Infinity) return { min: [0, 0, 0], max: [0, 0, 0], tris, meshes, ...extra };
+  return { min, max, tris, meshes, ...extra };
 }
 
 /** The index entry for one file in the folder (vite.config.ts writes the list; the game and the track editor read it). */

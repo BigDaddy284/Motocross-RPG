@@ -5,6 +5,8 @@ import { MARSHAL_ITEM } from '../src/core/marshal';
 import {
   BIKE_LIMITS,
   checkModel,
+  FIGURE_LIMITS,
+  FIGURE_PARTS,
   glbInfo,
   GRID_PER_METRE,
   LOCKED_ITEMS,
@@ -16,6 +18,7 @@ import {
   modelId,
   modelName,
   modelRole,
+  partName,
   RIDER_SLOTS,
   BIKE_SLOTS,
   SCENERY_LIMITS,
@@ -29,10 +32,10 @@ import { readPublic } from './helpers';
 // Your own Blender models in public/mods/models (Boss, 31 Oct 2026): reading a .glb's size without
 // three.js, and the rules for each kind of model, which the models page and the one-pager list.
 
-type Node = { mesh?: number; children?: number[]; translation?: number[]; rotation?: number[]; scale?: number[]; matrix?: number[] };
+type Node = { name?: string; mesh?: number; children?: number[]; translation?: number[]; rotation?: number[]; scale?: number[]; matrix?: number[] };
 
 /** A .glb with one box mesh (the given min and max, 12 triangles) under the given nodes. */
-function glb(nodes: Node[], box: { min: number[]; max: number[] } = { min: [-0.5, 0, -0.5], max: [0.5, 1, 0.5] }, opts: { tris?: number; roots?: number[]; textures?: number } = {}): Uint8Array {
+function glb(nodes: Node[], box: { min: number[]; max: number[] } = { min: [-0.5, 0, -0.5], max: [0.5, 1, 0.5] }, opts: { tris?: number; roots?: number[]; textures?: number; animations?: number } = {}): Uint8Array {
   const json = {
     asset: { version: '2.0' },
     scene: 0,
@@ -44,6 +47,7 @@ function glb(nodes: Node[], box: { min: number[]; max: number[] } = { min: [-0.5
       { count: (opts.tris ?? 12) * 3, componentType: 5123, type: 'SCALAR' },
     ],
     ...(opts.textures ? { textures: new Array(opts.textures).fill({ source: 0 }) } : {}),
+    ...(opts.animations ? { animations: new Array(opts.animations).fill({ channels: [], samplers: [] }) } : {}),
   };
   let text = JSON.stringify(json);
   while (text.length % 4) text += ' ';
@@ -94,6 +98,12 @@ describe('reading a .glb', () => {
     close(i.max, [3.5, 1, 0.5]);
   });
 
+  it('lists its node names and counts its animations', () => {
+    const i = glbInfo(glb([{ name: 'Body', children: [1] }, { name: 'ArmL.001', mesh: 0 }], undefined, { animations: 2 }))!;
+    expect(i.names).toEqual(['Body', 'ArmL.001']);
+    expect(i.animations).toBe(2);
+  });
+
   it("isn't fooled by a file that isn't a .glb", () => {
     expect(glbInfo(new TextEncoder().encode('{"asset":{"version":"2.0"}}'))).toBeNull();
     expect(glbInfo(new Uint8Array(4))).toBeNull();
@@ -118,7 +128,35 @@ describe('what a model does', () => {
 
   it('locks the items that move or stretch to fit the track', () => {
     for (const id of [OFFICIAL_ITEM, CHEER_ITEM, MARSHAL_ITEM, FLAGGER_ITEM, PIT_CREW_ITEM, SPRINT_START_ITEM, 'start_gate', ...SPANS_TRACK]) expect(LOCKED_ITEMS.has(id)).toBe(true);
-    expect(checkModel('marshal.glb', 100, info([-0.5, 0, -0.5], [0.5, 1.8, 0.5]), scenery).join(' ')).toMatch(/can't be swapped/);
+    // The stretched ones are never swapped.
+    for (const id of ['start_gate', ...SPANS_TRACK]) expect(checkModel(`${id}.glb`, 100, info([-0.5, 0, -0.5], [0.5, 1.8, 0.5]), [{ id }]).join(' ')).toMatch(/can't be swapped/);
+  });
+
+  it('swaps a moving figure part by part, by the names of its parts (Boss, 31 Oct 2026)', () => {
+    // Every animated figure has parts, and only those.
+    expect(Object.keys(FIGURE_PARTS).sort()).toEqual([CHEER_ITEM, FLAGGER_ITEM, MARSHAL_ITEM, PIT_CREW_ITEM, OFFICIAL_ITEM].sort());
+    for (const [id, parts] of Object.entries(FIGURE_PARTS)) {
+      expect(LOCKED_ITEMS.has(id)).toBe(true);
+      expect(parts).toContain('Body');
+      expect(modelRole(id, scenery)).toBe('figure');
+    }
+    const figure = (names: string[]) => ({ ...info([-0.4, 0, -0.2], [0.4, 1.8, 0.2]), names });
+    expect(checkModel('marshal.glb', 100, figure(['Scene', 'Body', 'Arm']), scenery)).toEqual([]);
+    // A part on its own is enough: the rest stay the game's.
+    expect(checkModel('cheer.glb', 100, figure(['armL.001']), scenery)).toEqual([]);
+    // With no named parts the game can't move it.
+    expect(checkModel('marshal.glb', 100, figure(['Cube', 'Cube.001']), scenery).join(' ')).toMatch(/Body, Arm, Base/);
+    expect(checkModel('marshal.glb', 100, info([-0.4, 0, -0.2], [0.4, 1.8, 0.2]), scenery).join(' ')).toMatch(/named/);
+    // A figure is kept light: crowds can be big.
+    expect(checkModel('cheer.glb', 100, { ...figure(['Body']), tris: FIGURE_LIMITS.tris + 1 }, scenery).join(' ')).toMatch(/triangles/);
+  });
+
+  it("reads a part's name as Blender writes it", () => {
+    expect(partName('Body', FIGURE_PARTS.marshal)).toBe('Body');
+    expect(partName('armL.002', FIGURE_PARTS.cheer)).toBe('ArmL');
+    expect(partName(' WhiteArm ', FIGURE_PARTS.flagger)).toBe('WhiteArm');
+    expect(partName('Arm', FIGURE_PARTS.cheer)).toBeNull();
+    expect(partName(undefined, FIGURE_PARTS.cheer)).toBeNull();
   });
 
   it('uses grid units a metre the same as the race view', () => {
