@@ -3,6 +3,7 @@ import { bikeStats, conditionFactor, formatMoney, type Bike } from '../core/care
 import { formatTime, gateBonus, type LapTrace, type MotoSim, type RaceEvent, type RiderResult } from '../core/race';
 import { PLAYER_ID, RaceDay, applyRide, playerEntrant, practiceSim, sumXp, trackById, type MotoRecord, type VenueDef } from '../core/raceDay';
 import { Knockout, type KnockoutHeat, roundName } from '../core/knockout';
+import { addReputation, makeOffers, settleDay, sponsorsOpen } from '../core/sponsors';
 import { finishChampionship, nextRoundVenue, rewardTexture, recordRound, roundOptions, standings, titlePossible, type ActiveChampionship, type ChampionshipDef } from '../core/championship';
 import { noteActivity } from '../core/shops';
 import { challengePrize, rigChallenge, type ChallengeDef } from '../core/challenge';
@@ -1390,6 +1391,16 @@ export class RaceScene extends Phaser.Scene {
       `Money now: ${formatMoney(career.money)}`,
     ];
     if (firstDay) lines.push('', finishedBoth ? 'Goal done: you finished both motos.' : 'Goal: finish both motos. Try again next time.');
+    // Sponsors and reputation (core/sponsors.ts, Spec 16): the finishes count, and the contract's objectives are settled.
+    const sponsors = services.content.sponsors;
+    const settled = settleDay(sponsors, services.content, career, this.args.venue, {
+      position: me.position,
+      positions: me.positions,
+      overall: Object.fromEntries(res.overall.map((r) => [r.id, r.position])),
+      partsAtStart: this.args.save.career.bike.parts,
+      kind: champ ? (champ.def.id.includes('local_champion') ? 'local_champion' : 'main') : 'local',
+    });
+    if (settled.lines.length) lines.push('', 'Sponsor', ...settled.lines);
     lines.push('', 'Rider XP', ...this.xpLines(payout.xp));
     this.text(604, 170, lines.join('\n'), 17, COLORS.cream, { lineSpacing: 4, wordWrap: { width: 310 } });
     const ups = payout.levelUps.map((u) => `${u.name} → level ${u.level}`);
@@ -1443,6 +1454,12 @@ export class RaceScene extends Phaser.Scene {
       return;
     }
     const fin = finishChampionship(career, this.save.flags, def, points);
+    // Spec 16.1: a championship win counts for reputation, and finishing one opens a sponsor offer window from Area 5.
+    const sponsors = services.content.sponsors;
+    const kind = def.id.includes('local_champion') ? 'local_champion' : 'main';
+    if (fin.position === 1) addReputation(sponsors, career, sponsors.reputation.championshipWin * (sponsors.reputation.tierWeight[kind] ?? 1));
+    const offers = sponsorsOpen(sponsors, this.save.flags) ? makeOffers(sponsors, services.content, career, (career.counters['race.days'] ?? 0) * 31 + fin.position) : [];
+    if (offers.length) career.sponsorOffers = offers;
     this.text(764, 126, fin.position === 1 ? 'Champion!' : `${ordinal(fin.position)} in the championship`, 28, COLORS.accent);
     const lines = [];
     if (fin.position === 1) lines.push(fin.firstWin && def.won ? def.won : `You won the ${def.name} again.`);
@@ -1450,6 +1467,7 @@ export class RaceScene extends Phaser.Scene {
     if (fin.title) lines.push('', `You earned ${fin.title}.`);
     if (fin.money) lines.push(`Championship prize: ${formatMoney(fin.money)}`);
     if (fin.position > 3) lines.push('', 'The top three win a prize. Enter again from any race office.');
+    if (offers.length) lines.push('', `${offers.length} sponsor offer${offers.length === 1 ? '' : 's'} waiting: see Sponsors at any race office.`);
     lines.push('', `Money now: ${formatMoney(career.money)}`);
     this.text(764, 176, lines.join('\n'), 19, COLORS.cream, { lineSpacing: 6, wordWrap: { width: 450 } });
     // The badge or trophy won, as it shows in the Task tab.

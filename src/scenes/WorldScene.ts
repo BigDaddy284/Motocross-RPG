@@ -19,6 +19,7 @@ import { venueClassFor, entryFee, fieldCount, lapsFor, practiceFee, trackById, v
 import { champProblem, enter, nextRoundVenue, roundEntry, roundsHere, standings, titlePossible, withdraw, type ChampionshipDef } from '../core/championship';
 import { noteActivity, shopForAction, slotName, type ShopDef } from '../core/shops';
 import { machineFee, machineProblem, modsLabel, runMachine } from '../core/modifiers';
+import { dayObjectives, dropPenalty, dropSponsor, objectiveText, offerProblem, reputationHint, signOffer, sponsorsOpen } from '../core/sponsors';
 import { buyOutfit, outfitProblem, outfitSheet, ownsOutfit, rackOpen, storageLimit, storeSpare, stored, takeSpare, wearOutfit, wornOutfit } from '../core/house';
 import { errandStage, finishErrand, takeErrand, type ErrandDef } from '../core/errands';
 import { challengeReady, challengeVenue, lossHint, type ChallengeDef } from '../core/challenge';
@@ -1069,10 +1070,48 @@ export class WorldScene extends Phaser.Scene {
         ? mod.extra
         : [{ label: 'Free practice', note: `${formatMoney(pFee)}: ride laps until you stop${venue.practiceRiders ? `, with ${venue.practiceRiders} other riders out on track` : ' on your own'}.${short(pFee) ? " You can't afford it." : ''}`, enabled: !short(pFee), onPick: () => this.ride('practice', venue, pFee, onClose) }]),
       ...(hasChamps ? [{ label: 'Championships', note: 'Enter one, see the standings, or give one up.', onPick: () => this.openChampionships(venue, onClose) }] : []),
+      // Sponsored Rides (core/sponsors.ts, Spec 16; Boss, 31 Oct 2026: from Area 5).
+      ...(!mod && sponsorsOpen(rc.sponsors, this.save.flags) ? [{ label: 'Sponsors', note: career.sponsor ? `Riding for ${career.sponsor.name}: today's objectives, or leave them.` : career.sponsorOffers?.length ? `${career.sponsorOffers.length} offer${career.sponsorOffers.length === 1 ? '' : 's'} waiting.` : 'No offers yet: finish a championship to open a window.', onPick: () => this.openSponsors(venue, () => this.openVenue(venue, onClose, mod)) }] : []),
       // Bike setup (Spec 8; Boss, 31 Oct 2026): the Basic view from Area 2, the Advanced view from Area 5.
       ...(!mod && this.save.flags[areaFlag(rc.setup.basicArea)] ? [{ label: 'Bike setup', note: 'Set the bike up for this track: a ready-made setup, or your own sliders.', onPick: () => this.openSetup(venue, () => this.openVenue(venue, onClose, mod)) }] : []),
       { label: 'Not now', onPick: onClose },
     ], onClose);
+  }
+
+  // ---- sponsors (core/sponsors.ts, Spec 16) ----
+
+  private openSponsors(venue: VenueDef, back: () => void): void {
+    const rc = services.content;
+    const data = rc.sponsors;
+    const career = this.save.career;
+    const again = () => this.openSponsors(venue, back);
+    const c = career.sponsor;
+    const lines = [`Word is: ${reputationHint(data, career)}`];
+    if (c) {
+      lines.push(`Riding for ${c.name} (${data.tiers.find((t) => t.id === c.tier)?.name ?? c.tier}): £${c.pay} an objective met, ${c.days - c.daysDone} race ${c.days - c.daysDone === 1 ? 'day' : 'days'} to go, £${c.cashReceived / 100} earned so far.${c.failStreak >= data.objectives.warnAfter ? ' On a warning.' : ''}`);
+      lines.push(`Today here: ${dayObjectives(data, rc, c, venue).map((o) => objectiveText(rc, o, data)).join('; ')}.`);
+    } else lines.push('No sponsor. Sponsors pay for objectives met, nothing up front; offers open when you finish a championship.');
+    const offers = career.sponsorOffers ?? [];
+    this.hud.choose('Sponsors', lines.join('\n'), [
+      ...offers.map((o) => {
+        const problem = offerProblem(o, career);
+        const tier = data.tiers.find((t) => t.id === o.tier);
+        return { label: `${o.name}: £${o.pay} an objective`, note: problem ?? `${tier?.name ?? o.tier}: ${o.days} race days, every part Grade ${o.minGrade} or better, top ${tier?.topN ?? '?'} to finish.`, enabled: !problem, onPick: () => this.hud.confirm(`Sign with ${o.name} for ${o.days} race days?`, 'Sign', () => {
+          const r = signOffer(data, o, career, this.save.flags);
+          this.hud.toast(r.message);
+          this.milestoneSave();
+          again();
+        }, again) };
+      }),
+      ...(c ? [{ label: `Leave ${c.name}`, note: `Costs ${formatMoney(dropPenalty(data, c))} of what they've paid you, and your name among sponsors.`, onPick: () => this.hud.confirm(`Leave ${c.name} now for ${formatMoney(dropPenalty(data, c))}?`, 'Leave', () => {
+        const r = dropSponsor(data, career);
+        this.hud.showCareer(career, this.save.flags);
+        this.hud.toast(r.message);
+        this.milestoneSave();
+        again();
+      }, again) }] : []),
+      { label: 'Back', onPick: back },
+    ], back);
   }
 
   // ---- the house: wardrobe, chest and the Phoenix MX clothing rack (core/house.ts; Boss, 30 Oct 2026) ----

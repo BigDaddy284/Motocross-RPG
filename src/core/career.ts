@@ -8,6 +8,7 @@ import type { ErrandState } from './errands';
 import type { JobState } from './jobs';
 import type { ClassDef, RetiredBike } from './classes';
 import type { ShopState, SparePart } from './shops';
+import type { Contract, Offer } from './sponsors';
 import type { WorldMapData } from './worldMap';
 import { newSkillState, type SkillState } from './skills';
 
@@ -207,6 +208,11 @@ export interface CareerState {
   setup?: SetupState;
   /** Spare parts in the house storage chest (core/house.ts), shared by every house. */
   storage?: SparePart[];
+  /** Reputation among sponsors, 0 to 1000 (core/sponsors.ts, Spec 16.1). */
+  reputation?: number;
+  /** The sponsor contract under way, and the offers open to sign. */
+  sponsor?: Contract;
+  sponsorOffers?: Offer[];
 }
 
 export const pence = (pounds: number) => Math.round(pounds * 100);

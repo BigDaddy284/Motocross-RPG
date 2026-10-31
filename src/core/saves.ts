@@ -234,11 +234,24 @@ function isCareer(v: unknown): boolean {
     (c.setup === undefined || (typeof c.setup === 'object' && c.setup !== null && ((c.setup as Record<string, unknown>).preset === null || typeof (c.setup as Record<string, unknown>).preset === 'string') && typeof (c.setup as Record<string, unknown>).sliders === 'object' && (c.setup as Record<string, unknown>).sliders !== null && Object.values((c.setup as Record<string, unknown>).sliders as Record<string, unknown>).every((v) => typeof v === 'number' && v >= -1 && v <= 1))) &&
     (c.retired === undefined || (Array.isArray(c.retired) && c.retired.every((r) => isBike((r as Record<string, unknown>)?.bike) && typeof (r as Record<string, unknown>).milestone === 'string'))) &&
     !!story && Number.isInteger(story.step) && Array.isArray(story.used) &&
+    (c.reputation === undefined || (typeof c.reputation === 'number' && c.reputation >= 0)) &&
+    (c.sponsor === undefined || isContract(c.sponsor)) &&
+    (c.sponsorOffers === undefined || (Array.isArray(c.sponsorOffers) && c.sponsorOffers.every((o) => isOffer(o)))) &&
     (c.storage === undefined || (Array.isArray(c.storage) && c.storage.every((p) => isSpare(p as Record<string, unknown>)))) &&
     (c.chains === undefined || (typeof c.chains === 'object' && c.chains !== null && Object.values(c.chains as Record<string, Record<string, unknown>>).every((ch) => Number.isInteger(ch?.step) && Array.isArray(ch?.used)))) &&
     typeof c.counters === 'object' && c.counters !== null &&
     isSkills(c.skills)
   );
+}
+
+function isOffer(v: unknown): boolean {
+  const o = v as Record<string, unknown> | undefined;
+  return !!o && typeof o === 'object' && typeof o.tier === 'string' && typeof o.name === 'string' && typeof o.pay === 'number' && Number.isInteger(o.days) && Number.isInteger(o.minGrade);
+}
+
+function isContract(v: unknown): boolean {
+  const c = v as Record<string, unknown> | undefined;
+  return isOffer(v) && Number.isInteger(c!.daysDone) && Number.isInteger(c!.failStreak) && Number.isInteger(c!.cashReceived) && Number.isInteger(c!.seed);
 }
 
 function isBike(v: unknown): boolean {
