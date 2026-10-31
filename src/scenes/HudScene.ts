@@ -998,15 +998,15 @@ export class HudScene extends Phaser.Scene {
         tip = null;
       };
       (c.list[1] as Phaser.GameObjects.Rectangle).on('pointerdown', hideTip);
-      const showTip = (name: string, xp: number, multiplier: number, x: number, y: number, rowH: number) => {
+      const showTip = (xp: number, multiplier: number, x: number, y: number, rowH: number) => {
         hideTip();
         const st = levelStatus(xp, multiplier, skills.maxLevel);
         const fmt = (n: number) => Math.floor(n).toLocaleString();
-        const lines = [
-          `${name}: level ${st.level}`,
-          `${fmt(st.xp)} XP`,
-          st.next === null ? 'Top level reached.' : `Level ${st.level + 1} at ${fmt(st.next)} XP (${fmt(st.toGo)} to go)`,
-        ];
+        // No level line: the menu already shows it. Kept to two short lines so millions of XP still
+        // fit beside the next column (Boss, 31 Oct 2026).
+        const lines = st.next === null
+          ? [`${fmt(st.xp)} XP`, 'Top level']
+          : [`${fmt(st.xp)} / ${fmt(st.next)} XP`, `${fmt(st.toGo)} to the next level`];
         const t = this.add.text(12, 10, lines.join('\n'), textStyle(this.pts(14), COLORS.cream, { lineSpacing: 4 }));
         const bw = t.width + 24;
         const bh = t.height + 20;
@@ -1017,9 +1017,9 @@ export class HudScene extends Phaser.Scene {
         c.add(tip);
       };
       /** An invisible hit area over a skill's row: hover shows its box, leaving hides it, a tap shows it. */
-      const hover = (x: number, y: number, rowW: number, rowH: number, name: string, xp: () => number, multiplier: number) => {
+      const hover = (x: number, y: number, rowW: number, rowH: number, xp: () => number, multiplier: number) => {
         const zone = this.add.rectangle(x, y, rowW, rowH, 0, 0.001).setOrigin(0).setInteractive();
-        const show = () => showTip(name, xp(), multiplier, x, y, rowH);
+        const show = () => showTip(xp(), multiplier, x, y, rowH);
         zone.on('pointerover', show);
         zone.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, ev: Phaser.Types.Input.EventData) => {
           ev.stopPropagation();
@@ -1038,7 +1038,7 @@ export class HudScene extends Phaser.Scene {
         const leadBarY = Math.max(y0 + 58, level.y + level.height + 6);
         c.add(this.add.rectangle(x, leadBarY, barW, 8, COLORS.panelLight).setOrigin(0, 0.5));
         c.add(this.add.rectangle(x, leadBarY, Math.max(1, barW * levelProgress(lx, lead.multiplier, skills.maxLevel)), 8, COLORS.accent).setOrigin(0, 0.5));
-        hover(x, y0, barW, leadBarY + 6 - y0, lead.name, () => lx, lead.multiplier);
+        hover(x, y0, barW, leadBarY + 6 - y0, () => lx, lead.multiplier);
         const first = leadBarY + 18;
         const rowH = Math.min(48, (foot.y - 6 - first) / Math.max(1, lead.children.length));
         lead.children.forEach((ch, j) => {
@@ -1050,7 +1050,7 @@ export class HudScene extends Phaser.Scene {
           const barY = y + Math.min(rowH - 8, Math.max(26, name.height + 4));
           c.add(this.add.rectangle(x, barY, barW, 6, COLORS.panelLight).setOrigin(0, 0.5));
           c.add(this.add.rectangle(x, barY, Math.max(1, barW * levelProgress(xp, 1, skills.maxLevel)), 6, 0x6fa84a).setOrigin(0, 0.5));
-          hover(x, y - 4, barW, barY + 6 - (y - 4), ch.name, () => xp, 1);
+          hover(x, y - 4, barW, barY + 6 - (y - 4), () => xp, 1);
         });
       });
     }
