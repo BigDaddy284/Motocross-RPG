@@ -374,9 +374,9 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 13. **Motor prices and storage.** Settled, see [Motors](#motors). Still to build: the Factory Hauler at every venue, and the sports car.
 14. **Weather and rain.** Rain arrives in Area 2, Mountain Town (Spec 10.5), and isn't in yet. Then sand in Area 3, roots and loam in Area 4, rock and dust in Area 5, wind in Area 6, indoor in Area 7 and all weathers in Area 8. Kept as planned (Boss, 31 Oct 2026).
 15. **Bike setup sliders** (Spec 8). These are what make the Mechanical Engineer level matter on race day, and they aren't in yet. Basic view arrives in Area 2, where rain first makes setup matter; Advanced view in Area 5 (Boss, 31 Oct 2026).
-16. **Sponsors and reputation** (Spec 16) are needed for Area 5's Sponsored Rides.
-17. **House tiers.** None can be bought yet, and shared storage across houses (Boss's rule) needs building.
-18. **Clothing.** The wardrobe isn't built. It's needed for Phoenix MX clothing and sponsor outfits.
+16. **Sponsors and reputation** (Spec 16). Agreed split (Boss, 31 Oct 2026): in Areas 1 to 4, winning the area championship brings a one-off champion's offer, the new class frame and a kit with no contract (turn it down and buy the frame from Bill). From Area 5, Sponsored Rides brings proper contracts (set race days, pay per objective, tiers from local shops to factory teams) and the reputation table. The factory tier brings the Factory Hauler.
+17. **House tiers.** None can be bought yet. A house in every town and the one shared storage box need building (settled above).
+18. **Clothing.** The wardrobe isn't built. It's needed for the Phoenix MX rack (Area 2, settled above) and sponsor kits.
 19. **Unnamed NPCs.** The fabrication shop boss, engine rebuilder, neighbour and scrapyard owner still have job titles.
 20. **Mountain backdrop tiles** for Mountain Town (Area 2) need making (Boss, 30 Oct 2026).
 21. **Hidden venues.** The Spec has optional venues found by exploring or NPC tasks (for example a secret sand pit on the coast). None are planned per area yet.
