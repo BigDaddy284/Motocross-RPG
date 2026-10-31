@@ -155,6 +155,33 @@ Every area has the same base set, so the columns below list only what's **new**:
 - A route marshal at the exit, and a Road menu entry under Areas.
 - Shop tasks: errands like the scrapyard owner's (lend a worn part to repair), deliveries between the area's shops, and a short task chain that opens the area's hidden venue or practice track.
 
+### Arriving in a new area: the area intro (Boss, 31 Oct 2026)
+
+Every area from 2 to 8 opens with a short intro chain, like the tutorial. **The area's tracks stay locked until it's done.** It always ends with the player meeting the area's **Local Champion**, who points them to the tracks that are now open. It runs on the same story steps and tutorial markers as the Area 1 opening chain (`story.json`).
+
+**The same six steps in every area:**
+
+1. **Arrive.** Manny Festo meets the player at the road in with the area's news: who the champions are, and what's new in town.
+2. **The shops.** A step at one of the travelling NPCs' shops, showing what's new there this area (better grades, a new class, or a new service).
+3. **An errand.** A delivery between two of the area's shops, like the parts order in the tutorial, so the player learns the town's layout.
+4. **The new job.** One short run at the area's new batch facility, where the boss explains the kept part.
+5. **The new training.** One round of the area's new fitness activity, and the rider drill if the area has one.
+6. **Meet the Local Champion.** They're waiting by the race office or their own hang-out. They talk up their tracks, unlock them, and the markers lead the player there.
+
+The area's own story beat (the house, Big Pete, Maggie's quest and so on) starts once the intro is done, so the intro stays short.
+
+**Placeholder Local Champions** (names and looks to replace; Boss will rename pool riders into these spots later):
+
+| Area | Local Champion *(placeholder)* | Character | Step 2 shop | Step 4 job | Step 5 training |
+|---|---|---|---|---|---|
+| 2 Mountain Town | Cal Mercer | A mud specialist who knows every line on the mountain tracks | Phoenix MX's new clothing rack (locked until the house is bought) | Wheel works | Weight training at the gym, then body position drills |
+| 3 Beach Town | Sandy Tate | A sand rider who grew up on the dunes, and an old pupil of Big Pete | Lee's T's & Wheels: sand tyres | Brake works | Agility ladder on the beach, then gate drop |
+| 4 Forest Town | Rowan Ash | Quiet, rides the woods every day, hates being passed | Moto78: the 125cc Youth class arrives | Suspension shop | Yoga |
+| 5 Northern Works | Dex Hollis | A former works mechanic who rides like one | Phoenix MX: engine parts at Grade 6 | Frame works | Rowing on the canal, then rock garden |
+| 6 Highlands | Fergus Bain | A hill climber who loves long races | Nicholls Used Motors: Motor 6 | Gearbox works | Cycling, then repetition laps |
+| 7 The City | Nina Vance | A supercross star who rarely rides outdoors | Moto78: the 450cc F and Vets classes | Exhaust and intake works | Martial arts dojo, then supercross rhythm |
+| 8 Capital | Marcus Stone | A former national champion and the toughest Local Champion | All four travelling shops at their top grades | Race department (shown, opens at Mechanical Engineer 70) | Recovery centre ice bath |
+
 ### Area 2: Mountain Town (mountain valley, clay, rain and mud)
 
 - **Art:** new tiles for a **mountain backdrop** behind the town and its venues (Boss, 30 Oct 2026).
@@ -309,7 +336,7 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
    - **NPCs who race join the pool in a set area**, their "area unlocked".
    - **AI skill follows the track's area, not the player.** Racing an Area 1 track late in the game puts the riders back at Area 1's skill set, so those races are easy and winnable most of the time. Area 8 still isn't guaranteed even at level 99.
    - Each rider's role (NPC or pool), joining area and champion area is being set on the rider sign-on sheet (an artifact for Boss).
-10. **Local Champions.** Areas 2 to 8 have no Local Champion names yet (the L= column is blank).
+10. **Local Champions.** Placeholders and an intro chain for every area are in [Arriving in a new area](#arriving-in-a-new-area-the-area-intro-boss-31-oct-2026). Boss will rename pool riders into these spots later.
 11. **Challengers.** Two per area, so 14 names and 14 challenge tracks.
 12. **Bike classes.** Only 50cc is in `bikes.json`. Every class from 65cc to Vets needs a stat ceiling, and the class milestone flow (win the championship, collect the new bike) needs building.
 13. **Motor prices and storage.** There are seven motors now, but the Spec priced five (£600 to £160,000). Motors 2 to 7 need a price, bike slots and part slots.
