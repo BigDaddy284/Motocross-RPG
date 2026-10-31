@@ -191,7 +191,7 @@ describe('Areas 3 to 8 (Areas 2 to 8 plan; Boss, 31 Oct 2026: placeholder towns,
     8: { W: 'area7-the-city', E: 'area1-home-town' },
   };
   // A drawn town adds its own road to the Hub (the world map's spoke; Areas 2 to 8 maps, Boss 31 Oct 2026).
-  const hubRoad: Record<number, string> = { 3: 'South road', 4: 'South-east road', 5: 'East road', 6: 'North-east road' };
+  const hubRoad: Record<number, string> = { 3: 'South road', 4: 'South-east road', 5: 'East road', 6: 'North-east road', 7: 'North road' };
   // The roads to the next area (W) and the one before (E), named by the side of the drawn map they
   // leave from (Forest Town's road to Northern Works leaves south, Northern Works' to the Highlands
   // south; Boss, 31 Oct 2026).

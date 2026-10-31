@@ -59,6 +59,7 @@
     {"map": "area6-highlands", "exit": "North-east road", "road": "the hub road", "to": ["venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"]},
     {"map": "area7-the-city", "exit": "West road", "road": "the ring road", "to": ["area6-highlands", "venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"]},
     {"map": "area7-the-city", "exit": "East road", "road": "the motorway", "to": ["area8-capital", "venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"]},
+    {"map": "area7-the-city", "exit": "North road", "road": "the hub road", "to": ["venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"]},
     {"map": "area8-capital", "exit": "West road", "road": "the national road", "to": ["area7-the-city", "venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"]},
     {"map": "area8-capital", "exit": "East road", "road": "the north road", "to": ["area1-home-town", "venue-motocross", "venue-supercross", "venue-enduro", "mod-tracks"]}
   ],
