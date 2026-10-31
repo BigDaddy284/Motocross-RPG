@@ -1,5 +1,5 @@
 {
-  "note": "Area 1 parts shops and the garage's repairs (GDD 8.3 to 8.5, Spec 7.4, 14.4 to 14.6). Prices are in pounds for a new Grade 1 part on a 50cc; each grade costs gradeFactor times the one below. slotBase values not given in Spec 14.4 (bottom end, shock, brakes, bodywork, wheels and tyres as one slot) are first-pass guesses to tune in testing. Frames are not sold: they come from your sponsor or the class dealer (Spec 18.9). fitFee is the garage's bench fee for fitting a spare (provisional); parts bought in a shop are fitted there free. consumables (Boss, 28 Oct 2026) are slots that are only ever replaced: tyres can't be repaired or sold, and once they hit 0% they are broken.",
+  "note": "Area 1 parts shops and the garage's repairs (GDD 8.3 to 8.5, Spec 7.4, 14.4 to 14.6). Prices are in pounds for a new Grade 1 part on a 50cc; each grade costs gradeFactor times the one below. slotBase values not given in Spec 14.4 (bottom end, shock, brakes, bodywork, wheels and tyres as one slot) are first-pass guesses to tune in testing. Frames are not sold: they come from your sponsor or the class dealer (Spec 18.9). classDealer is the shop (Bill at Moto78, Boss 30 Oct 2026) where a new class's bike is collected once its milestone championship is won: the champion's sponsor offers a free stock bike of their brand, or the rider buys a stock Grade 1 bike of any brand at the sum of its parts' prices. fitFee is the garage's bench fee for fitting a spare (provisional); parts bought in a shop are fitted there free. consumables (Boss, 28 Oct 2026) are slots that are only ever replaced: tyres can't be repaired or sold, and once they hit 0% they are broken.",
   "slotBase": {
     "frame": 400,
     "top_end": 35,
@@ -12,13 +12,14 @@
     "brakes": 30,
     "bodywork": 45
   },
-  "classPriceFactor": { "50cc": 1.0, "65cc": 1.2, "85cc": 1.5, "125y": 1.8, "125cc": 2.2, "250f": 2.8, "450f": 3.5, "vets": 3.5 },
+  "classPriceFactor": { "50cc": 1.0, "65cc": 1.2, "85cc-small": 1.5, "85cc-big": 1.5, "125cc-youth": 1.8, "125cc": 2.2, "250f": 2.8, "450f": 3.5, "vets-40": 3.5, "vets-50": 3.5, "vets-60": 3.5 },
   "gradeFactor": 2,
   "repairShare": 0.7,
   "consumables": ["wheels_tyres"],
   "resale": { "base": 0.2, "perCondition": 0.4, "otherShop": 0.5, "demand": [0.9, 1.1] },
   "rotation": { "raceDays": 3, "activities": 10 },
   "spareLimit": 20,
+  "classDealer": "shop.bike",
   "shops": [
     {
       "id": "shop.bike", "name": "Moto78", "npc": "npc.bike_shop_owner", "map": "int-home-bike-shop",

@@ -13,13 +13,14 @@ import { biggestBike, bikeImage, zoneFor } from '../core/worldMap';
 import { ROUTE, spawnTile, stepTriggerAt, type Arrival, type StepResult } from '../core/travel';
 import { DriveMap, FACING_OF, bayFor, ensureVan, exitTile, footprint, inwardHeading, nearestFree, placeNear, planDrive, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
-import { entryFee, fieldCount, lapsFor, practiceFee, trackById, venueProblem, type VenueDef } from '../core/raceDay';
+import { venueClassFor, entryFee, fieldCount, lapsFor, practiceFee, trackById, venueProblem, type VenueDef } from '../core/raceDay';
 import { champProblem, enter, nextRoundVenue, roundEntry, roundsHere, standings, titlePossible, withdraw, type ChampionshipDef } from '../core/championship';
 import { noteActivity, shopForAction, slotName, type ShopDef } from '../core/shops';
 import { errandStage, finishErrand, takeErrand, type ErrandDef } from '../core/errands';
 import { challengeReady, challengeVenue, lossHint, type ChallengeDef } from '../core/challenge';
 import { drillForAction, drillForNpc, finishRound, walked, type DrillDef } from '../core/training';
 import { finishBatch, finishPass, openJobAt, passXp, startJob } from '../core/jobs';
+import { className } from '../core/classes';
 import { leadLevel } from '../core/skills';
 import { challengeWins } from '../core/records';
 import { CAREER_SLOT, services } from '../services';
@@ -761,7 +762,7 @@ export class WorldScene extends Phaser.Scene {
     const wm = services.content.world.worldMap;
     if (!wm || this.busy) return;
     const zone = zoneFor(wm, services.maps, services.travel, this.map.id);
-    const bike = bikeImage(wm, biggestBike(services.content.bikes, this.save.career));
+    const bike = bikeImage(wm, biggestBike(services.content.bikes, this.save.career), services.content.bikes);
     this.player.stopWalking();
     this.path = [];
     this.onArrive = null;
@@ -905,25 +906,26 @@ export class WorldScene extends Phaser.Scene {
       onClose();
       return;
     }
-    const pFee = practiceFee(rc, venue);
+    const dayCls = venueClassFor(rc, venue, career);
+    const pFee = practiceFee(rc, venue, dayCls);
     if (venue.practiceOnly) {
       this.hud.confirm(`Ride the ${venue.name.toLowerCase()}?\nFree. Laps wear your parts and give practice XP.`, 'Ride', () => this.ride('practice', venue, pFee, onClose), onClose);
       return;
     }
-    const fee = entryFee(rc, venue, this.save.flags);
-    const laps = lapsFor(rc, trackById(rc, venue.track!), venue.class ?? '50cc', false);
+    const fee = entryFee(rc, venue, this.save.flags, dayCls);
+    const laps = lapsFor(rc, trackById(rc, venue.track!), dayCls, false);
     const field = fieldCount(rc, venue) + 1;
     const first = fee === 0 && venue.firstRaceFree;
     const text = [
       mod ? mod.intro : first ? "First time here? Your first race day is on us." : 'Race office. What can I do for you?',
-      `${venue.class} race day: ${field} riders including the Local Champion, 2 motos of ${laps} laps. Prize money to 10th in each moto.`,
+      `${className(rc.bikes, dayCls)} race day: ${field} riders including the Local Champion, 2 motos of ${laps} laps. Prize money to 10th in each moto.`,
     ].join('\n\n');
     const short = (p: number) => career.money < p;
     const champs = services.content.championships;
     // A championship's next round here takes the place of a local race day (Spec 18.6, 6C).
     const rounds = mod ? [] : roundsHere(champs, career, venue);
     const roundOptions = rounds.map((def) => {
-      const f = roundEntry(rc, def);
+      const f = roundEntry(rc, def, dayCls);
       const n = career.champs!.active[def.id].rounds.length + 1;
       return { label: `${def.short} round ${n}`, note: `Entry: ${formatMoney(f)}${short(f) ? " — you can't afford it" : ''}. Qualifying, then 2 motos against the championship's ${def.size + 1} riders.`, enabled: !short(f), onPick: () => this.ride('raceday', venue, f, onClose, def) };
     });
@@ -952,13 +954,13 @@ export class WorldScene extends Phaser.Scene {
     const options = list.map((def) => {
       const active = career.champs?.active[def.id];
       const record = career.champs?.done[def.id];
-      const problem = active ? null : champProblem(rc, def, this.save.flags);
+      const problem = active ? null : champProblem(rc, def, this.save.flags, career.bike.class);
       let note: string;
       if (active) {
         const me = standings(rc.racing.points, active).find((r) => r.player)!;
         note = `Round ${active.rounds.length + 1} of ${def.rounds.length} next, at ${venueName(nextRoundVenue(def, active))}.${active.rounds.length ? ` You're ${ordinal(me.position)} on ${me.points} points.` : ''}`;
       } else if (problem) note = problem;
-      else note = `${def.rounds.length} rounds, ${formatMoney(roundEntry(rc, def))} a round.${record?.wins ? ' Won before: half prize money and XP.' : record ? ` Best so far: ${ordinal(record.best)}.` : ''}`;
+      else note = `${def.rounds.length} rounds, ${formatMoney(roundEntry(rc, def, career.bike.class))} a round.${record?.wins ? ' Won before: half prize money and XP.' : record ? ` Best so far: ${ordinal(record.best)}.` : ''}`;
       // A locked one can still be picked, to say why it's locked (Boss, 28 Oct 2026).
       const onPick = problem ? () => { this.hud.toast(problem); this.openChampionships(venue, onClose); } : () => this.openChampionship(def, venue, onClose);
       return { label: problem ? `${def.short} (locked)` : def.short, note, onPick };
@@ -976,7 +978,7 @@ export class WorldScene extends Phaser.Scene {
       const reward = def.rewards[0];
       const text = [
         `${def.class}. ${def.rounds.length} rounds: ${rounds}`,
-        `${def.size + 1} riders, the same at every round. Qualifying sets the gate pick for moto 1; points for every moto (25 for a win). Entry ${formatMoney(roundEntry(rc, def))} a round, with bigger prize money than a race day.`,
+        `${def.size + 1} riders, the same at every round. Qualifying sets the gate pick for moto 1; points for every moto (25 for a win). Entry ${formatMoney(roundEntry(rc, def, career.bike.class))} a round, with bigger prize money than a race day.`,
         `The winner takes ${reward.title ?? 'the title'}${reward.money ? ` and £${reward.money}` : ''}; 2nd and 3rd win a smaller prize.`,
       ].join('\n\n');
       this.hud.choose(def.name, text, [
@@ -1479,7 +1481,7 @@ export class WorldScene extends Phaser.Scene {
     const career = this.save.career;
     return rc.championships.championships.flatMap((def) => {
       const active = career.champs?.active[def.id];
-      if (!active && champProblem(rc, def, this.save.flags)) return [];
+      if (!active && champProblem(rc, def, this.save.flags, career.bike.class)) return [];
       const venue = rc.tracks.venues.find((v) => v.id === (active ? nextRoundVenue(def, active) : def.rounds[0]));
       const place = venue && rc.world.places.find((p) => p.map === venue.map && p.spawn && services.maps.get(p.map) && spawnTile(services.maps.get(p.map)!, p.spawn));
       if (!venue || !place) return [];

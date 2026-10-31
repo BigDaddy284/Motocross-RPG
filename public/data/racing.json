@@ -1,5 +1,5 @@
 {
-  "note": "Race rules (Spec 2.3, 7.3, 9.2, 10, 11, 12, 14). Every number is a provisional tuning value: change it here, not in the code. A section's shapes are the drawn shapes it may sit on (straight, sweeper, corner, hairpin), checked against the track drawing.",
+  "note": "Race rules (Spec 2.3, 7.3, 9.2, 10, 11, 12, 14). Every number is a provisional tuning value: change it here, not in the code. classes: laps and entry fees from Spec 12.1 and 14.2; refSpeed and classXp step up with the class (provisional). A class's own kindLaps replaces the kindLaps below for it (endurance and sprint races at twice the class laps, Spec 12.1; 50cc keeps the 8 laps Boss set). A section's shapes are the drawn shapes it may sit on (straight, sweeper, corner, hairpin), checked against the track drawing.",
   "sim": {
     "spread": 0.67,
     "noise": 0.05,
@@ -36,7 +36,17 @@
     "consistencyWeight": 0.3
   },
   "classes": {
-    "50cc": { "laps": 5, "entry": 20, "classXp": 1.0, "refSpeed": 11, "youth": true }
+    "50cc": { "laps": 5, "entry": 20, "classXp": 1.0, "refSpeed": 11, "youth": true },
+    "65cc": { "laps": 7, "entry": 25, "classXp": 1.2, "refSpeed": 13, "youth": true, "kindLaps": { "race": { "endurance": 14, "enduro_sprint": 14 }, "championship": { "outdoor": 7, "endurance": 14, "enduro_sprint": 14 } } },
+    "85cc-small": { "laps": 9, "entry": 30, "classXp": 1.4, "refSpeed": 15, "youth": true, "kindLaps": { "race": { "endurance": 18, "enduro_sprint": 18 }, "championship": { "outdoor": 9, "endurance": 18, "enduro_sprint": 18 } } },
+    "85cc-big": { "laps": 11, "entry": 35, "classXp": 1.6, "refSpeed": 16, "youth": true, "kindLaps": { "race": { "endurance": 22, "enduro_sprint": 22 }, "championship": { "outdoor": 11, "endurance": 22, "enduro_sprint": 22 } } },
+    "125cc-youth": { "laps": 13, "entry": 45, "classXp": 1.8, "refSpeed": 17.5, "youth": true, "kindLaps": { "race": { "endurance": 26, "enduro_sprint": 26 }, "championship": { "outdoor": 13, "endurance": 26, "enduro_sprint": 26 } } },
+    "125cc": { "laps": 20, "entry": 60, "classXp": 2.0, "refSpeed": 19, "youth": false, "kindLaps": { "race": { "endurance": 40, "enduro_sprint": 40 }, "championship": { "outdoor": 20, "endurance": 40, "enduro_sprint": 40 } } },
+    "250f": { "laps": 20, "entry": 80, "classXp": 2.3, "refSpeed": 20.5, "youth": false, "kindLaps": { "race": { "endurance": 40, "enduro_sprint": 40 }, "championship": { "outdoor": 20, "endurance": 40, "enduro_sprint": 40 } } },
+    "450f": { "laps": 20, "entry": 100, "classXp": 2.6, "refSpeed": 22, "youth": false, "kindLaps": { "race": { "endurance": 40, "enduro_sprint": 40 }, "championship": { "outdoor": 20, "endurance": 40, "enduro_sprint": 40 } } },
+    "vets-40": { "laps": 20, "entry": 90, "classXp": 2.6, "refSpeed": 20, "youth": false, "kindLaps": { "race": { "endurance": 40, "enduro_sprint": 40 }, "championship": { "outdoor": 20, "endurance": 40, "enduro_sprint": 40 } } },
+    "vets-50": { "laps": 20, "entry": 90, "classXp": 2.6, "refSpeed": 20, "youth": false, "kindLaps": { "race": { "endurance": 40, "enduro_sprint": 40 }, "championship": { "outdoor": 20, "endurance": 40, "enduro_sprint": 40 } } },
+    "vets-60": { "laps": 20, "entry": 90, "classXp": 2.6, "refSpeed": 20, "youth": false, "kindLaps": { "race": { "endurance": 40, "enduro_sprint": 40 }, "championship": { "outdoor": 20, "endurance": 40, "enduro_sprint": 40 } } }
   },
   "kindLaps": { "race": { "endurance": 8, "enduro_sprint": 8 }, "championship": { "outdoor": 8, "endurance": 8, "enduro_sprint": 8 } },
   "messages": [

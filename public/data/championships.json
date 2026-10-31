@@ -1,5 +1,5 @@
 {
-  "note": "Championships (Spec 12.5, 18.6). Rounds are venues, raced in this order, each entered separately at its race office. size is the CPU riders drawn once when you enter, from the field's pool (its regulars and this championship's first), who race every round. entryTimes and purseTimes multiply the class entry and the prize money (Spec 14.2 tiers). qualifyingLaps are timed laps after an out lap; the best timed lap sets the gate pick order for moto 1. rewards are by final position: money in pounds, a flag to set, what it is called, and its picture (under public/assets). replay is the XP and purse share for a championship you have already won (Round 125). needs are the flags that open it. main is the rider to beat, raced as they are and the best in it on skill; every other CPU rider is buff better (0.1: 10% higher skills and bike condition) (Boss, 28 Oct 2026: Louis Jonez is the Local Champion, Dean Marsh the placeholder Area 1 champion). without are pool riders kept out, field regulars too. Reward money is provisional.",
+  "note": "Championships (Spec 12.5, 18.6). Rounds are venues, raced in this order, each entered separately at its race office. size is the CPU riders drawn once when you enter, from the field's pool (its regulars and this championship's first), who race every round. entryTimes and purseTimes multiply the class entry and the prize money (Spec 14.2 tiers). qualifyingLaps are timed laps after an out lap; the best timed lap sets the gate pick order for moto 1. rewards are by final position: money in pounds, a flag to set, what it is called, and its picture (under public/assets). replay is the XP and purse share for a championship you have already won (Round 125). needs are the flags that open it. milestone is the class the championship is the milestone for (Spec 18.3): its first win sets the flag milestone.<class>, and the new bike is collected at the class dealer (shops.json). main is the rider to beat, raced as they are and the best in it on skill; every other CPU rider is buff better (0.1: 10% higher skills and bike condition) (Boss, 28 Oct 2026: Louis Jonez is the Local Champion, Dean Marsh the placeholder Area 1 champion). without are pool riders kept out, field regulars too. Reward money is provisional.",
   "championships": [
     {
       "id": "area1.local_champion",
@@ -46,7 +46,8 @@
         { "money": 80 }
       ],
       "replay": 0.5,
-      "won": "Area 1 champion! The next class's bike and Area 2 come in a later build."
+      "milestone": "65cc",
+      "won": "Area 1 champion! Collect your 65cc from Bill at Moto78: the champion's sponsor has a bike for you, or buy a stock one."
     }
   ]
 }

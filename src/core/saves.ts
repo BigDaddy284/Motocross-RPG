@@ -224,17 +224,23 @@ function isCareer(v: unknown): boolean {
   const story = c.story as Record<string, unknown> | undefined;
   return (
     Number.isInteger(c.money) &&
-    !!bike && typeof bike.brand === 'string' && typeof bike.class === 'string' && typeof bike.parts === 'object' && bike.parts !== null &&
-    Object.values(bike.parts).every((p) => Number.isInteger(p?.grade) && typeof p?.condition === 'number') &&
+    isBike(bike) &&
     Array.isArray(c.bag) && c.bag.every((b) => typeof b?.id === 'string' && (b.part === undefined || isSpare(b.part))) &&
     (c.shops === undefined || isShopState(c.shops)) &&
     (c.champs === undefined || isChampState(c.champs)) &&
     (c.errands === undefined || isErrandState(c.errands)) &&
     (c.jobs === undefined || isJobState(c.jobs)) &&
+    (c.retired === undefined || (Array.isArray(c.retired) && c.retired.every((r) => isBike((r as Record<string, unknown>)?.bike) && typeof (r as Record<string, unknown>).milestone === 'string'))) &&
     !!story && Number.isInteger(story.step) && Array.isArray(story.used) &&
     typeof c.counters === 'object' && c.counters !== null &&
     isSkills(c.skills)
   );
+}
+
+function isBike(v: unknown): boolean {
+  const bike = v as Record<string, unknown> | undefined;
+  return !!bike && typeof bike.brand === 'string' && typeof bike.class === 'string' && typeof bike.parts === 'object' && bike.parts !== null &&
+    Object.values(bike.parts as Record<string, Record<string, unknown>>).every((p) => Number.isInteger(p?.grade) && typeof p?.condition === 'number');
 }
 
 function isSpare(p: Record<string, unknown>): boolean {

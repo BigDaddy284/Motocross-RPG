@@ -81,6 +81,8 @@ export interface ClassRules {
   /** Reference speed in metres per second: a section's base time is its length over this. */
   refSpeed: number;
   youth: boolean;
+  /** The class's own laps by track kind, in place of racing.json kindLaps. */
+  kindLaps?: { race?: Record<string, number>; championship?: Record<string, number> };
 }
 
 export interface RacingData {

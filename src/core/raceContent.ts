@@ -46,6 +46,15 @@ export const SKILLS_SCHEMA: Schema = {
   },
 };
 
+const KIND_LAPS: Schema = {
+      type: 'object',
+      optional: ['race', 'championship'],
+      fields: {
+        race: { type: 'record', values: { type: 'number', integer: true, min: 1 } },
+        championship: { type: 'record', values: { type: 'number', integer: true, min: 1 } },
+      },
+    };
+
 export const RACING_SCHEMA: Schema = {
   type: 'object',
   optional: ['note', 'kindLaps'],
@@ -98,15 +107,15 @@ export const RACING_SCHEMA: Schema = {
       type: 'object',
       fields: { sectionFactor: N0, practiceFactor: N0, finishBonus: N0, positionStep: N0, positionFloor: N0, overtakeXp: N0, consistencyWeight: N0 },
     },
-    classes: { type: 'record', values: { type: 'object', fields: { laps: { type: 'number', integer: true, min: 1 }, entry: N0, classXp: N0, refSpeed: { type: 'number', min: 1 }, youth: { type: 'boolean' } } } },
-    kindLaps: {
-      type: 'object',
-      optional: ['race', 'championship'],
-      fields: {
-        race: { type: 'record', values: { type: 'number', integer: true, min: 1 } },
-        championship: { type: 'record', values: { type: 'number', integer: true, min: 1 } },
+    classes: {
+      type: 'record',
+      values: {
+        type: 'object',
+        optional: ['kindLaps'],
+        fields: { laps: { type: 'number', integer: true, min: 1 }, entry: N0, classXp: N0, refSpeed: { type: 'number', min: 1 }, youth: { type: 'boolean' }, kindLaps: KIND_LAPS },
       },
     },
+    kindLaps: KIND_LAPS,
     messages: {
       type: 'array',
       minItems: 1,
@@ -286,6 +295,7 @@ export function checkRaceContent(c: { skills: SkillsData; racing: RacingData; tr
   const messageIds = new Set(racing.messages.map((m) => m.id));
   if (!messageIds.has('steady')) err(F.racing, 'messages', 'needs a "steady" message');
   for (const id of Object.keys(racing.classes)) if (!classIds.has(id)) err(F.racing, `classes.${id}`, `no class "${id}" in data/bikes.json`);
+  for (const id of classIds) if (!racing.classes[id]) err(F.racing, 'classes', `no race rules for class "${id}"`);
   for (const [id, s] of Object.entries(racing.sections)) {
     for (const k of Object.keys(s.skills)) if (!childIds.has(k)) err(F.racing, `sections.${id}.skills.${k}`, `no skill "${k}"`);
     s.stats.forEach((st, j) => !statIds.has(st) && err(F.racing, `sections.${id}.stats[${j}]`, `no bike stat "${st}"`));

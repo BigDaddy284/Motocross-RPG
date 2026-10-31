@@ -60,7 +60,8 @@ export class BootScene extends Phaser.Scene {
     if (wm) {
       for (const img of [wm.image, ...wm.zones.flatMap((z) => (z.image ? [z.image] : []))]) this.load.image(worldMapTexture(img), `assets/${img}`);
       for (const c of bikes?.classes ?? []) for (const b of bikes?.brands ?? []) {
-        const img = bikeImage(wm, { class: c.id, brand: b.id, parts: {} });
+        if (c.mapImage) continue; // drawn with another class's picture for now
+        const img = bikeImage(wm, { class: c.id, brand: b.id, parts: {} }, bikes);
         this.load.image(worldMapTexture(img), `assets/${img}`);
       }
     }

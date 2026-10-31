@@ -1,3 +1,4 @@
+import { dayClass } from './classes';
 import { pence } from './career';
 import { buffRider } from './championship';
 import { KNOCKOUT_DEFAULTS, MotoSim, formatTime, mixSeed, seededRng, type Entrant, type KnockoutRules, type RiderResult } from './race';
@@ -119,7 +120,7 @@ export class Knockout {
     /** TEST ONLY, REMOVE BEFORE RELEASE (Boss, 30 Oct 2026): no CPU riders, to test ride a track. */
     alone = false,
   ) {
-    this.cls = venue.class ?? '50cc';
+    this.cls = dayClass(rc.bikes, venue.class, player.bike.class) ?? venue.class ?? '50cc';
     this.rules = { ...KNOCKOUT_DEFAULTS, ...rc.racing.sim.knockout };
     this.rng = seededRng(seed);
     // The pool's best riders, drawn in the day's order so equal levels vary.

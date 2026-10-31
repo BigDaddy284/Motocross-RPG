@@ -52,7 +52,7 @@ export function biggestBike(bikes: BikesData, career: CareerState): Bike {
 export const worldMapTexture = (image: string) => `wmap:${image}`;
 
 /** The map bike's image for a bike. */
-export const bikeImage = (wm: WorldMapData, bike: Bike) => `${wm.bikes}/${bike.class}-${bike.brand}.png`;
+export const bikeImage = (wm: WorldMapData, bike: Bike, bikes?: BikesData) => `${wm.bikes}/${bikes?.classes.find((c) => c.id === bike.class)?.mapImage ?? bike.class}-${bike.brand}.png`;
 
 const ID = /^[a-z0-9_.-]+$/;
 const PX = { type: 'number', integer: true, min: 0 } as const;

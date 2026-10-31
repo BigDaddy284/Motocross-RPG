@@ -1,3 +1,4 @@
+import { className, dayClass, milestoneFlag, nextClass } from './classes';
 import { pence, type CareerState } from './career';
 import { mixSeed, seededRng } from './race';
 import { PLAYER_ID, type CpuRiderDef, type RaceContent, type RaceDay, type VenueDef } from './raceDay';
@@ -40,6 +41,8 @@ export interface ChampionshipDef {
   replay: number;
   /** Said when it is won for the first time. */
   won?: string;
+  /** The class this championship is the milestone for (Spec 18.3): its first win sets milestone.<class>. */
+  milestone?: string;
 }
 
 export interface ChampionshipsData {
@@ -77,7 +80,7 @@ export const CHAMPIONSHIPS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['regulars', 'without', 'main', 'buff', 'needs', 'won'],
+        optional: ['regulars', 'without', 'main', 'buff', 'needs', 'won', 'milestone'],
         fields: {
           id: { type: 'string', pattern: /^[a-z0-9_.-]+$/ },
           name: { type: 'string', nonEmpty: true },
@@ -101,6 +104,7 @@ export const CHAMPIONSHIPS_SCHEMA: Schema = {
           },
           replay: { type: 'number', min: 0, max: 1 },
           won: { type: 'string', nonEmpty: true },
+          milestone: { type: 'string', nonEmpty: true },
         },
       },
     },
@@ -111,7 +115,7 @@ export const CHAMPIONSHIPS_SCHEMA: Schema = {
 export const rewardTexture = (image: string) => `reward:${image}`;
 
 /** Cross-checks: every venue, field, rider and class named exists, and the field fits the start. */
-export function checkChampionships(data: ChampionshipsData, rc: Pick<RaceContent, 'tracks' | 'riders' | 'racing'>): ContentError[] {
+export function checkChampionships(data: ChampionshipsData, rc: Pick<RaceContent, 'tracks' | 'riders' | 'racing' | 'bikes'>): ContentError[] {
   const file = 'data/championships.json';
   const errors: ContentError[] = [];
   const ids = new Set<string>();
@@ -134,6 +138,12 @@ export function checkChampionships(data: ChampionshipsData, rc: Pick<RaceContent
       if (main && best.some((l) => l >= main.level)) err('main', `${main.name} (level ${main.level}) isn't the best rider in it once the others are buffed (up to level ${Math.max(...best)})`);
     }
     if (!rc.racing.classes[c.class]) err('class', `no class "${c.class}" in data/racing.json`);
+    if (c.milestone) {
+      const next = nextClass(rc.bikes, c.class);
+      if (!next) err('milestone', `${c.class} is the top class`);
+      else if (next.id !== c.milestone) err('milestone', `the class after ${c.class} is ${next.id}, not "${c.milestone}"`);
+      if (data.championships.some((o) => o !== c && o.milestone === c.milestone)) err('milestone', `"${c.milestone}" has more than one milestone championship`);
+    }
     c.rounds.forEach((v, j) => {
       const venue = rc.tracks.venues.find((x) => x.id === v);
       if (!venue) err(`rounds[${j}]`, `no venue "${v}"`);
@@ -195,7 +205,8 @@ export function champRiders(rc: Pick<RaceContent, 'riders'>, def: ChampionshipDe
 }
 
 /** Why the rider can't enter, or null. */
-export function champProblem(rc: Pick<RaceContent, 'tracks'>, def: ChampionshipDef, flags: Record<string, boolean>): string | null {
+export function champProblem(rc: Pick<RaceContent, 'tracks' | 'bikes'>, def: ChampionshipDef, flags: Record<string, boolean>, bikeClass?: string): string | null {
+  if (bikeClass !== undefined && !dayClass(rc.bikes, def.class, bikeClass)) return `A ${className(rc.bikes, def.class)} championship: your ${className(rc.bikes, bikeClass)} is too small.`;
   const missing = (def.needs ?? []).find((f) => !flags[f]);
   if (missing === 'first_race_done') return 'Locked: finish one normal race day first, at any track. Then the championship opens.';
   // The Area 1 Championship waits for Area 2 (Boss, 29 Oct 2026): nothing sets area2.ready in this build.
@@ -234,8 +245,8 @@ export function roundsHere(data: ChampionshipsData, career: CareerState, venue: 
 }
 
 /** Entry fee for a round, in pence (Spec 14.2: class entry times the tier). */
-export function roundEntry(rc: Pick<RaceContent, 'racing'>, def: ChampionshipDef): number {
-  return pence(rc.racing.classes[def.class].entry * def.entryTimes);
+export function roundEntry(rc: Pick<RaceContent, 'racing'>, def: ChampionshipDef, cls = def.class): number {
+  return pence(rc.racing.classes[cls].entry * def.entryTimes);
 }
 
 /** What a round's race day runs with: the fixed field, qualifying and the purse (a replay's share). */
@@ -321,5 +332,6 @@ export function finishChampionship(career: CareerState, flags: Record<string, bo
   const money = reward ? Math.round(pence(reward.money) * share) : 0;
   career.money += money;
   if (reward?.flag) flags[reward.flag] = true;
+  if (me.position === 1 && def.milestone) flags[milestoneFlag(def.milestone)] = true;
   return { position: me.position, money, flag: reward?.flag, title: me.position === 1 && !firstWin ? undefined : reward?.title, firstWin };
 }

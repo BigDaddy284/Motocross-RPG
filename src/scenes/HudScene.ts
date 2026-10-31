@@ -22,6 +22,7 @@ import {
   type StockItem,
 } from '../core/shops';
 import type { DialogueLine } from '../core/content';
+import { className, collectBike, milestoneOf, milestoneStatus, sponsorBrand, stockBikePrice } from '../core/classes';
 import { repairLent } from '../core/errands';
 import { PACE_BAND, REP_ZONE, goodRep, onPace, type DrillDef } from '../core/training';
 import { ensureAnims } from '../world/Character';
@@ -39,7 +40,7 @@ import { worldMapTexture, type WorldMapData, type WorldMapZone } from '../core/w
 // touch buttons. Runs alongside the world scene at a fixed zoom.
 
 type PanelTab = 'bike' | 'bag' | 'task' | 'skills' | 'records';
-export type ShopTab = 'buy' | 'sell' | 'repair' | 'fit';
+export type ShopTab = 'buy' | 'sell' | 'repair' | 'fit' | 'newbike';
 
 /** The smallest page panels are laid out on (see page()). */
 const PAGE_W = 940;
@@ -800,7 +801,7 @@ export class HudScene extends Phaser.Scene {
       const bike = career.bike;
       const brand = bikes.brands.find((b) => b.id === bike.brand);
       const px = 20;
-      line(left, y0, `${brand?.starter ?? bike.brand}  ·  ${bike.class}`, 22, COLORS.accent, px - 16 - left);
+      line(left, y0, `${bike.class === bikes.starter.class ? (brand?.starter ?? bike.brand) : (brand?.name ?? bike.brand)}  ·  ${className(bikes, bike.class)}`, 22, COLORS.accent, px - 16 - left);
       const problem = bikeProblem(bikes, bike);
       const note = body(left, y0 + 32, problem ?? 'Runs. Ready for the backyard, and for the tracks once you have a motor.', 16, problem ? COLORS.accent : COLORS.muted, w / 2 - 40);
       const stats = bikeStats(bikes, bike);
@@ -962,6 +963,12 @@ export class HudScene extends Phaser.Scene {
     if (shop.sells) tabs.push(['buy', 'Buy'], ['sell', 'Sell']);
     if (shop.repairs) tabs.push(['repair', 'Repairs']);
     if (shop.fitFee !== undefined) tabs.push(['fit', 'Fit a spare']);
+    // The class dealer (Bill at Moto78): a new class's bike, once its milestone championship is won.
+    const milestone = shops.classDealer === shop.id ? milestoneStatus(bikes, services.content.skills, career, this.flags) : { kind: 'none' as const };
+    if (milestone.kind !== 'none') {
+      tabs.push(['newbike', 'New bike']);
+      if (tab === 'buy' && milestone.kind === 'ready' && page === 0) tab = 'newbike';
+    }
     if (!tabs.some(([t]) => t === tab)) tab = tabs[0][0];
     // Laid out at 900 × 600, then scaled down to fit a small screen such as a phone on its side.
     const { width, height } = view(this);
@@ -1114,6 +1121,34 @@ export class HudScene extends Phaser.Scene {
         c.add(b);
         line(left + 520, y + 4, `→ G${q.grade} at 100%`, 14, COLORS.muted, w / 2 - 20 - (left + 520));
       });
+    } else if (tab === 'newbike' && milestone.kind !== 'none') {
+      const next = milestone.cls;
+      const champ = milestoneOf(services.content.championships, next.id);
+      text(left, y0, `${champ?.name ?? 'The championship'} is yours, so you've earned a ${next.name}.`, 17, COLORS.cream);
+      if (milestone.kind === 'needLevel') {
+        text(left, y0 + 36, `You'll need Rider Ability ${milestone.level} to ride it; you're level ${milestone.have}. Race on and come back.`, 15, COLORS.muted);
+      } else {
+        const collect = (brand: string, price: number) => inner(() => {
+          const name = bikes.brands.find((b) => b.id === brand)?.name ?? brand;
+          this.confirm(
+            `Take the ${name} ${next.name}${price ? ` for ${formatMoney(price)}` : ', free from the champion\'s sponsor'}?\nYour ${className(bikes, career.bike.class)} retires to the display as it is, parts and all. Spares for it stay in your bag to sell.`,
+            'Take it',
+            () => done(collectBike(bikes, services.content.championships, career, this.flags, brand, price), 'buy'),
+            () => reopen(),
+          );
+        });
+        const sponsor = sponsorBrand(bikes, career, next.id);
+        const sponsorName = bikes.brands.find((b) => b.id === sponsor)?.name ?? sponsor;
+        text(left, y0 + 36, `The champion's sponsor rides ${sponsorName}: a new stock ${next.name}, Grade 1 all round, for nothing and no strings. Or buy a stock bike of any brand.`, 15, COLORS.muted);
+        c.add(button(this, left + 160, y0 + 100, `${sponsorName} ${next.name}: free`, () => collect(sponsor, 0), 320, 42));
+        const price = stockBikePrice(shops, bikes, next.id);
+        bikes.brands.forEach((b, i) => {
+          const btn = button(this, left + 160, y0 + 160 + i * 46, `${b.name}: ${formatMoney(price)}`, () => collect(b.id, price), 320, 40);
+          btn.setEnabled(career.money >= price);
+          c.add(btn);
+          line(left + 340, y0 + 150 + i * 46, b.character, 13, COLORS.muted, w / 2 - 40 - (left + 340));
+        });
+      }
     } else {
       const fee = pence(shop.fitFee ?? 0);
       if (!spareRows.length) text(left, y0, 'You have no spare parts to fit. Buy one as a spare at a parts shop.', 16, COLORS.muted);

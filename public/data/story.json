@@ -105,6 +105,7 @@
     { "unless": "first_race_done", "talk": "npc.track_official", "text": "Race at Farmland MX: sign on with Joseph Halden, whose family runs all the tracks, at the race office. Your first race is free." },
     { "unless": "first_race_finished", "text": "Finish both motos of a race day at Farmland MX. Practise on the backyard loop behind your rented room." },
     { "unless": "badge.area1", "text": "Win the Local Champion Championship for the Area 1 badge: enter at any track's race office, under Championships." },
-    { "unless": "trophy.area1.main", "text": "You hold the Area 1 badge. The Area 1 Championship comes with Area 2, in a later build: race on, keep the bike sharp, or make your own tracks." }
+    { "unless": "trophy.area1.main", "text": "You hold the Area 1 badge. The Area 1 Championship comes with Area 2, in a later build: race on, keep the bike sharp, or make your own tracks." },
+    { "unless": "class.65cc", "talk": "npc.bike_shop_owner", "text": "Area 1 champion! Collect your 65cc from Bill at Moto78: take the champion's sponsor's bike, or buy a stock one. You'll need Rider Ability 10 to ride it." }
   ]
 }

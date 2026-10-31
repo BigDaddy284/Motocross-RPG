@@ -54,6 +54,8 @@ export interface ShopsData {
   rotation: { raceDays: number; activities: number };
   /** Spare parts the rider can carry (the van holds twenty parts). */
   spareLimit: number;
+  /** The shop where a new class's bike is collected (core/classes.ts). */
+  classDealer?: string;
   shops: ShopDef[];
 }
 
@@ -317,7 +319,7 @@ const GRADE = { type: 'number', integer: true, min: 1, max: 10 } as const;
 
 export const SHOPS_SCHEMA: Schema = {
   type: 'object',
-  optional: ['note', 'consumables'],
+  optional: ['note', 'consumables', 'classDealer'],
   fields: {
     note: { type: 'string' },
     slotBase: { type: 'record', values: N0 },
@@ -331,6 +333,7 @@ export const SHOPS_SCHEMA: Schema = {
     },
     rotation: { type: 'object', fields: { raceDays: { type: 'number', integer: true, min: 1 }, activities: { type: 'number', integer: true, min: 1 } } },
     spareLimit: { type: 'number', integer: true, min: 1 },
+    classDealer: { type: 'string', pattern: /^[a-z0-9_.-]+$/ },
     shops: {
       type: 'array',
       minItems: 1,
@@ -372,6 +375,7 @@ export function checkShopContent(file: string, data: ShopsData, bikes: BikesData
   for (const k of Object.keys(data.slotBase)) if (!slotIds.has(k)) err(`slotBase.${k}`, `no slot "${k}"`);
   for (const c of bikes.classes) if (data.classPriceFactor[c.id] === undefined) err('classPriceFactor', `no factor for class "${c.id}"`);
   if (data.resale.demand[0] > data.resale.demand[1]) err('resale.demand', 'the lowest demand is above the highest');
+  if (data.classDealer && !data.shops.some((s) => s.id === data.classDealer)) err('classDealer', `no shop "${data.classDealer}"`);
   const seen = new Set<string>();
   data.shops.forEach((s, i) => {
     const at = (f: string) => `shops[${i}].${f}`;

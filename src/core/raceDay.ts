@@ -1,3 +1,4 @@
+import { className, dayClass } from './classes';
 import { bikeProblem, pence, type BikesData, type Bike, type CareerState } from './career';
 import { isSprint, lapMetres } from './trackGeom';
 import { MotoSim, formatTime, gateBonus, mixSeed, seededRng, type Entrant, type RacingData, type RiderResult, type Tactic, type TrackDef } from './race';
@@ -88,18 +89,22 @@ export const PLAYER_ID = 'player';
 export function venueProblem(rc: RaceContent, venue: VenueDef, career: CareerState, flags: Record<string, boolean>): string | null {
   if (venue.locked) return venue.locked;
   if (venue.needs && !flags[venue.needs]) return 'Not open to you yet.';
+  if (!dayClass(rc.bikes, venue.class, career.bike.class)) return `${className(rc.bikes, venue.class ?? rc.bikes.classes[0].id)} and up only here: your ${className(rc.bikes, career.bike.class)} is too small.`;
   return bikeProblem(rc.bikes, career.bike);
 }
 
+/** The class a race day here runs in for this rider (core/classes.ts dayClass), falling back to the venue's. */
+export const venueClassFor = (rc: RaceContent, venue: VenueDef, career: CareerState): string => dayClass(rc.bikes, venue.class, career.bike.class) ?? venue.class ?? rc.bikes.classes[0].id;
+
 /** Entry fee in pence for a race day here, after the free first race. */
-export function entryFee(rc: RaceContent, venue: VenueDef, flags: Record<string, boolean>): number {
+export function entryFee(rc: RaceContent, venue: VenueDef, flags: Record<string, boolean>, cls = venue.class ?? '50cc'): number {
   if (venue.firstRaceFree && !flags.first_race_done) return 0;
-  return pence(rc.racing.classes[venue.class ?? '50cc'].entry);
+  return pence(rc.racing.classes[cls].entry);
 }
 
-export function practiceFee(rc: RaceContent, venue: VenueDef): number {
+export function practiceFee(rc: RaceContent, venue: VenueDef, cls = venue.class ?? '50cc'): number {
   if (!venue.practiceFeePct) return 0;
-  return pence((rc.racing.classes[venue.class ?? '50cc'].entry * venue.practiceFeePct) / 100);
+  return pence((rc.racing.classes[cls].entry * venue.practiceFeePct) / 100);
 }
 
 /** A CPU rider's fixed bike: the same grade and condition in every slot. */
@@ -200,7 +205,7 @@ export interface QualifyingRecord {
 /** Laps per moto for a race day: by the track's kind where racing.json says (kindLaps), else the class's laps. */
 export function lapsFor(rc: RaceContent, track: TrackDef, cls: string, championship: boolean): number {
   const kind = track.kind ?? 'outdoor';
-  const byKind = rc.racing.kindLaps;
+  const byKind = rc.racing.classes[cls].kindLaps ?? rc.racing.kindLaps;
   return (championship ? byKind?.championship?.[kind] : undefined) ?? byKind?.race?.[kind] ?? rc.racing.classes[cls].laps;
 }
 
@@ -237,7 +242,8 @@ export class RaceDay {
     alone = false,
   ) {
     this.track = trackById(rc, venue.track!);
-    this.cls = venue.class ?? '50cc';
+    // The rider's own class when it's the venue's or bigger: every CPU rider races a bike of it too.
+    this.cls = dayClass(rc.bikes, venue.class, player.bike.class) ?? venue.class ?? '50cc';
     this.sprint = isSprint(this.track);
     this.laps = custom?.laps ?? lapsFor(rc, this.track, this.cls, !!round);
     this.motoCount = custom?.motos ?? 2;
@@ -542,7 +548,7 @@ function shuffle<T>(a: T[], rng: () => number): T[] {
  */
 export function practiceSim(rc: RaceContent, venue: VenueDef, player: Entrant, seed: number, alone = false): MotoSim {
   const track = trackById(rc, venue.track!);
-  const cls = venue.class ?? '50cc';
+  const cls = dayClass(rc.bikes, venue.class, player.bike.class) ?? venue.class ?? '50cc';
   const pool = (rc.riders.fields[venue.field ?? ''] ?? []).map((id) => rc.riders.riders.find((r) => r.id === id)).filter((r): r is CpuRiderDef => !!r);
   // TEST ONLY, REMOVE BEFORE RELEASE (Boss, 30 Oct 2026): `alone` sends nobody else out.
   const n = alone ? 0 : Math.min(venue.practiceRiders ?? 0, pool.length);

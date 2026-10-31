@@ -163,7 +163,15 @@ export const BIKES_SCHEMA: Schema = {
       minItems: 1,
       items: { type: 'object', optional: ['engine'], fields: { id: { type: 'string', pattern: ID }, name: { type: 'string', nonEmpty: true }, weights: WEIGHTS, engine: { type: 'boolean' } } },
     },
-    classes: { type: 'array', minItems: 1, items: { type: 'object', fields: { id: { type: 'string', pattern: ID }, name: { type: 'string', nonEmpty: true }, ceiling: { type: 'number', min: 1 } } } },
+    classes: {
+      type: 'array',
+      minItems: 1,
+      items: {
+        type: 'object',
+        optional: ['unlock', 'youth', 'mapImage'],
+        fields: { id: { type: 'string', pattern: ID }, name: { type: 'string', nonEmpty: true }, ceiling: { type: 'number', min: 1 }, unlock: { type: 'number', integer: true, min: 1, max: 99 }, youth: { type: 'boolean' }, mapImage: { type: 'string', pattern: ID } },
+      },
+    },
     starter: {
       type: 'object',
       fields: {
@@ -432,6 +440,10 @@ function checkCareerContent(c: Content, maps: Map<string, BakedMap>): ContentErr
     if (Math.abs(total - bikes.stats.length) > 0.001) err(CONTENT_FILES.bikes, `brands[${i}].lean`, `adds up to ${total.toFixed(3)}, not ${bikes.stats.length}, so one brand would be better overall`);
   });
   if (!bikes.classes.some((k) => k.id === bikes.starter.class)) err(CONTENT_FILES.bikes, 'starter.class', `no class "${bikes.starter.class}"`);
+  bikes.classes.forEach((k, i) => {
+    if (i > 0 && (k.unlock ?? 1) < (bikes.classes[i - 1].unlock ?? 1)) err(CONTENT_FILES.bikes, `classes[${i}].unlock`, `${k.name} unlocks below the class before it`);
+    if (k.mapImage && !bikes.classes.some((o) => o.id === k.mapImage && !o.mapImage)) err(CONTENT_FILES.bikes, `classes[${i}].mapImage`, `no class "${k.mapImage}" with a picture of its own`);
+  });
   if (!slotIds.has(bikes.starter.brokenSlot)) err(CONTENT_FILES.bikes, 'starter.brokenSlot', `no slot "${bikes.starter.brokenSlot}"`);
 
   for (const [id, item] of Object.entries(c.items)) {

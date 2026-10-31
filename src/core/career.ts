@@ -5,6 +5,7 @@
 import type { ChampionshipState } from './championship';
 import type { ErrandState } from './errands';
 import type { JobState } from './jobs';
+import type { ClassDef, RetiredBike } from './classes';
 import type { ShopState, SparePart } from './shops';
 import type { WorldMapData } from './worldMap';
 import { newSkillState, type SkillState } from './skills';
@@ -34,7 +35,8 @@ export interface BrandDef {
 export interface BikesData {
   stats: StatDef[];
   slots: SlotDef[];
-  classes: { id: string; name: string; ceiling: number }[];
+  /** In class order, 50cc first (core/classes.ts). */
+  classes: ClassDef[];
   starter: { class: string; grade: number; condition: [number, number]; brokenSlot: string };
   brands: BrandDef[];
 }
@@ -175,6 +177,8 @@ export interface CareerState {
   errands?: ErrandState;
   /** Batch jobs under way (core/jobs.ts), made on the first shift. */
   jobs?: JobState;
+  /** Bikes retired at a class milestone (GDD 8.1), oldest first. */
+  retired?: RetiredBike[];
 }
 
 export const pence = (pounds: number) => Math.round(pounds * 100);
