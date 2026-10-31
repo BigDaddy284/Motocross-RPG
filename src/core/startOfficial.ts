@@ -64,12 +64,25 @@ const smooth = (x: number) => {
   return t * t * (3 - 2 * t);
 };
 const mix = (a: number, b: number, t: number) => a + (b - a) * t;
+/** How far up the official's arms are (0 down, 1 straight up) with the board's centre at height `y`. */
+const armsAt = (y: number) => Math.max(0, Math.min(1, (y - LOW.y) / (HIGH.y - LOW.y)));
+/**
+ * How far in front the board's centre is while it rises or falls upright: out past the hands as the
+ * arms swing through level (the game turns them 2.7 · (1 − arms) from straight up; a real-sized
+ * official's hands reach about 0.71 in front there), so the hands stay behind it, and back in once
+ * the arms are up (Boss, 31 Oct 2026, measured against the start official model).
+ */
+const HAND_REACH = 0.63;
+const SHOULDER_Z = 0.08;
+/** Kept between the hands and the board's centre, so it starts exactly where it's held low. */
+const HAND_GAP = LOW.z - SHOULDER_Z - HAND_REACH * Math.sin(2.7);
+const aheadAt = (y: number) => Math.max(LOW.z, SHOULDER_Z + HAND_REACH * Math.sin(2.7 * (1 - armsAt(y))) + HAND_GAP);
 /** The board's centre height when turned `side` in its plane with its lowest corner kept where the upright board's bottom edge is, so it rolls over the hands rather than dipping through them. */
 const sideHeight = (side: number) => HIGH.y - BOARD_H / 2 + (BOARD_W / 2) * Math.sin(side) + (BOARD_H / 2) * Math.cos(side);
 
 /**
  * The board at race time `clock` (Boss, 31 Oct 2026): held low, white side out, until the hold
- * starts; then raised in front of the official to above their head, flipped face out up there and
+ * starts; then raised in front of the official (out past their hands as their arms swing up) to above their head, flipped face out up there and
  * settled into their raised hands (BOARD_UP, over BOARD_MOVE); turned sideways anticlockwise at
  * BOARD_SIDEWAYS, lifted as it turns so no corner dips into their hands or head; and from WALK_TO
  * the same in reverse, back to low with the white side out. The counts are unchanged; it is only the
@@ -79,11 +92,13 @@ const sideHeight = (side: number) => HIGH.y - BOARD_H / 2 + (BOARD_W / 2) * Math
 export function boardPose(clock: number, started = true): BoardPose {
   const low: BoardPose = { y: LOW.y, z: LOW.z, flip: Math.PI, side: 0, arms: 0 };
   if (!started || clock < BOARD_UP) return low;
-  const arms = (y: number) => Math.max(0, Math.min(1, (y - LOW.y) / (HIGH.y - LOW.y)));
-  const pose = (y: number, z: number, flip: number, side: number): BoardPose => ({ y, z, flip, side, arms: arms(y) });
+  const pose = (y: number, z: number, flip: number, side: number): BoardPose => ({ y, z, flip, side, arms: armsAt(y) });
   if (clock < WALK_TO) {
     const p = (clock - BOARD_UP) / BOARD_MOVE;
-    if (p < 0.5) return pose(mix(LOW.y, FLIP_Y, smooth(p / 0.5)), LOW.z, Math.PI, 0);
+    if (p < 0.5) {
+      const y = mix(LOW.y, FLIP_Y, smooth(p / 0.5));
+      return pose(y, aheadAt(y), Math.PI, 0);
+    }
     if (p < 0.8) {
       const q = smooth((p - 0.5) / 0.3);
       return pose(FLIP_Y, mix(LOW.z, HIGH.z, q), Math.PI * (1 - q), 0);
@@ -104,7 +119,10 @@ export function boardPose(clock: number, started = true): BoardPose {
     const q = smooth((d - 0.35) / 0.3);
     return pose(FLIP_Y, mix(HIGH.z, LOW.z, q), Math.PI * q, 0);
   }
-  if (d < 1) return pose(mix(FLIP_Y, LOW.y, smooth((d - 0.65) / 0.35)), LOW.z, Math.PI, 0);
+  if (d < 1) {
+    const y = mix(FLIP_Y, LOW.y, smooth((d - 0.65) / 0.35));
+    return pose(y, aheadAt(y), Math.PI, 0);
+  }
   return low;
 }
 /** The scenery item a track places the official with. */

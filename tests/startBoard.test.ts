@@ -37,6 +37,23 @@ describe('start board', () => {
     expect(hits.slice(0, 5)).toEqual([]);
   });
 
+  it('stays in front of the hands as the arms swing up and down', () => {
+    // The game swings the arms 2.7 · (1 − arms) from straight up; a real-sized official's hands reach about 0.71 in front at level.
+    const hits: string[] = [];
+    for (const c of clocks) {
+      const p = boardPose(c);
+      if (Math.abs(Math.sin(p.flip)) > 0.01 || p.side !== 0) continue;
+      const th = 2.7 * (1 - p.arms);
+      for (let t = 0; t <= 1; t += 0.1) {
+        const y = 1.24 + 0.63 * t * Math.cos(th);
+        const z = 0.08 + 0.63 * t * Math.sin(th);
+        // Within the board's height, the arm must be behind its back face.
+        if (Math.abs(y - p.y) < BOARD_H / 2 && z > p.z - 0.025) hits.push(`clock ${c.toFixed(3)}: arm at y ${y.toFixed(2)} z ${z.toFixed(2)}, board at z ${p.z.toFixed(2)}`);
+      }
+    }
+    expect(hits.slice(0, 5)).toEqual([]);
+  });
+
   it('is low with the white side out, then raised face out and upright, at the same counts', () => {
     expect(boardPose(BOARD_UP - 1)).toMatchObject({ flip: Math.PI, side: 0, arms: 0 });
     const up = boardPose(BOARD_UP + BOARD_MOVE);
