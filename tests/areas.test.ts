@@ -190,6 +190,8 @@ describe('Areas 3 to 8 (Areas 2 to 8 plan; Boss, 31 Oct 2026: placeholder towns,
     7: { W: 'area6-highlands', E: 'area8-capital' },
     8: { W: 'area7-the-city', E: 'area1-home-town' },
   };
+  // A drawn town adds its own road to the Hub (the world map's spoke; Areas 2 to 8 maps, Boss 31 Oct 2026).
+  const hubRoad: Record<number, string> = { 3: 'South road' };
   const badgeClass: Record<number, string> = { 3: '85cc-small', 4: '85cc-big', 5: '125cc-youth', 6: '125cc', 7: '250f', 8: '450f' };
 
   it('are all there, in order, each with a stamped town, its insides, three tracks at the hub venues and a locked house', () => {
@@ -217,7 +219,8 @@ describe('Areas 3 to 8 (Areas 2 to 8 plan; Boss, 31 Oct 2026: placeholder towns,
     const places = content.world.places;
     for (const a of later) {
       const routes = content.world.routes.filter((r) => r.map === a.map);
-      expect(routes.map((r) => r.exit).sort()).toEqual(['East road', 'West road']);
+      expect(routes.map((r) => r.exit).sort()).toEqual(['East road', 'West road', ...(hubRoad[a.n] ? [hubRoad[a.n]] : [])].sort());
+      if (hubRoad[a.n]) expect(routes.find((r) => r.exit === hubRoad[a.n])!.to).not.toContain(roads[a.n].E);
       expect(routes.find((r) => r.exit === 'West road')!.to).toContain(roads[a.n].W);
       expect(routes.find((r) => r.exit === 'East road')!.to).toContain(roads[a.n].E);
       // The Race Hub reaches every area, and every town road reaches the hub's three venues, where its tracks race.
@@ -289,15 +292,26 @@ describe('Areas 3 to 8 (Areas 2 to 8 plan; Boss, 31 Oct 2026: placeholder towns,
   });
 
   it('shops stock the plan’s grades and classes, and the house and motor prices climb', () => {
-    const grades: Record<number, [number, number]> = { 3: [2, 5], 4: [2, 5], 5: [3, 6], 6: [3, 7], 7: [4, 7], 8: [4, 8] };
+    const grades: Record<number, [number, number]> = { 2: [1, 4], 3: [2, 5], 4: [2, 5], 5: [3, 6], 6: [3, 7], 7: [4, 7], 8: [4, 8] };
+    // Moto78 sells every part but wheels, tyres and brakes in every area, as in Area 1; Phoenix MX
+    // only repairs and fits (Boss, 31 Oct 2026).
+    const moto78 = content.shops.shops.find((s) => s.id === 'shop.bike')!.sells!.slots;
+    expect(content.shops.shops.find((s) => s.id === 'garage')!.sells).toBeUndefined();
+    for (const kind of ['bike', 'tyres']) expect(content.shops.shops.find((s) => s.id === `shop.a2.${kind}`)!.sells!.grades).toEqual(grades[2]);
+    expect(content.shops.shops.find((s) => s.id === 'shop.a2.bike')!.sells!.slots).toEqual(moto78);
+    expect(content.shops.shops.find((s) => s.id === 'shop.a2.garage')!.sells).toBeUndefined();
     let house = areas.areas.find((a) => a.n === 2)!.house!.price;
     let motor = areas.areas.find((a) => a.n === 2)!.motor!.price;
     for (const a of later) {
-      for (const kind of ['garage', 'bike', 'tyres']) {
+      for (const kind of ['bike', 'tyres']) {
         const shop = content.shops.shops.find((s) => s.id === `shop.a${a.n}.${kind}`)!;
         expect(shop.sells!.grades, shop.id).toEqual(grades[a.n]);
         expect(shop.sells!.classes).toContain(badgeClass[a.n]);
       }
+      expect(content.shops.shops.find((s) => s.id === `shop.a${a.n}.bike`)!.sells!.slots).toEqual(moto78);
+      const garage = content.shops.shops.find((s) => s.id === `shop.a${a.n}.garage`)!;
+      expect(garage.sells, garage.id).toBeUndefined();
+      expect(garage.repairs).toBe(true);
       expect(a.house!.price).toBeGreaterThan(house);
       house = a.house!.price;
       if (a.motor) {

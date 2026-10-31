@@ -37,10 +37,10 @@ describe('building library', () => {
   it('matches every building on every map, and passes its own checks', () => {
     expect(problems(lib)).toEqual([]);
     const placed = [...maps.values()].flatMap((m) => m.objects.filter((o) => o.type === 'building').map((o) => String(o.props.blueprint)));
-    // Area 1's 16, Mountain Town's 10 (drawn, Boss, 31 Oct 2026), and 12 more for every town still
-    // stamped from Home Town (tools/gen-area.mjs).
-    const stamped = JSON.parse(fs.readFileSync('public/data/areas.json', 'utf8')).areas.filter((a: { town?: unknown }) => a.town).length - 1;
-    expect(placed.length).toBe(16 + 10 + 12 * stamped);
+    // Area 1's 16, Mountain Town's 10 and Beach Town's 11 (drawn, Boss, 31 Oct 2026), and 12 more
+    // for every town still stamped from Home Town (tools/gen-area.mjs).
+    const stamped = JSON.parse(fs.readFileSync('public/data/areas.json', 'utf8')).areas.filter((a: { town?: unknown }) => a.town).length - 2;
+    expect(placed.length).toBe(16 + 10 + 11 + 12 * stamped);
     for (const id of placed) expect(lib.buildings.some((b) => b.id === id), id).toBe(true);
   });
 
