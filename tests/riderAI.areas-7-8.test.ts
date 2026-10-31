@@ -1,3 +1,3 @@
 import { riderAITrackTests } from './riderAITrack';
 
-riderAITrackTests('areas-6-8');
+riderAITrackTests('areas-7-8');

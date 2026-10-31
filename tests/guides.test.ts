@@ -93,7 +93,9 @@ describe('route checks', () => {
     expect(errorsWith((r) => { r.world.routes[0].to.push('area1-industrial-zone'); })).toEqual([expect.stringMatching(/routes\[0\]\.to\[6\]: "area1-industrial-zone" isn't one of the places/)]);
     expect(errorsWith((r) => { r.world.routes[1].to.push('venue-motocross'); })).toEqual([expect.stringMatching(/routes\[1\]\.to\[11\]: leads back to venue-motocross/)]);
     expect(errorsWith((r) => { r.world.routes[0].exit = 'To the Industrial Zone'; })).toEqual(expect.arrayContaining([expect.stringMatching(/goes straight to area1-industrial-zone, not to a choice of places/)]));
-  });
+    // Four full content checks over 70-odd maps take about 5.5 s since the Area 2 to 8 towns were
+    // stamped, past vitest's 5 s default: the checks are unchanged, only the time allowed.
+  }, 30_000);
 });
 
 describe('road exits and the local racer (Alpha v1)', () => {

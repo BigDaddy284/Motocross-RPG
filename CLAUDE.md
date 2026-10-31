@@ -16,6 +16,8 @@ npm run typecheck                # tsc --noEmit (covers src and tests)
 npm run build                    # typecheck, then production build into dist/
 npm run import-art -- /path/to/art         # re-import art and re-bake maps (default /mnt/project-files/art)
 npm run import-art -- --vehicles /path/to/art   # van sheets only
+npm run import-art -- --maps area2-mountain-town   # bake only these maps, keep every other map and image
+node tools/gen-area.mjs [--plan]          # re-stamp the placeholder towns (skips drawn maps)
 npx vite-node tools/sim/balance.ts [days] [riderLevel]   # race balance simulation
 ```
 
@@ -30,6 +32,8 @@ Dev URL params (handled in `src/scenes/BootScene.ts`): `?testtrack=<track id>` j
 **Content is data.** Nearly all game content (NPCs, dialogue, bikes, items, shops, tracks, riders, championships, skills, training, errands, world map, locks) lives in `public/data/*.json`. `src/core/content.ts` lists the files in `CONTENT_FILES`, validates each against a schema (`src/core/validate.ts` plus per-module `*_SCHEMA` / `check*` functions), then cross-checks them against each other and the baked maps (missing sprites, dialogue, NPCs on blocked tiles…). `BootScene` refuses to start the game and shows the errors if any check fails, and `tests/content.test.ts` runs the same checks, so a bad content edit fails the tests. When adding a content field, update the TypeScript type, the schema and any cross-check together.
 
 **Maps are baked.** Art and maps come from Tiled sources in the shared art folder (outside this repo). `tools/import-art.mjs` copies images into `public/assets/art/` and bakes each `.tmj` into one JSON in `public/assets/maps/` (collision, buildings, doors, data objects resolved), listed in `public/assets/manifest.json`. The game never reads `.tmj`/`.tsj`. Prefer re-running the import over editing `public/assets/` by hand. Small fixes are sometimes made straight in a baked map (Home Town's lamp, the rented room's doormat wall) or with the map editor (`tools/map-editor.html`, which can save into the game under `npm run dev`); note them in the commit, because a fresh import from the Tiled sources would undo them.
+
+**Placeholder towns (Areas 2 to 8 maps, Piece 0; Boss, 31 Oct 2026).** `tools/gen-area.mjs` stamps each Area 2 to 8 town and its insides from the Home Town bake until the town is drawn. It never stamps a drawn map: one baked by import-art (`tools/art-maps.mjs` `AREA_MAPS`, where a drawn town's `.tmj` is added) or with a `.tmj` in the art folder's town or interiors folder (`tests/genArea.test.ts`). A full `npm run import-art` clears `public/assets/maps/` and re-stamps the placeholders at the end. On 31 Oct 2026 the shared art folder was behind the repo (an older, larger Industrial Zone, older NPC sprites, no world map, area badge, track official or later venue maps), so a full import would undo those: bake drawn towns with `--maps`, which writes only the named maps and copies only images the game lacks.
 
 **Shared state.** `src/services.ts` is the global holding loaded content, maps, the save manager, settings and mod tracks; Boot fills it in. Scene flow: Boot → Menu / NewCareer → World, which launches Hud as an overlay and launches Race for race days and practice. `careerFlow.ts` handles starting or loading a career.
 

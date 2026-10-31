@@ -9,28 +9,38 @@
 //
 //   node tools/import-art.mjs [/path/to/art]
 //   node tools/import-art.mjs --vehicles [/path/to/art]   only the van sheets, leaving the maps as they are
+//   node tools/import-art.mjs --maps area2-mountain-town[,int-a2-local-garage] [/path/to/art]
+//
+// --maps bakes only the named maps (a town .tmj in area-map/tiled/maps/ or an inside in the interiors
+// folder), copies only images the game does not have yet, and leaves every other map, image and the
+// rest of the manifest as they are (Areas 2 to 8 maps, Piece 0; Boss, 31 Oct 2026). Use it for the
+// drawn towns: a full import replaces public/assets/art/ and maps/ with what the art folder holds,
+// and on 31 Oct 2026 that folder was behind the repo (it lacks the world map, the area badge, the
+// track official, the three later venue maps, and has older NPC sprites), so a full import would
+// undo those until the art folder is brought up to date.
+//
+// The bake replaces public/assets/maps/ whole, so it ends by re-stamping the towns not yet drawn
+// (tools/gen-area.mjs, which skips every drawn map; Boss, 31 Oct 2026). The maps it bakes are
+// listed in tools/art-maps.mjs: add a drawn town's .tmj there.
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { AREA_MAPS, DEFAULT_ART, INTERIOR_DIR, TOWN_DIR } from './art-maps.mjs';
+import { stampAreas } from './gen-area.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ARGS = process.argv.slice(2);
 const VEHICLES_ONLY = ARGS.includes('--vehicles');
-const ART = path.resolve(ARGS.find((a) => !a.startsWith('--')) ?? process.env.ART_SRC ?? '/mnt/project-files/art');
+const mapsAt = ARGS.indexOf('--maps');
+/** --maps a,b: bake only these map ids (see the header). */
+const ONLY_MAPS = mapsAt >= 0 ? (ARGS[mapsAt + 1] ?? '').split(',').filter(Boolean) : null;
+const ART = path.resolve(ARGS.find((a, i) => !a.startsWith('--') && i !== mapsAt + 1) ?? process.env.ART_SRC ?? DEFAULT_ART);
 const OUT_ART = path.join(ROOT, 'public/assets/art');
 const OUT_MAPS = path.join(ROOT, 'public/assets/maps');
 const TILE = 64;
 const GID_MASK = 0x1fffffff; // strips Tiled's flip flags
 
-const AREA_MAPS = [
-  'area-map/tiled/maps/area1-home-town.tmj',
-  'area-map/tiled/maps/area1-industrial-zone.tmj',
-  'area-map/tiled/maps/venue-motocross.tmj',
-  'area-map/tiled/maps/venue-enduro.tmj',
-  'area-map/tiled/maps/venue-supercross.tmj',
-];
-const INTERIOR_DIR = 'buildings/tiled/maps/interiors';
 const BUILDINGS_DATA = 'buildings/data/area1-buildings-v3.json';
 
 
@@ -52,6 +62,7 @@ const OVERRIDES = {
 const PALETTE_DIRS = ['area-map/tiled/tiles/vehicle-props', 'area-map/tiled/tiles/bike-props', 'area-map/tiled/tiles/ground-edges', 'area-map/tiled/tiles/terrain-common', 'area-map/tiled/tiles/ground-mix'];
 
 const copied = new Set();
+let added = 0; // images a --maps bake copied in because the game lacked them
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -63,9 +74,15 @@ function useImage(absPath) {
   if (rel.startsWith('..')) throw new Error(`Image outside the art folder: ${absPath}`);
   if (!copied.has(rel)) {
     const dest = path.join(OUT_ART, rel);
+    // A partial bake keeps the game's own copy of any image it already has.
+    if (ONLY_MAPS && fs.existsSync(dest)) {
+      copied.add(rel);
+      return `art/${rel}`;
+    }
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     fs.copyFileSync(OVERRIDES[rel] ? path.join(ART, OVERRIDES[rel]) : absPath, dest);
     copied.add(rel);
+    added++;
   }
   return `art/${rel}`;
 }
@@ -286,6 +303,39 @@ function copyPaletteDirs() {
   }
 }
 
+/** The .tmj for a map id: a listed town or venue, a town in the towns folder, or an inside. */
+function sourceOf(id) {
+  const listed = AREA_MAPS.find((f) => path.basename(f, '.tmj') === id);
+  const town = path.join(ART, TOWN_DIR, `${id}.tmj`);
+  const inside = path.join(ART, INTERIOR_DIR, `${id}.tmj`);
+  if (listed) return { file: path.join(ART, listed), kind: 'area' };
+  if (fs.existsSync(inside)) return { file: inside, kind: 'interior' };
+  if (fs.existsSync(town)) return { file: town, kind: 'area' };
+  throw new Error(`No Tiled source for map "${id}" in ${ART}`);
+}
+
+/** --maps: bakes the named maps only, updating their manifest entries and nothing else. */
+function bakeOnly(ids) {
+  if (!ids.length) throw new Error('--maps needs a comma-separated list of map ids');
+  const bdata = readJson(path.join(ART, BUILDINGS_DATA));
+  const buildings = new Map(bdata.buildings.map((b) => [b.id, b]));
+  const file = path.join(ROOT, 'public/assets/manifest.json');
+  const manifest = readJson(file);
+  for (const id of ids) {
+    const { file: src, kind } = sourceOf(id);
+    const baked = bakeMap(src, kind, buildings);
+    if (baked.id !== id) throw new Error(`${src} bakes as "${baked.id}", not "${id}"`);
+    fs.writeFileSync(path.join(OUT_MAPS, `${baked.id}.json`), JSON.stringify(baked));
+    const entry = { id: baked.id, title: baked.title, kind };
+    const at = manifest.maps.findIndex((m) => m.id === id);
+    if (at >= 0) manifest.maps[at] = entry;
+    else manifest.maps.push(entry);
+    console.log(`baked ${baked.id} (${baked.width}x${baked.height}, ${baked.sprites.length} sprites, ${baked.objects.length} objects)`);
+  }
+  fs.writeFileSync(file, JSON.stringify(manifest));
+  console.log(`copied ${added} image(s) the game did not have`);
+}
+
 function main() {
   if (VEHICLES_ONLY) {
     const file = path.join(ROOT, 'public/assets/manifest.json');
@@ -296,6 +346,7 @@ function main() {
     return;
   }
   if (!fs.existsSync(ART)) throw new Error(`Art folder not found: ${ART}`);
+  if (ONLY_MAPS) return bakeOnly(ONLY_MAPS);
   fs.rmSync(OUT_ART, { recursive: true, force: true });
   fs.rmSync(OUT_MAPS, { recursive: true, force: true });
   fs.mkdirSync(OUT_MAPS, { recursive: true });
@@ -324,6 +375,8 @@ function main() {
   copyPaletteDirs();
   fs.writeFileSync(path.join(ROOT, 'public/assets/manifest.json'), JSON.stringify(manifest, null, 1));
   console.log(`copied ${copied.size} images`);
+  // The placeholder towns live only in the bake folder, which was just cleared: stamp them again.
+  stampAreas({ art: ART });
 }
 
 main();
