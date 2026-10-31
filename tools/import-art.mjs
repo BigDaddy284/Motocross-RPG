@@ -13,11 +13,14 @@
 //
 // --maps bakes only the named maps (a town .tmj in area-map/tiled/maps/ or an inside in the interiors
 // folder), copies only images the game does not have yet, and leaves every other map, image and the
-// rest of the manifest as they are (Areas 2 to 8 maps, Piece 0; Boss, 31 Oct 2026). Use it for the
-// drawn towns: a full import replaces public/assets/art/ and maps/ with what the art folder holds,
-// and on 31 Oct 2026 that folder was behind the repo (it lacks the world map, the area badge, the
-// track official, the three later venue maps, and has older NPC sprites), so a full import would
-// undo those until the art folder is brought up to date.
+// rest of the manifest as they are (Areas 2 to 8 maps, Piece 0; Boss, 31 Oct 2026).
+//
+// A full import rebuilds public/assets/maps/ and adds or replaces images, never removing one, and
+// leaves an image alone when the art folder's copy is the same picture. On 31 Oct 2026 the art folder
+// was brought up to date with the game (tools/sync-art-folder.mjs, tools/export-tmj.mjs: the game's
+// maps, NPC sprites, building sheet and track official went back into it), so a full import now gives
+// the game it has. A map edited in the game (map editor, hand fix) goes back with
+// `node tools/export-tmj.mjs --maps <id>` before the next full import, or that import undoes it.
 //
 // The bake replaces public/assets/maps/ whole, so it ends by re-stamping the towns not yet drawn
 // (tools/gen-area.mjs, which skips every drawn map; Boss, 31 Oct 2026). The maps it bakes are
@@ -26,7 +29,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { AREA_MAPS, DEFAULT_ART, INTERIOR_DIR, TOWN_DIR } from './art-maps.mjs';
+import zlib from 'node:zlib';
+import { AREA_MAPS, DEFAULT_ART, INTERIOR_DIR, LATER_MAPS, TOWN_DIR } from './art-maps.mjs';
 import { stampAreas } from './gen-area.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -35,9 +39,11 @@ const VEHICLES_ONLY = ARGS.includes('--vehicles');
 const mapsAt = ARGS.indexOf('--maps');
 /** --maps a,b: bake only these map ids (see the header). */
 const ONLY_MAPS = mapsAt >= 0 ? (ARGS[mapsAt + 1] ?? '').split(',').filter(Boolean) : null;
-const ART = path.resolve(ARGS.find((a, i) => !a.startsWith('--') && i !== mapsAt + 1) ?? process.env.ART_SRC ?? DEFAULT_ART);
-const OUT_ART = path.join(ROOT, 'public/assets/art');
-const OUT_MAPS = path.join(ROOT, 'public/assets/maps');
+const ART = path.resolve(ARGS.find((a, i) => !a.startsWith('--') && (mapsAt < 0 || i !== mapsAt + 1)) ?? process.env.ART_SRC ?? DEFAULT_ART);
+// IMPORT_OUT bakes somewhere other than the game's public/assets (tests/exportTmj.test.ts).
+const OUT = process.env.IMPORT_OUT ? path.resolve(process.env.IMPORT_OUT) : path.join(ROOT, 'public/assets');
+const OUT_ART = path.join(OUT, 'art');
+const OUT_MAPS = path.join(OUT, 'maps');
 const TILE = 64;
 const GID_MASK = 0x1fffffff; // strips Tiled's flip flags
 
@@ -68,6 +74,69 @@ function readJson(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
+/**
+ * The RGBA pixels of an 8-bit, non-interlaced RGB or RGBA PNG (what the art threads write), or null
+ * for anything else. The shared project folder re-saves PNGs (same pixels, different bytes; seen
+ * 31 Oct 2026), so images are compared by pixels to keep a re-import from rewriting unchanged files.
+ */
+function pngPixels(buf) {
+  if (buf.length < 33 || buf.readUInt32BE(0) !== 0x89504e47) return null;
+  let pos = 8;
+  let w = 0, h = 0, type = 0;
+  const idat = [];
+  while (pos + 8 <= buf.length) {
+    const len = buf.readUInt32BE(pos);
+    const kind = buf.toString('latin1', pos + 4, pos + 8);
+    const data = buf.subarray(pos + 8, pos + 8 + len);
+    if (kind === 'IHDR') {
+      w = data.readUInt32BE(0); h = data.readUInt32BE(4); type = data[9];
+      if (data[8] !== 8 || (type !== 2 && type !== 6) || data[12] !== 0) return null;
+    } else if (kind === 'IDAT') idat.push(data);
+    else if (kind === 'IEND') break;
+    pos += 12 + len;
+  }
+  const bpp = type === 6 ? 4 : 3;
+  const raw = zlib.inflateSync(Buffer.concat(idat));
+  const stride = w * bpp;
+  const out = Buffer.alloc(w * h * 4);
+  let prev = Buffer.alloc(stride);
+  for (let y = 0; y < h; y++) {
+    const f = raw[y * (stride + 1)];
+    const line = Buffer.from(raw.subarray(y * (stride + 1) + 1, (y + 1) * (stride + 1)));
+    for (let i = 0; i < stride; i++) {
+      const a = i >= bpp ? line[i - bpp] : 0, b = prev[i], c = i >= bpp ? prev[i - bpp] : 0;
+      let p = 0;
+      if (f === 1) p = a;
+      else if (f === 2) p = b;
+      else if (f === 3) p = (a + b) >> 1;
+      else if (f === 4) { const pa = Math.abs(b - c), pb = Math.abs(a - c), pc = Math.abs(a + b - 2 * c); p = pa <= pb && pa <= pc ? a : pb <= pc ? b : c; }
+      line[i] = (line[i] + p) & 255;
+    }
+    for (let x = 0; x < w; x++) {
+      const o = (y * w + x) * 4;
+      line.copy(out, o, x * bpp, x * bpp + bpp);
+      if (bpp === 3) out[o + 3] = 255;
+    }
+    prev = line;
+  }
+  // Fully transparent pixels may keep any colour: count them as one.
+  for (let i = 0; i < out.length; i += 4) if (out[i + 3] === 0) out.writeUInt32BE(0, i);
+  return { w, h, data: out };
+}
+
+/** True when two image files are the same picture, byte for byte or pixel for pixel. */
+function sameImage(fileA, fileB) {
+  const a = fs.readFileSync(fileA);
+  const b = fs.readFileSync(fileB);
+  if (Buffer.compare(a, b) === 0) return true;
+  try {
+    const pa = pngPixels(a), pb = pngPixels(b);
+    return !!pa && !!pb && pa.w === pb.w && pa.h === pb.h && Buffer.compare(pa.data, pb.data) === 0;
+  } catch {
+    return false;
+  }
+}
+
 /** Copies an art file into public/assets/art and returns its path relative to public/assets. */
 function useImage(absPath) {
   const rel = path.relative(ART, absPath).split(path.sep).join('/');
@@ -79,28 +148,36 @@ function useImage(absPath) {
       copied.add(rel);
       return `art/${rel}`;
     }
-    fs.mkdirSync(path.dirname(dest), { recursive: true });
-    fs.copyFileSync(OVERRIDES[rel] ? path.join(ART, OVERRIDES[rel]) : absPath, dest);
+    const src = OVERRIDES[rel] ? path.join(ART, OVERRIDES[rel]) : absPath;
     copied.add(rel);
+    // The same picture already in the game is left as it is (no churn from re-saved files).
+    if (fs.existsSync(dest) && sameImage(src, dest)) return `art/${rel}`;
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.copyFileSync(src, dest);
     added++;
   }
   return `art/${rel}`;
 }
 
+/** Tiled properties as a plain object. An empty object reference stands for null (tools/export-tmj.mjs). */
 function props(list) {
   const out = {};
-  for (const p of list ?? []) out[p.name] = p.value;
+  for (const p of list ?? []) out[p.name] = p.type === 'object' && !p.value ? null : p.value;
   return out;
 }
 
 /** Loads a map's external tilesets and returns a gid lookup. */
 function loadTilesets(mapFile, map) {
   const lookup = new Map();
+  /** Images a tileset asks to bake first, in its tile order (keep_images: the first n tiles; tools/export-tmj.mjs). */
+  lookup.keep = [];
   for (const ts of map.tilesets) {
     if (!ts.source) throw new Error(`${mapFile}: embedded tilesets are not supported`);
     const tsFile = path.resolve(path.dirname(mapFile), ts.source);
     const tileset = readJson(tsFile);
     const align = tileset.objectalignment ?? 'bottomleft';
+    const keep = props(tileset.properties).keep_images ?? 0;
+    for (const tile of (tileset.tiles ?? []).slice(0, keep)) lookup.keep.push(path.resolve(path.dirname(tsFile), tile.image));
     for (const tile of tileset.tiles ?? []) {
       lookup.set(ts.firstgid + tile.id, {
         firstgid: ts.firstgid,
@@ -110,6 +187,8 @@ function loadTilesets(mapFile, map) {
         align,
         props: props(tile.properties),
         animation: tile.animation ?? null,
+        // A sub-rectangle of the image (Tiled 1.9+), baked as the sprite's crop.
+        crop: tile.width ? [tile.x ?? 0, tile.y ?? 0, tile.width, tile.height] : null,
       });
     }
   }
@@ -120,6 +199,9 @@ function bakeMap(mapFile, kind, buildings) {
   const map = readJson(mapFile);
   const gids = loadTilesets(mapFile, map);
   const mapProps = props(map.properties);
+  // The map's title when it differs from its props (tools/export-tmj.mjs), not kept as a prop.
+  const gameTitle = mapProps.game_title;
+  delete mapProps.game_title;
   const id = path.basename(mapFile, '.tmj');
   const { width, height } = map;
   if (map.tilewidth !== TILE || map.tileheight !== TILE) throw new Error(`${id}: tiles must be ${TILE} px`);
@@ -135,6 +217,7 @@ function bakeMap(mapFile, kind, buildings) {
     return imageIndex.get(p);
   };
 
+  for (const abs of gids.keep) img(abs);
   const ground = [];
   const sprites = [];
   const blocked = Array.from({ length: height }, () => Array(width).fill('.'));
@@ -178,6 +261,12 @@ function bakeMap(mapFile, kind, buildings) {
         }
         continue;
       }
+      // A building whose picture is its own tile object (tools/export-tmj.mjs): keep it as it is.
+      if (o.type === 'building' && !o.gid && p.drawn_separately) {
+        delete p.drawn_separately;
+        objects.push({ type: 'building', name: o.name, x: o.x, y: o.y, w: o.width, h: o.height, props: p });
+        continue;
+      }
       if (o.type === 'building' && !o.gid) {
         const b = buildings.get(p.blueprint);
         if (!b) throw new Error(`${id}: building ${p.blueprint} is not in ${BUILDINGS_DATA}`);
@@ -208,11 +297,13 @@ function bakeMap(mapFile, kind, buildings) {
         const frames = t.animation?.map((f) => ({ img: img(gids.get(t.firstgid + f.tileid).imageAbs), ms: f.duration }));
         sprites.push({
           img: img(t.imageAbs),
+          ...(t.crop ? { crop: t.crop } : {}),
           x: left,
           y: top,
           w,
           h,
-          depth: top + h,
+          // A depth property overrides the sprite's foot line (a sprite drawn in front of or behind its footprint).
+          depth: typeof p.depth === 'number' ? p.depth : top + h,
           overhead,
           ...(frames ? { frames } : {}),
         });
@@ -240,7 +331,7 @@ function bakeMap(mapFile, kind, buildings) {
 
   return {
     id,
-    title: mapProps.title ?? mapProps.name ?? id,
+    title: gameTitle ?? mapProps.title ?? mapProps.name ?? id,
     kind,
     width,
     height,
@@ -282,6 +373,8 @@ function copyVehicles() {
   const data = readJson(path.join(ROOT, 'public/data/vehicles.json'));
   const out = {};
   for (const d of data.designs) {
+    // A design drawn with another's sheets until it has its own (artOf; the sports car, Task 11) gets no entry.
+    if (d.artOf) continue;
     const dir = path.join(ART, 'vehicles/sheets/map');
     // The sheets keep their van names (art), the designs are motors (Boss, 28 Oct 2026).
     const art = d.art ?? d.id;
@@ -305,7 +398,7 @@ function copyPaletteDirs() {
 
 /** The .tmj for a map id: a listed town or venue, a town in the towns folder, or an inside. */
 function sourceOf(id) {
-  const listed = AREA_MAPS.find((f) => path.basename(f, '.tmj') === id);
+  const listed = [...AREA_MAPS, ...LATER_MAPS].find((f) => path.basename(f, '.tmj') === id);
   const town = path.join(ART, TOWN_DIR, `${id}.tmj`);
   const inside = path.join(ART, INTERIOR_DIR, `${id}.tmj`);
   if (listed) return { file: path.join(ART, listed), kind: 'area' };
@@ -319,7 +412,7 @@ function bakeOnly(ids) {
   if (!ids.length) throw new Error('--maps needs a comma-separated list of map ids');
   const bdata = readJson(path.join(ART, BUILDINGS_DATA));
   const buildings = new Map(bdata.buildings.map((b) => [b.id, b]));
-  const file = path.join(ROOT, 'public/assets/manifest.json');
+  const file = path.join(OUT, 'manifest.json');
   const manifest = readJson(file);
   for (const id of ids) {
     const { file: src, kind } = sourceOf(id);
@@ -327,6 +420,7 @@ function bakeOnly(ids) {
     if (baked.id !== id) throw new Error(`${src} bakes as "${baked.id}", not "${id}"`);
     fs.writeFileSync(path.join(OUT_MAPS, `${baked.id}.json`), JSON.stringify(baked));
     const entry = { id: baked.id, title: baked.title, kind };
+    if (LATER_MAPS.some((f) => path.basename(f, '.tmj') === id)) continue;
     const at = manifest.maps.findIndex((m) => m.id === id);
     if (at >= 0) manifest.maps[at] = entry;
     else manifest.maps.push(entry);
@@ -338,7 +432,7 @@ function bakeOnly(ids) {
 
 function main() {
   if (VEHICLES_ONLY) {
-    const file = path.join(ROOT, 'public/assets/manifest.json');
+    const file = path.join(OUT, 'manifest.json');
     const manifest = readJson(file);
     manifest.vehicles = copyVehicles();
     fs.writeFileSync(file, JSON.stringify(manifest, null, 1));
@@ -347,7 +441,8 @@ function main() {
   }
   if (!fs.existsSync(ART)) throw new Error(`Art folder not found: ${ART}`);
   if (ONLY_MAPS) return bakeOnly(ONLY_MAPS);
-  fs.rmSync(OUT_ART, { recursive: true, force: true });
+  // Images are only added or replaced, never removed: the game's own art (tools/art/*.py: the world
+  // map, badges) is not in the art folder, and the map editor offers every tile it finds (31 Oct 2026).
   fs.rmSync(OUT_MAPS, { recursive: true, force: true });
   fs.mkdirSync(OUT_MAPS, { recursive: true });
 
@@ -356,6 +451,7 @@ function main() {
 
   const files = [
     ...AREA_MAPS.map((f) => ({ file: path.join(ART, f), kind: 'area' })),
+    ...LATER_MAPS.map((f) => ({ file: path.join(ART, f), kind: 'area', later: true })),
     ...fs
       .readdirSync(path.join(ART, INTERIOR_DIR))
       .filter((f) => f.endsWith('.tmj'))
@@ -364,17 +460,17 @@ function main() {
   ];
 
   const manifest = { generated: new Date().toISOString().slice(0, 10), source: 'art/ (shared project folder)', maps: [] };
-  for (const { file, kind } of files) {
+  for (const { file, kind, later } of files) {
     const baked = bakeMap(file, kind, buildings);
     fs.writeFileSync(path.join(OUT_MAPS, `${baked.id}.json`), JSON.stringify(baked));
-    manifest.maps.push({ id: baked.id, title: baked.title, kind });
+    if (!later) manifest.maps.push({ id: baked.id, title: baked.title, kind });
     console.log(`baked ${baked.id} (${baked.width}x${baked.height}, ${baked.sprites.length} sprites, ${baked.objects.length} objects)`);
   }
   manifest.characters = copyCharacters();
   manifest.vehicles = copyVehicles();
   copyPaletteDirs();
-  fs.writeFileSync(path.join(ROOT, 'public/assets/manifest.json'), JSON.stringify(manifest, null, 1));
-  console.log(`copied ${copied.size} images`);
+  fs.writeFileSync(path.join(OUT, 'manifest.json'), JSON.stringify(manifest, null, 1));
+  console.log(`copied ${added} new or changed image(s); ${copied.size - added} already in the game`);
   // The placeholder towns live only in the bake folder, which was just cleared: stamp them again.
   stampAreas({ art: ART });
 }
