@@ -32,7 +32,7 @@ const H = 720;
  */
 const SPEEDS = [0, 2, 4, 6, 8];
 // Pause is the usual two-bar sign (Boss, 31 Oct 2026).
-const SPEED_LABELS = ['❚❚', '1×', '2×', '3×', '4×'];
+const SPEED_LABELS = ['', '1×', '2×', '3×', '4×'];
 const DEFAULT_SPEED = 1;
 /** How many laps a pit board message can be set for; 0 is to the flag. */
 const BOARD_LAPS = [1, 2, 3, 0];
@@ -717,8 +717,10 @@ export class RaceScene extends Phaser.Scene {
     const longest = Math.max(6, ...sim.riders.map((r) => (this.names.get(r.e.id) ?? '').length));
     this.nameW = Math.min(longest, 20);
     const inner = Math.ceil((this.nameW + 12) * charW);
-    const colIn = Math.max(inner, Math.ceil(detailW), 250);
-    const sideW = colIn + 32;
+    // The column ends just past the times: the Details tables and the log fit themselves to it.
+    const colIn = Math.max(inner, 220);
+    const sideW = colIn + 24;
+    const detailSize = Math.max(10, Math.floor(14 * Math.min(1, colIn / detailW) * 2) / 2);
     const right = dw - 16 - sideW;
     const vw = right - 14 - 16;
     this.viewCX = 16 + vw / 2;
@@ -751,15 +753,15 @@ export class RaceScene extends Phaser.Scene {
     // times sit just after the field's longest name (Boss, 31 Oct 2026).
     this.towerMark = this.add.rectangle(right + 6, 0, sideW - 12, TOWER_ROW, COLORS.accent, 0.45).setOrigin(0, 0).setVisible(false);
     this.screen.add(this.towerMark);
-    this.ui.tower = this.text(right + 16, 30, '', 16, COLORS.cream, { lineSpacing: 7 }).setFontFamily(MONO);
+    this.ui.tower = this.text(right + 12, 30, '', 16, COLORS.cream, { lineSpacing: 7 }).setFontFamily(MONO);
     // The log always starts under the last row.
     this.towerRows = Math.max(6, Math.floor((dh - 160 - 14 - 8 - FEED_H) / this.towerLineH));
-    this.ui.feed = this.text(right + 16, 30 + this.towerRows * this.towerLineH + 8, '', 14, COLORS.cream, { lineSpacing: 5, wordWrap: { width: colIn } });
-    this.ui.detail = this.text(right + 16, 76, '', 14, COLORS.cream, { lineSpacing: 5 }).setVisible(false);
+    this.ui.feed = this.text(right + 12, 30 + this.towerRows * this.towerLineH + 8, '', 14, COLORS.cream, { lineSpacing: 5, wordWrap: { width: colIn } });
+    this.ui.detail = this.text(right + 12, 76, '', detailSize, COLORS.cream, { lineSpacing: 5 }).setVisible(false);
     // Details: the bike's parts, or section times.
     this.detailTabs = (['bike', 'sections'] as const).map((tab, i) => {
       const tw = (sideW - 20) / 2;
-      const b = this.btn(right + 6 + tw / 2 + i * (tw + 8), 46, tab === 'bike' ? 'Bike' : 'Section times', () => {
+      const b = this.btn(right + 6 + tw / 2 + i * (tw + 8), 46, tab === 'bike' ? 'Bike' : 'Sections', () => {
         this.detailTab = tab;
         this.detailTabs.forEach((o, j) => o.setSelected(j === i));
         this.renderDetail();
@@ -779,6 +781,11 @@ export class RaceScene extends Phaser.Scene {
       speedButtons.forEach((b, j) => b.setSelected(j === i));
     }, sw, 40));
     speedButtons[this.speed].setSelected(true);
+    // The pause sign is drawn, two bars dead centre in its button, rather than a font glyph.
+    speedButtons[0].add([
+      this.add.rectangle(-5, 0, 5, 16, COLORS.cream),
+      this.add.rectangle(5, 0, 5, 16, COLORS.cream),
+    ]);
     if (practice) {
       this.btn(right + aw / 2, dh - 60, 'Stop riding', () => this.stopPractice(), aw, 44);
       this.btn(right + aw * 1.5 + 8, dh - 60, 'Details', () => this.toggleDetail(), aw, 44);
