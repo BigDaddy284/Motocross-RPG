@@ -230,6 +230,7 @@ function isCareer(v: unknown): boolean {
     (c.shops === undefined || isShopState(c.shops)) &&
     (c.champs === undefined || isChampState(c.champs)) &&
     (c.errands === undefined || isErrandState(c.errands)) &&
+    (c.jobs === undefined || isJobState(c.jobs)) &&
     !!story && Number.isInteger(story.step) && Array.isArray(story.used) &&
     typeof c.counters === 'object' && c.counters !== null &&
     isSkills(c.skills)
@@ -246,6 +247,12 @@ function isErrandState(v: unknown): boolean {
   const s = v as Record<string, unknown>;
   return typeof s === 'object' && s !== null && (s.active === null || typeof s.active === 'string') &&
     typeof s.done === 'object' && s.done !== null && Object.values(s.done).every(Number.isInteger);
+}
+
+function isJobState(v: unknown): boolean {
+  const s = v as Record<string, unknown>;
+  return typeof s === 'object' && s !== null && typeof s.open === 'object' && s.open !== null &&
+    Object.values(s.open).every((o) => typeof (o as Record<string, unknown>)?.job === 'string' && Number.isInteger((o as Record<string, unknown>).made));
 }
 
 function isShopState(v: unknown): boolean {

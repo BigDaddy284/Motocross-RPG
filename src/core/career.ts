@@ -4,6 +4,7 @@
 
 import type { ChampionshipState } from './championship';
 import type { ErrandState } from './errands';
+import type { JobState } from './jobs';
 import type { ShopState, SparePart } from './shops';
 import type { WorldMapData } from './worldMap';
 import { newSkillState, type SkillState } from './skills';
@@ -94,7 +95,14 @@ export interface JobDef {
   /** Pounds per part. */
   pay: number;
   needs?: string;
-  stations: { object: string; label: string; ms: number }[];
+  /** The facility the job locks while it is open (Spec 15.1); the job's own id when left out. */
+  facility?: string;
+  /** Spec 15.3 facilityBonus, 0 to 1.5, on the grade of the kept part. */
+  facilityBonus?: number;
+  /** Bike slots the employer's kept part can be, one at random per finished batch (Spec 15.1). */
+  keeps?: string[];
+  /** xp: child skill XP for each go at the station (Spec 3.2). */
+  stations: { object: string; label: string; ms: number; xp?: Record<string, number> }[];
 }
 
 export interface PlaceDef {
@@ -165,6 +173,8 @@ export interface CareerState {
   champs?: ChampionshipState;
   /** Errands for NPCs (core/errands.ts), made on taking the first one. */
   errands?: ErrandState;
+  /** Batch jobs under way (core/jobs.ts), made on the first shift. */
+  jobs?: JobState;
 }
 
 export const pence = (pounds: number) => Math.round(pounds * 100);

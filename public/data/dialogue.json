@@ -55,7 +55,8 @@
     "story.rebore": { "lines": [
       { "speaker": "npc", "text": "From the garage, is it? Give it here." },
       { "speaker": "narrator", "text": "The lathe whines for a minute. The engine rebuilder hands the cylinder back, bright and true." },
-      { "speaker": "npc", "text": "There you go. If you ever want shifts, I've always got engine work. So does the fabrication shop next door." }
+      { "speaker": "npc", "text": "There you go. If you ever want shifts, I've always got engine work. So does the fabrication shop next door." },
+      { "speaker": "npc", "text": "Finish a whole batch for me and I'll let you keep one of the parts you made, as good as whatever you turned it to. Fair's fair." }
     ] },
     "story.paid_rebore": { "lines": [
       { "speaker": "npc", "text": "Perfect bore. That's £80." },
@@ -107,10 +108,11 @@
       { "speaker": "npc", "text": "Tyres, rims, spokes. Hard pack round here, so you'll want a hard-pack rear." }
     ] },
     "fabricator.hello": { "lines": [
-      { "speaker": "npc", "text": "Looking for shifts? Use the blue bench inside to start a batch of frame brackets. It's 75p a bracket." }
+      { "speaker": "npc", "text": "Looking for shifts? Use the blue bench inside to start a batch of frame brackets. It's 75p a bracket." },
+      { "speaker": "npc", "text": "Finish the batch and one of them's yours to keep. Stop whenever you like; it'll be waiting for you." }
     ] },
     "engine_rebuilder.hello": { "lines": [
-      { "speaker": "npc", "text": "Want a shift? Start at the long bench inside. It's £1.25 a piston." },
+      { "speaker": "npc", "text": "Want a shift? Start at the long bench inside. It's £1.25 a piston, and one part from every finished batch is yours to keep." },
       { "speaker": "npc", "text": "Do enough work for me and I might let you use the practice yard." }
     ] },
     "local_racer.hello": { "lines": [

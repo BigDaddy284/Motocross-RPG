@@ -142,12 +142,10 @@ describe('money', () => {
     expect(formatMoney(pence(0.75) * 3)).toBe('£2.25');
   });
 
-  it('a shift batch pays £10–£25, like the early repeatable jobs (Spec 14.1)', () => {
-    for (const j of world.jobs) {
-      const batch = j.batch * j.pay;
-      expect(batch, j.id).toBeGreaterThanOrEqual(10);
-      expect(batch, j.id).toBeLessThanOrEqual(25);
-    }
+  it('the Area 1 shifts are the Spec 15.5 batches: 50 brackets at 75p and 100 pistons at £1.25', () => {
+    const byId = Object.fromEntries(world.jobs.map((j) => [j.id, j]));
+    expect(byId['job.fabrication']).toMatchObject({ batch: 50, pay: 0.75, keeps: ['bodywork'] });
+    expect(byId['job.engine']).toMatchObject({ batch: 100, pay: 1.25, keeps: ['top_end'] });
   });
 });
 

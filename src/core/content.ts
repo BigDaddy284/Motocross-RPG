@@ -266,7 +266,7 @@ export const WORLD_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['needs'],
+        optional: ['needs', 'facility', 'facilityBonus', 'keeps'],
         fields: {
           id: { type: 'string', pattern: ID },
           name: { type: 'string', nonEmpty: true },
@@ -276,10 +276,17 @@ export const WORLD_SCHEMA: Schema = {
           batch: { type: 'number', integer: true, min: 1 },
           pay: { type: 'number', min: 0 },
           needs: { type: 'string', pattern: ID },
+          facility: { type: 'string', pattern: ID },
+          facilityBonus: { type: 'number', min: 0, max: 1.5 },
+          keeps: { type: 'array', minItems: 1, items: { type: 'string', pattern: ID } },
           stations: {
             type: 'array',
             minItems: 1,
-            items: { type: 'object', fields: { object: { type: 'string', nonEmpty: true }, label: { type: 'string', nonEmpty: true }, ms: { type: 'number', integer: true, min: 0 } } },
+            items: {
+              type: 'object',
+              optional: ['xp'],
+              fields: { object: { type: 'string', nonEmpty: true }, label: { type: 'string', nonEmpty: true }, ms: { type: 'number', integer: true, min: 0 }, xp: { type: 'record', values: { type: 'number', min: 0 } } },
+            },
           },
         },
       },
@@ -495,9 +502,14 @@ function checkCareerContent(c: Content, maps: Map<string, BakedMap>): ContentErr
       if (o.type === 'exit' && o.props.to === ROUTE && !world.routes.some((r) => r.map === m.id && r.exit === o.name)) err(CONTENT_FILES.world, 'routes', `the exit "${o.name}" on ${m.id} leads to a choice of places, but no route lists them`);
     }
   }
+  const childSkills = new Set(c.skills.leads.flatMap((l) => l.children.map((ch) => ch.id)));
   world.jobs.forEach((j, i) => {
     objectOn(`jobs[${i}].start`, j.map, j.start);
-    j.stations.forEach((s, k) => objectOn(`jobs[${i}].stations[${k}].object`, j.map, s.object));
+    j.stations.forEach((s, k) => {
+      objectOn(`jobs[${i}].stations[${k}].object`, j.map, s.object);
+      for (const skill of Object.keys(s.xp ?? {})) if (!childSkills.has(skill)) err(CONTENT_FILES.world, `jobs[${i}].stations[${k}].xp.${skill}`, `no child skill "${skill}"`);
+    });
+    j.keeps?.forEach((slot, k) => !slotIds.has(slot) && err(CONTENT_FILES.world, `jobs[${i}].keeps[${k}]`, `no slot "${slot}"`));
   });
   return errors;
 }

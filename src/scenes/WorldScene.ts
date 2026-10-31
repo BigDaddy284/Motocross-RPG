@@ -15,10 +15,11 @@ import { DriveMap, FACING_OF, bayFor, ensureVan, exitTile, footprint, inwardHead
 import { forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
 import { entryFee, fieldCount, lapsFor, practiceFee, trackById, venueProblem, type VenueDef } from '../core/raceDay';
 import { champProblem, enter, nextRoundVenue, roundEntry, roundsHere, standings, titlePossible, withdraw, type ChampionshipDef } from '../core/championship';
-import { noteActivity, shopForAction, type ShopDef } from '../core/shops';
+import { noteActivity, shopForAction, slotName, type ShopDef } from '../core/shops';
 import { errandStage, finishErrand, takeErrand, type ErrandDef } from '../core/errands';
 import { challengeReady, challengeVenue, lossHint, type ChallengeDef } from '../core/challenge';
 import { drillForAction, drillForNpc, finishRound, walked, type DrillDef } from '../core/training';
+import { finishBatch, finishPass, openJobAt, passXp, startJob } from '../core/jobs';
 import { leadLevel } from '../core/skills';
 import { challengeWins } from '../core/records';
 import { CAREER_SLOT, services } from '../services';
@@ -799,9 +800,23 @@ export class WorldScene extends Phaser.Scene {
       this.hud.toast('Nobody here has time to show you the work yet. Finish helping Paul at Phoenix MX first.');
       return true;
     }
+    const career = this.save.career;
+    const open = openJobAt(career, job);
+    if (open && open.job !== job.id) {
+      this.hud.toast(`You're part way through another batch here. Finish that first.`);
+      return true;
+    }
     const pay = formatMoney(jobPay(services.content.world, job));
-    this.hud.confirm(`${job.name}: make a batch of ${job.batch} ${job.product}s at ${pay} each.\nYou're paid for every part, even if you stop early.`, 'Start shift', () => {
-      this.shift = { job, made: 0, station: 0 };
+    const skills = services.content.skills.leads.flatMap((l) => l.children);
+    const xp = Object.entries(passXp(job)).map(([id, n]) => `${n} ${skills.find((c) => c.id === id)?.name ?? id}`).join(', ');
+    const keeps = job.keeps ? ` Finish the batch and one ${job.keeps.length === 1 ? slotName(services.content.bikes, job.keeps[0]) : 'part'} is yours to keep.` : '';
+    const text = open
+      ? `${job.name}: carry on your batch, ${open.made} of ${job.batch} ${job.product}s made, at ${pay} each.${keeps}`
+      : `${job.name}: make a batch of ${job.batch} ${job.product}s at ${pay} each, with ${xp} XP every part.\nYou're paid for every part, even if you stop early, and the batch waits for you.${keeps}`;
+    this.hud.confirm(text, open ? 'Carry on' : 'Start shift', () => {
+      const r = startJob(career, job);
+      if (!r.ok) return void this.hud.toast(r.reason);
+      this.shift = { job, made: r.open.made, station: 0 };
       this.showShift();
       void this.workStation();
     }, () => this.player.idle());
@@ -822,17 +837,22 @@ export class WorldScene extends Phaser.Scene {
     shift.station += 1;
     if (shift.station >= shift.job.stations.length) {
       shift.station = 0;
-      shift.made += 1;
-      this.save.career.money += jobPay(services.content.world, shift.job);
-      this.hud.showCareer(this.save.career, this.save.flags);
-      if (shift.made >= shift.job.batch) {
-        const c = this.save.career.counters;
-        c[shift.job.id] = (c[shift.job.id] ?? 0) + 1;
-        noteActivity(services.content.shops, this.save.career, 'activity');
-        this.endShift(`Batch done: ${shift.made} ${shift.job.product}s, ${formatMoney(jobPay(services.content.world, shift.job) * shift.made)} earned.`);
+      const career = this.save.career;
+      const pass = finishPass(services.content.skills, career, shift.job, jobPay(services.content.world, shift.job));
+      shift.made += pass.parts;
+      if (pass.parts > 1) this.hud.toast(`Two ${shift.job.product}s in one go!`);
+      for (const u of pass.ups) this.hud.toast(`Level up! ${u.name} is now level ${u.level}.`);
+      this.hud.showCareer(career, this.save.flags);
+      if (pass.done) {
+        const engine = new Set(services.content.bikes.slots.filter((sl) => sl.engine).map((sl) => sl.id));
+        const r = finishBatch(services.content.skills, career, shift.job, engine);
+        noteActivity(services.content.shops, career, 'activity');
+        const kept = r.kept ? ` The boss hands you a G${r.kept.grade} ${slotName(services.content.bikes, r.kept.slot)} from the batch: it's in your bag.` : '';
+        this.endShift(`Batch done: ${shift.made} ${shift.job.product}s made.${kept}`);
         this.milestoneSave();
         return;
       }
+      this.milestoneSave();
     }
     this.showShift();
   }

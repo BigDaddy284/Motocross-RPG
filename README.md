@@ -108,6 +108,12 @@ A No-Turn Takedown race day is a **knockout of 32 riders**: everyone rides a tim
 
 A track that fails stays in the list, and picking it shows the reasons. An import that fails isn't added. Each track is listed by its name, with its file name under it. Mod tracks get their own ids, so they never clash with the game's tracks. The code is in `src/core/modTracks.ts`.
 
+## Areas 2 to 8 build (test branches `areas/task-NN`)
+
+Built from `docs/AREAS_2_TO_8_PLAN.md` on a chain of branches, each starting from the one before. What each task added:
+
+- **Task 01: batch jobs train Mechanical Engineer, and the boss gives you a part** (Spec 15, Boss 30 Oct 2026). The fabrication shift is a batch of 50 brackets and the engine shift 100 pistons (Spec 15.5). Every pass through the stations gives XP in the skills it uses (cutting and grinding: Bodywork; welding: Welding; cleaning and test fitting: Engine Components, with Engine Assembly on the test fit; the lathe: Machining), at Tier 1's 3,000 to 6,000 XP an hour. One job is open per facility at a time: stop whenever you like, go racing, and the start bench offers to carry on from where you left off (`career.jobs` in the save). A finished batch gives you one new part of your class from the employer (`keeps` in `world.json`: a bodywork and controls part at the fabrication shop, a top end at the engine rebuilder) at a grade rolled from your Mechanical Engineer level and the facility (Spec 15.3: Grade 1 to 2 nearly always at level 1, Grade 10 at 1 in 100,000 at level 99). Once every Mechanical Engineer skill is 80 or more, a pass has a 4% chance of making two parts. The engine rebuilder tells you about the kept part the first time you meet him in the tutorial.
+
 ## What's new in Alpha v1.1
 
 Older builds (Alpha v1 and the test builds) are in [docs/CHANGELOG.md](docs/CHANGELOG.md).

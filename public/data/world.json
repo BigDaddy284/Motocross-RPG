@@ -1,5 +1,5 @@
 {
-  "note": "Story locks on map objects, where the roads out go, and the repeatable shift jobs (Spec 14.5a, 15.5). places are where a route can take you (the map and the spawn you arrive on); the place with mods: true is the mod track list, raced from the road without going anywhere (src/core/modTracks.ts). routes are exits with a choice of places at the end (an exit whose to is world_map, a name kept from the old world map screen so the maps did not change): the route marshal by the exit (npcs.json, guide: true) says where each goes and lets you pick, then you leave by the exit. Without a pick, leaving by the exit asks where to, so the marshal is never in the way. Pay is in pounds per part. testPayMultiplier boosts all shift pay while testing (Boss: 5× for Alpha v1.1): set it back to 1, or remove it, before Final v1.",
+  "note": "Story locks on map objects, where the roads out go, and the repeatable shift jobs (Spec 14.5a, 15.5). places are where a route can take you (the map and the spawn you arrive on); the place with mods: true is the mod track list, raced from the road without going anywhere (src/core/modTracks.ts). routes are exits with a choice of places at the end (an exit whose to is world_map, a name kept from the old world map screen so the maps did not change): the route marshal by the exit (npcs.json, guide: true) says where each goes and lets you pick, then you leave by the exit. Without a pick, leaving by the exit asks where to, so the marshal is never in the way. Pay is in pounds per part. Batch jobs (Spec 15, Boss 30 Oct 2026): batch is the parts in one batch (50 at the fabrication shop, 100 at the engine shop), each station gives its xp in child skills every pass, one job is open per facility at a time and can be left and picked up again, and a finished batch gives the rider one new part at random from keeps, of their current class, at a grade from Mechanical Engineer and facilityBonus (Spec 15.3). testPayMultiplier boosts all shift pay while testing (Boss: 5× for Alpha v1.1): set it back to 1, or remove it, before Final v1.",
   "testPayMultiplier": 5,
   "worldMap": {
     "note": "The world map (Boss, 28 Oct 2026), drawn by tools/art/world-map.py. Each zone lists its area maps (a building's inside is in the zone of the map its door is on) and where the rider's biggest bike stands, in the image's pixels.",
@@ -32,20 +32,22 @@
   "jobs": [
     {
       "id": "job.fabrication", "name": "Fabrication shift", "map": "int-iz-fabrication-shop", "start": "bench_blue",
-      "product": "frame bracket", "batch": 20, "pay": 0.75, "needs": "tutorial_done",
+      "product": "frame bracket", "batch": 50, "pay": 0.75, "needs": "tutorial_done",
+      "facilityBonus": 0.3, "keeps": ["bodywork"],
       "stations": [
-        { "object": "bench_blue", "label": "Cut the steel", "ms": 900 },
-        { "object": "welder", "label": "Weld the bracket", "ms": 1200 },
-        { "object": "weld_table", "label": "Grind and finish", "ms": 900 }
+        { "object": "bench_blue", "label": "Cut the steel", "ms": 900, "xp": { "bodywork": 3 } },
+        { "object": "welder", "label": "Weld the bracket", "ms": 1200, "xp": { "welding": 6 } },
+        { "object": "weld_table", "label": "Grind and finish", "ms": 900, "xp": { "bodywork": 3 } }
       ]
     },
     {
       "id": "job.engine", "name": "Engine shop shift", "map": "int-iz-engine-rebuilder", "start": "bench_long",
-      "product": "piston", "batch": 16, "pay": 1.25, "needs": "tutorial_done",
+      "product": "piston", "batch": 100, "pay": 1.25, "needs": "tutorial_done",
+      "facilityBonus": 0.5, "keeps": ["top_end"],
       "stations": [
-        { "object": "bench_long", "label": "Clean the blank", "ms": 900 },
-        { "object": "lathe", "label": "Turn it on the lathe", "ms": 1300 },
-        { "object": "engine_stand", "label": "Test fit", "ms": 900 }
+        { "object": "bench_long", "label": "Clean the blank", "ms": 900, "xp": { "engine_components": 3 } },
+        { "object": "lathe", "label": "Turn it on the lathe", "ms": 1300, "xp": { "machining": 6 } },
+        { "object": "engine_stand", "label": "Test fit", "ms": 900, "xp": { "engine_components": 3, "engine_assembly": 3 } }
       ]
     }
   ]
