@@ -302,6 +302,8 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 
      Once all 8 Local Champions are picked (Louis for Area 1, the other 7 from the pool, each waiting for their own area), each area adds two riders, its Local and Area Champion: **Area 1 30, Area 2 32, Area 3 34, Area 4 36, Area 5 38, Area 6 40, Area 7 42, Area 8 44** riders racing.
 
+     **Target (Boss, 31 Oct 2026): 32 riders from Area 2 onwards, held steady.** From Area 3, each area's two champions join and two default pool riders (the lowest level ones) stop racing there, so the count stays at 32. By Area 8 the field is mostly NPCs and champions, with 9 default pool riders left. Riders who drop off still race at the earlier areas' tracks, as each rider's `areas` list in `riders.json` sets where they turn up. More pool names may be added later.
+
      The 8 NPCs who race from Area 1 are Louis Jonez, Bill Rothon, Jedrick Nicholls, Joseph Halden, Lee Stocky, Jason Styles, Mickey Alington and Dan Smyth. A race day needs 15 CPU riders, a championship 19, and No-Turn Takedown (Area 7) 31.
    - **Future Area Champions are taken out of the pool** and added with their own area. There they win most of that area's races while the player levels up.
    - **NPCs who race join the pool in a set area**, their "area unlocked".
