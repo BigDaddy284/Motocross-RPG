@@ -121,9 +121,12 @@ export class HudScene extends Phaser.Scene {
     this.modal = null;
     this.progressBox = null;
     const outline = { stroke: '#14141e', strokeThickness: 4 };
-    this.titleText = this.add.text(16, 14, '', textStyle(this.ts(20), COLORS.cream, outline));
+    // The place and task in orange with a black outline, easier to read on a phone; the money
+    // keeps its own colours (Boss, 31 Oct 2026).
+    const black = { stroke: '#000000', strokeThickness: 5 };
+    this.titleText = this.add.text(16, 14, '', textStyle(this.ts(20), COLORS.accent, black));
     this.moneyText = this.add.text(16, 44, '', textStyle(this.ts(20), COLORS.accent, { ...outline, fontStyle: 'bold' }));
-    this.taskText = this.add.text(16, 74, '', textStyle(this.ts(16), COLORS.cream, { ...outline, wordWrap: { width: 420 } }));
+    this.taskText = this.add.text(16, 74, '', textStyle(this.ts(16), COLORS.accent, { ...black, wordWrap: { width: 420 } }));
     this.shiftText = this.add.text(0, 0, '', textStyle(this.ts(18), COLORS.cream, { ...outline, align: 'center' })).setOrigin(0.5, 0);
     // Toasts sit above panels, so a shop's "Bought" message shows over the shop.
     this.toastBg = this.add.rectangle(0, 0, 10, 10, COLORS.ink, 0.88).setStrokeStyle(2, COLORS.panelLight).setVisible(false).setDepth(10);
