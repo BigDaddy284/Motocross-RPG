@@ -693,25 +693,29 @@ export class RaceScene extends Phaser.Scene {
     const { dw, dh } = this;
     const vw = dw - 380;
     const right = dw - 350;
-    this.box(16, 16, vw, 54);
-    this.ui.title = this.text(32, 30, '', 20, COLORS.cream);
-    // Your message, then the pen: one section of ink per message change (racing data's ink).
-    this.ui.ink = this.text(vw - PEN_W - 14, 30, '', 20, COLORS.accent).setOrigin(1, 0);
-    this.pen = penMeter(this, vw - PEN_W, 43, services.content.racing.ink, PEN_W);
-    this.screen.add(this.pen);
-    this.pen.setVisible(!practice);
     // Riders ride up to the start in the order they picked their gates.
     this.director = directorFor(sim, services.content.bikes, services.content.racing.messages, this.day?.pickOrder);
     // The view keeps the 1280 × 720 layout's scale (900 wide), so a wider one shows more track, not bigger bikes.
-    // The track takes the whole height (Boss, 28 Oct 2026): your position, lap, gaps and bike float
-    // over its top-left corner as outlined text, and the race log sits under the standings.
-    this.view = new RaceView(this, this.screen, sim.track, services.content.trackParts, 16, 82, vw, dh - 98, undefined, { scaleWidth: 900 });
+    // The track takes the whole height, its bottom level with the Retire and Details buttons, and the
+    // race line, your position, lap, gaps and bike float over its top-left corner as outlined text
+    // (Boss, 28 Oct 2026; no header bar, 31 Oct 2026).
+    this.view = new RaceView(this, this.screen, sim.track, services.content.trackParts, 16, 16, vw, dh - 54, undefined, { scaleWidth: 900 });
     this.view.hasStart = !practice;
     // Fireworks at the finish only where riders race to the line together, not in qualifying or a knockout's seeding run.
     this.view.showFireworks = !practice && !this.qualifying && !(this.ko && !this.koHeat);
     // The flag man and the pit boards count the race's laps.
     this.view.setLaps(practice ? undefined : sim.totalLaps ?? undefined);
-    this.ui.me = this.text(30, 94, '', 18, COLORS.cream, { lineSpacing: 4, ...OVERLAY });
+    this.ui.title = this.text(30, 26, '', 18, COLORS.cream, OVERLAY);
+    this.ui.me = this.text(30, 58, '', 18, COLORS.cream, { lineSpacing: 4, ...OVERLAY });
+    // Your message, then the pen (one section of ink per message change, racing data's ink), under the lap map:
+    // the pen level with the map's right edge, the message ending at the pen (Boss, 31 Oct 2026).
+    const map = this.view.mapRect;
+    const penW = 90;
+    const rowY = map.y + map.h + 18;
+    this.pen = penMeter(this, map.x + map.w - penW, rowY, services.content.racing.ink, penW, 20);
+    this.screen.add(this.pen);
+    this.pen.setVisible(!practice);
+    this.ui.ink = this.text(map.x + map.w - penW - 10, rowY, '', 18, COLORS.accent, OVERLAY).setOrigin(1, 0.5);
     this.box(right, 16, 334, dh - 160);
     // The standings show as many rows as fit above the log, scrolled to keep you in view.
     this.towerRows = Math.max(6, Math.floor((dh - 160 - 28 - FEED_H) / TOWER_ROW));
@@ -925,7 +929,7 @@ export class RaceScene extends Phaser.Scene {
     const myLap = Math.max(1, Math.min(Math.floor(me.dist) + 1, sim.totalLaps ?? Infinity));
     const msg = services.content.racing.messages.find((m) => m.id === sim.playerMessage)!;
     if (practice) {
-      this.ui.title.setText(`${this.args.venue.name} · Practice · Lap ${myLap}`);
+      this.ui.title.setText(`${this.args.venue.name} · Practice`);
       this.ui.ink.setText('');
       const p = { lapTimes: this.practiceLaps() };
       const best = p.lapTimes.length ? Math.min(...p.lapTimes) : null;
@@ -949,7 +953,7 @@ export class RaceScene extends Phaser.Scene {
       this.renderKo(pos, me, order);
       return;
     }
-    this.ui.title.setText(`${this.args.venue.name} · Moto ${this.day!.motoNumber} · Lap ${Math.max(1, Math.min(Math.floor(leader.dist) + 1, total))} of ${total}${this.auto ? ' · Auto-complete' : ''}`);
+    this.ui.title.setText(`${this.args.venue.name} · Moto ${this.day!.motoNumber}${this.auto ? ' · Auto-complete' : ''}`);
     const until = this.auto || this.boardAt === Infinity ? ' to the flag' : this.boardAt > this.myLaps ? ` to lap ${this.boardAt}` : '';
     this.ui.ink.setText(`${msg.name}${until}`);
     this.pen?.setLevel(sim.ink);
@@ -1032,7 +1036,7 @@ export class RaceScene extends Phaser.Scene {
     const total = sim.totalLaps!;
     const myLap = Math.max(1, Math.min(Math.floor(me.dist) + 1, total));
     const msg = services.content.racing.messages.find((m) => m.id === sim.playerMessage)!;
-    this.ui.title.setText(`${this.args.venue.name} · Qualifying · ${myLap === 1 ? 'Out lap' : `Timed lap ${myLap - 1} of ${total - 1}`}${this.auto ? ' · Auto-complete' : ''}`);
+    this.ui.title.setText(`${this.args.venue.name} · Qualifying${this.auto ? ' · Auto-complete' : ''}`);
     const until = this.auto || this.boardAt === Infinity ? ' to the flag' : this.boardAt > this.myLaps ? ` to lap ${this.boardAt}` : '';
     this.ui.ink.setText(`${msg.name}${until}`);
     this.pen?.setLevel(sim.ink);
