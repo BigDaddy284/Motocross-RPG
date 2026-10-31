@@ -21,7 +21,7 @@ import { APPROACH, assignCrews, BOARD_PAST, boardOut, boardText, crewSpot, FLAGG
 import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../core/marshal';
 import { bikeColours, modelFor as bikeKind, raceBikeParts, type RaceLook } from './raceBike';
 import { LOCKED_ITEMS } from '../core/modModels';
-import { BIKE_PAINT, bikeModel, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
+import { BIKE_PAINT, bikeModel, FAN_PAINT, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
 // isometric camera in the spirit of Super Off Road's overhead arcade view. The track is solid
@@ -2215,9 +2215,12 @@ export class RaceView {
     const figure = new THREE.Group();
     figure.name = 'Body';
     figure.scale.set(OFFICIAL_SCALE * sc.w, OFFICIAL_SCALE * sc.h, OFFICIAL_SCALE * sc.w);
-    const kit = this.mat(hex(cheerColour(it, i), 0xe04040));
-    const trousers = this.mat([0x2a3a5a, 0x4a4a50, 0x6a5040, 0x3a5a3a][Math.floor(noise(i * 17 + 9) * 4)]);
-    const skin = this.mat([0xe0b090, 0xc08860, 0x8a5a3a, 0xf0d0b0][Math.floor(noise(i * 19 + 11) * 4)]);
+    const kitColour = hex(cheerColour(it, i), 0xe04040);
+    const trousersColour = [0x2a3a5a, 0x4a4a50, 0x6a5040, 0x3a5a3a][Math.floor(noise(i * 17 + 9) * 4)];
+    const skinColour = [0xe0b090, 0xc08860, 0x8a5a3a, 0xf0d0b0][Math.floor(noise(i * 19 + 11) * 4)];
+    const kit = this.mat(kitColour);
+    const trousers = this.mat(trousersColour);
+    const skin = this.mat(skinColour);
     // Left and right are the fan's own: they face +z, so their right is -x.
     const legs = [-0.1, 0.1].map((x) => {
       const leg = new THREE.Group();
@@ -2241,6 +2244,8 @@ export class RaceView {
     });
     g.add(figure);
     this.fitFigure(CHEER_ITEM, g, [['Body', figure], ['LegR', legs[0]], ['LegL', legs[1]], ['ArmR', arms[0]], ['ArmL', arms[1]]], { scale: new THREE.Vector3(sc.w, sc.h, sc.w) });
+    // A model's fans keep the colours this fan would have had (Boss, 31 Oct 2026).
+    paintModel(figure, { top: kitColour, toptrim: shade(kitColour, 0.78), trousers: trousersColour, skin: skinColour }, FAN_PAINT);
     const route = cheerRoute(it);
     // Where they end up they face the track (the nearest point of it), unless turned by hand.
     const end = route[route.length - 1];
@@ -2323,9 +2328,10 @@ export class RaceView {
         right.rotation.set(up, 0, -0.45 * env * Math.sin(k * Math.PI * 6));
         break;
       case 'clap': {
+        // arms[0] (`left` here) is the fan's right arm, on -x: turning it +z brings the hands together (Boss, 31 Oct 2026).
         const meet = 0.32 * env * (0.5 + 0.5 * Math.sin(k * Math.PI * 8));
-        left.rotation.set(-Math.PI / 2 * env, 0, -meet);
-        right.rotation.set(-Math.PI / 2 * env, 0, meet);
+        left.rotation.set(-Math.PI / 2 * env, 0, meet);
+        right.rotation.set(-Math.PI / 2 * env, 0, -meet);
         break;
       }
       case 'fist_pump':

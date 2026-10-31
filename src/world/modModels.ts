@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { BIKE_SLOTS, checkModel, FIGURE_PARTS, partName, glbInfo, MODEL_DIR, MODEL_INDEX, modelDef, modelId, modelRole, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, RIDER_SLOTS, materialSlot, type ModelEntry } from '../core/modModels';
+import { BIKE_SLOTS, checkModel, FAN_SLOTS, FIGURE_PARTS, partName, glbInfo, MODEL_DIR, MODEL_INDEX, modelDef, modelId, modelRole, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, RIDER_SLOTS, materialSlot, type ModelEntry } from '../core/modModels';
 import type { SceneryDef } from '../core/trackParts';
 import { U } from './paddock';
 
@@ -123,6 +123,7 @@ export function paintModel(g: THREE.Object3D, colours: Record<string, number>, s
 
 export const BIKE_PAINT = BIKE_SLOTS;
 export const RIDER_PAINT = RIDER_SLOTS;
+export const FAN_PAINT = FAN_SLOTS;
 
 /**
  * Loads the models folder's files: every one is read and checked, and the good ones parsed. The

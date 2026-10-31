@@ -20,6 +20,7 @@ import {
   modelRole,
   partName,
   RIDER_SLOTS,
+  FAN_SLOTS,
   BIKE_SLOTS,
   SCENERY_LIMITS,
   type ModelInfo,
@@ -176,6 +177,8 @@ describe('what a model does', () => {
     expect(materialSlot('Jersey', RIDER_SLOTS)).toBe('jersey');
     expect(materialSlot('Chrome', BIKE_SLOTS)).toBeNull();
     expect(materialSlot(undefined, RIDER_SLOTS)).toBeNull();
+    expect(materialSlot('TopTrim', FAN_SLOTS)).toBe('toptrim');
+    expect(materialSlot('Fan_Cap', FAN_SLOTS)).toBeNull();
   });
 });
 
