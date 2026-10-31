@@ -9,6 +9,7 @@ import {
   matchStory,
   newCareerState,
   pence,
+  raceStopper,
   type CareerState,
   type StoryStep,
 } from '../src/core/career';
@@ -48,6 +49,18 @@ describe('starter bikes', () => {
       else expect(p.condition).toBe(0.65);
     }
     expect(bikeProblem(bikes, bike)).toMatch(/top end is broken/);
+  });
+
+  it('says why a bike cannot start a moto: an engine part, or the retire count of broken parts', () => {
+    const bike = newCareerState(bikes, story, 'hondmoto', () => 1).bike;
+    expect(raceStopper(bikes, bike, 4)).toMatch(/top end is broken/);
+    bike.parts.top_end.condition = 1;
+    expect(raceStopper(bikes, bike, 4)).toBeNull();
+    const others = bikes.slots.filter((s) => !s.engine).map((s) => s.id);
+    for (const id of others.slice(0, 3)) bike.parts[id].condition = 0;
+    expect(raceStopper(bikes, bike, 4)).toBeNull();
+    bike.parts[others[3]].condition = 0;
+    expect(raceStopper(bikes, bike, 4)).toMatch(/^4 parts are broken \(.+, .+, .+ and .+\), and a rider retires at 4\.$/);
   });
 
   it('all four brands have the same overall total but lean different ways', () => {

@@ -284,6 +284,20 @@ export function bikeProblem(bikes: BikesData, bike: Bike): string | null {
   return broken.length ? `Won't start: the ${broken[0].name.toLowerCase()} is broken.` : null;
 }
 
+/**
+ * Why the bike can't start a moto, or null when it can: a broken engine part, or as many broken
+ * parts as the race retires a rider at (race.ts mustRetire). Shown after qualifying and before a
+ * moto, beside the Leave button (Boss, 31 Oct 2026).
+ */
+export function raceStopper(bikes: BikesData, bike: Bike, retireAtBroken: number): string | null {
+  const broken = bikes.slots.filter((s) => bike.parts[s.id]?.condition <= 0);
+  const engine = broken.find((s) => s.engine);
+  if (engine) return `The ${engine.name.toLowerCase()} is broken, so the bike won't start.`;
+  if (broken.length < retireAtBroken) return null;
+  const names = broken.map((s) => s.name.toLowerCase());
+  return `${broken.length} parts are broken (${names.slice(0, -1).join(', ')} and ${names.at(-1)}), and a rider retires at ${retireAtBroken}.`;
+}
+
 export const hasItems = (state: CareerState, ids: string[] = []) => {
   const left = state.bag.map((b) => b.id);
   return ids.every((id) => {

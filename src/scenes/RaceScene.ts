@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { bikeStats, conditionFactor, formatMoney, type Bike } from '../core/career';
+import { bikeStats, conditionFactor, formatMoney, raceStopper, type Bike } from '../core/career';
 import { formatTime, gateBonus, setTestAlwaysWin, type LapTrace, type MotoSim, type RaceEvent, type RiderResult } from '../core/race';
 import { PLAYER_ID, RaceDay, applyRide, playerEntrant, practiceSim, sumXp, trackById, type MotoRecord, type VenueDef } from '../core/raceDay';
 import { Knockout, type KnockoutHeat, roundName } from '../core/knockout';
@@ -393,11 +393,11 @@ export class RaceScene extends Phaser.Scene {
     const { racing } = services.content;
     this.box(100, 286, 1080, 356);
     const message = this.messagePicker(300);
-    this.text(130, 462, `In a race, the pit board comes out when your message runs out (every lap, or the laps you set it for) and you can change your message ${racing.ink} times a moto. Auto-complete plays the same race out on screen with no pit board, holding your message all race. Either way, you retire at ${racing.sim.retireAtBroken} broken parts.`, 19, COLORS.cream, { wordWrap: { width: 1020 }, lineSpacing: 2 });
+    if (!this.stopperNote(462)) this.text(130, 462, `In a race, the pit board comes out when your message runs out (every lap, or the laps you set it for) and you can change your message ${racing.ink} times a moto. Auto-complete plays the same race out on screen with no pit board, holding your message all race. Either way, you retire at ${racing.sim.retireAtBroken} broken parts.`, 19, COLORS.cream, { wordWrap: { width: 1020 }, lineSpacing: 2 });
     this.btn(W / 2 - 300, 600, 'Race', () => this.go(chosen, message(), false), 260, 52);
     this.btn(W / 2, 600, 'Auto-complete', () => this.go(chosen, message(), true), 260, 52);
     this.btn(W / 2 + 300, 600, 'Bike check', () => this.showBike(), 260, 52);
-    if (n > 1) this.btn(W / 2, 682, 'Leave early', () => this.confirmLeave(), 200, 44);
+    if (this.canLeave()) this.btn(W / 2, 682, 'Leave early', () => this.confirmLeave(), 200, 44);
   }
 
   /**
@@ -422,11 +422,35 @@ export class RaceScene extends Phaser.Scene {
     this.text(700, 196, order.slice(half).join('\n'), 15, COLORS.cream, { lineSpacing: 2 }).setFontFamily('Consolas, "Courier New", monospace');
     this.box(100, 340, 1080, 300);
     const message = this.messagePicker(352);
-    this.text(130, 508, `The pit board comes out as you finish each lap, and you can change your message ${racing.ink} times a moto. Auto-complete holds your message all race. You retire at ${racing.sim.retireAtBroken} broken parts.`, 19, COLORS.cream, { wordWrap: { width: 1020 }, lineSpacing: 2 });
+    if (!this.stopperNote(508)) this.text(130, 508, `The pit board comes out as you finish each lap, and you can change your message ${racing.ink} times a moto. Auto-complete holds your message all race. You retire at ${racing.sim.retireAtBroken} broken parts.`, 19, COLORS.cream, { wordWrap: { width: 1020 }, lineSpacing: 2 });
     this.btn(W / 2 - 300, 600, 'Race', () => this.go(-1, message(), false), 260, 52);
     this.btn(W / 2, 600, 'Auto-complete', () => this.go(-1, message(), true), 260, 52);
     this.btn(W / 2 + 300, 600, 'Bike check', () => this.showBike(), 260, 52);
-    if (n > 1) this.btn(W / 2, 682, 'Leave early', () => this.confirmLeave(), 200, 44);
+    if (this.canLeave()) this.btn(W / 2, 682, 'Leave early', () => this.confirmLeave(), 200, 44);
+  }
+
+  /**
+   * Leave early is offered before every moto but the first of a day without qualifying: between
+   * motos, and after qualifying too (Boss, 31 Oct 2026).
+   */
+  private canLeave(): boolean {
+    const day = this.day!;
+    return day.motoNumber > 1 || !!day.qualifying;
+  }
+
+  /** Why the bike can't start the next moto, or null when it can (career.ts raceStopper). */
+  private stopper(): string | null {
+    const day = this.day;
+    if (!day) return null;
+    return raceStopper(services.content.bikes, day.player.bike, services.content.racing.sim.retireAtBroken);
+  }
+
+  /** The red note in place of the how-to-race text when the bike can't start the moto. True if shown. */
+  private stopperNote(y: number): boolean {
+    const why = this.stopper();
+    if (!why) return false;
+    this.text(130, y, `A part broke. ${why}\nYour bike can't start moto ${this.day!.motoNumber}: leave now, or ride out and retire on the first lap.`, 20, COLORS.accent, { wordWrap: { width: 1020 }, lineSpacing: 4 });
+    return true;
   }
 
   /** Seconds between riders leaving a sprint's start line. */
@@ -550,12 +574,19 @@ export class RaceScene extends Phaser.Scene {
       day.sprint ? `You leave the start ${ordinal(me.position)} in moto 1.` : `You pick your gate ${ordinal(me.position)} for moto 1.`,
       `Rider XP: ${xp.toFixed(0)}`,
     ].join('\n'), 20, COLORS.cream, { lineSpacing: 10, wordWrap: { width: 450 } });
-    this.btn(990, 640, 'Moto 1', () => this.showGatePick(), 260, 50);
+    const why = this.stopper();
+    if (why) this.text(764, 400, `A part broke. ${why} Your bike can't start moto 1.`, 18, COLORS.accent, { wordWrap: { width: 450 }, lineSpacing: 4 });
+    this.btn(860, 640, 'Moto 1', () => this.showGatePick(), 220, 50);
+    this.btn(1110, 640, 'Leave early', () => this.confirmLeave(), 220, 50);
   }
 
   private confirmLeave(): void {
     const c = this.openModal(620, 240);
-    c.add(this.add.text(0, -60, "Leave before moto 2? It counts as a DNF.\nYou keep everything you earned in moto 1.", textStyle(20, COLORS.cream, { align: 'center' })).setOrigin(0.5));
+    const n = this.day!.motoNumber;
+    const text = n > 1
+      ? `Leave before moto ${n}? It counts as a DNF.\nYou keep everything you earned in ${n > 2 ? 'the motos so far' : 'moto 1'}.`
+      : 'Leave before moto 1? Every moto counts as a DNF,\nwith no points or prize money for the day.';
+    c.add(this.add.text(0, -60, text, textStyle(20, COLORS.cream, { align: 'center' })).setOrigin(0.5));
     c.add(button(this, -130, 50, 'Leave', () => {
       this.closeModal();
       this.day!.leaveEarly();
