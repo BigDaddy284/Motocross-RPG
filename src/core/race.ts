@@ -1,4 +1,5 @@
 import { bikeStats, type Bike, type BikesData } from './career';
+import type { SetupState } from './setup';
 import { firstCorner, isSprint, lapPlan, RETURN_LANE, sectionBounds, SPRINT_QUEUE, startGeom, type DrawnShape, type FirstCorner, type StartGeom } from './trackGeom';
 import type { RiderStyle } from './riderProfile';
 import { sectionGrades, type TrackElevation, type TrackHill } from './elevation';
@@ -281,6 +282,10 @@ export interface Entrant {
    * Ability level, which sets how often they throw them on the race screen (tricks.ts). Left out until then.
    */
   riderLevel?: number;
+  /** The player's bike setup (core/setup.ts), filled in by playerEntrant; raceDay turns it into tuning for each track. */
+  setup?: SetupState;
+  /** A time factor per track section from the bike setup (core/setup.ts tuningFactors); missing is 1. */
+  tuning?: number[];
   bike: Bike;
   tactic: Tactic;
   /** Gate number from 0, best first. Lap 1 starts in gate order; in a sprint, the order riders leave the start line. */
@@ -596,7 +601,7 @@ export class MotoSim {
         if (out.has(r)) continue;
         this.rng = draws.get(r)!;
         // A start one at a time (a No-Turn Takedown's seeding run) has no gate to gain or lose on.
-        let t = this.sectionTime(r, sec, def, isStart && !this.opts.interval ? r.e.gate : -1) * (air.get(r) ?? 1) * (si >= 0 ? this.grades[si] : 1);
+        let t = this.sectionTime(r, sec, def, isStart && !this.opts.interval ? r.e.gate : -1) * (air.get(r) ?? 1) * (si >= 0 ? this.grades[si] * (r.e.tuning?.[si] ?? 1) : 1);
         let m = this.mistake(r, def, share);
         let withWhom: string | undefined;
         if (leg === startLeg && r === looper) {

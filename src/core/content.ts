@@ -19,6 +19,7 @@ import { WORLD_MAP_SCHEMA, checkWorldMap } from './worldMap';
 import { TOOLS_SCHEMA, checkTools, type ToolsData } from './tools';
 import { JOB_BOARD_SCHEMA, checkJobBoard, type JobBoardData } from './jobBoard';
 import { AREAS_SCHEMA, checkAreas, type AreasData } from './areas';
+import { SETUP_SCHEMA, checkSetup, type SetupData } from './setup';
 import { validate, type ContentError, type Schema } from './validate';
 
 // Game content loaded from public/data. Each file is checked against its schema, then the files
@@ -80,6 +81,7 @@ export interface Content {
   tools: ToolsData;
   jobboard: JobBoardData;
   areas: AreasData;
+  setup: SetupData;
 }
 
 export interface Manifest {
@@ -332,6 +334,7 @@ export const CONTENT_FILES = {
   tools: 'data/tools.json',
   jobboard: 'data/jobboard.json',
   areas: 'data/areas.json',
+  setup: 'data/setup.json',
 } as const;
 
 export type RawContent = Record<keyof typeof CONTENT_FILES, unknown>;
@@ -358,6 +361,7 @@ const SCHEMAS: Record<keyof typeof CONTENT_FILES, Schema> = {
   tools: TOOLS_SCHEMA,
   jobboard: JOB_BOARD_SCHEMA,
   areas: AREAS_SCHEMA,
+  setup: SETUP_SCHEMA,
 };
 
 /** Checks raw file contents and returns the typed content, or every problem found. */
@@ -396,6 +400,7 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
     tools: raw.tools as ToolsData,
     jobboard: raw.jobboard as JobBoardData,
     areas: raw.areas as AreasData,
+    setup: raw.setup as SetupData,
   };
   const file = CONTENT_FILES.npcs;
   const seen = new Set<string>();
@@ -431,6 +436,7 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
   errors.push(...checkTools(CONTENT_FILES.tools, content.tools, content.bikes, content.skills));
   errors.push(...checkAreas(CONTENT_FILES.areas, content.areas, { fields: content.riders.fields, chains: (content.story.chains ?? []).map((c) => c.id), designs: content.vehicles.designs.map((d) => d.id), npcs: content.npcs.map((n) => n.id), weather: Object.keys(content.racing.weather ?? {}) }, maps));
   errors.push(...checkJobBoard(CONTENT_FILES.jobboard, content.jobboard, maps));
+  errors.push(...checkSetup(CONTENT_FILES.setup, content.setup, { slots: content.bikes.slots.map((x) => x.id), sections: Object.keys(content.racing.sections) }));
   errors.push(...checkVehicles(CONTENT_FILES.vehicles, raw.vehicles, maps).errors);
   errors.push(...checkBuildings(content.buildings, maps));
   content.vehicles.designs.forEach((d, i) => {

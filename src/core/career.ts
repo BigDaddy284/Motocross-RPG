@@ -3,6 +3,7 @@
 // standalone economy tool (GDD 2.2).
 
 import type { ChampionshipState } from './championship';
+import type { SetupState } from './setup';
 import type { ErrandState } from './errands';
 import type { JobState } from './jobs';
 import type { ClassDef, RetiredBike } from './classes';
@@ -197,6 +198,8 @@ export interface CareerState {
   retired?: RetiredBike[];
   /** Tool sets owned (core/tools.ts): the version id by set id. */
   tools?: Record<string, string>;
+  /** Bike setup (core/setup.ts): a preset or the rider's own slider values, once they have touched it. */
+  setup?: SetupState;
 }
 
 export const pence = (pounds: number) => Math.round(pounds * 100);

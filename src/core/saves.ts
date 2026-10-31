@@ -231,6 +231,7 @@ function isCareer(v: unknown): boolean {
     (c.errands === undefined || isErrandState(c.errands)) &&
     (c.jobs === undefined || isJobState(c.jobs)) &&
     (c.tools === undefined || (typeof c.tools === 'object' && c.tools !== null && Object.values(c.tools).every((v) => typeof v === 'string'))) &&
+    (c.setup === undefined || (typeof c.setup === 'object' && c.setup !== null && ((c.setup as Record<string, unknown>).preset === null || typeof (c.setup as Record<string, unknown>).preset === 'string') && typeof (c.setup as Record<string, unknown>).sliders === 'object' && (c.setup as Record<string, unknown>).sliders !== null && Object.values((c.setup as Record<string, unknown>).sliders as Record<string, unknown>).every((v) => typeof v === 'number' && v >= -1 && v <= 1))) &&
     (c.retired === undefined || (Array.isArray(c.retired) && c.retired.every((r) => isBike((r as Record<string, unknown>)?.bike) && typeof (r as Record<string, unknown>).milestone === 'string'))) &&
     !!story && Number.isInteger(story.step) && Array.isArray(story.used) &&
     (c.chains === undefined || (typeof c.chains === 'object' && c.chains !== null && Object.values(c.chains as Record<string, Record<string, unknown>>).every((ch) => Number.isInteger(ch?.step) && Array.isArray(ch?.used)))) &&

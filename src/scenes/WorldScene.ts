@@ -11,7 +11,8 @@ import { roadMenu, routeArrival, sideOf } from '../core/guides';
 import { earning, goalObjects, nextHop, storyGoals } from '../core/waymarks';
 import { biggestBike, bikeImage, zoneFor } from '../core/worldMap';
 import { ROUTE, spawnTile, stepTriggerAt, type Arrival, type StepResult } from '../core/travel';
-import { areaOfMap, buyHouse, buyMotor, houseFlag, motorProblem } from '../core/areas';
+import { areaFlag, areaOfMap, buyHouse, buyMotor, houseFlag, motorProblem, openAreas } from '../core/areas';
+import { defaultSetup, effectiveSetup, positionValue, positionsFor, setupReport, sliderUnlocked, type SliderDef } from '../core/setup';
 import { DriveMap, FACING_OF, bayFor, ensureVan, exitTile, footprint, inwardHeading, nearestFree, placeNear, planDrive, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
 import { venueClassFor, entryFee, fieldCount, lapsFor, practiceFee, trackById, venueProblem, type VenueDef } from '../core/raceDay';
@@ -1062,8 +1063,83 @@ export class WorldScene extends Phaser.Scene {
         ? mod.extra
         : [{ label: 'Free practice', note: `${formatMoney(pFee)}: ride laps until you stop${venue.practiceRiders ? `, with ${venue.practiceRiders} other riders out on track` : ' on your own'}.${short(pFee) ? " You can't afford it." : ''}`, enabled: !short(pFee), onPick: () => this.ride('practice', venue, pFee, onClose) }]),
       ...(hasChamps ? [{ label: 'Championships', note: 'Enter one, see the standings, or give one up.', onPick: () => this.openChampionships(venue, onClose) }] : []),
+      // Bike setup (Spec 8; Boss, 31 Oct 2026): the Basic view from Area 2, the Advanced view from Area 5.
+      ...(!mod && this.save.flags[areaFlag(rc.setup.basicArea)] ? [{ label: 'Bike setup', note: 'Set the bike up for this track: a ready-made setup, or your own sliders.', onPick: () => this.openSetup(venue, () => this.openVenue(venue, onClose, mod)) }] : []),
       { label: 'Not now', onPick: onClose },
     ], onClose);
+  }
+
+  // ---- bike setup (core/setup.ts, Spec 8.0 to 8.3) ----
+
+  /** Mechanical Engineer level: it sets how many positions a slider has and what the office can tell you. */
+  private mechLevel(): number {
+    const rc = services.content;
+    return leadLevel(rc.skills, this.save.career.skills, rc.skills.leads.find((l) => l.id === 'mech')!);
+  }
+
+  private sliderLabel(s: SliderDef, value: number): string {
+    return value < 0 ? `${s.low} ${Math.abs(value).toFixed(2)}` : value > 0 ? `${s.high} ${value.toFixed(2)}` : 'Middle';
+  }
+
+  private openSetup(venue: VenueDef, back: () => void): void {
+    const rc = services.content;
+    const data = rc.setup;
+    const career = this.save.career;
+    const setup = (career.setup ??= defaultSetup());
+    const track = trackById(rc, venue.track!);
+    const me = this.mechLevel();
+    const values = effectiveSetup(data, setup, career.bike);
+    const advanced = me >= data.advancedLevel && openAreas(this.save.flags) >= data.advancedArea;
+    const report = setupReport(data, setup, career.bike, track, false);
+    const count = (c: string) => report.colours.filter((x) => x === c).length;
+    const preset = setup.preset ? data.presets.find((p) => p.id === setup.preset) : undefined;
+    const lines = [
+      preset ? `Setup: ${preset.name}.` : Object.keys(setup.sliders).length ? 'Setup: your own sliders.' : 'Setup: the default, everything in the middle.',
+      ...data.sliders.map((s) => `${s.name}: ${sliderUnlocked(data, s, career.bike) ? this.sliderLabel(s, values[s.id]) : `locked until a Grade ${data.unlockGrade} ${s.slots.map((x) => slotName(rc.bikes, x).toLowerCase()).join(' or ')} is fitted`}`),
+      // Spec 8.3: colours only until Mechanical Engineer detailLevel, then the numbers.
+      me >= data.detailLevel
+        ? `On ${track.name} in the dry: about ${report.lapGain >= 0 ? '+' : ''}${report.lapGain.toFixed(2)}% a lap. Rain pulls every ideal towards the mud setup.`
+        : `On ${track.name} in the dry: ${count('green')} sections green, ${count('grey')} grey, ${count('amber')} amber, ${count('red')} red.`,
+    ];
+    const again = () => this.openSetup(venue, back);
+    this.hud.choose('Bike setup', lines.join('\n'), [
+      ...data.presets.map((p) => ({ label: `${p.name} setup`, note: p.note + (setup.preset === p.id ? ' (on now)' : ''), onPick: () => { setup.preset = p.id; setup.sliders = {}; again(); } })),
+      { label: 'Default setup', note: 'Everything back to the middle.', onPick: () => { setup.preset = null; setup.sliders = {}; again(); } },
+      ...(advanced
+        ? [{ label: 'Advanced: set each slider', note: `${positionsFor(data, me)} positions per slider at Mechanical Engineer ${me}.`, onPick: () => this.openSliders(venue, again) }]
+        : [{ label: 'Advanced: set each slider', note: openAreas(this.save.flags) < data.advancedArea ? `Opens in Area ${data.advancedArea}.` : `Needs Mechanical Engineer ${data.advancedLevel}.`, enabled: false, onPick: () => {} }]),
+      { label: 'Back', onPick: back },
+    ], back);
+  }
+
+  private openSliders(venue: VenueDef, back: () => void): void {
+    const rc = services.content;
+    const data = rc.setup;
+    const career = this.save.career;
+    const setup = (career.setup ??= defaultSetup());
+    const values = effectiveSetup(data, setup, career.bike);
+    const n = positionsFor(data, this.mechLevel());
+    const again = () => this.openSliders(venue, back);
+    this.hud.choose('Advanced setup', `Each slider has ${n} positions. Pick one to move it.`, [
+      ...data.sliders.map((s) => {
+        const open = sliderUnlocked(data, s, career.bike);
+        return {
+          label: `${s.name}: ${open ? this.sliderLabel(s, values[s.id]) : 'locked'}`,
+          note: open ? `${s.low} to ${s.high}.` : `Needs a Grade ${data.unlockGrade} ${s.slots.map((x) => slotName(rc.bikes, x).toLowerCase()).join(' or ')}.`,
+          enabled: open,
+          onPick: () => {
+            const options = Array.from({ length: n }, (_, i) => positionValue(i, n)).map((v) => ({ label: this.sliderLabel(s, v), onPick: () => {
+              // Moving a slider makes the setup your own: the preset's other values are kept as a starting point.
+              if (setup.preset) { setup.sliders = { ...values }; setup.preset = null; }
+              setup.sliders[s.id] = v;
+              again();
+            } }));
+            this.hud.choose(s.name, `${s.low} on the left, ${s.high} on the right.`, [...options, { label: 'Back', onPick: again }], again);
+          },
+        };
+      }),
+      { label: 'Back', onPick: back },
+    ], back);
   }
 
   // ---- championships (core/championship.ts, Spec 12.5): entered and followed at any race office ----
