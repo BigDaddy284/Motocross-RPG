@@ -17,6 +17,7 @@ export const AREA_MAPS = [
   'area-map/tiled/maps/area2-mountain-town.tmj',
   'area-map/tiled/maps/area3-beach-town.tmj',
   'area-map/tiled/maps/area4-forest-town.tmj',
+  'area-map/tiled/maps/area5-northern-works.tmj',
 ];
 /**
  * Venue maps kept for later, not on any road (one venue per race type; Boss, 30 Oct 2026): baked

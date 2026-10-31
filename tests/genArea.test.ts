@@ -43,10 +43,10 @@ describe('the town stamp skips drawn maps (tools/gen-area.mjs)', () => {
   });
 
   it('leaves a drawn inside alone and stamps the rest of its town', () => {
-    const steps = plan(artFolder(['buildings/tiled/maps/interiors/int-a5-tool-shop.tmj']));
-    const a5 = steps.find((s) => s.n === 5)!;
-    expect(a5.skip).toEqual(['int-a5-tool-shop']);
-    expect(a5.stamp).toContain('int-a5-rented-room');
+    const steps = plan(artFolder(['buildings/tiled/maps/interiors/int-a6-tool-shop.tmj']));
+    const a6 = steps.find((s) => s.n === 6)!;
+    expect(a6.skip).toEqual(['int-a6-tool-shop']);
+    expect(a6.stamp).toContain('int-a6-rented-room');
   });
 
   it('writes nothing when asked for the plan', () => {

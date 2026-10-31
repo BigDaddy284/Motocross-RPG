@@ -682,6 +682,131 @@
       ],
       "doors": [],
       "returns": []
+    },
+    {
+      "id": "bld.a5.detached", "name": "Detached house (house, Northern Works)", "zone": "Northern Works",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a5.png", "crop": [0,0,512,320], "at": [0,0]}],
+      "footprint": [
+        "#######",
+        "#######",
+        "#######",
+        "#######",
+        "###.###"
+      ],
+      "doors": [{"tile": [3,4], "interior": "int.a5.rented_room"}],
+      "returns": [{"tile": [3,5]}]
+    },
+    {
+      "id": "bld.a5.town_house", "name": "Town house (Northern Works)", "zone": "Northern Works",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a5.png", "crop": [512,0,448,320], "at": [0,0]}],
+      "footprint": [
+        "######",
+        "######",
+        "######",
+        "######",
+        "##.###"
+      ],
+      "doors": [{"tile": [2,4], "interior": "int.a5.neighbour"}],
+      "returns": [{"tile": [2,5]}]
+    },
+    {
+      "id": "bld.a5.terrace", "name": "Mill cottages (no entry, Northern Works)", "zone": "Northern Works",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a5.png", "crop": [960,0,384,320], "at": [0,0]}],
+      "footprint": [
+        "#####",
+        "#####",
+        "#####",
+        "#####",
+        "#####"
+      ],
+      "doors": [],
+      "returns": []
+    },
+    {
+      "id": "bld.a5.phoenix_mx", "name": "Phoenix MX (Northern Works)", "zone": "Northern Works", "npc": "Paul Phoenix",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a5.png", "crop": [0,320,512,256], "at": [0,0]}],
+      "footprint": [
+        "#######",
+        "#######",
+        "#######",
+        "#....##"
+      ],
+      "doors": [{"tile": [1,3], "interior": "int.a5.local_garage"},{"tile": [2,3], "interior": "int.a5.local_garage"},{"tile": [3,3], "interior": "int.a5.local_garage", "spawn": "side_door"},{"tile": [4,3], "interior": "int.a5.local_garage", "spawn": "side_door"}],
+      "returns": [{"tile": [1,4]},{"tile": [3,4], "name": "side_door"}]
+    },
+    {
+      "id": "bld.a5.moto78", "name": "Moto78 (Northern Works)", "zone": "Northern Works", "npc": "Bill Rothon",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a5.png", "crop": [512,320,448,320], "at": [0,0]}],
+      "footprint": [
+        "######",
+        "######",
+        "######",
+        "######",
+        "###.##"
+      ],
+      "doors": [{"tile": [3,4], "interior": "int.a5.bike_shop"}],
+      "returns": [{"tile": [3,5]}]
+    },
+    {
+      "id": "bld.a5.tyre_shop", "name": "Lee's T's & Wheels (Northern Works)", "zone": "Northern Works", "npc": "Lee Stocky",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a5.png", "crop": [960,320,448,256], "at": [0,0]}],
+      "footprint": [
+        "######",
+        "######",
+        "######",
+        "####.#"
+      ],
+      "doors": [{"tile": [4,3], "interior": "int.a5.tyre_shop"}],
+      "returns": [{"tile": [4,4]}]
+    },
+    {
+      "id": "bld.a5.frame_works", "name": "Frame works", "zone": "Northern Works",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a5.png", "crop": [0,640,512,320], "at": [0,0]}],
+      "footprint": [
+        "#######",
+        "#######",
+        "#######",
+        "#######",
+        "##.####"
+      ],
+      "doors": [{"tile": [2,4], "interior": "int.a5.tool_shop"}],
+      "returns": [{"tile": [2,5]}]
+    },
+    {
+      "id": "bld.a5.nicholls", "name": "Nicholls Used Motors (Northern Works)", "zone": "Northern Works", "npc": "Jedrick Nicholls",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a5.png", "crop": [512,640,384,256], "at": [0,0]}],
+      "footprint": [
+        "#####",
+        "#####",
+        "#####",
+        "#.###"
+      ],
+      "doors": [{"tile": [1,3], "interior": "int.a5.van_office"}],
+      "returns": [{"tile": [1,4]}]
+    },
+    {
+      "id": "bld.a5.boathouse", "name": "Canal rowing club", "zone": "Northern Works",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a5.png", "crop": [896,640,448,256], "at": [0,0]}],
+      "footprint": [
+        "######",
+        "######",
+        "######",
+        "######"
+      ],
+      "doors": [],
+      "returns": []
+    },
+    {
+      "id": "bld.a5.quarry_kiosk", "name": "Quarry practice ground hut", "zone": "Northern Works",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a5.png", "crop": [0,960,256,256], "at": [0,0]}],
+      "footprint": [
+        "###",
+        "###",
+        "###",
+        "###"
+      ],
+      "doors": [],
+      "returns": []
     }
   ]
 }
