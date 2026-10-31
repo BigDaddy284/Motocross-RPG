@@ -68,8 +68,6 @@ const OVERLAY: Phaser.Types.GameObjects.Text.TextStyle = {
 };
 /** One standings row's height before the font is measured. */
 const TOWER_ROW = 23;
-/** Room kept under the standings for the race log: its five lines at size 14. */
-const FEED_H = 118;
 
 /** The rows of the standings that fit, scrolled so the player's row is always in view (near the middle). */
 function towerWindow(rows: string[], mine: number, fit: number): string[] {
@@ -755,8 +753,10 @@ export class RaceScene extends Phaser.Scene {
     this.screen.add(this.towerMark);
     this.ui.tower = this.text(right + 12, 30, '', 16, COLORS.cream, { lineSpacing: 7 }).setFontFamily(MONO);
     // The log always starts under the last row.
-    this.towerRows = Math.max(6, Math.floor((dh - 160 - 14 - 8 - FEED_H) / this.towerLineH));
-    this.ui.feed = this.text(right + 12, 30 + this.towerRows * this.towerLineH + 8, '', 14, COLORS.cream, { lineSpacing: 5, wordWrap: { width: colIn } });
+    this.towerRows = Math.max(6, Math.floor((dh - 160 - 14 - 8) / this.towerLineH));
+    // The race log floats over the track's bottom-left corner in the Position text one size down,
+    // five lines at most, clear of the Skip to results button (Boss, 31 Oct 2026).
+    this.ui.feed = this.text(30, dh - 50, '', 17, COLORS.cream, { lineSpacing: 3, ...OVERLAY, wordWrap: { width: Math.min(460, this.viewCX - 110 - 40) } }).setOrigin(0, 1);
     this.ui.detail = this.text(right + 12, 76, '', detailSize, COLORS.cream, { lineSpacing: 5 }).setVisible(false);
     // Details: the bike's parts, or section times.
     this.detailTabs = (['bike', 'sections'] as const).map((tab, i) => {
@@ -821,10 +821,20 @@ export class RaceScene extends Phaser.Scene {
     mark.setVisible(mine >= 0 && !this.detail);
   }
 
+  /** The newest log lines that fit in five lines on screen, long ones wrapping. */
+  private setFeed(entries: string[]): void {
+    const t = this.ui.feed;
+    let shown = entries.slice(-5);
+    t.setText(shown.join('\n'));
+    while (shown.length > 1 && t.getWrappedText(shown.join('\n')).length > 5) {
+      shown = shown.slice(1);
+      t.setText(shown.join('\n'));
+    }
+  }
+
   private toggleDetail(): void {
     this.detail = !this.detail;
     this.ui.tower.setVisible(!this.detail);
-    this.ui.feed.setVisible(!this.detail);
     this.ui.detail.setVisible(this.detail);
     this.detailTabs.forEach((b) => b.setVisible(this.detail));
     this.towerMark?.setVisible(!this.detail && this.towerMark.getData('row') !== undefined);
@@ -1000,7 +1010,7 @@ export class RaceScene extends Phaser.Scene {
       const best = p.lapTimes.length ? Math.min(...p.lapTimes) : null;
       const xp = Object.values(this.practiceXpNow()).reduce((a, b) => a + b, 0);
       this.ui.me.setText([`Laps done: ${p.lapTimes.length}`, `Last lap: ${p.lapTimes.length ? formatTime(p.lapTimes.at(-1)!) : '—'}`, `Best lap: ${best !== null ? formatTime(best) : '—'}`, `Practice XP: ${xp.toFixed(1)}`].join('\n'));
-      this.ui.feed.setText(this.bikeLines().join('\n'));
+      this.setFeed(this.bikeLines());
       const laps = p.lapTimes.map((t, i) => `Lap ${String(i + 1).padStart(3)}   ${formatTime(t)}${t === best ? '  best' : ''}`).slice(-(this.towerRows - 2));
       this.setTower(['Lap times', '', ...laps]);
       return;
@@ -1038,7 +1048,7 @@ export class RaceScene extends Phaser.Scene {
       lines.push(broken.length ? `Broken: ${broken.join(', ')}` : 'Bike: nothing broken');
     }
     this.ui.me.setText(lines.join('\n'));
-    this.ui.feed.setText(this.feed.slice(-5).join('\n'));
+    this.setFeed(this.feed);
     const rows = order.map((p, i) => {
       const name = (this.names.get(p.id) ?? '').padEnd(this.nameW).slice(0, this.nameW);
       const g = p.out ? 'OUT' : i === 0 ? (p.finished ? formatTime(p.finishT) : 'Leader') : `+${gap(p).toFixed(1)}`;
@@ -1118,7 +1128,7 @@ export class RaceScene extends Phaser.Scene {
       lines.push(broken.length ? `Broken: ${broken.join(', ')}` : 'Bike: nothing broken');
     }
     this.ui.me.setText(lines.join('\n'));
-    this.ui.feed.setText(this.feed.slice(-5).join('\n'));
+    this.setFeed(this.feed);
     const tower = rows.map((r, i) => {
       const name = (this.names.get(r.p.id) ?? '').padEnd(this.nameW).slice(0, this.nameW);
       const g = r.best === null ? (r.p.out ? 'OUT' : '—') : i === 0 ? formatTime(r.best, 3) : `+${(r.best - pole!).toFixed(3)}`;
@@ -1172,7 +1182,7 @@ export class RaceScene extends Phaser.Scene {
       lines.push(broken.length ? `Broken: ${broken.join(', ')}` : 'Bike: nothing broken');
     }
     this.ui.me.setText(lines.join('\n'));
-    this.ui.feed.setText(this.feed.slice(-5).join('\n'));
+    this.setFeed(this.feed);
     const tower = rows.map((r, i) => {
       const name = (this.names.get(r.p.id) ?? '').padEnd(this.nameW).slice(0, this.nameW);
       const g = r.p.out ? 'OUT' : !r.times.length ? '—' : i === 0 ? formatTime(r.total) : r.times.length < lead.times.length ? `${r.times.length}/${total}` : `+${(r.total - lead.total).toFixed(1)}`;
@@ -1865,7 +1875,7 @@ export class RaceScene extends Phaser.Scene {
       head = round.final ? 'Final' : round.name;
     }
     this.ui.me.setText(lines.join('\n'));
-    this.ui.feed.setText(this.feed.slice(-5).join('\n'));
+    this.setFeed(this.feed);
     this.setTower([head, ...towerWindow(tower, rank, this.towerRows - 1)]);
     if (heat && !this.skipButton && (me.out || me.finished)) {
       this.skipButton = this.btn(this.viewCX, this.dh - 50, 'Skip to results', () => {
