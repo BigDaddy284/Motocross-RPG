@@ -458,15 +458,20 @@ export class HudScene extends Phaser.Scene {
     const { width, height, k } = this.page();
     const w = Math.min(560, width - 32);
     const c = this.add.container((width / 2) * k, (height / 2) * k).setScale(k);
-    this.backdrop(c, w, 220, false);
-    c.add(this.add.text(0, -50, text, textStyle(this.pts(20), COLORS.cream, { align: 'center', wordWrap: { width: w - 60 } })).setOrigin(0.5));
+    // The box grows to fit its text, so a long question at a big Text size stays inside it (Boss, 31 Oct 2026).
+    const msg = this.add.text(0, 0, text, textStyle(this.pts(20), COLORS.cream, { align: 'center', wordWrap: { width: w - 60 } })).setOrigin(0.5, 0);
+    const h = Math.max(220, msg.height + 28 + 28 + 46 + 28);
+    this.backdrop(c, w, h, false);
+    msg.setY(-h / 2 + 28);
+    c.add(msg);
     let answered = false;
-    c.add(button(this, -120, 55, yes, () => {
+    const by = h / 2 - 28 - 23;
+    c.add(button(this, -120, by, yes, () => {
       answered = true;
       this.closeModal();
       onYes();
     }, 200, 46));
-    c.add(button(this, 120, 55, 'Not now', () => this.closeModal(), 200, 46));
+    c.add(button(this, 120, by, 'Not now', () => this.closeModal(), 200, 46));
     this.openModal(c, () => !answered && onNo());
   }
 
@@ -1090,10 +1095,53 @@ export class HudScene extends Phaser.Scene {
       if (tab === 'buy' && milestone.kind === 'ready' && page === 0) tab = 'newbike';
     }
     if (!tabs.some(([t]) => t === tab)) tab = tabs[0][0];
-    // Laid out at 900 × 600, then scaled down to fit a small screen such as a phone on its side.
+    // Laid out 900 wide and at least 600 tall, taller when a tab's rows need it (a shop selling frames
+    // as well as its own parts, or a garage repairing every slot plus a lent part), then scaled down
+    // to fit the screen, so rows and the note under them never overlap or spill out of the panel.
     const { width, height } = view(this);
-    const w = 900;
-    const h = 600;
+    // A Buy tab with more than three grades (Area 8 sells 4 to 8) widens the panel rather than
+    // squeezing its buttons, keeping each at least 120 wide (Boss, 31 Oct 2026).
+    const gradeCount = tab === 'buy' && shop.sells ? shop.sells.grades[1] - shop.sells.grades[0] + 1 : 0;
+    const w = Math.max(900, 381 + gradeCount * 130 - 10);
+    const cls = career.bike.class;
+    const spareRows = career.bag.map((b, i) => ({ part: b.part, i })).filter((r) => r.part);
+    const measure = (t: string, size: number) => {
+      if (!t) return 0;
+      const o = this.add.text(0, 0, t, textStyle(this.pts(size), COLORS.muted, { wordWrap: { width: w - 56 } }));
+      const ht = o.height;
+      o.destroy();
+      return ht;
+    };
+    const note =
+      tab === 'buy' ? 'New parts: 100%, no modifiers. Stock changes after 3 race days or 10 shifts and practice sessions.'
+      : tab === 'tools' ? 'Use your tools at the red cabinet in your room, or at the back of your motor. Grade 10 parts always go to Phoenix MX.'
+      : '';
+    const noteH = measure(note, 13);
+    // Row heights grow with the Text size so big text doesn't run into the next row.
+    const buyRowH = Math.max(46, Math.round(this.pts(16) * 1.25) + 16);
+    const repairRowH = Math.max(34, Math.round(this.pts(15) * 1.25) + 8);
+    const toolRowH = Math.max(64, Math.round((this.pts(16) + this.pts(13)) * 1.25) + 16);
+    const lentRows = spareRows.filter((r) => r.part!.owner).length;
+    // The New bike tab's words, worked out here so the panel can be sized to them.
+    const newBike = tab === 'newbike' && milestone.kind !== 'none' ? (() => {
+      const next = milestone.cls;
+      const champ = milestoneOf(services.content.championships, next.id);
+      const sponsor = sponsorBrand(bikes, career, next.id);
+      const sponsorName = bikes.brands.find((b) => b.id === sponsor)?.name ?? sponsor;
+      const won = `${champ?.name ?? 'The championship'} is yours, so you've earned a ${next.name}.`;
+      const more = milestone.kind === 'needLevel'
+        ? `You'll need Rider Ability ${milestone.level} to ride it; you're level ${milestone.have}. Race on and come back.`
+        : `The champion's sponsor rides ${sponsorName}: a new stock ${next.name}, Grade 1 all round, for nothing and no strings. Or buy a stock bike of any brand.`;
+      return { next, champ, sponsor, sponsorName, won, more };
+    })() : null;
+    const rowsH =
+      tab === 'buy' ? (sellsFor(shop, cls) ? shop.sells!.slots.length * buyRowH : 40)
+      : tab === 'repair' ? (bikes.slots.length + (lentRows ? lentRows + 0.5 : 0)) * repairRowH
+      : tab === 'tools' ? services.content.tools.sets.length * toolRowH
+      : newBike ? measure(newBike.won, 17) + 8 + measure(newBike.more, 15) + (milestone.kind === 'ready' ? 16 + 42 + 38 + bikes.brands.length * 46 : 0)
+      : 0;
+    // Title and tabs (118) and the greeting above the rows, the rows, then the note and a margin.
+    const h = Math.max(600, Math.ceil(118 + measure(shop.greeting, 15) + 34 + rowsH + (noteH ? noteH + 18 : 0) + 24));
     const k = Math.min(1, (width - 16) / w, (height - 16) / h);
     const c = this.add.container(width / 2, height / 2).setScale(k);
     const shade = this.add.rectangle(0, 0, width / k, height / k, 0, 0.5).setInteractive();
@@ -1139,8 +1187,8 @@ export class HudScene extends Phaser.Scene {
     });
     const greeting = text(left, top + 96, shop.greeting, 15, COLORS.muted);
     const y0 = greeting.y + greeting.height + 34;
-    const cls = career.bike.class;
-    const spareRows = career.bag.map((b, i) => ({ part: b.part, i })).filter((r) => r.part);
+    /** The note under a tab's rows, kept inside the bottom of the panel. */
+    const footNote = () => text(left, h / 2 - 16 - noteH, note, 13, COLORS.muted);
     const yours = (slot: string) => {
       const p = career.bike.parts[slot];
       return p ? `G${p.grade} ${p.condition <= 0 ? 'broken' : `${Math.round(p.condition * 100)}%`}` : 'none';
@@ -1157,23 +1205,29 @@ export class HudScene extends Phaser.Scene {
       if (!sellsFor(shop, cls)) text(left, y0, `Nothing here for a ${cls}.`, 17, COLORS.muted);
       const stock = shopStock(shops, shop, career, cls);
       const [lo, hi] = shop.sells!.grades;
+      // The grade buttons share the room from left + 325 to the panel's right edge: three at 150 wide,
+      // narrower for shops that sell four grades or more (Areas 2 and up).
+      const grades = hi - lo + 1;
+      const bw = Math.min(150, Math.floor((w / 2 - 28 - (left + 325) - (grades - 1) * 10) / grades));
       text(left + 222, y0 - 26, 'Yours', 14, COLORS.muted);
       shop.sells!.slots.forEach((slot, i) => {
         if (!sellsFor(shop, cls)) return;
-        const y = y0 - 6 + i * 46;
+        const y = y0 - 6 + i * buyRowH;
         const name = bikes.slots.find((s) => s.id === slot)?.name ?? slot;
         line(left, y + 8, name, 16, COLORS.cream, 215);
-        line(left + 222, y + 8, yours(slot), 15, career.bike.parts[slot]?.condition <= 0 ? COLORS.accent : COLORS.muted, 170);
+        // Kept clear of the first grade's button, which starts at left + 325.
+        line(left + 222, y + 8, yours(slot), 15, career.bike.parts[slot]?.condition <= 0 ? COLORS.accent : COLORS.muted, 96);
         const top = shop.sells!.stockOnly?.includes(slot) ? lo : hi;
         for (let g = lo; g <= top; g++) {
           const item = stock.find((s) => s.slot === slot && s.grade === g);
           const label = !item ? `G${g}: none in` : item.soldOut ? `G${g}: sold out` : `G${g}  ${formatMoney(item.price)}`;
-          const b = button(this, left + 400 + (g - lo) * 160, y + 18, label, () => item && inner(() => this.offerPart(shop, item, () => reopen(), (r) => done(r))), 150, 40);
+          const b = button(this, left + 325 + bw / 2 + (g - lo) * (bw + 10), y + 18, label, () => item && inner(() => this.offerPart(shop, item, () => reopen(), (r) => done(r))), bw, 40);
+          this.fitWidth(b.list[1] as Phaser.GameObjects.Text, bw - 12);
           b.setEnabled(!!item && !item.soldOut && career.money >= item.price - tradeIn(shops, career, item));
           c.add(b);
         }
       });
-      text(left, h / 2 - 30, 'New parts: 100%, no modifiers. Stock changes after 3 race days or 10 shifts and practice sessions.', 13, COLORS.muted);
+      footNote();
     } else if (tab === 'sell') {
       if (!spareRows.length) text(left, y0, 'You have no spare parts to sell. Parts you take off the bike go in your bag.', 16, COLORS.muted);
       const { from, to, pg } = listPage(spareRows.length, 46);
@@ -1199,7 +1253,7 @@ export class HudScene extends Phaser.Scene {
       });
     } else if (tab === 'repair') {
       bikes.slots.forEach((slot, i) => {
-        const y = y0 - 12 + i * 34;
+        const y = y0 - 12 + i * repairRowH;
         const part = career.bike.parts[slot.id];
         line(left, y + 4, slot.name, 15, COLORS.cream, 200);
         line(left + 210, y + 4, yours(slot.id), 15, part?.condition <= 0 ? COLORS.accent : COLORS.muted, 112);
@@ -1243,7 +1297,7 @@ export class HudScene extends Phaser.Scene {
       // Parts lent for an errand are repaired from the bag, the same way (core/errands.ts).
       spareRows.filter((r) => r.part!.owner).forEach(({ part, i }, k) => {
         const p = part!;
-        const y = y0 - 12 + (bikes.slots.length + 0.5 + k) * 34;
+        const y = y0 - 12 + (bikes.slots.length + 0.5 + k) * repairRowH;
         const name = slotName(bikes, p.slot);
         line(left, y + 4, `${p.owner!.name[0].toUpperCase()}${p.owner!.name.slice(1)}'s ${name.toLowerCase()}`, 15, COLORS.cream, 320);
         if (p.owner!.repaired) return void line(left + 330, y + 4, `Repaired: take it back.`, 14, COLORS.muted, w / 2 - 20 - (left + 330));
@@ -1262,11 +1316,12 @@ export class HudScene extends Phaser.Scene {
         line(left + 520, y + 4, `→ G${q.grade} at 100%`, 14, COLORS.muted, w / 2 - 20 - (left + 520));
       });
     } else if (tab === 'newbike' && milestone.kind !== 'none') {
-      const next = milestone.cls;
-      const champ = milestoneOf(services.content.championships, next.id);
-      text(left, y0, `${champ?.name ?? 'The championship'} is yours, so you've earned a ${next.name}.`, 17, COLORS.cream);
+      const { next, champ, sponsor, sponsorName } = newBike!;
+      const won = text(left, y0, newBike!.won, 17, COLORS.cream);
+      // Each line sits under the one before by its real height, so wrapped text never runs into the buttons (Boss, 31 Oct 2026).
+      const below = won.y + won.height + 8;
       if (milestone.kind === 'needLevel') {
-        text(left, y0 + 36, `You'll need Rider Ability ${milestone.level} to ride it; you're level ${milestone.have}. Race on and come back.`, 15, COLORS.muted);
+        text(left, below, newBike!.more, 15, COLORS.muted);
       } else {
         const collect = (brand: string, price: number) => inner(() => {
           const name = bikes.brands.find((b) => b.id === brand)?.name ?? brand;
@@ -1283,36 +1338,39 @@ export class HudScene extends Phaser.Scene {
             () => reopen(),
           );
         });
-        const sponsor = sponsorBrand(bikes, career, next.id);
-        const sponsorName = bikes.brands.find((b) => b.id === sponsor)?.name ?? sponsor;
-        text(left, y0 + 36, `The champion's sponsor rides ${sponsorName}: a new stock ${next.name}, Grade 1 all round, for nothing and no strings. Or buy a stock bike of any brand.`, 15, COLORS.muted);
-        c.add(button(this, left + 160, y0 + 100, `${sponsorName} ${next.name}: free`, () => collect(sponsor, 0), 320, 42));
+        const offer = text(left, below, newBike!.more, 15, COLORS.muted);
+        const freeY = offer.y + offer.height + 16 + 21;
+        c.add(button(this, left + 160, freeY, `${sponsorName} ${next.name}: free`, () => collect(sponsor, 0), 320, 42));
         const price = stockBikePrice(shops, bikes, next.id);
         bikes.brands.forEach((b, i) => {
-          const btn = button(this, left + 160, y0 + 160 + i * 46, `${b.name}: ${formatMoney(price)}`, () => collect(b.id, price), 320, 40);
+          const by = freeY + 21 + 18 + 20 + i * 46;
+          const btn = button(this, left + 160, by, `${b.name}: ${formatMoney(price)}`, () => collect(b.id, price), 320, 40);
           btn.setEnabled(career.money >= price);
           c.add(btn);
-          line(left + 340, y0 + 150 + i * 46, b.character, 13, COLORS.muted, w / 2 - 40 - (left + 340));
+          line(left + 340, by, b.character, 13, COLORS.muted, w / 2 - 40 - (left + 340)).setOrigin(0, 0.5);
         });
       }
     } else if (tab === 'tools') {
       const data = services.content.tools;
       data.sets.forEach((set, i) => {
-        const y = y0 - 6 + i * 64;
+        const y = y0 - 6 + i * toolRowH;
         const owned = ownedVersion(career, set);
         const next = nextVersion(career, this.flags, set);
-        line(left, y + 2, set.name, 16, COLORS.cream, 300);
-        line(left, y + 24, `${set.slots.map((sl) => slotName(bikes, sl)).join(', ')}. ${owned ? `Yours: ${owned.name}, up to Grade ${owned.grade}.` : 'None yet.'}`, 13, COLORS.muted, 390);
+        const head = line(left, y + 2, set.name, 16, COLORS.cream, 300);
+        line(left, y + 4 + head.displayHeight, `${set.slots.map((sl) => slotName(bikes, sl)).join(', ')}. ${owned ? `Yours: ${owned.name}, up to Grade ${owned.grade}.` : 'None yet.'}`, 13, COLORS.muted, 390);
         if (!next) return void line(left + 410, y + 10, 'The best there are.', 14, COLORS.muted, 300);
         const price = pence(next.version.price);
-        const b = button(this, left + 520, y + 20, next.open ? `${owned ? 'Upgrade' : 'Buy'} ${formatMoney(price)}` : `Area ${next.version.area}`, () => inner(() => {
+        const b = button(this, left + 515, y + 20, next.open ? `${owned ? 'Upgrade' : 'Buy'} ${formatMoney(price)}` : `Area ${next.version.area}`, () => inner(() => {
           this.confirm(`${next.version.name} for ${formatMoney(price)}?\nRepairs up to Grade ${next.version.grade}${owned ? `, replacing your ${owned.name.toLowerCase()}` : ''}. Yours for good.`, 'Buy', () => done(buyTools(career, this.flags, set), 'tools'), () => reopen('tools'));
         }), 230, 40);
         b.setEnabled(next.open && career.money >= price);
         c.add(b);
-        line(left + 410, y + 10, next.open ? `${next.version.name}: Grade ${next.version.grade}` : `${next.version.name} come with Area ${next.version.area}`, 13, COLORS.muted, 100);
+        // Beside the button, not under it, wrapping onto a second line when it needs to.
+        const what = text(left + 645, y + 20, next.open ? `${next.version.name}: Grade ${next.version.grade}` : `${next.version.name} come with Area ${next.version.area}`, 13, COLORS.muted, w / 2 - 28 - (left + 645));
+        what.setY(y + 20 - Math.min(what.height, 60) / 2);
+        if (what.height > 60) what.setScale(60 / what.height);
       });
-      text(left, h / 2 - 30, 'Use your tools at the red cabinet in your room, or at the back of your motor. Grade 10 parts always go to Phoenix MX.', 13, COLORS.muted);
+      footNote();
     } else {
       const fee = pence(shop.fitFee ?? 0);
       if (!spareRows.length) text(left, y0, 'You have no spare parts to fit. Buy one as a spare at a parts shop.', 16, COLORS.muted);
