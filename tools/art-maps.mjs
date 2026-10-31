@@ -14,6 +14,15 @@ export const AREA_MAPS = [
   'area-map/tiled/maps/venue-enduro.tmj',
   'area-map/tiled/maps/venue-supercross.tmj',
 ];
+/**
+ * Venue maps kept for later, not on any road (one venue per race type; Boss, 30 Oct 2026): baked
+ * into public/assets/maps/ but not listed in the manifest, so the game does not load them yet.
+ */
+export const LATER_MAPS = [
+  'area-map/tiled/maps/venue-enduro-sprint.tmj',
+  'area-map/tiled/maps/venue-endurocross.tmj',
+  'area-map/tiled/maps/venue-no-turn.tmj',
+];
 /** Every .tmj in this folder is baked as an inside. */
 export const INTERIOR_DIR = 'buildings/tiled/maps/interiors';
 export const TOWN_DIR = 'area-map/tiled/maps';
@@ -25,7 +34,7 @@ const idOf = (f) => path.basename(f, '.tmj');
  * plus any .tmj in the art folder's town and interior folders (drawn but not yet listed).
  */
 export function drawnMapIds(art) {
-  const ids = new Set(AREA_MAPS.map(idOf));
+  const ids = new Set([...AREA_MAPS, ...LATER_MAPS].map(idOf));
   for (const dir of [TOWN_DIR, INTERIOR_DIR]) {
     const full = path.join(art, dir);
     if (!fs.existsSync(full)) continue;
