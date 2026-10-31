@@ -65,7 +65,7 @@
       "returns": [{"tile": [3,5]}]
     },
     {
-      "id": "bld.home.tyre_shop", "name": "Tyres and wheels", "zone": "Home Town", "npc": "Tyres and wheels specialist",
+      "id": "bld.home.tyre_shop", "name": "Lee's T's & Wheels", "zone": "Home Town", "npc": "Lee Stocky",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [512,320,512,256], "at": [0,0]}],
       "footprint": [
         "#######",
@@ -164,7 +164,7 @@
       "returns": []
     },
     {
-      "id": "bld.home.tool_shop", "name": "Tool shop", "zone": "Home Town", "npc": "Tool shop owner",
+      "id": "bld.home.tool_shop", "name": "J's Tools", "zone": "Home Town", "npc": "Jason Styles",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-v3.png", "crop": [512,960,448,256], "at": [0,0]}],
       "footprint": [
         "######",

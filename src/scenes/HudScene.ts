@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { bikeProblem, bikeStats, formatMoney, journal, pence, statMax, type CareerState } from '../core/career';
-import { childLevel, childXp, leadLevel, leadXp, levelProgress } from '../core/skills';
+import { addXp, childLevel, childXp, leadLevel, leadXp, levelProgress } from '../core/skills';
 import { nextRoundVenue, rewardTexture, standings } from '../core/championship';
 import {
   buyPart,
@@ -23,6 +23,7 @@ import {
 } from '../core/shops';
 import type { DialogueLine } from '../core/content';
 import { className, collectBike, milestoneOf, milestoneStatus, sponsorBrand, stockBikePrice } from '../core/classes';
+import { buyTools, diyFitProblem, diyRepair, diyRepairQuote, nextVersion, ownedVersion, toolsFor } from '../core/tools';
 import { repairLent } from '../core/errands';
 import { PACE_BAND, REP_ZONE, goodRep, onPace, type DrillDef } from '../core/training';
 import { ensureAnims } from '../world/Character';
@@ -40,7 +41,7 @@ import { worldMapTexture, type WorldMapData, type WorldMapZone } from '../core/w
 // touch buttons. Runs alongside the world scene at a fixed zoom.
 
 type PanelTab = 'bike' | 'bag' | 'task' | 'skills' | 'records';
-export type ShopTab = 'buy' | 'sell' | 'repair' | 'fit' | 'newbike';
+export type ShopTab = 'buy' | 'sell' | 'repair' | 'fit' | 'newbike' | 'tools';
 
 /** The smallest page panels are laid out on (see page()). */
 const PAGE_W = 940;
@@ -963,6 +964,7 @@ export class HudScene extends Phaser.Scene {
     if (shop.sells) tabs.push(['buy', 'Buy'], ['sell', 'Sell']);
     if (shop.repairs) tabs.push(['repair', 'Repairs']);
     if (shop.fitFee !== undefined) tabs.push(['fit', 'Fit a spare']);
+    if (shop.tools) tabs.push(['tools', 'Tool sets']);
     // The class dealer (Bill at Moto78): a new class's bike, once its milestone championship is won.
     const milestone = shops.classDealer === shop.id ? milestoneStatus(bikes, services.content.skills, career, this.flags) : { kind: 'none' as const };
     if (milestone.kind !== 'none') {
@@ -1044,7 +1046,8 @@ export class HudScene extends Phaser.Scene {
         const name = bikes.slots.find((s) => s.id === slot)?.name ?? slot;
         line(left, y + 8, name, 16, COLORS.cream, 215);
         line(left + 222, y + 8, yours(slot), 15, career.bike.parts[slot]?.condition <= 0 ? COLORS.accent : COLORS.muted, 170);
-        for (let g = lo; g <= hi; g++) {
+        const top = shop.sells!.stockOnly?.includes(slot) ? lo : hi;
+        for (let g = lo; g <= top; g++) {
           const item = stock.find((s) => s.slot === slot && s.grade === g);
           const label = !item ? `G${g}: none in` : item.soldOut ? `G${g}: sold out` : `G${g}  ${formatMoney(item.price)}`;
           const b = button(this, left + 400 + (g - lo) * 160, y + 18, label, () => item && inner(() => this.offerPart(shop, item, () => reopen(), (r) => done(r))), 150, 40);
@@ -1083,6 +1086,25 @@ export class HudScene extends Phaser.Scene {
         line(left, y + 4, slot.name, 15, COLORS.cream, 200);
         line(left + 210, y + 4, yours(slot.id), 15, part?.condition <= 0 ? COLORS.accent : COLORS.muted, 112);
         if (!part) return;
+        if (shop.diy) {
+          const dq = diyRepairQuote(shops, services.content.tools, career, slot.id, part);
+          if (!dq.ok) return void line(left + 330, y + 4, dq.reason, 14, COLORS.muted, w / 2 - 20 - (left + 330));
+          const db = button(this, left + 420, y + 12, 'Repair: free', () => inner(() => {
+            this.confirm(
+              `Repair your G${part.grade} ${slot.name.toLowerCase()} (${Math.round(part.condition * 100)}%) with your own tools?\nIt comes back as G${dq.grade} at 100%, for nothing. Every repair drops a grade.`,
+              'Repair',
+              () => {
+                const r = diyRepair(shops, services.content.tools, bikes, services.content.skills, career, slot.id);
+                for (const u of r.ups ?? []) this.toast(`Level up! ${u.name} is now level ${u.level}.`);
+                done(r);
+              },
+              () => reopen(),
+            );
+          }), 170, 32);
+          c.add(db);
+          line(left + 600, y + 4, `→ G${dq.grade} at 100%`, 14, COLORS.muted, w / 2 - 20 - (left + 600));
+          return;
+        }
         const q = repairQuote(shops, slot.id, part, cls);
         if (!q.ok) {
           line(left + 330, y + 4, q.reason, 14, COLORS.muted, w / 2 - 20 - (left + 330));
@@ -1149,6 +1171,24 @@ export class HudScene extends Phaser.Scene {
           line(left + 340, y0 + 150 + i * 46, b.character, 13, COLORS.muted, w / 2 - 40 - (left + 340));
         });
       }
+    } else if (tab === 'tools') {
+      const data = services.content.tools;
+      data.sets.forEach((set, i) => {
+        const y = y0 - 6 + i * 64;
+        const owned = ownedVersion(career, set);
+        const next = nextVersion(career, this.flags, set);
+        line(left, y + 2, set.name, 16, COLORS.cream, 300);
+        line(left, y + 24, `${set.slots.map((sl) => slotName(bikes, sl)).join(', ')}. ${owned ? `Yours: ${owned.name}, up to Grade ${owned.grade}.` : 'None yet.'}`, 13, COLORS.muted, 390);
+        if (!next) return void line(left + 410, y + 10, 'The best there are.', 14, COLORS.muted, 300);
+        const price = pence(next.version.price);
+        const b = button(this, left + 520, y + 20, next.open ? `${owned ? 'Upgrade' : 'Buy'} ${formatMoney(price)}` : `Area ${next.version.area}`, () => inner(() => {
+          this.confirm(`${next.version.name} for ${formatMoney(price)}?\nRepairs up to Grade ${next.version.grade}${owned ? `, replacing your ${owned.name.toLowerCase()}` : ''}. Yours for good.`, 'Buy', () => done(buyTools(career, this.flags, set), 'tools'), () => reopen('tools'));
+        }), 230, 40);
+        b.setEnabled(next.open && career.money >= price);
+        c.add(b);
+        line(left + 410, y + 10, next.open ? `${next.version.name}: Grade ${next.version.grade}` : `${next.version.name} come with Area ${next.version.area}`, 13, COLORS.muted, 100);
+      });
+      text(left, h / 2 - 30, 'Use your tools at the red cabinet in your room, or at the back of your motor. Grade 10 parts always go to Phoenix MX.', 13, COLORS.muted);
     } else {
       const fee = pence(shop.fitFee ?? 0);
       if (!spareRows.length) text(left, y0, 'You have no spare parts to fit. Buy one as a spare at a parts shop.', 16, COLORS.muted);
@@ -1158,8 +1198,17 @@ export class HudScene extends Phaser.Scene {
         const y = y0 + k * 46;
         line(left, y + 6, `G${p.grade} ${bikes.slots.find((s) => s.id === p.slot)?.name ?? p.slot} · ${Math.round(p.condition * 100)}%`, 16, COLORS.cream, 300);
         line(left + 310, y + 6, `Replaces your ${yours(p.slot)}`, 14, COLORS.muted, w / 2 - 200 - (left + 310));
-        const b = button(this, w / 2 - 110, y + 16, fee ? `Fit ${formatMoney(fee)}` : 'Fit', () => done(fitSpare(shops, bikes, shop, career, i), 'fit', pg), 170, 38);
-        b.setEnabled(!!p.owner || (career.money >= fee && p.class === cls));
+        const diyProblem = shop.diy ? diyFitProblem(services.content.tools, career, p) : null;
+        const b = button(this, w / 2 - 110, y + 16, fee ? `Fit ${formatMoney(fee)}` : 'Fit', () => {
+          const r = fitSpare(shops, bikes, shop, career, i);
+          if (r.ok && shop.diy) {
+            const set = toolsFor(services.content.tools, career, p.slot)!.set;
+            for (const u of addXp(services.content.skills, career.skills, { [set.skill]: services.content.tools.xp.fit })) this.toast(`Level up! ${u.name} is now level ${u.level}.`);
+          }
+          done(r, 'fit', pg);
+        }, 170, 38);
+        b.setEnabled(!diyProblem && (!!p.owner || (career.money >= fee && p.class === cls)));
+        if (diyProblem) line(left + 310, y + 26, diyProblem, 12, COLORS.accent, w / 2 - 200 - (left + 310));
         c.add(b);
       });
     }

@@ -39,7 +39,7 @@
     ] },
     "story.paid_service": { "lines": [
       { "speaker": "npc", "text": "Neat work. You've got the hands for this. That's £100." },
-      { "speaker": "npc", "text": "Next, the tyres and wheels shop has a pair of tyres for me. Fetch them and fit them on my tyre machine." }
+      { "speaker": "npc", "text": "Next, Lee at the tyres and wheels shop has a pair of tyres for me. Fetch them and fit them on my tyre machine." }
     ] },
     "story.collect_tyres": { "lines": [
       { "speaker": "npc", "text": "For the garage? Here you go, one pair of hard-pack tyres." },
@@ -105,7 +105,12 @@
       { "speaker": "npc", "text": "I race too, when the shop lets me. Everything on these shelves I've broken myself at some point, so I know what lasts." }
     ] },
     "tyre_specialist.hello": { "lines": [
-      { "speaker": "npc", "text": "Tyres, rims, spokes. Hard pack round here, so you'll want a hard-pack rear." }
+      { "speaker": "npc", "text": "Lee Stocky. Tyres, rims, spokes and brakes. Hard pack round here, so you'll want a hard-pack rear." },
+      { "speaker": "npc", "text": "I was Area Champion a few seasons back, before the injury. I'm getting back on the bike this season, so you'll see me at the odd race." }
+    ] },
+    "tool_shop_owner.hello": { "lines": [
+      { "speaker": "npc", "text": "Howzit. Jason Styles, J's Tools. Came over from South Africa chasing the dream, and I'm still chasing it: this is the season, I can feel it." },
+      { "speaker": "npc", "text": "Tool sets, one per part group. Buy a set once and it's yours for good. With the right set you repair and fit those parts yourself, at your tool cabinet at home or out of the back of your motor, and it costs you nothing but the grade." }
     ] },
     "fabricator.hello": { "lines": [
       { "speaker": "npc", "text": "Looking for shifts? Use the blue bench inside to start a batch of frame brackets. It's 75p a bracket." },

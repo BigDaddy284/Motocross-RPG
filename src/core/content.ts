@@ -16,6 +16,7 @@ import { ERRANDS_SCHEMA, checkErrands, type ErrandsData } from './errands';
 import { TRAINING_SCHEMA, checkTraining, type TrainingData } from './training';
 import { CHALLENGES_SCHEMA, checkChallenges, type ChallengesData } from './challenge';
 import { WORLD_MAP_SCHEMA, checkWorldMap } from './worldMap';
+import { TOOLS_SCHEMA, checkTools, type ToolsData } from './tools';
 import { validate, type ContentError, type Schema } from './validate';
 
 // Game content loaded from public/data. Each file is checked against its schema, then the files
@@ -74,6 +75,7 @@ export interface Content {
   errands: ErrandsData;
   training: TrainingData;
   challenges: ChallengesData;
+  tools: ToolsData;
 }
 
 export interface Manifest {
@@ -321,6 +323,7 @@ export const CONTENT_FILES = {
   errands: 'data/errands.json',
   training: 'data/training.json',
   challenges: 'data/challenges.json',
+  tools: 'data/tools.json',
 } as const;
 
 export type RawContent = Record<keyof typeof CONTENT_FILES, unknown>;
@@ -344,6 +347,7 @@ const SCHEMAS: Record<keyof typeof CONTENT_FILES, Schema> = {
   errands: ERRANDS_SCHEMA,
   training: TRAINING_SCHEMA,
   challenges: CHALLENGES_SCHEMA,
+  tools: TOOLS_SCHEMA,
 };
 
 /** Checks raw file contents and returns the typed content, or every problem found. */
@@ -379,6 +383,7 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
     errands: raw.errands as ErrandsData,
     training: raw.training as TrainingData,
     challenges: raw.challenges as ChallengesData,
+    tools: raw.tools as ToolsData,
   };
   const file = CONTENT_FILES.npcs;
   const seen = new Set<string>();
@@ -411,6 +416,7 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
   // Tile art isn't listed at run time; tests check it exists (tests/tracks.test.ts).
   errors.push(...checkTrackParts(content.trackParts, content.tracks.tracks, () => true));
   errors.push(...checkShopContent(CONTENT_FILES.shops, content.shops, content.bikes, seen, maps));
+  errors.push(...checkTools(CONTENT_FILES.tools, content.tools, content.bikes, content.skills));
   errors.push(...checkVehicles(CONTENT_FILES.vehicles, raw.vehicles, maps).errors);
   errors.push(...checkBuildings(content.buildings, maps));
   content.vehicles.designs.forEach((d, i) => {

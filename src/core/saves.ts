@@ -230,6 +230,7 @@ function isCareer(v: unknown): boolean {
     (c.champs === undefined || isChampState(c.champs)) &&
     (c.errands === undefined || isErrandState(c.errands)) &&
     (c.jobs === undefined || isJobState(c.jobs)) &&
+    (c.tools === undefined || (typeof c.tools === 'object' && c.tools !== null && Object.values(c.tools).every((v) => typeof v === 'string'))) &&
     (c.retired === undefined || (Array.isArray(c.retired) && c.retired.every((r) => isBike((r as Record<string, unknown>)?.bike) && typeof (r as Record<string, unknown>).milestone === 'string'))) &&
     !!story && Number.isInteger(story.step) && Array.isArray(story.used) &&
     typeof c.counters === 'object' && c.counters !== null &&

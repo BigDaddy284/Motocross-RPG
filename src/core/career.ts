@@ -179,6 +179,8 @@ export interface CareerState {
   jobs?: JobState;
   /** Bikes retired at a class milestone (GDD 8.1), oldest first. */
   retired?: RetiredBike[];
+  /** Tool sets owned (core/tools.ts): the version id by set id. */
+  tools?: Record<string, string>;
 }
 
 export const pence = (pounds: number) => Math.round(pounds * 100);

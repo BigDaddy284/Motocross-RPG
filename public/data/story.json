@@ -42,7 +42,7 @@
       "effects": { "money": 100 }
     },
     {
-      "id": "collect_tyres", "journal": "Pick up a pair of tyres from the tyres and wheels shop.",
+      "id": "collect_tyres", "journal": "Pick up a pair of tyres from Lee Stocky at Lee's T's & Wheels.",
       "on": { "talk": "npc.tyre_specialist" }, "lines": "story.collect_tyres",
       "effects": { "give": ["task.tyres"] }
     },

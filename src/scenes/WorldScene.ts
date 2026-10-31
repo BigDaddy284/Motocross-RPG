@@ -416,6 +416,7 @@ export class WorldScene extends Phaser.Scene {
     if (action && this.runStory({ use: action, map: this.map.id, object: objectKey }, '')) return;
     const shop = action ? shopForAction(services.content.shops, this.map.id, action) : null;
     if (shop && this.openShop(shop.shop, shop.fit ? 'fit' : 'buy')) return;
+    if (action === 'storage.tools' && this.openWorkbench()) return;
     const drill = action ? drillForAction(services.content.training, action) : undefined;
     if (drill) return this.runDrill(drill);
     // The running track itself: the coach's session (Boss, 29 Oct 2026).
@@ -575,6 +576,18 @@ export class WorldScene extends Phaser.Scene {
     if (shop.needs && !this.save.flags[shop.needs]) return false;
     this.hud.showCareer(this.save.career, this.save.flags);
     this.hud.openShop(shop, tab, onClose);
+    return true;
+  }
+
+  /**
+   * The rider's own workbench (core/tools.ts): repairs and fitting with their tool sets, at the tool
+   * cabinet at home or the back of the motor. Shut until the opening chain is done, like the shops.
+   */
+  private openWorkbench(): boolean {
+    if (!this.save.flags.tutorial_done) return false;
+    const bench: ShopDef = { id: 'diy', name: 'Your tools', npc: '', map: this.map.id, actions: [], greeting: 'Your own tools. Repairs drop a grade as always, and cost nothing; fitting a spare is free. Each set covers its own parts.', repairs: true, fitFee: 0, diy: true };
+    this.hud.showCareer(this.save.career, this.save.flags);
+    this.hud.openShop(bench, 'repair', () => this.player.idle());
     return true;
   }
 
@@ -1204,6 +1217,7 @@ export class WorldScene extends Phaser.Scene {
     this.hud.choose(van.design.name, 'Get in and drive, or open the back to get at your bag and spares.', [
       { label: 'Drive', note: 'Arrow keys or WASD to drive, or click the road to drive there. E or Get out to stop.', onPick: () => this.getIn() },
       { label: 'Open the back', note: 'Your bag and spares.', onPick: () => this.openBack() },
+      { label: 'Work on the bike', note: 'Repair and fit parts with your own tools.', onPick: () => void this.openWorkbench() },
       { label: 'Not now', onPick: () => this.player.idle() },
     ], () => this.player.idle());
   }

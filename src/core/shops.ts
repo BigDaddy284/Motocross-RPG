@@ -27,7 +27,13 @@ export interface ShopDef {
     classes: string[];
     /** Chance at each stock refresh that one part of this grade is in for a slot (GDD 8.3: rarer stock rotates). */
     extraChance: Record<string, number>;
+    /** Slots only ever stocked at the lowest grade: Moto78's stock frames (Boss, 30 Oct 2026). */
+    stockOnly?: string[];
   };
+  /** Sells the tool sets (core/tools.ts). */
+  tools?: boolean;
+  /** Not a shop in the data: the rider's own tools at their cabinet or motor (core/tools.ts). */
+  diy?: boolean;
   /** Paid condition repairs on the fitted parts (Spec 7.4). */
   repairs?: boolean;
   /** Pounds to fit a spare from the bag on the bench. */
@@ -138,7 +144,8 @@ export function shopStock(data: ShopsData, shop: ShopDef, career: CareerState, c
   const out: StockItem[] = [];
   const [lo, hi] = sells.grades;
   for (const slot of sells.slots) {
-    for (let g = lo; g <= hi; g++) {
+    const top = sells.stockOnly?.includes(slot) ? lo : hi;
+    for (let g = lo; g <= top; g++) {
       const key = `${shop.id}:${cls}:${slot}:${g}`;
       const always = g === lo;
       if (!always && roll(s, key) >= (sells.extraChance[String(g)] ?? 0)) continue;
@@ -339,7 +346,7 @@ export const SHOPS_SCHEMA: Schema = {
       minItems: 1,
       items: {
         type: 'object',
-        optional: ['needs', 'sells', 'repairs', 'fitFee', 'fitAction'],
+        optional: ['needs', 'sells', 'repairs', 'fitFee', 'fitAction', 'tools'],
         fields: {
           id: IDS,
           name: S,
@@ -350,16 +357,19 @@ export const SHOPS_SCHEMA: Schema = {
           needs: IDS,
           sells: {
             type: 'object',
+            optional: ['stockOnly'],
             fields: {
               slots: { type: 'array', minItems: 1, items: IDS },
               grades: { type: 'array', items: GRADE, minItems: 2, maxItems: 2 },
               classes: { type: 'array', minItems: 1, items: IDS },
               extraChance: { type: 'record', values: { type: 'number', min: 0, max: 1 } },
+              stockOnly: { type: 'array', items: { type: 'string', pattern: /^[a-z0-9_.-]+$/ } },
             },
           },
           repairs: { type: 'boolean' },
           fitFee: N0,
           fitAction: IDS,
+          tools: { type: 'boolean' },
         },
       },
     },
@@ -387,9 +397,10 @@ export function checkShopContent(file: string, data: ShopsData, bikes: BikesData
     const hasAction = (a: string) => m?.objects.some((o) => o.props.action === a);
     s.actions.forEach((a, j) => m && !hasAction(a) && err(at(`actions[${j}]`), `no object with action "${a}" on ${s.map}`));
     if (s.fitAction && m && !hasAction(s.fitAction)) err(at('fitAction'), `no object with action "${s.fitAction}" on ${s.map}`);
-    if (!s.sells && !s.repairs && s.fitFee === undefined) err(at('sells'), 'the shop neither sells, repairs nor fits anything');
+    if (!s.sells && !s.repairs && s.fitFee === undefined && !s.tools) err(at('sells'), 'the shop neither sells, repairs nor fits anything');
     if (s.sells) {
       s.sells.slots.forEach((sl, j) => !slotIds.has(sl) && err(at(`sells.slots[${j}]`), `no slot "${sl}"`));
+      s.sells.stockOnly?.forEach((sl, j) => !s.sells!.slots.includes(sl) && err(at(`sells.stockOnly[${j}]`), `"${sl}" isn't one of the shop's slots`));
       if (s.sells.grades[0] > s.sells.grades[1]) err(at('sells.grades'), 'the lowest grade is above the highest');
     }
   });

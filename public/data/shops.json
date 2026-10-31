@@ -1,5 +1,5 @@
 {
-  "note": "Area 1 parts shops and the garage's repairs (GDD 8.3 to 8.5, Spec 7.4, 14.4 to 14.6). Prices are in pounds for a new Grade 1 part on a 50cc; each grade costs gradeFactor times the one below. slotBase values not given in Spec 14.4 (bottom end, shock, brakes, bodywork, wheels and tyres as one slot) are first-pass guesses to tune in testing. Frames are not sold: they come from your sponsor or the class dealer (Spec 18.9). classDealer is the shop (Bill at Moto78, Boss 30 Oct 2026) where a new class's bike is collected once its milestone championship is won: the champion's sponsor offers a free stock bike of their brand, or the rider buys a stock Grade 1 bike of any brand at the sum of its parts' prices. fitFee is the garage's bench fee for fitting a spare (provisional); parts bought in a shop are fitted there free. consumables (Boss, 28 Oct 2026) are slots that are only ever replaced: tyres can't be repaired or sold, and once they hit 0% they are broken.",
+  "note": "Area 1 parts shops and the garage's repairs (GDD 8.3 to 8.5, Spec 7.4, 14.4 to 14.6). Prices are in pounds for a new Grade 1 part on a 50cc; each grade costs gradeFactor times the one below. slotBase values not given in Spec 14.4 (bottom end, shock, brakes, bodywork, wheels and tyres as one slot) are first-pass guesses to tune in testing. Moto78 sells a stock Grade 1 frame of your brand for every unlocked class (sells.stockOnly: never above Grade 1), so a broken Grade 1 frame isn't a dead end (Boss, 30 Oct 2026); better frames come from sponsors, the Frame works (Area 5) and the Race department (Area 8). A shop with tools: true sells the tool sets in data/tools.json. classDealer is the shop (Bill at Moto78, Boss 30 Oct 2026) where a new class's bike is collected once its milestone championship is won: the champion's sponsor offers a free stock bike of their brand, or the rider buys a stock Grade 1 bike of any brand at the sum of its parts' prices. fitFee is the garage's bench fee for fitting a spare (provisional); parts bought in a shop are fitted there free. consumables (Boss, 28 Oct 2026) are slots that are only ever replaced: tyres can't be repaired or sold, and once they hit 0% they are broken.",
   "slotBase": {
     "frame": 400,
     "top_end": 35,
@@ -24,20 +24,25 @@
     {
       "id": "shop.bike", "name": "Moto78", "npc": "npc.bike_shop_owner", "map": "int-home-bike-shop",
       "actions": ["shop.bike_parts"], "needs": "tutorial_done",
-      "greeting": "Engine, suspension and bodywork for the 50s and 65s, Grades 1 to 3. Grade 1 is always on the shelf; the better stuff comes and goes.",
+      "greeting": "Engine, suspension and bodywork for the 50s and 65s, Grades 1 to 3. Grade 1 is always on the shelf; the better stuff comes and goes. Stock frames in your brand, Grade 1, for any class you've unlocked.",
       "sells": {
-        "slots": ["top_end", "bottom_end", "intake_exhaust", "drivetrain", "forks", "shock", "bodywork"],
-        "grades": [1, 3], "classes": ["50cc", "65cc"], "extraChance": { "2": 0.6, "3": 0.3 }
+        "slots": ["frame", "top_end", "bottom_end", "intake_exhaust", "drivetrain", "forks", "shock", "bodywork"],
+        "grades": [1, 3], "classes": ["50cc", "65cc"], "extraChance": { "2": 0.6, "3": 0.3 }, "stockOnly": ["frame"]
       }
     },
     {
-      "id": "shop.tyres", "name": "Tyres and wheels", "npc": "npc.tyre_specialist", "map": "int-home-tyre-shop",
+      "id": "shop.tyres", "name": "Lee's T's & Wheels", "npc": "npc.tyre_specialist", "map": "int-home-tyre-shop",
       "actions": ["shop.tyres_wheels"], "needs": "tutorial_done",
       "greeting": "Tyres, rims, spokes and brakes. Hard pack round here, so keep an eye on that rear.",
       "sells": {
         "slots": ["wheels_tyres", "brakes"],
         "grades": [1, 3], "classes": ["50cc", "65cc"], "extraChance": { "2": 0.6, "3": 0.3 }
       }
+    },
+    {
+      "id": "shop.tools", "name": "J's Tools", "npc": "npc.tool_shop_owner", "map": "int-home-tool-shop",
+      "actions": ["shop.tool_sets"], "needs": "tutorial_done", "tools": true,
+      "greeting": "Tool sets, one per part group. Buy a set once and it's yours for good: repair and fit those parts yourself, at home or out of the motor, instead of paying Paul."
     },
     {
       "id": "garage", "name": "Phoenix MX", "npc": "npc.garage_mechanic", "map": "int-home-local-garage",
