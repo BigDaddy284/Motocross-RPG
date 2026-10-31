@@ -21,7 +21,7 @@ import { APPROACH, assignCrews, BOARD_PAST, boardOut, boardText, crewSpot, FLAGG
 import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../core/marshal';
 import { bikeColours, modelFor as bikeKind, raceBikeParts, type RaceLook } from './raceBike';
 import { LOCKED_ITEMS } from '../core/modModels';
-import { BIKE_PAINT, bikeModel, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
+import { BIKE_PAINT, bikeModel, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
 // isometric camera in the spirit of Super Off Road's overhead arcade view. The track is solid
@@ -272,6 +272,8 @@ export class RaceView {
   showFireworks = true;
   /** Draws items the game's own way, ignoring the models folder, while builtInItem builds one for the models page. */
   private builtIn = false;
+  /** Scenery models' own animations, each playing on a loop (playLoops); they run in the track editor's view too. */
+  private readonly loops: THREE.AnimationMixer[] = [];
   /** Frame times in ms (whole update, the 3D draw, and handing the picture to Phaser), for the performance check. */
   readonly frameMs: number[] = [];
   readonly renderMs: number[] = [];
@@ -384,7 +386,7 @@ export class RaceView {
       obj.updateMatrixWorld(true);
       const box = new THREE.Box3().setFromObject(obj);
       // Fans move, so they are never baked into the still scenery.
-      if (box.max.y < 1.2 && it.type !== CHEER_ITEM) {
+      if (box.max.y < 1.2 && it.type !== CHEER_ITEM && !obj.userData.moving) {
         const plain: THREE.Mesh[] = [];
         obj.traverse((o) => {
           const m = o as THREE.Mesh;
@@ -1268,6 +1270,58 @@ export class RaceView {
   }
 
   /**
+   * The start official, standing at the origin: legs, body, head, and arms that swing at the
+   * shoulder, up to hold the board high or down to hold it low, and the board. Their own model's
+   * parts swap in (fitFigure), the board staying the game's.
+   */
+  private officialFigure(): { stand: THREE.Group; panel: THREE.Group; arms: THREE.Group[]; legs: THREE.Group[] } {
+    const stand = new THREE.Group();
+    stand.name = 'Body';
+    // Drawn 10% smaller than first built, board and all: the scale is on this group alone.
+    stand.scale.setScalar(OFFICIAL_SCALE);
+    // The official: legs, body, head, and arms that swing at the shoulder, up to hold the board
+    // high or down to hold it low.
+    const kit = this.mat(0x2a3a5a);
+    const skin = this.mat(0xe0b090);
+    // Legs swing at the hip as they walk.
+    const legs = [-0.1, 0.1].map((x) => {
+      const leg = new THREE.Group();
+      leg.name = x < 0 ? 'LegR' : 'LegL';
+      leg.position.set(x, 0.7, 0);
+      leg.add(this.boxMesh(0.12, 0.7, 0.14, kit, 0, -0.7, 0));
+      stand.add(leg);
+      return leg;
+    });
+    stand.add(this.boxMesh(0.42, 0.62, 0.24, this.mat(0xf0a020), 0, 0.7, 0));
+    stand.add(this.boxMesh(0.22, 0.22, 0.22, skin, 0, 1.34, 0));
+    const arms = [-1, 1].map((sd) => {
+      const arm = new THREE.Group();
+      arm.name = sd < 0 ? 'ArmR' : 'ArmL';
+      arm.position.set(sd * 0.27, 1.24, 0.04);
+      arm.add(this.boxMesh(0.09, 0.8, 0.09, skin, 0, 0, 0));
+      stand.add(arm);
+      return arm;
+    });
+    // The board: face on the front, plain white on the back. It turns in its own plane about its centre.
+    const panel = new THREE.Group();
+    const W = 1.8;
+    const H = 1.35;
+    const front = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshLambertMaterial({ map: this.boardTexture() }));
+    front.position.z = 0.03;
+    const back = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshLambertMaterial({ color: 0xf4f4f0 }));
+    back.rotation.y = Math.PI;
+    back.position.z = -0.03;
+    const core = new THREE.Mesh(new THREE.BoxGeometry(W, H, 0.05), this.mat(0xdedede));
+    for (const m of [front, back, core]) m.castShadow = true;
+    panel.add(core, front, back);
+    // The board the view turns and lifts; a start official model keeps the game's (and the models page leaves it out).
+    panel.userData.gameOnly = true;
+    stand.add(panel);
+    this.fitFigure(OFFICIAL_ITEM, stand, [['Body', stand], ['LegR', legs[0]], ['LegL', legs[1]], ['ArmR', arms[0]], ['ArmL', arms[1]]]);
+    return { stand, panel, arms, legs };
+  }
+
+  /**
    * The start board: an official beside the start straight, there all race (startOfficial). They
    * wait at A near the gate with the board held low, white side out, while the riders line up;
    * raise it face out and walk to B as the five-second hold begins, turn it sideways at three, and
@@ -1286,47 +1340,12 @@ export class RaceView {
       return stand;
     }
     if (!plan) return stand;
-    stand.position.set(plan.a.x, this.heightAt(plan.a.x, plan.a.y), plan.a.y);
-    stand.rotation.y = plan.facing;
-    // Drawn 10% smaller than first built, board and all: the scale is on this group alone.
-    stand.scale.setScalar(OFFICIAL_SCALE);
-    // The official: legs, body, head, and arms that swing at the shoulder, up to hold the board
-    // high or down to hold it low.
-    const kit = this.mat(0x2a3a5a);
-    const skin = this.mat(0xe0b090);
-    // Legs swing at the hip as they walk.
-    const legs = [-0.1, 0.1].map((x) => {
-      const leg = new THREE.Group();
-      leg.position.set(x, 0.7, 0);
-      leg.add(this.boxMesh(0.12, 0.7, 0.14, kit, 0, -0.7, 0));
-      stand.add(leg);
-      return leg;
-    });
-    stand.add(this.boxMesh(0.42, 0.62, 0.24, this.mat(0xf0a020), 0, 0.7, 0));
-    stand.add(this.boxMesh(0.22, 0.22, 0.22, skin, 0, 1.34, 0));
-    const arms = [-1, 1].map((sd) => {
-      const arm = new THREE.Group();
-      arm.position.set(sd * 0.27, 1.24, 0.04);
-      arm.add(this.boxMesh(0.09, 0.8, 0.09, skin, 0, 0, 0));
-      stand.add(arm);
-      return arm;
-    });
-    // The board: face on the front, plain white on the back. It turns in its own plane about its centre.
-    const panel = new THREE.Group();
-    const W = 1.8;
-    const H = 1.35;
-    const front = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshLambertMaterial({ map: this.boardTexture() }));
-    front.position.z = 0.03;
-    const back = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshLambertMaterial({ color: 0xf4f4f0 }));
-    back.rotation.y = Math.PI;
-    back.position.z = -0.03;
-    const core = new THREE.Mesh(new THREE.BoxGeometry(W, H, 0.05), this.mat(0xdedede));
-    for (const m of [front, back, core]) m.castShadow = true;
-    panel.add(core, front, back);
-    stand.add(panel);
-    this.board = { stand, panel, arms, legs, route: plan.route, length: routeLength(plan.route) };
+    const { stand: figure, panel, arms, legs } = this.officialFigure();
+    figure.position.set(plan.a.x, this.heightAt(plan.a.x, plan.a.y), plan.a.y);
+    figure.rotation.y = plan.facing;
+    this.board = { stand: figure, panel, arms, legs, route: plan.route, length: routeLength(plan.route) };
     this.updateStart(-Infinity);
-    return stand;
+    return figure;
   }
 
   /** The start board's face: START over a big red 30, as held up at the gate. */
@@ -1521,9 +1540,11 @@ export class RaceView {
     const cheers = this.cheers.length;
     const flaggers = this.flaggers.length;
     const crews = this.crews.length;
+    const loops = this.loops.length;
     this.ghostIndex = index ?? -1;
     const obj = this.buildItem(it);
     this.ghostIndex = -1;
+    this.loops.length = loops;
     this.marshals.length = marshals;
     this.flaggers.length = flaggers;
     this.crews.length = crews;
@@ -1564,13 +1585,69 @@ export class RaceView {
     const was = this.builtIn;
     this.builtIn = true;
     try {
-      const obj = this.buildItem({ type, x: 0, y: 0, rot: 0 });
+      const obj = type === OFFICIAL_ITEM ? this.officialFigure().stand : this.buildItem({ type, x: 0, y: 0, rot: 0 });
       obj?.position.set(0, 0, 0);
       obj?.rotation.set(0, 0, 0);
+      // The boards the game paints itself (a pit crew's) aren't part of the figure's model.
+      const own: THREE.Object3D[] = [];
+      obj?.traverse((o) => {
+        if (o.userData.gameOnly) own.push(o);
+      });
+      for (const o of own) o.removeFromParent();
       return obj;
     } finally {
       this.builtIn = was;
     }
+  }
+
+  /**
+   * Plays a scenery model's own animations on a loop, each copy starting at its own point so a
+   * row of them never moves as one.
+   */
+  private playLoops(model: THREE.Object3D, i: number): void {
+    const clips = model.userData.clips as THREE.AnimationClip[] | undefined;
+    if (!clips?.length) return;
+    const mixer = new THREE.AnimationMixer(model.userData.clipRoot as THREE.Object3D);
+    for (const clip of clips) mixer.clipAction(clip).play();
+    mixer.setTime(noise(i * 37 + 5) * Math.max(...clips.map((c) => c.duration), 0));
+    this.loops.push(mixer);
+  }
+
+  /**
+   * Swaps a moving figure's parts for its model's named parts (core FIGURE_PARTS), each on its
+   * joint: the joint (a pivot the view turns) moves to where the model has the part's origin, the
+   * game's own shapes on it are hidden, and the model's part hangs from it as it sat in the model.
+   * `pivots` go parents first; `root` is the item (a pivot named Base swaps the stand on it).
+   * `scale` sizes the model (a fan's build); `keep` are shapes on a pivot to leave alone (a pit
+   * board). False when the item has no figure model, and the game's own figure stays.
+   */
+  private fitFigure(type: string, root: THREE.Object3D, pivots: [string, THREE.Object3D][], opts: { scale?: THREE.Vector3; keep?: THREE.Object3D[] } = {}): boolean {
+    const parts = this.builtIn ? null : figureParts(type);
+    if (!parts) return false;
+    root.updateMatrixWorld(true);
+    // The model's metres into the world: the item's place and turn, without any scale of its own.
+    const place = new THREE.Matrix4().compose(root.getWorldPosition(new THREE.Vector3()), root.getWorldQuaternion(new THREE.Quaternion()), new THREE.Vector3(1, 1, 1));
+    const size = (opts.scale ?? new THREE.Vector3(1, 1, 1)).clone().multiplyScalar(METRE);
+    const toWorld = place.multiply(new THREE.Matrix4().makeScale(size.x, size.y, size.z));
+    const joints = new Set(pivots.map(([, p]) => p));
+    const keep = new Set(opts.keep ?? []);
+    for (const [name, pivot] of pivots) {
+      const part = parts.get(name);
+      if (!part) continue;
+      if (pivot !== root && pivot.parent) {
+        pivot.parent.updateMatrixWorld(true);
+        pivot.position.copy(pivot.parent.worldToLocal(part.origin.clone().applyMatrix4(toWorld)));
+        pivot.updateMatrixWorld(true);
+      }
+      const mesh = pivot as THREE.Mesh;
+      if (mesh.isMesh) mesh.geometry = new THREE.BufferGeometry();
+      for (const c of pivot.children) if ((c as THREE.Mesh).isMesh && !joints.has(c) && !keep.has(c)) c.visible = false;
+      const holder = new THREE.Group();
+      new THREE.Matrix4().copy(pivot.matrixWorld).invert().multiply(toWorld).multiply(part.matrix).decompose(holder.position, holder.quaternion, holder.scale);
+      holder.add(part.object);
+      pivot.add(holder);
+    }
+    return true;
   }
 
   /** Builds one scenery item as 3D shapes standing on the ground. */
@@ -1596,6 +1673,8 @@ export class RaceView {
       const sz = def ? Math.max(0.1, d / def.h) : 1;
       custom.scale.set(sx, Math.min(sx, sz), sz);
       add(custom);
+      this.playLoops(custom, this.itemIndex(it));
+      if (custom.userData.clips) g.userData.moving = true;
       if (it.rot === undefined && FACES_TRACK.has(it.type) && this.awayFromTrack(it) === 1) g.rotation.y += Math.PI;
       return g;
     }
@@ -1913,8 +1992,9 @@ export class RaceView {
   private marshalFigure(g: THREE.Group, it: SceneryItem, def: SceneryDef): void {
     const i = this.itemIndex(it);
     const built = marshalParts(def, it, i);
-    if (built.base.length) g.add(this.mergeParts(built.base));
+    if (built.base.length) g.add(Object.assign(this.mergeParts(built.base), { name: 'Base' }));
     const figure = new THREE.Group();
+    figure.name = 'Body';
     figure.position.set(built.feet[0] * METRE, built.feet[1] * METRE, built.feet[2] * METRE);
     const body = this.mergeParts(built.figure);
     body.position.set(-built.feet[0] * METRE, -built.feet[1] * METRE, -built.feet[2] * METRE);
@@ -1922,8 +2002,10 @@ export class RaceView {
     const arm = this.mergeParts(built.arm);
     arm.geometry.translate(-built.shoulder[0] * METRE, -built.shoulder[1] * METRE, -built.shoulder[2] * METRE);
     arm.position.set((built.shoulder[0] - built.feet[0]) * METRE, (built.shoulder[1] - built.feet[1]) * METRE, (built.shoulder[2] - built.feet[2]) * METRE);
+    arm.name = 'Arm';
     figure.add(arm);
     g.add(figure);
+    this.fitFigure(MARSHAL_ITEM, g, [['Base', g], ['Body', figure], ['Arm', arm]]);
     const watch = marshalWatch(this.surface.g, it);
     if (it.rot === undefined) {
       const at = watchFocus(this.surface.g, watch);
@@ -1948,6 +2030,7 @@ export class RaceView {
   /** A figure group standing at the feet, with the body built in the item's frame. */
   private standingFigure(parts: THREE.Mesh[], feet: [number, number, number]): THREE.Group {
     const figure = new THREE.Group();
+    figure.name = 'Body';
     figure.position.set(feet[0] * METRE, feet[1] * METRE, feet[2] * METRE);
     const body = this.mergeParts(parts);
     body.position.set(-feet[0] * METRE, -feet[1] * METRE, -feet[2] * METRE);
@@ -1966,12 +2049,13 @@ export class RaceView {
   private flaggerFigure(g: THREE.Group, it: SceneryItem, def: SceneryDef): void {
     const i = this.itemIndex(it);
     const built = flaggerParts(def, it, i);
-    if (built.base.length) g.add(this.mergeParts(built.base));
+    if (built.base.length) g.add(Object.assign(this.mergeParts(built.base), { name: 'Base' }));
     const figure = this.standingFigure(built.figure, built.feet);
-    const white = this.pivotArm(built.white, built.left, built.feet);
-    const chequered = this.pivotArm(built.chequered, built.right, built.feet);
+    const white = Object.assign(this.pivotArm(built.white, built.left, built.feet), { name: 'WhiteArm' });
+    const chequered = Object.assign(this.pivotArm(built.chequered, built.right, built.feet), { name: 'ChequeredArm' });
     figure.add(white, chequered);
     g.add(figure);
+    this.fitFigure(FLAGGER_ITEM, g, [['Base', g], ['Body', figure], ['WhiteArm', white], ['ChequeredArm', chequered]]);
     this.faceTrack(g, it);
     const roofed = built.variant === 'tower';
     this.flaggers.push({ spot: crewSpot(this.surface.g, it), figure, white, chequered, wk: 0, ck: 0, reach: roofed ? 0.6 : 0.92, phase: noise(i * 31 + 3) * Math.PI * 2 });
@@ -1981,9 +2065,9 @@ export class RaceView {
   private pitCrewFigure(g: THREE.Group, it: SceneryItem, def: SceneryDef): void {
     const i = this.itemIndex(it);
     const built = pitCrewParts(def, it, i);
-    if (built.base.length) g.add(this.mergeParts(built.base));
+    if (built.base.length) g.add(Object.assign(this.mergeParts(built.base), { name: 'Base' }));
     const figure = this.standingFigure(built.figure, built.feet);
-    const arms = this.pivotArm(built.arms, built.shoulder, built.feet);
+    const arms = Object.assign(this.pivotArm(built.arms, built.shoulder, built.feet), { name: 'Arms' });
     figure.add(arms);
     const canvas = document.createElement('canvas');
     canvas.width = 128;
@@ -1991,8 +2075,11 @@ export class RaceView {
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     const board = new THREE.Mesh(new THREE.PlaneGeometry(0.75 * METRE, 0.56 * METRE), new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide }));
+    // The board the view paints, which a pit crew model keeps (and the models page leaves out).
+    board.userData.gameOnly = true;
     figure.add(board);
     g.add(figure);
+    this.fitFigure(PIT_CREW_ITEM, g, [['Base', g], ['Body', figure], ['Arms', arms]], { keep: [board] });
     this.faceTrack(g, it);
     const crew: PitCrew = {
       index: this.crews.length,
@@ -2126,12 +2213,15 @@ export class RaceView {
     const variant = cheerVariant(it, i);
     const sc = VARIANT_SCALE[variant];
     const figure = new THREE.Group();
+    figure.name = 'Body';
     figure.scale.set(OFFICIAL_SCALE * sc.w, OFFICIAL_SCALE * sc.h, OFFICIAL_SCALE * sc.w);
     const kit = this.mat(hex(cheerColour(it, i), 0xe04040));
     const trousers = this.mat([0x2a3a5a, 0x4a4a50, 0x6a5040, 0x3a5a3a][Math.floor(noise(i * 17 + 9) * 4)]);
     const skin = this.mat([0xe0b090, 0xc08860, 0x8a5a3a, 0xf0d0b0][Math.floor(noise(i * 19 + 11) * 4)]);
+    // Left and right are the fan's own: they face +z, so their right is -x.
     const legs = [-0.1, 0.1].map((x) => {
       const leg = new THREE.Group();
+      leg.name = x < 0 ? 'LegR' : 'LegL';
       leg.position.set(x, 0.7, 0);
       leg.add(this.boxMesh(0.12, 0.7, 0.14, trousers, 0, -0.7, 0));
       figure.add(leg);
@@ -2142,6 +2232,7 @@ export class RaceView {
     figure.add(this.boxMesh(0.22, 0.22, 0.22, skin, 0, 1.34, 0));
     const arms = [-1, 1].map((sd) => {
       const arm = new THREE.Group();
+      arm.name = sd < 0 ? 'ArmR' : 'ArmL';
       arm.position.set(sd * 0.27, 1.24, 0.04);
       // Hung from the shoulder: the box sits below its pivot, so the arm swings from the shoulder, not its middle.
       arm.add(this.boxMesh(0.09, 0.8, 0.09, skin, 0, -0.8, 0));
@@ -2149,6 +2240,7 @@ export class RaceView {
       return arm;
     });
     g.add(figure);
+    this.fitFigure(CHEER_ITEM, g, [['Body', figure], ['LegR', legs[0]], ['LegL', legs[1]], ['ArmR', arms[0]], ['ArmL', arms[1]]], { scale: new THREE.Vector3(sc.w, sc.h, sc.w) });
     const route = cheerRoute(it);
     // Where they end up they face the track (the nearest point of it), unless turned by hand.
     const end = route[route.length - 1];
@@ -2508,6 +2600,7 @@ export class RaceView {
     this.agePuffs(Math.min(1, dc * 1.4 + dt * 0.3));
     if (this.laps && this.showFireworks && hasFireworks(this.track.kind)) this.updateFireworks(dc, riders);
     this.updateStart(clock);
+    for (const mixer of this.loops) mixer.update(Math.min(0.1, dt));
     if (this.marshals.length) this.updateMarshals(Math.min(0.1, dt), clock, riders.map((r) => r.pose));
     if (this.flaggers.length || this.crews.length) this.updateFinishCrew(Math.min(0.1, dt), clock, riders);
     if (this.cheers.length) {

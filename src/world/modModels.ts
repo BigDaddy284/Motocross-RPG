@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { BIKE_SLOTS, checkModel, glbInfo, MODEL_DIR, MODEL_INDEX, modelDef, modelId, modelRole, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, RIDER_SLOTS, materialSlot, type ModelEntry } from '../core/modModels';
+import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { BIKE_SLOTS, checkModel, FIGURE_PARTS, partName, glbInfo, MODEL_DIR, MODEL_INDEX, modelDef, modelId, modelRole, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, RIDER_SLOTS, materialSlot, type ModelEntry } from '../core/modModels';
 import type { SceneryDef } from '../core/trackParts';
 import { U } from './paddock';
 
@@ -11,6 +12,8 @@ import { U } from './paddock';
 export interface LoadedModel extends ModelEntry {
   /** The model in metres, Y up, as Blender exported it; null when it can't be used. */
   object: THREE.Group | null;
+  /** Its animations, which scenery plays on a loop (RaceView.playLoops). */
+  clips: THREE.AnimationClip[];
 }
 
 const models = new Map<string, LoadedModel>();
@@ -25,15 +28,68 @@ export function modModel(id: string): THREE.Group | null {
   const m = models.get(id);
   if (!m?.object) return null;
   const g = new THREE.Group();
-  const copy = m.object.clone(true);
-  // Its own materials, so fading one in front of a rider (RaceView.fadeBlockers) leaves the rest.
-  copy.traverse((o) => {
-    const mesh = o as THREE.Mesh;
-    if (mesh.isMesh) mesh.material = Array.isArray(mesh.material) ? mesh.material.map((x) => x.clone()) : mesh.material.clone();
-  });
+  // SkeletonUtils' copy keeps a skinned (boned) model's bones its own, so each copy animates apart.
+  const copy = cloneSkinned(m.object) as THREE.Group;
+  ownMaterials(copy);
   copy.scale.multiplyScalar(U);
   g.add(copy);
+  if (m.clips.length) {
+    g.userData.clips = m.clips;
+    g.userData.clipRoot = copy;
+  }
   return g;
+}
+
+/** Gives every mesh under `o` its own copy of its materials, so fading one in front of a rider (RaceView.fadeBlockers) leaves the rest. */
+function ownMaterials(o: THREE.Object3D): void {
+  o.traverse((x) => {
+    const mesh = x as THREE.Mesh;
+    if (mesh.isMesh) mesh.material = Array.isArray(mesh.material) ? mesh.material.map((y) => y.clone()) : mesh.material.clone();
+  });
+}
+
+/** One named part of a moving figure's model: the part (with whatever hangs from it that isn't another part), where it sat in the model, and its joint. */
+export interface FigurePart {
+  /** A copy of the part, its own transform cleared: `matrix` places it. */
+  object: THREE.Object3D;
+  /** Where the part sat in the model, in metres. */
+  matrix: THREE.Matrix4;
+  /** Its origin in the model, in metres: the joint it turns about. */
+  origin: THREE.Vector3;
+}
+
+/**
+ * The named parts of a moving figure's model (core FIGURE_PARTS), each a fresh copy, or null to
+ * draw the game's own figure. The race view puts each on its joint (RaceView.fitFigure).
+ */
+export function figureParts(id: string): Map<string, FigurePart> | null {
+  const m = models.get(id);
+  const names = FIGURE_PARTS[id];
+  if (!m?.object || !names) return null;
+  const root = m.object;
+  root.updateMatrixWorld(true);
+  const out = new Map<string, FigurePart>();
+  root.traverse((o) => {
+    const name = o === root ? null : partName(o.name, names);
+    if (!name || out.has(name)) return;
+    const copy = o.clone(true);
+    // Another part hanging from this one (an arm under the body) is placed on its own joint.
+    const nested: THREE.Object3D[] = [];
+    copy.traverse((x) => {
+      if (x !== copy && partName(x.name, names)) nested.push(x);
+    });
+    for (const x of nested) x.removeFromParent();
+    copy.position.set(0, 0, 0);
+    copy.quaternion.identity();
+    copy.scale.set(1, 1, 1);
+    ownMaterials(copy);
+    copy.traverse((x) => {
+      const mesh = x as THREE.Mesh;
+      if (mesh.isMesh) mesh.castShadow = mesh.receiveShadow = true;
+    });
+    out.set(name, { object: copy, matrix: o.matrixWorld.clone(), origin: new THREE.Vector3().setFromMatrixPosition(o.matrixWorld) });
+  });
+  return out.size ? out : null;
 }
 
 /** The race bike to draw for a class: the youth model for youth classes when there is one. */
@@ -99,10 +155,12 @@ export async function loadModModels(base: string, scenery: SceneryDef[]): Promis
       const info = bytes ? glbInfo(bytes) : null;
       const problems = checkModel(e.file, bytes?.length ?? 0, info, scenery, error);
       let object: THREE.Group | null = null;
+      let clips: THREE.AnimationClip[] = [];
       if (bytes && !problems.length) {
         try {
           const gltf = await loader.parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer, '');
           object = gltf.scene;
+          clips = gltf.animations ?? [];
           object.traverse((o) => {
             const m = o as THREE.Mesh;
             if (m.isMesh) {
@@ -115,7 +173,7 @@ export async function loadModModels(base: string, scenery: SceneryDef[]): Promis
         }
       }
       const role = modelRole(id, scenery);
-      models.set(id, { ...e, id, role, info, bytes: bytes?.length ?? 0, problems, object });
+      models.set(id, { ...e, id, role, info, bytes: bytes?.length ?? 0, problems, object, clips });
       if (object && info && role === 'new') added.push(modelDef(id, info, U));
     }),
   );

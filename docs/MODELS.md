@@ -28,7 +28,7 @@ The file name decides what the model does:
 - **Ground:** the lowest point sits on the ground at Blender Z = 0, give or take 5 cm. The rider is the one exception (see below).
 - **Facing:** the front faces Blender **−Y** (what you see in Front view, numpad 1). Items such as stands and banners face the track. Bikes point along **+X**.
 - **Origin:** the middle of the footprint, at ground level. The item is placed and turned around it.
-- **Colours:** materials keep their Base Color and Image Texture. Use simple materials (Principled BSDF). Node effects, lights, cameras and animation are dropped.
+- **Colours:** materials keep their Base Color and Image Texture. Use simple materials (Principled BSDF). Node effects, lights and cameras are dropped. Animation plays only on scenery (see below).
 - **Pivot:** use Apply › All Transforms before you export. The game reads the node transforms either way, but this keeps Blender and the game agreeing.
 
 ## Rules for each type
@@ -40,9 +40,35 @@ The file name decides what the model does:
 | **Scenery bikes** (`bike_stand`, `bike_trailer`, paddock vans and haulers) | 20,000 | as scenery | on the ground | These are plain scenery: one model, one look. They aren't recoloured by brand or rider. |
 | **Race bike** (`race_bike.glb`, `race_bike_youth.glb`) | 6,000 | 1.4 m to 2.6 m long along X, at most 1.6 m tall | wheels on the ground | Points along +X, with the middle of the wheelbase at the origin. Every bike in the race uses it, so keep it light. Name materials **Plastics**, **Frame** and **Plate** to get each rider's brand colours. Other materials keep their own colour. |
 | **Race rider** (`race_rider.glb`) | 6,000 | at most 2.4 m long, 2 m tall | boots 0 to 0.6 m up, on the pegs | Sits on the bike in the same space as the exported `race_bike.glb`. Export both and model the rider on the bike. Name materials **Helmet**, **Visor**, **Jersey**, **Pants**, **Boots** and **Gloves** to get each rider's gear colours. The rider leans and moves as one piece. There are no moving arms or legs. |
-| **Locked items** | — | — | — | `marshal`, `flagger`, `pit_crew`, `cheer` (fans), `start_official`, `start_gate`, `finish_arch` and `sprint_start` move, wave flags or stretch to fit the track, so they can't be replaced. A file with one of these names is listed as not used. |
+| **Moving figures** (`marshal`, `flagger`, `pit_crew`, `cheer`, `start_official`) | 8,000 | longest side 8 m, height 8 m | on the ground | Swapped part by part (see *Moving figures* below). A file with none of the figure's part names is listed as not used. |
+| **Locked items** | — | — | — | `start_gate`, `finish_arch` and `sprint_start` stretch to fit the track's width, so they can't be replaced. |
 
 Material names ignore case and Blender's `.001` endings, so `plastics.001` counts as Plastics.
+
+## Moving figures (Boss, 31 Oct 2026)
+
+The marshals, flag man, pit crews, fans and start official move with the race. The game turns each of their parts at a joint: a marshal's flag arm goes up when a rider is down, and fans clap and wave as bikes pass. Your model gives each part its look, and the game still moves it.
+
+- Name each part's object in Blender exactly as below. Case and `.001` endings don't matter.
+- Put each part's **origin on its joint**: a shoulder for an arm, a hip for a leg, the feet for the body. Use Object › Set Origin › Origin to 3D Cursor. The game turns the part about that point.
+- Build it in its **rest pose**. Arms and legs hang down, except a start official's arms, which point straight up holding the board high. The game turns them from there.
+- A part you leave out keeps the game's own. Objects with other names are left out.
+- The pit board and the start board stay the game's, because the game paints and moves them.
+- Start from the figure exported on the Models page. It has every part named, in its rest pose.
+
+| Figure | Parts |
+|---|---|
+| `marshal` | **Body**, **Arm** (the flag arm, with its flag), **Base** (the stand, if any) |
+| `flagger` | **Body**, **WhiteArm**, **ChequeredArm** (each arm with its flag), **Base** (the stand or tower) |
+| `pit_crew` | **Body**, **Arms** (both arms and the pole, as one), **Base** |
+| `cheer` | **Body** (with the head), **LegL**, **LegR**, **ArmL**, **ArmR** |
+| `start_official` | **Body** (with the head), **LegL**, **LegR**, **ArmL**, **ArmR** |
+
+Left and right are the figure's own. It faces −Y, so its left is +X.
+
+## Scenery that moves on its own
+
+A scenery model, either a replacement or a new item, can carry its own animation, such as a flag flapping, a crowd bobbing or a crane swinging. Make it with keyframes or bones in Blender, and export with **Animation** turned on. The game plays every animation in the file on a loop, and each copy starts at its own point so a row of them never moves as one. Animations on the race bike, the rider and the moving figures are ignored.
 
 ## Tips
 
