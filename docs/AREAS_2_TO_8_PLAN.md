@@ -300,6 +300,8 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
      | 7 | 43 | 35 | 8 | Harvey Gizard |
      | 8 | 44 | 35 | 9 | Neal Gizard (NPC) |
 
+     Once all 8 Local Champions are picked (Louis for Area 1, the other 7 from the pool, each waiting for their own area), each area adds two riders, its Local and Area Champion: **Area 1 30, Area 2 32, Area 3 34, Area 4 36, Area 5 38, Area 6 40, Area 7 42, Area 8 44** riders racing.
+
      The 8 NPCs who race from Area 1 are Louis Jonez, Bill Rothon, Jedrick Nicholls, Joseph Halden, Lee Stocky, Jason Styles, Mickey Alington and Dan Smyth. A race day needs 15 CPU riders, a championship 19, and No-Turn Takedown (Area 7) 31.
    - **Future Area Champions are taken out of the pool** and added with their own area. There they win most of that area's races while the player levels up.
    - **NPCs who race join the pool in a set area**, their "area unlocked".
