@@ -835,21 +835,8 @@
       "returns": [{"tile": [2,5]}]
     },
     {
-      "id": "bld.a6.croft", "name": "Croft cottages (no entry, Highlands)", "zone": "Highlands",
-      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [960,0,384,320], "at": [0,0]}],
-      "footprint": [
-        "#####",
-        "#####",
-        "#####",
-        "#####",
-        "#####"
-      ],
-      "doors": [],
-      "returns": []
-    },
-    {
       "id": "bld.a6.phoenix_mx", "name": "Phoenix MX (Highlands)", "zone": "Highlands", "npc": "Paul Phoenix",
-      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [0,320,512,256], "at": [0,0]}],
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [960,0,512,256], "at": [0,0]}],
       "footprint": [
         "#######",
         "#######",
@@ -861,7 +848,7 @@
     },
     {
       "id": "bld.a6.moto78", "name": "Moto78 (Highlands)", "zone": "Highlands", "npc": "Bill Rothon",
-      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [512,320,448,320], "at": [0,0]}],
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [0,320,448,320], "at": [0,0]}],
       "footprint": [
         "######",
         "######",
@@ -874,7 +861,7 @@
     },
     {
       "id": "bld.a6.tyre_shop", "name": "Lee's T's & Wheels (Highlands)", "zone": "Highlands", "npc": "Lee Stocky",
-      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [960,320,448,256], "at": [0,0]}],
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [448,320,448,256], "at": [0,0]}],
       "footprint": [
         "######",
         "######",
@@ -886,7 +873,7 @@
     },
     {
       "id": "bld.a6.gearbox_works", "name": "Gearbox works", "zone": "Highlands",
-      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [0,640,512,320], "at": [0,0]}],
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [896,320,512,320], "at": [0,0]}],
       "footprint": [
         "#######",
         "#######",
@@ -899,7 +886,7 @@
     },
     {
       "id": "bld.a6.nicholls", "name": "Nicholls Used Motors (Highlands)", "zone": "Highlands", "npc": "Jedrick Nicholls",
-      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [512,640,384,256], "at": [0,0]}],
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [0,640,384,256], "at": [0,0]}],
       "footprint": [
         "#####",
         "#####",
@@ -911,7 +898,7 @@
     },
     {
       "id": "bld.a6.cycling_club", "name": "Hill cycling club", "zone": "Highlands",
-      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [896,640,448,256], "at": [0,0]}],
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [384,640,448,256], "at": [0,0]}],
       "footprint": [
         "######",
         "######",
@@ -923,7 +910,7 @@
     },
     {
       "id": "bld.a6.bothy", "name": "Hill practice track bothy", "zone": "Highlands",
-      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [0,960,256,256], "at": [0,0]}],
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [832,640,256,256], "at": [0,0]}],
       "footprint": [
         "###",
         "###",
