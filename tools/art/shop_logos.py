@@ -107,3 +107,90 @@ def js_logo(w, h):
     x += (room - total) / 2
     _runs(d, [("J'S", fa, ba, (255, 200, 40, 255), INK), ('TOOLS', fb, bb, (250, 250, 246, 255), INK)], x, H, 3 * S)
     return _done(big, w, h)
+
+
+# J's Tools sign options for Boss to choose from (Boss, 31 Oct 2026: "I want a few different designs
+# on the same set of buildings for J's before i choose that one"). js_logo above is option A.
+
+def _cog(d, cx, cy, r, teeth, col, edge, hole):
+    pts = []
+    for k in range(teeth * 2):
+        a = k * math.pi / teeth
+        rr = r if k % 2 == 0 else r * 0.78
+        for da in (-0.22, 0.22):
+            pts.append((cx + rr * math.cos(a + da * math.pi / teeth * 2), cy + rr * math.sin(a + da * math.pi / teeth * 2)))
+    d.polygon(pts, fill=col, outline=edge)
+    d.ellipse((cx - r * 0.35, cy - r * 0.35, cx + r * 0.35, cy + r * 0.35), fill=hole, outline=edge, width=S)
+
+
+def js_logo_b(w, h):
+    """B: a blue enamel workshop plate with a cog, J'S TOOLS in cream, a cream pinstripe."""
+    W, H = w * S, h * S
+    BLUE = (28, 70, 150, 255)
+    big = Image.new('RGBA', (W, H), BLUE)
+    d = ImageDraw.Draw(big)
+    d.rounded_rectangle((0, 0, W - 1, H - 1), radius=4 * S, fill=BLUE, outline=INK, width=S)
+    d.rounded_rectangle((2 * S, 2 * S, W - 1 - 2 * S, H - 1 - 2 * S), radius=3 * S, outline=(244, 232, 200, 255), width=S)
+    cy, r = H / 2, H * 0.36
+    cx = r + 6 * S
+    _cog(d, cx, cy, r, 8, (214, 218, 226, 255), INK, BLUE)
+    x = cx + r + 3 * S
+    room = W - x - 5 * S
+    f, b = _fit(d, "J'S TOOLS", room, H - 9 * S)
+    x += (room - (b[2] - b[0])) / 2
+    _runs(d, [("J'S TOOLS", f, b, (244, 232, 200, 255), INK)], x, H, 0)
+    return _done(big, w, h)
+
+
+def js_logo_c(w, h):
+    """C: yellow and black hazard stripes at both ends, a black panel, J'S in yellow over a hammer."""
+    W, H = w * S, h * S
+    YEL = (250, 196, 30, 255)
+    big = Image.new('RGBA', (W, H), INK)
+    d = ImageDraw.Draw(big)
+    e = H * 0.9
+    for x0, x1 in ((0, e), (W - e, W)):
+        d.rectangle((x0, 0, x1, H), fill=YEL)
+        for k in range(-4, 8):
+            sx = x0 + k * 4 * S
+            d.polygon([(sx, H), (sx + 2 * S, H), (sx + 2 * S + H, 0), (sx + H, 0)], fill=INK)
+        d.rectangle((x0, 0, x1, H), outline=INK, width=S)
+    d.rectangle((0, 0, W - 1, H - 1), outline=INK, width=S)
+    # a claw hammer across the left of the panel
+    hx0, hx1, hy = e + 4 * S, e + 4 * S + H * 0.9, H / 2
+    d.line((hx0, hy + H * 0.2, hx1 - H * 0.2, hy - H * 0.12), fill=(170, 112, 60, 255), width=int(2.6 * S))
+    d.polygon([(hx1 - H * 0.3, hy - H * 0.36), (hx1, hy - H * 0.26), (hx1 - H * 0.08, hy + H * 0.04), (hx1 - H * 0.36, hy - H * 0.06)], fill=(200, 204, 212, 255), outline=(250, 250, 246, 255))
+    x = hx1 + 3 * S
+    room = W - e - x - 3 * S
+    fa, ba = _fit(d, "J'S", room * 0.34, H - 6 * S)
+    fb, bb = _fit(d, 'TOOLS', room * 0.6, int((H - 6 * S) * 0.75))
+    total = (ba[2] - ba[0]) + (bb[2] - bb[0]) + 3 * S
+    x += (room - total) / 2
+    _runs(d, [("J'S", fa, ba, YEL, INK), ('TOOLS', fb, bb, (250, 250, 246, 255), INK)], x, H, 3 * S)
+    return _done(big, w, h)
+
+
+def js_logo_d(w, h):
+    """D: racing green with a chequered strip along the bottom, a big white J in a red roundel, TOOLS in white."""
+    W, H = w * S, h * S
+    GREEN = (22, 92, 58, 255)
+    big = Image.new('RGBA', (W, H), GREEN)
+    d = ImageDraw.Draw(big)
+    c = 3 * S
+    for i, x in enumerate(range(0, W, c)):
+        for j, y in enumerate((H - 2 * c, H - c)):
+            d.rectangle((x, y, x + c - 1, y + c - 1), fill=(250, 250, 246, 255) if (i + j) % 2 else INK)
+    d.rectangle((0, 0, W - 1, H - 1), outline=INK, width=S)
+    top = H - 2 * c
+    cy, r = top / 2 + S, top * 0.42
+    cx = r + 5 * S
+    d.ellipse((cx - r - S, cy - r - S, cx + r + S, cy + r + S), fill=INK)
+    d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=(196, 30, 36, 255), outline=(250, 250, 246, 255), width=S)
+    fj, bj = _fit(d, "J'S", r * 1.6, r * 1.3)
+    d.text((cx - (bj[2] + bj[0]) / 2, cy - (bj[3] + bj[1]) / 2), "J'S", font=fj, fill=(255, 200, 40, 255))
+    x = cx + r + 4 * S
+    room = W - x - 4 * S
+    f, b = _fit(d, 'TOOLS', room, top - 5 * S)
+    x += (room - (b[2] - b[0])) / 2
+    _runs(d, [('TOOLS', f, b, (250, 250, 246, 255), INK)], x, top + 2 * S, 0)
+    return _done(big, w, h)
