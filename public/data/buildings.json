@@ -557,6 +557,131 @@
       ],
       "doors": [],
       "returns": []
+    },
+    {
+      "id": "bld.a4.semi", "name": "Semi with garage (house, Forest Town)", "zone": "Forest Town",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a4.png", "crop": [0,0,512,320], "at": [0,0]}],
+      "footprint": [
+        "#######",
+        "#######",
+        "#######",
+        "#######",
+        "##.####"
+      ],
+      "doors": [{"tile": [2,4], "interior": "int.a4.rented_room"}],
+      "returns": [{"tile": [2,5]}]
+    },
+    {
+      "id": "bld.a4.town_house", "name": "Town house (Forest Town)", "zone": "Forest Town",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a4.png", "crop": [512,0,448,320], "at": [0,0]}],
+      "footprint": [
+        "######",
+        "######",
+        "######",
+        "######",
+        "##.###"
+      ],
+      "doors": [{"tile": [2,4], "interior": "int.a4.neighbour"}],
+      "returns": [{"tile": [2,5]}]
+    },
+    {
+      "id": "bld.a4.cottage", "name": "Thatched cottage (no entry, Forest Town)", "zone": "Forest Town",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a4.png", "crop": [960,0,384,320], "at": [0,0]}],
+      "footprint": [
+        "#####",
+        "#####",
+        "#####",
+        "#####",
+        "#####"
+      ],
+      "doors": [],
+      "returns": []
+    },
+    {
+      "id": "bld.a4.phoenix_mx", "name": "Phoenix MX (Forest Town)", "zone": "Forest Town", "npc": "Paul Phoenix",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a4.png", "crop": [0,320,512,256], "at": [0,0]}],
+      "footprint": [
+        "#######",
+        "#######",
+        "#######",
+        "#....##"
+      ],
+      "doors": [{"tile": [1,3], "interior": "int.a4.local_garage"},{"tile": [2,3], "interior": "int.a4.local_garage"},{"tile": [3,3], "interior": "int.a4.local_garage", "spawn": "side_door"},{"tile": [4,3], "interior": "int.a4.local_garage", "spawn": "side_door"}],
+      "returns": [{"tile": [1,4]},{"tile": [3,4], "name": "side_door"}]
+    },
+    {
+      "id": "bld.a4.moto78", "name": "Moto78 (Forest Town)", "zone": "Forest Town", "npc": "Bill Rothon",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a4.png", "crop": [512,320,448,320], "at": [0,0]}],
+      "footprint": [
+        "######",
+        "######",
+        "######",
+        "######",
+        "###.##"
+      ],
+      "doors": [{"tile": [3,4], "interior": "int.a4.bike_shop"}],
+      "returns": [{"tile": [3,5]}]
+    },
+    {
+      "id": "bld.a4.tyre_shop", "name": "Lee's T's & Wheels (Forest Town)", "zone": "Forest Town", "npc": "Lee Stocky",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a4.png", "crop": [960,320,512,256], "at": [0,0]}],
+      "footprint": [
+        "#######",
+        "#######",
+        "#######",
+        "####.##"
+      ],
+      "doors": [{"tile": [4,3], "interior": "int.a4.tyre_shop"}],
+      "returns": [{"tile": [4,4]}]
+    },
+    {
+      "id": "bld.a4.suspension_shop", "name": "Suspension shop", "zone": "Forest Town",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a4.png", "crop": [0,640,448,320], "at": [0,0]}],
+      "footprint": [
+        "######",
+        "######",
+        "######",
+        "######",
+        "##.###"
+      ],
+      "doors": [{"tile": [2,4], "interior": "int.a4.tool_shop"}],
+      "returns": [{"tile": [2,5]}]
+    },
+    {
+      "id": "bld.a4.nicholls", "name": "Nicholls Used Motors (Forest Town)", "zone": "Forest Town", "npc": "Jedrick Nicholls",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a4.png", "crop": [448,640,384,256], "at": [0,0]}],
+      "footprint": [
+        "#####",
+        "#####",
+        "#####",
+        "#.###"
+      ],
+      "doors": [{"tile": [1,3], "interior": "int.a4.van_office"}],
+      "returns": [{"tile": [1,4]}]
+    },
+    {
+      "id": "bld.a4.yoga_retreat", "name": "Woodland yoga retreat", "zone": "Forest Town",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a4.png", "crop": [832,640,448,256], "at": [0,0]}],
+      "footprint": [
+        "######",
+        "######",
+        "######",
+        "######"
+      ],
+      "doors": [],
+      "returns": []
+    },
+    {
+      "id": "bld.a4.loop_kiosk", "name": "Forest practice loop hut", "zone": "Forest Town",
+      "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a4.png", "crop": [1280,640,256,256], "at": [0,0]}],
+      "footprint": [
+        "###",
+        "###",
+        "###",
+        "###"
+      ],
+      "doors": [],
+      "returns": []
     }
   ]
 }

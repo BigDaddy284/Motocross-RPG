@@ -191,7 +191,10 @@ describe('Areas 3 to 8 (Areas 2 to 8 plan; Boss, 31 Oct 2026: placeholder towns,
     8: { W: 'area7-the-city', E: 'area1-home-town' },
   };
   // A drawn town adds its own road to the Hub (the world map's spoke; Areas 2 to 8 maps, Boss 31 Oct 2026).
-  const hubRoad: Record<number, string> = { 3: 'South road' };
+  const hubRoad: Record<number, string> = { 3: 'South road', 4: 'South-east road' };
+  // The roads to the next area (W) and the one before (E), named by the side of the drawn map they
+  // leave from (Forest Town's road to Northern Works leaves south; Boss, 31 Oct 2026).
+  const exitTo = (n: number) => ({ W: 'West road', E: 'East road', ...({ 4: { W: 'South road' } } as Record<number, { W?: string; E?: string }>)[n] });
   const badgeClass: Record<number, string> = { 3: '85cc-small', 4: '85cc-big', 5: '125cc-youth', 6: '125cc', 7: '250f', 8: '450f' };
 
   it('are all there, in order, each with a stamped town, its insides, three tracks at the hub venues and a locked house', () => {
@@ -219,10 +222,15 @@ describe('Areas 3 to 8 (Areas 2 to 8 plan; Boss, 31 Oct 2026: placeholder towns,
     const places = content.world.places;
     for (const a of later) {
       const routes = content.world.routes.filter((r) => r.map === a.map);
-      expect(routes.map((r) => r.exit).sort()).toEqual(['East road', 'West road', ...(hubRoad[a.n] ? [hubRoad[a.n]] : [])].sort());
+      const ex = exitTo(a.n);
+      expect(routes.map((r) => r.exit).sort()).toEqual([ex.E, ex.W, ...(hubRoad[a.n] ? [hubRoad[a.n]] : [])].sort());
       if (hubRoad[a.n]) expect(routes.find((r) => r.exit === hubRoad[a.n])!.to).not.toContain(roads[a.n].E);
-      expect(routes.find((r) => r.exit === 'West road')!.to).toContain(roads[a.n].W);
-      expect(routes.find((r) => r.exit === 'East road')!.to).toContain(roads[a.n].E);
+      if (hubRoad[a.n]) expect(routes.find((r) => r.exit === hubRoad[a.n])!.to).not.toContain(roads[a.n].W);
+      expect(routes.find((r) => r.exit === ex.W)!.to).toContain(roads[a.n].W);
+      expect(routes.find((r) => r.exit === ex.E)!.to).toContain(roads[a.n].E);
+      // every road on the menu is an exit on the town's map
+      const exits = maps.get(a.map)!.objects.filter((o) => o.type === 'exit').map((o) => o.name);
+      for (const r of routes) expect(exits, `${a.map} ${r.exit}`).toContain(r.exit);
       // The Race Hub reaches every area, and every town road reaches the hub's three venues, where its tracks race.
       expect(content.world.routes.find((r) => r.map === 'venue-motocross')!.to).toContain(a.map);
       for (const r of routes) for (const v of ['venue-motocross', 'venue-supercross', 'venue-enduro']) expect(r.to).toContain(v);

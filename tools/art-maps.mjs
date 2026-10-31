@@ -16,6 +16,7 @@ export const AREA_MAPS = [
   // Drawn towns (Areas 2 to 8 maps): never stamped again by tools/gen-area.mjs.
   'area-map/tiled/maps/area2-mountain-town.tmj',
   'area-map/tiled/maps/area3-beach-town.tmj',
+  'area-map/tiled/maps/area4-forest-town.tmj',
 ];
 /**
  * Venue maps kept for later, not on any road (one venue per race type; Boss, 30 Oct 2026): baked
