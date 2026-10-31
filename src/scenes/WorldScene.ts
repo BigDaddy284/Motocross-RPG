@@ -1381,22 +1381,20 @@ export class WorldScene extends Phaser.Scene {
       active.rounds.length ? `After round ${active.rounds.length}:\n${top.join('\n')}` : 'No rounds ridden yet.',
       `Next: round ${active.rounds.length + 1} at ${next?.name}. ${active.rounds.length && !titlePossible(def, rc.racing.points, active) ? 'The title is out of reach now, but the top three still win a prize.' : ''}`,
     ].join('\n\n');
-    const restart = () => this.hud.confirm(`Start the ${def.name} again from round 1?\nYour points so far are lost.`, 'Start again', () => {
-      withdraw(career, def);
-      enter(career, rc, def, (Math.random() * 2 ** 32) >>> 0);
-      this.milestoneSave();
-      this.hud.toast(`${def.name}: started again.`);
-      this.openChampionship(def, venue, onClose);
-    }, () => this.openChampionship(def, venue, onClose));
     const giveUp = () => this.hud.confirm(`Give up the ${def.name}?\nYour points so far are lost. You can enter again later.`, 'Give it up', () => {
       withdraw(career, def);
       this.milestoneSave();
       this.hud.toast(`You gave up the ${def.name}.`);
       this.openChampionships(venue, onClose);
     }, () => this.openChampionship(def, venue, onClose));
+    // No Start again: Give it up and enter again does the same. At the next round's track, the
+    // round can be raced from here as well as from the race office's list (Boss, 31 Oct 2026).
+    const here = roundsHere(rc.championships, career, venue).includes(def);
+    const fee = roundEntry(rc, def, venueClassFor(rc, venue, career));
+    const short = career.money < fee;
     this.hud.choose(def.name, text, [
-      { label: 'Start again', note: 'Back to round 1 with no points, against a new field.', onPick: restart },
-      { label: 'Give it up', note: 'Leave the championship.', onPick: giveUp },
+      ...(here ? [{ label: `Race round ${active.rounds.length + 1}`, note: `Entry: ${formatMoney(fee)}${short ? " — you can't afford it" : ''}. Qualifying, then 2 motos.`, enabled: !short, onPick: () => this.ride('raceday', venue, fee, onClose, def) }] : []),
+      { label: 'Give it up', note: 'Leave the championship. You can enter again later, from round 1.', onPick: giveUp },
       { label: 'Back', onPick: back },
     ], back);
   }
