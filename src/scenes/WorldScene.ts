@@ -203,6 +203,7 @@ export class WorldScene extends Phaser.Scene {
     this.time.addEvent({ delay: AUTOSAVE_MS, loop: true, callback: () => this.autosave('timer') });
     this.hud.showMapTitle(map.title);
     this.hud.showCareer(this.save.career, this.save.flags);
+    this.hud.rider = this.save.rider;
     this.hud.showShift(null);
     // Buying, selling, repairs and dumping spares change the career in the HUD's panels.
     this.hud.onShopChange = () => {
@@ -1180,7 +1181,7 @@ export class WorldScene extends Phaser.Scene {
     const rider = this.save.rider;
     const again = () => this.openRack(npc, shop, back);
     this.hud.choose('Clothing rack', 'Bought outfits hang in your wardrobe at home: put them on there.', [
-      ...data.outfits.filter((o) => o.id !== 'start').map((o) => {
+      ...data.outfits.filter((o) => o.id !== 'start' && !o.award).map((o) => {
         const problem = outfitProblem(data, o, career, rider, this.save.flags);
         return { label: `${o.name}: ${formatMoney(pence(o.price))}`, note: problem ?? o.desc ?? '', enabled: !problem, onPick: () => {
           const r = buyOutfit(data, o, career, rider, this.save.flags);

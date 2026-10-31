@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { newCareerState } from '../src/core/career';
 import { checkContent } from '../src/core/content';
-import { START_OUTFIT, buyOutfit, checkHouse, housesOwned, outfitProblem, outfitSheet, ownsOutfit, rackOpen, riderGender, storageLimit, storeSpare, stored, takeSpare, wearOutfit, wornOutfit, type RiderLook } from '../src/core/house';
+import { START_OUTFIT, awardOutfit, buyOutfit, championsKit, checkHouse, housesOwned, outfitProblem, outfitSheet, ownsOutfit, rackOpen, riderGender, storageLimit, storeSpare, stored, takeSpare, wearOutfit, wornOutfit, type RiderLook } from '../src/core/house';
 import { SAVE_VERSION, parseSave } from '../src/core/saves';
 import { SPARE } from '../src/core/shops';
 import { loadManifest, loadMaps, rawContent } from './helpers';
 
 const manifest = loadManifest();
 const content = checkContent(rawContent(), manifest, loadMaps()).content!;
-const { bikes, story, house: data, shops } = content;
+const { bikes, story, house: data, shops, championships } = content;
 const fresh = () => ({ ...newCareerState(bikes, story, 'yamamoto', () => 0.5), money: 20000 });
 const rider = (look = 'player-f-start-a'): RiderLook => ({ look });
 const kit = data.outfits.find((o) => o.id === 'mxgear')!;
@@ -58,6 +58,43 @@ describe('the wardrobe and the Phoenix MX clothing rack (Boss, 30 Oct 2026: the 
     const save = { version: SAVE_VERSION, savedAt: 'now', rider: { name: 'A', ...r }, position: { map: 'area1-home-town', x: 1, y: 1, facing: 'down' }, flags: {}, stats: { playSeconds: 0 }, career: fresh(), van: null, driving: false };
     expect(parseSave(JSON.stringify(save))?.rider).toEqual({ name: 'A', ...r });
     expect(parseSave(JSON.stringify({ ...save, rider: { name: 'A', look: 'x', outfits: [1] } }))).toBeNull();
+  });
+});
+
+// The champion's offer brings the sponsor's kit with the free bike, up to Area 4 (Boss, 31 Oct 2026).
+describe("the champion's kit", () => {
+  it('comes with the area championships up to Area 4, never later, and is never on the rack', () => {
+    const champ = (id: string) => championships.championships.find((c) => c.id === id)!;
+    const kit = championsKit(data, champ('area1.main'))!;
+    expect(kit.id).toBe('champion_kit');
+    expect(kit.award).toBe(true);
+    expect(championsKit(data, champ('area4.main'))?.id).toBe('champion_kit');
+    expect(championsKit(data, champ('area5.main'))).toBeNull();
+    const local = championships.championships.find((c) => !c.milestone)!;
+    expect(championsKit(data, local)).toBeNull();
+    const career = { ...newCareerState(bikes, story, 'yamamoto', () => 0.5), money: 100_000 };
+    expect(outfitProblem(data, kit, career, rider('player-m-start-a'), { wardrobe: true })).toMatch(/champion's offer/);
+  });
+
+  it('hangs in the wardrobe once, in the rider’s size, and can be put on there', () => {
+    const kit = championsKit(data, championships.championships.find((c) => c.id === 'area2.main')!)!;
+    const r = rider('player-f-start-b');
+    expect(awardOutfit(kit, r).ok).toBe(true);
+    expect(r.outfits).toEqual(['champion_kit']);
+    expect(r.startLook).toBe('player-f-start-b');
+    expect(awardOutfit(kit, r).ok).toBe(false);
+    expect(wearOutfit(kit, r).ok).toBe(true);
+    expect(r.look).toBe('player-f-mxgear');
+  });
+
+  it('content check: the kit must be an award outfit that exists', () => {
+    const sheets = Object.keys(manifest.characters.sheets);
+    const shopIds = shops.shops.map((s) => s.id);
+    const bad = JSON.parse(JSON.stringify(data));
+    bad.kit.outfit = 'mxgear';
+    expect(checkHouse('h', bad, { sheets, shops: shopIds }).map((e) => e.field)).toEqual(['kit.outfit']);
+    bad.kit.outfit = 'moon';
+    expect(checkHouse('h', bad, { sheets, shops: shopIds }).map((e) => e.field)).toEqual(['kit.outfit']);
   });
 });
 

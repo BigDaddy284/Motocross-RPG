@@ -23,6 +23,7 @@ import {
   type StockItem,
 } from '../core/shops';
 import type { DialogueLine } from '../core/content';
+import { awardOutfit, championsKit, type RiderLook } from '../core/house';
 import { className, collectBike, milestoneOf, milestoneStatus, sponsorBrand, stockBikePrice } from '../core/classes';
 import { buyTools, diyFitProblem, diyRepair, diyRepairQuote, nextVersion, ownedVersion, toolsFor } from '../core/tools';
 import { repairLent } from '../core/errands';
@@ -183,6 +184,8 @@ export class HudScene extends Phaser.Scene {
   private bagPage = 0;
   /** Saves and refreshes the money line after a shop, repair or bag change. Set by the world. */
   onShopChange: (() => void) | null = null;
+  /** The rider's look and wardrobe (the save's rider), for the champion's kit that comes with the sponsor's free bike. */
+  rider: RiderLook | null = null;
 
   private layout(): void {
     const { width, height } = view(this);
@@ -1229,7 +1232,13 @@ export class HudScene extends Phaser.Scene {
           this.confirm(
             `Take the ${name} ${next.name}${price ? ` for ${formatMoney(price)}` : ', free from the champion\'s sponsor'}?\nYour ${className(bikes, career.bike.class)} retires to the display as it is, parts and all. Spares for it stay in your bag to sell.`,
             'Take it',
-            () => done(collectBike(bikes, services.content.championships, career, this.flags, brand, price), 'buy'),
+            () => {
+              const r = collectBike(bikes, services.content.championships, career, this.flags, brand, price);
+              // The champion's offer brings the sponsor's kit too, up to Area 4 (Boss, 31 Oct 2026).
+              const kit = r.ok && !price && champ && this.rider ? championsKit(services.content.house, champ) : null;
+              const given = kit ? awardOutfit(kit, this.rider!) : null;
+              done(given?.ok ? { ...r, message: `${r.message} ${given.message}` } : r, 'buy');
+            },
             () => reopen(),
           );
         });

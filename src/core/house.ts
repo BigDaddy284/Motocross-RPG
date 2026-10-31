@@ -14,10 +14,14 @@ export interface OutfitDef {
   /** The character sheet for each rider (m or f); a rider with no sheet here can't buy it. `start` has none: it is the rider's own look. */
   sheets: Record<string, string>;
   desc?: string;
+  /** Never on the rack: given with the champion's offer (Boss, 31 Oct 2026). */
+  award?: boolean;
 }
 
 export interface HouseData {
   outfits: OutfitDef[];
+  /** The champion's kit: the outfit given with the sponsor's free bike after an area championship up to lastArea. */
+  kit?: { outfit: string; lastArea: number; note?: string };
   rack: { needs: string; shops: string[] };
   storage: { base: number; perExtraHouse: number };
 }
@@ -47,6 +51,27 @@ export function wornOutfit(data: HouseData, rider: RiderLook): OutfitDef {
   return data.outfits.find((o) => o.id !== START_OUTFIT && outfitSheet(o, rider) === rider.look) ?? data.outfits.find((o) => o.id === START_OUTFIT)!;
 }
 
+/**
+ * The champion's kit that comes with the sponsor's free bike for this milestone championship, or
+ * null: championships up to the kit's last area (Boss, 31 Oct 2026: Areas 1 to 4; from Area 5 a
+ * sponsor contract brings its own kit).
+ */
+export function championsKit(data: HouseData, championship: { id: string; milestone?: string }): OutfitDef | null {
+  if (!data.kit || !championship.milestone) return null;
+  const area = Number(/^area(\d+)\./.exec(championship.id)?.[1] ?? NaN);
+  if (!(area <= data.kit.lastArea)) return null;
+  return data.outfits.find((o) => o.id === data.kit!.outfit) ?? null;
+}
+
+/** Hangs an awarded outfit in the wardrobe (nothing to pay, not put on here); nothing when it is there already. */
+export function awardOutfit(outfit: OutfitDef, rider: RiderLook): { ok: boolean; message: string } {
+  if (ownsOutfit(rider, outfit.id)) return { ok: false, message: `${outfit.name}: you have one already.` };
+  if (!outfitSheet(outfit, rider)) return { ok: false, message: `${outfit.name}: they had none in your size.` };
+  rider.startLook ??= rider.look;
+  (rider.outfits ??= []).push(outfit.id);
+  return { ok: true, message: `${outfit.name}: yours, hanging in the wardrobe.` };
+}
+
 /** Whether the rack is open to this rider: it needs the wardrobe (the Area 2 house). */
 export const rackOpen = (data: HouseData, flags: Record<string, boolean>): boolean => !!flags[data.rack.needs];
 
@@ -54,6 +79,7 @@ export const rackOpen = (data: HouseData, flags: Record<string, boolean>): boole
 export function outfitProblem(data: HouseData, outfit: OutfitDef, career: CareerState, rider: RiderLook, flags: Record<string, boolean>): string | null {
   if (!rackOpen(data, flags)) return 'Nothing on the rack is for sale until you have a wardrobe to hang it in.';
   if (outfit.id === START_OUTFIT) return "Those are your own clothes.";
+  if (outfit.award) return "That one isn't for sale: it comes with a champion's offer.";
   if (ownsOutfit(rider, outfit.id)) return 'You have that one.';
   if (!outfitSheet(outfit, rider)) return "They don't do that one in your size.";
   if (career.money < pence(outfit.price)) return `It's £${outfit.price}. You can't afford it.`;
@@ -120,10 +146,11 @@ const ID = /^[a-z0-9_.-]+$/;
 
 export const HOUSE_SCHEMA: Schema = {
   type: 'object',
-  optional: ['note'],
+  optional: ['note', 'kit'],
   fields: {
     note: { type: 'string' },
-    outfits: { type: 'array', minItems: 1, items: { type: 'object', optional: ['desc'], fields: { id: { type: 'string', pattern: ID }, name: { type: 'string', nonEmpty: true }, price: { type: 'number', min: 0 }, sheets: { type: 'record', values: { type: 'string', pattern: ID } }, desc: { type: 'string' } } } },
+    outfits: { type: 'array', minItems: 1, items: { type: 'object', optional: ['desc', 'award'], fields: { id: { type: 'string', pattern: ID }, name: { type: 'string', nonEmpty: true }, price: { type: 'number', min: 0 }, sheets: { type: 'record', values: { type: 'string', pattern: ID } }, desc: { type: 'string' }, award: { type: 'boolean' } } } },
+    kit: { type: 'object', optional: ['note'], fields: { outfit: { type: 'string', pattern: ID }, lastArea: { type: 'number', integer: true, min: 1 }, note: { type: 'string' } } },
     rack: { type: 'object', fields: { needs: { type: 'string', pattern: ID }, shops: { type: 'array', items: { type: 'string', pattern: ID } } } },
     storage: { type: 'object', fields: { base: { type: 'number', integer: true, min: 1 }, perExtraHouse: { type: 'number', integer: true, min: 0 } } },
   },
@@ -142,5 +169,10 @@ export function checkHouse(file: string, data: HouseData, c: { sheets: string[];
     if (o.id !== START_OUTFIT && !Object.keys(o.sheets).length) err(`outfits[${i}].sheets`, 'an outfit for sale needs a sheet for m or f');
   });
   data.rack.shops.forEach((s, i) => !c.shops.includes(s) && err(`rack.shops[${i}]`, `no shop "${s}" in shops.json`));
+  if (data.kit) {
+    const kit = data.outfits.find((o) => o.id === data.kit!.outfit);
+    if (!kit) err('kit.outfit', `no outfit "${data.kit.outfit}"`);
+    else if (!kit.award) err('kit.outfit', `"${data.kit.outfit}" should be an award (never on the rack)`);
+  }
   return errors;
 }
