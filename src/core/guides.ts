@@ -98,9 +98,34 @@ export const ROAD_TRACK_TYPES: { id: string; name: string; kinds: string[]; comi
   { id: 'no_turn', name: 'No-Turn Takedown', kinds: ['no_turn'], comingSoon: true },
 ];
 
+/**
+ * The venue map for each track type (one venue per track type, Boss, 30 Oct 2026): every track of
+ * a type races at its type's venue. The last three are ready for later and not on any road yet.
+ */
+export const VENUE_MAPS: Record<string, string> = {
+  motocross: 'venue-motocross',
+  supercross: 'venue-supercross',
+  enduro_loop: 'venue-enduro',
+  enduro_sprint: 'venue-enduro-sprint',
+  endurocross: 'venue-endurocross',
+  no_turn: 'venue-no-turn',
+};
+
+/** The venue map a track of this kind (trackParts.json) races at, or undefined for a kind with no type. */
+export function venueMapFor(kind: string): string | undefined {
+  const type = ROAD_TRACK_TYPES.find((t) => t.kinds.includes(kind));
+  return type && VENUE_MAPS[type.id];
+}
+
+/** A track on the road menu: the venue, on its type's venue map, arriving at that map's place. */
+export interface RoadStop extends PlaceDef {
+  /** The venue (tracks.json venues) to race at once there. */
+  venue: string;
+}
+
 export interface RoadMenu {
-  /** One per track type, in ROAD_TRACK_TYPES order, with its unlocked tracks' places. */
-  tracks: { id: string; name: string; comingSoon: boolean; places: PlaceDef[] }[];
+  /** One per track type, in ROAD_TRACK_TYPES order, with its unlocked tracks. */
+  tracks: { id: string; name: string; comingSoon: boolean; places: RoadStop[] }[];
   /** Places on the road that aren't a track: Home Town and the like. */
   areas: PlaceDef[];
   /** True when the road has the mod track list. */
@@ -108,30 +133,45 @@ export interface RoadMenu {
 }
 
 /**
- * Sorts a road's places into the road menu. A place is a track when a race venue (not a practice
- * loop) is on its map; it is listed under its track's type once the venue is open (not locked,
- * and its needs flag set), and left out until then. `kindOf` is the venue's track kind.
+ * Sorts a road's places into the road menu. A place is a venue map when a race venue (not a practice
+ * loop) is on its map: each venue there is a track on the menu, listed under its type by the venue's
+ * name once it is open (not locked, and its needs flag set), and left out until then. One venue map
+ * holds every track of its type (Boss, 30 Oct 2026), so a place can list several tracks. `kindOf`
+ * is the venue's track kind.
  */
 export function roadMenu(
   places: PlaceDef[],
-  venues: Pick<VenueDef, 'map' | 'needs' | 'locked' | 'practiceOnly' | 'track'>[],
+  venues: Pick<VenueDef, 'id' | 'name' | 'map' | 'needs' | 'locked' | 'practiceOnly' | 'track'>[],
   kindOf: (track: string) => string | undefined,
   flags: Record<string, boolean>,
 ): RoadMenu {
-  const tracks = ROAD_TRACK_TYPES.map((t) => ({ id: t.id, name: t.name, comingSoon: !!t.comingSoon, places: [] as PlaceDef[] }));
+  const tracks = ROAD_TRACK_TYPES.map((t) => ({ id: t.id, name: t.name, comingSoon: !!t.comingSoon, places: [] as RoadStop[] }));
   const areas: PlaceDef[] = [];
   for (const p of places) {
     if (p.mods) continue;
     if (p.needs && !flags[p.needs]) continue;
-    const venue = venues.find((v) => v.map === p.map && !v.practiceOnly);
-    if (!venue) {
+    const here = venues.filter((v) => v.map === p.map && !v.practiceOnly);
+    if (!here.length) {
       areas.push(p);
       continue;
     }
-    if (venue.locked || (venue.needs && !flags[venue.needs])) continue;
-    const kind = (venue.track && kindOf(venue.track)) || 'outdoor';
-    const i = ROAD_TRACK_TYPES.findIndex((t) => t.kinds.includes(kind));
-    if (i >= 0 && !tracks[i].comingSoon) tracks[i].places.push(p);
+    for (const venue of here) {
+      if (venue.locked || (venue.needs && !flags[venue.needs])) continue;
+      const kind = (venue.track && kindOf(venue.track)) || 'outdoor';
+      const i = ROAD_TRACK_TYPES.findIndex((t) => t.kinds.includes(kind));
+      if (i >= 0 && !tracks[i].comingSoon) tracks[i].places.push({ ...p, name: venue.name, venue: venue.id });
+    }
   }
   return { tracks, areas, mods: places.some((p) => p.mods) };
+}
+
+/**
+ * The venue the rider is at on a map that holds several (one venue map per track type, Boss,
+ * 30 Oct 2026): the one picked at the road (career.venue) when it is open and on this map, else
+ * the first one open to the rider, else the map's first, so a shut venue still says why it is shut.
+ */
+export function venueHere<V extends Pick<VenueDef, 'id' | 'map' | 'needs' | 'locked' | 'practiceOnly'>>(venues: V[], map: string, flags: Record<string, boolean>, picked?: string): V | undefined {
+  const here = venues.filter((v) => v.map === map && !v.practiceOnly);
+  const open = here.filter((v) => !v.locked && (!v.needs || flags[v.needs]));
+  return open.find((v) => v.id === picked) ?? open[0] ?? here[0];
 }

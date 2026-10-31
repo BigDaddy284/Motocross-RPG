@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Stamps the town, its buildings' insides and its three venues for every area in
+// Stamps the town and its buildings' insides for every area in
 // public/data/areas.json that has a `town` entry, from the baked Area 1 maps (Areas 2 to 8 plan;
 // Boss, 31 Oct 2026: "Create the Area map art for all areas 2-8" as placeholders until each town is
 // drawn in Tiled). The Area 1 maps are not touched. Run it again after editing areas.json:
@@ -15,7 +15,8 @@
 //   both route exits (world.json routes say where they go, matching the world map's roads).
 // - int-a<N>-local-garage/bike-shop/tyre-shop/van-office/rented-room/tool-shop.json: the insides
 //   (the house in the rented room's slot, the batch facility in the tool shop's).
-// - venue-a<N>-mx/sx/enduro.json: the venues, with their own venue ids and race officials.
+// The area's tracks have no maps of their own: they race at the venue maps, one per track type
+// (Boss, 30 Oct 2026; tracks.json venues, core/guides.ts VENUE_MAPS).
 // - public/assets/manifest.json: the new maps listed (old entries for them replaced).
 import fs from 'node:fs';
 import path from 'node:path';
@@ -41,7 +42,6 @@ const INTERIORS = {
   neighbour: 'int-home-neighbour',
   tool_shop: 'int-iz-fabrication-shop',
 };
-const VENUES = { mx: 'venue-motocross', sx: 'venue-supercross', enduro: 'venue-enduro' };
 
 function listMap(id, title, kind) {
   manifest.maps = manifest.maps.filter((m) => m.id !== id);
@@ -135,20 +135,6 @@ function town(a) {
     for (const o of im.objects) if (o.props?.interior === from) o.props = { ...o.props, interior: interior(key) };
     write(im);
     listMap(im.id, im.title, 'interior');
-  }
-  // The venues.
-  for (const [key, src] of Object.entries(VENUES)) {
-    const vm = read(src);
-    vm.id = `venue-${p}-${key}`;
-    const vname = t.venues?.[key] ?? `${a.name} ${key.toUpperCase()}`;
-    vm.title = vname;
-    vm.props = { ...vm.props, title: vname };
-    for (const o of vm.objects) {
-      if (o.type === 'venue') { o.name = vname; o.props = { venue: vm.id }; }
-      if (o.type === 'npc') o.props = { npc: `npc.${p}.official_${key}` };
-    }
-    write(vm);
-    listMap(vm.id, vm.title, 'area');
   }
 }
 

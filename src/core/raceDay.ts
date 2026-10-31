@@ -64,6 +64,7 @@ export function fieldRider(rc: Pick<RaceContent, 'riders'>, field: string | unde
 export interface VenueDef {
   id: string;
   name: string;
+  /** The map it is on: its track type's venue map, shared by every track of that type (Boss, 30 Oct 2026; core/guides.ts VENUE_MAPS). */
   map: string;
   /** The town map of the area the venue belongs to (areas.json): its weather. */
   town?: string;

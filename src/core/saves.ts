@@ -238,6 +238,7 @@ function isCareer(v: unknown): boolean {
     (c.sponsor === undefined || isContract(c.sponsor)) &&
     (c.sponsorOffers === undefined || (Array.isArray(c.sponsorOffers) && c.sponsorOffers.every((o) => isOffer(o)))) &&
     (c.storage === undefined || (Array.isArray(c.storage) && c.storage.every((p) => isSpare(p as Record<string, unknown>)))) &&
+    (c.venue === undefined || typeof c.venue === 'string') &&
     (c.chains === undefined || (typeof c.chains === 'object' && c.chains !== null && Object.values(c.chains as Record<string, Record<string, unknown>>).every((ch) => Number.isInteger(ch?.step) && Array.isArray(ch?.used)))) &&
     typeof c.counters === 'object' && c.counters !== null &&
     isSkills(c.skills)

@@ -3,6 +3,7 @@ import type { BikesData, ItemDef, StoryData, WorldData } from './career';
 import { Grid } from './grid';
 import { objectTile, type BakedMap, type Facing } from './mapTypes';
 import { ROUTE } from './travel';
+import { venueMapFor } from './guides';
 import type { RacingData } from './race';
 import { TRACK_PARTS_SCHEMA, checkTrackParts, type TrackPartsData } from './trackParts';
 import { CHAMPIONSHIPS_SCHEMA, checkChampionships, type ChampionshipsData } from './championship';
@@ -438,6 +439,10 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
   errors.push(...checkCareerContent(content, maps));
   content.tracks.venues.forEach((v, i) => {
     if (v.track && drafts.has(v.track)) errors.push({ file: CONTENT_FILES.tracks, field: `venues[${i}].track`, message: `"${v.track}" (${drafts.get(v.track)}) is unfinished; mark it Ready to race in the track editor first` });
+    // One venue map per track type (Boss, 30 Oct 2026): a race venue is on its track's type's map.
+    const kind = v.track && !v.practiceOnly ? content.tracks.tracks.find((t) => t.id === v.track)?.kind : undefined;
+    const map = kind && venueMapFor(kind);
+    if (map && v.map !== map) errors.push({ file: CONTENT_FILES.tracks, field: `venues[${i}].map`, message: `"${v.map}": a ${kind} track races at ${map} (one venue per track type)` });
   });
   errors.push(...checkRaceContent(content, maps));
   errors.push(...checkChampionships(content.championships, content));

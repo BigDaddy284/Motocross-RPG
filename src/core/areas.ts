@@ -56,8 +56,8 @@ export interface AreaDef {
   motor?: MotorDef;
   /** The odds of each kind of weather (racing.json weather) on a race day at the area's tracks. */
   weather?: Record<string, number>;
-  /** What tools/gen-area.mjs stamps the town with: the names of its batch facility, fitness venue, drill yard and venues. */
-  town?: { works: string; worksBoss: string; fitness: string; fitnessCoach?: string; yard: string; venues?: Record<string, string> };
+  /** What tools/gen-area.mjs stamps the town with: the names of its batch facility, fitness venue and drill yard. Its tracks race at the venue maps (tracks.json). */
+  town?: { works: string; worksBoss: string; fitness: string; fitnessCoach?: string; yard: string };
 }
 
 export interface AreasData {
@@ -149,8 +149,8 @@ export const AREAS_SCHEMA: Schema = {
           weather: { type: 'record', values: { type: 'number', min: 0 } },
           town: {
             type: 'object',
-            optional: ['fitnessCoach', 'venues'],
-            fields: { works: { type: 'string', nonEmpty: true }, worksBoss: { type: 'string', nonEmpty: true }, fitness: { type: 'string', nonEmpty: true }, fitnessCoach: { type: 'string', nonEmpty: true }, yard: { type: 'string', nonEmpty: true }, venues: { type: 'record', values: { type: 'string', nonEmpty: true } } },
+            optional: ['fitnessCoach'],
+            fields: { works: { type: 'string', nonEmpty: true }, worksBoss: { type: 'string', nonEmpty: true }, fitness: { type: 'string', nonEmpty: true }, fitnessCoach: { type: 'string', nonEmpty: true }, yard: { type: 'string', nonEmpty: true } },
           },
         },
       },

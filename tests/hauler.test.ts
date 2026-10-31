@@ -16,7 +16,8 @@ const venues = [...maps.keys()].filter((id) => id.startsWith('venue-'));
 // The Factory Hauler is never bought or driven (Boss, 31 Oct 2026): with a factory sponsor the team parks it at every venue.
 describe('the Factory Hauler', () => {
   it('is nowhere without a factory sponsor, and parked at every venue with one', () => {
-    expect(venues.length).toBeGreaterThan(20);
+    // One venue map per track type (Boss, 30 Oct 2026): the three on the road; the later types' maps aren't in the manifest yet.
+    expect([...venues].sort()).toEqual(['venue-enduro', 'venue-motocross', 'venue-supercross']);
     for (const id of venues) {
       expect(haulerAt(vehicles, {}, id, null)).toBeNull();
       const h = haulerAt(vehicles, FACTORY, id, { design: 'motor-6', map: id });

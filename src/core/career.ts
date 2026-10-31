@@ -208,6 +208,8 @@ export interface CareerState {
   setup?: SetupState;
   /** Spare parts in the house storage chest (core/house.ts), shared by every house. */
   storage?: SparePart[];
+  /** The venue picked on the road for the venue map the rider is on: one venue map holds every track of its type (core/guides.ts venueHere). */
+  venue?: string;
   /** Reputation among sponsors, 0 to 1000 (core/sponsors.ts, Spec 16.1). */
   reputation?: number;
   /** The sponsor contract under way, and the offers open to sign. */

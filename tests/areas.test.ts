@@ -4,7 +4,7 @@ import { chainDone, currentStep, journal, matchStory, advanceStory, newCareerSta
 import { champProblem, enter, finishChampionship } from '../src/core/championship';
 import { stockBike } from '../src/core/classes';
 import { checkContent } from '../src/core/content';
-import { roadMenu } from '../src/core/guides';
+import { roadMenu, venueHere } from '../src/core/guides';
 import { RaceDay, drawField, fieldRider, playerEntrant } from '../src/core/raceDay';
 import { MotoSim } from '../src/core/race';
 import { SAVE_VERSION, parseSave } from '../src/core/saves';
@@ -145,10 +145,37 @@ describe('the stamped Mountain Town (tools/gen-area.mjs)', () => {
     for (const id of ['int-a2-local-garage', 'int-a2-bike-shop', 'int-a2-tyre-shop', 'int-a2-van-office', 'int-a2-rented-room', 'int-a2-tool-shop']) expect(maps.has(id)).toBe(true);
     const routes = content.world.routes.filter((r) => r.map === m.id);
     expect(routes.map((r) => r.exit).sort()).toEqual(['East road', 'West road']);
-    // The roads match the world map: Home Town one way, the Race Hub's tracks the other, and its own tracks on both.
+    // The roads match the world map: Home Town one way, the Race Hub the other. Its tracks race at the
+    // hub's venues, one per track type (Boss, 30 Oct 2026), reached from both roads; no venue maps of its own.
     expect(routes.find((r) => r.exit === 'East road')!.to).toContain('area1-home-town');
-    expect(routes.find((r) => r.exit === 'West road')!.to).toContain('venue-motocross');
-    for (const r of routes) for (const v of ['venue-a2-mx', 'venue-a2-sx', 'venue-a2-enduro']) expect(r.to).toContain(v);
+    for (const r of routes) for (const v of ['venue-motocross', 'venue-supercross', 'venue-enduro']) expect(r.to).toContain(v);
+    expect(content.world.places.some((p) => /^venue-a2-/.test(p.map))).toBe(false);
+    expect([...maps.keys()].filter((id) => /^venue-a\d+-/.test(id))).toEqual([]);
+  });
+
+  it('races at the venue maps: one venue per track type (Boss, 30 Oct 2026), picked on the road and at the office', () => {
+    const byType = { mx: 'venue-motocross', sx: 'venue-supercross', enduro: 'venue-enduro' };
+    for (const [key, map] of Object.entries(byType)) {
+      const v = tracks.venues.find((x) => x.id === `venue-a2-${key}`)!;
+      expect(v.map, v.id).toBe(map);
+      expect(v.office).toBe(tracks.venues.find((x) => x.map === map && x.id.startsWith('venue-') && !x.town)!.office);
+    }
+    // The road lists each open track under its type by the venue's name, all on the hub's maps.
+    const open = { 'found.venue-farmland': true, 'area.2.open': true, 'area2.intro_done': true };
+    const menu = roadMenu(content.world.places, tracks.venues, (id) => tracks.tracks.find((t) => t.id === id)?.kind, open);
+    const names = (i: number) => menu.tracks[i].places.map((p) => [p.name, p.map, p.venue]);
+    expect(names(0)).toEqual([['Farmland MX', 'venue-motocross', 'venue-farmland'], ['Clayhill MX', 'venue-motocross', 'venue-a2-mx']]);
+    expect(names(1)).toEqual([['Riverside Arena', 'venue-supercross', 'venue-riverside'], ['Valley Arena', 'venue-supercross', 'venue-a2-sx']]);
+    expect(names(2)).toEqual([['Longmoor Enduro', 'venue-enduro', 'venue-longmoor'], ['Bog End Enduro', 'venue-enduro', 'venue-a2-enduro']]);
+    expect(menu.areas.map((p) => p.name)).toEqual(['Home Town', 'Mountain Town']);
+    // At the venue map, the gate and office are for the track picked on the road; the map's first open one otherwise.
+    expect(venueHere(tracks.venues, 'venue-motocross', open, 'venue-a2-mx')!.id).toBe('venue-a2-mx');
+    expect(venueHere(tracks.venues, 'venue-motocross', open, 'venue-a2-sx')!.id).toBe('venue-farmland');
+    expect(venueHere(tracks.venues, 'venue-motocross', { 'area2.intro_done': true }, 'venue-a2-mx')!.id).toBe('venue-a2-mx');
+    expect(venueHere(tracks.venues, 'venue-motocross', {}, 'venue-a2-mx')!.id).toBe('venue-farmland');
+    expect(venueHere(tracks.venues, 'area1-home-town', open)).toBeUndefined();
+    // The area champion waits in the town, not at a venue.
+    expect(content.npcs.find((n) => n.id === 'npc.a2.area_champion')!.map).toBe(area2.map);
   });
 });
 
@@ -165,7 +192,7 @@ describe('Areas 3 to 8 (Areas 2 to 8 plan; Boss, 31 Oct 2026: placeholder towns,
   };
   const badgeClass: Record<number, string> = { 3: '85cc-small', 4: '85cc-big', 5: '125cc-youth', 6: '125cc', 7: '250f', 8: '450f' };
 
-  it('are all there, in order, each with a stamped town, its insides, three venues and a locked house', () => {
+  it('are all there, in order, each with a stamped town, its insides, three tracks at the hub venues and a locked house', () => {
     expect(later.map((a) => a.n)).toEqual([3, 4, 5, 6, 7, 8]);
     expect(later.map((a) => a.name)).toEqual(['Beach Town', 'Forest Town', 'Northern Works', 'Highlands', 'The City', 'Capital']);
     for (const a of later) {
@@ -175,9 +202,10 @@ describe('Areas 3 to 8 (Areas 2 to 8 plan; Boss, 31 Oct 2026: placeholder towns,
       for (const n of ['Phoenix MX', 'Moto78', "Lee's T's & Wheels", 'Nicholls Used Motors', a.town!.works, a.house!.name, a.town!.fitness]) expect(names, a.name).toContain(n);
       expect(m.objects.some((o) => o.type === 'door' && o.name === a.house!.door && o.props.locked && o.props.unlock === houseFlag(a.n))).toBe(true);
       for (const key of ['local-garage', 'bike-shop', 'tyre-shop', 'van-office', 'rented-room', 'tool-shop']) expect(maps.has(`int-a${a.n}-${key}`)).toBe(true);
-      for (const key of ['mx', 'sx', 'enduro']) {
-        expect(maps.has(`venue-a${a.n}-${key}`)).toBe(true);
+      for (const [key, map] of Object.entries({ mx: 'venue-motocross', sx: 'venue-supercross', enduro: 'venue-enduro' })) {
+        expect(maps.has(`venue-a${a.n}-${key}`)).toBe(false);
         const v = tracks.venues.find((x) => x.id === `venue-a${a.n}-${key}`)!;
+        expect(v.map, v.id).toBe(map);
         expect(v.town).toBe(a.map);
         expect(v.class).toBe(badgeClass[a.n]);
         expect(v.needs).toBe(`area${a.n}.intro_done`);
@@ -192,10 +220,10 @@ describe('Areas 3 to 8 (Areas 2 to 8 plan; Boss, 31 Oct 2026: placeholder towns,
       expect(routes.map((r) => r.exit).sort()).toEqual(['East road', 'West road']);
       expect(routes.find((r) => r.exit === 'West road')!.to).toContain(roads[a.n].W);
       expect(routes.find((r) => r.exit === 'East road')!.to).toContain(roads[a.n].E);
-      // The Race Hub reaches every area, and every town reaches the hub's tracks.
-      expect(routes.some((r) => r.to.includes('venue-motocross'))).toBe(true);
+      // The Race Hub reaches every area, and every town road reaches the hub's three venues, where its tracks race.
       expect(content.world.routes.find((r) => r.map === 'venue-motocross')!.to).toContain(a.map);
-      for (const r of routes) for (const key of ['mx', 'sx', 'enduro']) expect(r.to).toContain(`venue-a${a.n}-${key}`);
+      for (const r of routes) for (const v of ['venue-motocross', 'venue-supercross', 'venue-enduro']) expect(r.to).toContain(v);
+      expect(content.npcs.find((n) => n.id === `npc.a${a.n}.area_champion`)!.map).toBe(a.map);
       expect(roadMenu(places, tracks.venues, () => 'outdoor', {}).areas.map((p) => p.name)).not.toContain(a.name);
       expect(roadMenu(places, tracks.venues, () => 'outdoor', { [areaFlag(a.n)]: true }).areas.map((p) => p.name)).toContain(a.name);
     }
