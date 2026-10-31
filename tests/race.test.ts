@@ -389,13 +389,21 @@ describe('the race day field: regulars plus a random draw from the pool', () => 
     const taylor = content.riders.riders.find((x) => x.name === 'Taylor Heart')!;
     expect(content.riders.fields['area2.local']).toContain(taylor.id);
     expect(content.riders.fields['area1.local']).not.toContain(taylor.id);
-    const names = ['Harvey Gizard', 'Louie Gizard', 'Kate Gizard', 'Aidan Gizard', 'Jason Styles', 'Jordan Styles', 'James Nestor', 'Mickey Alington', 'Louis Jonez', 'Andy McLaren', 'Justin Smyth', 'Dan Smyth'];
+    const names = ['Jason Styles', 'Jordan Styles', 'Mickey Alington', 'Louis Jonez', 'Andy McLaren', 'Justin Smyth', 'Dan Smyth'];
     const champ = content.riders.riders.find((r) => r.id === 'cpu.local_champion')!;
     for (const n of names) {
       const r = content.riders.riders.find((x) => x.name === n)!;
       expect(r, n).toBeDefined();
       expect(content.riders.fields['area1.local']).toContain(r.id);
       expect(r.level).toBeLessThan(champ.level);
+    }
+    // The future Area Champions are taken out of the Area 1 pool and join with their own area, staying on to Area 8.
+    const champions: [string, number][] = [['Aidan Gizard', 3], ['Kate Gizard', 4], ['Louie Gizard', 5], ['James Nestor', 6], ['Harvey Gizard', 7], ['Neal Gizard', 8]];
+    for (const [n, area] of champions) {
+      const r = content.riders.riders.find((x) => x.name === n)!;
+      expect(r.areas, n).toEqual(Array.from({ length: 9 - area }, (_, i) => area + i));
+      expect(content.riders.fields['area1.local']).not.toContain(r.id);
+      expect(content.riders.fields[`area${area}.local`]).toContain(r.id);
     }
   });
 });

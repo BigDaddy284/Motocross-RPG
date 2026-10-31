@@ -151,3 +151,136 @@ describe('the stamped Mountain Town (tools/gen-area.mjs)', () => {
     for (const r of routes) for (const v of ['venue-a2-mx', 'venue-a2-sx', 'venue-a2-enduro']) expect(r.to).toContain(v);
   });
 });
+
+describe('Areas 3 to 8 (Areas 2 to 8 plan; Boss, 31 Oct 2026: placeholder towns, NPCs and tracks until drawn)', () => {
+  const later = areas.areas.filter((a) => a.n >= 3);
+  // The world map's roads (tools/art/world-map.py): a4–a3, a3–a2, a4–a5, a5–a6, a6–a7, a7–a8, home–a8, and the Race Hub to every area.
+  const roads: Record<number, { W: string; E: string }> = {
+    3: { W: 'area4-forest-town', E: 'area2-mountain-town' },
+    4: { W: 'area5-northern-works', E: 'area3-beach-town' },
+    5: { W: 'area4-forest-town', E: 'area6-highlands' },
+    6: { W: 'area5-northern-works', E: 'area7-the-city' },
+    7: { W: 'area6-highlands', E: 'area8-capital' },
+    8: { W: 'area7-the-city', E: 'area1-home-town' },
+  };
+  const badgeClass: Record<number, string> = { 3: '85cc-small', 4: '85cc-big', 5: '125cc-youth', 6: '125cc', 7: '250f', 8: '450f' };
+
+  it('are all there, in order, each with a stamped town, its insides, three venues and a locked house', () => {
+    expect(later.map((a) => a.n)).toEqual([3, 4, 5, 6, 7, 8]);
+    expect(later.map((a) => a.name)).toEqual(['Beach Town', 'Forest Town', 'Northern Works', 'Highlands', 'The City', 'Capital']);
+    for (const a of later) {
+      const m = maps.get(a.map)!;
+      expect(m, a.map).toBeDefined();
+      const names = m.objects.filter((o) => o.type === 'building').map((o) => o.name);
+      for (const n of ['Phoenix MX', 'Moto78', "Lee's T's & Wheels", 'Nicholls Used Motors', a.town!.works, a.house!.name, a.town!.fitness]) expect(names, a.name).toContain(n);
+      expect(m.objects.some((o) => o.type === 'door' && o.name === a.house!.door && o.props.locked && o.props.unlock === houseFlag(a.n))).toBe(true);
+      for (const key of ['local-garage', 'bike-shop', 'tyre-shop', 'van-office', 'rented-room', 'tool-shop']) expect(maps.has(`int-a${a.n}-${key}`)).toBe(true);
+      for (const key of ['mx', 'sx', 'enduro']) {
+        expect(maps.has(`venue-a${a.n}-${key}`)).toBe(true);
+        const v = tracks.venues.find((x) => x.id === `venue-a${a.n}-${key}`)!;
+        expect(v.town).toBe(a.map);
+        expect(v.class).toBe(badgeClass[a.n]);
+        expect(v.needs).toBe(`area${a.n}.intro_done`);
+      }
+    }
+  });
+
+  it('roads match the world map, and a town only shows on the road menu once its area is open', () => {
+    const places = content.world.places;
+    for (const a of later) {
+      const routes = content.world.routes.filter((r) => r.map === a.map);
+      expect(routes.map((r) => r.exit).sort()).toEqual(['East road', 'West road']);
+      expect(routes.find((r) => r.exit === 'West road')!.to).toContain(roads[a.n].W);
+      expect(routes.find((r) => r.exit === 'East road')!.to).toContain(roads[a.n].E);
+      // The Race Hub reaches every area, and every town reaches the hub's tracks.
+      expect(routes.some((r) => r.to.includes('venue-motocross'))).toBe(true);
+      expect(content.world.routes.find((r) => r.map === 'venue-motocross')!.to).toContain(a.map);
+      for (const r of routes) for (const key of ['mx', 'sx', 'enduro']) expect(r.to).toContain(`venue-a${a.n}-${key}`);
+      expect(roadMenu(places, tracks.venues, () => 'outdoor', {}).areas.map((p) => p.name)).not.toContain(a.name);
+      expect(roadMenu(places, tracks.venues, () => 'outdoor', { [areaFlag(a.n)]: true }).areas.map((p) => p.name)).toContain(a.name);
+    }
+    expect(content.world.routes.find((r) => r.map === 'area1-home-town')!.to).toContain('area8-capital');
+    expect(content.world.routes.find((r) => r.map === 'area2-mountain-town' && r.exit === 'West road')!.to).toContain('area3-beach-town');
+  });
+
+  it('each area opens with the one before, plays its intro chain and opens its tracks', () => {
+    for (const a of later) {
+      const prev = championships.championships.find((c) => c.id === `area${a.n - 1}.main`)!;
+      expect(prev.opens, prev.id).toBe(a.n);
+      const career = fresh();
+      const flags: Record<string, boolean> = { [areaFlag(a.n)]: true };
+      career.story.step = story.steps.length;
+      expect(openChains(story, career, flags).map((c) => c.id)).toEqual([`area${a.n}`]);
+      const chain = story.chains!.find((c) => c.id === `area${a.n}`)!;
+      for (const step of chain.steps) {
+        expect(matchStory(story, career, { talk: step.on.talk! })?.kind, `${a.name} ${step.id}`).toBe('ready');
+        expect(advanceStory(story, career, flags, items)).toBe(true);
+      }
+      expect(chainDone(story, career, `area${a.n}`)).toBe(true);
+      expect(flags[`area${a.n}.intro_done`]).toBe(true);
+    }
+    // Big Pete, the Rider Trainer in Beach Town, teaches whips and scrubs on the way (core/tricks.ts TRICKS_FLAG).
+    const career = fresh();
+    const flags: Record<string, boolean> = { [areaFlag(3)]: true };
+    career.story.step = story.steps.length;
+    openChains(story, career, flags);
+    for (let i = 0; i < 5; i++) advanceStory(story, career, flags, items);
+    expect(flags.rider_trainer_tricks).toBe(true);
+    expect(championships.championships.find((c) => c.id === 'area8.main')!.opens).toBeUndefined();
+  });
+
+  it('fields rise by area and each area keeps its two champions on top, who then stay on to Area 8', () => {
+    let last = riders.fieldLevel!['area2.local'];
+    for (const a of later) {
+      const level = riders.fieldLevel![a.field];
+      expect(level, a.name).toBeGreaterThan(last);
+      last = level;
+      const local = championships.championships.find((c) => c.id === `area${a.n}.local_champion`)!;
+      const main = championships.championships.find((c) => c.id === `area${a.n}.main`)!;
+      expect(local.class).toBe(badgeClass[a.n]);
+      expect(main.class).toBe(badgeClass[a.n]);
+      expect(local.rewards[0].flag).toBe(`badge.area${a.n}`);
+      expect(main.needs).toContain(`badge.area${a.n}`);
+      const localChamp = riders.riders.find((r) => r.id === local.main)!;
+      const areaChamp = riders.riders.find((r) => r.id === main.main)!;
+      expect(localChamp.level).toBeGreaterThan(level);
+      expect(areaChamp.level).toBeGreaterThan(localChamp.level);
+      for (const r of [localChamp, areaChamp]) expect(r.areas, r.name).toEqual(Array.from({ length: 9 - a.n }, (_, i) => a.n + i));
+      const venue = tracks.venues.find((v) => v.id === `venue-a${a.n}-mx`)!;
+      const field = drawField(content, venue, 3);
+      expect(field).toHaveLength(15);
+      expect(field.every((r) => r.level >= level)).toBe(true);
+      expect(field.map((r) => r.id)).toContain(areaChamp.id);
+      // Everyone from an earlier area rides at this area's level here, and Area 1's field never sees them.
+      expect(fieldRider(content, a.field, 'cpu.r21')!.level).toBeGreaterThanOrEqual(level);
+      expect(riders.fields['area1.local']).not.toContain(areaChamp.id);
+    }
+    expect(riders.riders.find((r) => r.id === 'cpu.r16')!.tag).toBe('Area 8 Champion');
+  });
+
+  it('shops stock the plan’s grades and classes, and the house and motor prices climb', () => {
+    const grades: Record<number, [number, number]> = { 3: [2, 5], 4: [2, 5], 5: [3, 6], 6: [3, 7], 7: [4, 7], 8: [4, 8] };
+    let house = areas.areas.find((a) => a.n === 2)!.house!.price;
+    let motor = areas.areas.find((a) => a.n === 2)!.motor!.price;
+    for (const a of later) {
+      for (const kind of ['garage', 'bike', 'tyres']) {
+        const shop = content.shops.shops.find((s) => s.id === `shop.a${a.n}.${kind}`)!;
+        expect(shop.sells!.grades, shop.id).toEqual(grades[a.n]);
+        expect(shop.sells!.classes).toContain(badgeClass[a.n]);
+      }
+      expect(a.house!.price).toBeGreaterThan(house);
+      house = a.house!.price;
+      if (a.motor) {
+        expect(a.motor.price).toBeGreaterThan(motor);
+        motor = a.motor.price;
+      } else expect(a.n).toBeGreaterThanOrEqual(7);
+      expect(content.jobboard.boards.some((b) => b.map === `int-a${a.n}-local-garage`)).toBe(true);
+      expect(content.world.jobs.some((j) => j.map === `int-a${a.n}-tool-shop`)).toBe(true);
+      expect(content.training.drills.some((d) => d.venue === `fitness-a${a.n}`)).toBe(true);
+      expect(content.training.drills.some((d) => d.venue === `yard-a${a.n}`)).toBe(true);
+      expect(content.challenges.challenges.filter((c) => c.map === a.map)).toHaveLength(2);
+      expect(content.errands.errands.filter((e) => e.needs === `area${a.n}.intro_done`)).toHaveLength(2);
+      expect(content.world.worldMap!.zones.some((z) => z.maps.includes(a.map))).toBe(true);
+    }
+  });
+});
