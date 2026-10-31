@@ -285,7 +285,12 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 
 ### Missing for Areas 2 to 8
 
-9. **Rider pools.** Every CPU rider is in the Area 1 pool except Neal Gizard (Area 8). Each area needs its own pool, and the Area Champions need moving to their areas and levelling up. Today Taylor Heart is level 10 and Aidan Gizard is level 4.
+9. **Rider pools.** Rules agreed (Boss, 31 Oct 2026):
+   - **One pool of about 50 riders**, not 20 new riders per area. It shrinks as future Area Champions come out of it.
+   - **Future Area Champions are taken out of the pool** and added with their own area. There they win most of that area's races while the player levels up.
+   - **NPCs who race join the pool in a set area**, their "area unlocked".
+   - **AI skill follows the track's area, not the player.** Racing an Area 1 track late in the game puts the riders back at Area 1's skill set, so those races are easy and winnable most of the time. Area 8 still isn't guaranteed even at level 99.
+   - Each rider's role (NPC or pool), joining area and champion area is being set on the rider sign-on sheet (an artifact for Boss).
 10. **Local Champions.** Areas 2 to 8 have no Local Champion names yet (the L= column is blank).
 11. **Challengers.** Two per area, so 14 names and 14 challenge tracks.
 12. **Bike classes.** Only 50cc is in `bikes.json`. Every class from 65cc to Vets needs a stat ceiling, and the class milestone flow (win the championship, collect the new bike) needs building.
