@@ -398,6 +398,7 @@ export class RaceScene extends Phaser.Scene {
     this.btn(W / 2, 600, 'Auto-complete', () => this.go(chosen, message(), true), 260, 52);
     this.btn(W / 2 + 300, 600, 'Bike check', () => this.showBike(), 260, 52);
     if (this.canLeave()) this.btn(W / 2, 682, 'Leave early', () => this.confirmLeave(), 200, 44);
+    else this.pullOutButton();
   }
 
   /**
@@ -427,6 +428,7 @@ export class RaceScene extends Phaser.Scene {
     this.btn(W / 2, 600, 'Auto-complete', () => this.go(-1, message(), true), 260, 52);
     this.btn(W / 2 + 300, 600, 'Bike check', () => this.showBike(), 260, 52);
     if (this.canLeave()) this.btn(W / 2, 682, 'Leave early', () => this.confirmLeave(), 200, 44);
+    else this.pullOutButton();
   }
 
   /**
@@ -524,6 +526,7 @@ export class RaceScene extends Phaser.Scene {
     this.btn(W / 2 - 300, 600, 'Qualify', () => this.goQualifying(message(), false), 260, 52);
     this.btn(W / 2, 600, 'Auto-complete', () => this.goQualifying(message(), true), 260, 52);
     this.btn(W / 2 + 300, 600, 'Bike check', () => this.showBike(), 260, 52);
+    this.pullOutButton();
   }
 
   /** A sprint's qualifying: one timed lap, one rider at a time in a random order, to set the start order. */
@@ -539,6 +542,7 @@ export class RaceScene extends Phaser.Scene {
     this.btn(W / 2 - 300, 600, 'Qualify', () => this.goQualifying(message(), false), 260, 52);
     this.btn(W / 2, 600, 'Auto-complete', () => this.goQualifying(message(), true), 260, 52);
     this.btn(W / 2 + 300, 600, 'Bike check', () => this.showBike(), 260, 52);
+    this.pullOutButton();
   }
 
   private goQualifying(message: string, auto: boolean): void {
@@ -593,6 +597,24 @@ export class RaceScene extends Phaser.Scene {
       this.showDayResults();
     }, 200, 46));
     c.add(button(this, 130, 50, 'Stay', () => this.closeModal(), 200, 46));
+  }
+
+  /**
+   * Before anything is ridden (moto 1 with no qualifying, qualifying, a challenge or a seeding run),
+   * Pull out goes back to the paddock as if the rider never entered: no fee, nothing recorded, for a
+   * Race clicked by accident (Boss, 31 Oct 2026). The fee is only ever taken at the end of the day,
+   * and the scene works on a copy of the save, so leaving it untouched is all it takes.
+   */
+  private pullOutButton(): void {
+    this.btn(W / 2, 682, 'Pull out', () => {
+      const c = this.openModal(620, 240);
+      c.add(this.add.text(0, -60, "Pull out before the racing starts?\nNo entry fee, and nothing goes on your record.", textStyle(20, COLORS.cream, { align: 'center' })).setOrigin(0.5));
+      c.add(button(this, -130, 50, 'Pull out', () => {
+        this.closeModal();
+        this.done(`You pulled out of ${this.args.venue.name}. No entry fee taken.`);
+      }, 200, 46));
+      c.add(button(this, 130, 50, 'Stay', () => this.closeModal(), 200, 46));
+    }, 200, 44);
   }
 
   private showBike(): void {
@@ -1544,6 +1566,7 @@ export class RaceScene extends Phaser.Scene {
     this.btn(W / 2 - 300, 600, 'Race', () => this.goChallenge(def, message(), false), 260, 52);
     this.btn(W / 2, 600, 'Auto-complete', () => this.goChallenge(def, message(), true), 260, 52);
     this.btn(W / 2 + 300, 600, 'Bike check', () => this.showBike(), 260, 52);
+    this.pullOutButton();
   }
 
   private goChallenge(def: ChallengeDef, message: string, auto: boolean): void {
@@ -1655,6 +1678,7 @@ export class RaceScene extends Phaser.Scene {
     // No Auto-complete on a No-Turn Takedown: every run is a single short one (Boss, 31 Oct 2026).
     this.btn(W / 2 - 150, 600, 'Seeding run', () => this.goKo(null, message()), 260, 52);
     this.btn(W / 2 + 150, 600, 'Bike check', () => this.showBike(), 260, 52);
+    this.pullOutButton();
   }
 
   /** A heat's start: who is in it, the four gates (two each side of the starter's box) and the message. */
