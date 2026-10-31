@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { bikeStats, conditionFactor, formatMoney, raceStopper, type Bike } from '../core/career';
+import { bikeStats, formatMoney, raceStopper, type Bike } from '../core/career';
 import { formatTime, gateBonus, setTestAlwaysWin, type LapTrace, type MotoSim, type RaceEvent, type RiderResult } from '../core/race';
 import { PLAYER_ID, RaceDay, applyRide, playerEntrant, practiceSim, sumXp, trackById, type MotoRecord, type VenueDef } from '../core/raceDay';
 import { Knockout, type KnockoutHeat, roundName } from '../core/knockout';
@@ -1163,14 +1163,16 @@ export class RaceScene extends Phaser.Scene {
   }
 
   /**
-   * Each part's condition, what its wear costs (its share of the bike's stats, from the bike's own
-   * condition rule) and a warning when it is low or broken.
+   * Each part's condition, the condition it has lost this race (from the gate, so 0% at the start of
+   * every moto and qualifying: Boss, 31 Oct 2026) and a warning when it is low or broken. What the
+   * overall wear costs the bike shows in the stats, now against new.
    */
   private partStatus(parts: Bike['parts']): { name: string; c: number; loss: number; warn: string }[] {
     const lowAt = services.content.racing.wear.lowAt;
+    const gate = this.wearAt[0]?.parts ?? parts;
     return services.content.bikes.slots.map((s) => {
       const c = parts[s.id]?.condition ?? 0;
-      return { name: s.name, c, loss: 1 - conditionFactor(c), warn: c <= 0 ? 'BROKEN' : c <= lowAt ? 'LOW' : '' };
+      return { name: s.name, c, loss: Math.max(0, (gate[s.id]?.condition ?? c) - c), warn: c <= 0 ? 'BROKEN' : c <= lowAt ? 'LOW' : '' };
     });
   }
 
@@ -1187,9 +1189,9 @@ export class RaceScene extends Phaser.Scene {
     if (!b) return ['No bike data.'];
     const lowAt = Math.round(services.content.racing.wear.lowAt * 100);
     const short = (n: string) => n.replace('Intake and exhaust', 'Intake/exhaust').replace('Bodywork and controls', 'Bodywork').replace('Wheels and tyres', 'Wheels/tyres');
-    const rows = this.partStatus(b.parts).map((p) => `${short(p.name).padEnd(14).slice(0, 14)}${(p.c <= 0 ? '--' : `${(p.c * 100).toFixed(1)}%`).padStart(7)}${`-${(p.loss * 100).toFixed(1)}%`.padStart(7)} ${p.warn}`);
+    const rows = this.partStatus(b.parts).map((p) => `${short(p.name).padEnd(14).slice(0, 14)}${(p.c <= 0 ? '--' : `${(p.c * 100).toFixed(1)}%`).padStart(7)}${`${p.loss >= 0.0005 ? '-' : ''}${(p.loss * 100).toFixed(1)}%`.padStart(7)} ${p.warn}`);
     const stats = this.statStatus(b.parts).map((x) => `${x.name.padEnd(11).slice(0, 11)} ${String(x.now).padStart(4)}  of ${String(x.fresh).padStart(3)} new`);
-    return [b.lap ? `Your bike after lap ${b.lap}` : 'Your bike at the gate', 'Part             Cond   Loss', ...rows, '', 'Stats', ...stats, '', 'Loss: what wear costs.', `LOW: ${lowAt}% or less.`];
+    return [b.lap ? `Your bike after lap ${b.lap}` : 'Your bike at the gate', 'Part             Cond   Loss', ...rows, '', 'Stats', ...stats, '', 'Loss: wear this race.', `LOW: ${lowAt}% or less.`];
   }
 
   private brokenParts(): string[] {
@@ -1308,11 +1310,11 @@ export class RaceScene extends Phaser.Scene {
         c.add(this.add.rectangle(236, y + 10, 150, 10, COLORS.panelLight).setOrigin(0, 0.5));
         c.add(this.add.rectangle(236, y + 10, Math.max(1, 1.5 * pct), 10, col).setOrigin(0, 0.5));
         c.add(this.add.text(392, y, p.c <= 0 ? 'Broken' : `${pct.toFixed(1)}%`, textStyle(15, p.warn ? COLORS.accent : COLORS.cream)));
-        c.add(this.add.text(462, y, `−${(p.loss * 100).toFixed(1)}%${p.warn === 'LOW' ? '  low' : ''}`, textStyle(15, p.warn ? COLORS.accent : COLORS.muted)));
+        c.add(this.add.text(462, y, `${p.loss >= 0.0005 ? '−' : ''}${(p.loss * 100).toFixed(1)}%${p.warn === 'LOW' ? '  low' : ''}`, textStyle(15, p.warn ? COLORS.accent : COLORS.muted)));
       });
       const stats = this.statStatus(bike.parts).map((x) => `${x.name} ${x.now}/${x.fresh}`).join('   ');
       c.add(this.add.text(40, 140, `Stats now / new: ${stats}`, textStyle(14, COLORS.muted, { wordWrap: { width: 520 } })));
-      c.add(this.add.text(40, 186, `Loss is what wear takes off that part's share of its stats. Low (${Math.round(racing.wear.lowAt * 100)}% or less) wears faster.`, textStyle(14, COLORS.muted, { wordWrap: { width: 520 } })));
+      c.add(this.add.text(40, 186, `Loss is the condition each part has lost this race. Low (${Math.round(racing.wear.lowAt * 100)}% or less) wears faster.`, textStyle(14, COLORS.muted, { wordWrap: { width: 520 } })));
     }
 
     c.add(button(this, -150, 262, "It's over, bike blown", () => {
