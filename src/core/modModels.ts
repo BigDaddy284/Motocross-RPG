@@ -43,6 +43,12 @@ export function raceBikeKind(cls: string): RaceBikeKind {
   if (!Number.isFinite(cc)) return 'adult';
   return cc <= 85 ? 'youth' : cc <= 125 ? 'two-stroke' : 'adult';
 }
+/**
+ * How long the youth model is drawn for each small youth class, in metres bumper to bumper, its
+ * rider scaled with it as a child of that size (Boss, 1 Nov 2026); roughly real 50, 65 and 85 cc
+ * bikes. Other classes ride full size.
+ */
+export const YOUTH_BIKE_METRES: Readonly<Record<string, number>> = { '50cc': 1.3, '65cc': 1.55, '85cc-small': 1.78, '85cc-big': 1.86 };
 /** The game's own adult bike's length in metres, the size a scaled-up youth model takes when there's no adult model. */
 export const ADULT_BIKE_METRES = 2.18;
 /** The rider on the race bikes. */

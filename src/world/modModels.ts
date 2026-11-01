@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { ADULT_BIKE_METRES, BIKE_SLOTS, checkModel, FAN_SLOTS, PIT_CREW_SLOTS, FIGURE_PARTS, partName, glbInfo, MODEL_DIR, MODEL_INDEX, modelDef, modelId, modelRole, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, RIDER_SLOTS, materialSlot, type ModelEntry, type RaceBikeKind } from '../core/modModels';
+import { ADULT_BIKE_METRES, BIKE_SLOTS, raceBikeKind, YOUTH_BIKE_METRES, checkModel, FAN_SLOTS, PIT_CREW_SLOTS, FIGURE_PARTS, partName, glbInfo, MODEL_DIR, MODEL_INDEX, modelDef, modelId, modelRole, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, RIDER_SLOTS, materialSlot, type ModelEntry } from '../core/modModels';
 import type { SceneryDef } from '../core/trackParts';
 import { U } from './paddock';
 
@@ -105,20 +105,29 @@ export function figureHas(id: string, part: string): boolean {
 }
 
 /**
- * The race bike to draw for a class (core raceBikeKind): the youth model for the youth classes, the
- * youth model scaled up to the adult model's length for the 125s, else the adult model. Without a
- * youth model, every class falls back to the adult one.
+ * The race bike to draw for a class (core raceBikeKind): the youth model for the youth classes,
+ * drawn at the class's size (YOUTH_BIKE_METRES); the youth model scaled up to the adult model's
+ * length for the 125s; else the adult model. Without a youth model, every class falls back to the
+ * adult one. For a youth class, how much it was scaled is left in userData.riderScale, for the rider to match.
  */
-export function bikeModel(kind: RaceBikeKind): THREE.Group | null {
+export function bikeModel(cls: string): THREE.Group | null {
+  const kind = raceBikeKind(cls);
   if (kind === 'adult') return modModel(RACE_BIKE);
   const youth = modModel(RACE_BIKE_YOUTH);
   if (!youth) return modModel(RACE_BIKE);
-  if (kind === 'youth') return youth;
   // Scaled about its origin (mid-wheelbase, on the ground), so the wheels stay on the ground.
-  const adult = modModel(RACE_BIKE);
-  const target = adult ? lengthOf(adult) : ADULT_BIKE_METRES * U;
+  const full = (): number => {
+    const adult = modModel(RACE_BIKE);
+    return adult ? lengthOf(adult) : ADULT_BIKE_METRES * U;
+  };
+  const target = kind === 'youth' ? (YOUTH_BIKE_METRES[cls] !== undefined ? YOUTH_BIKE_METRES[cls] * U : null) : full();
   const own = lengthOf(youth);
-  if (own > 0) youth.scale.multiplyScalar(target / own);
+  if (target !== null && own > 0) {
+    const k = target / own;
+    youth.scale.multiplyScalar(k);
+    // A youth class's rider is a child, scaled with their bike; a 125's rider stays full size.
+    if (kind === 'youth') youth.userData.riderScale = k;
+  }
   return youth;
 }
 

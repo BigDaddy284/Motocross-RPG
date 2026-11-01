@@ -20,7 +20,7 @@ import { FIREWORK_LEAD, fireworkShow, fireworksDue, hasFireworks, ROCKET_RISE, t
 import { APPROACH, assignCrews, BOARD_PAST, boardOut, boardText, crewSpot, FLAGGER_ITEM, flagState, PIT_CREW_ITEM } from '../core/finishCrew';
 import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../core/marshal';
 import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
-import { LOCKED_ITEMS, raceBikeKind } from '../core/modModels';
+import { LOCKED_ITEMS } from '../core/modModels';
 import { BIKE_PAINT, bikeModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
@@ -2460,8 +2460,11 @@ export class RaceView {
     root.add(body);
     // Your own race bike and rider models (world/modModels.ts), painted in this rider's colours.
     const c0 = bikeColours(color, player, look);
-    const custom = this.builtIn ? { bike: null, rider: null } : { bike: bikeModel(look ? raceBikeKind(look.cls) : 'adult'), rider: riderModel() };
+    const custom = this.builtIn ? { bike: null, rider: null } : { bike: bikeModel(look?.cls ?? ''), rider: riderModel() };
     if (custom.bike) paintModel(custom.bike, { plastics: c0.plastics, frame: c0.frame, plate: c0.plate }, BIKE_PAINT);
+    // A youth class's smaller bike carries a rider of the same scale, a child of that size (Boss, 1 Nov 2026).
+    const riderScale = custom.bike?.userData.riderScale as number | undefined;
+    if (custom.rider && riderScale) custom.rider.scale.multiplyScalar(riderScale);
     if (look) {
       const all = raceBikeParts(look, BIKE_LENGTH);
       const bikeOnly = raceBikeParts(look, BIKE_LENGTH, { rider: false }).length;

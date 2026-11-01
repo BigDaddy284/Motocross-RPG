@@ -22,6 +22,7 @@ import {
   RIDER_SLOTS,
   FAN_SLOTS,
   raceBikeKind,
+  YOUTH_BIKE_METRES,
   PIT_CREW_SLOTS,
   BIKE_SLOTS,
   SCENERY_LIMITS,
@@ -256,5 +257,9 @@ describe('the rules for each kind of model', () => {
     for (const cls of ['50cc', '65cc', '85cc-small', '85cc-big']) expect(raceBikeKind(cls)).toBe('youth');
     for (const cls of ['125cc-youth', '125cc']) expect(raceBikeKind(cls)).toBe('two-stroke');
     for (const cls of ['250f', '450f', 'vets-40', 'vets-50', 'vets-60']) expect(raceBikeKind(cls)).toBe('adult');
+    // Each youth class has its own size, smallest first; the 125s ride full size.
+    const sizes = ['50cc', '65cc', '85cc-small', '85cc-big'].map((c) => YOUTH_BIKE_METRES[c]);
+    expect(sizes.every((m, i) => m > 0 && (i === 0 || m > sizes[i - 1]))).toBe(true);
+    expect(YOUTH_BIKE_METRES['125cc-youth']).toBeUndefined();
   });
 });
