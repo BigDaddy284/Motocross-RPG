@@ -13,8 +13,8 @@ import { BIKE_LENGTH, CAM_AZ, LIP_AT, LOGS_AT, TrackSurface, type Flight } from 
 import { downPhase } from '../core/crashRecovery';
 import { APPROACH as TRICK_APPROACH, trickPose, type Trick } from '../core/tricks';
 import { COLORS, TEXT_RES } from '../ui/theme';
-import { isPaddock, paddockColour, paddockVariant } from '../core/paddock';
-import { paddockParts, U as METRE } from './paddock';
+import { isPaddock } from '../core/paddock';
+import { paddockParts, U as METRE, type StandBike } from './paddock';
 import { FACES_TRACK, flaggerParts, MATE_AT, marshalParts, pitCrewParts, starterBox, tracksideParts, type Label } from './trackside';
 import { FIREWORK_LEAD, fireworkShow, fireworksDue, hasFireworks, ROCKET_RISE, type Rocket } from '../core/fireworks';
 import { APPROACH, assignCrews, BOARD_PAST, boardOut, boardText, crewSpot, FLAGGER_ITEM, flagState, PIT_CREW_ITEM } from '../core/finishCrew';
@@ -1711,21 +1711,12 @@ export class RaceView {
       this.pitCrewFigure(g, it, def);
       return g;
     }
-    // A bike on a stand from Boss's paddock stand and race bike models, in its design and colour (Boss, 1 Nov 2026).
-    if (def && it.type === 'bike_stand' && !this.builtIn) {
-      const index = this.itemIndex(it);
-      const model = bikeOnStandModel(paddockVariant(def, it, index) ?? 'adult', hex(paddockColour(def, it, index), hex(def.color, 0xc21c15)));
-      if (model) {
-        add(model);
-        return g;
-      }
-    }
     if (def && isPaddock(def)) {
       // A paddock vehicle or a trackside item (paddock.ts, trackside.ts): one vertex-coloured mesh
       // each, so a full paddock costs a draw an item, plus a textured box for each label with words on.
       const index = this.itemIndex(it);
       const built = tracksideParts(def, it, index) ?? { parts: paddockParts(def, it, index), labels: [] as Label[] };
-      if (built.parts.length) add(this.mergeParts(built.parts));
+      if (built.parts.length) add(this.mergeParts(this.standBikes(built.parts, add)));
       for (const l of built.labels) {
         const face = this.mat(0xffffff, { map: this.textTexture(l.text, l.bg, l.fg, l.vertical ? 48 : 256, l.vertical ? 256 : 48, l.vertical) });
         const side = this.mat(l.bg);
@@ -2108,6 +2099,28 @@ export class RaceView {
     const model = this.builtIn || figureHas(type, 'Base') ? null : standModel(built.variant, built.colour, shade(built.colour, 0.7));
     if (model) g.add(Object.assign(model, { name: 'Base' }));
     else if (built.base.length) g.add(Object.assign(this.mergeParts(built.base), { name: 'Base' }));
+  }
+
+  /**
+   * The bikes on stands in a paddock or trackside item (a van's awning, a pit tent), swapped for
+   * Boss's paddock stand with his race bike on it when there are those models (bikeOnStandModel;
+   * Boss, 1 Nov 2026), each added with `add`. Returns the item's other meshes, to merge.
+   */
+  private standBikes(parts: THREE.Mesh[], add: (o: THREE.Object3D) => void): THREE.Mesh[] {
+    if (this.builtIn || !parts.some((p) => p.userData.standBike)) return parts;
+    const done = new Map<StandBike, THREE.Object3D | null>();
+    for (const p of parts) {
+      const tag = p.userData.standBike as StandBike | undefined;
+      if (!tag || done.has(tag)) continue;
+      const model = bikeOnStandModel(tag.design, tag.colour);
+      if (model) {
+        model.position.set(tag.x * METRE, 0, tag.z * METRE);
+        model.rotation.y = tag.ry;
+        add(model);
+      }
+      done.set(tag, model);
+    }
+    return parts.filter((p) => !p.userData.standBike || !done.get(p.userData.standBike));
   }
 
   /** The flag man: his stand, the figure, and each arm with its flag, the view raising them in turn. */

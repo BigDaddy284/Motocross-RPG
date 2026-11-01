@@ -175,9 +175,13 @@ export class Build {
     const q = new THREE.Quaternion().setFromAxisAngle(Y, ry);
     const p = new THREE.Vector3(-0.05 * U, 0, 0).applyQuaternion(q);
     const lift = MODELS[model]?.wb && MODELS[model].wb < 1.2 ? 0.26 : 0.33;
+    const n = this.parts.length;
     const m = this.box(x + p.x / U, 0, z + p.z / U, 0.45, lift, 0.3, STEEL);
     m.rotation.y = ry;
     this.bike(x, lift, z, colour, model, ry);
+    // Tagged, so the race view can swap the stand and bike for Boss's models (RaceView.standBikes; Boss, 1 Nov 2026).
+    const tag: StandBike = { x, z, colour, design: MODELS[model] ? model : modelFor(model), ry };
+    for (const part of this.parts.slice(n)) part.userData.standBike = tag;
   }
   /** A folding table with two chairs beside it. */
   table(x: number, z: number): void {
@@ -216,6 +220,17 @@ export class Build {
 }
 
 export type Setup = string | undefined;
+
+/** A bike on a stand built into an item (a van's awning, a pit tent, the bike on a stand itself), in metres in the item's frame: its meshes carry it as userData.standBike. */
+export interface StandBike {
+  x: number;
+  z: number;
+  colour: number;
+  /** The bike's design (raceBike MODELS): adult, youth, mini, pitbike, enduro or twinshock. */
+  design: string;
+  /** Its turn about the vertical, the bike's nose along +x at 0. */
+  ry: number;
+}
 
 function rustyTruck(b: Build, col: number, setup: Setup): void {
   const ox = 0.3;
