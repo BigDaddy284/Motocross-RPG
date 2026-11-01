@@ -50,6 +50,13 @@ export interface NpcDef {
    * dialogue key, so it shows orange again.
    */
   news?: boolean;
+  /** The NPC is only there once this flag is set (Big Pete at the tracks once you've met him in Beach Town: Boss, 1 Nov 2026). */
+  showIf?: string;
+  /**
+   * A trainer at the track (Big Pete, Boss, 1 Nov 2026): talking to them offers a coached practice at
+   * this venue, costing feeTimes the venue's practice fee and giving xpTimes the practice XP.
+   */
+  trainer?: { feeTimes: number; xpTimes: number };
 }
 
 /** A person's name ("Tasha Reid") rather than a job ("Track official"): every word starts with a capital. */
@@ -118,7 +125,7 @@ export const NPCS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['map', 'tile', 'facing', 'talk', 'quietUntil', 'rider', 'news'],
+        optional: ['map', 'tile', 'facing', 'talk', 'quietUntil', 'rider', 'news', 'showIf', 'trainer'],
         fields: {
           id: { type: 'string', pattern: ID },
           name: { type: 'string', nonEmpty: true },
@@ -134,6 +141,8 @@ export const NPCS_SCHEMA: Schema = {
           quietUntil: { type: 'string', pattern: ID },
           rider: { type: 'string', pattern: ID },
           news: { type: 'boolean' },
+          showIf: { type: 'string', pattern: ID },
+          trainer: { type: 'object', fields: { feeTimes: { type: 'number', min: 1 }, xpTimes: { type: 'number', min: 1 } } },
         },
       },
     },
@@ -591,14 +600,16 @@ export interface NpcPlacement {
 }
 
 /** NPCs standing on one map: those placed by tile in npcs.json, plus the map's own npc spots. */
-export function npcsOnMap(content: Content, map: BakedMap): NpcPlacement[] {
+export function npcsOnMap(content: Content, map: BakedMap, flags?: Record<string, boolean>): NpcPlacement[] {
   const byId = new Map(content.npcs.map((n) => [n.id, n]));
   const out: NpcPlacement[] = [];
-  for (const n of content.npcs) if (n.map === map.id && n.tile) out.push({ npc: n, x: n.tile[0], y: n.tile[1], facing: n.facing ?? 'down' });
+  // With the save's flags, an NPC with showIf is left off until its flag is set; without them, every NPC (the content checks).
+  const here = (n: NpcDef) => !flags || !n.showIf || !!flags[n.showIf];
+  for (const n of content.npcs) if (n.map === map.id && n.tile && here(n)) out.push({ npc: n, x: n.tile[0], y: n.tile[1], facing: n.facing ?? 'down' });
   for (const o of map.objects) {
     if (o.type !== 'npc') continue;
     const n = byId.get(String(o.props.npc));
-    if (!n || n.map) continue;
+    if (!n || n.map || !here(n)) continue;
     const t = objectTile(o, map.tileSize);
     out.push({ npc: n, x: t.x, y: t.y, facing: 'down' });
   }

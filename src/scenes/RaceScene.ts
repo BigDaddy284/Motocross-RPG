@@ -57,6 +57,8 @@ export interface RaceSceneData {
   challenge?: ChallengeDef;
   /** TEST ONLY, REMOVE BEFORE RELEASE (Boss, 1 Nov 2026): a sidecar race day from the Farmland tick box (core/sidecar.ts). */
   sidecarTest?: boolean;
+  /** Coached practice (Big Pete, Boss, 1 Nov 2026): the trainer's name and the practice XP multiplier. */
+  coach?: { name: string; xpTimes: number };
   onDone: (save: SaveData, message: string) => void;
 }
 
@@ -1780,7 +1782,7 @@ export class RaceScene extends Phaser.Scene {
 
   private startPractice(): void {
     const career = this.save.career;
-    this.sim = practiceSim(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name, 0, this.save.flags), (Math.random() * 2 ** 32) >>> 0, services.settings.get().gameplay.testRideAlone);
+    this.sim = practiceSim(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name, 0, this.save.flags), (Math.random() * 2 ** 32) >>> 0, services.settings.get().gameplay.testRideAlone, this.args.coach?.xpTimes ?? 1);
     // You, and any riders already out on track (practiceRiders on the venue).
     this.sim.riders.forEach(({ e }, i) => {
       this.names.set(e.id, e.player ? 'You' : e.name);
@@ -1823,7 +1825,7 @@ export class RaceScene extends Phaser.Scene {
     const c = this.openModal(760, 520);
     c.add(this.add.text(0, -220, forced ? 'Practice over: your bike is broken' : 'Practice done', textStyle(26, COLORS.accent)).setOrigin(0.5));
     const best = p.lapTimes.length ? formatTime(Math.min(...p.lapTimes)) : '—';
-    const lines = [`Laps: ${p.lapTimes.length}   Best lap: ${best}${fee ? `   Practice fee: ${formatMoney(fee)}` : this.args.fee ? '   No practice fee taken' : ''}`, '', 'Practice XP (about a tenth of race XP)', ...this.xpLines(payout.xp), '', ...this.wearLines(before, career.bike.parts).slice(0, 4)];
+    const lines = [`Laps: ${p.lapTimes.length}   Best lap: ${best}${fee ? `   Practice fee: ${formatMoney(fee)}` : this.args.fee ? '   No practice fee taken' : ''}`, '', this.args.coach ? `Practice XP, coached by ${this.args.coach.name} (+${Math.round((this.args.coach.xpTimes - 1) * 100)}%)` : 'Practice XP (about a tenth of race XP)', ...this.xpLines(payout.xp), '', ...this.wearLines(before, career.bike.parts).slice(0, 4)];
     c.add(this.add.text(-330, -180, lines.join('\n'), textStyle(17, COLORS.cream, { lineSpacing: 4 })));
     if (payout.levelUps.length) c.add(this.add.text(-330, 150, payout.levelUps.map((u) => `Level up! ${u.name} is now level ${u.level}.`).join('\n'), textStyle(17, 0x9fe07a)));
     c.add(button(this, 0, 215, 'Done', () => this.done(p.lapTimes.length ? `Practice: ${p.lapTimes.length} laps, best ${best}.` : 'Practice: no laps done, so no fee taken.'), 220, 46));
