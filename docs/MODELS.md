@@ -60,7 +60,7 @@ The marshals, flag man, pit crews, fans and start official move with the race. T
 | Figure | Parts |
 |---|---|
 | `marshal` | **Body**, **Arm** (the flag arm, with its flag), **Base** (the stand, if any). For a better wave, also **Forearm** (origin at the elbow, with the hand and pole; Arm is then the upper arm only) and **Flag** (the cloth alone, origin on the pole, with the pole upright in the rest pose). With no Base the marshal stands on the game's stand at its height. |
-| `flagger` | **Body**, **WhiteArm**, **ChequeredArm** (each arm with its flag), **Base** (the stand or tower). The white flag is held out steady; for a chequered wave like the marshal's, also **ChequeredForearm** (origin at the right elbow, with the hand and pole; ChequeredArm is then the upper arm only) and **ChequeredFlag** (the cloth alone, origin on the pole, with the pole upright in the rest pose). With no Base the flag man stands on the game's stand or tower at its height. |
+| `flagger` | **Body**, **WhiteArm**, **ChequeredArm** (each arm with its flag), **Base** (the stand or tower). For a better wave, also **WhiteForearm**, **WhiteFlag**, **ChequeredForearm** and **ChequeredFlag**, built like the marshal's Forearm and Flag. With no Base he stands on the game's stand at its height. |
 | `pit_crew` | **Body**, **Arms** (both arms and the pole, as one), **Base** |
 | `cheer` | **Body** (with the head), **LegL**, **LegR**, **ArmL**, **ArmR** |
 | `start_official` | **Body** (with the head), **LegL**, **LegR**, **ArmL**, **ArmR** |

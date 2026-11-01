@@ -144,7 +144,7 @@ describe('what a model does', () => {
     const figure = (names: string[]) => ({ ...info([-0.4, 0, -0.2], [0.4, 1.8, 0.2]), names });
     expect(checkModel('marshal.glb', 100, figure(['Scene', 'Body', 'Arm']), scenery)).toEqual([]);
     expect(checkModel('marshal.glb', 100, figure(['Scene', 'Body', 'Arm', 'Forearm', 'Flag']), scenery)).toEqual([]);
-    expect(checkModel('flagger.glb', 100, figure(['Scene', 'Body', 'WhiteArm', 'ChequeredArm', 'ChequeredForearm', 'ChequeredFlag']), scenery)).toEqual([]);
+    expect(checkModel('flagger.glb', 100, figure(['Scene', 'Body', 'WhiteArm', 'WhiteForearm', 'WhiteFlag', 'ChequeredArm', 'ChequeredForearm', 'ChequeredFlag']), scenery)).toEqual([]);
     // A part on its own is enough: the rest stay the game's.
     expect(checkModel('cheer.glb', 100, figure(['armL.001']), scenery)).toEqual([]);
     // With no named parts the game can't move it.
@@ -160,6 +160,7 @@ describe('what a model does', () => {
     expect(partName(' WhiteArm ', FIGURE_PARTS.flagger)).toBe('WhiteArm');
     expect(partName('ChequeredForearm.001', FIGURE_PARTS.flagger)).toBe('ChequeredForearm');
     expect(partName('chequeredflag', FIGURE_PARTS.flagger)).toBe('ChequeredFlag');
+    expect(partName('WhiteForearm', FIGURE_PARTS.flagger)).toBe('WhiteForearm');
     expect(partName('Arm', FIGURE_PARTS.cheer)).toBeNull();
     expect(partName(undefined, FIGURE_PARTS.cheer)).toBeNull();
   });

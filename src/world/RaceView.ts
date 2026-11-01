@@ -89,9 +89,11 @@ interface Flagger {
   figure: THREE.Group;
   white: THREE.Mesh;
   chequered: THREE.Mesh;
-  /** The chequered arm's elbow, and its cloth on the pole, for a model's wave like the marshal's. */
-  forearm: THREE.Group;
-  flag: THREE.Group;
+  /** A model's forearms, at the elbows, and flags, on the poles; empty on the game's own flag man. */
+  whiteForearm: THREE.Group;
+  whiteFlag: THREE.Group;
+  chequeredForearm: THREE.Group;
+  chequeredFlag: THREE.Group;
   /** How far each flag is up: 0 down, 1 up; eased, the white coming down before the chequered goes up. */
   wk: number;
   ck: number;
@@ -2068,23 +2070,24 @@ export class RaceView {
     const white = Object.assign(this.pivotArm(built.white, built.left, built.feet), { name: 'WhiteArm' });
     const chequered = Object.assign(this.pivotArm(built.chequered, built.right, built.feet), { name: 'ChequeredArm' });
     figure.add(white, chequered);
-    // The chequered arm's elbow, and the cloth's edge on the pole, for a model's ChequeredForearm and ChequeredFlag (the game's own arm is one piece).
-    const forearm = new THREE.Group();
-    forearm.name = 'ChequeredForearm';
-    forearm.position.set(0, -0.35 * METRE, 0);
-    chequered.add(forearm);
-    const flag = new THREE.Group();
-    flag.name = 'ChequeredFlag';
-    // At the foot of the game's pole (flaggerParts), where its flag hangs, from the elbow.
-    flag.position.set(0.06 * METRE, (built.feet[1] + 0.12 - (built.right[1] - 0.35)) * METRE, 0.12 * METRE);
-    forearm.add(flag);
+    // The elbows, and the cloths' edges on the poles, for a model's forearms and flags (the game's own arms are one piece).
+    const joint = (name: string, parent: THREE.Object3D): THREE.Group => {
+      const j = new THREE.Group();
+      j.name = name;
+      parent.add(j);
+      return j;
+    };
+    const whiteForearm = joint('WhiteForearm', white);
+    const whiteFlag = joint('WhiteFlag', whiteForearm);
+    const chequeredForearm = joint('ChequeredForearm', chequered);
+    const chequeredFlag = joint('ChequeredFlag', chequeredForearm);
     g.add(figure);
-    const fitted = this.fitFigure(FLAGGER_ITEM, g, [['Base', g], ['Body', figure], ['WhiteArm', white], ['ChequeredArm', chequered], ['ChequeredForearm', forearm], ['ChequeredFlag', flag]]);
-    // A model is built standing on the ground; without its own Base it stands on the game's stand or tower, at its height.
+    const fitted = this.fitFigure(FLAGGER_ITEM, g, [['Base', g], ['Body', figure], ['WhiteArm', white], ['WhiteForearm', whiteForearm], ['WhiteFlag', whiteFlag], ['ChequeredArm', chequered], ['ChequeredForearm', chequeredForearm], ['ChequeredFlag', chequeredFlag]]);
+    // A model is built standing on the ground; without its own Base it stands on the game's stand, at its height.
     if (fitted && !figureHas(FLAGGER_ITEM, 'Base')) figure.position.y += built.feet[1] * METRE;
     this.faceTrack(g, it);
     const roofed = built.variant === 'tower';
-    this.flaggers.push({ spot: crewSpot(this.surface.g, it), figure, white, chequered, forearm, flag, wk: 0, ck: 0, reach: roofed ? 0.6 : 0.92, phase: noise(i * 31 + 3) * Math.PI * 2 });
+    this.flaggers.push({ spot: crewSpot(this.surface.g, it), figure, white, chequered, whiteForearm, whiteFlag, chequeredForearm, chequeredFlag, wk: 0, ck: 0, reach: roofed ? 0.52 : 0.92, phase: noise(i * 31 + 3) * Math.PI * 2 });
   }
 
   /** A pit crew member: the figure, the arms with the pole, and the board with its words, which the view keeps up to date. */
@@ -2175,15 +2178,16 @@ export class RaceView {
       const wantC = want === 'chequered' && f.wk < 0.15 ? 1 : 0;
       f.wk += Math.max(-dt * 2.2, Math.min(dt * 2.2, wantW - f.wk));
       f.ck += Math.max(-dt * 2.2, Math.min(dt * 2.2, wantC - f.ck));
-      f.white.rotation.x = -f.reach * Math.PI * f.wk;
-      // The white flag held out steady; the chequered waved like the marshal's flag, elbow and cloth following the arm (Boss, 1 Nov 2026).
-      f.white.rotation.z = 0;
-      f.chequered.rotation.x = -f.reach * Math.PI * f.ck;
-      f.chequered.rotation.z = -0.45 * f.ck * Math.sin(clock * 7 + f.phase);
-      f.forearm.rotation.set(-0.25 * f.ck, 0, -0.4 * f.ck * Math.sin(clock * 7 + f.phase - 0.9));
-      f.flag.rotation.y = -0.7 * f.ck * Math.sin(clock * 7 + f.phase - 1.8);
-      f.flag.scale.x = 0.3 + 0.7 * f.ck;
+      // The white flag is held out steady, a little above level (Boss, 1 Nov 2026): only a model's cloth stirs.
+      f.white.rotation.x = -Math.min(f.reach, 0.62) * Math.PI * f.wk;
+      f.whiteForearm.rotation.x = -0.25 * f.wk;
+      f.whiteFlag.rotation.y = 0.12 * f.wk * Math.sin(clock * 3 + f.phase);
+      f.whiteFlag.scale.x = 0.3 + 0.7 * f.wk;
+      // The chequered flag is waved as a marshal waves theirs (Boss, 1 Nov 2026).
+      const w = clock * 7 + f.phase;
+      this.waveFlag(f.chequered, f.chequeredForearm, f.chequeredFlag, f.ck, f.reach, w);
       f.figure.rotation.x = 0.12 * Math.max(f.wk, f.ck);
+      f.figure.rotation.z = -0.06 * f.ck * Math.sin(w);
     }
     if (!this.crews.length) return;
     if (riders.length && this.crews.some((c) => c.rider === null)) {
@@ -2201,18 +2205,25 @@ export class RaceView {
   }
 
   /** Raises each marshal's flag while a rider is down on their watch: the arm swings up and waves, the figure leans out. */
+  /**
+   * A flag raised and waving, `k` of the way up, to `reach` of a half turn, at `w` through its beat. A model's forearm bends a
+   * little at the elbow (the way an elbow bends) and whips the wave on a beat behind the arm; its flag swings round the pole,
+   * and is bunched against it while it's down.
+   */
+  private waveFlag(arm: THREE.Object3D, forearm: THREE.Object3D, flag: THREE.Object3D, k: number, reach: number, w: number): void {
+    arm.rotation.z = k * 0.45 * Math.sin(w);
+    arm.rotation.x = -reach * Math.PI * k;
+    forearm.rotation.set(-0.25 * k, 0, k * 0.4 * Math.sin(w - 0.9));
+    flag.rotation.y = k * 0.7 * Math.sin(w - 1.8);
+    flag.scale.x = 0.3 + 0.7 * k;
+  }
+
   updateMarshals(dt: number, clock: number, riders: { dist: number; state: RiderState }[]): void {
     for (const m of this.marshals) {
       const want = flagUp(m.watch, riders) ? 1 : 0;
       m.raise += Math.max(-dt * 2.5, Math.min(dt * 2.5, want - m.raise));
       const k = m.raise;
-      m.arm.rotation.z = k * 0.45 * Math.sin(clock * 7 + m.phase);
-      m.arm.rotation.x = -0.9 * Math.PI * k;
-      // A model's forearm bends a little at the elbow (the way an elbow bends) and whips the wave on a beat behind the arm;
-      // its flag swings round the pole, and is bunched against it while it's down.
-      m.forearm.rotation.set(-0.25 * k, 0, k * 0.4 * Math.sin(clock * 7 + m.phase - 0.9));
-      m.flag.rotation.y = k * 0.7 * Math.sin(clock * 7 + m.phase - 1.8);
-      m.flag.scale.x = 0.3 + 0.7 * k;
+      this.waveFlag(m.arm, m.forearm, m.flag, k, 0.9, clock * 7 + m.phase);
       m.figure.rotation.x = 0.22 * k;
       m.figure.rotation.z = -0.06 * k * Math.sin(clock * 7 + m.phase);
     }

@@ -125,8 +125,8 @@ export type ModelRole = 'replace' | 'new' | 'bike' | 'rider' | 'figure';
 export const FIGURE_PARTS: Readonly<Record<string, readonly string[]>> = {
   // Forearm (turning at the elbow, under Arm) and Flag (the cloth, turning about the pole, under Forearm) are optional: the wave uses them (Boss, 1 Nov 2026).
   marshal: ['Body', 'Arm', 'Forearm', 'Flag', 'Base'],
-  // ChequeredForearm (at the elbow, under ChequeredArm) and ChequeredFlag (the cloth, under ChequeredForearm) are optional: the chequered wave uses them, like the marshal's (Boss, 1 Nov 2026).
-  flagger: ['Body', 'WhiteArm', 'ChequeredArm', 'ChequeredForearm', 'ChequeredFlag', 'Base'],
+  // The same optional Forearm and Flag for each of the flag man's arms (Boss, 1 Nov 2026).
+  flagger: ['Body', 'WhiteArm', 'WhiteForearm', 'WhiteFlag', 'ChequeredArm', 'ChequeredForearm', 'ChequeredFlag', 'Base'],
   pit_crew: ['Body', 'Arms', 'Base'],
   cheer: ['Body', 'LegL', 'LegR', 'ArmL', 'ArmR'],
   start_official: ['Body', 'LegL', 'LegR', 'ArmL', 'ArmR'],
