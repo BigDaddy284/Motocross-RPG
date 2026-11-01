@@ -71,8 +71,8 @@ export class ModelsScene extends Phaser.Scene {
     const view = this.view!;
     const scenery = services.content.trackParts.scenery;
     const race: Row[] = [
-      { id: RACE_BIKE, label: 'Race bike', file: `${RACE_BIKE}.glb`, note: 'Bigger than 85cc', make: () => raceModels(false).bike },
-      { id: RACE_BIKE_YOUTH, label: 'Race bike (youth)', file: `${RACE_BIKE_YOUTH}.glb`, note: '85cc and under', make: () => raceModels(true).bike },
+      { id: RACE_BIKE, label: 'Race bike', file: `${RACE_BIKE}.glb`, note: '250F and up', make: () => raceModels(false).bike },
+      { id: RACE_BIKE_YOUTH, label: 'Race bike (youth)', file: `${RACE_BIKE_YOUTH}.glb`, note: 'Up to 125cc (125s scaled up to race bike size)', make: () => raceModels(true).bike },
       { id: RACE_RIDER, label: 'Race rider', file: `${RACE_RIDER}.glb`, note: 'Sits on every race bike', make: () => raceModels(false).rider },
     ];
     const builtIn: Row[] = scenery

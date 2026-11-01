@@ -14,8 +14,8 @@ The file name decides what the model does:
 | File name | What it does |
 |---|---|
 | the id of a scenery item, e.g. `hay_bale.glb` | replaces that item on every track |
-| `race_bike.glb` | replaces the race bike for classes over 85cc, and for youth classes too if there is no youth model |
-| `race_bike_youth.glb` | replaces the race bike for 85cc and under |
+| `race_bike.glb` | replaces the race bike (a four-stroke) for the 250F and up, and for every class if there is no youth model |
+| `race_bike_youth.glb` | replaces the race bike (a two-stroke) for 50cc to 125cc. The 125s draw it scaled up to the race bike's length (Boss, 1 Nov 2026), so build it at youth size |
 | `race_rider.glb` | replaces the rider on every race bike |
 | any other name, e.g. `round_bale.glb` | a new scenery item called "Round bale" in the track editor's Scenery palette |
 

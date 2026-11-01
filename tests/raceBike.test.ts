@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { BIKE_LENGTH } from '../src/core/trackSurface';
-import { BIKE_MODELS, BRAND_COLOURS, bikeColours, CPU_GEAR, GEAR_SETS, MODELS, modelFor, raceBikeParts, type RaceLook } from '../src/world/raceBike';
+import { BIKE_MODELS, BRAND_COLOURS, bikeColours, CPU_GEAR, fullSize, GEAR_SETS, MODELS, modelFor, raceBikeParts, type RaceLook } from '../src/world/raceBike';
 import { readPublic } from './helpers';
 
 const colours = (parts: THREE.Mesh[]) => new Set(parts.map((p) => (p.material as THREE.MeshLambertMaterial).color.getHex()));
@@ -62,8 +62,11 @@ describe('race-day bikes (Race day bike colours.png)', () => {
     for (const r of riders) if (r.kit) expect(GEAR_SETS[r.kit], r.kit).toBeDefined();
   });
 
-  it('youth classes ride the youth model, bigger classes the adult model', () => {
-    expect(['50cc', '65cc', '85cc', '125cc', '250cc', 'open'].map(modelFor)).toEqual(['youth', 'youth', 'youth', 'adult', 'adult', 'adult']);
+  it('up to 125 cc rides the youth model (a two-stroke), the 250F and up the adult (Boss, 1 Nov 2026)', () => {
+    const classes = ['50cc', '65cc', '85cc-small', '85cc-big', '125cc-youth', '125cc', '250f', '450f', 'vets-40', 'open'];
+    expect(classes.map(modelFor)).toEqual(['youth', 'youth', 'youth', 'youth', 'youth', 'youth', 'adult', 'adult', 'adult', 'adult']);
+    // "the Adult 125 bike should be same size as the race_bike": every class over 85 cc is full size.
+    expect(classes.map(fullSize)).toEqual([false, false, false, false, true, true, true, true, true, true]);
   });
 
   it('the scenery models (mini, pit bike, enduro, twin-shock) build to their own wheelbase and never ride in a race', () => {

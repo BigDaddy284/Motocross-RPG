@@ -27,9 +27,9 @@ export const MODEL_DIR = 'mods/models/';
 /** The folder's index: the dev server and the build write it (vite.config.ts), as for mod tracks. */
 export const MODEL_INDEX = `${MODEL_DIR}index.json`;
 
-/** The race bike for every class, unless race_bike_youth.glb gives the youth classes their own. */
+/** The race bike, a four-stroke, for the 250F and up, and for every class when there is no race_bike_youth.glb. */
 export const RACE_BIKE = 'race_bike';
-/** The race bike for the youth classes (50 to 85 cc). */
+/** The race bike for 50 to 125 cc, a two-stroke; the 125s ride it scaled up to the race bike's size (Boss, 1 Nov 2026). */
 export const RACE_BIKE_YOUTH = 'race_bike_youth';
 /** The rider on the race bikes. */
 export const RACE_RIDER = 'race_rider';

@@ -4,7 +4,7 @@ Your own 3D models
 Put .glb files here (Blender: File > Export > glTF 2.0, Format: glTF Binary) and reload the game.
 
   <scenery id>.glb      replaces that scenery item, e.g. hay_bale.glb or tree.glb
-  race_bike.glb         replaces the race bike (race_bike_youth.glb for 85cc and under)
+  race_bike.glb         replaces the race bike for 250F and up (race_bike_youth.glb for 50cc to 125cc; the 125s scale it up to race bike size)
   race_rider.glb        replaces the rider on every race bike
   any other name        a new scenery item in the track editor, e.g. round_bale.glb
   marshal.glb, flagger.glb, pit_crew.glb, cheer.glb, start_official.glb

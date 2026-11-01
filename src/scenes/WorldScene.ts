@@ -38,7 +38,7 @@ import { Waymarks, clusters, middle, type Mark } from '../world/Waymarks';
 import { DPR, HUD_BAR } from '../ui/view';
 import { standLift } from '../world/standLift';
 import { VanView, type Driver, type VanLoad } from '../world/VanView';
-import { modelFor } from '../world/raceBike';
+import { fullSize } from '../world/raceBike';
 import type { HudScene } from './HudScene';
 import { ordinal, type RaceSceneData } from './RaceScene';
 
@@ -1592,7 +1592,8 @@ export class WorldScene extends Phaser.Scene {
   /** The player's bike, once it is loaded in the motor: shown on the back of a truck, in its brand colours. */
   private vanLoad(): VanLoad | null {
     const bike = this.save.career.bike;
-    return this.save.flags.van_loaded ? { model: modelFor(bike.class), brand: bike.brand } : null;
+    // The stand pictures come youth or adult size: a full-size 125 rides on the back as the adult.
+    return this.save.flags.van_loaded ? { model: fullSize(bike.class) ? 'adult' : 'youth', brand: bike.brand } : null;
   }
 
   private occupyVan(on: boolean): void {

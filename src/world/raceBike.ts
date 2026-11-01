@@ -115,7 +115,7 @@ export function gearColour(g: Gear): number {
 /** How one rider looks on race day. */
 export interface RaceLook {
   brand: string;
-  /** Racing class id, such as 50cc. Up to 85 cc rides the youth model, bigger classes the adult. */
+  /** Racing class id, such as 50cc. Up to 125 cc rides the youth model, the 250F and up the adult (modelFor). */
   cls: string;
   gear: Gear;
 }
@@ -166,7 +166,7 @@ interface Model {
   pit?: boolean;
 }
 /**
- * The bike models. Races ride the youth model (50 to 85 cc) or the adult one (modelFor); the rest are
+ * The bike models. Races ride the youth model (50 to 125 cc) or the adult one (modelFor); the rest are
  * for the scenery bikes placed round a track (Boss, 28 Oct 2026) and never ride in a race.
  */
 export const MODELS: Record<string, Model> = {
@@ -180,9 +180,19 @@ export const MODELS: Record<string, Model> = {
 /** The models the editor offers for a scenery bike, with their names. */
 export const BIKE_MODELS: [string, string][] = [['adult', 'Adult MX bike'], ['youth', 'Youth MX bike'], ['mini', '50cc mini'], ['pitbike', 'Pit bike'], ['enduro', 'Enduro bike'], ['twinshock', 'Vintage twin-shock']];
 
+/**
+ * The model a class races (Boss, 1 Nov 2026: "Youth bike scaled up for Adult 125, race_bike model for 250f and
+ * up"): the youth model, a two-stroke, up to 125 cc; the adult race bike, a four-stroke, from the 250F on.
+ */
 export function modelFor(cls: string): 'youth' | 'adult' {
   const cc = parseInt(cls, 10);
-  return Number.isFinite(cc) && cc <= 85 ? 'youth' : 'adult';
+  return Number.isFinite(cc) && cc <= 125 ? 'youth' : 'adult';
+}
+
+/** Whether a class's bike is full size, the race bike's size: every class over 85 cc. The 125s ride the youth model scaled up to it. */
+export function fullSize(cls: string): boolean {
+  const cc = parseInt(cls, 10);
+  return !(Number.isFinite(cc) && cc <= 85);
 }
 
 type V3 = [number, number, number];

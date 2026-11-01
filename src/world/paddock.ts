@@ -8,7 +8,7 @@ import { paddockColour, paddockSetup, paddockVariant } from '../core/paddock';
 import type { SceneryItem } from '../core/race';
 import type { SceneryDef } from '../core/trackParts';
 import { BIKE_LENGTH } from '../core/trackSurface';
-import { brandFromColour, modelFor, MODELS, raceBikeParts } from './raceBike';
+import { brandFromColour, fullSize, modelFor, MODELS, raceBikeParts } from './raceBike';
 
 /** Grid units per metre: the adult race bike's 1.46 m wheelbase is BIKE_LENGTH apart. */
 export const U = BIKE_LENGTH / 1.46;
@@ -157,13 +157,14 @@ export class Build {
   /**
    * A race bike with no rider, in one colour, standing on the ground at (x, y, z) facing +x (turned by
    * ry). `model` is one of raceBike's MODELS (adult, youth, mini, pitbike, enduro, twinshock) or a
-   * racing class, which picks the adult or youth model as a race does.
+   * racing class, which picks the adult or youth model and its size as a race does.
    */
   bike(x: number, y: number, z: number, colour: number, model = 'adult', ry = 0): void {
     const q = new THREE.Quaternion().setFromAxisAngle(Y, ry);
     const key = MODELS[model] ? model : modelFor(model);
-    // Each model is built to its own wheelbase (the adult's 1.46 m is BIKE_LENGTH), so a mini is a mini.
-    const length = BIKE_LENGTH * (MODELS[key].wb / 1.46);
+    // Each model is built to its own wheelbase (the adult's 1.46 m is BIKE_LENGTH), so a mini is a mini;
+    // a class's bike over 85 cc is full size, the 125s' youth model too (Boss, 1 Nov 2026).
+    const length = !MODELS[model] && fullSize(model) ? BIKE_LENGTH : BIKE_LENGTH * (MODELS[key].wb / 1.46);
     for (const m of raceBikeParts({ brand: 'hondmoto', cls: '250cc', gear: null as never }, length, { rider: false, colours: brandFromColour(colour), model: key })) {
       m.position.applyQuaternion(q).add(new THREE.Vector3(x * U, y * U, z * U));
       m.quaternion.premultiply(q);

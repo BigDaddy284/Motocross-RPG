@@ -92,9 +92,30 @@ export function figureParts(id: string): Map<string, FigurePart> | null {
   return out.size ? out : null;
 }
 
-/** The race bike to draw for a class: the youth model for youth classes when there is one. */
-export function bikeModel(youth: boolean): THREE.Group | null {
-  return (youth ? modModel(RACE_BIKE_YOUTH) : null) ?? modModel(RACE_BIKE);
+/**
+ * The race bike to draw for a class: the youth model for the classes that ride it (raceBike.modelFor) when
+ * there is one, else the race bike. `full`: the youth model scaled up to the race bike's length, for the 125s
+ * (Boss, 1 Nov 2026: "the Adult 125 bike should be same size as the race_bike but it's the same model as the
+ * youth bike as it's modelled on a 2 stroke").
+ */
+export function bikeModel(youth: boolean, full = false): THREE.Group | null {
+  const y = youth ? modModel(RACE_BIKE_YOUTH) : null;
+  if (!y) return modModel(RACE_BIKE);
+  if (full) y.scale.setScalar(fullSizeScale());
+  return y;
+}
+
+/** How much bigger the race bike is than the youth bike, nose to tail; the built-in models' wheelbases (1.46 and 1.3 m) without a race bike. */
+function fullSizeScale(): number {
+  const length = (id: string) => {
+    const o = models.get(id)?.object;
+    if (!o) return 0;
+    const b = new THREE.Box3().setFromObject(o);
+    return b.max.x - b.min.x;
+  };
+  const adult = length(RACE_BIKE);
+  const youth = length(RACE_BIKE_YOUTH);
+  return adult > 0 && youth > 0 ? adult / youth : 1.46 / 1.3;
 }
 
 export function riderModel(): THREE.Group | null {
