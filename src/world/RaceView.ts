@@ -89,6 +89,9 @@ interface Flagger {
   figure: THREE.Group;
   white: THREE.Mesh;
   chequered: THREE.Mesh;
+  /** The chequered arm's elbow, and its cloth on the pole, for a model's wave like the marshal's. */
+  forearm: THREE.Group;
+  flag: THREE.Group;
   /** How far each flag is up: 0 down, 1 up; eased, the white coming down before the chequered goes up. */
   wk: number;
   ck: number;
@@ -2065,11 +2068,23 @@ export class RaceView {
     const white = Object.assign(this.pivotArm(built.white, built.left, built.feet), { name: 'WhiteArm' });
     const chequered = Object.assign(this.pivotArm(built.chequered, built.right, built.feet), { name: 'ChequeredArm' });
     figure.add(white, chequered);
+    // The chequered arm's elbow, and the cloth's edge on the pole, for a model's ChequeredForearm and ChequeredFlag (the game's own arm is one piece).
+    const forearm = new THREE.Group();
+    forearm.name = 'ChequeredForearm';
+    forearm.position.set(0, -0.35 * METRE, 0);
+    chequered.add(forearm);
+    const flag = new THREE.Group();
+    flag.name = 'ChequeredFlag';
+    // At the foot of the game's pole (flaggerParts), where its flag hangs, from the elbow.
+    flag.position.set(0.06 * METRE, (built.feet[1] + 0.12 - (built.right[1] - 0.35)) * METRE, 0.12 * METRE);
+    forearm.add(flag);
     g.add(figure);
-    this.fitFigure(FLAGGER_ITEM, g, [['Base', g], ['Body', figure], ['WhiteArm', white], ['ChequeredArm', chequered]]);
+    const fitted = this.fitFigure(FLAGGER_ITEM, g, [['Base', g], ['Body', figure], ['WhiteArm', white], ['ChequeredArm', chequered], ['ChequeredForearm', forearm], ['ChequeredFlag', flag]]);
+    // A model is built standing on the ground; without its own Base it stands on the game's stand or tower, at its height.
+    if (fitted && !figureHas(FLAGGER_ITEM, 'Base')) figure.position.y += built.feet[1] * METRE;
     this.faceTrack(g, it);
     const roofed = built.variant === 'tower';
-    this.flaggers.push({ spot: crewSpot(this.surface.g, it), figure, white, chequered, wk: 0, ck: 0, reach: roofed ? 0.6 : 0.92, phase: noise(i * 31 + 3) * Math.PI * 2 });
+    this.flaggers.push({ spot: crewSpot(this.surface.g, it), figure, white, chequered, forearm, flag, wk: 0, ck: 0, reach: roofed ? 0.6 : 0.92, phase: noise(i * 31 + 3) * Math.PI * 2 });
   }
 
   /** A pit crew member: the figure, the arms with the pole, and the board with its words, which the view keeps up to date. */
@@ -2161,9 +2176,13 @@ export class RaceView {
       f.wk += Math.max(-dt * 2.2, Math.min(dt * 2.2, wantW - f.wk));
       f.ck += Math.max(-dt * 2.2, Math.min(dt * 2.2, wantC - f.ck));
       f.white.rotation.x = -f.reach * Math.PI * f.wk;
-      f.white.rotation.z = 0.12 * f.wk * Math.sin(clock * 3 + f.phase);
+      // The white flag held out steady; the chequered waved like the marshal's flag, elbow and cloth following the arm (Boss, 1 Nov 2026).
+      f.white.rotation.z = 0;
       f.chequered.rotation.x = -f.reach * Math.PI * f.ck;
-      f.chequered.rotation.z = -0.5 * f.ck * Math.sin(clock * 9 + f.phase);
+      f.chequered.rotation.z = -0.45 * f.ck * Math.sin(clock * 7 + f.phase);
+      f.forearm.rotation.set(-0.25 * f.ck, 0, -0.4 * f.ck * Math.sin(clock * 7 + f.phase - 0.9));
+      f.flag.rotation.y = -0.7 * f.ck * Math.sin(clock * 7 + f.phase - 1.8);
+      f.flag.scale.x = 0.3 + 0.7 * f.ck;
       f.figure.rotation.x = 0.12 * Math.max(f.wk, f.ck);
     }
     if (!this.crews.length) return;
