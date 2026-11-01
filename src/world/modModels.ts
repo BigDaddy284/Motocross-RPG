@@ -245,6 +245,9 @@ export function textFaces(g: THREE.Object3D, texture: (aspect: number) => THREE.
     // The face stands upright facing the track: its width is along X (or Z, if turned), its height Y.
     const aspect = Math.max(size.x, size.z) / Math.max(1e-6, size.y);
     const tex = texture(aspect);
+    // A glTF model's UVs read the picture top down, not flipped as three.js flips its own (else the words show upside down).
+    tex.flipY = false;
+    tex.needsUpdate = true;
     const swap = (x: THREE.Material) => {
       if (!materialSlot(x.name, TEXT_SLOTS)) return x;
       const copy = x.clone() as THREE.MeshStandardMaterial;
