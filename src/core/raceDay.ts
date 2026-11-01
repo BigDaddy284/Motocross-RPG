@@ -159,6 +159,12 @@ function withModifiers(data: ModifiersData, e: Entrant, track: TrackDef, weather
   return m.map((f, i) => f * (e.tuning?.[i] ?? 1));
 }
 
+/** The player's setup against the track in the day's weather (Spec 8.2), with part modifiers (Spec 6) on top; CPU riders ride the default. */
+export function tunePlayer(rc: RaceContent, player: Entrant, track: TrackDef, weather: string): void {
+  if (rc.setup && player.setup) player.tuning = tuningFactors(rc.setup, player.setup, player.bike, track, (rc.racing.weather?.[weather]?.factor ?? 1) > 1);
+  if (rc.modifiers) player.tuning = withModifiers(rc.modifiers, player, track, weather);
+}
+
 export function trackById(rc: RaceContent, id: string): TrackDef {
   const t = rc.tracks.tracks.find((x) => x.id === id);
   if (!t) throw new Error(`No track "${id}"`);
@@ -216,6 +222,50 @@ function hashId(id: string): number {
   return h >>> 0;
 }
 
+/**
+ * A CPU rider's pick: the free gate they like best. The first GATE_SURE_PICKS in the order take
+ * the best gate left (the inside one of a tie). After them, most want the inside gates and their
+ * start bonus, but each rider has a favourite spot this moto (a rut they like, a line round the
+ * first corner) and their own feel for each gate, so the field fills the start unevenly instead
+ * of from gate 1 up; neither ever beats a gate 2% better. A few riders after them go wide
+ * for a spot further out (GATE_WIDE). Worked out from the day's seed, the
+ * rider and the moto (`step`: the race of the day), never from what is already taken, so the gate screen and the start always agree.
+ */
+export function cpuGatePick(track: TrackDef, seed: number, step: number, pickOrder: string[], id: string, taken: Map<number, string>, gates: number, slots: number[] = [...Array(gates).keys()]): number {
+  if (pickOrder.indexOf(id) < GATE_SURE_PICKS) {
+    let best = -1;
+    for (const g of slots) if (!taken.has(g) && (best < 0 || gateBonus(track, g) > gateBonus(track, best))) best = g;
+    return best;
+  }
+  const free = slots.filter((g) => !taken.has(g));
+  const top = Math.max(...free.map((g) => gateBonus(track, g)));
+  const moto = seededRng(mixSeed(seed, 104729 + 7919 * step));
+  const pick = pickOrder.indexOf(id);
+  for (const [from, spread] of GATE_WIDE) {
+    const wide = from + Math.floor(moto() * spread);
+    const inOne = moto() < 0.4;
+    if (pick !== wide) continue;
+    // The outside gate in reach, or sometimes the one in from it.
+    const reach = free.filter((g) => gateBonus(track, g) >= top - 2);
+    if (reach.length > 2) return reach[reach.length - (inOne ? 2 : 1)];
+  }
+  const rng = seededRng(mixSeed(seed, hashId(id) + 7919 * step));
+  const favourite = rng() * gates;
+  let best = gates;
+  let bestScore = -Infinity;
+  for (let g = 0; g < gates; g++) {
+    // One draw per gate, taken or not, so a rider's feel for a gate never depends on the others.
+    const feel = (rng() - 0.5) * GATE_FEEL;
+    if (taken.has(g) || !slots.includes(g)) continue;
+    const score = gateBonus(track, g) - Math.min(Math.abs(g - favourite), GATE_FAVOURITE_REACH) * GATE_FAVOURITE_PULL + feel;
+    if (score > bestScore) {
+      bestScore = score;
+      best = g;
+    }
+  }
+  return best;
+}
+
 /** A championship round's race day (Spec 12.2a, 12.5): its fixed field, qualifying and the tier's purse. */
 export interface RoundOptions {
   /** The CPU riders, the same every round, in place of a field drawn for the day. */
@@ -226,6 +276,11 @@ export interface RoundOptions {
   purseTimes: number;
   /** XP times (a replay's share). */
   xpTimes: number;
+  /**
+   * The pool's riders outside the championship, as they race it: a Supercross night's 32 is its
+   * riders and enough of these to fill it (core/supercross.ts, Boss 1 Nov 2026).
+   */
+  others?: CpuRiderDef[];
 }
 
 export interface QualifyingRecord {
@@ -311,10 +366,7 @@ export class RaceDay {
     this.motoCount = custom?.motos ?? 2;
     this.rng = seededRng(seed);
     this.weather = rollWeather(rc.areas ? areaOfMap(rc.areas, venue.town ?? '') : undefined, this.rng);
-    // The player's setup against this track in today's weather (Spec 8.2); CPU riders ride the default.
-    if (rc.setup && player.setup) player.tuning = tuningFactors(rc.setup, player.setup, player.bike, this.track, (rc.racing.weather?.[this.weather]?.factor ?? 1) > 1);
-    // Part modifiers (Spec 6) on top, for whoever has any (the player: CPU bikes carry none).
-    if (rc.modifiers) for (const e of [player]) e.tuning = withModifiers(rc.modifiers, e, this.track, this.weather);
+    tunePlayer(rc, player, this.track, this.weather);
     // A sidecar race has 7 other outfits, drawn from the field's whole pool.
     const cpus = alone ? [] : (custom?.cpus ?? round?.cpus ?? (sidecar ? drawPool(rc, venue, seed, SIDECAR_FIELD - 1) : drawField(rc, venue, seed)));
     this.field = [player, ...cpus.map((d) => cpuEntrant(rc, d, this.cls))];
@@ -389,49 +441,8 @@ export class RaceDay {
     return this.sidecar ? SIDECAR_GATES.slice(0, this.field.length) : [...Array(this.gateCount).keys()];
   }
 
-  /**
-   * A CPU rider's pick: the free gate they like best. The first GATE_SURE_PICKS in the order take
-   * the best gate left (the inside one of a tie). After them, most want the inside gates and their
-   * start bonus, but each rider has a favourite spot this moto (a rut they like, a line round the
-   * first corner) and their own feel for each gate, so the field fills the start unevenly instead
-   * of from gate 1 up; neither ever beats a gate 2% better. A few riders after them go wide
-   * for a spot further out (GATE_WIDE). Worked out from the day's seed, the
-   * rider and the moto, never from what is already taken, so the gate screen and the start always agree.
-   */
   private cpuGatePick(id: string, taken: Map<number, string>, gates: number): number {
-    const slots = this.gateSlots;
-    if (this.pickOrder.indexOf(id) < GATE_SURE_PICKS) {
-      let best = -1;
-      for (const g of slots) if (!taken.has(g) && (best < 0 || gateBonus(this.track, g) > gateBonus(this.track, best))) best = g;
-      return best;
-    }
-    const free = slots.filter((g) => !taken.has(g));
-    const top = Math.max(...free.map((g) => gateBonus(this.track, g)));
-    const moto = seededRng(mixSeed(this.seed, 104729 + 7919 * this.motos.length));
-    const pick = this.pickOrder.indexOf(id);
-    for (const [from, spread] of GATE_WIDE) {
-      const wide = from + Math.floor(moto() * spread);
-      const inOne = moto() < 0.4;
-      if (pick !== wide) continue;
-      // The outside gate in reach, or sometimes the one in from it.
-      const reach = free.filter((g) => gateBonus(this.track, g) >= top - 2);
-      if (reach.length > 2) return reach[reach.length - (inOne ? 2 : 1)];
-    }
-    const rng = seededRng(mixSeed(this.seed, hashId(id) + 7919 * this.motos.length));
-    const favourite = rng() * gates;
-    let best = gates;
-    let bestScore = -Infinity;
-    for (let g = 0; g < gates; g++) {
-      // One draw per gate, taken or not, so a rider's feel for a gate never depends on the others.
-      const feel = (rng() - 0.5) * GATE_FEEL;
-      if (taken.has(g) || (this.sidecar && !isSidecarGate(g))) continue;
-      const score = gateBonus(this.track, g) - Math.min(Math.abs(g - favourite), GATE_FAVOURITE_REACH) * GATE_FAVOURITE_PULL + feel;
-      if (score > bestScore) {
-        bestScore = score;
-        best = g;
-      }
-    }
-    return best;
+    return cpuGatePick(this.track, this.seed, this.motos.length, this.pickOrder, id, taken, gates, this.gateSlots);
   }
 
   /** True while a championship round's or a sprint's qualifying is still to ride. */
