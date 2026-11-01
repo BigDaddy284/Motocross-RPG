@@ -26,5 +26,9 @@ describe('bikes on stands for the paddock stand model', () => {
     const parts = paddockParts(def('mx_van'), { type: 'mx_van', x: 0, y: 0, action: 'awning_bikes' }, 0);
     expect(tags(parts).size).toBe(2);
     expect(parts.some((p) => !p.userData.standBike)).toBe(true);
+    // Side by side, a metre apart, so two full-size bikes don't touch (Boss, 1 Nov 2026).
+    const [a, b] = [...tags(parts)] as StandBike[];
+    expect(a.x).toBe(b.x);
+    expect(Math.abs(a.z - b.z)).toBeGreaterThanOrEqual(1);
   });
 });

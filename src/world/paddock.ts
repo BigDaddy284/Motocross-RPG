@@ -298,9 +298,15 @@ function mxVan(b: Build, col: number, setup: Setup, bz: number, long: boolean): 
   if (setup === 'awning' || setup === 'awning_bikes') {
     b.awning(x0 + 0.1, x1 - 1.3, bz + 0.98, 2.5, H - 0.1, H - 0.4, col);
     if (setup === 'awning_bikes') {
-      b.bikeOnStand(x0 + 1.3, bz + 2.2, 0xc21c15);
-      b.bikeOnStand(x1 - 2.5, bz + 2.2, long ? 0xecbe2a : 0x3b86da);
-      if (long) b.table(x0 + 3.5, bz + 2.3);
+      if (long) {
+        b.bikeOnStand(x0 + 1.3, bz + 2.2, 0xc21c15);
+        b.bikeOnStand(x1 - 2.5, bz + 2.2, 0xecbe2a);
+        b.table(x0 + 3.5, bz + 2.3);
+      } else {
+        // Side by side under the short van's awning: end to end, Boss's full-size bikes touched (1 Nov 2026).
+        b.bikeOnStand(x0 + 1.9, bz + 1.8, 0xc21c15);
+        b.bikeOnStand(x0 + 1.9, bz + 2.8, 0x3b86da);
+      }
     }
   }
 }
