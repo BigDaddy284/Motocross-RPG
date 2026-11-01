@@ -26,7 +26,6 @@ import { challengeReady, challengeVenue, lossHint, type ChallengeDef } from '../
 import { drillForAction, drillForNpc, drillsAtVenue, finishRound, walked, type DrillDef } from '../core/training';
 import { finishBatch, finishPass, openJobAt, passXp, startJob } from '../core/jobs';
 import { className } from '../core/classes';
-import { SIDECAR_FIELD, SIDECAR_TEST_VENUE } from '../core/sidecar';
 import { ticketJob, ticketProblem, ticketsOffered, type BoardDef, type Ticket } from '../core/jobBoard';
 import { childLevel } from '../core/skills';
 import { leadLevel } from '../core/skills';
@@ -90,8 +89,6 @@ export class WorldScene extends Phaser.Scene {
   private walkCarry = 0;
   private walking = false;
   private busy = false;
-  /** TEST ONLY, REMOVE BEFORE RELEASE (Boss, 1 Nov 2026): the Farmland race office's sidecar tick box, ticked. */
-  private sidecarTest = false;
   /** The zoom the player had outside, while a building has raised it to INTERIOR_ZOOM. */
   private outdoorZoom: number | null = null;
   private keys!: Record<'up' | 'down' | 'left' | 'right' | 'w' | 'a' | 's' | 'd', Phaser.Input.Keyboard.Key>;
@@ -1096,25 +1093,15 @@ export class WorldScene extends Phaser.Scene {
       return { label: `${def.short} round ${n}`, note: `Entry: ${formatMoney(f)}${short(f) ? " — you can't afford it" : ''}. Qualifying, then 2 motos against the championship's ${def.size + 1} riders.`, enabled: !short(f), onPick: () => this.ride('raceday', venue, f, onClose, def) };
     });
     const hasChamps = !mod && champs.championships.some((d) => d.rounds.includes(venue.id));
-    // TEST ONLY, REMOVE BEFORE RELEASE (Boss, 1 Nov 2026): a tick box at the Farmland race office that
-    // makes Race day a sidecar race, you on a sidecar against 7 others (core/sidecar.ts). Free, and it counts for nothing.
-    const sidecarBox = !mod && !rounds.length && venue.id === SIDECAR_TEST_VENUE;
-    const sidecar = sidecarBox && this.sidecarTest;
-    const sidecarOptions = sidecarBox
-      ? [{ label: `${sidecar ? '☑' : '☐'} TEST: Sidecar race`, note: sidecar ? 'Ticked: Race day is a sidecar race. Tap to untick.' : `Tick, then pick Race day: you on a sidecar against ${SIDECAR_FIELD - 1} others. Free; nothing counts.`, onPick: () => { this.sidecarTest = !this.sidecarTest; this.openVenue(venue, onClose, mod); } }]
-      : [];
     const others = mod ? [] : rc.tracks.venues.filter((v) => v.map === venue.map && v.id !== venue.id && !v.practiceOnly && !v.locked && (!v.needs || this.save.flags[v.needs]));
     this.hud.choose(venue.name, text, [
       ...roundOptions,
       rounds.length
         ? { label: 'Race day', note: 'Not today: your championship round is on here.', enabled: false, onPick: onClose }
-        : sidecar
-        ? { label: 'Race day (sidecars)', note: `TEST: ${SIDECAR_FIELD} sidecars, 2 motos of ${laps} laps. Free; no prize money or XP, and your bike stays as it is.`, onPick: () => this.ride('raceday', venue, 0, onClose, undefined, undefined, true) }
         : { label: 'Race day', note: first ? 'Entry: free (first race)' : `Entry: ${formatMoney(fee)}${short(fee) ? " — you can't afford it" : ''}`, enabled: !short(fee), onPick: () => this.ride('raceday', venue, fee, onClose) },
       ...(mod
         ? mod.extra
         : [{ label: 'Free practice', note: `${formatMoney(pFee)}: ride laps until you stop${venue.practiceRiders ? `, with ${venue.practiceRiders} other riders out on track` : ' on your own'}.${short(pFee) ? " You can't afford it." : ''}`, enabled: !short(pFee), onPick: () => this.ride('practice', venue, pFee, onClose) }]),
-      ...sidecarOptions,
       ...(hasChamps ? [{ label: 'Championships', note: 'Enter one, see the standings, or give one up.', onPick: () => this.openChampionships(venue, onClose) }] : []),
       // Sponsored Rides (core/sponsors.ts, Spec 16; Boss, 31 Oct 2026: from Area 5).
       ...(!mod && sponsorsOpen(rc.sponsors, this.save.flags) ? [{ label: 'Sponsors', note: career.sponsor ? `Riding for ${career.sponsor.name}: today's objectives, or leave them.` : career.sponsorOffers?.length ? `${career.sponsorOffers.length} offer${career.sponsorOffers.length === 1 ? '' : 's'} waiting.` : 'No offers yet: finish a championship to open a window.', onPick: () => this.openSponsors(venue, () => this.openVenue(venue, onClose, mod)) }] : []),
@@ -1512,7 +1499,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /** Hands over to the race screen; the world sleeps until it is done. */
-  private ride(mode: RaceSceneData['mode'], venue: VenueDef, fee: number, onClose: () => void, champ?: ChampionshipDef, challenge?: ChallengeDef, sidecarTest = false): void {
+  private ride(mode: RaceSceneData['mode'], venue: VenueDef, fee: number, onClose: () => void, champ?: ChampionshipDef, challenge?: ChallengeDef): void {
     this.busy = true;
     this.path = [];
     this.player.stopWalking();
@@ -1522,7 +1509,6 @@ export class WorldScene extends Phaser.Scene {
       fee,
       champ,
       challenge,
-      ...(sidecarTest ? { sidecarTest } : {}),
       save: this.snapshot(),
       onDone: (save, message) => {
         this.scene.wake('hud');

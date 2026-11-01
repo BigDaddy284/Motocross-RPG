@@ -143,9 +143,9 @@ Built from `docs/AREAS_2_TO_8_PLAN.md` on a chain of branches, each starting fro
 
 ## Sidecar racing (test v1.5, Boss, 1 Nov 2026)
 
-Sidecars are coming as a class of their own, brought in late in the game: no new venues, they race only on Motocross tracks once unlocked, and they will open championships across the land for their class. For now there is a **TEST** way to try one:
+Sidecars are coming as a class of their own, brought in late in the game: no new venues, they race only on Motocross tracks once unlocked, and they will open championships across the land for their class. **Players can't race them yet** (Boss, 1 Nov 2026: "Must remove the ability to test race the Sidecars, they will be enabled later"): the Farmland race office's test tick box is gone. The racing itself is built and tested:
 
-- At the **Farmland** race office, tick **☐ TEST: Sidecar race**, then pick **Race day (sidecars)**: you on a sidecar against 7 others, two motos of the laps your own class races there. It is free and counts for nothing: no prize money or XP, no wear, no records, and your own bike stays exactly as it was (you borrow a stock outfit in your brand for the day). In dev, `?testtrack=farmland&sidecar` jumps straight into one.
+- Under `npm run dev` only, `?testtrack=farmland&sidecar` jumps straight into a TEST sidecar race: you on a sidecar against 7 others, two motos of the laps a 50cc races there. It is free and counts for nothing: no prize money or XP, no wear, no records (you borrow a stock outfit for the day).
 - The start: 8 outfits, 4 on the front row and 4 on the back, each taking two gates. An outfit sits on an even gate (2, 4, 6, 8 in front, 10 to 16 behind) with its chair over the odd gate beside it, so only the even gates can be picked; the odd ones show "chair".
 - An outfit never whips or scrubs, whatever its rider's skill, and never loops out at the gate. It stays flat through corners, and once clear of the gate it keeps its bike far enough from the left edge for the chair to stay on the track, with more room between outfits than between solo bikes.
 - Boss's `sidecar.glb` in `public/mods/models/` is every outfit, painted in each team's colours (Plastics, Frame, Plate); without it the game draws its own bike with a chair.
@@ -275,7 +275,7 @@ Testing aids to take out before the final release:
 - **Shift pay boost.** `testPayMultiplier` in `world.json` (5× for Alpha v1.1).
 - **Money cheat.** A new rider named `moneymoneymoney` starts with £50,000 (`TEST_MONEY_NAME` in `careerFlow.ts`). Back in for test v1.5.
 - **Ride alone.** Settings > Gameplay > "TEST: Ride alone (no AI)": practice and race days with no AI riders (`testRideAlone` in `settings.ts`, `alone` in `raceDay.ts`, `RaceScene.ts`, `SettingsScene.ts`).
-- **Sidecar test tick box (Boss, 1 Nov 2026).** The Farmland race office's "TEST: Sidecar race" tick box (`sidecarTest` and `sidecarBox` in `WorldScene.ts`, `sidecarTest` in `RaceScene.ts` and `BootScene.ts`, `SidecarDay.test` in `raceDay.ts`, `SIDECAR_TEST_VENUE` and `testSidecar` in `core/sidecar.ts`). Replace it with the real unlock when sidecars come in late game.
+- **Sidecar test race (Boss, 1 Nov 2026).** The player's tick box is gone (Boss, 1 Nov 2026); what's left is the dev-only `?testtrack=…&sidecar` (`BootScene.ts`) and the test day it starts (`sidecarTest` in `RaceScene.ts`, `SidecarDay.test` in `raceDay.ts`, `SIDECAR_TEST_VENUE` and `testSidecar` in `core/sidecar.ts`). Replace it with the real unlock when sidecars come in late game.
 
 ## Later, once Area 2 is under way
 

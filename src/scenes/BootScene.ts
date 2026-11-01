@@ -109,14 +109,15 @@ export class BootScene extends Phaser.Scene {
     // The models page: export the game's objects for Blender, and see what the models folder holds (ModelsScene).
     if (params.has('models')) return void this.scene.start('models');
     const test = params.get('testtrack');
-    if (test && content.tracks.tracks.some((t) => t.id === test)) this.testRide(test, params.has('sidecar'));
+    if (test && content.tracks.tracks.some((t) => t.id === test)) this.testRide(test, import.meta.env.DEV && params.has('sidecar'));
     else this.scene.start('menu');
   }
 
   /**
    * Dev only: ?testtrack=<track id> goes straight to a race day on that track with a new rider
    * and the local field, without a venue or a save, to try a track from the track editor. With
-   * &sidecar as well, on a Motocross track, it is a TEST sidecar race (core/sidecar.ts).
+   * &sidecar as well, on a Motocross track under `npm run dev` only, it is a TEST sidecar race
+   * (core/sidecar.ts): sidecars are off for players until they come in late game (Boss, 1 Nov 2026).
    */
   private testRide(trackId: string, sidecar = false): void {
     const { bikes, story, tracks } = services.content;
