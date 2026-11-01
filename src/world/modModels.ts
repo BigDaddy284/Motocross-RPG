@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { ADULT_BIKE_METRES, BIKE_SLOTS, checkBikeSizes, raceBikeKind, YOUTH_BIKE_METRES, checkModel, FAN_SLOTS, PIT_CREW_SLOTS, FIGURE_PARTS, partName, glbInfo, MODEL_DIR, MODEL_INDEX, modelDef, modelId, modelRole, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, RIDER_SLOTS, SIDECAR_CREW, SIDECAR_MODEL, materialSlot, type ModelEntry } from '../core/modModels';
+import { ADULT_BIKE_METRES, BIKE_SLOTS, checkBikeSizes, raceBikeKind, YOUTH_BIKE_METRES, checkModel, FAN_SLOTS, PIT_CREW_SLOTS, FIGURE_PARTS, partName, glbInfo, MODEL_DIR, MODEL_INDEX, modelDef, modelId, modelRole, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, RIDER_SLOTS, SIDECAR_CREW, SIDECAR_MODEL, STAND_MODELS, STAND_SLOTS, materialSlot, type ModelEntry } from '../core/modModels';
 import type { SceneryDef } from '../core/trackParts';
 import { SIDECAR_CLASS } from '../core/sidecar';
 import { U } from './paddock';
@@ -195,6 +195,15 @@ export const BIKE_PAINT = BIKE_SLOTS;
 export const RIDER_PAINT = RIDER_SLOTS;
 export const FAN_PAINT = FAN_SLOTS;
 export const PIT_CREW_PAINT = PIT_CREW_SLOTS;
+export const STAND_PAINT = STAND_SLOTS;
+
+/** The stand model for a marshal's, flag man's or pit crew's design (core STAND_MODELS), painted in `colour`, or null for the game's own. */
+export function standModel(variant: string, colour: number, dark: number): THREE.Group | null {
+  const id = STAND_MODELS[variant];
+  const g = id ? modModel(id) : null;
+  if (g) paintModel(g, { team: colour, teamdark: dark }, STAND_PAINT);
+  return g;
+}
 
 /**
  * Loads the models folder's files: every one is read and checked, and the good ones parsed. The

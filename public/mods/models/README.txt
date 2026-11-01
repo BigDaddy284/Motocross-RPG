@@ -8,6 +8,9 @@ Put .glb files here (Blender: File > Export > glTF 2.0, Format: glTF Binary) and
   race_rider.glb        replaces the rider on every race bike
   sidecar.glb           every outfit in a sidecar race (chair on the left, +Y in Blender)
   sidecar_crew.glb      the sidecar's rider and passenger: objects Rider and Passenger, origins at the hips
+  stand_pallet.glb      the marshal's and flag man's pallet stand (deck top 1.0 m); also stand_tower.glb
+                        (roofed tower, roof edge 3.3 m), stand_bales.glb (hay bales) and pit_wall.glb
+                        (pit crew); materials Team and TeamDark take the item's colour
   any other name        a new scenery item in the track editor, e.g. round_bale.glb
   marshal.glb, flagger.glb, pit_crew.glb, cheer.glb, start_official.glb
                         a moving figure: objects named for its parts (Body, Arm, LegL...)
