@@ -216,6 +216,8 @@ export class RaceView {
   private readonly mapDots: Phaser.GameObjects.Graphics;
   private mapFrame: Phaser.GameObjects.Graphics | null = null;
   private readonly mapBox: { x: number; y: number; k: number };
+  /** The lap map's frame on the race screen, for laying out what sits around it. */
+  readonly mapRect: { x: number; y: number; w: number; h: number };
   private readonly viewUnits: number;
   private readonly dir: THREE.Vector3;
   private readonly bg: number;
@@ -427,6 +429,7 @@ export class RaceView {
     const mw = 190;
     const mk = mw / this.gw;
     this.mapBox = { x: x + w - mw - 12, y: y + 12, k: mk };
+    this.mapRect = { x: this.mapBox.x - 6, y: this.mapBox.y - 6, w: mw + 12, h: this.gh * mk + 12 };
     const mg = scene.add.graphics();
     mg.fillStyle(COLORS.ink, 0.85).fillRoundedRect(this.mapBox.x - 6, this.mapBox.y - 6, mw + 12, this.gh * mk + 12, 6);
     mg.lineStyle(4, 0xc98a4b, 1);

@@ -31,7 +31,8 @@ const H = 720;
  * the old 2× and 4× the old 8×, with 2× and 3× true multiples between.
  */
 const SPEEDS = [0, 2, 4, 6, 8];
-const SPEED_LABELS = ['Pause', '1×', '2×', '3×', '4×'];
+// Pause is the usual two-bar sign (Boss, 31 Oct 2026).
+const SPEED_LABELS = ['', '1×', '2×', '3×', '4×'];
 const DEFAULT_SPEED = 1;
 /** How many laps a pit board message can be set for; 0 is to the flag. */
 const BOARD_LAPS = [1, 2, 3, 0];
@@ -57,15 +58,16 @@ interface Checkpoints {
   d: number[];
 }
 
+/** The standings' fixed-width font, so the columns line up. */
+const MONO = 'Consolas, "Courier New", monospace';
 /** Outlined text over the track: readable on grass, dirt or sky (Boss, 28 Oct 2026). */
 const OVERLAY: Phaser.Types.GameObjects.Text.TextStyle = {
   stroke: '#14141a',
   strokeThickness: 5,
   shadow: { offsetX: 0, offsetY: 2, color: '#000000', blur: 4, stroke: true, fill: true },
 };
-/** One standings row's height, and the room kept under them for the race log. */
+/** One standings row's height before the font is measured. */
 const TOWER_ROW = 23;
-const FEED_H = 150;
 
 /** The rows of the standings that fit, scrolled so the player's row is always in view (near the middle). */
 function towerWindow(rows: string[], mine: number, fit: number): string[] {
@@ -105,6 +107,14 @@ export class RaceScene extends Phaser.Scene {
   private pen: PenMeter | null = null;
   private modal: Phaser.GameObjects.Container | null = null;
   private towerRows = 16;
+  /** Where Skip to results sits: the track view's bottom-right corner, clear of the race log. */
+  private skipX = 800;
+  /** Name width in the standings, in characters: the field's longest name. */
+  private nameW = 15;
+  /** One standings row's height on screen, measured from the font. */
+  private towerLineH = TOWER_ROW;
+  /** The bar behind your row in the standings, in place of an arrow (Boss, 31 Oct 2026). */
+  private towerMark: Phaser.GameObjects.Rectangle | null = null;
   /** Set by clear(): the next frame fits the new menu screen to the window. */
   private fitDirty = false;
   private skipButton: Button | null = null;
@@ -691,58 +701,110 @@ export class RaceScene extends Phaser.Scene {
     // The whole window: the track view takes the room past 1280 × 720, the side column stays on the right.
     this.screen.setPosition(0, 0);
     const { dw, dh } = this;
-    const vw = dw - 380;
-    const right = dw - 350;
-    this.box(16, 16, vw, 54);
-    this.ui.title = this.text(32, 30, '', 20, COLORS.cream);
-    // Your message, then the pen: one section of ink per message change (racing data's ink).
-    this.ui.ink = this.text(vw - PEN_W - 14, 30, '', 20, COLORS.accent).setOrigin(1, 0);
-    this.pen = penMeter(this, vw - PEN_W, 43, services.content.racing.ink, PEN_W);
-    this.screen.add(this.pen);
-    this.pen.setVisible(!practice);
+    // The side column is only as wide as the standings (or the Details tables) need, and the track
+    // view takes everything else (Boss, 31 Oct 2026). Widths come from the font as drawn.
+    const probe = this.text(0, 0, 'A', 16, COLORS.cream, { lineSpacing: 7 }).setFontFamily(MONO);
+    const one = probe.displayHeight;
+    this.towerLineH = probe.setText('A\nA').displayHeight - one;
+    const charW = probe.setText('A'.repeat(20)).displayWidth / 20;
+    probe.destroy();
+    // The widest Details row: a part, its condition and loss, and BROKEN.
+    const probe14 = this.text(0, 0, 'A'.repeat(33), 14, COLORS.cream).setFontFamily(MONO);
+    const detailW = probe14.displayWidth;
+    probe14.destroy();
+    const longest = Math.max(6, ...sim.riders.map((r) => (this.names.get(r.e.id) ?? '').length));
+    this.nameW = Math.min(longest, 20);
+    const inner = Math.ceil((this.nameW + 12) * charW);
+    // The column ends just past the times: the Details tables and the log fit themselves to it.
+    const colIn = Math.max(inner, 220);
+    const sideW = colIn + 24;
+    const detailSize = Math.max(10, Math.floor(14 * Math.min(1, colIn / detailW) * 2) / 2);
+    const right = dw - 16 - sideW;
+    const vw = right - 14 - 16;
+    this.skipX = 16 + vw - 14 - 110;
     // Riders ride up to the start in the order they picked their gates.
     this.director = directorFor(sim, services.content.bikes, services.content.racing.messages, this.day?.pickOrder);
     // The view keeps the 1280 × 720 layout's scale (900 wide), so a wider one shows more track, not bigger bikes.
-    // The track takes the whole height (Boss, 28 Oct 2026): your position, lap, gaps and bike float
-    // over its top-left corner as outlined text, and the race log sits under the standings.
-    this.view = new RaceView(this, this.screen, sim.track, services.content.trackParts, 16, 82, vw, dh - 98, undefined, { scaleWidth: 900 });
+    // The track takes the whole height, its bottom level with the Retire and Details buttons, and the
+    // race line, your position, lap, gaps and bike float over its top-left corner as outlined text
+    // (Boss, 28 Oct 2026; no header bar, 31 Oct 2026).
+    this.view = new RaceView(this, this.screen, sim.track, services.content.trackParts, 16, 16, vw, dh - 54, undefined, { scaleWidth: 900 });
     this.view.hasStart = !practice;
     // Fireworks at the finish only where riders race to the line together, not in qualifying or a knockout's seeding run.
     this.view.showFireworks = !practice && !this.qualifying && !(this.ko && !this.koHeat);
     // The flag man and the pit boards count the race's laps.
     this.view.setLaps(practice ? undefined : sim.totalLaps ?? undefined);
-    this.ui.me = this.text(30, 94, '', 18, COLORS.cream, { lineSpacing: 4, ...OVERLAY });
-    this.box(right, 16, 334, dh - 160);
+    this.ui.title = this.text(30, 26, '', 18, COLORS.cream, OVERLAY);
+    this.ui.me = this.text(30, 58, '', 18, COLORS.cream, { lineSpacing: 4, ...OVERLAY });
+    // Your message, then the pen (one section of ink per message change, racing data's ink), under the lap map:
+    // the pen level with the map's right edge (Boss, 31 Oct 2026).
+    const map = this.view.mapRect;
+    const penW = 90;
+    const rowY = map.y + map.h + 18;
+    this.pen = penMeter(this, map.x + map.w - penW, rowY, services.content.racing.ink, penW, 20);
+    this.screen.add(this.pen);
+    this.pen.setVisible(!practice);
+    // Just the pit board message, centred between the map's left edge and the pen: no "to the flag" or
+    // "to lap N", since the player picked it and Auto-complete shows in the race line, in the same text
+    // as Position but in the pen's blue (Boss, 31 Oct and 1 Nov 2026).
+    this.ui.ink = this.text((map.x + map.x + map.w - penW) / 2, rowY, '', 18, 0x2e95ff, OVERLAY).setOrigin(0.5, 0.5);
+    this.box(right, 16, sideW, dh - 160);
     // The standings show as many rows as fit above the log, scrolled to keep you in view.
-    this.towerRows = Math.max(6, Math.floor((dh - 160 - 28 - FEED_H) / TOWER_ROW));
-    this.ui.tower = this.text(right + 16, 30, '', 16, COLORS.cream, { lineSpacing: 7 });
-    this.ui.feed = this.text(right + 16, 30 + this.towerRows * TOWER_ROW + 12, '', 14, COLORS.cream, { lineSpacing: 5, wordWrap: { width: 302 } });
-    this.ui.detail = this.text(right + 16, 76, '', 15, COLORS.cream, { lineSpacing: 5 }).setVisible(false);
+    // Your row is picked out by a bar behind it, so the standings lose the arrow column and the
+    // times sit just after the field's longest name (Boss, 31 Oct 2026).
+    this.towerMark = this.add.rectangle(right + 6, 0, sideW - 12, TOWER_ROW, COLORS.accent, 0.45).setOrigin(0, 0).setVisible(false);
+    this.screen.add(this.towerMark);
+    this.ui.tower = this.text(right + 12, 30, '', 16, COLORS.cream, { lineSpacing: 7 }).setFontFamily(MONO);
+    // The log always starts under the last row.
+    this.towerRows = Math.max(6, Math.floor((dh - 160 - 14 - 8) / this.towerLineH));
+    // The race log floats over the track's bottom-left corner in the Position text one size down,
+    // five lines at most. It is just wide enough for the longest line the log can write (a big crash
+    // at the longest-named section breaking three parts) to split over two near-equal lines
+    // (Boss, 31 Oct 2026): half that line, plus room for a word to spill over.
+    const racing = services.content.racing;
+    const longestOf = (names: string[]) => names.reduce((a, b) => (b.length > a.length ? b : a), '');
+    const sectionNames = Object.values(racing.sections).map((x) => x.name.toLowerCase());
+    const slotNames = services.content.bikes.slots.map((x) => x.name.toLowerCase()).sort((a, b) => b.length - a.length).slice(0, 3);
+    const longestLine = `Big crash at the ${longestOf(sectionNames)} (−12.4s). Broken: ${slotNames.join(', ')}.`;
+    this.ui.feed = this.text(30, dh - 50, longestLine, 17, COLORS.cream, { lineSpacing: 3, ...OVERLAY }).setOrigin(0, 1);
+    const wordW = this.ui.feed.setText('controls, ').width;
+    this.ui.feed.setText(longestLine);
+    this.ui.feed.setWordWrapWidth(Math.ceil(this.ui.feed.width / 2 + wordW * 0.6)).setText('');
+    this.ui.detail = this.text(right + 12, 76, '', detailSize, COLORS.cream, { lineSpacing: 5 }).setVisible(false);
     // Details: the bike's parts, or section times.
     this.detailTabs = (['bike', 'sections'] as const).map((tab, i) => {
-      const b = this.btn(right + 85 + i * 160, 46, tab === 'bike' ? 'Bike' : 'Section times', () => {
+      const tw = (sideW - 20) / 2;
+      const b = this.btn(right + 6 + tw / 2 + i * (tw + 8), 46, tab === 'bike' ? 'Bike' : 'Sections', () => {
         this.detailTab = tab;
         this.detailTabs.forEach((o, j) => o.setSelected(j === i));
         this.renderDetail();
-      }, 150, 34);
+      }, tw, 34);
       b.setSelected(tab === this.detailTab);
       b.setVisible(false);
       return b;
     });
 
     // Speed buttons and actions.
-    const speedButtons = SPEED_LABELS.map((l, i) => this.btn(right + 32 + i * 64, dh - 116, l, () => {
+    // Five speed buttons and the two actions, edge to edge under the standings box.
+    const sw = (sideW - 4 * 6) / 5;
+    const aw = (sideW - 8) / 2;
+    const speedButtons = SPEED_LABELS.map((l, i) => this.btn(right + sw / 2 + i * (sw + 6), dh - 116, l, () => {
       this.speed = i;
       this.paused = false;
       speedButtons.forEach((b, j) => b.setSelected(j === i));
-    }, 60, 40));
+    }, sw, 40));
     speedButtons[this.speed].setSelected(true);
+    // The pause sign is drawn, two bars dead centre in its button, rather than a font glyph.
+    speedButtons[0].add([
+      this.add.rectangle(-5, 0, 5, 16, COLORS.cream),
+      this.add.rectangle(5, 0, 5, 16, COLORS.cream),
+    ]);
     if (practice) {
-      this.btn(right + 92, dh - 60, 'Stop riding', () => this.stopPractice(), 170, 44);
-      this.btn(right + 260, dh - 60, 'Details', () => this.toggleDetail(), 130, 44);
+      this.btn(right + aw / 2, dh - 60, 'Stop riding', () => this.stopPractice(), aw, 44);
+      this.btn(right + aw * 1.5 + 8, dh - 60, 'Details', () => this.toggleDetail(), aw, 44);
     } else {
-      this.btn(right + 82, dh - 60, 'Retire', () => this.confirmRetire(), 150, 44);
-      this.btn(right + 250, dh - 60, 'Details', () => this.toggleDetail(), 150, 44);
+      this.btn(right + aw / 2, dh - 60, 'Retire', () => this.confirmRetire(), aw, 44);
+      this.btn(right + aw * 1.5 + 8, dh - 60, 'Details', () => this.toggleDetail(), aw, 44);
     }
     this.addLap(sim.nextLap());
     // A race opens with the start procedure: the line-up, then the board and the five-second
@@ -753,12 +815,42 @@ export class RaceScene extends Phaser.Scene {
     this.tick();
   }
 
+  /**
+   * Shows the standings. A row carrying the arrow is yours: the arrow comes out and the bar goes
+   * behind that row instead.
+   */
+  private setTower(lines: string[]): void {
+    let mine = -1;
+    const rows = lines.map((l, i) => {
+      const m = /^(\s*\d+  )(▶ |  )/.exec(l);
+      if (!m) return l;
+      if (m[2] === '▶ ') mine = i;
+      return m[1] + l.slice(m[0].length);
+    });
+    this.ui.tower.setText(rows.join('\n'));
+    const mark = this.towerMark!;
+    mark.setData('row', mine >= 0 ? mine : undefined);
+    mark.setPosition(mark.x, this.ui.tower.y + mine * this.towerLineH - 3).setSize(mark.width, this.towerLineH);
+    mark.setVisible(mine >= 0 && !this.detail);
+  }
+
+  /** The newest log lines that fit in five lines on screen, long ones wrapping. */
+  private setFeed(entries: string[]): void {
+    const t = this.ui.feed;
+    let shown = entries.slice(-5);
+    t.setText(shown.join('\n'));
+    while (shown.length > 1 && t.getWrappedText(shown.join('\n')).length > 5) {
+      shown = shown.slice(1);
+      t.setText(shown.join('\n'));
+    }
+  }
+
   private toggleDetail(): void {
     this.detail = !this.detail;
     this.ui.tower.setVisible(!this.detail);
-    this.ui.feed.setVisible(!this.detail);
     this.ui.detail.setVisible(this.detail);
     this.detailTabs.forEach((b) => b.setVisible(this.detail));
+    this.towerMark?.setVisible(!this.detail && this.towerMark.getData('row') !== undefined);
     this.renderDetail();
   }
 
@@ -925,15 +1017,15 @@ export class RaceScene extends Phaser.Scene {
     const myLap = Math.max(1, Math.min(Math.floor(me.dist) + 1, sim.totalLaps ?? Infinity));
     const msg = services.content.racing.messages.find((m) => m.id === sim.playerMessage)!;
     if (practice) {
-      this.ui.title.setText(`${this.args.venue.name} · Practice · Lap ${myLap}`);
+      this.ui.title.setText(`${this.args.venue.name} · Practice`);
       this.ui.ink.setText('');
       const p = { lapTimes: this.practiceLaps() };
       const best = p.lapTimes.length ? Math.min(...p.lapTimes) : null;
       const xp = Object.values(this.practiceXpNow()).reduce((a, b) => a + b, 0);
       this.ui.me.setText([`Laps done: ${p.lapTimes.length}`, `Last lap: ${p.lapTimes.length ? formatTime(p.lapTimes.at(-1)!) : '—'}`, `Best lap: ${best !== null ? formatTime(best) : '—'}`, `Practice XP: ${xp.toFixed(1)}`].join('\n'));
-      this.ui.feed.setText(this.bikeLines().join('\n'));
+      this.setFeed(this.bikeLines());
       const laps = p.lapTimes.map((t, i) => `Lap ${String(i + 1).padStart(3)}   ${formatTime(t)}${t === best ? '  best' : ''}`).slice(-(this.towerRows - 2));
-      this.ui.tower.setText(['Lap times', '', ...laps].join('\n')).setFontFamily('Consolas, "Courier New", monospace');
+      this.setTower(['Lap times', '', ...laps]);
       return;
     }
     const total = sim.totalLaps!;
@@ -949,9 +1041,8 @@ export class RaceScene extends Phaser.Scene {
       this.renderKo(pos, me, order);
       return;
     }
-    this.ui.title.setText(`${this.args.venue.name} · Moto ${this.day!.motoNumber} · Lap ${Math.max(1, Math.min(Math.floor(leader.dist) + 1, total))} of ${total}${this.auto ? ' · Auto-complete' : ''}`);
-    const until = this.auto || this.boardAt === Infinity ? ' to the flag' : this.boardAt > this.myLaps ? ` to lap ${this.boardAt}` : '';
-    this.ui.ink.setText(`${msg.name}${until}`);
+    this.ui.title.setText(`${this.args.venue.name} · Moto ${this.day!.motoNumber}${this.auto ? ' · Auto-complete' : ''}`);
+    this.ui.ink.setText(msg.name);
     this.pen?.setLevel(sim.ink);
 
     const rank = order.findIndex((o) => o.id === PLAYER_ID);
@@ -969,16 +1060,15 @@ export class RaceScene extends Phaser.Scene {
       lines.push(broken.length ? `Broken: ${broken.join(', ')}` : 'Bike: nothing broken');
     }
     this.ui.me.setText(lines.join('\n'));
-    this.ui.feed.setText(this.feed.slice(-5).join('\n'));
+    this.setFeed(this.feed);
     const rows = order.map((p, i) => {
-      const name = (this.names.get(p.id) ?? '').padEnd(15).slice(0, 15);
+      const name = (this.names.get(p.id) ?? '').padEnd(this.nameW).slice(0, this.nameW);
       const g = p.out ? 'OUT' : i === 0 ? (p.finished ? formatTime(p.finishT) : 'Leader') : `+${gap(p).toFixed(1)}`;
       return `${String(i + 1).padStart(2)}  ${p.id === PLAYER_ID ? '▶ ' : '  '}${name} ${g.padStart(7)}`;
     });
-    this.ui.tower.setText(towerWindow(rows, rank, this.towerRows).join('\n'));
-    this.ui.tower.setFontFamily('Consolas, "Courier New", monospace');
+    this.setTower(towerWindow(rows, rank, this.towerRows));
     if (!this.skipButton && (me.out || me.finished)) {
-      this.skipButton = this.btn(16 + (this.dw - 380) / 2, this.dh - 50, 'Skip to results', () => {
+      this.skipButton = this.btn(this.skipX, this.dh - 50, 'Skip to results', () => {
         while (!sim.finished) this.addLap(sim.nextLap());
         this.live = false;
         this.finishMoto();
@@ -1032,9 +1122,8 @@ export class RaceScene extends Phaser.Scene {
     const total = sim.totalLaps!;
     const myLap = Math.max(1, Math.min(Math.floor(me.dist) + 1, total));
     const msg = services.content.racing.messages.find((m) => m.id === sim.playerMessage)!;
-    this.ui.title.setText(`${this.args.venue.name} · Qualifying · ${myLap === 1 ? 'Out lap' : `Timed lap ${myLap - 1} of ${total - 1}`}${this.auto ? ' · Auto-complete' : ''}`);
-    const until = this.auto || this.boardAt === Infinity ? ' to the flag' : this.boardAt > this.myLaps ? ` to lap ${this.boardAt}` : '';
-    this.ui.ink.setText(`${msg.name}${until}`);
+    this.ui.title.setText(`${this.args.venue.name} · Qualifying${this.auto ? ' · Auto-complete' : ''}`);
+    this.ui.ink.setText(msg.name);
     this.pen?.setLevel(sim.ink);
     const rows = this.qualifyingOrder(pos);
     const pole = rows[0].best;
@@ -1050,16 +1139,15 @@ export class RaceScene extends Phaser.Scene {
       lines.push(broken.length ? `Broken: ${broken.join(', ')}` : 'Bike: nothing broken');
     }
     this.ui.me.setText(lines.join('\n'));
-    this.ui.feed.setText(this.feed.slice(-5).join('\n'));
+    this.setFeed(this.feed);
     const tower = rows.map((r, i) => {
-      const name = (this.names.get(r.p.id) ?? '').padEnd(15).slice(0, 15);
+      const name = (this.names.get(r.p.id) ?? '').padEnd(this.nameW).slice(0, this.nameW);
       const g = r.best === null ? (r.p.out ? 'OUT' : '—') : i === 0 ? formatTime(r.best, 3) : `+${(r.best - pole!).toFixed(3)}`;
       return `${String(i + 1).padStart(2)}  ${r.p.id === PLAYER_ID ? '▶ ' : '  '}${name} ${g.padStart(7)}`;
     });
-    this.ui.tower.setText(['Best timed laps', ...towerWindow(tower, mine, this.towerRows - 1)].join('\n'));
-    this.ui.tower.setFontFamily('Consolas, "Courier New", monospace');
+    this.setTower(['Best timed laps', ...towerWindow(tower, mine, this.towerRows - 1)]);
     if (!this.skipButton && (me.out || me.finished)) {
-      this.skipButton = this.btn(16 + (this.dw - 380) / 2, this.dh - 50, 'Skip to results', () => {
+      this.skipButton = this.btn(this.skipX, this.dh - 50, 'Skip to results', () => {
         while (!sim.finished) this.addLap(sim.nextLap());
         this.live = false;
         this.finishMoto();
@@ -1088,8 +1176,7 @@ export class RaceScene extends Phaser.Scene {
     const msg = services.content.racing.messages.find((m) => m.id === sim.playerMessage)!;
     const what = this.qualifying ? 'Qualifying · one timed lap' : `Moto ${this.day!.motoNumber} · Lap ${myLap} of ${total}`;
     this.ui.title.setText(`${this.args.venue.name} · ${what}${this.auto ? ' · Auto-complete' : ''}`);
-    const until = this.auto || this.boardAt === Infinity ? ' to the flag' : this.boardAt > this.myLaps ? ` to lap ${this.boardAt}` : '';
-    this.ui.ink.setText(`${msg.name}${until}`);
+    this.ui.ink.setText(msg.name);
     this.pen?.setLevel(sim.ink);
     const rows = this.sprintOrder(pos);
     const lead = rows[0];
@@ -1105,16 +1192,15 @@ export class RaceScene extends Phaser.Scene {
       lines.push(broken.length ? `Broken: ${broken.join(', ')}` : 'Bike: nothing broken');
     }
     this.ui.me.setText(lines.join('\n'));
-    this.ui.feed.setText(this.feed.slice(-5).join('\n'));
+    this.setFeed(this.feed);
     const tower = rows.map((r, i) => {
-      const name = (this.names.get(r.p.id) ?? '').padEnd(15).slice(0, 15);
+      const name = (this.names.get(r.p.id) ?? '').padEnd(this.nameW).slice(0, this.nameW);
       const g = r.p.out ? 'OUT' : !r.times.length ? '—' : i === 0 ? formatTime(r.total) : r.times.length < lead.times.length ? `${r.times.length}/${total}` : `+${(r.total - lead.total).toFixed(1)}`;
       return `${String(i + 1).padStart(2)}  ${r.p.id === PLAYER_ID ? '▶ ' : '  '}${name} ${g.padStart(7)}`;
     });
-    this.ui.tower.setText([this.qualifying ? 'Qualifying times' : 'Total time', ...towerWindow(tower, rank, this.towerRows - 2)].join('\n'));
-    this.ui.tower.setFontFamily('Consolas, "Courier New", monospace');
+    this.setTower([this.qualifying ? 'Qualifying times' : 'Total time', ...towerWindow(tower, rank, this.towerRows - 2)]);
     if (!this.skipButton && (me.out || me.finished)) {
-      this.skipButton = this.btn(16 + (this.dw - 380) / 2, this.dh - 50, 'Skip to results', () => {
+      this.skipButton = this.btn(this.skipX, this.dh - 50, 'Skip to results', () => {
         while (!sim.finished) this.addLap(sim.nextLap());
         this.live = false;
         this.finishMoto();
@@ -1136,7 +1222,7 @@ export class RaceScene extends Phaser.Scene {
     if (!t || !sim || !this.detail) return;
     const mine = this.cps.get(PLAYER_ID);
     this.detailKey = `${this.detailTab} ${this.bikeNow()?.lap ?? -1} ${mine ? mine.t.filter((x) => x <= this.clock).length : 0}`;
-    t.setFontFamily('Consolas, "Courier New", monospace');
+    t.setFontFamily(MONO);
     if (this.detailTab === 'bike') return void t.setText(this.bikeDetail().join('\n'));
     const done = [...this.traces].reverse().find((tr) => (tr.times[PLAYER_ID]?.length ?? 0) === tr.marks.length && tr.times[PLAYER_ID].at(-1)! <= this.clock);
     if (!done) return void t.setText('Section times\n\nAfter your first full lap.');
@@ -1188,10 +1274,10 @@ export class RaceScene extends Phaser.Scene {
     const b = this.bikeNow();
     if (!b) return ['No bike data.'];
     const lowAt = Math.round(services.content.racing.wear.lowAt * 100);
-    const short = (n: string) => n.replace('Intake and exhaust', 'Intake/exhaust').replace('Bodywork and controls', 'Bodywork').replace('Wheels and tyres', 'Wheels/tyres');
-    const rows = this.partStatus(b.parts).map((p) => `${short(p.name).padEnd(14).slice(0, 14)}${(p.c <= 0 ? '--' : `${(p.c * 100).toFixed(1)}%`).padStart(7)}${`${p.loss >= 0.0005 ? '-' : ''}${(p.loss * 100).toFixed(1)}%`.padStart(7)} ${p.warn}`);
+    const short = (n: string) => n.replace('Intake and exhaust', 'Intake/exh.').replace('Bodywork and controls', 'Bodywork').replace('Wheels and tyres', 'Wheels/tyres');
+    const rows = this.partStatus(b.parts).map((p) => `${short(p.name).padEnd(12).slice(0, 12)}${(p.c <= 0 ? '--' : `${(p.c * 100).toFixed(1)}%`).padStart(7)}${`${p.loss >= 0.0005 ? '-' : ''}${(p.loss * 100).toFixed(1)}%`.padStart(7)} ${p.warn}`);
     const stats = this.statStatus(b.parts).map((x) => `${x.name.padEnd(11).slice(0, 11)} ${String(x.now).padStart(4)}  of ${String(x.fresh).padStart(3)} new`);
-    return [b.lap ? `Your bike after lap ${b.lap}` : 'Your bike at the gate', 'Part             Cond   Loss', ...rows, '', 'Stats', ...stats, '', 'Loss: wear this race.', `LOW: ${lowAt}% or less.`];
+    return [b.lap ? `Your bike after lap ${b.lap}` : 'Your bike at the gate', `${'Part'.padEnd(12)}${'Cond'.padStart(7)}${'Loss'.padStart(7)}`, ...rows, '', 'Stats', ...stats, '', 'Loss: wear this race.', `LOW: ${lowAt}% or less.`];
   }
 
   private brokenParts(): string[] {
@@ -1751,7 +1837,7 @@ export class RaceScene extends Phaser.Scene {
     const msg = services.content.racing.messages.find((m) => m.id === sim.playerMessage)!;
     this.ui.ink.setText(msg.name);
     this.pen?.setLevel(sim.ink);
-    const name = (id: string) => (this.names.get(id) ?? '').padEnd(15).slice(0, 15);
+    const name = (id: string) => (this.names.get(id) ?? '').padEnd(this.nameW).slice(0, this.nameW);
     const lines: string[] = [];
     const broken = this.brokenParts();
     let tower: string[];
@@ -1799,11 +1885,10 @@ export class RaceScene extends Phaser.Scene {
       head = round.final ? 'Final' : round.name;
     }
     this.ui.me.setText(lines.join('\n'));
-    this.ui.feed.setText(this.feed.slice(-5).join('\n'));
-    this.ui.tower.setText([head, ...towerWindow(tower, rank, this.towerRows - 1)].join('\n'));
-    this.ui.tower.setFontFamily('Consolas, "Courier New", monospace');
+    this.setFeed(this.feed);
+    this.setTower([head, ...towerWindow(tower, rank, this.towerRows - 1)]);
     if (heat && !this.skipButton && (me.out || me.finished)) {
-      this.skipButton = this.btn(16 + (this.dw - 380) / 2, this.dh - 50, 'Skip to results', () => {
+      this.skipButton = this.btn(this.skipX, this.dh - 50, 'Skip to results', () => {
         while (!sim.finished) this.addLap(sim.nextLap());
         this.live = false;
         this.finishMoto();
