@@ -737,14 +737,17 @@ export class RaceScene extends Phaser.Scene {
     this.ui.title = this.text(30, 26, '', 18, COLORS.cream, OVERLAY);
     this.ui.me = this.text(30, 58, '', 18, COLORS.cream, { lineSpacing: 4, ...OVERLAY });
     // Your message, then the pen (one section of ink per message change, racing data's ink), under the lap map:
-    // the pen level with the map's right edge, the message ending at the pen (Boss, 31 Oct 2026).
+    // the pen level with the map's right edge (Boss, 31 Oct 2026).
     const map = this.view.mapRect;
     const penW = 90;
     const rowY = map.y + map.h + 18;
     this.pen = penMeter(this, map.x + map.w - penW, rowY, services.content.racing.ink, penW, 20);
     this.screen.add(this.pen);
     this.pen.setVisible(!practice);
-    this.ui.ink = this.text(map.x + map.w - penW - 10, rowY, '', 18, COLORS.accent, OVERLAY).setOrigin(1, 0.5);
+    // Just the pit board message, centred between the map's left edge and the pen: no "to the flag" or
+    // "to lap N", since the player picked it and Auto-complete shows in the race line, in the same text
+    // as Position (Boss, 31 Oct 2026).
+    this.ui.ink = this.text((map.x + map.x + map.w - penW) / 2, rowY, '', 18, COLORS.cream, OVERLAY).setOrigin(0.5, 0.5);
     this.box(right, 16, sideW, dh - 160);
     // The standings show as many rows as fit above the log, scrolled to keep you in view.
     // Your row is picked out by a bar behind it, so the standings lose the arrow column and the
@@ -1039,8 +1042,7 @@ export class RaceScene extends Phaser.Scene {
       return;
     }
     this.ui.title.setText(`${this.args.venue.name} · Moto ${this.day!.motoNumber}${this.auto ? ' · Auto-complete' : ''}`);
-    const until = this.auto || this.boardAt === Infinity ? ' to the flag' : this.boardAt > this.myLaps ? ` to lap ${this.boardAt}` : '';
-    this.ui.ink.setText(`${msg.name}${until}`);
+    this.ui.ink.setText(msg.name);
     this.pen?.setLevel(sim.ink);
 
     const rank = order.findIndex((o) => o.id === PLAYER_ID);
@@ -1121,8 +1123,7 @@ export class RaceScene extends Phaser.Scene {
     const myLap = Math.max(1, Math.min(Math.floor(me.dist) + 1, total));
     const msg = services.content.racing.messages.find((m) => m.id === sim.playerMessage)!;
     this.ui.title.setText(`${this.args.venue.name} · Qualifying${this.auto ? ' · Auto-complete' : ''}`);
-    const until = this.auto || this.boardAt === Infinity ? ' to the flag' : this.boardAt > this.myLaps ? ` to lap ${this.boardAt}` : '';
-    this.ui.ink.setText(`${msg.name}${until}`);
+    this.ui.ink.setText(msg.name);
     this.pen?.setLevel(sim.ink);
     const rows = this.qualifyingOrder(pos);
     const pole = rows[0].best;
@@ -1175,8 +1176,7 @@ export class RaceScene extends Phaser.Scene {
     const msg = services.content.racing.messages.find((m) => m.id === sim.playerMessage)!;
     const what = this.qualifying ? 'Qualifying · one timed lap' : `Moto ${this.day!.motoNumber} · Lap ${myLap} of ${total}`;
     this.ui.title.setText(`${this.args.venue.name} · ${what}${this.auto ? ' · Auto-complete' : ''}`);
-    const until = this.auto || this.boardAt === Infinity ? ' to the flag' : this.boardAt > this.myLaps ? ` to lap ${this.boardAt}` : '';
-    this.ui.ink.setText(`${msg.name}${until}`);
+    this.ui.ink.setText(msg.name);
     this.pen?.setLevel(sim.ink);
     const rows = this.sprintOrder(pos);
     const lead = rows[0];
