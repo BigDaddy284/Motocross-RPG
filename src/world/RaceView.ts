@@ -23,7 +23,7 @@ import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
 import { ARCH_GAP, ARCH_MODELS, ARCH_PARTS, FLASH_GAP, FLASH_RANGE, FLASH_TIME, livePart, LOCKED_ITEMS, partName, TRACK_RANGE, TRACK_TURN } from '../core/modModels';
 import { bannerPath, PICTURE_ITEMS } from '../core/banners';
 import { SIDECAR_CLASS } from '../core/sidecar';
-import { sidecarCrew, BIKE_PAINT, bikeModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, standModel, bikeOnStandModel, STAND_PAINT, textFaces, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
+import { sidecarCrew, BIKE_PAINT, bikeModel, bikeOnWheelsModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, standModel, bikeOnStandModel, STAND_PAINT, textFaces, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
 // isometric camera in the spirit of Super Off Road's overhead arcade view. The track is solid
@@ -1972,7 +1972,9 @@ export class RaceView {
       model.traverse((x) => { if (x === o) inModel = true; });
       if (!inModel) return;
       // A StandBike with a custom property colour = "item" is in the item's colour (a bike wash's bike), as the game's own.
-      const bike = bikeOnStandModel('adult', o.userData.colour === 'item' ? tint : colours[Math.floor(noise(index * 13 + k * 7) * colours.length)]);
+      const colour = o.userData.colour === 'item' ? tint : colours[Math.floor(noise(index * 13 + k * 7) * colours.length)];
+      // stand = "none": the bike on its wheels at the empty, with no stand or lift (strapped on a trailer).
+      const bike = o.userData.stand === 'none' ? bikeOnWheelsModel(colour) : bikeOnStandModel('adult', colour);
       if (!bike) return;
       const at = o.getWorldPosition(new THREE.Vector3());
       const turn = new THREE.Euler().setFromQuaternion(o.getWorldQuaternion(new THREE.Quaternion()), 'YXZ');

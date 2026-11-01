@@ -165,6 +165,18 @@ export function bikeOnStandModel(variant: string, colour: number): THREE.Group |
   return g;
 }
 
+/**
+ * The race bike alone on its wheels (Boss, 1 Nov 2026), painted in `colour` as a bike on a stand is:
+ * for a bike strapped on a trailer. Null without race_bike.glb.
+ */
+export function bikeOnWheelsModel(colour: number): THREE.Group | null {
+  const bike = modModel(RACE_BIKE);
+  if (!bike) return null;
+  const c = brandFromColour(colour);
+  paintModel(bike, { plastics: c.body, frame: c.frame, plate: c.plate }, BIKE_PAINT);
+  return bike;
+}
+
 /** A model's length, bumper to bumper (its X). */
 function lengthOf(o: THREE.Object3D): number {
   const box = new THREE.Box3().setFromObject(o);
