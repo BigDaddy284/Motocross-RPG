@@ -29,6 +29,6 @@ describe('bikes on stands for the paddock stand model', () => {
     // Side by side, a metre apart, so two full-size bikes don't touch (Boss, 1 Nov 2026).
     const [a, b] = [...tags(parts)] as StandBike[];
     expect(a.x).toBe(b.x);
-    expect(Math.abs(a.z - b.z)).toBeGreaterThanOrEqual(1);
+    expect(Math.abs(a.z - b.z)).toBeCloseTo(1, 6);
   });
 });
