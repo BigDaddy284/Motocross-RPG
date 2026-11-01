@@ -20,7 +20,7 @@ import { FIREWORK_LEAD, fireworkShow, fireworksDue, hasFireworks, ROCKET_RISE, t
 import { APPROACH, assignCrews, BOARD_PAST, boardOut, boardText, crewSpot, FLAGGER_ITEM, flagState, PIT_CREW_ITEM, SX_ARCH_KINDS, sxArch } from '../core/finishCrew';
 import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../core/marshal';
 import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
-import { ARCH_GAP, ARCH_MODELS, ARCH_PARTS, LOCKED_ITEMS, partName } from '../core/modModels';
+import { ARCH_GAP, ARCH_MODELS, ARCH_PARTS, FLASH_GAP, FLASH_RANGE, FLASH_TIME, livePart, LOCKED_ITEMS, partName, TRACK_RANGE, TRACK_TURN } from '../core/modModels';
 import { bannerPath, PICTURE_ITEMS } from '../core/banners';
 import { SIDECAR_CLASS } from '../core/sidecar';
 import { sidecarCrew, BIKE_PAINT, bikeModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, standModel, bikeOnStandModel, STAND_PAINT, textFaces, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
@@ -329,6 +329,11 @@ export class RaceView {
   private builtIn = false;
   /** Scenery models' own animations, each playing on a loop (playLoops); they run in the track editor's view too. */
   private readonly loops: THREE.AnimationMixer[] = [];
+  /** Scenery models' Track parts, turning to follow the nearest rider (core LIVE_PARTS; Boss, 1 Nov 2026). */
+  private readonly trackers: { node: THREE.Object3D; rest: number }[] = [];
+  /** Scenery models' Flash parts, blinking as a rider goes by close. */
+  private readonly flashes: { node: THREE.Object3D; until: number; next: number; seed: number }[] = [];
+  private liveClock = 0;
   /** Frame times in ms (whole update, the 3D draw, and handing the picture to Phaser), for the performance check. */
   readonly frameMs: number[] = [];
   readonly renderMs: number[] = [];
@@ -1876,10 +1881,14 @@ export class RaceView {
     const flaggers = this.flaggers.length;
     const crews = this.crews.length;
     const loops = this.loops.length;
+    const trackers = this.trackers.length;
+    const flashes = this.flashes.length;
     this.ghostIndex = index ?? -1;
     const obj = this.buildItem(it);
     this.ghostIndex = -1;
     this.loops.length = loops;
+    this.trackers.length = trackers;
+    this.flashes.length = flashes;
     this.marshals.length = marshals;
     this.flaggers.length = flaggers;
     this.crews.length = crews;
@@ -1969,6 +1978,67 @@ export class RaceView {
     });
   }
 
+  /** A scenery model's live parts (core LIVE_PARTS): its Track parts to turn and its Flash parts, hidden until they blink. */
+  private liveParts(model: THREE.Object3D, index: number): void {
+    model.traverse((o) => {
+      const kind = livePart(o.name);
+      if (kind === 'Track') this.trackers.push({ node: o, rest: o.rotation.y });
+      else if (kind === 'Flash') {
+        o.visible = false;
+        this.flashes.push({ node: o, until: 0, next: 0, seed: index * 17 + this.flashes.length * 5 + 1 });
+      }
+    });
+  }
+
+  /**
+   * Turns each Track part about its vertical to face the nearest rider within TRACK_RANGE (back to
+   * rest with none), at most TRACK_TURN a second, and blinks each Flash part as a rider goes by
+   * within FLASH_RANGE, at most once every FLASH_GAP and a little at random, so a row of
+   * photographers doesn't flash as one.
+   */
+  private updateLiveParts(dt: number, bikes: { x: number; z: number }[]): void {
+    this.liveClock += dt;
+    const now = this.liveClock;
+    const at = new THREE.Vector3();
+    const nearest = (x: number, z: number): { x: number; z: number; d: number } | null => {
+      let best: { x: number; z: number; d: number } | null = null;
+      for (const b of bikes) {
+        const d = Math.hypot(b.x - x, b.z - z);
+        if (!best || d < best.d) best = { ...b, d };
+      }
+      return best;
+    };
+    for (const t of this.trackers) {
+      if (!t.node.parent) continue;
+      t.node.getWorldPosition(at);
+      const n = nearest(at.x, at.z);
+      let want = t.rest;
+      if (n && n.d <= TRACK_RANGE) {
+        // Where the rider is, in the frame the part turns in; the part's front is +Z.
+        const p = t.node.parent.worldToLocal(new THREE.Vector3(n.x, at.y, n.z));
+        want = Math.atan2(p.x - t.node.position.x, p.z - t.node.position.z);
+      }
+      let d = want - t.node.rotation.y;
+      d = Math.atan2(Math.sin(d), Math.cos(d));
+      const step = TRACK_TURN * dt;
+      t.node.rotation.y += Math.max(-step, Math.min(step, d));
+    }
+    for (const f of this.flashes) {
+      if (now < f.until) continue;
+      f.node.visible = false;
+      if (now < f.next) continue;
+      f.node.getWorldPosition(at);
+      const n = nearest(at.x, at.z);
+      if (!n || n.d > FLASH_RANGE) continue;
+      // A chance a frame, so each photographer fires in their own time while a rider is close.
+      f.seed += 1;
+      if (noise(f.seed * 13.7) > 4 * dt) continue;
+      f.node.visible = true;
+      f.until = now + FLASH_TIME;
+      f.next = now + FLASH_GAP * (1 + noise(f.seed * 3.1));
+    }
+  }
+
   /**
    * Plays a scenery model's own animations on a loop, each copy starting at its own point so a
    * row of them never moves as one.
@@ -2052,6 +2122,7 @@ export class RaceView {
       // Its Text material shows the item's words on its colour, as the game's own banner does (Boss, 1 Nov 2026).
       textFaces(custom, (aspect) => this.faceTexture(it, words, tint, aspect));
       add(custom);
+      this.liveParts(custom, this.itemIndex(it));
       this.playLoops(custom, this.itemIndex(it));
       if (custom.userData.clips) g.userData.moving = true;
       if (it.rot === undefined && FACES_TRACK.has(it.type) && this.awayFromTrack(it) === 1) g.rotation.y += Math.PI;
@@ -3163,10 +3234,11 @@ export class RaceView {
     for (const mixer of this.loops) mixer.update(Math.min(0.1, dt));
     if (this.marshals.length) this.updateMarshals(Math.min(0.1, dt), clock, riders.map((r) => r.pose));
     if (this.flaggers.length || this.crews.length) this.updateFinishCrew(Math.min(0.1, dt), clock, riders);
-    if (this.cheers.length) {
+    if (this.cheers.length || this.trackers.length || this.flashes.length) {
       const spots: { x: number; z: number }[] = [];
       for (const r of riders) { const b = this.bikes.get(r.pose.id); if (b && r.pose.state !== 'retired') spots.push({ x: b.root.position.x, z: b.root.position.z }); }
-      this.updateCheers(Math.min(0.1, dt), spots);
+      if (this.cheers.length) this.updateCheers(Math.min(0.1, dt), spots);
+      if (this.trackers.length || this.flashes.length) this.updateLiveParts(Math.min(0.1, dt), spots);
     }
     if (!riders.some((r) => r.player && r.pose.state !== 'retired')) this.marker.visible = false;
     else this.marker.visible = true;

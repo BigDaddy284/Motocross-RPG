@@ -107,6 +107,25 @@ export const STAND_MODELS: Readonly<Record<string, string>> = { pallet: 'stand_p
  * and stands on the ground, Flagger (an empty) is where the flag man stands; anything else stays.
  */
 export const ARCH_MODELS = { mx: 'finish_arch_mx', sx: 'finish_arch_sx' } as const;
+/**
+ * Live parts any scenery model can have (Boss, 1 Nov 2026), found by name like a figure's parts:
+ * a node named Track (Track.001 and so on) turns about its vertical to follow the nearest rider in
+ * range (a TV camera's head, a camera operator), back to rest with none; a node named Flash is
+ * hidden and shows for a blink as a rider goes by close (a photographer's flash).
+ */
+export const LIVE_PARTS = ['Track', 'Flash'] as const;
+/** Grid units a Track part follows a rider from, and how fast it turns (radians a second). */
+export const TRACK_RANGE = 40;
+export const TRACK_TURN = 2.5;
+/** Grid units a rider passes within for a Flash, how long it shows (seconds), and the least time between two. */
+export const FLASH_RANGE = 12;
+export const FLASH_TIME = 0.09;
+export const FLASH_GAP = 0.7;
+/** A live part's kind from its node name: "Track.001" (three.js: "Track001") is Track. */
+export function livePart(name: string | undefined): 'Track' | 'Flash' | null {
+  const n = (name ?? '').trim().replace(/[._]?\d+$/, '').toLowerCase();
+  return n === 'track' ? 'Track' : n === 'flash' ? 'Flash' : null;
+}
 /** The finish arch's named parts (ARCH_MODELS). */
 export const ARCH_PARTS = ['Left', 'Right', 'Middle', 'FlagTower', 'Flagger'] as const;
 /** The gap between a finish arch model's two sides, in metres, as drawn. */

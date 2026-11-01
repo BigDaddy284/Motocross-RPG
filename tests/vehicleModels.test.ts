@@ -27,3 +27,15 @@ describe('vehicle models', () => {
     expect(showsInSetup('closed', undefined)).toBe(false);
   });
 });
+
+describe('live parts on scenery models', () => {
+  it('finds Track and Flash parts by name, as Blender and three.js name them', async () => {
+    const { livePart } = await import('../src/core/modModels');
+    expect(livePart('Track')).toBe('Track');
+    expect(livePart('Track.001')).toBe('Track');
+    expect(livePart('Track001')).toBe('Track');
+    expect(livePart('flash_2')).toBe('Flash');
+    expect(livePart('Tracker')).toBeNull();
+    expect(livePart(undefined)).toBeNull();
+  });
+});
