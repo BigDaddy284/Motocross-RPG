@@ -123,7 +123,8 @@ export type ModelRole = 'replace' | 'new' | 'bike' | 'rider' | 'figure';
  * pose (a start official's arms point straight up, holding the board high; the rest hang down).
  */
 export const FIGURE_PARTS: Readonly<Record<string, readonly string[]>> = {
-  marshal: ['Body', 'Arm', 'Base'],
+  // Forearm (turning at the elbow, under Arm) and Flag (the cloth, turning about the pole, under Forearm) are optional: the wave uses them (Boss, 1 Nov 2026).
+  marshal: ['Body', 'Arm', 'Forearm', 'Flag', 'Base'],
   flagger: ['Body', 'WhiteArm', 'ChequeredArm', 'Base'],
   pit_crew: ['Body', 'Arms', 'Base'],
   cheer: ['Body', 'LegL', 'LegR', 'ArmL', 'ArmR'],

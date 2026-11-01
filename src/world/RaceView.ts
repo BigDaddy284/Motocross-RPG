@@ -21,7 +21,7 @@ import { APPROACH, assignCrews, BOARD_PAST, boardOut, boardText, crewSpot, FLAGG
 import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../core/marshal';
 import { bikeColours, modelFor as bikeKind, raceBikeParts, type RaceLook } from './raceBike';
 import { LOCKED_ITEMS } from '../core/modModels';
-import { BIKE_PAINT, bikeModel, FAN_PAINT, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
+import { BIKE_PAINT, bikeModel, FAN_PAINT, figureHas, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
 // isometric camera in the spirit of Super Off Road's overhead arcade view. The track is solid
@@ -75,6 +75,9 @@ interface Marshal {
   watch: Watch;
   figure: THREE.Group;
   arm: THREE.Mesh;
+  /** The elbow and the flag's cloth on the pole: joints a marshal model's Forearm and Flag hang from (the game's own figure has none). */
+  forearm: THREE.Group;
+  flag: THREE.Group;
   /** 0 flag down, 1 up and waving; eased between. */
   raise: number;
   phase: number;
@@ -2000,14 +2003,26 @@ export class RaceView {
     arm.position.set((built.shoulder[0] - built.feet[0]) * METRE, (built.shoulder[1] - built.feet[1]) * METRE, (built.shoulder[2] - built.feet[2]) * METRE);
     arm.name = 'Arm';
     figure.add(arm);
+    // The elbow, and the cloth's edge on the pole, for a model's Forearm and Flag (the game's own arm is one piece).
+    const forearm = new THREE.Group();
+    forearm.name = 'Forearm';
+    forearm.position.set(0, -0.35 * METRE, 0);
+    arm.add(forearm);
+    const flag = new THREE.Group();
+    flag.name = 'Flag';
+    // At the foot of the game's pole (marshalParts), where its flag hangs, from the elbow.
+    flag.position.set(0.06 * METRE, (built.feet[1] + 0.12 - (built.shoulder[1] - 0.35)) * METRE, 0.12 * METRE);
+    forearm.add(flag);
     g.add(figure);
-    this.fitFigure(MARSHAL_ITEM, g, [['Base', g], ['Body', figure], ['Arm', arm]]);
+    const fitted = this.fitFigure(MARSHAL_ITEM, g, [['Base', g], ['Body', figure], ['Arm', arm], ['Forearm', forearm], ['Flag', flag]]);
+    // A model is built standing on the ground; without its own Base it stands on the game's stand, at its height.
+    if (fitted && !figureHas(MARSHAL_ITEM, 'Base')) figure.position.y += built.feet[1] * METRE;
     const watch = marshalWatch(this.surface.g, it);
     if (it.rot === undefined) {
       const at = watchFocus(this.surface.g, watch);
       g.rotation.y = -Math.atan2(at.y - it.y, at.x - it.x) + Math.PI / 2;
     }
-    this.marshals.push({ watch, figure, arm, raise: 0, phase: noise(i * 29 + 7) * Math.PI * 2 });
+    this.marshals.push({ watch, figure, arm, forearm, flag, raise: 0, phase: noise(i * 29 + 7) * Math.PI * 2 });
   }
 
   /** The race's laps, for the flag man and the pit boards. */
@@ -2174,6 +2189,9 @@ export class RaceView {
       const k = m.raise;
       m.arm.rotation.z = k * 0.45 * Math.sin(clock * 7 + m.phase);
       m.arm.rotation.x = -0.9 * Math.PI * k;
+      // A model's forearm whips the wave on from the elbow, a beat behind the arm, and its flag swings round the pole.
+      m.forearm.rotation.set(-0.2 * k, 0, k * 0.5 * Math.sin(clock * 7 + m.phase - 0.9));
+      m.flag.rotation.y = k * 0.7 * Math.sin(clock * 7 + m.phase - 1.8);
       m.figure.rotation.x = 0.22 * k;
       m.figure.rotation.z = -0.06 * k * Math.sin(clock * 7 + m.phase);
     }

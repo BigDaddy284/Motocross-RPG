@@ -92,6 +92,18 @@ export function figureParts(id: string): Map<string, FigurePart> | null {
   return out.size ? out : null;
 }
 
+/** Whether a moving figure's model has a part, such as a marshal's own Base. */
+export function figureHas(id: string, part: string): boolean {
+  const m = models.get(id);
+  const names = FIGURE_PARTS[id];
+  if (!m?.object || !names) return false;
+  let found = false;
+  m.object.traverse((o) => {
+    if (partName(o.name, names) === part) found = true;
+  });
+  return found;
+}
+
 /** The race bike to draw for a class: the youth model for youth classes when there is one. */
 export function bikeModel(youth: boolean): THREE.Group | null {
   return (youth ? modModel(RACE_BIKE_YOUTH) : null) ?? modModel(RACE_BIKE);
