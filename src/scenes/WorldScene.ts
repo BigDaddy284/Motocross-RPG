@@ -15,7 +15,7 @@ import { areaFlag, areaOfMap, buyHouse, buyMotor, houseFlag, motorProblem, openA
 import { defaultSetup, effectiveSetup, positionValue, positionsFor, setupReport, sliderUnlocked, type SliderDef } from '../core/setup';
 import { DriveMap, FACING_OF, bayFor, ensureVan, exitTile, footprint, haulerAt, inwardHeading, nearestFree, placeNear, planDrive, sheetFor, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
-import { venueClassFor, entryFee, fieldCount, lapsFor, practiceFee, trackById, venueProblem, type VenueDef } from '../core/raceDay';
+import { venueClassFor, entryFee, fieldCount, lapsFor, practiceFee, coachedFee, trackById, venueProblem, type VenueDef } from '../core/raceDay';
 import { champProblem, otherActive, enter, nextRoundVenue, roundEntry, roundsHere, standings, titlePossible, withdraw, type ChampionshipDef } from '../core/championship';
 import { noteActivity, shopForAction, slotName, type ShopDef } from '../core/shops';
 import { machineFee, machineProblem, modsLabel, runMachine } from '../core/modifiers';
@@ -154,7 +154,7 @@ export class WorldScene extends Phaser.Scene {
 
     this.grid = Grid.fromMap(map);
     applyMapState(map, this.grid, this.save.flags);
-    for (const p of npcsOnMap(services.content, map)) {
+    for (const p of npcsOnMap(services.content, map, this.save.flags)) {
       // NPCs don't block the way: walking past (not clicking them) goes straight through.
       const character = new Character(this, p.npc.sprite, p, p.facing);
       // Standing on the paving, not the kerb or road below it.
@@ -530,6 +530,7 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
     const back = () => this.faceBack(placement, character);
+    if (npc.trainer) return this.trainerTalk(npc, npc.trainer, back);
     const rule = this.talkRule(npc);
     const { challenges, errands } = services.content;
     const challenge = challenges.challenges.find((d) => d.npc === npc.id && (!d.needs || this.save.flags[d.needs]));
@@ -552,6 +553,29 @@ export class WorldScene extends Phaser.Scene {
         this.milestoneSave();
       }
       back();
+    });
+  }
+
+  /**
+   * A trainer at the track (Big Pete, Boss, 1 Nov 2026): a coached practice here, at feeTimes the
+   * practice fee for xpTimes the practice XP.
+   */
+  private trainerTalk(npc: NpcDef, trainer: NonNullable<NpcDef['trainer']>, back: () => void): void {
+    const rc = services.content;
+    const venue = this.venueHere();
+    const problem = venue && venueProblem(rc, venue, this.save.career, this.save.flags);
+    this.say(npc.name, this.talkRule(npc)?.dialogue ?? npc.dialogue, () => {
+      if (!venue || venue.practiceOnly || problem) {
+        if (problem) this.hud.toast(problem);
+        return back();
+      }
+      const fee = coachedFee(practiceFee(rc, venue, venueClassFor(rc, venue, this.save.career)), trainer);
+      const short = this.save.career.money < fee;
+      const bonus = Math.round((trainer.xpTimes - 1) * 100);
+      this.hud.choose(npc.name, `Practice at ${venue.name} with me watching. I don't come cheap, but you'll learn more.`, [
+        { label: `Practice with ${npc.name}`, note: `${formatMoney(fee)}: ride laps until you stop, +${bonus}% practice XP.${short ? " You can't afford it." : ''}`, enabled: !short, onPick: () => this.ride('practice', venue, fee, back, undefined, undefined, { name: npc.name, xpTimes: trainer.xpTimes }) },
+        { label: 'Not now', onPick: back },
+      ], back);
     });
   }
 
@@ -1499,7 +1523,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /** Hands over to the race screen; the world sleeps until it is done. */
-  private ride(mode: RaceSceneData['mode'], venue: VenueDef, fee: number, onClose: () => void, champ?: ChampionshipDef, challenge?: ChallengeDef): void {
+  private ride(mode: RaceSceneData['mode'], venue: VenueDef, fee: number, onClose: () => void, champ?: ChampionshipDef, challenge?: ChallengeDef, coach?: RaceSceneData['coach']): void {
     this.busy = true;
     this.path = [];
     this.player.stopWalking();
@@ -1509,6 +1533,7 @@ export class WorldScene extends Phaser.Scene {
       fee,
       champ,
       challenge,
+      coach,
       save: this.snapshot(),
       onDone: (save, message) => {
         this.scene.wake('hud');
@@ -1831,7 +1856,7 @@ export class WorldScene extends Phaser.Scene {
     applyMapState(map, grid, this.save.flags);
     const dm = new DriveMap(map, grid, services.content.vehicles);
     dm.setVanLength(length);
-    dm.setNpcTiles(npcsOnMap(services.content, map).map((p) => ({ x: p.x, y: p.y })));
+    dm.setNpcTiles(npcsOnMap(services.content, map, this.save.flags).map((p) => ({ x: p.x, y: p.y })));
     return dm;
   }
 

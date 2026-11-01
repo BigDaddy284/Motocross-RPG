@@ -126,6 +126,11 @@ export function entryFee(rc: RaceContent, venue: VenueDef, flags: Record<string,
   return pence(rc.racing.classes[cls].entry);
 }
 
+/** A trainer's coached practice (Big Pete, Boss, 1 Nov 2026): feeTimes the venue's practice fee, in pence. */
+export function coachedFee(fee: number, trainer: { feeTimes: number }): number {
+  return Math.round(fee * trainer.feeTimes);
+}
+
 export function practiceFee(rc: RaceContent, venue: VenueDef, cls = venue.class ?? '50cc'): number {
   if (!venue.practiceFeePct) return 0;
   return pence((rc.racing.classes[cls].entry * venue.practiceFeePct) / 100);
@@ -652,7 +657,7 @@ function shuffle<T>(a: T[], rng: () => number): T[] {
  * the lap: each set off from the gate a share of a lap before the session starts, so the nearest is
  * well clear of the gate when you set off.
  */
-export function practiceSim(rc: RaceContent, venue: VenueDef, player: Entrant, seed: number, alone = false): MotoSim {
+export function practiceSim(rc: RaceContent, venue: VenueDef, player: Entrant, seed: number, alone = false, xpTimes = 1): MotoSim {
   const track = trackById(rc, venue.track!);
   const cls = dayClass(rc.bikes, venue.class, player.bike.class) ?? venue.class ?? '50cc';
   const pool = (rc.riders.fields[venue.field ?? ''] ?? []).map((id) => fieldRider(rc, venue.field, id)).filter((r): r is CpuRiderDef => !!r);
@@ -664,5 +669,5 @@ export function practiceSim(rc: RaceContent, venue: VenueDef, player: Entrant, s
   const others = drawn.map((d, i) => ({ ...cpuEntrant(rc, d, cls, i + 1), startAt: -((i + 1) * lapSeconds) / (n + 1) }));
   const tuned = { ...player, tuning: rc.setup && player.setup ? tuningFactors(rc.setup, player.setup, player.bike, track, false) : player.tuning };
   const tuning = rc.modifiers ? withModifiers(rc.modifiers, tuned, track, 'dry') : tuned.tuning;
-  return new MotoSim(rc.racing, rc.bikes, track, cls, [{ ...player, gate: 0, startAt: 0, tuning }, ...others], { laps: null, motoIndex: 0, seed, practice: true });
+  return new MotoSim(rc.racing, rc.bikes, track, cls, [{ ...player, gate: 0, startAt: 0, tuning }, ...others], { laps: null, motoIndex: 0, seed, practice: true, xpTimes });
 }

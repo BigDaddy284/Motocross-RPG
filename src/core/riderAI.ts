@@ -63,6 +63,13 @@ interface Seg {
 }
 
 const CORNERS = new Set(['first_corner', 'flat_corner', 'berm', 'rutted_corner', 'hairpin', 'fast_sweeper']);
+/** Rough going picked through on the move: riders wander across it and come out in another lane (Boss, 1 Nov 2026). */
+const ROUGH = new Set(['rocks', 'roots', 'logs', 'tyre_bed']);
+/** A number from 0 to 1 that depends only on x, for choices that must be the same every time a race is replayed. */
+function pick(x: number): number {
+  const v = Math.sin(x * 12.9898 + 78.233) * 43758.5453;
+  return v - Math.floor(v);
+}
 /** Where a mistake on a jump ridden without a hop (rolled) happens, as a share of the section. */
 const LANDING = 0.72;
 /** How far out of the gate a loop-out goes over, in metres, and how long the wheelie takes to come up before it does. */
@@ -518,6 +525,7 @@ export class RaceDirector {
     const to = this.target(id, p, seg);
     let lane = from + (to - from) * smooth(u / (0.2 + 0.35 * (1 - p.agility)));
     lane += p.wobble * 0.08 * Math.sin(t * 1.3 + p.seed * 40);
+    lane += this.wander(p, seg, u);
 
     let state: RiderState = 'riding';
     const loop = this.loopsOut(p, seg);
@@ -744,7 +752,26 @@ export class RaceDirector {
       // Positive lane is the rider's right, so the inside of a right-hand turn.
       return clamp(pref * 0.75 * turn, -0.9, 0.9);
     }
+    // Rough going: they come out of it in a lane of their own choosing each time, so the next
+    // section starts from there and eases them back to their usual line.
+    if (ROUGH.has(sec.type)) return clamp(p.lane * 0.8 + (pick(p.seed * 7.1 + seg.lap * 3.3 + seg.si * 1.7) - 0.5) * 1.1, -0.9, 0.9);
     return clamp(p.lane * 0.8, -0.9, 0.9);
+  }
+
+  /**
+   * The wander across rough going, on top of the line from the last section's lane to this one's
+   * exit: sometimes a swing out and back to the exit lane, sometimes a drift the other way first,
+   * always back on the exit lane by the end. Each rider, lap and section is different.
+   */
+  private wander(p: RiderProfile, seg: Seg, u: number): number {
+    const sec = this.section(seg.si);
+    if (!ROUGH.has(sec.type)) return 0;
+    const k = p.seed * 9.7 + seg.lap * 5.1 + seg.si * 2.3;
+    const amp = 0.15 + 0.35 * pick(k) * (1 - 0.5 * p.skim);
+    const side = pick(k + 1) < 0.5 ? -1 : 1;
+    // One swing out and back, or across and back the other way too.
+    const waves = pick(k + 2) < 0.6 ? 1 : 2;
+    return side * amp * Math.sin(Math.PI * waves * u) * smooth(u / 0.1) * (1 - smooth((u - 0.9) / 0.1));
   }
 
   /**
@@ -757,7 +784,8 @@ export class RaceDirector {
     if (type === 'uphill') return -0.1 * (1 - p.drive);
     if (type === 'whoops' || type === 'rollers' || type === 'braking_bumps') return -0.2 * (1 - p.skim);
     // Enduro going: slowest picking through the middle of the rocks, roots and logs, and the climb steepest near its top.
-    if (type === 'rocks' || type === 'roots' || type === 'logs' || type === 'woods' || type === 'water_crossing') return -0.25 * (1 - 0.5 * p.skim);
+    if (ROUGH.has(type) || type === 'woods' || type === 'water_crossing') return -0.25 * (1 - 0.5 * p.skim);
+    if (type === 'pipe' || type === 'tyre_wall' || type === 'log_stack') return -0.35 * (1 - 0.4 * p.skim);
     if (type === 'hill_climb') return -0.2 * (1 - p.drive);
     return 0;
   }
@@ -875,8 +903,8 @@ export class RaceDirector {
       else if (type === 'rollers') air = 0.3 * h * (1 - p.skim) * Math.abs(Math.sin(u * Math.PI * 4));
       else if (type === 'braking_bumps') air = 0.15 * (1 - p.skim) * Math.abs(Math.sin(u * Math.PI * 14));
       // The bike bucks over rocks and roots, and the front wheel lifts over each log.
-      else if (type === 'rocks' || type === 'roots') air = 0.12 * (1 - 0.6 * p.skim) * Math.abs(Math.sin(u * Math.PI * (type === 'rocks' ? 17 : 11) + p.seed * 9));
-      else if (type === 'logs' || type === 'log_step') air = 0.2 * h * sectionShape(type, Math.min(1, u + 0.02));
+      else if (type === 'rocks' || type === 'roots' || type === 'tyre_bed') air = 0.12 * (1 - 0.6 * p.skim) * Math.abs(Math.sin(u * Math.PI * (type === 'rocks' ? 17 : type === 'tyre_bed' ? 12 : 11) + p.seed * 9));
+      else if (type === 'logs' || type === 'log_step' || type === 'pipe' || type === 'tyre_wall' || type === 'log_stack') air = 0.2 * h * sectionShape(type, Math.min(1, u + 0.02));
     }
     if (HILLS.has(type)) elev = h * (type === 'hill_climb' ? sectionShape(type, u) : Math.sin(Math.PI * u));
     return { air, elev };

@@ -389,6 +389,8 @@ export interface MotoOptions {
   motoIndex: number;
   seed: number;
   practice?: boolean;
+  /** Practice XP times this (a trainer's coached practice, Big Pete: Boss, 1 Nov 2026). 1 when left out. */
+  xpTimes?: number;
   /** The player's message at the start; it costs no ink. */
   message?: string;
   /** Retire automatically at this many broken parts (auto-complete option). */
@@ -918,7 +920,7 @@ export class MotoSim {
   /** Spec 2.3: 2.0 × classXP × difficulty × skill weight, plus Consistency for a clean section. */
   private sectionXp(def: SectionDef, sec: TrackSection, clean: boolean): void {
     const x = this.racing.xp;
-    const k = x.sectionFactor * this.cls.classXp * this.difficulty(sec, def) * (this.opts.practice ? x.practiceFactor : 1);
+    const k = x.sectionFactor * this.cls.classXp * this.difficulty(sec, def) * (this.opts.practice ? x.practiceFactor * (this.opts.xpTimes ?? 1) : 1);
     const g: Record<string, number> = {};
     for (const [skill, w] of Object.entries(def.skills)) g[skill] = k * w;
     if (clean) g.consistency = (g.consistency ?? 0) + k * x.consistencyWeight;

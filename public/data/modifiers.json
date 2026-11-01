@@ -11,7 +11,7 @@
     "jumps": ["tabletop", "double", "step_up", "triple", "step_down", "step_on", "step_on_two", "step_on_three", "dragon_back", "quad", "on_off", "single_over_table", "table_over_single", "wall_jump", "ski_jump", "rhythm"],
     "whoops": ["whoops", "rollers"],
     "straights": ["straight", "concrete_straight", "uphill", "downhill", "hill_climb"],
-    "rough": ["braking_bumps", "rocks", "logs", "log_step"],
+    "rough": ["braking_bumps", "rocks", "logs", "log_step", "pipe", "tyre_bed", "tyre_wall", "log_stack"],
     "mud": ["mud", "water_crossing"],
     "sand": ["sand"]
   },
