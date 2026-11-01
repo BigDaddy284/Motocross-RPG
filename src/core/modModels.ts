@@ -116,6 +116,44 @@ export interface ModelLimits {
 export const SCENERY_LIMITS: ModelLimits = { tris: 20000, long: 30, tall: 16 };
 /** On-track bikes and riders: up to 32 on track at once, so they are kept light. */
 export const BIKE_LIMITS: ModelLimits = { tris: 6000, long: 2.6, tall: 1.6, minLength: 1.4, maxLength: 2.6 };
+/**
+ * Bike size checks (Boss, 1 Nov 2026: "Add a check somewhere so when the new models come in they must be checked
+ * for this sizing change to make sure they look right"). race_bike_youth.glb is built at youth size (an 85cc,
+ * about 1.85 m); the game draws it at each youth class's size (YOUTH_BIKE_METRES) and, for the 125s, scaled up to
+ * race_bike.glb's length (a 450, about 2.15 m; ADULT_BIKE_METRES without one).
+ */
+export const YOUTH_BIKE_MAX_LENGTH = 2.0;
+export const FULL_BIKE_MIN_LENGTH = 1.95;
+/** The scale-up from youth to full size a real pair of bikes has (85cc to 450: about 1.15). */
+export const FULL_SCALE_RANGE: [number, number] = [1.05, 1.35];
+/** How far the scaled-up 125 may stand taller or shorter than the race bike before it looks wrong beside it. */
+export const FULL_HEIGHT_MATCH = 0.12;
+
+/** How much the 125s scale the youth bike up: the race bike's length over the youth bike's (ADULT_BIKE_METRES without a race bike). */
+export function fullSizeScale(youthLength: number, adultLength: number | null): number {
+  return youthLength > 0 ? (adultLength || ADULT_BIKE_METRES) / youthLength : 1;
+}
+
+/**
+ * The 125s' look, checked from the two bike models together: the youth bike scaled up must come out the race
+ * bike's size. Returned as things to look at on the models page; the bikes are still used.
+ */
+export function checkBikeSizes(youth: ModelInfo | null, adult: ModelInfo | null): string[] {
+  if (!youth) return [];
+  const y = modelSize(youth);
+  const a = adult ? modelSize(adult) : null;
+  const k = fullSizeScale(y.length, a?.length ?? null);
+  const m = (v: number) => `${v.toFixed(2)} m`;
+  const out: string[] = [];
+  const as125 = `The 125s draw ${RACE_BIKE_YOUTH}.glb scaled up ×${k.toFixed(2)}`;
+  const to = a ? `the race bike's ${m(a.length)}` : `${m(ADULT_BIKE_METRES)}`;
+  if (k < FULL_SCALE_RANGE[0] || k > FULL_SCALE_RANGE[1]) out.push(`${as125}, to ${to}: a youth bike is usually ×${FULL_SCALE_RANGE[0]} to ×${FULL_SCALE_RANGE[1]} smaller than a full-size one. Check both are in metres and at their real size.`);
+  if (y.height * k > BIKE_LIMITS.tall) out.push(`${as125}, which stands ${m(y.height * k)} tall; the most for a race bike is ${m(BIKE_LIMITS.tall)}.`);
+  if (a && Math.abs((y.height * k) / a.height - 1) > FULL_HEIGHT_MATCH) out.push(`${as125}, which stands ${m(y.height * k)} tall beside the race bike's ${m(a.height)}: they should be about the same height. Check the 125 on the models page.`);
+  if (y.depth * k > BIKE_LIMITS.long) out.push(`${as125}, which is ${m(y.depth * k)} wide; the most is ${m(BIKE_LIMITS.long)}.`);
+  return out;
+}
+
 export const RIDER_LIMITS: ModelLimits = { tris: 6000, long: 2.4, tall: 2.0 };
 /** A sidecar's rider and passenger together (SIDECAR_CREW): a moving figure's 8,000 triangles, on an outfit's footprint. */
 export const CREW_LIMITS: ModelLimits = { tris: 8000, long: 2.6, tall: 2.0 };
@@ -171,6 +209,8 @@ export interface ModelEntry {
   bytes: number;
   /** Problems that stop the game using it; an empty list means it is used. */
   problems: string[];
+  /** Things to look at that don't stop it being used (the 125s' size, checkBikeSizes). */
+  warnings?: string[];
   /** A usable new model's scenery item, for the track editor's palette (modelDef). */
   def?: SceneryDef;
 }
@@ -257,6 +297,9 @@ export function checkModel(file: string, bytes: number, info: ModelInfo | null, 
   if (info.tris > lim.tris) out.push(`It has ${info.tris} triangles; the most for this kind of model is ${lim.tris}. Use Decimate in Blender, or simpler shapes.`);
   if (Math.max(length, depth) > lim.long) out.push(`It is ${m(Math.max(length, depth))} long; the most is ${m(lim.long)}. Models are in metres: check the scale in Blender (1 unit = 1 m).`);
   if (height > lim.tall) out.push(`It is ${m(height)} tall; the most is ${m(lim.tall)}.`);
+  // The two race bikes are built at their real sizes: the game sizes the youth one per class and for the 125s (checkBikeSizes).
+  if (id === RACE_BIKE_YOUTH && length > YOUTH_BIKE_MAX_LENGTH) out.push(`It is ${m(length)} long; build the youth bike at youth size (an 85cc, about 1.85 m, at most ${m(YOUTH_BIKE_MAX_LENGTH)}). The game sizes it for each youth class and scales it up for the 125s.`);
+  if (id === RACE_BIKE && length < FULL_BIKE_MIN_LENGTH) out.push(`It is ${m(length)} long; the race bike is full size (a 450, about 2.15 m, at least ${m(FULL_BIKE_MIN_LENGTH)}): the 250F and up ride it, and the 125s are scaled up to it.`);
   if (lim.minLength !== undefined && length < lim.minLength) out.push(`It is ${m(length)} long, front to back along X; a race bike is ${m(lim.minLength)} to ${m(lim.maxLength!)}. Check it points along +X and is in metres.`);
   // A rider sits on the bike, feet on the pegs, in the same place as the exported race_rider.glb.
   if (role === 'rider' || role === 'crew') {

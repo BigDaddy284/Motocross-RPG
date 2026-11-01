@@ -280,7 +280,23 @@ export function roundEntry(rc: Pick<RaceContent, 'racing'>, def: ChampionshipDef
 /** What a round's race day runs with: the fixed field, qualifying and the purse (a replay's share). */
 export function roundOptions(rc: Pick<RaceContent, 'riders'>, def: ChampionshipDef, active: ActiveChampionship) {
   const share = active.replay ? def.replay : 1;
-  return { cpus: champRiders(rc, def, active), qualifyingLaps: def.qualifyingLaps, purseTimes: def.purseTimes * share, xpTimes: share };
+  const inIt = new Set([...active.field, ...(def.without ?? [])]);
+  const others = (rc.riders.fields[def.field] ?? [])
+    .filter((id) => !inIt.has(id))
+    .map((id) => fieldRider(rc, def.field, id))
+    .filter((r): r is CpuRiderDef => !!r)
+    .map((r) => buffRider(r, def.buff ?? 0));
+  return { cpus: champRiders(rc, def, active), qualifyingLaps: def.qualifyingLaps, purseTimes: def.purseTimes * share, xpTimes: share, others };
+}
+
+/**
+ * Puts a Supercross night's round on the championship (core/supercross.ts): no qualifying, and the
+ * Main's finishes as its motos, worth a whole round (Boss, 1 Nov 2026).
+ */
+export function recordNight(active: ActiveChampionship, venue: VenueDef, motos: Record<string, number | null>[]): RoundRecord {
+  const rec: RoundRecord = { venue: venue.id, qualifying: [], motos };
+  active.rounds.push(rec);
+  return rec;
 }
 
 /** Puts a finished round's results on the championship. */

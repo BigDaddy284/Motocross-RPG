@@ -29,6 +29,9 @@ import {
   BIKE_SLOTS,
   SCENERY_LIMITS,
   type ModelInfo,
+  checkBikeSizes,
+  fullSizeScale,
+  ADULT_BIKE_METRES as ADULT_M,
 } from '../src/core/modModels';
 import { OFFICIAL_ITEM } from '../src/core/startOfficial';
 import { SPANS_TRACK, SPRINT_START_ITEM } from '../src/core/trackClearance';
@@ -298,5 +301,35 @@ describe('the rules for each kind of model', () => {
     const sizes = ['50cc', '65cc', '85cc-small', '85cc-big'].map((c) => YOUTH_BIKE_METRES[c]);
     expect(sizes.every((m, i) => m > 0 && (i === 0 || m > sizes[i - 1]))).toBe(true);
     expect(YOUTH_BIKE_METRES['125cc-youth']).toBeUndefined();
+  });
+});
+
+// Boss, 1 Nov 2026: "Add a check somewhere so when the new models come in they must be checked for this sizing
+// change to make sure they look right". The 125s ride race_bike_youth.glb scaled up to race_bike.glb's length.
+describe('race bike size checks (Boss, 1 Nov 2026)', () => {
+  const box = (min: number[], max: number[]): ModelInfo => ({ min: min as ModelInfo['min'], max: max as ModelInfo['max'], tris: 4000, meshes: 1, textures: 0 });
+  // Real sizes: an 85cc about 1.85 m long and 1.13 m tall, a 450 2.15 m by 1.28 m.
+  const youth = box([-0.925, 0, -0.37], [0.925, 1.13, 0.37]);
+  const adult = box([-1.075, 0, -0.415], [1.075, 1.28, 0.415]);
+
+  it('wants the youth bike at youth size and the race bike at full size', () => {
+    expect(checkModel('race_bike_youth.glb', 1000, youth, [])).toEqual([]);
+    expect(checkModel('race_bike.glb', 1000, adult, [])).toEqual([]);
+    expect(checkModel('race_bike_youth.glb', 1000, adult, []).join(' ')).toMatch(/youth size/);
+    expect(checkModel('race_bike.glb', 1000, youth, []).join(' ')).toMatch(/full size/);
+  });
+
+  it("scales the youth bike by the race bike's length, or the game's own adult length without one", () => {
+    expect(fullSizeScale(1.85, 2.15)).toBeCloseTo(2.15 / 1.85, 5);
+    expect(fullSizeScale(1.85, null)).toBeCloseTo(ADULT_M / 1.85, 5);
+  });
+
+  it('passes a real pair, and flags a scaled 125 that would look wrong beside the race bike', () => {
+    expect(checkBikeSizes(youth, adult)).toEqual([]);
+    expect(checkBikeSizes(null, adult)).toEqual([]);
+    const stubby = box([-0.8, 0, -0.38], [0.8, 1.3, 0.38]);
+    expect(checkBikeSizes(stubby, adult).join(' ')).toMatch(/about the same height/);
+    const long = box([-1.05, 0, -0.4], [1.05, 1.25, 0.4]);
+    expect(checkBikeSizes(long, adult).join(' ')).toMatch(/×1.02/);
   });
 });

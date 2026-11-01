@@ -63,7 +63,7 @@ export const RACING_SCHEMA: Schema = {
     weather: { type: 'record', values: { type: 'object', fields: { name: S, factor: { type: 'number', min: 0.5, max: 2 }, risk: { type: 'number', min: 0.5, max: 4 } } } },
     sim: {
       type: 'object',
-      optional: ['firstCorner', 'loopOut', 'pileup', 'fitness', 'sprint', 'knockout'],
+      optional: ['firstCorner', 'loopOut', 'pileup', 'fitness', 'sprint', 'knockout', 'supercross'],
       fields: {
         fitness: {
           type: 'object',
@@ -79,6 +79,19 @@ export const RACING_SCHEMA: Schema = {
         loopOut: { type: 'object', fields: { chance: SHARE } },
         sprint: { type: 'object', fields: { interval: { type: 'number', min: 1 }, returnSpeed: { type: 'number', min: 0.1, max: 1 } } },
         knockout: { type: 'object', optional: ['buff', 'noise'], fields: { seedInterval: { type: 'number', min: 1 }, heatSize: { type: 'number', integer: true, min: 2 }, through: { type: 'number', integer: true, min: 1 }, finalRuns: { type: 'number', integer: true, min: 1 }, buff: { type: 'number', min: 0, max: 1 }, noise: { type: 'number', min: 0, max: 1 } } },
+        supercross: {
+          type: 'object',
+          optional: ['field', 'heatLaps', 'lcqLaps', 'mainLaps', 'heatThrough', 'heatOut', 'lcqThrough'],
+          fields: {
+            field: { type: 'number', integer: true, min: 2, max: 32 },
+            heatLaps: { type: 'number', integer: true, min: 1 },
+            lcqLaps: { type: 'number', integer: true, min: 1 },
+            mainLaps: { type: 'number', integer: true, min: 1 },
+            heatThrough: { type: 'number', integer: true, min: 1 },
+            heatOut: { type: 'number', integer: true, min: 0 },
+            lcqThrough: { type: 'number', integer: true, min: 0 },
+          },
+        },
         pileup: { type: 'object', fields: { chance: SHARE, window: N0, most: { type: 'number', integer: true, min: 1 } } },
         spread: N0,
         noise: N0,

@@ -22,6 +22,8 @@ The file name decides what the model does:
 | `stand_pallet.glb`, `stand_tower.glb`, `stand_bales.glb`, `pit_wall.glb` | the stands for one design each (Boss, 1 Nov 2026): the marshal's and flag man's **pallet stand**, **roofed tower** and **hay bales**, and the pit crew's **pit wall**. Origin where the figure stands, on the ground, front facing the track (−Y). Keep the game's sizes: a pallet stand's or tower's deck top 1.0 m up (the figure stands there), the tower's roof edge 3.3 m up so the raised flag stays under it, the bales in front 0.85 m out, the pit wall 0.75 m out with its top about 0.9 to 1.0 m up (the board's pole rests on it). At most 8,000 triangles, 5 m long and 6 m tall. Materials named **Team** and **TeamDark** take the item's colour and a darker shade of it. A marshal, flag man or pit crew model with its own **Base** keeps that instead |
 | any other name, e.g. `round_bale.glb` | a new scenery item called "Round bale" in the track editor's Scenery palette |
 
+**The bike size checks (Boss, 1 Nov 2026).** Build each bike at its real size: the youth bike at most 2.0 m long (an 85cc is about 1.85 m), the race bike at least 1.95 m (a 450 is about 2.15 m). A model outside those isn't used. The game then checks the 125s, which draw the youth bike scaled up to the race bike's length: about ×1.05 to ×1.35, no taller than 1.6 m, and within 12% of the race bike's height. Anything off shows as **Check:** beside the youth bike on the models page, and **Race bike (125)** there shows the scaled-up 125 beside the race bike. Look at it whenever either bike model changes.
+
 ## Rules for every model
 
 - **File name:** lower-case letters, digits, `-` and `_`, ending `.glb`. No spaces or capitals. At most 48 characters before `.glb`.
