@@ -347,10 +347,10 @@ describe('race content checks', () => {
     expect(errors.some((e) => e.file === 'data/riders.json' && /cpu\.local_champion/.test(e.message))).toBe(true);
   });
 
-  it("puts riders in the pools of the areas they race in, and Neal Gizard in Area 8 only (Boss, 28 Oct 2026)", () => {
+  it("puts riders in the pools of the areas they race in, and Neal Borne in Area 8 only (Boss, 28 Oct 2026)", () => {
     const pool = content.riders.fields['area1.local'];
     expect(pool).toEqual(content.riders.riders.filter((r) => r.areas.includes(1)).map((r) => r.id));
-    const neal = content.riders.riders.find((r) => r.name === 'Neal Gizard')!;
+    const neal = content.riders.riders.find((r) => r.name === 'Neal Borne')!;
     expect(neal.areas).toEqual([8]);
     expect(pool).not.toContain(neal.id);
     for (const n of ['Lee Stocky', 'Brandon Stocky']) expect(pool).toContain(content.riders.riders.find((r) => r.name === n)?.id);
@@ -398,7 +398,7 @@ describe('the race day field: regulars plus a random draw from the pool', () => 
       expect(r.level).toBeLessThan(champ.level);
     }
     // The future Area Champions are taken out of the Area 1 pool and join with their own area, staying on to Area 8.
-    const champions: [string, number][] = [['Aidan Gizard', 3], ['Kate Gizard', 4], ['Louie Gizard', 5], ['James Nestor', 6], ['Harvey Gizard', 7], ['Neal Gizard', 8]];
+    const champions: [string, number][] = [['Aidan Borne', 3], ['Kate Borne', 4], ['Louie Borne', 5], ['James Nestor', 6], ['Harvey Borne', 7], ['Neal Borne', 8]];
     for (const [n, area] of champions) {
       const r = content.riders.riders.find((x) => x.name === n)!;
       expect(r.areas, n).toEqual(Array.from({ length: 9 - area }, (_, i) => area + i));

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { advanceStory, bikeProblem, currentStep, fillText, formatMoney, jobPay, matchStory, openChains, pence, type JobDef, type PlaceDef, type StoryEvent, type StoryStep } from '../core/career';
+import { advanceStory, bikeProblem, catchUp, currentStep, earlyStep, hearEarly, fillText, formatMoney, jobPay, matchStory, openChains, pence, type JobDef, type PlaceDef, type StoryEvent, type StoryStep } from '../core/career';
 import { newsRead, npcsOnMap, properName, type DialogueLine, type NpcDef, type NpcPlacement } from '../core/content';
 import { Grid, STEPS } from '../core/grid';
 import { objectTiles, type BakedMap, type Facing, type MapObject, type Tile } from '../core/mapTypes';
@@ -16,7 +16,7 @@ import { defaultSetup, effectiveSetup, positionValue, positionsFor, setupReport,
 import { DriveMap, FACING_OF, bayFor, ensureVan, exitTile, footprint, haulerAt, inwardHeading, nearestFree, placeNear, planDrive, sheetFor, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
 import { venueClassFor, entryFee, fieldCount, lapsFor, practiceFee, trackById, venueProblem, type VenueDef } from '../core/raceDay';
-import { champProblem, enter, nextRoundVenue, roundEntry, roundsHere, standings, titlePossible, withdraw, type ChampionshipDef } from '../core/championship';
+import { champProblem, otherActive, enter, nextRoundVenue, roundEntry, roundsHere, standings, titlePossible, withdraw, type ChampionshipDef } from '../core/championship';
 import { noteActivity, shopForAction, slotName, type ShopDef } from '../core/shops';
 import { machineFee, machineProblem, modsLabel, runMachine } from '../core/modifiers';
 import { dayObjectives, dropPenalty, dropSponsor, objectiveText, offerProblem, reputationHint, signOffer, sponsorsOpen } from '../core/sponsors';
@@ -139,6 +139,13 @@ export class WorldScene extends Phaser.Scene {
     this.map = map;
     if (!this.scene.isActive('hud')) this.scene.launch('hud');
     this.hud = this.scene.get('hud') as HudScene;
+    // Where the rider's head is on screen, for the bank note shown when money comes in.
+    this.hud.headAt = () => {
+      if (!this.player || !this.scene.isActive()) return null;
+      const cam = this.cameras.main;
+      const b = this.player.sprite.getBounds();
+      return { x: ((b.centerX - cam.worldView.x) * cam.zoom) / DPR, y: ((b.top - cam.worldView.y) * cam.zoom) / DPR };
+    };
     this.cameras.main.setBackgroundColor('#14141e');
 
     const firstVisit = !isMapCached(this, map);
@@ -204,7 +211,7 @@ export class WorldScene extends Phaser.Scene {
 
     this.setupInput();
     this.time.addEvent({ delay: AUTOSAVE_MS, loop: true, callback: () => this.autosave('timer') });
-    this.hud.showMapTitle(map.title);
+    this.hud.showMapTitle(map.title, map.id);
     this.hud.showCareer(this.save.career, this.save.flags);
     this.hud.rider = this.save.rider;
     this.hud.showShift(null);
@@ -710,7 +717,15 @@ export class WorldScene extends Phaser.Scene {
     const { story, items } = services.content;
     const career = this.save.career;
     const m = matchStory(story, career, ev, Object.fromEntries(services.content.skills.leads.map((l) => [l.id, leadLevel(services.content.skills, career.skills, l)])));
-    if (!m) return false;
+    if (!m) {
+      // A later step that is just lines plays now, and the chain won't send the rider back for it (Boss, 1 Nov 2026).
+      const early = earlyStep(story, career, ev);
+      if (!early) return false;
+      onStart();
+      hearEarly(story, career, early);
+      this.say(speaker, early.lines!, onClose);
+      return true;
+    }
     if (m.kind === 'alreadyUsed') {
       this.hud.toast("You've already done that one.");
       return true;
@@ -728,14 +743,16 @@ export class WorldScene extends Phaser.Scene {
       const object = 'use' in ev ? ev.object : undefined;
       const step: StoryStep = m.step;
       const completed = advanceStory(story, career, this.save.flags, items, object);
+      // Steps already heard early come off the chain now, their effects with them.
+      const caught = completed ? catchUp(story, career, this.save.flags, items) : [];
       this.hud.showCareer(career, this.save.flags);
       const show = () => {
         onClose();
         this.refreshWaymarks();
         if (!completed) return;
-        if (step.effects?.money) this.hud.toast(step.toast ?? `${step.effects.money > 0 ? '+' : ''}${formatMoney(pence(step.effects.money))}`);
-        else if (step.toast) this.hud.toast(step.toast);
-        if (step.effects?.flags?.length) this.refreshMapState();
+        // Money shows as the bank note over your head (HudScene.moneyNote), not along the bottom.
+        for (const s of [step, ...caught]) if (s.toast) this.hud.toast(s.toast);
+        if ([step, ...caught].some((s) => s.effects?.flags?.length)) this.refreshMapState();
         this.milestoneSave();
       };
       if (step.lines) this.say(speaker, step.lines, show);
@@ -1345,7 +1362,9 @@ export class WorldScene extends Phaser.Scene {
     const options = list.map((def) => {
       const active = career.champs?.active[def.id];
       const record = career.champs?.done[def.id];
-      const problem = active ? null : champProblem(rc, def, this.save.flags, career.bike.class);
+      // One championship at a time: finish or give up the one you're in first (Boss, 31 Oct 2026).
+      const other = active ? null : otherActive(rc.championships, career, def);
+      const problem = active ? null : other ? `You're in the ${other.name}: finish it or give it up first.` : champProblem(rc, def, this.save.flags, career.bike.class);
       let note: string;
       if (active) {
         const me = standings(rc.racing.points, active).find((r) => r.player)!;
@@ -1394,22 +1413,20 @@ export class WorldScene extends Phaser.Scene {
       active.rounds.length ? `After round ${active.rounds.length}:\n${top.join('\n')}` : 'No rounds ridden yet.',
       `Next: round ${active.rounds.length + 1} at ${next?.name}. ${active.rounds.length && !titlePossible(def, rc.racing.points, active) ? 'The title is out of reach now, but the top three still win a prize.' : ''}`,
     ].join('\n\n');
-    const restart = () => this.hud.confirm(`Start the ${def.name} again from round 1?\nYour points so far are lost.`, 'Start again', () => {
-      withdraw(career, def);
-      enter(career, rc, def, (Math.random() * 2 ** 32) >>> 0);
-      this.milestoneSave();
-      this.hud.toast(`${def.name}: started again.`);
-      this.openChampionship(def, venue, onClose);
-    }, () => this.openChampionship(def, venue, onClose));
     const giveUp = () => this.hud.confirm(`Give up the ${def.name}?\nYour points so far are lost. You can enter again later.`, 'Give it up', () => {
       withdraw(career, def);
       this.milestoneSave();
       this.hud.toast(`You gave up the ${def.name}.`);
       this.openChampionships(venue, onClose);
     }, () => this.openChampionship(def, venue, onClose));
+    // No Start again: Give it up and enter again does the same. At the next round's track, the
+    // round can be raced from here as well as from the race office's list (Boss, 31 Oct 2026).
+    const here = roundsHere(rc.championships, career, venue).includes(def);
+    const fee = roundEntry(rc, def, venueClassFor(rc, venue, career));
+    const short = career.money < fee;
     this.hud.choose(def.name, text, [
-      { label: 'Start again', note: 'Back to round 1 with no points, against a new field.', onPick: restart },
-      { label: 'Give it up', note: 'Leave the championship.', onPick: giveUp },
+      ...(here ? [{ label: `Race round ${active.rounds.length + 1}`, note: `Entry: ${formatMoney(fee)}${short ? " — you can't afford it" : ''}. Qualifying, then 2 motos.`, enabled: !short, onPick: () => this.ride('raceday', venue, fee, onClose, def) }] : []),
+      { label: 'Give it up', note: 'Leave the championship. You can enter again later, from round 1.', onPick: giveUp },
       { label: 'Back', onPick: back },
     ], back);
   }

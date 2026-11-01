@@ -37,6 +37,9 @@ import { sidecarCrew, BIKE_PAINT, bikeModel, FAN_PAINT, PIT_CREW_PAINT, figureHa
 
 /** Camera direction: degrees round from straight in front, and degrees down from level. */
 const CAM_EL = 38;
+/** How fast the race camera catches up across the ground and in height, per second. */
+const CAM_PAN = 4;
+const CAM_RISE = 0.8;
 /** Grid units across the view, by track kind. Riders stay big enough to follow at this size. */
 const VIEW_UNITS: Record<string, number> = { stadium: 36, outdoor: 32, endurance: 32 };
 /** Ground drawn round the grid (100 × 60, or a No-Turn Takedown's 200 × 30), in grid units. */
@@ -235,6 +238,8 @@ export class RaceView {
   private readonly mapDots: Phaser.GameObjects.Graphics;
   private mapFrame: Phaser.GameObjects.Graphics | null = null;
   private readonly mapBox: { x: number; y: number; k: number };
+  /** The lap map's frame on the race screen, for laying out what sits around it. */
+  readonly mapRect: { x: number; y: number; w: number; h: number };
   private readonly viewUnits: number;
   private readonly dir: THREE.Vector3;
   private readonly bg: number;
@@ -446,6 +451,7 @@ export class RaceView {
     const mw = 190;
     const mk = mw / this.gw;
     this.mapBox = { x: x + w - mw - 12, y: y + 12, k: mk };
+    this.mapRect = { x: this.mapBox.x - 6, y: this.mapBox.y - 6, w: mw + 12, h: this.gh * mk + 12 };
     const mg = scene.add.graphics();
     mg.fillStyle(COLORS.ink, 0.85).fillRoundedRect(this.mapBox.x - 6, this.mapBox.y - 6, mw + 12, this.gh * mk + 12, 6);
     mg.lineStyle(4, 0xc98a4b, 1);
@@ -3135,8 +3141,14 @@ export class RaceView {
       const p = this.surface.place(this.surface.start.from, 0);
       return new THREE.Vector3(p.x, 0, p.z);
     })();
+    // A steady TV-style camera (Boss, 1 Nov 2026): it pans after the rider smoothly, and only slowly
+    // follows their height, so jumps, whoops and bumps don't bounce the picture; hills still come through.
     if (!this.cam || want.distanceTo(this.cam) > this.viewUnits) this.cam = want.clone();
-    else this.cam.lerp(want, 1 - Math.exp(-dt * 9));
+    else {
+      const pan = 1 - Math.exp(-dt * CAM_PAN);
+      const rise = 1 - Math.exp(-dt * CAM_RISE);
+      this.cam.set(this.cam.x + (want.x - this.cam.x) * pan, this.cam.y + (want.y - this.cam.y) * rise, this.cam.z + (want.z - this.cam.z) * pan);
+    }
     this.camera.position.copy(this.cam).addScaledVector(this.dir, 120);
     this.camera.lookAt(this.cam);
     // The sun follows the camera so shadows near the action stay sharp.

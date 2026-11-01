@@ -223,6 +223,31 @@ export function champProblem(rc: Pick<RaceContent, 'tracks' | 'bikes'>, def: Cha
   return null;
 }
 
+/**
+ * The championship the rider is already in, other than this one: only one can be active at a time,
+ * so it must be finished or given up before another is entered (Boss, 31 Oct 2026).
+ */
+export function otherActive(data: Pick<ChampionshipsData, 'championships'>, career: CareerState, def?: ChampionshipDef): ChampionshipDef | null {
+  const active = career.champs?.active ?? {};
+  return data.championships.find((d) => d.id !== def?.id && active[d.id]) ?? null;
+}
+
+/**
+ * The HUD's line for a championship in progress, shown at the venues instead of the task (Boss,
+ * 31 Oct 2026): its name, the next round and where, and the rider's place on points.
+ */
+export function champLine(rc: Pick<RaceContent, 'tracks' | 'racing'>, data: Pick<ChampionshipsData, 'championships'>, career: CareerState): string | null {
+  const def = otherActive(data, career);
+  const active = def && career.champs!.active[def.id];
+  if (!def || !active) return null;
+  const n = active.rounds.length + 1;
+  const where = rc.tracks.venues.find((v) => v.id === nextRoundVenue(def, active))?.name ?? 'the next track';
+  if (!active.rounds.length) return `${def.short}: round 1 of ${def.rounds.length} next, at ${where}.`;
+  const me = standings(rc.racing.points, active).find((r) => r.player)!;
+  const place = me.position === 1 ? '1st' : me.position === 2 ? '2nd' : me.position === 3 ? '3rd' : `${me.position}th`;
+  return `${def.short}: round ${n} of ${def.rounds.length} next, at ${where}. You're ${place} on ${me.points} points.`;
+}
+
 export function enter(career: CareerState, rc: Pick<RaceContent, 'riders'>, def: ChampionshipDef, seed: number): ActiveChampionship {
   const state = champState(career);
   const active: ActiveChampionship = { seed, field: drawChampField(rc, def, seed), replay: (state.done[def.id]?.wins ?? 0) > 0, rounds: [] };

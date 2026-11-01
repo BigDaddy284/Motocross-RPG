@@ -17,7 +17,7 @@ Names marked *(placeholder)* are mine, to be replaced by Boss. Anything marked *
 - **Area 5** has a storyline that unlocks and introduces the Modifying Machine.
 - **Story beats from the table:** Area 3 is Big Pete, the Rider Trainer who trained all the top riders (he also unlocks whips and scrubs, per PR 46). Area 4 is Energy Drinks. Area 5 is Sponsored Rides. Every area has shop tasks and new Local and Area Champions.
 - **Track types:** Enduro Sprint opens in Area 5, No-Turn Takedown in Area 7 and EnduroCross in Area 8.
-- **Area Champions:** Area 2 Taylor Heart, Area 3 Aidan Gizard, Area 4 Kate Gizard, Area 5 Louie Gizard, Area 6 James Nestor, Area 7 Harvey Gizard, Area 8 Neal Gizard.
+- **Area Champions:** Area 2 Taylor Heart, Area 3 Aidan Borne, Area 4 Kate Borne, Area 5 Louie Borne, Area 6 James Nestor, Area 7 Harvey Borne, Area 8 Neal Borne.
 - **Vehicles:** Area 2 Old Rusty Van, then Motor 3 to Motor 6 in Areas 3 to 6. The Factory Hauler (Motor 7) is never driven by the player (Boss, 31 Oct 2026): see [Motors](#motors).
 - **Houses:** every town from Area 2 has a house to buy, and prices go up every area (Boss, 30 Oct 2026). There is one shared storage box, reached from every house the player owns, from the rented room to the end-game house. It gets bigger with each house bought, so there's no carrying things back and forth (Boss, 30 Oct 2026).
 
@@ -198,7 +198,7 @@ The area's own story beat (the house, Big Pete, Maggie's quest and so on) starts
 
 ### Area 3: Beach Town (dunes and sand)
 
-- **Story:** **Big Pete, the Rider Trainer.** He trained all the top riders, and finishing his chain unlocks whips (from Rider Ability 30) and scrubs (from 60) for the player. Area Champion Aidan Gizard.
+- **Story:** **Big Pete, the Rider Trainer.** He trained all the top riders, and finishing his chain unlocks whips (from Rider Ability 30) and scrubs (from 60) for the player. Area Champion Aidan Borne.
 - **Batch job:** **Brake works** (brakes). Minigame: machining (Machining, Wheels). Pay £1 a part, batch 50.
 - **Fitness:** **Agility ladder** on the beach (Agility). Agility only comes from walking today.
 - **Rider training (Big Pete):** jump timing and tricks (Jumps and Ruts), gate drop (Starts), whoops and sand on the sand track (Balance, Jumps and Ruts).
@@ -209,7 +209,7 @@ The area's own story beat (the house, Big Pete, Maggie's quest and so on) starts
 
 ### Area 4: Forest Town (roots, loam, wet woods)
 
-- **Story:** **Energy drinks** arrive. A short task introduces them (for example, a drinks rep needs help at the race office), then they're on sale for Areas 4 to 8. Area Champion Kate Gizard.
+- **Story:** **Energy drinks** arrive. A short task introduces them (for example, a drinks rep needs help at the race office), then they're on sale for Areas 4 to 8. Area Champion Kate Borne.
 - **Batch job:** **Suspension shop** (forks and shock). Minigame: suspension service (Suspension). Pay £1.50 a part, batch 100.
 - **Fitness:** **Yoga** at a woodland retreat (Wellbeing). Wellbeing has nothing to train on today.
 - **Rider training:** berm and flat corner (Cornering and Braking), rut riding over roots (Balance).
@@ -221,7 +221,7 @@ The area's own story beat (the house, Big Pete, Maggie's quest and so on) starts
 
 ### Area 5: Northern Works (quarry, old industry, rock and dust)
 
-- **Story:** **the Modifying Machine** quest starts here (below), and **Sponsored Rides**. Sponsor offers open after the Local Champion championship (Spec 16), and the first sponsor brings a branded frame and an outfit. Area Champion Louie Gizard.
+- **Story:** **the Modifying Machine** quest starts here (below), and **Sponsored Rides**. Sponsor offers open after the Local Champion championship (Spec 16), and the first sponsor brings a branded frame and an outfit. Area Champion Louie Borne.
 - **Batch job:** **Frame works** (frames). Minigame: welding (Welding). This is the only way to get a better frame without a sponsor. Pay about £2 a part, batch 100, double the usual, since frames are worth about 10 times a top end (Boss, 30 Oct 2026).
 - **Fitness:** **Rowing** on the old canal (Endurance).
 - **Rider training:** rock garden (Balance), shadow passing with a local pro (Overtaking).
@@ -257,7 +257,7 @@ The machine stays in the Industrial Zone unit in Area 1, where it's already buil
 
 ### Area 7: The City (stadium and indoor arena)
 
-- **Story:** shop tasks and the new champions. Area Champion Harvey Gizard.
+- **Story:** shop tasks and the new champions. Area Champion Harvey Borne.
 - **Batch job:** **Exhaust and intake works**. Minigames: welding and engine build (Welding, Engine Components). Pay £1.25 a part, batch 50.
 - **Fitness:** **Martial arts dojo** (Martial Arts, with some Agility and Strength). The dojo unlocks through a short task, as the Spec says.
 - **Rider training:** supercross rhythm in the indoor arena (Jumps and Ruts, Riding Position), drag launch on the No-Turn strip (Starts).
@@ -268,7 +268,7 @@ The machine stays in the Industrial Zone unit in Area 1, where it's already buil
 
 ### Area 8: Capital (national venues, all weather)
 
-- **Story:** shop tasks and the final champions. Area Champion Neal Gizard. Winning Area 8 leads to the Super Event (Spec 19).
+- **Story:** shop tasks and the final champions. Area Champion Neal Borne. Winning Area 8 leads to the Super Event (Spec 19).
 - **Batch job:** **Race department** (any slot, £2.50 a part, batch 100). It needs Mechanical Engineer 70 and an NPC chain.
 - **Fitness:** **Recovery centre** with an ice bath (Wellbeing), plus Tier 5 versions of every fitness drill.
 - **Rider training:** Tier 5 versions of the rider drills.
@@ -335,12 +335,12 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
      |---|---|---|---|---|
      | 1 | 37 | 29 | 8 | Everyone not listed below |
      | 2 | 38 | 30 | 8 | Taylor Heart |
-     | 3 | 39 | 31 | 8 | Aidan Gizard |
-     | 4 | 40 | 32 | 8 | Kate Gizard |
-     | 5 | 41 | 33 | 8 | Louie Gizard |
+     | 3 | 39 | 31 | 8 | Aidan Borne |
+     | 4 | 40 | 32 | 8 | Kate Borne |
+     | 5 | 41 | 33 | 8 | Louie Borne |
      | 6 | 42 | 34 | 8 | James Nestor |
-     | 7 | 43 | 35 | 8 | Harvey Gizard |
-     | 8 | 44 | 35 | 9 | Neal Gizard (NPC) |
+     | 7 | 43 | 35 | 8 | Harvey Borne |
+     | 8 | 44 | 35 | 9 | Neal Borne (NPC) |
 
      Once all 8 Local Champions are picked (Louis for Area 1, the other 7 from the pool, each waiting for their own area), each area adds two riders, its Local and Area Champion: **Area 1 30, Area 2 32, Area 3 34, Area 4 36, Area 5 38, Area 6 40, Area 7 42, Area 8 44** riders racing.
 
@@ -359,7 +359,7 @@ These are Area 1 gaps, but Areas 2 to 8 build on them:
 
      Boss's riders here are the ones who aren't champions or challengers: Jeno Rothon, Bill Rothon, Jedrick Nicholls, Joseph Halden, Lee Stocky, Brandon Stocky, Jason Styles, Jordan Styles, Andy McLaren and Justin Smyth. Area 1's champions are Louis Jonez and Dean Marsh, and its challengers Mickey Alington and Dan Smyth. Claude's pool riders fall by 2 each area because those riders become that area's challengers.
 
-     **Going back to an earlier area** (Boss, 31 Oct 2026): riders only ever race **forwards** from their own area, never backwards. A normal race day (not a championship) at an earlier area's track draws from that area's own row in the table above, at that area's skill level. So Area 1 race days always draw from Area 1's 30 riders, and a champion or challenger from a later area never turns up there. The one exception is a championship: a later area's main championship can hold rounds at earlier areas' tracks (Spec 18.6), and its field comes with it. For example, Neal Gizard races at Riverside Arena only in an Area 8 championship round held there, once the player has unlocked Area 8.
+     **Going back to an earlier area** (Boss, 31 Oct 2026): riders only ever race **forwards** from their own area, never backwards. A normal race day (not a championship) at an earlier area's track draws from that area's own row in the table above, at that area's skill level. So Area 1 race days always draw from Area 1's 30 riders, and a champion or challenger from a later area never turns up there. The one exception is a championship: a later area's main championship can hold rounds at earlier areas' tracks (Spec 18.6), and its field comes with it. For example, Neal Borne races at Riverside Arena only in an Area 8 championship round held there, once the player has unlocked Area 8.
 
      **Championships keep their area's level** (Boss, 31 Oct 2026). Every championship belongs to one area and has a fixed skill level and field, set by that area. Replaying an old one, such as the Area 1 Local Champion Championship or the Area 1 Championship, races it at that same level every time, however far the player has got. Each championship will need its own name (parked with the other names).
 

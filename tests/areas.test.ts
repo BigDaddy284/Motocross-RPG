@@ -8,6 +8,9 @@ import { roadMenu, venueHere } from '../src/core/guides';
 import { RaceDay, drawField, fieldRider, playerEntrant } from '../src/core/raceDay';
 import { MotoSim } from '../src/core/race';
 import { SAVE_VERSION, parseSave } from '../src/core/saves';
+import { Grid } from '../src/core/grid';
+import { applyMapState, hiddenSprites } from '../src/core/mapState';
+import { objectTiles, type BakedMap } from '../src/core/mapTypes';
 import { loadManifest, loadMaps, rawContent } from './helpers';
 
 const maps = loadMaps();
@@ -132,22 +135,23 @@ describe('areas (Spec 18.1, 18.2; Areas 2 to 8 plan, Boss 30 and 31 Oct 2026)', 
   });
 });
 
-describe('the stamped Mountain Town (tools/gen-area.mjs)', () => {
-  it('has the five travelling shops, the Wheel works, the house, the gym and the drill yard, and road exits both ways', () => {
+describe('Mountain Town (drawn, Boss, 31 Oct 2026)', () => {
+  it('has the five travelling shops, the Wheel works, the house, the gym and the drill yard, and three roads out', () => {
     const m = maps.get('area2-mountain-town')!;
     const names = m.objects.filter((o) => o.type === 'building').map((o) => o.name);
     for (const n of ['Phoenix MX', 'Moto78', "Lee's T's & Wheels", 'Nicholls Used Motors', 'Wheel works', 'Starter terrace', 'Town gym']) expect(names).toContain(n);
-    expect(m.objects.filter((o) => o.type === 'exit').map((o) => o.name).sort()).toEqual(['East road', 'West road']);
-    expect(m.objects.some((o) => o.type === 'blocker')).toBe(false);
+    expect(m.objects.filter((o) => o.type === 'exit').map((o) => o.name).sort()).toEqual(['South road', 'South-west road', 'West road']);
+    // Its roads to the hub and to Beach Town are shut until they open (Boss, 1 Nov 2026; see the roadblocks test).
+    expect(m.objects.filter((o) => o.type === 'blocker').map((o) => o.props.cleared_by).sort()).toEqual(['area.3.open', 'area2.intro_done']);
     expect(m.objects.some((o) => o.type === 'venue' && o.props.venue === 'yard-a2')).toBe(true);
     expect(m.objects.some((o) => o.type === 'venue' && o.props.venue === 'fitness-a2')).toBe(true);
     // Its insides are its own, so the way back out lands in Mountain Town, not Home Town.
     for (const id of ['int-a2-local-garage', 'int-a2-bike-shop', 'int-a2-tyre-shop', 'int-a2-van-office', 'int-a2-rented-room', 'int-a2-tool-shop']) expect(maps.has(id)).toBe(true);
     const routes = content.world.routes.filter((r) => r.map === m.id);
-    expect(routes.map((r) => r.exit).sort()).toEqual(['East road', 'West road']);
-    // The roads match the world map: Home Town one way, the Race Hub the other. Its tracks race at the
-    // hub's venues, one per track type (Boss, 30 Oct 2026), reached from both roads; no venue maps of its own.
-    expect(routes.find((r) => r.exit === 'East road')!.to).toContain('area1-home-town');
+    expect(routes.map((r) => r.exit).sort()).toEqual(['South road', 'South-west road', 'West road']);
+    // The roads match the world map: Home Town to the south, the Race Hub to the south-west. Its tracks race at the
+    // hub's venues, one per track type (Boss, 30 Oct 2026), reached from every road; no venue maps of its own.
+    expect(routes.find((r) => r.exit === 'South road')!.to).toContain('area1-home-town');
     for (const r of routes) for (const v of ['venue-motocross', 'venue-supercross', 'venue-enduro']) expect(r.to).toContain(v);
     expect(content.world.places.some((p) => /^venue-a2-/.test(p.map))).toBe(false);
     expect([...maps.keys()].filter((id) => /^venue-a\d+-/.test(id))).toEqual([]);
@@ -190,6 +194,12 @@ describe('Areas 3 to 8 (Areas 2 to 8 plan; Boss, 31 Oct 2026: placeholder towns,
     7: { W: 'area6-highlands', E: 'area8-capital' },
     8: { W: 'area7-the-city', E: 'area1-home-town' },
   };
+  // A drawn town adds its own road to the Hub (the world map's spoke; Areas 2 to 8 maps, Boss 31 Oct 2026).
+  const hubRoad: Record<number, string> = { 3: 'South road', 4: 'South-east road', 5: 'East road', 6: 'North-east road', 7: 'North road', 8: 'North-west road' };
+  // The roads to the next area (W) and the one before (E), named by the side of the drawn map they
+  // leave from (Forest Town's road to Northern Works leaves south, Northern Works' to the Highlands
+  // south; Boss, 31 Oct 2026).
+  const exitTo = (n: number) => ({ W: 'West road', E: 'East road', ...({ 4: { W: 'South road' }, 5: { W: 'North road', E: 'South road' }, 6: { W: 'North road' }, 8: { E: 'North road' } } as Record<number, { W?: string; E?: string }>)[n] });
   const badgeClass: Record<number, string> = { 3: '85cc-small', 4: '85cc-big', 5: '125cc-youth', 6: '125cc', 7: '250f', 8: '450f' };
 
   it('are all there, in order, each with a stamped town, its insides, three tracks at the hub venues and a locked house', () => {
@@ -217,9 +227,15 @@ describe('Areas 3 to 8 (Areas 2 to 8 plan; Boss, 31 Oct 2026: placeholder towns,
     const places = content.world.places;
     for (const a of later) {
       const routes = content.world.routes.filter((r) => r.map === a.map);
-      expect(routes.map((r) => r.exit).sort()).toEqual(['East road', 'West road']);
-      expect(routes.find((r) => r.exit === 'West road')!.to).toContain(roads[a.n].W);
-      expect(routes.find((r) => r.exit === 'East road')!.to).toContain(roads[a.n].E);
+      const ex = exitTo(a.n);
+      expect(routes.map((r) => r.exit).sort()).toEqual([ex.E, ex.W, ...(hubRoad[a.n] ? [hubRoad[a.n]] : [])].sort());
+      if (hubRoad[a.n]) expect(routes.find((r) => r.exit === hubRoad[a.n])!.to).not.toContain(roads[a.n].E);
+      if (hubRoad[a.n]) expect(routes.find((r) => r.exit === hubRoad[a.n])!.to).not.toContain(roads[a.n].W);
+      expect(routes.find((r) => r.exit === ex.W)!.to).toContain(roads[a.n].W);
+      expect(routes.find((r) => r.exit === ex.E)!.to).toContain(roads[a.n].E);
+      // every road on the menu is an exit on the town's map
+      const exits = maps.get(a.map)!.objects.filter((o) => o.type === 'exit').map((o) => o.name);
+      for (const r of routes) expect(exits, `${a.map} ${r.exit}`).toContain(r.exit);
       // The Race Hub reaches every area, and every town road reaches the hub's three venues, where its tracks race.
       expect(content.world.routes.find((r) => r.map === 'venue-motocross')!.to).toContain(a.map);
       for (const r of routes) for (const v of ['venue-motocross', 'venue-supercross', 'venue-enduro']) expect(r.to).toContain(v);
@@ -289,15 +305,26 @@ describe('Areas 3 to 8 (Areas 2 to 8 plan; Boss, 31 Oct 2026: placeholder towns,
   });
 
   it('shops stock the plan’s grades and classes, and the house and motor prices climb', () => {
-    const grades: Record<number, [number, number]> = { 3: [2, 5], 4: [2, 5], 5: [3, 6], 6: [3, 7], 7: [4, 7], 8: [4, 8] };
+    const grades: Record<number, [number, number]> = { 2: [1, 4], 3: [2, 5], 4: [2, 5], 5: [3, 6], 6: [3, 7], 7: [4, 7], 8: [4, 8] };
+    // Moto78 sells every part but wheels, tyres and brakes in every area, as in Area 1; Phoenix MX
+    // only repairs and fits (Boss, 31 Oct 2026).
+    const moto78 = content.shops.shops.find((s) => s.id === 'shop.bike')!.sells!.slots;
+    expect(content.shops.shops.find((s) => s.id === 'garage')!.sells).toBeUndefined();
+    for (const kind of ['bike', 'tyres']) expect(content.shops.shops.find((s) => s.id === `shop.a2.${kind}`)!.sells!.grades).toEqual(grades[2]);
+    expect(content.shops.shops.find((s) => s.id === 'shop.a2.bike')!.sells!.slots).toEqual(moto78);
+    expect(content.shops.shops.find((s) => s.id === 'shop.a2.garage')!.sells).toBeUndefined();
     let house = areas.areas.find((a) => a.n === 2)!.house!.price;
     let motor = areas.areas.find((a) => a.n === 2)!.motor!.price;
     for (const a of later) {
-      for (const kind of ['garage', 'bike', 'tyres']) {
+      for (const kind of ['bike', 'tyres']) {
         const shop = content.shops.shops.find((s) => s.id === `shop.a${a.n}.${kind}`)!;
         expect(shop.sells!.grades, shop.id).toEqual(grades[a.n]);
         expect(shop.sells!.classes).toContain(badgeClass[a.n]);
       }
+      expect(content.shops.shops.find((s) => s.id === `shop.a${a.n}.bike`)!.sells!.slots).toEqual(moto78);
+      const garage = content.shops.shops.find((s) => s.id === `shop.a${a.n}.garage`)!;
+      expect(garage.sells, garage.id).toBeUndefined();
+      expect(garage.repairs).toBe(true);
       expect(a.house!.price).toBeGreaterThan(house);
       house = a.house!.price;
       if (a.motor) {
@@ -311,6 +338,52 @@ describe('Areas 3 to 8 (Areas 2 to 8 plan; Boss, 31 Oct 2026: placeholder towns,
       expect(content.challenges.challenges.filter((c) => c.map === a.map)).toHaveLength(2);
       expect(content.errands.errands.filter((e) => e.needs === `area${a.n}.intro_done`)).toHaveLength(2);
       expect(content.world.worldMap!.zones.some((z) => z.maps.includes(a.map))).toBe(true);
+    }
+  });
+});
+
+describe('roadblocks (Boss, 1 Nov 2026)', () => {
+  // "Blue marks for roadblocks to the central hub and access to that area's 3 new tracks. the Red marks are
+  // roadblocks to the next area. Like with Area 1 the Hub will be unlock via a story line and the access to the
+  // next area unlock once you've won the area championship."
+  const towns = ['area1-home-town', 'area2-mountain-town', 'area3-beach-town', 'area4-forest-town', 'area5-northern-works', 'area6-highlands', 'area7-the-city', 'area8-capital'];
+  const hub: Record<number, string> = { 1: 'To the venue route', 2: 'South-west road', 3: 'South road', 4: 'South-east road', 5: 'East road', 6: 'North-east road', 7: 'North road', 8: 'North-west road' };
+  const next: Record<number, string> = { 1: 'North road', 2: 'West road', 3: 'West road', 4: 'South road', 5: 'South road', 6: 'East road', 7: 'East road', 8: 'North road' };
+  const shutBy = (m: BakedMap, exit: string) => {
+    const e = m.objects.find((o) => o.type === 'exit' && o.name === exit)!;
+    expect(e, `${m.id} ${exit}`).toBeDefined();
+    return m.objects.filter((b) => b.type === 'blocker' && b.x < e.x + e.w && e.x < b.x + b.w && b.y < e.y + e.h && e.y < b.y + b.h).map((b) => b.props.cleared_by);
+  };
+  it('shut each town\'s road to the Race Hub until its story opens the tracks, and its road to the next area until the championship before is won', () => {
+    towns.forEach((id, i) => {
+      const n = i + 1;
+      const m = maps.get(id)!;
+      expect(shutBy(m, hub[n])).toEqual([n === 1 ? 'roadworks_done' : `area${n}.intro_done`]);
+      expect(shutBy(m, next[n])).toEqual([n === 8 ? 'trophy.area8.main' : `area.${n + 1}.open`]);
+      if (n > 1) expect(championships.championships.find((c) => c.id === `area${n - 1}.main`)!.opens).toBe(n);
+      if (n === 8) expect(championships.championships.find((c) => c.id === 'area8.main')!.rewards[0].flag).toBe('trophy.area8.main');
+      const story = content.story.chains?.find((c) => c.id === `area${n}`);
+      if (n > 1) expect(JSON.stringify(story), id).toContain(`area${n}.intro_done`);
+    });
+    // Area 8's next area is Home Town: that road is shut from Home Town's end too.
+    expect(shutBy(maps.get('area1-home-town')!, 'South road')).toEqual(['trophy.area8.main']);
+  });
+
+  it('opens the tiles once the flag is set, and every roadblock prop goes with it', () => {
+    for (const id of towns) {
+      const m = maps.get(id)!;
+      for (const b of m.objects.filter((o) => o.type === 'blocker')) {
+        const flag = b.props.cleared_by as string;
+        const shut = Grid.fromMap(m);
+        for (const t of objectTiles(b, m.tileSize)) expect(shut.isBlocked(t.x, t.y), `${id} ${b.name}`).toBe(true);
+        const open = Grid.fromMap(m);
+        applyMapState(m, open, { [flag]: true });
+        for (const t of objectTiles(b, m.tileSize)) expect(open.isBlocked(t.x, t.y), `${id} ${b.name} ${t.x},${t.y}`).toBe(false);
+        const roadworks = m.sprites.filter((s) => /\/roadworks\//.test(m.images[s.img]));
+        const hidden = hiddenSprites(m, { [flag]: true });
+        const near = roadworks.filter((s) => Math.abs(s.x + s.w / 2 - (b.x + b.w / 2)) < b.w / 2 + m.tileSize && Math.abs(s.y + s.h - (b.y + b.h / 2)) < b.h / 2 + m.tileSize);
+        for (const s of near) expect(hidden.has(s), `${id} ${b.name} ${m.images[s.img]}`).toBe(true);
+      }
     }
   });
 });
