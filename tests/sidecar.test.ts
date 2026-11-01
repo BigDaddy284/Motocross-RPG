@@ -5,8 +5,9 @@ import { checkContent } from '../src/core/content';
 import { gateBonus, type LapTrace } from '../src/core/race';
 import { PLAYER_ID, RaceDay, lapsFor, playerEntrant, trackById, type VenueDef } from '../src/core/raceDay';
 import { directorFor, type RaceDirector } from '../src/core/riderAI';
-import { SIDECAR_CLASS, SIDECAR_FIELD, SIDECAR_GATES, SIDECAR_TEST_VENUE, chairGate, isSidecarClass, isSidecarGate, sidecarTrack } from '../src/core/sidecar';
+import { SIDECAR_CLASS, SIDECAR_FIELD, SIDECAR_LEFT, SIDECAR_SETTLE, SIDECAR_GATES, SIDECAR_TEST_VENUE, chairGate, isSidecarClass, isSidecarGate, sidecarTrack } from '../src/core/sidecar';
 import { xpForLevel } from '../src/core/skills';
+import { lapMetres } from '../src/core/trackGeom';
 import { TRICKS_FLAG } from '../src/core/tricks';
 import { loadManifest, loadMaps, rawContent } from './helpers';
 import { arrivals } from './raceHelpers';
@@ -165,6 +166,8 @@ describe('a TEST sidecar race at Farmland (Boss, 1 Nov 2026)', () => {
       expect(dir.showman).toBeNull();
       for (let t = 0; t < 300; t += 0.25) {
         for (const p of dir.poses(t)) {
+          // Clear of the gate, the chair stays on the track: the bike rides SIDECAR_LEFT or further right.
+          if (p.state !== 'grid' && p.state !== 'retired' && (p.dist - dir.start.from) * lapMetres(day.track) > SIDECAR_SETTLE) expect(p.lane, `${p.id} at ${t}`).toBeGreaterThanOrEqual(SIDECAR_LEFT - 1e-9);
           if (!p.flight) continue;
           hops += p.flight.hops.length;
           expect(p.flight.tricks, `${p.id} at ${t}`).toBeUndefined();

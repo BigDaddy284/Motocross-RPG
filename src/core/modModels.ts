@@ -8,7 +8,8 @@ import type { SceneryDef } from './trackParts';
 //   everywhere, on every track;
 // - named anything else (my_tower.glb), it is a new scenery item in the track editor's palette,
 //   its footprint the model's size;
-// - race_bike.glb, race_bike_youth.glb and race_rider.glb replace the bikes and riders on track.
+// - race_bike.glb, race_bike_youth.glb and race_rider.glb replace the bikes and riders on track,
+//   and sidecar.glb is every outfit in a sidecar race.
 //
 // The models page (the game's address with ?models, or Models in the toolkit) lists them with any
 // problems, previews them, and exports any built-in item as a .glb to start from in Blender.
@@ -54,6 +55,13 @@ export const YOUTH_BIKE_METRES: Readonly<Record<string, number>> = { '50cc': 1.8
 export const ADULT_BIKE_METRES = 2.18;
 /** The rider on the race bikes. */
 export const RACE_RIDER = 'race_rider';
+/**
+ * The sidecar outfit (Boss, 1 Nov 2026; core/sidecar.ts): a race bike model like the others, with
+ * its chair on the left (+Y in Blender) and the middle of the motorcycle's wheelbase at the origin.
+ * Every outfit in a sidecar race uses it, painted Plastics, Frame and Plate; without it the game
+ * draws its own. The race rider sits on its motorcycle (no passenger model yet).
+ */
+export const SIDECAR_MODEL = 'sidecar';
 
 /**
  * Scenery whose look the race view moves or sizes as it goes, so a plain model can't stand in for
@@ -175,7 +183,7 @@ export function modelName(id: string): string {
 
 /** What a model named `id` does, given the scenery the game has. */
 export function modelRole(id: string, scenery: { id: string }[]): ModelRole {
-  if (id === RACE_BIKE || id === RACE_BIKE_YOUTH) return 'bike';
+  if (id === RACE_BIKE || id === RACE_BIKE_YOUTH || id === SIDECAR_MODEL) return 'bike';
   if (id === RACE_RIDER) return 'rider';
   if (FIGURE_PARTS[id]) return 'figure';
   return scenery.some((s) => s.id === id) ? 'replace' : 'new';

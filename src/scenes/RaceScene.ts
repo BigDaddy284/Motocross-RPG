@@ -13,6 +13,7 @@ import { services } from '../services';
 import { COLORS, textStyle } from '../ui/theme';
 import { button, panel, penMeter, type Button, type PenMeter } from '../ui/widgets';
 import { directorFor, ROW_SIZE, type RaceDirector } from '../core/riderAI';
+import { isSidecarGate } from '../core/sidecar';
 import { isNoTurn, NO_TURN_GATES, SPRINT_QUEUE, startGeom } from '../core/trackGeom';
 import { RaceView } from '../world/RaceView';
 import { view } from '../ui/view';
@@ -48,6 +49,8 @@ export interface RaceSceneData {
   champ?: ChampionshipDef;
   /** A challenge race (core/challenge.ts): one moto against the challenger, for their stake. */
   challenge?: ChallengeDef;
+  /** TEST ONLY, REMOVE BEFORE RELEASE (Boss, 1 Nov 2026): a sidecar race day from the Farmland tick box (core/sidecar.ts). */
+  sidecarTest?: boolean;
   onDone: (save: SaveData, message: string) => void;
 }
 
@@ -189,7 +192,7 @@ export class RaceScene extends Phaser.Scene {
         this.showKoSeedingStart();
         return;
       }
-      this.day = new RaceDay(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name, 0, this.save.flags), seed, this.args.fee, round, undefined, alone);
+      this.day = new RaceDay(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name, 0, this.save.flags), seed, this.args.fee, round, undefined, alone, this.args.sidecarTest ? { test: true } : undefined);
       this.setupField();
       if (this.day.qualifyingDue) this.showQualifyingStart();
       else this.showGatePick();
@@ -225,6 +228,7 @@ export class RaceScene extends Phaser.Scene {
     if (this.ko) return `${this.args.venue.name} · ${this.ko.cls} No-Turn Takedown`;
     const day = this.day!;
     if (this.args.challenge) return `${this.args.challenge.name} · ${day.laps} laps`;
+    if (day.sidecar) return `${this.args.venue.name} · Sidecar race day${day.sidecar.test ? ' (TEST)' : ''}`;
     const c = this.champ;
     return `${this.args.venue.name} · ${day.cls} ${c ? `${c.def.short} round ${c.round} of ${c.def.rounds.length}` : 'race day'}`;
   }
@@ -351,7 +355,9 @@ export class RaceScene extends Phaser.Scene {
     const { taken, free } = day.gatesForPlayer();
     const myTurn = day.pickOrder.indexOf(PLAYER_ID) + 1;
     const how = n > 1 ? 'Gate picks for moto 2 go in moto 1 finishing order.' : day.qualifying ? 'Gate picks for moto 1 go in qualifying order.' : 'Gate picks for moto 1 are drawn at random.';
-    this.text(W / 2, 108, `${how} You pick ${ordinal(myTurn)}. Inside gates get a better start.`, 22).setOrigin(0.5, 0);
+    // Sidecars take two gates each: an outfit on the even gate, its chair over the odd one (core/sidecar.ts).
+    const tip = day.sidecar ? 'Outfits take the even gates, each chair over the odd gate beside it.' : 'Inside gates get a better start.';
+    this.text(W / 2, 108, `${how} You pick ${ordinal(myTurn)}. ${tip}`, day.sidecar ? 19 : 22).setOrigin(0.5, 0);
 
     let chosen = free[0];
     // One gate per rider, laid out as the start is: gates 1 to 8 are the front row and 9 to 16 the
@@ -371,7 +377,12 @@ export class RaceScene extends Phaser.Scene {
       const y = y0 + row * rowH;
       const who = taken.get(g);
       const bonus = gateBonus(day.track, g);
-      if (who) {
+      if (day.sidecar && !isSidecarGate(g)) {
+        // Under the chair of the outfit on the next gate: never offered.
+        const r = this.add.rectangle(x, y, gw - 8, gh, COLORS.ink).setStrokeStyle(1, COLORS.inkLine);
+        this.screen.add(r);
+        this.text(x, y + 4, 'chair', 14, COLORS.muted).setOrigin(0.5);
+      } else if (who) {
         const r = this.add.rectangle(x, y, gw - 8, gh, COLORS.inkLine).setStrokeStyle(2, COLORS.panelLight);
         this.screen.add(r);
         this.text(x, y + 4, gateBadges(this.names).get(who) ?? '', 18, COLORS.muted).setOrigin(0.5);
@@ -1393,6 +1404,17 @@ export class RaceScene extends Phaser.Scene {
     const lh = t.height / (rows.length + 1);
     this.screen.add(this.add.rectangle(34, 110 + lh * (mine + 1), 520, lh, COLORS.accentDark, 0.45).setOrigin(0, 0));
     this.screen.bringToTop(t);
+
+    // TEST ONLY, REMOVE BEFORE RELEASE (Boss, 1 Nov 2026): a test sidecar race counts for nothing,
+    // so nothing goes back on the career: no money, XP, wear or records, and the rider's own bike is as it was.
+    if (day.sidecar?.test) {
+      const me = res.overall.find((r) => r.player)!;
+      this.box(580, 110, 680, 300);
+      this.text(604, 124, `${ordinal(me.position)} overall`, 26, COLORS.accent);
+      this.text(604, 170, ['TEST sidecar race: nothing counts.', 'No entry fee, prize money or XP, no wear,', 'and your own bike is just as you left it.'].join('\n'), 18, COLORS.cream, { lineSpacing: 6 });
+      this.btn(W / 2 + 300, 670, 'Back to the paddock', () => this.done(`Sidecar test race: ${ordinal(me.position)} overall.`), 300, 50);
+      return;
+    }
 
     // Money, XP and the bike go back on the career.
     const career = this.save.career;

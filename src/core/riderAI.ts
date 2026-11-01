@@ -5,7 +5,7 @@ import { isNoTurn, isSprint, lapGeom, lapMetres, NO_TURN_LANES, NO_TURN_RUNOFF, 
 import { DEFAULT_HEIGHTS, HOP_JUMPS, landingOf, pickWay, type Way } from './jumps';
 import { HILLS, sectionShape, TrackSurface, type Flight } from './trackSurface';
 import { showmanOf, trickFor, type Trick } from './tricks';
-import { isSidecarGate } from './sidecar';
+import { SIDECAR_LEFT, SIDECAR_ROOM, SIDECAR_SETTLE, isSidecarGate } from './sidecar';
 import { downPhase } from './crashRecovery';
 
 export { DEFAULT_HEIGHTS };
@@ -394,8 +394,23 @@ export class RaceDirector {
     for (const [id, list] of this.segs) poses.push(this.pose(id, list, t));
     if (this.sprint) this.queue(poses, t);
     else if (!this.noTurn) this.coolDown(poses, t);
+    if (this.sidecar) this.chairRoom(poses);
     this.keepApart(poses);
     return poses;
+  }
+
+  /**
+   * A sidecar's chair hangs off its left, so once away from the gate an outfit keeps its bike far
+   * enough right of the left edge for the chair to stay on the track: its lane is eased from the
+   * gate's over the first SIDECAR_SETTLE metres into SIDECAR_LEFT to 1 (core/sidecar.ts).
+   */
+  private chairRoom(poses: RiderPose[]): void {
+    for (const p of poses) {
+      if (p.hidden || p.state === 'grid' || p.state === 'retired') continue;
+      const k = smooth(((p.dist - this.start.from) * this.metres) / SIDECAR_SETTLE);
+      const room = SIDECAR_LEFT + ((clamp(p.lane, -1, 1) + 1) / 2) * (1 - SIDECAR_LEFT);
+      p.lane += (room - p.lane) * k;
+    }
   }
 
   /**
@@ -886,14 +901,17 @@ export class RaceDirector {
         const gap = (a.dist - b.dist) * this.metres;
         if (gap > ROOM) break;
         const dl = b.lane - a.lane;
-        if (Math.abs(dl) >= 0.5) continue;
-        const push = (0.5 - Math.abs(dl)) * 0.5 * (1 - gap / ROOM);
+        // An outfit is wider than a bike: its chair hangs off the left (sidecar.ts).
+        const room = this.sidecar ? SIDECAR_ROOM : 0.5;
+        if (Math.abs(dl) >= room) continue;
+        const push = (room - Math.abs(dl)) * 0.5 * (1 - gap / ROOM);
         const dir = dl === 0 ? (frac(this.profiles.get(b.id)!.seed * 13) < 0.5 ? -1 : 1) : Math.sign(dl);
         // The rider behind gives most of the room, but a rider cooling down after the flag gives
         // way to anyone still racing.
         const give = a.state === 'finished' && b.state !== 'finished' ? 0.2 : 0.7;
-        b.lane = clamp(b.lane + dir * push * give, -1, 1);
-        a.lane = clamp(a.lane - dir * push * (1 - give), -1, 1);
+        const left = this.sidecar ? SIDECAR_LEFT : -1;
+        b.lane = clamp(b.lane + dir * push * give, left, 1);
+        a.lane = clamp(a.lane - dir * push * (1 - give), left, 1);
       }
     }
   }

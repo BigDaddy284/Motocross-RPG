@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { SIDECAR_CLASS } from '../core/sidecar';
 
 // The race-day bike and rider (Boss's brief, 24 Oct 2026: "Race day bike colours.png"; Boss, 25 Oct:
 // "use the model from the coloured race day rides"). A port of the vehicles thread's sprite models
@@ -309,6 +310,26 @@ export function raceBikeParts(look: RaceLook, length: number, opts: { rider?: bo
   const bar = add(head, [-0.06, 0, 0.21]);
   rod(add(bar, [0, -0.36, 0]), add(bar, [0, 0.36, 0]), 0.018, FIXED.bar);
   rod(add(head, [0.02, 0, 0.08]), bar, 0.022, FIXED.metal);
+  // A sidecar outfit (core/sidecar.ts; Boss, 1 Nov 2026), when there's no sidecar.glb: the chair on
+  // the left, a platform for the passenger with a small wheel at its outer edge under a guard, a
+  // nose plate, and the grab rail from behind the seat to the front of the chair.
+  if (look.cls === SIDECAR_CLASS) {
+    const cw = 0.26;
+    const chair: V3 = [rx * 0.8, 1.02, cw];
+    for (const [rad, tube, col] of [[cw - 0.06, 0.06, FIXED.tyre], [cw - 0.13, 0.015, FIXED.rim]] as const) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(rad * k, tube * k, 8, 16), mat(col));
+      ring.position.copy(at(chair));
+      out.push(ring);
+    }
+    rod(add(chair, [0, -0.06, 0]), add(chair, [0, 0.04, 0]), 0.05, FIXED.metal, false);
+    box([-0.08, 0.55, 0.27], [1.0, 0.8, 0.03], FIXED.chain);
+    for (const x of [0.2, -0.16, rx * 0.6]) rod([x, 0.08, 0.28], [x, 0.98, 0.28], 0.022, brand.frame);
+    rod([0.22, 0.12, 0.3], [0.22, 0.95, 0.3], 0.022, brand.frame);
+    box([chair[0], chair[1] + 0.02, cw * 2 + 0.05], [0.62, 0.16, 0.035], brand.body);
+    box([0.24, 0.55, 0.5], [0.03, 0.4, 0.22], brand.plate);
+    const grab: V3[] = [[rx * 0.35, 0.12, seat - 0.02], [-0.1, 0.45, 0.82], [0.22, 0.6, 0.62]];
+    for (let i = 0; i < grab.length - 1; i++) rod(grab[i], grab[i + 1], 0.02, FIXED.bar);
+  }
 
   if (opts.rider === false) return out;
   // The chibi rider, seated: helmet about half the figure.

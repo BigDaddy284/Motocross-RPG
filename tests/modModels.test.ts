@@ -128,7 +128,10 @@ describe('what a model does', () => {
     expect(modelRole('race_bike_youth', scenery)).toBe('bike');
     expect(modelRole('race_rider', scenery)).toBe('rider');
     expect(modelRole('round_bale', scenery)).toBe('new');
+    // The sidecar outfit is a race bike model, never a new scenery item (Boss, 1 Nov 2026).
+    expect(modelRole('sidecar', scenery)).toBe('bike');
   });
+
 
   it('locks the items that move or stretch to fit the track', () => {
     for (const id of [OFFICIAL_ITEM, CHEER_ITEM, MARSHAL_ITEM, FLAGGER_ITEM, PIT_CREW_ITEM, SPRINT_START_ITEM, 'start_gate', ...SPANS_TRACK]) expect(LOCKED_ITEMS.has(id)).toBe(true);
@@ -229,6 +232,12 @@ describe('the rules for each kind of model', () => {
     // Left in centimetres.
     expect(ok('race_bike_youth.glb', info([-108, 0, -38], [110, 128, 38])).join(' ')).toMatch(/metres/);
     expect(ok('race_bike.glb', info([-1.08, 0, -0.38], [1.1, 1.28, 0.38], BIKE_LIMITS.tris + 1)).join(' ')).toMatch(/triangles/);
+  });
+
+  it("passes Boss's sidecar outfit as a race bike: chair on the left, inside the bike limits (Boss, 1 Nov 2026)", () => {
+    // sidecar.glb as exported: 2.19 m long, its chair out to 1.12 m on the left (glTF -Z), 5,984 triangles.
+    expect(ok('sidecar.glb', info([-1.09, 0, -1.12], [1.1, 1.18, 0.43], 5984))).toEqual([]);
+    expect(ok('sidecar.glb', info([-1.09, 0, -1.12], [1.1, 1.18, 0.43], BIKE_LIMITS.tris + 1)).join(' ')).toMatch(/triangles/);
   });
 
   it('lets a rider sit on the pegs, off the ground', () => {

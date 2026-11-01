@@ -21,6 +21,7 @@ import { APPROACH, assignCrews, BOARD_PAST, boardOut, boardText, crewSpot, FLAGG
 import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../core/marshal';
 import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
 import { LOCKED_ITEMS } from '../core/modModels';
+import { SIDECAR_CLASS } from '../core/sidecar';
 import { BIKE_PAINT, bikeModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
@@ -155,6 +156,8 @@ interface Bike {
   seat: THREE.Vector3;
   /** Which side a rider who comes off lands, 1 or -1. */
   side: number;
+  /** A sidecar outfit (core/sidecar.ts): it doesn't lean into corners. */
+  sidecar?: boolean;
   /** The rider's kit colours, for their figure on foot. */
   kit: Kit;
   /** The rider on foot after a crash (crashRecovery.ts), made the first time they need it. */
@@ -2604,6 +2607,7 @@ export class RaceView {
       let b = this.bikes.get(p.id);
       if (!b) {
         b = this.makeBike(r.color, r.player, r.look);
+        b.sidecar = r.look?.cls === SIDECAR_CLASS;
         this.bikes.set(p.id, b);
       }
       // Not on show: waiting off the start platform for their turn, or gone from the run-off (riderAI).
@@ -2635,7 +2639,8 @@ export class RaceView {
         pitch = flying.pitch;
       }
       // Lean into the corner, more the faster the bike.
-      let lean = Math.max(-0.6, Math.min(0.6, s.curvatureAt(dist) * Math.min(p.speed, 20) * 0.9));
+      // A sidecar outfit stays flat on its three wheels (Boss, 1 Nov 2026).
+      let lean = b.sidecar ? 0 : Math.max(-0.6, Math.min(0.6, s.curvatureAt(dist) * Math.min(p.speed, 20) * 0.9));
       if (p.state === 'wobble') yaw += 0.35 * Math.sin(clock * 16);
       b.root.position.set(mx, my, mz);
       b.root.rotation.set(0, -yaw, 0);

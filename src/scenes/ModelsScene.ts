@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import * as THREE from 'three';
-import { FIGURE_PARTS, LOCKED_ITEMS, MODEL_DIR, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, modelName } from '../core/modModels';
+import { FIGURE_PARTS, LOCKED_ITEMS, MODEL_DIR, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, SIDECAR_MODEL, modelName } from '../core/modModels';
 import { services } from '../services';
 import { glbOf, download, raceModels } from '../world/modelExport';
 import { modelList, modModel } from '../world/modModels';
@@ -92,7 +92,7 @@ export class ModelsScene extends Phaser.Scene {
       .map((m) => ({
         id: m.id,
         label: m.file,
-        note: m.problems.length ? `Not used: ${m.problems.join(' ')}` : role[m.role],
+        note: m.problems.length ? `Not used: ${m.problems.join(' ')}` : m.id === SIDECAR_MODEL ? 'Every outfit in a sidecar race' : role[m.role],
         bad: m.problems.length > 0,
         make: () => modModel(m.id),
       }));

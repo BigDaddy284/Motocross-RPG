@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { ADULT_BIKE_METRES, BIKE_SLOTS, raceBikeKind, YOUTH_BIKE_METRES, checkModel, FAN_SLOTS, PIT_CREW_SLOTS, FIGURE_PARTS, partName, glbInfo, MODEL_DIR, MODEL_INDEX, modelDef, modelId, modelRole, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, RIDER_SLOTS, materialSlot, type ModelEntry } from '../core/modModels';
+import { ADULT_BIKE_METRES, BIKE_SLOTS, raceBikeKind, YOUTH_BIKE_METRES, checkModel, FAN_SLOTS, PIT_CREW_SLOTS, FIGURE_PARTS, partName, glbInfo, MODEL_DIR, MODEL_INDEX, modelDef, modelId, modelRole, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, RIDER_SLOTS, SIDECAR_MODEL, materialSlot, type ModelEntry } from '../core/modModels';
 import type { SceneryDef } from '../core/trackParts';
+import { SIDECAR_CLASS } from '../core/sidecar';
 import { U } from './paddock';
 
 // The models in public/mods/models/ (core/modModels.ts has the rules), loaded once when the game
@@ -111,6 +112,8 @@ export function figureHas(id: string, part: string): boolean {
  * adult one. For a youth class, how much it was scaled is left in userData.riderScale, for the rider to match.
  */
 export function bikeModel(cls: string): THREE.Group | null {
+  // A sidecar outfit is its own model, never a solo bike's (core/sidecar.ts).
+  if (cls === SIDECAR_CLASS) return modModel(SIDECAR_MODEL);
   const kind = raceBikeKind(cls);
   if (kind === 'adult') return modModel(RACE_BIKE);
   const youth = modModel(RACE_BIKE_YOUTH);

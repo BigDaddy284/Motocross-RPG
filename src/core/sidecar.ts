@@ -32,6 +32,16 @@ export const SIDECAR_GATES: readonly number[] = Array.from({ length: SIDECAR_FIE
 /** How many gates a sidecar start spans: two for every outfit, two rows of 8. */
 export const SIDECAR_GATE_COUNT = 2 * SIDECAR_FIELD;
 
+/**
+ * On track, the leftmost lane an outfit's bike rides (lanes run -1 at the left edge to 1 at the
+ * right): its chair, about 1.1 m to the left, takes the rest (riderAI chairRoom).
+ */
+export const SIDECAR_LEFT = -0.5;
+/** Metres out of the gate over which outfits ease from their gates into SIDECAR_LEFT to 1. */
+export const SIDECAR_SETTLE = 30;
+/** How far apart, in lanes, two outfits side by side keep: a bike and a chair's width (riderAI keepApart; solos keep 0.5). */
+export const SIDECAR_ROOM = 0.7;
+
 /** Whether an outfit can line up on this gate (from 0): an even gate as the riders count, not one under a chair. */
 export function isSidecarGate(gate: number): boolean {
   return SIDECAR_GATES.includes(gate);
