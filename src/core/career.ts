@@ -188,7 +188,7 @@ export interface CareerState {
   /** Index of the current opening-chain step, and the objects already used for a multi-use step. */
   story: { step: number; used: string[] };
   /** Later chains (story.json chains) by id, once started: where the rider is in each. */
-  chains?: Record<string, { step: number; used: string[] }>;
+  chains?: Record<string, ChainState>;
   /** Running totals such as batches finished per employer, race days and wins. */
   counters: Record<string, number>;
   skills: SkillState;
@@ -316,6 +316,13 @@ export function applyEffects(state: CareerState, flags: Record<string, boolean>,
 
 // ---- the opening chain ----
 
+/** Where the rider is in a later chain. heard: steps whose lines were heard early (hearEarly; Boss, 1 Nov 2026). */
+export interface ChainState {
+  step: number;
+  used: string[];
+  heard?: string[];
+}
+
 export type StoryEvent = { talk: string } | { use: string; map: string; object: string };
 
 export type StoryMatch =
@@ -324,7 +331,7 @@ export type StoryMatch =
   | { kind: 'alreadyUsed'; step: StoryStep };
 
 /** The chain the rider is on: the opening chain while it lasts, then each started chain in turn. */
-function activeChain(story: StoryData, state: CareerState): { steps: StoryStep[]; st: { step: number; used: string[] } } | null {
+function activeChain(story: StoryData, state: CareerState): { steps: StoryStep[]; st: ChainState } | null {
   if (state.story.step < story.steps.length) return { steps: story.steps, st: state.story };
   for (const c of story.chains ?? []) {
     const st = state.chains?.[c.id];
@@ -385,6 +392,46 @@ export function advanceStory(story: StoryData, state: CareerState, flags: Record
   c.st.step += 1;
   c.st.used = [];
   return true;
+}
+
+/**
+ * A later step of the area chain under way that this talk can play now, out of turn (Boss, 1 Nov 2026:
+ * "if i speak to Area Champ and Local or Area champ while walking around during the tutorial, they say
+ * there bit there and then, can repeat if i go back but I shouldn't be sent back for the same lines").
+ * Only a step that is just lines: no items given or taken, nothing needed, no question, one talk, and only
+ * in an area chain (the opening chain stays in its order). Its effects still wait for its turn (catchUp).
+ */
+export function earlyStep(story: StoryData, state: CareerState, ev: StoryEvent): StoryStep | null {
+  if (!('talk' in ev) || state.story.step < story.steps.length) return null;
+  const c = activeChain(story, state);
+  if (!c) return null;
+  return c.steps.slice(c.st.step + 1).find((s) => s.on.talk === ev.talk && isJustLines(s)) ?? null;
+}
+
+const isJustLines = (s: StoryStep): boolean =>
+  !!s.lines && !s.needs && !s.confirm && (s.times ?? 1) === 1 && !s.effects?.give?.length && !s.effects?.take?.length && !s.effects?.fit && !s.effects?.giveParts?.length;
+
+/** Records a step's lines as heard early, so the chain won't send the rider back for them. */
+export function hearEarly(story: StoryData, state: CareerState, step: StoryStep): void {
+  const c = activeChain(story, state);
+  if (c && !(c.st.heard ??= []).includes(step.id)) c.st.heard.push(step.id);
+}
+
+/**
+ * Plays out every step now due whose lines were heard early: its effects apply and the chain moves on,
+ * without sending the rider back. Returns the steps, for their toasts.
+ */
+export function catchUp(story: StoryData, state: CareerState, flags: Record<string, boolean>, items: Record<string, ItemDef>): StoryStep[] {
+  const done: StoryStep[] = [];
+  for (;;) {
+    const c = activeChain(story, state);
+    const step = c?.steps[c.st.step];
+    if (!c || !step || !c.st.heard?.includes(step.id)) return done;
+    applyEffects(state, flags, items, step.effects);
+    c.st.step += 1;
+    c.st.used = [];
+    done.push(step);
+  }
 }
 
 /** The task after the opening chain for these flags (story.json after), if any. */

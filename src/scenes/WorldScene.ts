@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { advanceStory, bikeProblem, currentStep, fillText, formatMoney, jobPay, matchStory, openChains, pence, type JobDef, type PlaceDef, type StoryEvent, type StoryStep } from '../core/career';
+import { advanceStory, bikeProblem, catchUp, currentStep, earlyStep, hearEarly, fillText, formatMoney, jobPay, matchStory, openChains, pence, type JobDef, type PlaceDef, type StoryEvent, type StoryStep } from '../core/career';
 import { newsRead, npcsOnMap, properName, type DialogueLine, type NpcDef, type NpcPlacement } from '../core/content';
 import { Grid, STEPS } from '../core/grid';
 import { objectTiles, type BakedMap, type Facing, type MapObject, type Tile } from '../core/mapTypes';
@@ -707,7 +707,15 @@ export class WorldScene extends Phaser.Scene {
     const { story, items } = services.content;
     const career = this.save.career;
     const m = matchStory(story, career, ev, Object.fromEntries(services.content.skills.leads.map((l) => [l.id, leadLevel(services.content.skills, career.skills, l)])));
-    if (!m) return false;
+    if (!m) {
+      // A later step that is just lines plays now, and the chain won't send the rider back for it (Boss, 1 Nov 2026).
+      const early = earlyStep(story, career, ev);
+      if (!early) return false;
+      onStart();
+      hearEarly(story, career, early);
+      this.say(speaker, early.lines!, onClose);
+      return true;
+    }
     if (m.kind === 'alreadyUsed') {
       this.hud.toast("You've already done that one.");
       return true;
@@ -725,14 +733,18 @@ export class WorldScene extends Phaser.Scene {
       const object = 'use' in ev ? ev.object : undefined;
       const step: StoryStep = m.step;
       const completed = advanceStory(story, career, this.save.flags, items, object);
+      // Steps already heard early come off the chain now, their effects with them.
+      const caught = completed ? catchUp(story, career, this.save.flags, items) : [];
       this.hud.showCareer(career, this.save.flags);
       const show = () => {
         onClose();
         this.refreshWaymarks();
         if (!completed) return;
-        if (step.effects?.money) this.hud.toast(step.toast ?? `${step.effects.money > 0 ? '+' : ''}${formatMoney(pence(step.effects.money))}`);
-        else if (step.toast) this.hud.toast(step.toast);
-        if (step.effects?.flags?.length) this.refreshMapState();
+        for (const s of [step, ...caught]) {
+          if (s.effects?.money) this.hud.toast(s.toast ?? `${s.effects.money > 0 ? '+' : ''}${formatMoney(pence(s.effects.money))}`);
+          else if (s.toast) this.hud.toast(s.toast);
+        }
+        if ([step, ...caught].some((s) => s.effects?.flags?.length)) this.refreshMapState();
         this.milestoneSave();
       };
       if (step.lines) this.say(speaker, step.lines, show);
