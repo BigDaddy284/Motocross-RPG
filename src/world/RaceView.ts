@@ -113,7 +113,7 @@ interface PitCrew {
   board: THREE.Mesh;
   /** The whole item, for painting a model's team colours (the mate's too). */
   root: THREE.Object3D;
-  /** How far the arms are turned forward while waiting: down by their side, or the pole resting out over a pit wall. */
+  /** How far the arms are turned forward while waiting: down by their side, or the pole resting out on a pit wall. */
   rest: number;
   /** The board's offset from the shoulder before the arms swing, and the shoulder's from the feet (scene units). */
   boardAt: THREE.Vector3;
@@ -2138,8 +2138,8 @@ export class RaceView {
       index: this.crews.length,
       spot: crewSpot(this.surface.g, it),
       root: g,
-      // Behind a pit wall the pole rests out over the wall, so the board never swings through it (Boss, 1 Nov 2026).
-      rest: built.variant === 'wall' ? 1.3 : 0.35,
+      // Behind a pit wall the pole rests out on the wall, so the board never swings through it (Boss, 1 Nov 2026).
+      rest: built.variant === 'wall' ? 1.05 : 0.35,
       figure,
       arms,
       board,
