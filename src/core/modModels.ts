@@ -46,10 +46,10 @@ export function raceBikeKind(cls: string): RaceBikeKind {
 /**
  * How long the youth model is drawn for each small youth class, in metres bumper to bumper, its
  * rider scaled with it as a child of that size (Boss, 1 Nov 2026). Real 50, 65 and 85 cc bike
- * sizes looked too small in the game, so these sit between those and full size (Boss, 1 Nov 2026).
+ * sizes looked too small in the game, so these sit nearer full size (Boss, 1 Nov 2026).
  * Other classes ride full size.
  */
-export const YOUTH_BIKE_METRES: Readonly<Record<string, number>> = { '50cc': 1.6, '65cc': 1.75, '85cc-small': 1.9, '85cc-big': 1.98 };
+export const YOUTH_BIKE_METRES: Readonly<Record<string, number>> = { '50cc': 1.88, '65cc': 1.95, '85cc-small': 2.03, '85cc-big': 2.07 };
 /** The game's own adult bike's length in metres, the size a scaled-up youth model takes when there's no adult model. */
 export const ADULT_BIKE_METRES = 2.18;
 /** The rider on the race bikes. */
