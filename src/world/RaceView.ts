@@ -1577,8 +1577,8 @@ export class RaceView {
   }
 
   /**
-   * Grey-scale dirt that the track's colours are multiplied by: clods and stones, and the dark
-   * grooves riders cut along the racing line.
+   * Grey-scale dirt that the track's colours are multiplied by: clods and stones. Plain graded
+   * dirt, no lines along it (Boss, 1 Nov 2026).
    */
   private dirtTexture(): THREE.CanvasTexture {
     const size = 128;
@@ -1589,10 +1589,8 @@ export class RaceView {
     for (let y = 0; y < size; y++) {
       for (let x = 0; x < size; x++) {
         // v (y) runs across the track: the racing surface is the middle half of the texture.
-        const across = y / size;
-        const groove = Math.abs(Math.sin(across * Math.PI * 9)) < 0.18 && across > 0.27 && across < 0.73 ? 0.86 : 1;
         const grain = 0.86 + 0.14 * noise(x * 131 + y * 17) + 0.06 * Math.sin(x * 0.4 + noise(y) * 6);
-        const v = Math.max(0, Math.min(255, Math.round(255 * grain * groove)));
+        const v = Math.max(0, Math.min(255, Math.round(255 * grain)));
         const i = (y * size + x) * 4;
         img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
         img.data[i + 3] = 255;
