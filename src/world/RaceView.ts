@@ -9,7 +9,7 @@ import { alongRoute, boardPose, OFFICIAL_ITEM, OFFICIAL_SCALE, officialPlan, pla
 import { gridOf, hiddenSpans, isSprint, NO_TURN_LANES, NO_TURN_PLATFORM, lapMetres, nearestOnLap, pointAt, RETURN_LANE, START_PAD, startPointAt } from '../core/trackGeom';
 import { DEFAULT_TRACK_WIDTH, trackKind, type SceneryDef, type TrackPartsData } from '../core/trackParts';
 import { archSpan, SPANS_TRACK, sprintPlace, SPRINT_START_ITEM, SurfaceIndex, surfacePoints } from '../core/trackClearance';
-import { BIKE_LENGTH, CAM_AZ, LIP_AT, LOGS_AT, TrackSurface, type Flight } from '../core/trackSurface';
+import { BIKE_LENGTH, CAM_AZ, LIP_AT, LOGS_AT, STACK_AT, TYRE_BED_ROWS, TYRE_ROWS, TrackSurface, type Flight } from '../core/trackSurface';
 import { downPhase } from '../core/crashRecovery';
 import { APPROACH as TRICK_APPROACH, trickPose, type Trick } from '../core/tricks';
 import { COLORS, TEXT_RES } from '../ui/theme';
@@ -994,6 +994,7 @@ export class RaceView {
       m.position.set(p.x, s.height(f, lane) + lift, p.z);
       return p;
     };
+    // The lap's heading at f; a cylinder turned by Math.PI / 2 - across(f) about the vertical lies across the track.
     const across = (f: number) => s.spot(f, 0).ang;
     this.track.sections.forEach((sec, si) => {
       const f0 = s.bounds[si];
@@ -1002,16 +1003,17 @@ export class RaceView {
       const at = (u: number) => f0 + (f1 - f0) * u;
       switch (sec.type) {
         case 'rocks': {
-          // Stones of every size, the biggest pushed out towards the edges where riders steer round them.
-          const n = Math.round(len * 3.2);
+          // A rock garden edge to edge (Boss, 1 Nov 2026): rocks of every size packed over the whole
+          // section, the biggest towards the edges where riders steer round them.
+          const n = Math.round(len * 28);
           for (let k = 0; k < n; k++) {
-            const f = at(0.03 + 0.94 * rnd(si * 997 + k));
-            const big = rnd(si * 31 + k * 7) > 0.8;
-            const lane = (rnd(si * 53 + k * 3) * 2 - 1) * (big ? 1.15 : 0.95);
-            const r = (big ? 0.2 : 0.08) + 0.1 * rnd(si * 71 + k);
-            const m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), this.mat(shade(0x9a958a, 0.75 + 0.35 * rnd(si * 19 + k)), { flatShading: true }));
-            sitting(m, f, lane, r * 0.35);
-            m.scale.y = 0.6;
+            const f = at(0.02 + 0.96 * rnd(si * 997 + k));
+            const lane = (rnd(si * 53 + k * 3) * 2 - 1) * 1.15;
+            const big = rnd(si * 31 + k * 7) > 0.82 || Math.abs(lane) > 0.95;
+            const r = (big ? 0.24 : 0.13) + 0.14 * rnd(si * 71 + k);
+            const m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), this.mat(shade(0x9a958a, 0.7 + 0.4 * rnd(si * 19 + k)), { flatShading: true }));
+            sitting(m, f, lane, r * 0.4);
+            m.scale.set(1 + 0.4 * rnd(k * 5), 0.65, 1 + 0.4 * rnd(k * 11));
             m.rotation.set(rnd(k) * 3, rnd(k * 3) * 3, 0);
             parts.push(m);
           }
@@ -1025,7 +1027,7 @@ export class RaceView {
             const reach = s.hwAt(f) * 2.5;
             const m = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.07, reach, 6), this.mat(shade(0x5a3a20, 0.85 + 0.3 * rnd(k))));
             sitting(m, f, 0, 0.02);
-            m.rotation.set(0, -across(f) + (rnd(si * 7 + k) - 0.5) * 0.9, Math.PI / 2);
+            m.rotation.set(0, Math.PI / 2 - across(f) + (rnd(si * 7 + k) - 0.5) * 0.9, Math.PI / 2);
             parts.push(m);
           }
           break;
@@ -1033,22 +1035,165 @@ export class RaceView {
         case 'logs':
         case 'log_step': {
           // Logs across the track, as wide as its lips, on the humps the surface has for them.
-          const h = this.metreUnits(sec.height ?? (sec.type === 'logs' ? 0.4 : 0.6));
+          const h = this.metreUnits(sec.height ?? (sec.type === 'logs' ? 0.55 : 0.6));
           const spots = sec.type === 'logs' ? LOGS_AT : [0.5];
           spots.forEach((u, k) => {
             const f = at(u);
             const r = h / 2;
-            const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.05, s.hwAt(f) * 2 * LIP_AT + 0.3, 12), this.mat(shade(0x7a5230, 0.9 + 0.2 * rnd(si + k))));
+            const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.05, s.hwAt(f) * 2 * LIP_AT + 0.3, 12), this.mat(shade(0x5e3d22, 0.9 + 0.2 * rnd(si + k))));
+            // On top of its hump, not inside it: the dirt is packed to three quarters of the log.
             sitting(m, f, 0, -h / 2 + r * 0.9);
-            m.position.y = s.lift(f) + r * 0.95;
-            m.rotation.set(0, -across(f), Math.PI / 2);
+            m.position.y = s.lift(f) + h * 1.05;
+            m.rotation.set(0, Math.PI / 2 - across(f), Math.PI / 2);
             parts.push(m);
             for (const side of [-1, 1]) {
               const e = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.9, r * 0.9, 0.02, 12), this.mat(0xc8a878));
               const p = s.spot(f, side * (LIP_AT + 0.15 / s.hwAt(f)));
-              e.position.set(p.x, s.lift(f) + r * 0.95, p.z);
-              e.rotation.set(0, -across(f), Math.PI / 2);
+              e.position.set(p.x, s.lift(f) + h * 1.05, p.z);
+              e.rotation.set(0, Math.PI / 2 - across(f), Math.PI / 2);
               parts.push(e);
+            }
+          });
+          // Cut rounds packed between the logs (Boss, 1 Nov 2026): firewood lengths lying the way
+          // the logs do, in rows filling each gap, the odd one on its end.
+          if (sec.type === 'logs') {
+            const gaps = [[0, LOGS_AT[0]], ...LOGS_AT.slice(0, -1).map((u, k) => [u, LOGS_AT[k + 1]]), [LOGS_AT[LOGS_AT.length - 1], 1]];
+            gaps.forEach(([u0, u1], g) => {
+              const a0 = u0 + (g === 0 ? 0.03 : 0.07);
+              const a1 = u1 - (g === gaps.length - 1 ? 0.03 : 0.07);
+              const rows = Math.max(1, Math.round(((a1 - a0) * len) / this.metreUnits(0.4)));
+              for (let row = 0; row < rows; row++) {
+                const f = at(a0 + ((row + 0.5) / rows) * (a1 - a0));
+                const w = s.hwAt(f) * 2 * LIP_AT;
+                let x = -w / 2 + this.metreUnits(0.15) * rnd(si * 7 + g * 13 + row);
+                let k = 0;
+                while (x < w / 2 - this.metreUnits(0.3)) {
+                  const cr = this.metreUnits(0.12 + 0.06 * rnd(si * 3 + g * 17 + row * 5 + k));
+                  const cl = Math.min(w / 2 - x, this.metreUnits(0.5 + 0.4 * rnd(si * 5 + g * 19 + row * 7 + k)));
+                  const onEnd = rnd(si * 11 + g * 23 + row * 3 + k) > 0.88;
+                  const cut = new THREE.Mesh(new THREE.CylinderGeometry(cr, cr, onEnd ? cr * 2.2 : cl, 9), this.mat(shade(0x9c7448, 0.8 + 0.4 * rnd(g * 29 + row * 11 + k))));
+                  const lane = (x + (onEnd ? cr : cl / 2)) / s.hwAt(f);
+                  sitting(cut, f, lane, cr * (onEnd ? 1.05 : 0.9));
+                  cut.rotation.set(0, Math.PI / 2 - across(f) + (rnd(k + row * 4) - 0.5) * 0.25, onEnd ? 0 : Math.PI / 2);
+                  parts.push(cut);
+                  x += (onEnd ? cr * 2 : cl) + this.metreUnits(0.1);
+                  k++;
+                }
+              }
+            });
+          }
+          break;
+        }
+        case 'pipe': {
+          // A concrete pipe lying across the track, mud packed up both sides (the surface hump).
+          const h = this.metreUnits(sec.height ?? 1.8);
+          const f = at(0.5);
+          const r = h / 2;
+          const wide = s.hwAt(f) * 2 * LIP_AT + 0.8;
+          const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, wide, 18), this.mat(0xa8a8a2));
+          m.position.copy(new THREE.Vector3(s.spot(f, 0).x, s.lift(f) + h * 0.6, s.spot(f, 0).z));
+          m.rotation.set(0, Math.PI / 2 - across(f), Math.PI / 2);
+          parts.push(m);
+          for (const side of [-1, 1]) {
+            // The open ends: a dark hole in a concrete rim.
+            const hole = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.82, r * 0.82, 0.03, 18), this.mat(0x2c2a26));
+            const p = s.spot(f, side * (wide / 2 + 0.01) / s.hwAt(f));
+            hole.position.set(p.x, s.lift(f) + h * 0.6, p.z);
+            hole.rotation.set(0, Math.PI / 2 - across(f), Math.PI / 2);
+            parts.push(hole);
+          }
+          break;
+        }
+        case 'tyre_bed': {
+          // Tractor tyres thrown down on their sides over the whole section: a bed two or three
+          // abreast, and between the rows tyres sitting half on their neighbours, tipped up on a
+          // rim, so the bed is all lips and edges (Boss, 1 Nov 2026).
+          const dia = this.metreUnits(1.6);
+          const tube = this.metreUnits(0.24);
+          const rows = Math.round(TYRE_BED_ROWS * 1.5);
+          const tyreMat = (j: number) => this.mat(shade(0x2e2e2c, 0.85 + 0.3 * rnd(j)));
+          const place = (u: number, lane: number, lift: number, tiltAlong: number, tiltAcross: number, j: number) => {
+            const f = at(u);
+            const reach = Math.max(0.3, s.hwAt(f) * LIP_AT - dia / 2 + 0.1);
+            const tyre = new THREE.Mesh(new THREE.TorusGeometry(dia / 2 - tube, tube, 8, 20), tyreMat(j));
+            sitting(tyre, f, (Math.max(-1, Math.min(1, lane)) * reach) / s.hwAt(f), lift);
+            tyre.rotation.set(Math.PI / 2 + tiltAcross, 0, tiltAlong);
+            parts.push(tyre);
+          };
+          for (let k = 0; k < rows; k++) {
+            const u = 0.06 + (0.88 * (k + 0.5)) / rows;
+            const lanes = k % 2 ? [-1, -0.33, 0.33, 1] : [-0.66, 0, 0.66];
+            lanes.forEach((lane, i) => {
+              const j = si * 7 + k * 5 + i;
+              place(u + (rnd(j + 1) - 0.5) * 0.03, lane + (rnd(j + 2) - 0.5) * 0.25, tube * 0.9, (rnd(j + 3) - 0.5) * 0.12, (rnd(j + 4) - 0.5) * 0.12, j);
+            });
+            if (k > 0) {
+              // One or two tyres across the gap to the row before, each up on the rim of one below.
+              const n = rnd(si + k * 3) > 0.4 ? 2 : 1;
+              for (let i = 0; i < n; i++) {
+                const j = si * 11 + k * 7 + i + 100;
+                const side = (i === 0 ? 1 : -1) * (rnd(j) > 0.5 ? 1 : -1);
+                place(u - 0.44 / rows, side * (0.2 + 0.6 * rnd(j + 1)), tube * 2.1, (rnd(j + 2) > 0.5 ? 1 : -1) * (0.3 + 0.25 * rnd(j + 3)), (rnd(j + 4) - 0.5) * 0.3, j);
+              }
+            }
+          }
+          break;
+        }
+        case 'log_stack': {
+          // Two stacks of logs across the track, each a triangle: three on the ground, two, then one
+          // on top, their cut ends showing, ridden up and over (Boss, 1 Nov 2026).
+          const h = this.metreUnits(sec.height ?? 1.2);
+          const d = h / 2.74;
+          const r = d / 2;
+          const tiers: [number, number][] = [[-1, 0], [0, 0], [1, 0], [-0.5, 0.87], [0.5, 0.87], [0, 1.74]];
+          STACK_AT.forEach((at0, stack) => {
+            const f = at(at0);
+            const wide = s.hwAt(f) * 2 * LIP_AT + 0.4;
+            const base = s.lift(f) + h * 0.3;
+            // Not a perfect triangle (Boss, 1 Nov 2026): every log its own thickness and taper, laid
+            // a little askew, but the ends chainsawed flush with the track's edges.
+            tiers.forEach(([dx, dy], k) => {
+              const j = si * 3 + stack * 11 + k;
+              const lr = r * (0.8 + 0.5 * rnd(j));
+              const ll = wide;
+              const shift = 0;
+              const u = at(at0 + ((dx + (rnd(j + 150) - 0.5) * 0.35) * d) / len);
+              const yaw = (rnd(j + 200) - 0.5) * 0.06;
+              const log = new THREE.Mesh(new THREE.CylinderGeometry(lr, lr * (0.7 + 0.5 * rnd(j + 250)), ll, 12), this.mat(shade(0x7a5230, 0.7 + 0.6 * rnd(j + 300))));
+              const p = s.spot(u, shift / s.hwAt(f));
+              log.position.set(p.x, base + lr + dy * d, p.z);
+              log.rotation.set(0, Math.PI / 2 - across(f) + yaw, Math.PI / 2);
+              parts.push(log);
+              for (const side of [-1, 1]) {
+                const e = new THREE.Mesh(new THREE.CylinderGeometry(lr * 0.9, lr * 0.9, 0.02, 12), this.mat(shade(0xc8a878, 0.9 + 0.2 * rnd(j + side))));
+                const q = s.spot(u, (shift + side * (ll / 2 + 0.01)) / s.hwAt(f));
+                e.position.set(q.x, base + lr + dy * d, q.z);
+                e.rotation.set(0, Math.PI / 2 - across(f) + yaw, Math.PI / 2);
+                parts.push(e);
+              }
+            });
+          });
+          break;
+        }
+        case 'tyre_wall': {
+          // Two rows of big machinery tyres standing on their treads and packed together across the
+          // track, mud packed up both sides of each row (the surface humps).
+          const h = this.metreUnits(sec.height ?? 2);
+          const R = h / 2;
+          const tube = R * 0.4;
+          TYRE_ROWS.forEach((u, row) => {
+            const f = at(u);
+            const w = s.hwAt(f) * 2 * LIP_AT + 0.4;
+            const n = Math.max(2, Math.round(w / (2.2 * tube)));
+            for (let k = 0; k < n; k++) {
+              const x = -w / 2 + tube + ((k + 0.5) * (w - 2 * tube)) / n;
+              const tyre = new THREE.Mesh(new THREE.TorusGeometry(R - tube, tube, 8, 22), this.mat(shade(0x2a2a28, 0.85 + 0.3 * rnd(si * 5 + row * 7 + k))));
+              const p = s.spot(f, x / s.hwAt(f));
+              // Standing on the ground with the mud packed to just over half way up, the top clear of the dirt.
+              tyre.position.set(p.x, s.lift(f) + h * 0.95, p.z);
+              // Standing the way a wheel rolls down the track, packed side by side across it.
+              tyre.rotation.set(0, -across(f) + (rnd(row * 3 + k) - 0.5) * 0.12, 0);
+              parts.push(tyre);
             }
           });
           break;

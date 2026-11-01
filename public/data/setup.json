@@ -28,7 +28,7 @@
     "start_gate": "starts", "first_corner": "tight", "flat_corner": "tight", "berm": "tight", "rutted_corner": "tight", "hairpin": "tight", "concrete_corner": "tight", "off_camber": "tight", "woods": "tight",
     "fast_sweeper": "sweeper", "straight": "sweeper", "uphill": "sweeper", "downhill": "sweeper", "concrete_straight": "sweeper", "surface_change": "sweeper", "hill_climb": "sweeper", "return_lane": "sweeper", "run_off": "sweeper",
     "tabletop": "jumps", "double": "jumps", "step_up": "jumps", "triple": "jumps", "step_down": "jumps", "step_on": "jumps", "step_on_two": "jumps", "step_on_three": "jumps", "dragon_back": "jumps", "quad": "jumps", "on_off": "jumps", "single_over_table": "jumps", "table_over_single": "jumps", "wall_jump": "jumps", "ski_jump": "jumps", "rhythm": "jumps",
-    "whoops": "whoops", "braking_bumps": "whoops", "rollers": "whoops", "rocks": "whoops", "logs": "whoops", "log_step": "whoops", "roots": "whoops",
+    "whoops": "whoops", "braking_bumps": "whoops", "rollers": "whoops", "rocks": "whoops", "logs": "whoops", "log_step": "whoops", "roots": "whoops", "pipe": "whoops", "tyre_bed": "whoops", "tyre_wall": "whoops", "log_stack": "whoops",
     "sand": "sand", "mud": "mud", "water_crossing": "mud"
   },
   "presetShare": 0.8,

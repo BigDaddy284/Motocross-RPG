@@ -119,9 +119,22 @@ export function sectionShape(type: string, u: number): number {
       return 0.5 * (1 - Math.cos(2 * Math.PI * 9 * u)) * Math.abs(Math.sin(2 * Math.PI * 2.7 * u)) * ramp(u, 0, 0.05) * (1 - ramp(u, 0.95, 1));
     case 'logs':
       // Logs laid across the track, each a hump of its own.
-      return LOGS_AT.reduce((h, at) => Math.max(h, logHump((u - at) / LOG_HALF)), 0);
+      // The dirt reaches 70% of the way up each log, which stands proud of it (the ride height is the log).
+      return LOG_DIRT * LOGS_AT.reduce((h, at) => Math.max(h, logHump((u - at) / LOG_HALF)), 0);
     case 'log_step':
-      return logHump((u - 0.5) / (LOG_HALF * 1.6));
+      return LOG_DIRT * logHump((u - 0.5) / (LOG_HALF * 1.6));
+    case 'pipe':
+      // A concrete pipe lying across the track, mud packed up both sides to most of its height.
+      return Math.max(logHump((u - 0.5) / PIPE_HALF), PIPE_MUD * mudRamp((u - 0.5) / (PIPE_HALF + MUD_HALF)));
+    case 'tyre_bed':
+      // Tractor tyres lying on their sides over the whole section: a rim to ride over every tyre.
+      return (0.5 * (1 - Math.cos(2 * Math.PI * TYRE_BED_ROWS * u))) * ramp(u, 0, 0.05) * (1 - ramp(u, 0.95, 1));
+    case 'tyre_wall':
+      // Two rows of big tyres standing on their treads, mud packed up both sides of each row.
+      return TYRE_ROWS.reduce((h, at) => Math.max(h, logHump((u - at) / TYRE_HALF), TYRE_MUD * mudRamp((u - at) / (TYRE_HALF + MUD_HALF))), 0);
+    case 'log_stack':
+      // Logs stacked across the track in a triangle, three, two then one on top, ridden up and over; two stacks a section (Boss, 1 Nov 2026).
+      return STACK_AT.reduce((h, at) => Math.max(h, stackHump((u - at) / STACK_HALF)), 0);
     default:
       return 0;
   }
@@ -131,11 +144,36 @@ export function sectionShape(type: string, u: number): number {
 export const HILL_CREST = 0.42;
 /** Where the logs of a log crossing lie, as shares of the section, and half a log's width there. */
 export const LOGS_AT = [0.18, 0.39, 0.61, 0.82];
-export const LOG_HALF = 0.045;
+export const LOG_HALF = 0.03;
+/** How far up a log the dirt is packed: the surface rises to this share of the log's height, the log showing above it. */
+export const LOG_DIRT = 0.7;
 /** The hump of a log lying across the track: 1 over its middle, 0 beyond its edges (x from -1 to 1). */
 function logHump(x: number): number {
   return Math.abs(x) >= 1 ? 0 : Math.sqrt(1 - x * x);
 }
+/** Mud packed against an obstacle: a smooth bank, 1 at the obstacle, 0 at the edge of the pack (x from -1 to 1). */
+function mudRamp(x: number): number {
+  return Math.abs(x) >= 1 ? 0 : 0.5 * (1 + Math.cos(Math.PI * x));
+}
+/** The endurocross obstacles (Boss, 1 Nov 2026), as shares of their section: a pipe's half width, the two tyre-wall rows and a tyre's half width, the mud bank beyond each, and how far up the mud comes. */
+export const PIPE_HALF = 0.15;
+export const TYRE_ROWS = [0.3, 0.7];
+export const TYRE_HALF = 0.05;
+export const MUD_HALF = 0.14;
+export const PIPE_MUD = 0.7;
+export const TYRE_MUD = 0.55;
+/** A log stack's hump: the top log's round over the middle, then a straight slope down the tiers to the edge (x from -1 to 1). */
+function stackHump(x: number): number {
+  const e = Math.abs(x);
+  if (e >= 1) return 0;
+  // Bare logs, no mud: the ride height is the stack, drawn standing proud of the ground it sits on.
+  return 0.7 * (e < 0.2 ? 0.85 + 0.15 * Math.sqrt(1 - (e / 0.2) ** 2) : 0.85 * (1 - (e - 0.2) / 0.8));
+}
+/** Where the two log stacks stand in their section, and each one's half width as a share of it (three logs wide on the ground). */
+export const STACK_AT = [0.3, 0.7];
+export const STACK_HALF = 0.05;
+/** Tyres lying on their sides down a tyre bed: rims to ride over, per section. */
+export const TYRE_BED_ROWS = 6;
 /** Section types whose ground rises with the track: hills, not built-up jumps. */
 export const HILLS = new Set(['uphill', 'downhill', 'hill_climb']);
 
