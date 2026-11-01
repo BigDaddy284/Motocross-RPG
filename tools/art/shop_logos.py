@@ -194,3 +194,33 @@ def js_logo_d(w, h):
     x += (room - (b[2] - b[0])) / 2
     _runs(d, [('TOOLS', f, b, (250, 250, 246, 255), INK)], x, top + 2 * S, 0)
     return _done(big, w, h)
+
+
+def js_logo_e(w, h):
+    """E (Boss, 1 Nov 2026: "bottom left sign but swap the yellow for the top right blue"): option C's
+    hazard-stripe board and hammer with option B's enamel blue in place of the yellow."""
+    W, H = w * S, h * S
+    BLUE = (28, 70, 150, 255)
+    LIGHT = (250, 250, 246, 255)
+    big = Image.new('RGBA', (W, H), INK)
+    d = ImageDraw.Draw(big)
+    e = H * 0.9
+    for x0, x1 in ((0, e), (W - e, W)):
+        d.rectangle((x0, 0, x1, H), fill=BLUE)
+        for k in range(-4, 8):
+            sx = x0 + k * 4 * S
+            d.polygon([(sx, H), (sx + 2 * S, H), (sx + 2 * S + H, 0), (sx + H, 0)], fill=INK)
+        d.rectangle((x0, 0, x1, H), outline=INK, width=S)
+    d.rectangle((0, 0, W - 1, H - 1), outline=INK, width=S)
+    hx0, hx1, hy = e + 4 * S, e + 4 * S + H * 0.9, H / 2
+    d.line((hx0, hy + H * 0.2, hx1 - H * 0.2, hy - H * 0.12), fill=(170, 112, 60, 255), width=int(2.6 * S))
+    d.polygon([(hx1 - H * 0.3, hy - H * 0.36), (hx1, hy - H * 0.26), (hx1 - H * 0.08, hy + H * 0.04), (hx1 - H * 0.36, hy - H * 0.06)], fill=(200, 204, 212, 255), outline=LIGHT)
+    x = hx1 + 3 * S
+    room = W - e - x - 3 * S
+    fa, ba = _fit(d, "J'S", room * 0.34, H - 6 * S)
+    fb, bb = _fit(d, 'TOOLS', room * 0.6, int((H - 6 * S) * 0.75))
+    total = (ba[2] - ba[0]) + (bb[2] - bb[0]) + 3 * S
+    x += (room - total) / 2
+    # the blue letters take a light edge so they read on the black panel
+    _runs(d, [("J'S", fa, ba, BLUE, LIGHT), ('TOOLS', fb, bb, LIGHT, INK)], x, H, 3 * S)
+    return _done(big, w, h)
