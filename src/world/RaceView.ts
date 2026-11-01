@@ -2632,8 +2632,9 @@ export class RaceView {
             posed.add(pivot);
           }
         };
-        set('Left', out);
-        set('Right', over);
+        // In the air the jump grip takes over from any corner pose, so the two never add up.
+        set('Left', out * (1 - c.tuck));
+        set('Right', over * (1 - c.tuck));
         set('Jump', c.tuck);
       });
     }
