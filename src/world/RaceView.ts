@@ -75,7 +75,7 @@ interface Marshal {
   watch: Watch;
   figure: THREE.Group;
   arm: THREE.Mesh;
-  /** The elbow and the flag's cloth on the pole: joints a marshal model's Forearm and Flag hang from (the game's own figure has none). */
+  /** A model's forearm, at the elbow, and its flag, on the pole; empty on the game's own marshal. */
   forearm: THREE.Group;
   flag: THREE.Group;
   /** 0 flag down, 1 up and waving; eased between. */
@@ -2189,8 +2189,8 @@ export class RaceView {
       const k = m.raise;
       m.arm.rotation.z = k * 0.45 * Math.sin(clock * 7 + m.phase);
       m.arm.rotation.x = -0.9 * Math.PI * k;
-      // A model's forearm bends a little at the elbow and whips the wave on a beat behind the arm; its flag swings
-      // round the pole a beat after that, bunched against the pole while down and opening as the arm goes up.
+      // A model's forearm bends a little at the elbow (the way an elbow bends) and whips the wave on a beat behind the arm;
+      // its flag swings round the pole, and is bunched against it while it's down.
       m.forearm.rotation.set(-0.25 * k, 0, k * 0.4 * Math.sin(clock * 7 + m.phase - 0.9));
       m.flag.rotation.y = k * 0.7 * Math.sin(clock * 7 + m.phase - 1.8);
       m.flag.scale.x = 0.3 + 0.7 * k;

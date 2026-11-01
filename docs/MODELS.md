@@ -59,7 +59,7 @@ The marshals, flag man, pit crews, fans and start official move with the race. T
 
 | Figure | Parts |
 |---|---|
-| `marshal` | **Body**, **Arm** (the flag arm from the shoulder), **Forearm** and **Flag** (optional: the forearm with its origin at the elbow, and the flag cloth with its origin on the pole, which it swings round), **Base** (the stand, if any; leave it out and the marshal stands on the game's stand for each design) |
+| `marshal` | **Body**, **Arm** (the flag arm, with its flag), **Base** (the stand, if any). For a better wave, also **Forearm** (origin at the elbow, with the hand and pole; Arm is then the upper arm only) and **Flag** (the cloth alone, origin on the pole, with the pole upright in the rest pose). With no Base the marshal stands on the game's stand at its height. |
 | `flagger` | **Body**, **WhiteArm**, **ChequeredArm** (each arm with its flag), **Base** (the stand or tower) |
 | `pit_crew` | **Body**, **Arms** (both arms and the pole, as one), **Base** |
 | `cheer` | **Body** (with the head), **LegL**, **LegR**, **ArmL**, **ArmR** |
