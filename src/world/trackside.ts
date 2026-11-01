@@ -902,6 +902,8 @@ export interface MarshalBuilt {
   shoulder: [number, number, number];
   /** The stand's design: on a roofed tower the flag is raised less, to stay under the roof. */
   variant: string;
+  /** The item's colour: their shirt, and a stand model's Team material. */
+  colour: number;
   /** The mate beside them (the pair design; else empty), standing at MATE_AT. */
   mate: Build['parts'];
 }
@@ -928,7 +930,7 @@ export function marshalParts(def: SceneryDef, it: SceneryItem, i: number): Marsh
   // The pole hangs by the arm with the flag at its lower end, so swung up the flag is on top.
   a.pole(fx + 0.36, lift + 0.1, 0.12, 1.3, 0xe8e8e8, 0.03);
   a.box(fx + 0.36 + 0.32, lift + 0.12, 0.12, 0.64, 0.5, 0.02, 0xf0c020);
-  return { base, figure: f.parts, arm: a.parts, feet: [0, lift, 0], shoulder: [fx + 0.3, lift + 1.45, 0], variant, mate: m.parts };
+  return { base, figure: f.parts, arm: a.parts, feet: [0, lift, 0], shoulder: [fx + 0.3, lift + 1.45, 0], variant, colour: col, mate: m.parts };
 }
 
 /**
@@ -982,6 +984,8 @@ export interface FlaggerBuilt {
   right: [number, number, number];
   /** The stand's design, picked or chosen. */
   variant: string;
+  /** The item's colour: his shirt, and a stand model's Team material. */
+  colour: number;
   /** The mate beside them (the pair design; else empty), standing at MATE_AT. */
   mate: Build['parts'];
 }
@@ -1012,7 +1016,7 @@ export function flaggerParts(def: SceneryDef, it: SceneryItem, i: number): Flagg
   // The chequered flag: six squares by four, black and white.
   const sq = 0.12;
   for (let r = 0; r < 4; r++) for (let k = 0; k < 6; k++) c.box(fx + 0.36 + sq * (k + 0.5), lift + 0.12 + sq * r, 0.12, sq, sq, 0.02, (r + k) % 2 ? 0x16161a : 0xf4f4f4);
-  return { base: b.parts, figure: f.parts, white: w.parts, chequered: c.parts, feet: [0, lift, 0], left: [fx - 0.3, lift + 1.45, 0], right: [fx + 0.3, lift + 1.45, 0], variant, mate: m.parts };
+  return { base: b.parts, figure: f.parts, white: w.parts, chequered: c.parts, feet: [0, lift, 0], left: [fx - 0.3, lift + 1.45, 0], right: [fx + 0.3, lift + 1.45, 0], variant, colour: col, mate: m.parts };
 }
 
 /** A pit crew member for the race view to animate: the arms and the board's pole built apart; the board itself (with its words) is drawn by the view. */
