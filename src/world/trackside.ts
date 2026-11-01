@@ -900,6 +900,8 @@ export interface MarshalBuilt {
   /** Where the feet stand and where the flag arm pivots, in metres in the item's frame. */
   feet: [number, number, number];
   shoulder: [number, number, number];
+  /** The stand's design: on a roofed tower the flag is raised less, to stay under the roof. */
+  variant: string;
 }
 
 /**
@@ -923,7 +925,7 @@ export function marshalParts(def: SceneryDef, it: SceneryItem, i: number): Marsh
   // The pole hangs by the arm with the flag at its lower end, so swung up the flag is on top.
   a.pole(fx + 0.36, lift + 0.1, 0.12, 1.3, 0xe8e8e8, 0.03);
   a.box(fx + 0.36 + 0.32, lift + 0.12, 0.12, 0.64, 0.5, 0.02, 0xf0c020);
-  return { base, figure: f.parts, arm: a.parts, feet: [0, lift, 0], shoulder: [fx + 0.3, lift + 1.45, 0] };
+  return { base, figure: f.parts, arm: a.parts, feet: [0, lift, 0], shoulder: [fx + 0.3, lift + 1.45, 0], variant };
 }
 
 /**

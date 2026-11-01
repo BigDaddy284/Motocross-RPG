@@ -80,6 +80,8 @@ interface Marshal {
   flag: THREE.Group;
   /** 0 flag down, 1 up and waving; eased between. */
   raise: number;
+  /** How far up the raised flag swings: overhead, or lower under the roof of a tower. */
+  reach: number;
   phase: number;
 }
 
@@ -2027,7 +2029,8 @@ export class RaceView {
       const at = watchFocus(this.surface.g, watch);
       g.rotation.y = -Math.atan2(at.y - it.y, at.x - it.x) + Math.PI / 2;
     }
-    this.marshals.push({ watch, figure, arm, forearm, flag, raise: 0, phase: noise(i * 29 + 7) * Math.PI * 2 });
+    // On a tower the flag stays under the roof, as the flag man's does (Boss, 1 Nov 2026).
+    this.marshals.push({ watch, figure, arm, forearm, flag, raise: 0, reach: built.variant === 'tower' ? 0.52 : 0.9, phase: noise(i * 29 + 7) * Math.PI * 2 });
   }
 
   /** The race's laps, for the flag man and the pit boards. */
@@ -2223,7 +2226,7 @@ export class RaceView {
       const want = flagUp(m.watch, riders) ? 1 : 0;
       m.raise += Math.max(-dt * 2.5, Math.min(dt * 2.5, want - m.raise));
       const k = m.raise;
-      this.waveFlag(m.arm, m.forearm, m.flag, k, 0.9, clock * 7 + m.phase);
+      this.waveFlag(m.arm, m.forearm, m.flag, k, m.reach, clock * 7 + m.phase);
       m.figure.rotation.x = 0.22 * k;
       m.figure.rotation.z = -0.06 * k * Math.sin(clock * 7 + m.phase);
     }
