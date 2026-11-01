@@ -21,6 +21,8 @@ The file name decides what the model does:
 | `sidecar_crew.glb` | the rider and passenger on every sidecar (Boss, 1 Nov 2026): objects named **Rider** and **Passenger**, each with its origin at its hips, in the sidecar's frame, at most 8,000 triangles, lowest point 0 to 0.6 m up, rider material names for the team's gear. The game leans the passenger out over the chair in left-handers, across over the bike in right-handers, and tucks both down over the jumps; shape keys named **Left**, **Right** and **Jump** on a figure are blended in for those instead (export with Shape Keys on) |
 | any other name, e.g. `round_bale.glb` | a new scenery item called "Round bale" in the track editor's Scenery palette |
 
+**The bike size checks (Boss, 1 Nov 2026).** Build each bike at its real size: the youth bike at most 2.0 m long (an 85cc is about 1.85 m), the race bike at least 1.95 m (a 450 is about 2.15 m). A model outside those isn't used. The game then checks the 125s, which draw the youth bike scaled up to the race bike's length: about ×1.05 to ×1.35, no taller than 1.6 m, and within 12% of the race bike's height. Anything off shows as **Check:** beside the youth bike on the models page, and **Race bike (125)** there shows the scaled-up 125 beside the race bike. Look at it whenever either bike model changes.
+
 ## Rules for every model
 
 - **File name:** lower-case letters, digits, `-` and `_`, ending `.glb`. No spaces or capitals. At most 48 characters before `.glb`.
