@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { ADULT_BIKE_METRES, BIKE_SLOTS, checkBikeSizes, raceBikeKind, YOUTH_BIKE_METRES, checkModel, FAN_SLOTS, PIT_CREW_SLOTS, FIGURE_PARTS, partName, glbInfo, MODEL_DIR, MODEL_INDEX, modelDef, modelId, modelRole, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, RIDER_SLOTS, SIDECAR_CREW, SIDECAR_MODEL, STAND_MODELS, STAND_SLOTS, materialSlot, type ModelEntry } from '../core/modModels';
+import { ADULT_BIKE_METRES, BIKE_SLOTS, checkBikeSizes, raceBikeKind, YOUTH_BIKE_METRES, checkModel, FAN_SLOTS, PIT_CREW_SLOTS, FIGURE_PARTS, partName, glbInfo, MODEL_DIR, MODEL_INDEX, modelDef, modelId, modelRole, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, RIDER_SLOTS, SIDECAR_CREW, SIDECAR_MODEL, STAND_MODELS, STAND_SLOTS, PADDOCK_STAND, PADDOCK_STAND_BIKE, BIKE_ON_STAND_LIFT, STAND_YOUTH_DESIGNS, materialSlot, type ModelEntry } from '../core/modModels';
 import type { SceneryDef } from '../core/trackParts';
 import { SIDECAR_CLASS } from '../core/sidecar';
 import { U } from './paddock';
+import { brandFromColour, MODELS } from './raceBike';
 
 // The models in public/mods/models/ (core/modModels.ts has the rules), loaded once when the game
 // starts and handed to the race view as copies. A model that fails its checks is listed on the
@@ -133,6 +134,35 @@ export function bikeModel(cls: string): THREE.Group | null {
     if (kind === 'youth') youth.userData.riderScale = target / full();
   }
   return youth;
+}
+
+/**
+ * A bike on a stand (scenery bike_stand) from Boss's models (core PADDOCK_STAND): the paddock stand
+ * with the race bike on it, the youth bike for the youth, mini and pit bike designs, both sized by
+ * the design's wheelbase against the adult bike's (as the game's own are) and the bike painted in
+ * `colour`. Null without both the stand and race_bike.glb, and the game draws its own.
+ */
+export function bikeOnStandModel(variant: string, colour: number): THREE.Group | null {
+  const stand = modModel(PADDOCK_STAND);
+  const adult = modModel(RACE_BIKE);
+  if (!stand || !adult) return null;
+  const youth = STAND_YOUTH_DESIGNS.has(variant) ? modModel(RACE_BIKE_YOUTH) : null;
+  const bike = youth ?? adult;
+  // Built at the adult bike's length on the adult stand, then the whole item sized to the design.
+  const own = lengthOf(bike);
+  if (own > 0) bike.scale.multiplyScalar(lengthOf(adult) / own);
+  const c = brandFromColour(colour);
+  paintModel(bike, { plastics: c.body, frame: c.frame, plate: c.plate }, BIKE_PAINT);
+  const at = new THREE.Vector3(0, BIKE_ON_STAND_LIFT * U, 0);
+  stand.updateMatrixWorld(true);
+  stand.traverse((o) => {
+    if (partName(o.name, [PADDOCK_STAND_BIKE])) o.getWorldPosition(at);
+  });
+  bike.position.copy(at);
+  const g = new THREE.Group();
+  g.add(stand, bike);
+  g.scale.setScalar((MODELS[variant]?.wb ?? MODELS.adult.wb) / MODELS.adult.wb);
+  return g;
 }
 
 /** A model's length, bumper to bumper (its X). */

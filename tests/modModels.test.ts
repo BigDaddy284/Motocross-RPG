@@ -264,6 +264,9 @@ describe('the rules for each kind of model', () => {
       expect(modelRole(id, scenery)).toBe('stand');
       expect(scenery.some((s) => s.id === id)).toBe(false);
     }
+    // The paddock stand a scenery bike stands on, with Boss's race bike on it (Boss, 1 Nov 2026).
+    expect(modelRole('paddock_stand', scenery)).toBe('stand');
+    expect(scenery.some((s) => s.id === 'paddock_stand')).toBe(false);
     // Boss's roofed tower: 2.4 m square with its stairs, the canopy about 4 m up, 2,712 triangles.
     const tower = (tris: number, floor = 0): ModelInfo => info([-1.2, floor, -1.9], [1.2, 4.1, 1.2], tris);
     expect(ok('stand_tower.glb', tower(2712))).toEqual([]);
