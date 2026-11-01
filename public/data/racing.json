@@ -52,7 +52,8 @@
     "450f": { "laps": 20, "entry": 100, "classXp": 2.6, "refSpeed": 22, "youth": false, "kindLaps": { "race": { "endurance": 40, "enduro_sprint": 40 }, "championship": { "outdoor": 20, "endurance": 40, "enduro_sprint": 40 } } },
     "vets-40": { "laps": 20, "entry": 90, "classXp": 2.6, "refSpeed": 20, "youth": false, "kindLaps": { "race": { "endurance": 40, "enduro_sprint": 40 }, "championship": { "outdoor": 20, "endurance": 40, "enduro_sprint": 40 } } },
     "vets-50": { "laps": 20, "entry": 90, "classXp": 2.6, "refSpeed": 20, "youth": false, "kindLaps": { "race": { "endurance": 40, "enduro_sprint": 40 }, "championship": { "outdoor": 20, "endurance": 40, "enduro_sprint": 40 } } },
-    "vets-60": { "laps": 20, "entry": 90, "classXp": 2.6, "refSpeed": 20, "youth": false, "kindLaps": { "race": { "endurance": 40, "enduro_sprint": 40 }, "championship": { "outdoor": 20, "endurance": 40, "enduro_sprint": 40 } } }
+    "vets-60": { "laps": 20, "entry": 90, "classXp": 2.6, "refSpeed": 20, "youth": false, "kindLaps": { "race": { "endurance": 40, "enduro_sprint": 40 }, "championship": { "outdoor": 20, "endurance": 40, "enduro_sprint": 40 } } },
+    "sidecar": { "laps": 20, "entry": 100, "classXp": 2.6, "refSpeed": 20, "youth": false }
   },
   "kindLaps": { "race": { "endurance": 8, "enduro_sprint": 8 }, "championship": { "outdoor": 8, "endurance": 8, "enduro_sprint": 8 } },
   "messages": [

@@ -16,9 +16,9 @@ const riderTo = (career: ReturnType<typeof fresh>, level: number) => {
 };
 
 describe('bike classes (GDD 6.4, Spec 12.1, 14.2)', () => {
-  it('run in order from 50cc to 60+ Vets, each with race rules and a price factor', () => {
-    expect(bikes.classes.map((c) => c.id)).toEqual(['50cc', '65cc', '85cc-small', '85cc-big', '125cc-youth', '125cc', '250f', '450f', 'vets-40', 'vets-50', 'vets-60']);
-    expect(bikes.classes.map((c) => c.unlock)).toEqual([1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95]);
+  it('run in order from 50cc to 60+ Vets, then the sidecar class, each with race rules and a price factor', () => {
+    expect(bikes.classes.map((c) => c.id)).toEqual(['50cc', '65cc', '85cc-small', '85cc-big', '125cc-youth', '125cc', '250f', '450f', 'vets-40', 'vets-50', 'vets-60', 'sidecar']);
+    expect(bikes.classes.map((c) => c.unlock)).toEqual([1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 99]);
     for (const c of bikes.classes) {
       expect(racing.classes[c.id], c.id).toBeDefined();
       expect(shops.classPriceFactor[c.id], c.id).toBeGreaterThan(0);

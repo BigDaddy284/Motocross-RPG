@@ -8,6 +8,7 @@ import { areaOfMap, rollWeather, type AreasData } from './areas';
 import { tuningFactors, type SetupData } from './setup';
 import { modifierFactors, type ModifiersData } from './modifiers';
 import type { RiderStyle } from './riderProfile';
+import { SIDECAR_CLASS, SIDECAR_FIELD, SIDECAR_GATE_COUNT, SIDECAR_GATES, isSidecarGate, sidecarTrack, testSidecar } from './sidecar';
 
 // Race days, practice and venues (Spec 12.2a, 14): who is in the field, gate picks, prize money,
 // points, and putting the XP and wear back on the career. Pure rules with no graphics.
@@ -240,6 +241,19 @@ export function lapsFor(rc: RaceContent, track: TrackDef, cls: string, champions
   return (championship ? byKind?.championship?.[kind] : undefined) ?? byKind?.race?.[kind] ?? rc.racing.classes[cls].laps;
 }
 
+/**
+ * A sidecar race day (core/sidecar.ts; Boss, 1 Nov 2026): 8 outfits, each on an even gate with
+ * its chair over the odd gate beside it, on a Motocross track only.
+ */
+export interface SidecarDay {
+  /**
+   * TEST ONLY, REMOVE BEFORE RELEASE (Boss, 1 Nov 2026): the Farmland tick box. The player borrows
+   * a stock sidecar for the day, the laps are their own class's here, and nothing counts: no prize
+   * money, no XP, and their own bike is never touched.
+   */
+  test?: boolean;
+}
+
 export class RaceDay {
   readonly field: Entrant[];
   readonly motos: MotoRecord[] = [];
@@ -258,6 +272,8 @@ export class RaceDay {
   readonly sprint: boolean;
   /** The day's weather (racing.json weather, Spec 10.5), rolled from the venue's area's odds. */
   readonly weather: string;
+  /** A sidecar race day (SidecarDay), or null for solos. */
+  readonly sidecar: SidecarDay | null;
   private readonly rng: () => number;
 
   constructor(
@@ -273,12 +289,25 @@ export class RaceDay {
     custom?: { motos: number; laps: number; cpus: CpuRiderDef[] },
     /** TEST ONLY, REMOVE BEFORE RELEASE (Boss, 30 Oct 2026): no CPU riders, to test ride a track. */
     alone = false,
+    /** A sidecar race day (SidecarDay): every rider on a sidecar outfit. */
+    sidecar?: SidecarDay,
   ) {
     this.track = trackById(rc, venue.track!);
+    this.sidecar = sidecar ?? null;
+    if (sidecar && !sidecarTrack(this.track)) throw new Error(`Sidecars race on Motocross tracks only, not ${this.track.name}`);
     // The rider's own class when it's the venue's or bigger: every CPU rider races a bike of it too.
-    this.cls = dayClass(rc.bikes, venue.class, player.bike.class) ?? venue.class ?? '50cc';
+    const solo = dayClass(rc.bikes, venue.class, player.bike.class) ?? venue.class ?? '50cc';
+    if (sidecar?.test) {
+      // The player borrows a stock outfit for the day, with no setup or tricks of their own (sidecar.ts).
+      player.bike = testSidecar(rc.bikes, player.bike.brand);
+      delete player.setup;
+      delete player.tuning;
+      delete player.riderLevel;
+    }
+    this.cls = sidecar ? SIDECAR_CLASS : solo;
     this.sprint = isSprint(this.track);
-    this.laps = custom?.laps ?? lapsFor(rc, this.track, this.cls, !!round);
+    // A test sidecar race runs the laps the rider's own class would here, so it is quick to try.
+    this.laps = custom?.laps ?? lapsFor(rc, this.track, sidecar?.test ? solo : this.cls, !!round);
     this.motoCount = custom?.motos ?? 2;
     this.rng = seededRng(seed);
     this.weather = rollWeather(rc.areas ? areaOfMap(rc.areas, venue.town ?? '') : undefined, this.rng);
@@ -286,7 +315,8 @@ export class RaceDay {
     if (rc.setup && player.setup) player.tuning = tuningFactors(rc.setup, player.setup, player.bike, this.track, (rc.racing.weather?.[this.weather]?.factor ?? 1) > 1);
     // Part modifiers (Spec 6) on top, for whoever has any (the player: CPU bikes carry none).
     if (rc.modifiers) for (const e of [player]) e.tuning = withModifiers(rc.modifiers, e, this.track, this.weather);
-    const cpus = alone ? [] : (custom?.cpus ?? round?.cpus ?? drawField(rc, venue, seed));
+    // A sidecar race has 7 other outfits, drawn from the field's whole pool.
+    const cpus = alone ? [] : (custom?.cpus ?? round?.cpus ?? (sidecar ? drawPool(rc, venue, seed, SIDECAR_FIELD - 1) : drawField(rc, venue, seed)));
     this.field = [player, ...cpus.map((d) => cpuEntrant(rc, d, this.cls))];
     this.pickOrder = shuffle(this.field.map((e) => e.id), this.rng);
   }
@@ -311,7 +341,7 @@ export class RaceDay {
       if (id === PLAYER_ID) break;
       taken.set(this.cpuGatePick(id, taken, gates), id);
     }
-    const free = [...Array(gates).keys()].filter((g) => !taken.has(g));
+    const free = this.gateSlots.filter((g) => !taken.has(g));
     return { taken, free };
   }
 
@@ -325,6 +355,7 @@ export class RaceDay {
     if (this.field.some((e) => e.id === PLAYER_ID)) {
       const { taken } = this.gatesForPlayer();
       if (!Number.isInteger(playerGate) || playerGate < 0 || playerGate >= gates) throw new RangeError(`Gate ${playerGate + 1} is not on this start: ${gates} riders, gates 1 to ${gates}`);
+      if (this.sidecar && !isSidecarGate(playerGate)) throw new RangeError(`Gate ${playerGate + 1} is under a sidecar's chair: outfits line up on the even gates`);
       if (taken.has(playerGate)) throw new RangeError(`Gate ${playerGate + 1} is already taken`);
     }
     const taken = new Map<number, string>();
@@ -335,9 +366,17 @@ export class RaceDay {
     for (const [g, id] of taken) this.field.find((e) => e.id === id)!.gate = g;
   }
 
-  /** One gate per rider in the field (two rows of 8): gate 1 is the inside of the first corner. */
+  /**
+   * One gate per rider in the field (two rows of 8): gate 1 is the inside of the first corner. A
+   * sidecar start always spans two full rows, two gates an outfit (sidecar.ts).
+   */
   get gateCount(): number {
-    return this.field.length;
+    return this.sidecar ? SIDECAR_GATE_COUNT : this.field.length;
+  }
+
+  /** The gates riders can line up on, from 0: every gate, or for sidecars the even gates (the odd ones are under the chairs). */
+  get gateSlots(): number[] {
+    return this.sidecar ? SIDECAR_GATES.slice(0, this.field.length) : [...Array(this.gateCount).keys()];
   }
 
   /**
@@ -350,12 +389,13 @@ export class RaceDay {
    * rider and the moto, never from what is already taken, so the gate screen and the start always agree.
    */
   private cpuGatePick(id: string, taken: Map<number, string>, gates: number): number {
+    const slots = this.gateSlots;
     if (this.pickOrder.indexOf(id) < GATE_SURE_PICKS) {
       let best = -1;
-      for (let g = 0; g < gates; g++) if (!taken.has(g) && (best < 0 || gateBonus(this.track, g) > gateBonus(this.track, best))) best = g;
+      for (const g of slots) if (!taken.has(g) && (best < 0 || gateBonus(this.track, g) > gateBonus(this.track, best))) best = g;
       return best;
     }
-    const free = [...Array(gates).keys()].filter((g) => !taken.has(g));
+    const free = slots.filter((g) => !taken.has(g));
     const top = Math.max(...free.map((g) => gateBonus(this.track, g)));
     const moto = seededRng(mixSeed(this.seed, 104729 + 7919 * this.motos.length));
     const pick = this.pickOrder.indexOf(id);
@@ -374,7 +414,7 @@ export class RaceDay {
     for (let g = 0; g < gates; g++) {
       // One draw per gate, taken or not, so a rider's feel for a gate never depends on the others.
       const feel = (rng() - 0.5) * GATE_FEEL;
-      if (taken.has(g)) continue;
+      if (taken.has(g) || (this.sidecar && !isSidecarGate(g))) continue;
       const score = gateBonus(this.track, g) - Math.min(Math.abs(g - favourite), GATE_FAVOURITE_REACH) * GATE_FAVOURITE_PULL + feel;
       if (score > bestScore) {
         bestScore = score;
@@ -391,7 +431,8 @@ export class RaceDay {
 
   /** A sprint: every rider leaves the start line in the pick order (their gate is their place in it). */
   private startInPickOrder(): void {
-    this.pickOrder.forEach((id, i) => (this.field.find((e) => e.id === id)!.gate = i));
+    // Sidecars line up on the even gates, in the same order (SidecarDay).
+    this.pickOrder.forEach((id, i) => (this.field.find((e) => e.id === id)!.gate = this.sidecar ? SIDECAR_GATES[i] : i));
   }
 
   /**
@@ -407,6 +448,7 @@ export class RaceDay {
       seed: mixSeed(this.seed, 0x7175616c),
       message,
       weather: this.rc.racing.weather?.[this.weather],
+      ...(this.sidecar ? { sidecar: true } : {}),
     });
   }
 
@@ -447,6 +489,7 @@ export class RaceDay {
       message,
       retireAtBroken,
       weather: this.rc.racing.weather?.[this.weather],
+      ...(this.sidecar ? { sidecar: true } : {}),
     });
   }
 
@@ -459,7 +502,9 @@ export class RaceDay {
     let xp: Record<string, number> = { ...sim.xp };
     for (const [k, v] of Object.entries(bonus)) xp[k] = (xp[k] ?? 0) + v;
     if (this.round) xp = scaleXp(xp, this.round.xpTimes);
-    const rec: MotoRecord = { results, points, prize: me.retired ? 0 : motoPrize(this.rc.racing, this.entryForPrize, me.position), xp, passes: sim.passes };
+    // A TEST sidecar race counts for nothing: no prize money and no XP (SidecarDay.test).
+    const test = !!this.sidecar?.test;
+    const rec: MotoRecord = { results, points, prize: me.retired || test ? 0 : motoPrize(this.rc.racing, this.entryForPrize, me.position), xp: test ? {} : xp, passes: sim.passes };
     this.motos.push(rec);
     // The player's bike comes off the track as it finished.
     if (sim.playerBike) this.player.bike = sim.playerBike;
@@ -500,7 +545,7 @@ export class RaceDay {
     const me = rows.find((r) => r.player)!;
     const share = this.rc.racing.prize.podium[me.position - 1] ?? 0;
     const finishedAll = me.positions.every((p) => p !== null);
-    return { overall: rows, podiumBonus: finishedAll ? Math.round(this.entryForPrize * share) : 0 };
+    return { overall: rows, podiumBonus: finishedAll && !this.sidecar?.test ? Math.round(this.entryForPrize * share) : 0 };
   }
 }
 

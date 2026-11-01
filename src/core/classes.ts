@@ -18,6 +18,11 @@ export interface ClassDef {
   youth?: boolean;
   /** The world-map bike picture to use while the class has none of its own. */
   mapImage?: string;
+  /**
+   * A sidecar class (Boss, 1 Nov 2026): its own class, brought in late in the game, apart from the
+   * solo classes' ladder. No solo class moves up to it, and it is no bigger or smaller than any of them.
+   */
+  sidecar?: boolean;
 }
 
 /** A bike the rider has moved on from (GDD 8.1): kept as it was, unrideable. */
@@ -33,13 +38,15 @@ export const classDef = (bikes: BikesData, cls: string): ClassDef | undefined =>
 
 export const className = (bikes: BikesData, cls: string): string => classDef(bikes, cls)?.name ?? cls;
 
-/** Whether class a is b or a bigger class. */
-export const classAtLeast = (bikes: BikesData, a: string, b: string): boolean => classIndex(bikes, a) >= classIndex(bikes, b);
+/** Whether class a is b or a bigger class. A sidecar class is only ever its own size (ClassDef.sidecar). */
+export const classAtLeast = (bikes: BikesData, a: string, b: string): boolean =>
+  !!classDef(bikes, a)?.sidecar === !!classDef(bikes, b)?.sidecar && classIndex(bikes, a) >= classIndex(bikes, b);
 
-/** The class after this one, or null at the top. */
+/** The class after this one, or null at the top. A sidecar class is never the next class up (ClassDef.sidecar). */
 export function nextClass(bikes: BikesData, cls: string): ClassDef | null {
   const i = classIndex(bikes, cls);
-  return i >= 0 ? (bikes.classes[i + 1] ?? null) : null;
+  const next = i >= 0 ? (bikes.classes[i + 1] ?? null) : null;
+  return next && !!next.sidecar === !!bikes.classes[i].sidecar ? next : null;
 }
 
 /**

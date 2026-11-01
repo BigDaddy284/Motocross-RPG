@@ -5,6 +5,7 @@ import { isNoTurn, isSprint, lapGeom, lapMetres, NO_TURN_LANES, NO_TURN_RUNOFF, 
 import { DEFAULT_HEIGHTS, HOP_JUMPS, landingOf, pickWay, type Way } from './jumps';
 import { HILLS, sectionShape, TrackSurface, type Flight } from './trackSurface';
 import { showmanOf, trickFor, type Trick } from './tricks';
+import { isSidecarGate } from './sidecar';
 import { downPhase } from './crashRecovery';
 
 export { DEFAULT_HEIGHTS };
@@ -199,6 +200,11 @@ export class RaceDirector {
     pickOrder?: string[],
     /** A staggered start (MotoOptions.interval): riders leave the gate this many seconds apart, in gate order. */
     interval = 0,
+    /**
+     * A sidecar race (core/sidecar.ts; Boss, 1 Nov 2026): each outfit is on an even gate of two full
+     * rows of 8, its chair over the odd gate beside it, and nobody whips or scrubs.
+     */
+    readonly sidecar = false,
   ) {
     const g = lapGeom(track.path);
     this.turns = sectionTurns(track, g);
@@ -210,7 +216,8 @@ export class RaceDirector {
     this.sprint = isSprint(track);
     this.noTurn = isNoTurn(track);
     this.interval = interval;
-    this.showman = showmanOf(profiles.values());
+    // Sidecars never whip or scrub, whatever their riders' skill: no showman (Boss, 1 Nov 2026).
+    this.showman = sidecar ? null : showmanOf(profiles.values());
     // Each rider's gate is their slot: gates 1 to 8 (0 to 7 here) are the front row, from the inside
     // of the first corner outwards, gates 9 to 16 the second row and 17 to 24 the third, each
     // straight behind the gate eight before it. A field of 8 or fewer is one row spread across the start.
@@ -220,10 +227,12 @@ export class RaceDirector {
     if (n > MAX_GRID && !interval) throw new Error(`${n} riders, but the start has ${MAX_GRID} gates`);
     const used = new Set<number>();
     for (const [id, gate] of gates) {
-      if (!Number.isInteger(gate) || gate < 0 || gate >= Math.max(n, 1) || used.has(gate)) throw new Error(`${id} has gate ${gate + 1}, which is not a free gate of the ${n}`);
+      if (!Number.isInteger(gate) || gate < 0 || gate >= (sidecar ? MAX_GRID : Math.max(n, 1)) || used.has(gate)) throw new Error(`${id} has gate ${gate + 1}, which is not a free gate of the ${n}`);
+      if (sidecar && !isSidecarGate(gate)) throw new Error(`${id} has gate ${gate + 1}, which is under a sidecar's chair`);
       used.add(gate);
     }
-    const perRow = n > ROW_SIZE ? ROW_SIZE : n;
+    // A sidecar start always spreads across a full row of 8 gates, an outfit on every other one.
+    const perRow = sidecar || n > ROW_SIZE ? ROW_SIZE : n;
     const step = perRow > 1 ? 1.8 / (perRow - 1) : 0;
     for (const [id, gate] of gates) {
       this.gateRow.set(id, Math.floor(gate / ROW_SIZE));
@@ -269,7 +278,7 @@ export class RaceDirector {
     // their lane rides through, so the second row rolls in once the front row is in.
     const picks = pickOrder?.filter((id) => gates.has(id)).length === n ? pickOrder.filter((id) => gates.has(id)) : shuffled(order, seed >>> 0);
     const arrival = this.arrival;
-    const rows = Math.ceil(n / ROW_SIZE);
+    const rows = Math.max(0, ...order.map((id) => this.startRow(id))) + 1;
     for (let row = 0; row < rows; row++) arrival.push(...picks.filter((id) => this.startRow(id) === row));
     for (const id of arrival.slice(0, k)) this.lined.add(id);
     // Riders drift onto their lane line from the same side, so neighbours never close up.
@@ -803,6 +812,7 @@ export class RaceDirector {
     const [a, b] = way.hops[i];
     const metres = (b - a) * (this.bounds[seg.si + 1] - this.bounds[seg.si]) * this.metres;
     const next = this.turns.slice(seg.si + 1).find((t) => t !== 0) ?? this.turns.find((t) => t !== 0) ?? 0;
+    if (this.sidecar) return null;
     return trickFor(p, this.showsOff(p), seg.lap, seg.si, i, metres, next);
   }
 
@@ -832,7 +842,8 @@ export class RaceDirector {
       tricks.push(...this.tricksOn(p, sg, way));
     }
     if (!hops.length) return null;
-    const flight: Flight = { hops, launch: 1 - 0.45 * p.scrub };
+    // A sidecar never scrubs: it leaves every lip on its full arc (Boss, 1 Nov 2026).
+    const flight: Flight = { hops, launch: this.sidecar ? 1 : 1 - 0.45 * p.scrub };
     if (tricks.some(Boolean)) flight.tricks = tricks;
     return flight;
   }
@@ -897,7 +908,7 @@ export function directorFor(sim: MotoSim, bikes: BikesData, messages: MessageDef
     profiles.set(r.e.id, riderProfile(r.e, r.stats, ceiling, messages.find((m) => m.id === r.message)));
     gates.set(r.e.id, r.e.gate);
   }
-  return new RaceDirector(sim.track, profiles, gates, sim.totalLaps, pickOrder, sim.opts.interval ?? 0);
+  return new RaceDirector(sim.track, profiles, gates, sim.totalLaps, pickOrder, sim.opts.interval ?? 0, !!sim.opts.sidecar);
 }
 
 function rank(o: MistakeOutcome['id']): number {

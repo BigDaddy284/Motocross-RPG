@@ -12,7 +12,7 @@
     "brakes": 30,
     "bodywork": 45
   },
-  "classPriceFactor": { "50cc": 1.0, "65cc": 1.2, "85cc-small": 1.5, "85cc-big": 1.5, "125cc-youth": 1.8, "125cc": 2.2, "250f": 2.8, "450f": 3.5, "vets-40": 3.5, "vets-50": 3.5, "vets-60": 3.5 },
+  "classPriceFactor": { "50cc": 1.0, "65cc": 1.2, "85cc-small": 1.5, "85cc-big": 1.5, "125cc-youth": 1.8, "125cc": 2.2, "250f": 2.8, "450f": 3.5, "vets-40": 3.5, "vets-50": 3.5, "vets-60": 3.5, "sidecar": 4.0 },
   "gradeFactor": 2,
   "repairShare": 0.7,
   "consumables": ["wheels_tyres"],
