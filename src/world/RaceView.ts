@@ -1716,7 +1716,9 @@ export class RaceView {
       // each, so a full paddock costs a draw an item, plus a textured box for each label with words on.
       const index = this.itemIndex(it);
       const built = tracksideParts(def, it, index) ?? { parts: paddockParts(def, it, index), labels: [] as Label[] };
-      if (built.parts.length) add(this.mergeParts(this.standBikes(built.parts, add)));
+      // A bike on a stand item can be all stand bike, with nothing left to merge.
+      const rest = this.standBikes(built.parts, add);
+      if (rest.length) add(this.mergeParts(rest));
       for (const l of built.labels) {
         const face = this.mat(0xffffff, { map: this.textTexture(l.text, l.bg, l.fg, l.vertical ? 48 : 256, l.vertical ? 256 : 48, l.vertical) });
         const side = this.mat(l.bg);
