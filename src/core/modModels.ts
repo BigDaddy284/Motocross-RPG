@@ -197,7 +197,7 @@ export const FIGURE_LIMITS: ModelLimits = { tris: 8000, long: 8, tall: 8 };
 /** A marshal's, flag man's or pit crew's stand (STAND_MODELS): one on every post, so light; a tower's canopy is about 4 m up. */
 export const STAND_LIMITS: ModelLimits = { tris: 8000, long: 5, tall: 6 };
 /** A finish arch (ARCH_MODELS): one a track, spanning it, the supercross one with its flag man's tower beside it. */
-export const ARCH_LIMITS: ModelLimits = { tris: 12000, long: 24, tall: 14 };
+export const ARCH_LIMITS: ModelLimits = { tris: 12000, long: 24, tall: 17 };
 /** The highest a rider model's lowest point (its boots on the pegs) can be, in metres. */
 export const RIDER_FEET = 0.6;
 /** Grid units a metre: world/paddock.ts U (trackSurface BIKE_LENGTH 1.1 over a 1.46 m bike), here so vite.config.ts can use it. */
@@ -342,6 +342,9 @@ export function checkModel(file: string, bytes: number, info: ModelInfo | null, 
   // A rider sits on the bike, feet on the pegs, in the same place as the exported race_rider.glb.
   if (role === 'rider' || role === 'crew') {
     if (info.min[1] < -0.05 || info.min[1] > RIDER_FEET) out.push(`Its lowest point is ${m(info.min[1])} from the ground; a rider's boots rest on the pegs, 0 to ${m(RIDER_FEET)} up. Start from the exported race_rider.glb so it sits on the bike.`);
+  } else if (role === 'arch') {
+    // A finish arch's origin is on the jump's deck, and the supercross tower's legs reach down to the ground below it (ARCH_MODELS).
+    if (info.min[1] < -4 || info.min[1] > 0.05) out.push(`Its lowest point is ${m(info.min[1])}; a finish arch's origin is on the deck under the banner, with nothing above it there and at most 4 m below (the flag tower's legs).`);
   } else if (info.min[1] < -0.05 || info.min[1] > 0.05) out.push(`Its lowest point is ${m(info.min[1])} from the ground; it should sit on the ground (Z = 0 in Blender).`);
   return out;
 }
