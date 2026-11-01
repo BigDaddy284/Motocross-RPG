@@ -17,10 +17,10 @@ import { isPaddock } from '../core/paddock';
 import { paddockParts, U as METRE, type StandBike } from './paddock';
 import { FACES_TRACK, flaggerParts, MATE_AT, marshalParts, pitCrewParts, starterBox, tracksideParts, type Label } from './trackside';
 import { FIREWORK_LEAD, fireworkShow, fireworksDue, hasFireworks, ROCKET_RISE, type Rocket } from '../core/fireworks';
-import { APPROACH, assignCrews, BOARD_PAST, boardOut, boardText, crewSpot, FLAGGER_ITEM, flagState, PIT_CREW_ITEM } from '../core/finishCrew';
+import { APPROACH, assignCrews, BOARD_PAST, boardOut, boardText, crewSpot, FLAGGER_ITEM, flagState, PIT_CREW_ITEM, SX_ARCH_KINDS, sxArch } from '../core/finishCrew';
 import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../core/marshal';
 import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
-import { LOCKED_ITEMS } from '../core/modModels';
+import { ARCH_GAP, ARCH_MODELS, ARCH_PARTS, LOCKED_ITEMS, partName } from '../core/modModels';
 import { bannerPath, PICTURE_ITEMS } from '../core/banners';
 import { SIDECAR_CLASS } from '../core/sidecar';
 import { sidecarCrew, BIKE_PAINT, bikeModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, standModel, bikeOnStandModel, STAND_PAINT, textFaces, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
@@ -412,6 +412,7 @@ export class RaceView {
     this.ground.push(this.terrainMesh(), this.buildTrack(), ...this.buildPortals(), ...this.buildFinishArches());
     if (this.surface.start.total > 0) this.ground.push(this.buildStart());
     this.scene3.add(...this.ground);
+    if (this.archExtras.length) this.scene3.add(...this.archExtras);
     this.scene3.add(this.overlay);
     if (this.surface.start.total > 0 && this.surface.raised) {
       // A No-Turn Takedown's start platform: four gates, two each side of the starter's box, and no start board.
@@ -874,6 +875,24 @@ export class RaceView {
       const c = s.spot(f, 0);
       const deck = s.height(f, 0);
       const top = deck + ARCH_CLEAR;
+      // Boss's arch model for the kind of track, when there is one (core ARCH_MODELS; Boss, 1 Nov 2026).
+      const sx = sxArch(this.track);
+      const drop = (side: number): number => {
+        const lane = (side * span) / 2 / s.hwAt(f);
+        const p = s.spot(f, lane);
+        return deck - Math.min(this.terrainAt(p.x, p.z), s.height(f, lane)) + 0.2;
+      };
+      const model = this.builtIn ? null : this.archModel(sx, span - 1, def?.text || 'FINISH', color, drop, sx);
+      if (model) {
+        const g = model.group;
+        g.position.set(c.x, deck, c.z);
+        g.rotation.y = Math.PI / 2 - c.ang;
+        g.updateMatrixWorld(true);
+        this.archExtras.push(g);
+        this.archTops.push([g.localToWorld(model.tops[0]), g.localToWorld(model.tops[1])]);
+        if (sx) this.towerFlagman(model.flagger && g.localToWorld(model.flagger));
+        return;
+      }
       const tops: THREE.Vector3[] = [];
       for (const side of [-1, 1]) {
         const lane = (side * span) / 2 / s.hwAt(f);
@@ -895,8 +914,104 @@ export class RaceView {
       banner.castShadow = true;
       out.push(banner);
       this.archTops.push([tops[0], tops[1]]);
+      // The game's own supercross finish: the flag man up in a scaffold tower just before the line, beside the right post.
+      if (sx) {
+        const lane = (span / 2 + 1.3) / s.hwAt(f);
+        const back = Math.max(0, f - 1.2 / s.g.total);
+        const p = s.spot(back, lane);
+        this.towerFlagman(new THREE.Vector3(p.x, this.terrainAt(p.x, p.z), p.z), 'tower');
+      }
     });
     return out;
+  }
+
+  /** Finish arch models and the flag men in their towers, added to the scene after the ground (buildFinishArches). */
+  private readonly archExtras: THREE.Object3D[] = [];
+
+  /**
+   * Boss's finish arch model (core ARCH_MODELS; Boss, 1 Nov 2026), the supercross gantry or the
+   * motocross truss arch, fitted to a gap of `gap` grid units between its sides: Left and Right
+   * move out to it and stretch down from their tops by `drop(side)` grid units to reach the
+   * ground, Middle stretches across, and the flag man's tower (FlagTower, with Flagger where he
+   * stands) moves with Right, or is left out without `tower`. Its Text faces show the arch's words
+   * and Team its colour. The posts' tops and the flag man's spot are in the group's own frame.
+   * Null without the model.
+   */
+  private archModel(sx: boolean, gap: number, text: string, color: number, drop: (side: number) => number, tower: boolean): { group: THREE.Group; tops: [THREE.Vector3, THREE.Vector3]; flagger: THREE.Vector3 | null } | null {
+    const group = modModel(sx ? ARCH_MODELS.sx : ARCH_MODELS.mx);
+    if (!group) return null;
+    const copy = group.children[0];
+    const parts = new Map<string, THREE.Object3D>();
+    copy.traverse((o) => {
+      const n = partName(o.name, ARCH_PARTS);
+      if (n && !parts.has(n)) parts.set(n, o);
+    });
+    if (!tower) for (const n of ['FlagTower', 'Flagger']) parts.get(n)?.removeFromParent();
+    // In the model's own metres: how far each side moves out, from the gap it was drawn for to this one.
+    const metres = Math.max(1, gap / METRE);
+    const out = (metres - ARCH_GAP) / 2;
+    const middle = parts.get('Middle');
+    if (middle) {
+      const k = metres / ARCH_GAP;
+      middle.scale.x *= k;
+      middle.position.x *= k;
+    }
+    // The group has no parent yet, so its world is its own frame; boxes in the model's metres are taken through the copy's.
+    const toModel = (b: THREE.Box3): THREE.Box3 => {
+      group.updateMatrixWorld(true);
+      return b.applyMatrix4(copy.matrixWorld.clone().invert());
+    };
+    const tops: THREE.Vector3[] = [];
+    for (const [name, side] of [['Left', -1], ['Right', 1]] as const) {
+      const o = parts.get(name);
+      if (!o) continue;
+      o.position.x += side * out;
+      // Stretched down from its top, which stays put under the beam, until its foot is on the ground.
+      const b = toModel(new THREE.Box3().setFromObject(o));
+      const down = Math.max(0, drop(side)) / METRE;
+      if (down > 0.01 && b.max.y > b.min.y) {
+        const k = (b.max.y - b.min.y + down) / (b.max.y - b.min.y);
+        o.scale.y *= k;
+        o.position.y = b.max.y - (b.max.y - o.position.y) * k;
+      }
+      group.updateMatrixWorld(true);
+      const w = new THREE.Box3().setFromObject(o);
+      tops.push(new THREE.Vector3((w.min.x + w.max.x) / 2, w.max.y, (w.min.z + w.max.z) / 2));
+    }
+    // The tower's legs and stairs are drawn reaching down below the deck, so it moves across with Right and no more.
+    for (const n of ['FlagTower', 'Flagger']) {
+      const o = parts.get(n);
+      if (o?.parent) o.position.x += out;
+    }
+    group.updateMatrixWorld(true);
+    const spot = parts.get('Flagger');
+    const flagger = tower && spot?.parent ? spot.getWorldPosition(new THREE.Vector3()) : null;
+    if (tops.length < 2) {
+      const high = new THREE.Box3().setFromObject(group).max.y;
+      tops.splice(0, tops.length, new THREE.Vector3(-gap / 2, high, 0), new THREE.Vector3(gap / 2, high, 0));
+    }
+    paintModel(group, { team: color, teamdark: shade(color, 0.7) }, STAND_PAINT);
+    textFaces(group, (aspect) => this.textTexture(text, color, '#ffffff', Math.min(2048, Math.max(64, Math.round(64 * aspect))), 64));
+    group.traverse((o) => {
+      o.castShadow = true;
+      o.receiveShadow = true;
+    });
+    return { group, tops: [tops[0], tops[1]], flagger };
+  }
+
+  /**
+   * The flag man up in the supercross finish tower (finishCrew.ts towerFlagman; Boss, 1 Nov 2026):
+   * the track's flag man, standing at `at` (on Boss's tower at its Flagger, else on the game's own
+   * tower), facing the track and flagging as a placed one does.
+   */
+  private towerFlagman(at: THREE.Vector3 | null, variant: 'ground' | 'tower' = 'ground'): void {
+    const def = this.parts.scenery.find((d) => d.id === FLAGGER_ITEM);
+    if (!def || !at) return;
+    const it: SceneryItem = { type: FLAGGER_ITEM, x: at.x, y: at.z, variant };
+    const g = new THREE.Group();
+    g.position.copy(at);
+    this.flaggerFigure(g, it, def);
+    this.archExtras.push(g);
   }
 
   /** Concrete portal frames round each tunnel's holes: a lintel along the deck's edge and a jamb at each end, both sides. */
@@ -1940,6 +2055,16 @@ export class RaceView {
         break;
       }
       case 'finish_arch': {
+        // Boss's arch model, the supercross gantry at supercross kinds of track (without its flag man's tower) or the motocross one (Boss, 1 Nov 2026).
+        const model = this.builtIn ? null : this.archModel(SX_ARCH_KINDS.has(this.track.kind ?? ''), w - 1, text || 'FINISH', color, () => 0, false);
+        if (model) {
+          add(model.group);
+          if ((this.track.scenery ?? []).includes(it) && this.ghostIndex < 0) {
+            g.updateMatrixWorld(true);
+            this.archTops.push([model.group.localToWorld(model.tops[0]), model.group.localToWorld(model.tops[1])]);
+          }
+          break;
+        }
         for (const sx of [-1, 1]) add(this.boxMesh(0.5, 4.2, 0.5, this.mat(0xd8d8d8), sx * (w / 2 - 0.25), 0, 0));
         const face = this.mat(0xffffff, { map: this.textTexture(text || 'FINISH', color) });
         const side = this.mat(shade(color, 0.8));

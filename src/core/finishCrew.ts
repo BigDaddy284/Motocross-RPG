@@ -12,12 +12,30 @@
 // for now every crew holds a board for a CPU rider.
 //
 // The race view animates them (world/RaceView.ts) and the track editor places them.
-import type { SceneryItem } from './race';
+import { FIREWORK_KINDS } from './fireworks';
+import type { SceneryItem, TrackDef } from './race';
 import type { RiderState } from './riderAI';
 import { type LapGeom, nearestOnLap } from './trackGeom';
 
 export const FLAGGER_ITEM = 'flagger';
 export const PIT_CREW_ITEM = 'pit_crew';
+/**
+ * The supercross finish (Boss, 1 Nov 2026): at a Supercross, EnduroCross or No-Turn Takedown track
+ * (the kinds with fireworks), a finish-line jump's arch is the stadium gantry, with the flag man up
+ * in the scaffold tower beside it. He is the track's flag man, so no other can be placed there.
+ */
+export const SX_ARCH_KINDS: ReadonlySet<string> = FIREWORK_KINDS;
+
+/** True when the track's finish arch is the supercross gantry: a finish-line jump at a supercross kind of track. */
+export function sxArch(track: Pick<TrackDef, 'kind' | 'sections'>): boolean {
+  return SX_ARCH_KINDS.has(track.kind ?? '') && track.sections.some((s) => s.finish);
+}
+
+/** True when the track's flag man is the one up in its supercross finish tower (sxArch), so a flag man can't be placed. */
+export function towerFlagman(track: Pick<TrackDef, 'kind' | 'sections'>): boolean {
+  return sxArch(track);
+}
+
 /** How far before them (grid units) a rider counts as coming up to the flag man or a pit crew. */
 export const APPROACH = 24;
 /** How far past them (grid units) a pit crew keeps the board out after their rider has gone by. */

@@ -1,3 +1,4 @@
+import { FLAGGER_ITEM, towerFlagman } from './finishCrew';
 import type { SceneryItem, TrackDef } from './race';
 import { DEFAULT_TRACK_WIDTH, type TrackPartsData } from './trackParts';
 import { headingAt, hiddenSpans, isSprint, lapGeom, pointAt, sprintStart, START_PAD, startGeom, startHalfWidth, startPointAt } from './trackGeom';
@@ -294,6 +295,12 @@ export function sceneryIssues(parts: TrackPartsData, track: TrackDef, index = ne
     for (const c of colliders(f)) for (const p of footprintOutline(c)) into = Math.max(into, -index.offSurface(p.x, p.y));
     if (into > 1e-6) out.push({ i: f.i, level: 'error', message: `${name(f)} is on the racing surface, where riders would ride through it` });
     else if (into > -BIKE_HALF_WIDTH) out.push({ i: f.i, level: 'warning', message: `${name(f)} is ${(-into).toFixed(2)} from the edge of the racing surface, so a rider right on the edge would touch it` });
+  }
+  // A supercross finish-line jump has its own flag man up in the tower (finishCrew.ts towerFlagman; Boss, 1 Nov 2026).
+  if (towerFlagman(track)) {
+    (track.scenery ?? []).forEach((it, i) => {
+      if (it.type === FLAGGER_ITEM) out.push({ i, level: 'error', message: `the flag man at ${it.x}, ${it.y} isn't needed: this track's supercross finish arch has its own flag man up in its tower, so take this one away` });
+    });
   }
   for (let a = 0; a < items.length; a++) {
     for (let b = a + 1; b < items.length; b++) {
