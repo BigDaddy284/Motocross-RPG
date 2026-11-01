@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { ADULT_BIKE_METRES, BIKE_SLOTS, raceBikeKind, YOUTH_BIKE_METRES, checkModel, FAN_SLOTS, PIT_CREW_SLOTS, FIGURE_PARTS, partName, glbInfo, MODEL_DIR, MODEL_INDEX, modelDef, modelId, modelRole, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, RIDER_SLOTS, SIDECAR_MODEL, materialSlot, type ModelEntry } from '../core/modModels';
+import { ADULT_BIKE_METRES, BIKE_SLOTS, raceBikeKind, YOUTH_BIKE_METRES, checkModel, FAN_SLOTS, PIT_CREW_SLOTS, FIGURE_PARTS, partName, glbInfo, MODEL_DIR, MODEL_INDEX, modelDef, modelId, modelRole, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, RIDER_SLOTS, SIDECAR_CREW, SIDECAR_MODEL, materialSlot, type ModelEntry } from '../core/modModels';
 import type { SceneryDef } from '../core/trackParts';
 import { SIDECAR_CLASS } from '../core/sidecar';
 import { U } from './paddock';
@@ -138,6 +138,32 @@ export function bikeModel(cls: string): THREE.Group | null {
 function lengthOf(o: THREE.Object3D): number {
   const box = new THREE.Box3().setFromObject(o);
   return box.max.x - box.min.x;
+}
+
+/**
+ * A sidecar's rider and passenger (core SIDECAR_CREW), in grid units, each part on a pivot at its
+ * hips for the race view to turn and move; null without a usable sidecar_crew.glb.
+ */
+export function sidecarCrew(): { root: THREE.Group; pivots: Map<string, THREE.Group> } | null {
+  const parts = figureParts(SIDECAR_CREW);
+  if (!parts) return null;
+  const metres = new THREE.Group();
+  const pivots = new Map<string, THREE.Group>();
+  for (const [name, part] of parts) {
+    const pivot = new THREE.Group();
+    pivot.position.copy(part.origin);
+    const holder = new THREE.Group();
+    new THREE.Matrix4().makeTranslation(-part.origin.x, -part.origin.y, -part.origin.z).multiply(part.matrix).decompose(holder.position, holder.quaternion, holder.scale);
+    holder.add(part.object);
+    pivot.add(holder);
+    pivot.userData.rest = pivot.position.clone();
+    metres.add(pivot);
+    pivots.set(name, pivot);
+  }
+  metres.scale.setScalar(U);
+  const root = new THREE.Group();
+  root.add(metres);
+  return { root, pivots };
 }
 
 export function riderModel(): THREE.Group | null {

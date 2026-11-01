@@ -62,6 +62,15 @@ export const RACE_RIDER = 'race_rider';
  * draws its own. The race rider sits on its motorcycle (no passenger model yet).
  */
 export const SIDECAR_MODEL = 'sidecar';
+/**
+ * The sidecar's rider and passenger as one model (Boss, 1 Nov 2026): two objects named Rider and
+ * Passenger, each with its origin at its hips, placed on sidecar.glb in its own frame (+X forward,
+ * the middle of the motorcycle's wheelbase at the origin). The race view moves each about its hips:
+ * the passenger hangs out over the chair in left-handers and over the bike in right-handers, and
+ * both tuck down over the jumps. Painted in each team's gear like the race rider (RIDER_SLOTS).
+ * Without it, sidecars carry the race rider and no passenger.
+ */
+export const SIDECAR_CREW = 'sidecar_crew';
 
 /**
  * Scenery whose look the race view moves or sizes as it goes, so a plain model can't stand in for
@@ -88,6 +97,8 @@ export const SCENERY_LIMITS: ModelLimits = { tris: 20000, long: 30, tall: 16 };
 /** On-track bikes and riders: up to 32 on track at once, so they are kept light. */
 export const BIKE_LIMITS: ModelLimits = { tris: 6000, long: 2.6, tall: 1.6, minLength: 1.4, maxLength: 2.6 };
 export const RIDER_LIMITS: ModelLimits = { tris: 6000, long: 2.4, tall: 2.0 };
+/** A sidecar's rider and passenger together (SIDECAR_CREW): a moving figure's 8,000 triangles, on an outfit's footprint. */
+export const CREW_LIMITS: ModelLimits = { tris: 8000, long: 2.6, tall: 2.0 };
 /** Moving figures: a crowd can have dozens of fans; a flag man's tower is about 5 m tall. */
 export const FIGURE_LIMITS: ModelLimits = { tris: 8000, long: 8, tall: 8 };
 /** The highest a rider model's lowest point (its boots on the pegs) can be, in metres. */
@@ -142,7 +153,7 @@ export interface ModelEntry {
   def?: SceneryDef;
 }
 
-export type ModelRole = 'replace' | 'new' | 'bike' | 'rider' | 'figure';
+export type ModelRole = 'replace' | 'new' | 'bike' | 'rider' | 'figure' | 'crew';
 
 /**
  * The moving figures whose parts can be swapped for a model's (Boss, 31 Oct 2026): each part is an
@@ -160,6 +171,8 @@ export const FIGURE_PARTS: Readonly<Record<string, readonly string[]>> = {
   // The same optional Forearm and Flag for each of the flag man's arms (Boss, 1 Nov 2026).
   flagger: ['Body', 'WhiteArm', 'WhiteForearm', 'WhiteFlag', 'ChequeredArm', 'ChequeredForearm', 'ChequeredFlag', 'Mate', 'Base'],
   pit_crew: ['Body', 'Arms', 'Mate', 'Base'],
+  // A sidecar's rider and passenger, each turning about its hips (SIDECAR_CREW; Boss, 1 Nov 2026).
+  sidecar_crew: ['Rider', 'Passenger'],
   cheer: ['Body', 'LegL', 'LegR', 'ArmL', 'ArmR'],
   start_official: ['Body', 'LegL', 'LegR', 'ArmL', 'ArmR'],
 };
@@ -185,13 +198,14 @@ export function modelName(id: string): string {
 export function modelRole(id: string, scenery: { id: string }[]): ModelRole {
   if (id === RACE_BIKE || id === RACE_BIKE_YOUTH || id === SIDECAR_MODEL) return 'bike';
   if (id === RACE_RIDER) return 'rider';
+  if (id === SIDECAR_CREW) return 'crew';
   if (FIGURE_PARTS[id]) return 'figure';
   return scenery.some((s) => s.id === id) ? 'replace' : 'new';
 }
 
 /** The limits for a model of this role. */
 export function limitsFor(role: ModelRole): ModelLimits {
-  return role === 'bike' ? BIKE_LIMITS : role === 'rider' ? RIDER_LIMITS : role === 'figure' ? FIGURE_LIMITS : SCENERY_LIMITS;
+  return role === 'bike' ? BIKE_LIMITS : role === 'rider' ? RIDER_LIMITS : role === 'crew' ? CREW_LIMITS : role === 'figure' ? FIGURE_LIMITS : SCENERY_LIMITS;
 }
 
 /** The size of a model's box in metres: length (X), depth (glTF Z, Blender Y) and height (Y). */
@@ -222,7 +236,7 @@ export function checkModel(file: string, bytes: number, info: ModelInfo | null, 
   if (height > lim.tall) out.push(`It is ${m(height)} tall; the most is ${m(lim.tall)}.`);
   if (lim.minLength !== undefined && length < lim.minLength) out.push(`It is ${m(length)} long, front to back along X; a race bike is ${m(lim.minLength)} to ${m(lim.maxLength!)}. Check it points along +X and is in metres.`);
   // A rider sits on the bike, feet on the pegs, in the same place as the exported race_rider.glb.
-  if (role === 'rider') {
+  if (role === 'rider' || role === 'crew') {
     if (info.min[1] < -0.05 || info.min[1] > RIDER_FEET) out.push(`Its lowest point is ${m(info.min[1])} from the ground; a rider's boots rest on the pegs, 0 to ${m(RIDER_FEET)} up. Start from the exported race_rider.glb so it sits on the bike.`);
   } else if (info.min[1] < -0.05 || info.min[1] > 0.05) out.push(`Its lowest point is ${m(info.min[1])} from the ground; it should sit on the ground (Z = 0 in Blender).`);
   return out;

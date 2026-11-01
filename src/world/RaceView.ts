@@ -22,7 +22,7 @@ import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../c
 import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
 import { LOCKED_ITEMS } from '../core/modModels';
 import { SIDECAR_CLASS } from '../core/sidecar';
-import { BIKE_PAINT, bikeModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
+import { sidecarCrew, BIKE_PAINT, bikeModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
 // isometric camera in the spirit of Super Off Road's overhead arcade view. The track is solid
@@ -158,6 +158,8 @@ interface Bike {
   side: number;
   /** A sidecar outfit (core/sidecar.ts): it doesn't lean into corners. */
   sidecar?: boolean;
+  /** A sidecar's rider and passenger from sidecar_crew.glb, each on a pivot at its hips (crewPose), and how far through a hang-out and a tuck they are. */
+  crew?: { pivots: Map<string, THREE.Group>; hang: number; tuck: number };
   /** The rider's kit colours, for their figure on foot. */
   kit: Kit;
   /** The rider on foot after a crash (crashRecovery.ts), made the first time they need it. */
@@ -2463,7 +2465,9 @@ export class RaceView {
     root.add(body);
     // Your own race bike and rider models (world/modModels.ts), painted in this rider's colours.
     const c0 = bikeColours(color, player, look);
-    const custom = this.builtIn ? { bike: null, rider: null } : { bike: bikeModel(look?.cls ?? ''), rider: riderModel() };
+    // A sidecar carries its rider and passenger from sidecar_crew.glb when there is one (Boss, 1 Nov 2026).
+    const crew = !this.builtIn && look?.cls === SIDECAR_CLASS ? sidecarCrew() : null;
+    const custom = this.builtIn ? { bike: null, rider: null } : { bike: bikeModel(look?.cls ?? ''), rider: crew?.root ?? riderModel() };
     if (custom.bike) paintModel(custom.bike, { plastics: c0.plastics, frame: c0.frame, plate: c0.plate }, BIKE_PAINT);
     // A youth class's smaller bike carries a rider of the same scale, a child of that size (Boss, 1 Nov 2026).
     const riderScale = custom.bike?.userData.riderScale as number | undefined;
@@ -2473,7 +2477,9 @@ export class RaceView {
       const bikeOnly = raceBikeParts(look, BIKE_LENGTH, { rider: false }).length;
       const g = look.gear;
       const kit = { helmet: g.helmet, visor: g.visor, jersey: g.jersey, pants: g.pants, boot: g.boot, glove: g.glove };
-      return this.finishBike(root, body, all.slice(0, bikeOnly), all.slice(bikeOnly), kit, custom);
+      const made = this.finishBike(root, body, all.slice(0, bikeOnly), all.slice(bikeOnly), kit, custom);
+      if (crew) made.crew = { pivots: crew.pivots, hang: 0, tuck: 0 };
+      return made;
     }
     const L = BIKE_LENGTH;
     const r = 0.22;
@@ -2593,6 +2599,32 @@ export class RaceView {
     return mesh;
   }
 
+  /**
+   * A sidecar's crew through the corners and over the jumps (Boss, 1 Nov 2026): `turn` is how hard
+   * the outfit is turning, positive to the right. In a left-hander the passenger hangs out over the
+   * chair, low and leaning out; in a right-hander they climb across over the back of the bike to
+   * keep the chair down. The rider leans a little into each turn. In the air and on landing both
+   * tuck down and forward. Eased, so the crew moves rather than snapping.
+   */
+  private crewPose(b: Bike, turn: number, air: boolean, dt: number): void {
+    const c = b.crew!;
+    const ease = 1 - Math.exp(-Math.min(0.1, dt) * 6);
+    c.hang += (Math.max(-1, Math.min(1, turn / 0.45)) - c.hang) * ease;
+    c.tuck += ((air ? 1 : 0) - c.tuck) * ease;
+    const rider = c.pivots.get('Rider');
+    const passenger = c.pivots.get('Passenger');
+    // Model metres: +X forward, Y up, +Z to the right (the chair is at -Z).
+    for (const [pivot, k] of [[rider, 0.35], [passenger, 1]] as const) {
+      if (!pivot) continue;
+      const rest = pivot.userData.rest as THREE.Vector3;
+      const out = Math.max(0, -c.hang); // left-hander: out over the chair
+      const over = Math.max(0, c.hang); // right-hander: across over the bike
+      pivot.position.set(rest.x - 0.12 * c.tuck * k - 0.1 * over * k, rest.y - (0.1 * c.tuck + 0.12 * out) * k, rest.z - 0.28 * out * k + 0.38 * over * k);
+      // Roll about the direction of travel into the turn, and bend forward in a tuck.
+      pivot.rotation.set(0.7 * c.hang * k, 0, -0.35 * c.tuck);
+    }
+  }
+
   /** Draws the riders at their poses. clock is race time, dt real seconds since the last frame. */
   update(riders: ViewRider[], clock: number, dt: number, focus: string | null): void {
     if (this.dead) return;
@@ -2639,8 +2671,9 @@ export class RaceView {
         pitch = flying.pitch;
       }
       // Lean into the corner, more the faster the bike.
-      // A sidecar outfit stays flat on its three wheels (Boss, 1 Nov 2026).
-      let lean = b.sidecar ? 0 : Math.max(-0.6, Math.min(0.6, s.curvatureAt(dist) * Math.min(p.speed, 20) * 0.9));
+      // A sidecar outfit stays flat on its three wheels (Boss, 1 Nov 2026); its crew lean instead (crewPose).
+      const turn = Math.max(-0.6, Math.min(0.6, s.curvatureAt(dist) * Math.min(p.speed, 20) * 0.9));
+      let lean = b.sidecar ? 0 : turn;
       if (p.state === 'wobble') yaw += 0.35 * Math.sin(clock * 16);
       b.root.position.set(mx, my, mz);
       b.root.rotation.set(0, -yaw, 0);
@@ -2671,6 +2704,7 @@ export class RaceView {
           b.body.position.copy(TRICK_PIVOT).sub(TRICK_PIVOT.clone().applyEuler(b.body.rotation));
         }
       }
+      if (b.crew) this.crewPose(b, p.down || p.state === 'crashed' ? 0 : turn, !p.down && (p.air > 0.25 || !!flying), dt);
       if (!p.down) {
         if (b.runner) b.runner.group.visible = false;
         b.rider.visible = true;

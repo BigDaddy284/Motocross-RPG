@@ -18,6 +18,7 @@ The file name decides what the model does:
 | `race_bike_youth.glb` | replaces the race bike for 85cc and under, drawn at each class's size (50cc 1.88 m, 65cc 1.95 m, 85cc small wheel 2.03 m, big wheel 2.07 m long) with the rider scaled to match; and, scaled to `race_bike.glb`'s length, for the 125s (two-strokes like it) |
 | `sidecar.glb` | every outfit in a sidecar race (Boss, 1 Nov 2026): the motorcycle with its chair on the left (+Y in Blender), the middle of the motorcycle's wheelbase at the origin; never a solo bike. Without it the game draws its own bike with a chair |
 | `race_rider.glb` | replaces the rider on every race bike |
+| `sidecar_crew.glb` | the rider and passenger on every sidecar (Boss, 1 Nov 2026): objects named **Rider** and **Passenger**, each with its origin at its hips, in the sidecar's frame, at most 8,000 triangles, lowest point 0 to 0.6 m up, rider material names for the team's gear. The game leans the passenger out over the chair in left-handers, across over the bike in right-handers, and tucks both down over the jumps |
 | any other name, e.g. `round_bale.glb` | a new scenery item called "Round bale" in the track editor's Scenery palette |
 
 ## Rules for every model

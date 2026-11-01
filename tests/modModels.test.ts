@@ -130,6 +130,9 @@ describe('what a model does', () => {
     expect(modelRole('round_bale', scenery)).toBe('new');
     // The sidecar outfit is a race bike model, never a new scenery item (Boss, 1 Nov 2026).
     expect(modelRole('sidecar', scenery)).toBe('bike');
+    // The sidecar's rider and passenger, one model with two moving parts (Boss, 1 Nov 2026).
+    expect(modelRole('sidecar_crew', scenery)).toBe('crew');
+    expect(FIGURE_PARTS.sidecar_crew).toEqual(['Rider', 'Passenger']);
   });
 
 
@@ -141,8 +144,10 @@ describe('what a model does', () => {
 
   it('swaps a moving figure part by part, by the names of its parts (Boss, 31 Oct 2026)', () => {
     // Every animated figure has parts, and only those.
-    expect(Object.keys(FIGURE_PARTS).sort()).toEqual([CHEER_ITEM, FLAGGER_ITEM, MARSHAL_ITEM, PIT_CREW_ITEM, OFFICIAL_ITEM].sort());
+    // ...and the sidecar's crew, a model of its own rather than a scenery item (Boss, 1 Nov 2026).
+    expect(Object.keys(FIGURE_PARTS).sort()).toEqual([CHEER_ITEM, FLAGGER_ITEM, MARSHAL_ITEM, PIT_CREW_ITEM, OFFICIAL_ITEM, 'sidecar_crew'].sort());
     for (const [id, parts] of Object.entries(FIGURE_PARTS)) {
+      if (id === 'sidecar_crew') continue;
       expect(LOCKED_ITEMS.has(id)).toBe(true);
       expect(parts).toContain('Body');
       expect(modelRole(id, scenery)).toBe('figure');
@@ -238,6 +243,13 @@ describe('the rules for each kind of model', () => {
     // sidecar.glb as exported: 2.19 m long, its chair out to 1.12 m on the left (glTF -Z), 5,984 triangles.
     expect(ok('sidecar.glb', info([-1.09, 0, -1.12], [1.1, 1.18, 0.43], 5984))).toEqual([]);
     expect(ok('sidecar.glb', info([-1.09, 0, -1.12], [1.1, 1.18, 0.43], BIKE_LIMITS.tris + 1)).join(' ')).toMatch(/triangles/);
+  });
+
+  it("takes the sidecar's rider and passenger as one model: 8,000 triangles, boots on the pegs and the platform, parts named (Boss, 1 Nov 2026)", () => {
+    const crew = (tris: number, names = ['Rider', 'Passenger']): ModelInfo => ({ ...info([-0.9, 0.29, -0.9], [0.4, 1.7, 0.3], tris), names });
+    expect(ok('sidecar_crew.glb', crew(7192))).toEqual([]);
+    expect(ok('sidecar_crew.glb', crew(8001)).join(' ')).toMatch(/triangles/);
+    expect(ok('sidecar_crew.glb', crew(7192, ['Body'])).join(' ')).toMatch(/Rider, Passenger/);
   });
 
   it('lets a rider sit on the pegs, off the ground', () => {

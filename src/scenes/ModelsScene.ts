@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import * as THREE from 'three';
-import { FIGURE_PARTS, LOCKED_ITEMS, MODEL_DIR, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, SIDECAR_MODEL, modelName } from '../core/modModels';
+import { FIGURE_PARTS, LOCKED_ITEMS, MODEL_DIR, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, SIDECAR_CREW, SIDECAR_MODEL, modelName } from '../core/modModels';
 import { services } from '../services';
 import { glbOf, download, raceModels } from '../world/modelExport';
 import { modelList, modModel } from '../world/modModels';
@@ -79,14 +79,14 @@ export class ModelsScene extends Phaser.Scene {
       .filter((d) => !d.model && !LOCKED_ITEMS.has(d.id))
       .map((d) => ({ id: d.id, label: d.name, file: `${d.id}.glb`, note: d.id, make: () => view.builtInItem(d.id) }));
     // The moving figures export with their parts named, in their rest pose (core FIGURE_PARTS).
-    const figures: Row[] = Object.keys(FIGURE_PARTS).map((id) => ({
+    const figures: Row[] = Object.keys(FIGURE_PARTS).filter((id) => id !== SIDECAR_CREW).map((id) => ({
       id,
       label: scenery.find((d) => d.id === id)?.name ?? modelName(id),
       file: `${id}.glb`,
       note: `Parts: ${FIGURE_PARTS[id].join(', ')}`,
       make: () => view.builtInItem(id),
     }));
-    const role = { replace: 'Replaces the built-in one', new: 'New item in the track editor', bike: 'Replaces the race bike', rider: 'Replaces the race rider', figure: 'Moving figure: its parts replace the game\'s' };
+    const role = { replace: 'Replaces the built-in one', new: 'New item in the track editor', bike: 'Replaces the race bike', rider: 'Replaces the race rider', figure: 'Moving figure: its parts replace the game\'s', crew: 'The rider and passenger on every sidecar' };
     const mine: Row[] = modelList()
       .sort((a, b) => a.file.localeCompare(b.file))
       .map((m) => ({
