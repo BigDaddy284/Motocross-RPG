@@ -272,6 +272,9 @@ export class HudScene extends Phaser.Scene {
    * everywhere else (Boss, 31 Oct 2026). A venue with no championship on shows the task too.
    */
   showCareer(career: CareerState, flags: Record<string, boolean>): void {
+    // Money coming in shows as a bank note over the rider's head.
+    if (this.career === career && this.shownMoney !== null && career.money > this.shownMoney) this.moneyNote(career.money - this.shownMoney);
+    this.shownMoney = career.money;
     this.career = career;
     this.flags = flags;
     this.moneyText.setText(formatMoney(career.money));
@@ -280,6 +283,63 @@ export class HudScene extends Phaser.Scene {
     const atVenue = !!this.mapId && c.tracks.venues.some((v) => v.map === this.mapId && !v.practiceOnly);
     const champ = atVenue ? champLine(c, c.championships, career) : null;
     this.taskText.setText(champ ? `Championship: ${champ}` : `Task: ${journal(c.story, career, flags)}`);
+  }
+
+  /** The money last shown, to spot money coming in. */
+  private shownMoney: number | null = null;
+
+  /** Where the rider's head is on screen, set by the world scene; null when there is no rider to show. */
+  headAt: (() => { x: number; y: number } | null) | null = null;
+
+  private note: Phaser.GameObjects.Container | null = null;
+
+  /**
+   * Money in (shift and job pay, errands, the story's gifts, sales, prize money back from a race)
+   * shows as a small bank note over the rider's head: cream paper, an orange frame and a £ oval at
+   * each end, with a tail to the head (Boss, 1 Nov 2026: design 2 at 37.5% of its mock-up), so it
+   * never sits over the chat box. It follows the rider for a moment, then floats up and fades.
+   */
+  moneyNote(amount: number): void {
+    const head = this.headAt?.();
+    if (!head) return;
+    this.note?.destroy();
+    const k = this.ts(100) / 100;
+    const label = this.add.text(0, 0, `+${formatMoney(amount)}`, textStyle(this.ts(12), COLORS.ink, { fontStyle: 'bold' })).setOrigin(0.5);
+    const end = 8 * k;
+    const w = Math.max(66 * k, label.width + 2 * (2 * end + 4 * k));
+    const h = Math.max(22 * k, label.height + 6 * k);
+    const y0 = -h - 4 * k;
+    label.setY(y0 + h / 2);
+    const g = this.add.graphics();
+    g.fillStyle(0x000000, 0.35).fillRect(-w / 2 + 1.5, y0 + 1.5, w, h);
+    g.fillStyle(0xf3e3c3, 1).fillRect(-w / 2, y0, w, h);
+    g.lineStyle(2, COLORS.accent, 1).strokeRect(-w / 2, y0, w, h);
+    g.lineStyle(1, COLORS.ink, 0.6).strokeRect(-w / 2 + 3 * k, y0 + 3 * k, w - 6 * k, h - 6 * k);
+    g.fillStyle(COLORS.accent, 1).fillTriangle(-4 * k, y0 + h, 4 * k, y0 + h, 0, y0 + h + 4 * k);
+    const parts: Phaser.GameObjects.GameObject[] = [g];
+    for (const sx of [-1, 1]) {
+      g.fillStyle(COLORS.accent, 1).fillEllipse(sx * (w / 2 - end), y0 + h / 2, 10 * k, 14 * k);
+      parts.push(this.add.text(sx * (w / 2 - end), y0 + h / 2, '£', textStyle(this.ts(9), 0xf3e3c3, { fontStyle: 'bold' })).setOrigin(0.5));
+    }
+    parts.push(label);
+    const note = this.add.container(head.x, head.y, parts).setDepth(9);
+    this.note = note;
+    let lift = 0;
+    const follow = () => {
+      const at = this.headAt?.();
+      if (!note.active) return;
+      if (at) note.setPosition(at.x, at.y - lift);
+    };
+    this.events.on('update', follow);
+    note.once('destroy', () => this.events.off('update', follow));
+    this.tweens.add({
+      targets: note,
+      alpha: 0,
+      delay: 2600,
+      duration: 500,
+      onUpdate: (tw) => (lift = 14 * tw.progress),
+      onComplete: () => note.destroy(),
+    });
   }
 
   /** The map the rider is on, for what the line under its name shows. */
