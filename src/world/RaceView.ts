@@ -15,7 +15,7 @@ import { APPROACH as TRICK_APPROACH, trickPose, type Trick } from '../core/trick
 import { COLORS, TEXT_RES } from '../ui/theme';
 import { isPaddock } from '../core/paddock';
 import { paddockParts, U as METRE } from './paddock';
-import { FACES_TRACK, flaggerParts, marshalParts, pitCrewParts, starterBox, tracksideParts, type Label } from './trackside';
+import { FACES_TRACK, flaggerParts, MATE_AT, marshalParts, pitCrewParts, starterBox, tracksideParts, type Label } from './trackside';
 import { FIREWORK_LEAD, fireworkShow, fireworksDue, hasFireworks, ROCKET_RISE, type Rocket } from '../core/fireworks';
 import { APPROACH, assignCrews, BOARD_PAST, boardOut, boardText, crewSpot, FLAGGER_ITEM, flagState, PIT_CREW_ITEM } from '../core/finishCrew';
 import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../core/marshal';
@@ -2025,7 +2025,8 @@ export class RaceView {
     flag.position.set(0.06 * METRE, (built.feet[1] + 0.12 - (built.shoulder[1] - 0.35)) * METRE, 0.12 * METRE);
     forearm.add(flag);
     g.add(figure);
-    const fitted = this.fitFigure(MARSHAL_ITEM, g, [['Base', g], ['Body', figure], ['Arm', arm], ['Forearm', forearm], ['Flag', flag]]);
+    const mate = this.mate(g, built.mate, MATE_AT);
+    const fitted = this.fitFigure(MARSHAL_ITEM, g, [['Base', g], ['Body', figure], ['Arm', arm], ['Forearm', forearm], ['Flag', flag], ...mate]);
     // A model is built standing on the ground; without its own Base it stands on the game's stand, at its height.
     if (fitted && !figureHas(MARSHAL_ITEM, 'Base')) figure.position.y += built.feet[1] * METRE;
     const watch = marshalWatch(this.surface.g, it);
@@ -2050,7 +2051,18 @@ export class RaceView {
     return arm;
   }
 
-  /** A figure group standing at the feet, with the body built in the item's frame. */
+  /**
+   * The mate beside a marshal, flag man or pit crew on their pair design (else nothing): still, standing at `at`, for a
+   * model's Mate to take their place (Boss, 1 Nov 2026). Returns the joint to fit, if any.
+   */
+  private mate(g: THREE.Group, parts: THREE.Mesh[], at: [number, number, number]): [string, THREE.Object3D][] {
+    if (!parts.length) return [];
+    const mate = Object.assign(this.pivotArm(parts, at, [0, 0, 0]), { name: 'Mate' });
+    g.add(mate);
+    return [['Mate', mate]];
+  }
+
+    /** A figure group standing at the feet, with the body built in the item's frame. */
   private standingFigure(parts: THREE.Mesh[], feet: [number, number, number]): THREE.Group {
     const figure = new THREE.Group();
     figure.name = 'Body';
@@ -2089,7 +2101,8 @@ export class RaceView {
     const chequeredForearm = joint('ChequeredForearm', chequered);
     const chequeredFlag = joint('ChequeredFlag', chequeredForearm);
     g.add(figure);
-    const fitted = this.fitFigure(FLAGGER_ITEM, g, [['Base', g], ['Body', figure], ['WhiteArm', white], ['WhiteForearm', whiteForearm], ['WhiteFlag', whiteFlag], ['ChequeredArm', chequered], ['ChequeredForearm', chequeredForearm], ['ChequeredFlag', chequeredFlag]]);
+    const mate = this.mate(g, built.mate, MATE_AT);
+    const fitted = this.fitFigure(FLAGGER_ITEM, g, [...mate, ['Base', g], ['Body', figure], ['WhiteArm', white], ['WhiteForearm', whiteForearm], ['WhiteFlag', whiteFlag], ['ChequeredArm', chequered], ['ChequeredForearm', chequeredForearm], ['ChequeredFlag', chequeredFlag]]);
     // A model is built standing on the ground; without its own Base it stands on the game's stand, at its height.
     if (fitted && !figureHas(FLAGGER_ITEM, 'Base')) figure.position.y += built.feet[1] * METRE;
     this.faceTrack(g, it);
@@ -2116,11 +2129,8 @@ export class RaceView {
     figure.add(board);
     g.add(figure);
     // The mate beside them, still, for a model's Mate (Boss, 1 Nov 2026).
-    const mate = built.mate.length ? Object.assign(this.pivotArm(built.mate, built.mateAt, built.feet), { name: 'Mate' }) : null;
-    if (mate) g.add(mate);
-    const pivots: [string, THREE.Object3D][] = [['Base', g], ['Body', figure], ['Arms', arms]];
-    if (mate) pivots.push(['Mate', mate]);
-    this.fitFigure(PIT_CREW_ITEM, g, pivots, { keep: [board] });
+    const mate = this.mate(g, built.mate, built.mateAt);
+    this.fitFigure(PIT_CREW_ITEM, g, [['Base', g], ['Body', figure], ['Arms', arms], ...mate], { keep: [board] });
     // A model's Team and TeamTrim materials take the crew's own colour until the race gives them a rider (updateFinishCrew).
     paintModel(g, { team: built.colour, teamtrim: shade(built.colour, 0.78) }, PIT_CREW_PAINT);
     this.faceTrack(g, it);

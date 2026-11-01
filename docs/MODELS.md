@@ -60,8 +60,8 @@ The marshals, flag man, pit crews, fans and start official move with the race. T
 
 | Figure | Parts |
 |---|---|
-| `marshal` | **Body**, **Arm** (the flag arm, with its flag), **Base** (the stand, if any). For a better wave, also **Forearm** (origin at the elbow, with the hand and pole; Arm is then the upper arm only) and **Flag** (the cloth alone, origin on the pole, with the pole upright in the rest pose). With no Base the marshal stands on the game's stand at its height. |
-| `flagger` | **Body**, **WhiteArm**, **ChequeredArm** (each arm with its flag), **Base** (the stand or tower). For a better wave, also **WhiteForearm**, **WhiteFlag**, **ChequeredForearm** and **ChequeredFlag**, built like the marshal's Forearm and Flag. With no Base he stands on the game's stand at its height. |
+| `marshal` | **Body**, **Arm** (the flag arm, with its flag), **Base** (the stand, if any). For a better wave, also **Forearm** (origin at the elbow, with the hand and pole; Arm is then the upper arm only) and **Flag** (the cloth alone, origin on the pole, with the pole upright in the rest pose). With no Base the marshal stands on the game's stand at its height. Optionally **Mate**, the second marshal with the extinguisher on the pair design (still, origin at the feet), shown only there in place of the game's own. |
+| `flagger` | **Body**, **WhiteArm**, **ChequeredArm** (each arm with its flag), **Base** (the stand or tower). For a better wave, also **WhiteForearm**, **WhiteFlag**, **ChequeredForearm** and **ChequeredFlag**, built like the marshal's Forearm and Flag. With no Base he stands on the game's stand at its height. Optionally **Mate**, as on the marshal. |
 | `pit_crew` | **Body**, **Arms** (both arms and the pole, as one), **Base**. Optionally **Mate**, the mechanic standing beside him (still, origin at the feet), shown only on the pair design in place of the game's own; their Team materials take the team colour too. Behind a pit wall the game rests the pole out over the wall. |
 | `cheer` | **Body** (with the head), **LegL**, **LegR**, **ArmL**, **ArmR** |
 | `start_official` | **Body** (with the head), **LegL**, **LegR**, **ArmL**, **ArmR** |

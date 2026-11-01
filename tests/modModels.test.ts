@@ -149,7 +149,7 @@ describe('what a model does', () => {
     // A part on its own is enough: the rest stay the game's.
     expect(checkModel('cheer.glb', 100, figure(['armL.001']), scenery)).toEqual([]);
     // With no named parts the game can't move it.
-    expect(checkModel('marshal.glb', 100, figure(['Cube', 'Cube.001']), scenery).join(' ')).toMatch(/Body, Arm, Forearm, Flag, Base/);
+    expect(checkModel('marshal.glb', 100, figure(['Cube', 'Cube.001']), scenery).join(' ')).toMatch(/Body, Arm, Forearm, Flag, Mate, Base/);
     expect(checkModel('marshal.glb', 100, info([-0.4, 0, -0.2], [0.4, 1.8, 0.2]), scenery).join(' ')).toMatch(/named/);
     // A figure is kept light: crowds can be big.
     expect(checkModel('cheer.glb', 100, { ...figure(['Body']), tris: FIGURE_LIMITS.tris + 1 }, scenery).join(' ')).toMatch(/triangles/);

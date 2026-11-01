@@ -126,10 +126,10 @@ export type ModelRole = 'replace' | 'new' | 'bike' | 'rider' | 'figure';
  */
 export const FIGURE_PARTS: Readonly<Record<string, readonly string[]>> = {
   // Forearm (turning at the elbow, under Arm) and Flag (the cloth, turning about the pole, under Forearm) are optional: the wave uses them (Boss, 1 Nov 2026).
-  marshal: ['Body', 'Arm', 'Forearm', 'Flag', 'Base'],
+  // Mate, on the marshal, flag man and pit crew, is the still figure beside them on the pair design, shown only there (Boss, 1 Nov 2026).
+  marshal: ['Body', 'Arm', 'Forearm', 'Flag', 'Mate', 'Base'],
   // The same optional Forearm and Flag for each of the flag man's arms (Boss, 1 Nov 2026).
-  flagger: ['Body', 'WhiteArm', 'WhiteForearm', 'WhiteFlag', 'ChequeredArm', 'ChequeredForearm', 'ChequeredFlag', 'Base'],
-  // Mate (the mechanic beside them, still) is optional, and shown only on the pair design (Boss, 1 Nov 2026).
+  flagger: ['Body', 'WhiteArm', 'WhiteForearm', 'WhiteFlag', 'ChequeredArm', 'ChequeredForearm', 'ChequeredFlag', 'Mate', 'Base'],
   pit_crew: ['Body', 'Arms', 'Mate', 'Base'],
   cheer: ['Body', 'LegL', 'LegR', 'ArmL', 'ArmR'],
   start_official: ['Body', 'LegL', 'LegR', 'ArmL', 'ArmR'],
