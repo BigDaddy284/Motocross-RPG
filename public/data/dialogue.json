@@ -228,6 +228,11 @@
       { "speaker": "npc", "text": "Area 2 is under construction right now. It's due to be ready in December 2026." },
       { "speaker": "npc", "text": "Come back and see me again to check for more updates." }
     ] },
+    "news.area3_feb2027": { "lines": [
+      { "speaker": "npc", "text": "Manny Festo with the latest. Area 2 champion, eh? Nice work." },
+      { "speaker": "npc", "text": "Beach Town, Area 3, is still being built. It's due to open in February 2027." },
+      { "speaker": "npc", "text": "Keep racing in the meantime, and come back and see me for more updates." }
+    ] },
     "news.a2.welcome": { "lines": [
       { "speaker": "npc", "text": "Manny Festo! Told you I'd see you here. Welcome to Mountain Town: clay, rain and more rain." },
       { "speaker": "npc", "text": "Taylor Heart is the Area 2 Champion and Cal Mercer the Local Champion. Cal's the one you want: he opens the tracks round here." },
