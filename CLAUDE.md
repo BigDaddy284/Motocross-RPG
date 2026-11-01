@@ -59,4 +59,5 @@ Dev URL params (handled in `src/scenes/BootScene.ts`): `?testtrack=<track id>` j
 
 - `main` is the released game (Alpha v1.1). Nothing goes to `main` until Boss explicitly says "Merge to Main".
 - `test/v1.5` is the test branch for v1.5. When Boss says "push" or "merge", he means into `test/v1.5`: open PRs against `test/v1.5`, not `main`.
+- `test/v2.0` (Boss, 1 Nov 2026): v1.5 is being wrapped up for release in December, so the 3D model work (scenery colours, words and pictures on models, the Blender upgrades) goes into `test/v2.0`, made from `test/v1.5` at 129549f. Open those PRs against `test/v2.0`; fixes for v1.5 still go to `test/v1.5` and are merged forward into `test/v2.0`.
 - Test plays are the Pages build of `test/v1.5` at `/test-v1.5/` (`PREVIEW_BRANCH` and `PREVIEW_PATH` in `.github/workflows/ci.yml`). When a new test version starts, ask Boss before pointing the preview at it; he wants to be asked each time.
