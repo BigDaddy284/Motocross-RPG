@@ -207,6 +207,8 @@ function shade(c: number, k: number): number {
   return (ch((c >> 16) & 255) << 16) | (ch((c >> 8) & 255) << 8) | ch(c & 255);
 }
 /** Dark letters on a light colour, white on a dark one, so words on a white or yellow banner or hauler can be read (Boss, 1 Nov 2026). */
+/** Scenery whose model faces the track when not turned by hand, as the game's own stand rises away from it. */
+const MODEL_FACES_TRACK = new Set(['stand', 'crowd']);
 function inkOn(c: number): string {
   const lum = (0.299 * ((c >> 16) & 255) + 0.587 * ((c >> 8) & 255) + 0.114 * (c & 255)) / 255;
   return lum > 0.62 ? '#16161a' : '#ffffff';
@@ -1980,7 +1982,8 @@ export class RaceView {
   }
 
   /** A scenery model's live parts (core LIVE_PARTS): its Track parts to turn and its Flash parts, hidden until they blink. */
-  private liveParts(model: THREE.Object3D, index: number): void {
+  private liveParts(model: THREE.Object3D, index: number): boolean {
+    let found = false;
     model.traverse((o) => {
       const kind = livePart(o.name);
       if (kind === 'Track') this.trackers.push({ node: o, rest: o.rotation.y });
@@ -1988,7 +1991,9 @@ export class RaceView {
         o.visible = false;
         this.flashes.push({ node: o, until: 0, next: 0, seed: index * 17 + this.flashes.length * 5 + 1 });
       }
+      if (kind) found = true;
     });
+    return found;
   }
 
   /**
@@ -2123,10 +2128,12 @@ export class RaceView {
       // Its Text material shows the item's words on its colour, as the game's own banner does (Boss, 1 Nov 2026).
       textFaces(custom, (aspect) => this.faceTexture(it, words, tint, aspect));
       add(custom);
-      this.liveParts(custom, this.itemIndex(it));
+      // Live parts move, so the item is never baked into the still scenery.
+      if (this.liveParts(custom, this.itemIndex(it))) g.userData.moving = true;
       this.playLoops(custom, this.itemIndex(it));
       if (custom.userData.clips) g.userData.moving = true;
-      if (it.rot === undefined && FACES_TRACK.has(it.type) && this.awayFromTrack(it) === 1) g.rotation.y += Math.PI;
+      // People face the track, and so do the seats of a stand or crowd model (Boss, 1 Nov 2026), unless turned by hand.
+      if (it.rot === undefined && (FACES_TRACK.has(it.type) || MODEL_FACES_TRACK.has(it.type)) && this.awayFromTrack(it) === 1) g.rotation.y += Math.PI;
       return g;
     }
     if (def && it.type === MARSHAL_ITEM) {
