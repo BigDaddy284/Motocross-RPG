@@ -21,7 +21,7 @@ import { APPROACH, assignCrews, BOARD_PAST, boardOut, boardText, crewSpot, FLAGG
 import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../core/marshal';
 import { bikeColours, modelFor as bikeKind, raceBikeParts, type RaceLook } from './raceBike';
 import { LOCKED_ITEMS } from '../core/modModels';
-import { BIKE_PAINT, bikeModel, FAN_PAINT, figureHas, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
+import { BIKE_PAINT, bikeModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
 // isometric camera in the spirit of Super Off Road's overhead arcade view. The track is solid
@@ -2112,6 +2112,8 @@ export class RaceView {
     figure.add(board);
     g.add(figure);
     this.fitFigure(PIT_CREW_ITEM, g, [['Base', g], ['Body', figure], ['Arms', arms]], { keep: [board] });
+    // A model's Team and TeamTrim materials take the crew's team colour (Boss, 1 Nov 2026).
+    paintModel(figure, { team: built.colour, teamtrim: shade(built.colour, 0.78) }, PIT_CREW_PAINT);
     this.faceTrack(g, it);
     const crew: PitCrew = {
       index: this.crews.length,

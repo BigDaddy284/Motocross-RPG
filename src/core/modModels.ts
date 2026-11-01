@@ -82,6 +82,8 @@ export const BIKE_SLOTS = ['plastics', 'frame', 'plate'] as const;
 export const RIDER_SLOTS = ['helmet', 'visor', 'jersey', 'pants', 'boots', 'gloves'] as const;
 /** The same on a cheering fan's model: each fan keeps their own colours, as the game's own fans do (Boss, 31 Oct 2026). */
 export const FAN_SLOTS = ['top', 'toptrim', 'trousers', 'skin'] as const;
+/** On a pit crew's model: the team's colour (shirt and cap) and a darker shade of it, so each crew keeps their team's colours, as the game's own do (Boss, 1 Nov 2026). */
+export const PIT_CREW_SLOTS = ['team', 'teamtrim'] as const;
 
 /** What a .glb holds, read from its JSON chunk: its size (in its own units, metres from Blender) and how heavy it is. */
 export interface ModelInfo {

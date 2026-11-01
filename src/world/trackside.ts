@@ -1015,6 +1015,8 @@ export interface PitCrewBuilt {
   shoulder: [number, number, number];
   /** Where the board hangs from the end of the pole, in the arms' frame before they swing (metres from the shoulder). */
   board: [number, number, number];
+  /** The team's colour: their shirt and cap. */
+  colour: number;
 }
 
 /**
@@ -1045,7 +1047,7 @@ export function pitCrewParts(def: SceneryDef, it: SceneryItem, i: number): PitCr
   // A handle across both hands, and the pole running on from it, so held out the board is at its end.
   a.box(0, 0.72, 0.06, 0.66, 0.05, 0.05, 0xc8c8c8);
   a.pole(0, -0.05, 0.06, 0.8, 0xc8c8c8, 0.04);
-  return { base: b.parts, figure: f.parts, arms: a.parts, feet: [0, 0, 0], shoulder: [0, 1.45, 0], board: [0, -1.5, 0.06] };
+  return { base: b.parts, figure: f.parts, arms: a.parts, feet: [0, 0, 0], shoulder: [0, 1.45, 0], board: [0, -1.5, 0.06], colour: col };
 }
 
 /** The meshes and labels of a trackside item, in its own frame, or null for an item built elsewhere (the paddock vehicles). */

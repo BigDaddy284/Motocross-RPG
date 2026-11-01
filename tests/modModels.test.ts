@@ -21,6 +21,7 @@ import {
   partName,
   RIDER_SLOTS,
   FAN_SLOTS,
+  PIT_CREW_SLOTS,
   BIKE_SLOTS,
   SCENERY_LIMITS,
   type ModelInfo,
@@ -184,6 +185,8 @@ describe('what a model does', () => {
     expect(materialSlot(undefined, RIDER_SLOTS)).toBeNull();
     expect(materialSlot('TopTrim', FAN_SLOTS)).toBe('toptrim');
     expect(materialSlot('Fan_Cap', FAN_SLOTS)).toBeNull();
+    expect(materialSlot('TeamTrim', PIT_CREW_SLOTS)).toBe('teamtrim');
+    expect(materialSlot('Team.001', PIT_CREW_SLOTS)).toBe('team');
   });
 });
 

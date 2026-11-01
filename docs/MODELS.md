@@ -55,6 +55,7 @@ The marshals, flag man, pit crews, fans and start official move with the race. T
 - A part you leave out keeps the game's own. Objects with other names are left out.
 - The pit board and the start board stay the game's, because the game paints and moves them.
 - On a `cheer` model, name materials **Top**, **TopTrim** (a darker shade of the top), **Trousers** and **Skin** so each fan keeps their own colours. Any other material, such as a cap or shoes, is the same on every fan.
+- On a `pit_crew` model, name materials **Team** (the shirt and cap) and **TeamTrim** (a darker shade) so each crew wears their team's colour. The game's board hangs 1.5 m below the Arms origin along the pole, so the pole's end should sit there in the rest pose (arms hanging down).
 - Start from the figure exported on the Models page. It has every part named, in its rest pose.
 
 | Figure | Parts |
