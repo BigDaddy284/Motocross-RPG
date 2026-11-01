@@ -206,6 +206,11 @@ function shade(c: number, k: number): number {
   const ch = (v: number) => Math.max(0, Math.min(255, Math.round(v * k)));
   return (ch((c >> 16) & 255) << 16) | (ch((c >> 8) & 255) << 8) | ch(c & 255);
 }
+/** Dark letters on a light colour, white on a dark one, so words on a white or yellow banner or hauler can be read (Boss, 1 Nov 2026). */
+function inkOn(c: number): string {
+  const lum = (0.299 * ((c >> 16) & 255) + 0.587 * ((c >> 8) & 255) + 0.114 * (c & 255)) / 255;
+  return lum > 0.62 ? '#16161a' : '#ffffff';
+}
 /** A steady pseudo-random number from 0 to 1 for an integer, for grain and crowds. */
 function noise(i: number): number {
   const x = Math.sin(i * 127.1 + 311.7) * 43758.5453;
@@ -992,7 +997,7 @@ export class RaceView {
       tops.splice(0, tops.length, new THREE.Vector3(-gap / 2, high, 0), new THREE.Vector3(gap / 2, high, 0));
     }
     paintModel(group, { team: color, teamdark: shade(color, 0.7) }, STAND_PAINT);
-    textFaces(group, (aspect) => this.textTexture(text, color, '#ffffff', Math.min(2048, Math.max(64, Math.round(64 * aspect))), 64));
+    textFaces(group, (aspect) => this.textTexture(text, color, inkOn(color), Math.min(2048, Math.max(64, Math.round(64 * aspect))), 64));
     group.traverse((o) => {
       o.castShadow = true;
       o.receiveShadow = true;
@@ -1817,7 +1822,7 @@ export class RaceView {
    */
   private faceTexture(it: SceneryItem, text: string, color: number, aspect: number): THREE.Texture {
     const h = 64;
-    const words = this.textTexture(text, color, '#ffffff', Math.min(2048, Math.max(64, Math.round(h * aspect))), h);
+    const words = this.textTexture(text, color, inkOn(color), Math.min(2048, Math.max(64, Math.round(h * aspect))), h);
     const path = PICTURE_ITEMS.has(it.type) ? bannerPath(it.image) : null;
     if (!path) return words;
     // The words show until the picture arrives, and stay if it never does.
@@ -1942,7 +1947,8 @@ export class RaceView {
     model.traverse((o) => {
       if (o === model) return;
       if (!showsInSetup(o.userData.setups, setup)) hidden.push(o);
-      else if (partName(o.name, ['StandBike'])) spots.push(o);
+      // StandBike, StandBike.001 (three.js loads it as StandBike001) and so on.
+      else if (/^standbike\d*$/i.test(o.name.replace(/[._]\d+$/, ''))) spots.push(o);
     });
     for (const o of hidden) o.removeFromParent();
     if (!spots.length) return;
