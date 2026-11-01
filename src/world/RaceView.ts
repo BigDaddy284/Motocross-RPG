@@ -2189,9 +2189,11 @@ export class RaceView {
       const k = m.raise;
       m.arm.rotation.z = k * 0.45 * Math.sin(clock * 7 + m.phase);
       m.arm.rotation.x = -0.9 * Math.PI * k;
-      // A model's forearm bends a little forward at the elbow and whips the wave on a beat behind the arm; its flag swings round the pole.
-      m.forearm.rotation.set(0.25 * k, 0, k * 0.5 * Math.sin(clock * 7 + m.phase - 0.9));
+      // A model's forearm bends a little at the elbow and whips the wave on a beat behind the arm; its flag swings
+      // round the pole a beat after that, bunched against the pole while down and opening as the arm goes up.
+      m.forearm.rotation.set(-0.25 * k, 0, k * 0.4 * Math.sin(clock * 7 + m.phase - 0.9));
       m.flag.rotation.y = k * 0.7 * Math.sin(clock * 7 + m.phase - 1.8);
+      m.flag.scale.x = 0.3 + 0.7 * k;
       m.figure.rotation.x = 0.22 * k;
       m.figure.rotation.z = -0.06 * k * Math.sin(clock * 7 + m.phase);
     }
