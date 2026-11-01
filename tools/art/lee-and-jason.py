@@ -20,7 +20,7 @@ FONT = '/usr/share/fonts/truetype/freefont/FreeSansBoldOblique.ttf'
 # Each board on buildings-exterior-v3.png: the building's crop origin, then the board's face box in it.
 BOARDS = [
     ((512, 320), (24, 106, 319, 144), "LEE'S T'S & WHEELS"),
-    ((512, 960), (82, 117, 287, 154), "J'S TOOLS"),
+    ((512, 960), (40, 140, 353, 168), "J'S TOOLS"),
 ]
 
 
