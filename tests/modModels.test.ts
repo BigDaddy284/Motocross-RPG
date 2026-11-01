@@ -7,6 +7,8 @@ import {
   checkModel,
   FIGURE_LIMITS,
   FIGURE_PARTS,
+  STAND_LIMITS,
+  STAND_MODELS,
   glbInfo,
   GRID_PER_METRE,
   LOCKED_ITEMS,
@@ -250,6 +252,20 @@ describe('the rules for each kind of model', () => {
     expect(ok('sidecar_crew.glb', crew(7192))).toEqual([]);
     expect(ok('sidecar_crew.glb', crew(8001)).join(' ')).toMatch(/triangles/);
     expect(ok('sidecar_crew.glb', crew(7192, ['Body'])).join(' ')).toMatch(/Rider, Passenger/);
+  });
+
+  it("takes a stand model for each marshal, flag man and pit crew design, on the ground, under 8,000 triangles (Boss, 1 Nov 2026)", () => {
+    // The designs the game builds a stand for (world/trackside.ts marshalStand and pitCrewParts), and no others.
+    expect(Object.keys(STAND_MODELS).sort()).toEqual(['bales', 'pallet', 'tower', 'wall']);
+    for (const id of Object.values(STAND_MODELS)) {
+      expect(modelRole(id, scenery)).toBe('stand');
+      expect(scenery.some((s) => s.id === id)).toBe(false);
+    }
+    // Boss's roofed tower: 2.4 m square with its stairs, the canopy about 4 m up, 2,712 triangles.
+    const tower = (tris: number, floor = 0): ModelInfo => info([-1.2, floor, -1.9], [1.2, 4.1, 1.2], tris);
+    expect(ok('stand_tower.glb', tower(2712))).toEqual([]);
+    expect(ok('stand_tower.glb', tower(STAND_LIMITS.tris + 1)).join(' ')).toMatch(/triangles/);
+    expect(ok('stand_tower.glb', tower(2712, 1)).join(' ')).toMatch(/ground/);
   });
 
   it('lets a rider sit on the pegs, off the ground', () => {

@@ -78,6 +78,18 @@ export const SIDECAR_CREW = 'sidecar_crew';
  * rider's seat through a right-hander; Jump, crouched on the platform holding the grab rail in the
  * air. Each is blended in as the outfit turns or flies; a figure without them is moved whole about its hips.
  */
+/**
+ * The stands the marshal, the flag man and the pit crew stand on or behind, one model a design
+ * (Boss, 1 Nov 2026: the flag men's "platforms etc", upgraded from real MX and SX refs): a marshal's
+ * or flag man's pallet stand, roofed tower or hay bales, and the pit crew's pit wall. Each is built
+ * at the game's own stand's size (MARSHAL_STANDS: a deck's top 1.0 m up, the tower's roof 3.3 m),
+ * its origin where the figure stands, on the ground, facing the track (Blender -Y). Its Team and
+ * TeamDark materials take the item's colour. A figure model's own Base still wins over it.
+ */
+export const STAND_MODELS: Readonly<Record<string, string>> = { pallet: 'stand_pallet', tower: 'stand_tower', bales: 'stand_bales', wall: 'pit_wall' };
+/** A stand model's materials that take the item's colour, and a darker shade of it. */
+export const STAND_SLOTS = ['team', 'teamdark'] as const;
+
 export const SIDECAR_CREW_POSES = ['Left', 'Right', 'Jump'] as const;
 
 /**
@@ -109,6 +121,8 @@ export const RIDER_LIMITS: ModelLimits = { tris: 6000, long: 2.4, tall: 2.0 };
 export const CREW_LIMITS: ModelLimits = { tris: 8000, long: 2.6, tall: 2.0 };
 /** Moving figures: a crowd can have dozens of fans; a flag man's tower is about 5 m tall. */
 export const FIGURE_LIMITS: ModelLimits = { tris: 8000, long: 8, tall: 8 };
+/** A marshal's, flag man's or pit crew's stand (STAND_MODELS): one on every post, so light; a tower's canopy is about 4 m up. */
+export const STAND_LIMITS: ModelLimits = { tris: 8000, long: 5, tall: 6 };
 /** The highest a rider model's lowest point (its boots on the pegs) can be, in metres. */
 export const RIDER_FEET = 0.6;
 /** Grid units a metre: world/paddock.ts U (trackSurface BIKE_LENGTH 1.1 over a 1.46 m bike), here so vite.config.ts can use it. */
@@ -161,7 +175,7 @@ export interface ModelEntry {
   def?: SceneryDef;
 }
 
-export type ModelRole = 'replace' | 'new' | 'bike' | 'rider' | 'figure' | 'crew';
+export type ModelRole = 'replace' | 'new' | 'bike' | 'rider' | 'figure' | 'crew' | 'stand';
 
 /**
  * The moving figures whose parts can be swapped for a model's (Boss, 31 Oct 2026): each part is an
@@ -208,12 +222,13 @@ export function modelRole(id: string, scenery: { id: string }[]): ModelRole {
   if (id === RACE_RIDER) return 'rider';
   if (id === SIDECAR_CREW) return 'crew';
   if (FIGURE_PARTS[id]) return 'figure';
+  if (Object.values(STAND_MODELS).includes(id)) return 'stand';
   return scenery.some((s) => s.id === id) ? 'replace' : 'new';
 }
 
 /** The limits for a model of this role. */
 export function limitsFor(role: ModelRole): ModelLimits {
-  return role === 'bike' ? BIKE_LIMITS : role === 'rider' ? RIDER_LIMITS : role === 'crew' ? CREW_LIMITS : role === 'figure' ? FIGURE_LIMITS : SCENERY_LIMITS;
+  return role === 'bike' ? BIKE_LIMITS : role === 'rider' ? RIDER_LIMITS : role === 'crew' ? CREW_LIMITS : role === 'figure' ? FIGURE_LIMITS : role === 'stand' ? STAND_LIMITS : SCENERY_LIMITS;
 }
 
 /** The size of a model's box in metres: length (X), depth (glTF Z, Blender Y) and height (Y). */

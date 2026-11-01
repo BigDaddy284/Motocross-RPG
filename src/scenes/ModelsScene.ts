@@ -86,7 +86,7 @@ export class ModelsScene extends Phaser.Scene {
       note: `Parts: ${FIGURE_PARTS[id].join(', ')}`,
       make: () => view.builtInItem(id),
     }));
-    const role = { replace: 'Replaces the built-in one', new: 'New item in the track editor', bike: 'Replaces the race bike', rider: 'Replaces the race rider', figure: 'Moving figure: its parts replace the game\'s', crew: 'The rider and passenger on every sidecar' };
+    const role = { replace: 'Replaces the built-in one', new: 'New item in the track editor', bike: 'Replaces the race bike', rider: 'Replaces the race rider', figure: 'Moving figure: its parts replace the game\'s', crew: 'The rider and passenger on every sidecar', stand: 'A marshal, flag man or pit crew stand for one design' };
     const mine: Row[] = modelList()
       .sort((a, b) => a.file.localeCompare(b.file))
       .map((m) => ({

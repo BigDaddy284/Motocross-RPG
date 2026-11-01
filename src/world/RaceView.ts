@@ -22,7 +22,7 @@ import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../c
 import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
 import { LOCKED_ITEMS } from '../core/modModels';
 import { SIDECAR_CLASS } from '../core/sidecar';
-import { sidecarCrew, BIKE_PAINT, bikeModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
+import { sidecarCrew, BIKE_PAINT, bikeModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, standModel, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
 // isometric camera in the spirit of Super Off Road's overhead arcade view. The track is solid
@@ -2013,7 +2013,7 @@ export class RaceView {
   private marshalFigure(g: THREE.Group, it: SceneryItem, def: SceneryDef): void {
     const i = this.itemIndex(it);
     const built = marshalParts(def, it, i);
-    if (built.base.length) g.add(Object.assign(this.mergeParts(built.base), { name: 'Base' }));
+    this.addStand(g, MARSHAL_ITEM, built);
     const figure = new THREE.Group();
     figure.name = 'Body';
     figure.position.set(built.feet[0] * METRE, built.feet[1] * METRE, built.feet[2] * METRE);
@@ -2091,11 +2091,21 @@ export class RaceView {
     g.rotation.y = -Math.atan2(at.y - it.y, at.x - it.x) + Math.PI / 2;
   }
 
+  /**
+   * A marshal's, flag man's or pit crew's stand: Boss's model for the design (core STAND_MODELS),
+   * in the item's colour, else the game's own. A figure model with its own Base keeps that instead (fitFigure).
+   */
+  private addStand(g: THREE.Group, type: string, built: { base: THREE.Mesh[]; variant: string; colour: number }): void {
+    const model = this.builtIn || figureHas(type, 'Base') ? null : standModel(built.variant, built.colour, shade(built.colour, 0.7));
+    if (model) g.add(Object.assign(model, { name: 'Base' }));
+    else if (built.base.length) g.add(Object.assign(this.mergeParts(built.base), { name: 'Base' }));
+  }
+
   /** The flag man: his stand, the figure, and each arm with its flag, the view raising them in turn. */
   private flaggerFigure(g: THREE.Group, it: SceneryItem, def: SceneryDef): void {
     const i = this.itemIndex(it);
     const built = flaggerParts(def, it, i);
-    if (built.base.length) g.add(Object.assign(this.mergeParts(built.base), { name: 'Base' }));
+    this.addStand(g, FLAGGER_ITEM, built);
     const figure = this.standingFigure(built.figure, built.feet);
     const white = Object.assign(this.pivotArm(built.white, built.left, built.feet), { name: 'WhiteArm' });
     const chequered = Object.assign(this.pivotArm(built.chequered, built.right, built.feet), { name: 'ChequeredArm' });
@@ -2125,7 +2135,7 @@ export class RaceView {
   private pitCrewFigure(g: THREE.Group, it: SceneryItem, def: SceneryDef): void {
     const i = this.itemIndex(it);
     const built = pitCrewParts(def, it, i);
-    if (built.base.length) g.add(Object.assign(this.mergeParts(built.base), { name: 'Base' }));
+    this.addStand(g, PIT_CREW_ITEM, built);
     const figure = this.standingFigure(built.figure, built.feet);
     const arms = Object.assign(this.pivotArm(built.arms, built.shoulder, built.feet), { name: 'Arms' });
     figure.add(arms);
