@@ -13,7 +13,7 @@ import { BIKE_LENGTH, CAM_AZ, LIP_AT, LOGS_AT, STACK_AT, TYRE_BED_ROWS, TYRE_ROW
 import { downPhase } from '../core/crashRecovery';
 import { APPROACH as TRICK_APPROACH, trickPose, type Trick } from '../core/tricks';
 import { COLORS, TEXT_RES } from '../ui/theme';
-import { haulerWords, HAULER_ITEM, isPaddock, paddockColour, paddockSetup, showsInSetup } from '../core/paddock';
+import { haulerWords, HAULER_ITEM, isPaddock, paddockColour, paddockSetup, paddockVariant, showsInSetup } from '../core/paddock';
 import { paddockParts, U as METRE, type StandBike } from './paddock';
 import { FACES_TRACK, flaggerParts, MATE_AT, marshalParts, pitCrewParts, starterBox, tracksideParts, type Label } from './trackside';
 import { FIREWORK_LEAD, fireworkShow, fireworksDue, hasFireworks, ROCKET_RISE, type Rocket } from '../core/fireworks';
@@ -1945,17 +1945,18 @@ export class RaceView {
   }
 
   /**
-   * A vehicle model set up as picked (Boss, 1 Nov 2026): parts with a `setups` custom property
-   * show only in those set-ups (core/paddock.ts showsInSetup), and each empty named StandBike
+   * A vehicle or trackside model set up as picked (Boss, 1 Nov 2026): parts with a `setups` (or
+   * `variants`) custom property show only in those set-ups (or designs) (core/paddock.ts showsInSetup), and each empty named StandBike
    * (shown in this set-up) gets a race bike on the paddock stand, in a colour picked for it, added
    * to `g` where the empty stands (bikeOnStandModel).
    */
-  private vehicleSetup(model: THREE.Group, g: THREE.Group, setup: string | undefined, index: number): void {
+  private vehicleSetup(model: THREE.Group, g: THREE.Group, setup: string | undefined, variant: string | undefined, index: number): void {
     const hidden: THREE.Object3D[] = [];
     const spots: THREE.Object3D[] = [];
     model.traverse((o) => {
       if (o === model) return;
-      if (!showsInSetup(o.userData.setups, setup)) hidden.push(o);
+      // A `variants` property works the same for the item's designs (a camera operator standing or kneeling; Boss, 1 Nov 2026).
+      if (!showsInSetup(o.userData.setups, setup) || !showsInSetup(o.userData.variants, variant)) hidden.push(o);
       // StandBike, StandBike.001 (three.js loads it as StandBike001) and so on.
       else if (/^standbike\d*$/i.test(o.name.replace(/[._]\d+$/, ''))) spots.push(o);
     });
@@ -2116,7 +2117,7 @@ export class RaceView {
       const paddock = def && isPaddock(def);
       const tint = paddock ? hex(paddockColour(def, it, index), color) : color;
       const words = it.type === HAULER_ITEM && def ? (it.text ?? haulerWords(paddockColour(def, it, index))) : text;
-      if (paddock) this.vehicleSetup(custom, g, paddockSetup(def, it, index), index);
+      if (paddock) this.vehicleSetup(custom, g, paddockSetup(def, it, index), paddockVariant(def, it, index), index);
       // Its Team and TeamDark materials take the item's colour, as the game's own item does (Boss, 1 Nov 2026).
       paintModel(custom, { team: tint, teamdark: shade(tint, 0.7) }, STAND_PAINT);
       // Its Text material shows the item's words on its colour, as the game's own banner does (Boss, 1 Nov 2026).
