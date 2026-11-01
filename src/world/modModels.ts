@@ -128,8 +128,9 @@ export function bikeModel(cls: string): THREE.Group | null {
   if (target !== null && own > 0) {
     const k = target / own;
     youth.scale.multiplyScalar(k);
-    // A youth class's rider is a child, scaled with their bike; a 125's rider stays full size.
-    if (kind === 'youth') youth.userData.riderScale = k;
+    // A youth class's rider is a child, scaled to their bike's size beside a full-size bike's, so
+    // the rider's size doesn't hang on how big the youth model was built; a 125's rider stays full size.
+    if (kind === 'youth') youth.userData.riderScale = target / full();
   }
   return youth;
 }
