@@ -1952,7 +1952,7 @@ export class RaceView {
    * (shown in this set-up) gets a race bike on the paddock stand, in a colour picked for it, added
    * to `g` where the empty stands (bikeOnStandModel).
    */
-  private vehicleSetup(model: THREE.Group, g: THREE.Group, setup: string | undefined, variant: string | undefined, index: number): void {
+  private vehicleSetup(model: THREE.Group, g: THREE.Group, setup: string | undefined, variant: string | undefined, index: number, tint: number): void {
     const hidden: THREE.Object3D[] = [];
     const spots: THREE.Object3D[] = [];
     model.traverse((o) => {
@@ -1971,7 +1971,8 @@ export class RaceView {
       let inModel = false;
       model.traverse((x) => { if (x === o) inModel = true; });
       if (!inModel) return;
-      const bike = bikeOnStandModel('adult', colours[Math.floor(noise(index * 13 + k * 7) * colours.length)]);
+      // A StandBike with a custom property colour = "item" is in the item's colour (a bike wash's bike), as the game's own.
+      const bike = bikeOnStandModel('adult', o.userData.colour === 'item' ? tint : colours[Math.floor(noise(index * 13 + k * 7) * colours.length)]);
       if (!bike) return;
       const at = o.getWorldPosition(new THREE.Vector3());
       const turn = new THREE.Euler().setFromQuaternion(o.getWorldQuaternion(new THREE.Quaternion()), 'YXZ');
@@ -2122,7 +2123,7 @@ export class RaceView {
       const paddock = def && isPaddock(def);
       const tint = paddock ? hex(paddockColour(def, it, index), color) : color;
       const words = it.type === HAULER_ITEM && def ? (it.text ?? haulerWords(paddockColour(def, it, index))) : text;
-      if (paddock) this.vehicleSetup(custom, g, paddockSetup(def, it, index), paddockVariant(def, it, index), index);
+      if (paddock) this.vehicleSetup(custom, g, paddockSetup(def, it, index), paddockVariant(def, it, index), index, tint);
       // Its Team and TeamDark materials take the item's colour, as the game's own item does (Boss, 1 Nov 2026).
       paintModel(custom, { team: tint, teamdark: shade(tint, 0.7) }, STAND_PAINT);
       // Its Text material shows the item's words on its colour, as the game's own banner does (Boss, 1 Nov 2026).
