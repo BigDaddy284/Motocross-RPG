@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { lastReleasedArea } from '../core/areas';
 import { bikeStats, formatMoney, raceStopper, type Bike } from '../core/career';
 import { formatTime, gateBonus, setTestAlwaysWin, type LapTrace, type MotoSim, type RaceEvent, type RiderResult, type TrackDef } from '../core/race';
 import { PLAYER_ID, RaceDay, applyRide, playerEntrant, practiceSim, sumXp, trackById, type MotoRecord, type VenueDef } from '../core/raceDay';
@@ -1679,7 +1680,7 @@ export class RaceScene extends Phaser.Scene {
       this.btn(W / 2 + 300, 670, 'Back to the paddock', () => this.done(`${def.short} round ${done}: ${ordinal(me.position)} in the championship.`), 300, 50);
       return;
     }
-    const fin = finishChampionship(career, this.save.flags, def, points);
+    const fin = finishChampionship(career, this.save.flags, def, points, lastReleasedArea(services.content.areas));
     // Spec 16.1: a championship win counts for reputation, and finishing one opens a sponsor offer window from Area 5.
     const sponsors = services.content.sponsors;
     const kind = def.id.includes('local_champion') ? 'local_champion' : 'main';

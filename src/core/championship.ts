@@ -361,7 +361,8 @@ export interface ChampionshipFinish {
  * Closes a championship after its last round: the reward for the top three (a replay's share of
  * the money, and no flag it already set), and the record of it.
  */
-export function finishChampionship(career: CareerState, flags: Record<string, boolean>, def: ChampionshipDef, points: number[]): ChampionshipFinish {
+/** lastArea: the highest area this build releases (areas.json release); a win that would open a later one opens nothing. */
+export function finishChampionship(career: CareerState, flags: Record<string, boolean>, def: ChampionshipDef, points: number[], lastArea = Number.POSITIVE_INFINITY): ChampionshipFinish {
   const state = champState(career);
   const active = state.active[def.id];
   const me = standings(points, active).find((r) => r.player)!;
@@ -377,6 +378,6 @@ export function finishChampionship(career: CareerState, flags: Record<string, bo
   career.money += money;
   if (reward?.flag) flags[reward.flag] = true;
   if (me.position === 1 && def.milestone) flags[milestoneFlag(def.milestone)] = true;
-  if (me.position === 1 && def.opens) flags[areaFlag(def.opens)] = true;
+  if (me.position === 1 && def.opens && def.opens <= lastArea) flags[areaFlag(def.opens)] = true;
   return { position: me.position, money, flag: reward?.flag, title: me.position === 1 && !firstWin ? undefined : reward?.title, firstWin };
 }
