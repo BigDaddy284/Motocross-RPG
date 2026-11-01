@@ -31,6 +31,20 @@ export const MODEL_INDEX = `${MODEL_DIR}index.json`;
 export const RACE_BIKE = 'race_bike';
 /** The race bike for the youth classes (50 to 85 cc). */
 export const RACE_BIKE_YOUTH = 'race_bike_youth';
+
+/**
+ * Which race bike model a class rides (Boss, 1 Nov 2026): the youth classes up to 85 cc ride the
+ * youth model; the 125s, two-strokes like it, ride the youth model scaled up to the adult model's
+ * size; the 250F and up, and the vets, ride the adult (four-stroke) model.
+ */
+export type RaceBikeKind = 'youth' | 'two-stroke' | 'adult';
+export function raceBikeKind(cls: string): RaceBikeKind {
+  const cc = parseInt(cls, 10);
+  if (!Number.isFinite(cc)) return 'adult';
+  return cc <= 85 ? 'youth' : cc <= 125 ? 'two-stroke' : 'adult';
+}
+/** The game's own adult bike's length in metres, the size a scaled-up youth model takes when there's no adult model. */
+export const ADULT_BIKE_METRES = 2.18;
 /** The rider on the race bikes. */
 export const RACE_RIDER = 'race_rider';
 

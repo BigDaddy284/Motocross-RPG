@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { BIKE_SLOTS, checkModel, FAN_SLOTS, PIT_CREW_SLOTS, FIGURE_PARTS, partName, glbInfo, MODEL_DIR, MODEL_INDEX, modelDef, modelId, modelRole, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, RIDER_SLOTS, materialSlot, type ModelEntry } from '../core/modModels';
+import { ADULT_BIKE_METRES, BIKE_SLOTS, checkModel, FAN_SLOTS, PIT_CREW_SLOTS, FIGURE_PARTS, partName, glbInfo, MODEL_DIR, MODEL_INDEX, modelDef, modelId, modelRole, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, RIDER_SLOTS, materialSlot, type ModelEntry, type RaceBikeKind } from '../core/modModels';
 import type { SceneryDef } from '../core/trackParts';
 import { U } from './paddock';
 
@@ -104,9 +104,28 @@ export function figureHas(id: string, part: string): boolean {
   return found;
 }
 
-/** The race bike to draw for a class: the youth model for youth classes when there is one. */
-export function bikeModel(youth: boolean): THREE.Group | null {
-  return (youth ? modModel(RACE_BIKE_YOUTH) : null) ?? modModel(RACE_BIKE);
+/**
+ * The race bike to draw for a class (core raceBikeKind): the youth model for the youth classes, the
+ * youth model scaled up to the adult model's length for the 125s, else the adult model. Without a
+ * youth model, every class falls back to the adult one.
+ */
+export function bikeModel(kind: RaceBikeKind): THREE.Group | null {
+  if (kind === 'adult') return modModel(RACE_BIKE);
+  const youth = modModel(RACE_BIKE_YOUTH);
+  if (!youth) return modModel(RACE_BIKE);
+  if (kind === 'youth') return youth;
+  // Scaled about its origin (mid-wheelbase, on the ground), so the wheels stay on the ground.
+  const adult = modModel(RACE_BIKE);
+  const target = adult ? lengthOf(adult) : ADULT_BIKE_METRES * U;
+  const own = lengthOf(youth);
+  if (own > 0) youth.scale.multiplyScalar(target / own);
+  return youth;
+}
+
+/** A model's length, bumper to bumper (its X). */
+function lengthOf(o: THREE.Object3D): number {
+  const box = new THREE.Box3().setFromObject(o);
+  return box.max.x - box.min.x;
 }
 
 export function riderModel(): THREE.Group | null {

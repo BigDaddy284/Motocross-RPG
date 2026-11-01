@@ -21,6 +21,7 @@ import {
   partName,
   RIDER_SLOTS,
   FAN_SLOTS,
+  raceBikeKind,
   PIT_CREW_SLOTS,
   BIKE_SLOTS,
   SCENERY_LIMITS,
@@ -249,5 +250,11 @@ describe('the rules for each kind of model', () => {
   it("knows every one of the game's locked items", () => {
     const ids = new Set(readPublic<{ scenery: { id: string }[] }>('data/trackParts.json').scenery.map((s) => s.id));
     for (const id of LOCKED_ITEMS) expect(ids.has(id)).toBe(true);
+  });
+
+  it('picks each class its race bike model (Boss, 1 Nov 2026)', () => {
+    for (const cls of ['50cc', '65cc', '85cc-small', '85cc-big']) expect(raceBikeKind(cls)).toBe('youth');
+    for (const cls of ['125cc-youth', '125cc']) expect(raceBikeKind(cls)).toBe('two-stroke');
+    for (const cls of ['250f', '450f', 'vets-40', 'vets-50', 'vets-60']) expect(raceBikeKind(cls)).toBe('adult');
   });
 });
