@@ -84,7 +84,7 @@ describe("the champion's kit", () => {
     expect(r.startLook).toBe('player-f-start-b');
     expect(awardOutfit(kit, r).ok).toBe(false);
     expect(wearOutfit(kit, r).ok).toBe(true);
-    expect(r.look).toBe('player-f-mxgear');
+    expect(r.look).toBe('player-f-champion-kit'); // its own gold and black sheet (Boss, 1 Nov 2026)
   });
 
   it('content check: the kit must be an award outfit that exists', () => {
