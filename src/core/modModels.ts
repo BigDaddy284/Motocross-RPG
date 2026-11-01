@@ -71,6 +71,14 @@ export const SIDECAR_MODEL = 'sidecar';
  * Without it, sidecars carry the race rider and no passenger.
  */
 export const SIDECAR_CREW = 'sidecar_crew';
+/**
+ * Shape keys the sidecar crew's figures can carry for their own poses (Boss, 1 Nov 2026, from his
+ * video and photos): Left, the passenger hanging out low over the chair through a left-hander,
+ * feet on the foothold and a hand on the grab rail; Right, the passenger across on the back of the
+ * rider's seat through a right-hander; Jump, crouched on the platform holding the grab rail in the
+ * air. Each is blended in as the outfit turns or flies; a figure without them is moved whole about its hips.
+ */
+export const SIDECAR_CREW_POSES = ['Left', 'Right', 'Jump'] as const;
 
 /**
  * Scenery whose look the race view moves or sizes as it goes, so a plain model can't stand in for

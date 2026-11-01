@@ -2613,12 +2613,35 @@ export class RaceView {
     c.tuck += ((air ? 1 : 0) - c.tuck) * ease;
     const rider = c.pivots.get('Rider');
     const passenger = c.pivots.get('Passenger');
+    const out = Math.max(0, -c.hang);
+    const over = Math.max(0, c.hang);
+    // A figure with its own poses as shape keys (Left, Right, Jump; core SIDECAR_CREW_POSES) blends
+    // between them and stays on its hips: the passenger's hang-out, climb across and jump grip as
+    // Boss shaped them. Without them, the whole figure is moved and turned about its hips.
+    const posed = new Set<THREE.Object3D>();
+    for (const pivot of [rider, passenger]) {
+      if (!pivot) continue;
+      pivot.traverse((o) => {
+        const m = o as THREE.Mesh;
+        const keys = m.isMesh ? m.morphTargetDictionary : undefined;
+        if (!keys || !m.morphTargetInfluences) return;
+        const set = (name: string, v: number) => {
+          const i = keys[name] ?? keys[name.toLowerCase()];
+          if (i !== undefined) {
+            m.morphTargetInfluences![i] = v;
+            posed.add(pivot);
+          }
+        };
+        set('Left', out);
+        set('Right', over);
+        set('Jump', c.tuck);
+      });
+    }
     // Model metres: +X forward, Y up, +Z to the right (the chair is at -Z).
     for (const [pivot, k] of [[rider, 0.35], [passenger, 1]] as const) {
-      if (!pivot) continue;
+      if (!pivot || posed.has(pivot)) continue;
       const rest = pivot.userData.rest as THREE.Vector3;
-      const out = Math.max(0, -c.hang); // left-hander: out over the chair
-      const over = Math.max(0, c.hang); // right-hander: across over the bike
+      // A left-hander: out over the chair; a right-hander: across over the bike.
       pivot.position.set(rest.x - 0.12 * c.tuck * k - 0.1 * over * k, rest.y - (0.1 * c.tuck + 0.12 * out) * k, rest.z - 0.28 * out * k + 0.38 * over * k);
       // Roll about the direction of travel into the turn, and bend forward in a tuck.
       pivot.rotation.set(0.7 * c.hang * k, 0, -0.35 * c.tuck);
