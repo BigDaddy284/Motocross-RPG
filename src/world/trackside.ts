@@ -1017,6 +1017,11 @@ export interface PitCrewBuilt {
   board: [number, number, number];
   /** The team's colour: their shirt and cap. */
   colour: number;
+  /** The design: standing, behind a pit wall, or with a mate beside them. */
+  variant: string;
+  /** The mate beside them (the pair design; else empty), standing at mateAt, in metres in the item's frame. */
+  mate: Build['parts'];
+  mateAt: [number, number, number];
 }
 
 /**
@@ -1031,9 +1036,10 @@ export function pitCrewParts(def: SceneryDef, it: SceneryItem, i: number): PitCr
     // A low concrete pit wall in front of them, the lap side.
     b.box(0, 0, 0.75, 2.4, 0.9, 0.3, 0xb8b8b0);
     b.box(0, 0.9, 0.75, 2.4, 0.06, 0.34, 0xd8d8d0);
-  } else if (variant === 'pair') {
-    b.person(-0.9, -0.2, 0.4, i + 1, { shirt: col, arms: 'forward', held: [0.3, 0.2, 0.3, 0xc02020] });
   }
+  // The mate, a mechanic with a fuel can, built apart so a model's Mate can take their place (Boss, 1 Nov 2026).
+  const m = new Build();
+  if (variant === 'pair') m.person(-0.9, -0.2, 0.4, i + 1, { shirt: col, arms: 'forward', held: [0.3, 0.2, 0.3, 0xc02020] });
   const f = new Build();
   f.person(0, 0, 0, i, { shirt: col, trousers: BLACK, arms: 'down' });
   // A team cap.
@@ -1047,7 +1053,7 @@ export function pitCrewParts(def: SceneryDef, it: SceneryItem, i: number): PitCr
   // A handle across both hands, and the pole running on from it, so held out the board is at its end.
   a.box(0, 0.72, 0.06, 0.66, 0.05, 0.05, 0xc8c8c8);
   a.pole(0, -0.05, 0.06, 0.8, 0xc8c8c8, 0.04);
-  return { base: b.parts, figure: f.parts, arms: a.parts, feet: [0, 0, 0], shoulder: [0, 1.45, 0], board: [0, -1.5, 0.06], colour: col };
+  return { base: b.parts, figure: f.parts, arms: a.parts, feet: [0, 0, 0], shoulder: [0, 1.45, 0], board: [0, -1.5, 0.06], colour: col, variant, mate: m.parts, mateAt: [-0.9, 0, -0.2] };
 }
 
 /** The meshes and labels of a trackside item, in its own frame, or null for an item built elsewhere (the paddock vehicles). */

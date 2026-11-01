@@ -111,6 +111,10 @@ interface PitCrew {
   figure: THREE.Group;
   arms: THREE.Mesh;
   board: THREE.Mesh;
+  /** The whole item, for painting a model's team colours (the mate's too). */
+  root: THREE.Object3D;
+  /** How far the arms are turned forward while waiting: down by their side, or the pole resting out over a pit wall. */
+  rest: number;
   /** The board's offset from the shoulder before the arms swing, and the shoulder's from the feet (scene units). */
   boardAt: THREE.Vector3;
   shoulderAt: THREE.Vector3;
@@ -2111,13 +2115,21 @@ export class RaceView {
     board.userData.gameOnly = true;
     figure.add(board);
     g.add(figure);
-    this.fitFigure(PIT_CREW_ITEM, g, [['Base', g], ['Body', figure], ['Arms', arms]], { keep: [board] });
+    // The mate beside them, still, for a model's Mate (Boss, 1 Nov 2026).
+    const mate = built.mate.length ? Object.assign(this.pivotArm(built.mate, built.mateAt, built.feet), { name: 'Mate' }) : null;
+    if (mate) g.add(mate);
+    const pivots: [string, THREE.Object3D][] = [['Base', g], ['Body', figure], ['Arms', arms]];
+    if (mate) pivots.push(['Mate', mate]);
+    this.fitFigure(PIT_CREW_ITEM, g, pivots, { keep: [board] });
     // A model's Team and TeamTrim materials take the crew's own colour until the race gives them a rider (updateFinishCrew).
-    paintModel(figure, { team: built.colour, teamtrim: shade(built.colour, 0.78) }, PIT_CREW_PAINT);
+    paintModel(g, { team: built.colour, teamtrim: shade(built.colour, 0.78) }, PIT_CREW_PAINT);
     this.faceTrack(g, it);
     const crew: PitCrew = {
       index: this.crews.length,
       spot: crewSpot(this.surface.g, it),
+      root: g,
+      // Behind a pit wall the pole rests out over the wall, so the board never swings through it (Boss, 1 Nov 2026).
+      rest: built.variant === 'wall' ? 1.3 : 0.35,
       figure,
       arms,
       board,
@@ -2159,7 +2171,7 @@ export class RaceView {
   /** Puts the arms and the board where the crew's lean (k) has them: down by their side, or held out towards the track. */
   private poseCrew(c: PitCrew): void {
     const k = c.k;
-    c.arms.rotation.x = -0.35 - 1.45 * k;
+    c.arms.rotation.x = -c.rest - (1.8 - c.rest) * k;
     c.figure.rotation.x = 0.2 * k;
     const p = c.boardAt.clone().applyAxisAngle(new THREE.Vector3(1, 0, 0), c.arms.rotation.x).add(c.shoulderAt);
     c.board.position.copy(p);
@@ -2204,7 +2216,7 @@ export class RaceView {
         const r = riders.find((x) => x.pose.id === c.rider);
         if (!r) return;
         const team = bikeColours(r.color, r.player, r.look).plastics;
-        paintModel(c.figure, { team, teamtrim: shade(team, 0.78) }, PIT_CREW_PAINT);
+        paintModel(c.root, { team, teamtrim: shade(team, 0.78) }, PIT_CREW_PAINT);
       });
     }
     for (const c of this.crews) {

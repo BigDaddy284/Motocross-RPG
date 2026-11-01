@@ -129,7 +129,8 @@ export const FIGURE_PARTS: Readonly<Record<string, readonly string[]>> = {
   marshal: ['Body', 'Arm', 'Forearm', 'Flag', 'Base'],
   // The same optional Forearm and Flag for each of the flag man's arms (Boss, 1 Nov 2026).
   flagger: ['Body', 'WhiteArm', 'WhiteForearm', 'WhiteFlag', 'ChequeredArm', 'ChequeredForearm', 'ChequeredFlag', 'Base'],
-  pit_crew: ['Body', 'Arms', 'Base'],
+  // Mate (the mechanic beside them, still) is optional, and shown only on the pair design (Boss, 1 Nov 2026).
+  pit_crew: ['Body', 'Arms', 'Mate', 'Base'],
   cheer: ['Body', 'LegL', 'LegR', 'ArmL', 'ArmR'],
   start_official: ['Body', 'LegL', 'LegR', 'ArmL', 'ArmR'],
 };
