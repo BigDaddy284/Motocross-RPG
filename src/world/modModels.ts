@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { ADULT_BIKE_METRES, BIKE_SLOTS, raceBikeKind, YOUTH_BIKE_METRES, checkModel, FAN_SLOTS, PIT_CREW_SLOTS, FIGURE_PARTS, partName, glbInfo, MODEL_DIR, MODEL_INDEX, modelDef, modelId, modelRole, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, RIDER_SLOTS, SIDECAR_CREW, SIDECAR_MODEL, materialSlot, type ModelEntry } from '../core/modModels';
+import { ADULT_BIKE_METRES, BIKE_SLOTS, checkBikeSizes, raceBikeKind, YOUTH_BIKE_METRES, checkModel, FAN_SLOTS, PIT_CREW_SLOTS, FIGURE_PARTS, partName, glbInfo, MODEL_DIR, MODEL_INDEX, modelDef, modelId, modelRole, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, RIDER_SLOTS, SIDECAR_CREW, SIDECAR_MODEL, materialSlot, type ModelEntry } from '../core/modModels';
 import type { SceneryDef } from '../core/trackParts';
 import { SIDECAR_CLASS } from '../core/sidecar';
 import { U } from './paddock';
@@ -249,6 +249,13 @@ export async function loadModModels(base: string, scenery: SceneryDef[]): Promis
       if (object && info && role === 'new') added.push(modelDef(id, info, U));
     }),
   );
+  // The 125s ride the youth bike scaled up to the race bike: check the pair comes out the right size (Boss, 1 Nov 2026).
+  const usable = (id: string) => (models.get(id)?.object ? models.get(id)!.info : null);
+  const youthBike = models.get(RACE_BIKE_YOUTH);
+  if (youthBike?.object) {
+    youthBike.warnings = checkBikeSizes(usable(RACE_BIKE_YOUTH), usable(RACE_BIKE));
+    for (const w of youthBike.warnings) console.warn(`mods/models/${youthBike.file}: ${w}`);
+  }
   for (const m of models.values()) if (m.problems.length) console.warn(`mods/models/${m.file}: ${m.problems.join(' ')}`);
   return added.sort((a, b) => a.id.localeCompare(b.id));
 }

@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { FIGURE_PARTS, LOCKED_ITEMS, MODEL_DIR, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, SIDECAR_CREW, SIDECAR_MODEL, modelName } from '../core/modModels';
 import { services } from '../services';
 import { glbOf, download, raceModels } from '../world/modelExport';
-import { modelList, modModel } from '../world/modModels';
+import { bikeModel, modelList, modModel } from '../world/modModels';
 import { U } from '../world/paddock';
 import { RaceView } from '../world/RaceView';
 
@@ -71,8 +71,10 @@ export class ModelsScene extends Phaser.Scene {
     const view = this.view!;
     const scenery = services.content.trackParts.scenery;
     const race: Row[] = [
-      { id: RACE_BIKE, label: 'Race bike', file: `${RACE_BIKE}.glb`, note: 'Bigger than 85cc', make: () => raceModels(false).bike },
-      { id: RACE_BIKE_YOUTH, label: 'Race bike (youth)', file: `${RACE_BIKE_YOUTH}.glb`, note: '85cc and under', make: () => raceModels(true).bike },
+      { id: RACE_BIKE, label: 'Race bike', file: `${RACE_BIKE}.glb`, note: '250F and up', make: () => raceModels(false).bike },
+      { id: RACE_BIKE_YOUTH, label: 'Race bike (youth)', file: `${RACE_BIKE_YOUTH}.glb`, note: '85cc and under at each class size; the 125s scaled up to the race bike', make: () => raceModels(true).bike },
+      // The 125s' bike beside the race bike, to check the scaled-up youth model looks right (Boss, 1 Nov 2026).
+      { id: 'race_bike_125', label: 'Race bike (125)', note: 'Your youth bike scaled up for the 125s, beside your race bike: they should match in size', make: () => bikePair() },
       { id: RACE_RIDER, label: 'Race rider', file: `${RACE_RIDER}.glb`, note: 'Sits on every race bike', make: () => raceModels(false).rider },
     ];
     const builtIn: Row[] = scenery
@@ -92,8 +94,8 @@ export class ModelsScene extends Phaser.Scene {
       .map((m) => ({
         id: m.id,
         label: m.file,
-        note: m.problems.length ? `Not used: ${m.problems.join(' ')}` : m.id === SIDECAR_MODEL ? 'Every outfit in a sidecar race' : role[m.role],
-        bad: m.problems.length > 0,
+        note: m.problems.length ? `Not used: ${m.problems.join(' ')}` : `${m.id === SIDECAR_MODEL ? 'Every outfit in a sidecar race' : role[m.role]}${m.warnings?.length ? `. Check: ${m.warnings.join(' ')}` : ''}`,
+        bad: m.problems.length > 0 || !!m.warnings?.length,
         make: () => modModel(m.id),
       }));
     this.page([
@@ -264,4 +266,19 @@ export class ModelsScene extends Phaser.Scene {
     this.root?.remove();
     this.root = null;
   }
+}
+
+/** The 125s' bike (the youth model scaled up) and the race bike side by side, or null without a youth model. */
+function bikePair(): THREE.Object3D | null {
+  if (!modelList().some((m) => m.id === RACE_BIKE_YOUTH && m.object)) return null;
+  const small = bikeModel('125cc');
+  if (!small) return null;
+  const g = new THREE.Group();
+  g.add(small);
+  const big = bikeModel('250f');
+  if (big && modelList().some((m) => m.id === RACE_BIKE && m.object)) {
+    big.position.z = -1.2 * U;
+    g.add(big);
+  }
+  return g;
 }
