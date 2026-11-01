@@ -13,7 +13,7 @@ import { BIKE_LENGTH, CAM_AZ, LIP_AT, LOGS_AT, STACK_AT, TYRE_BED_ROWS, TYRE_ROW
 import { downPhase } from '../core/crashRecovery';
 import { APPROACH as TRICK_APPROACH, trickPose, type Trick } from '../core/tricks';
 import { COLORS, TEXT_RES } from '../ui/theme';
-import { isPaddock } from '../core/paddock';
+import { haulerWords, HAULER_ITEM, isPaddock, paddockColour, paddockSetup, showsInSetup } from '../core/paddock';
 import { paddockParts, U as METRE, type StandBike } from './paddock';
 import { FACES_TRACK, flaggerParts, MATE_AT, marshalParts, pitCrewParts, starterBox, tracksideParts, type Label } from './trackside';
 import { FIREWORK_LEAD, fireworkShow, fireworksDue, hasFireworks, ROCKET_RISE, type Rocket } from '../core/fireworks';
@@ -1931,6 +1931,39 @@ export class RaceView {
   }
 
   /**
+   * A vehicle model set up as picked (Boss, 1 Nov 2026): parts with a `setups` custom property
+   * show only in those set-ups (core/paddock.ts showsInSetup), and each empty named StandBike
+   * (shown in this set-up) gets a race bike on the paddock stand, in a colour picked for it, added
+   * to `g` where the empty stands (bikeOnStandModel).
+   */
+  private vehicleSetup(model: THREE.Group, g: THREE.Group, setup: string | undefined, index: number): void {
+    const hidden: THREE.Object3D[] = [];
+    const spots: THREE.Object3D[] = [];
+    model.traverse((o) => {
+      if (o === model) return;
+      if (!showsInSetup(o.userData.setups, setup)) hidden.push(o);
+      else if (partName(o.name, ['StandBike'])) spots.push(o);
+    });
+    for (const o of hidden) o.removeFromParent();
+    if (!spots.length) return;
+    model.updateMatrixWorld(true);
+    const colours = [0xc21c15, 0x3b86da, 0xecbe2a, 0xa0c33e, 0xe07020, 0xf0f0f0];
+    spots.forEach((o, k) => {
+      // Only spots still in the model: one inside a part left out for this set-up goes with it.
+      let inModel = false;
+      model.traverse((x) => { if (x === o) inModel = true; });
+      if (!inModel) return;
+      const bike = bikeOnStandModel('adult', colours[Math.floor(noise(index * 13 + k * 7) * colours.length)]);
+      if (!bike) return;
+      const at = o.getWorldPosition(new THREE.Vector3());
+      const turn = new THREE.Euler().setFromQuaternion(o.getWorldQuaternion(new THREE.Quaternion()), 'YXZ');
+      bike.position.copy(at);
+      bike.rotation.y = turn.y;
+      g.add(bike);
+    });
+  }
+
+  /**
    * Plays a scenery model's own animations on a loop, each copy starting at its own point so a
    * row of them never moves as one.
    */
@@ -2002,10 +2035,16 @@ export class RaceView {
       const sx = def ? Math.max(0.1, w / def.w) : 1;
       const sz = def ? Math.max(0.1, d / def.h) : 1;
       custom.scale.set(sx, Math.min(sx, sz), sz);
+      // A paddock vehicle's colour and set-up are picked for it as for the game's own (core/paddock.ts; Boss, 1 Nov 2026).
+      const index = this.itemIndex(it);
+      const paddock = def && isPaddock(def);
+      const tint = paddock ? hex(paddockColour(def, it, index), color) : color;
+      const words = it.type === HAULER_ITEM && def ? (it.text ?? haulerWords(paddockColour(def, it, index))) : text;
+      if (paddock) this.vehicleSetup(custom, g, paddockSetup(def, it, index), index);
       // Its Team and TeamDark materials take the item's colour, as the game's own item does (Boss, 1 Nov 2026).
-      paintModel(custom, { team: color, teamdark: shade(color, 0.7) }, STAND_PAINT);
+      paintModel(custom, { team: tint, teamdark: shade(tint, 0.7) }, STAND_PAINT);
       // Its Text material shows the item's words on its colour, as the game's own banner does (Boss, 1 Nov 2026).
-      textFaces(custom, (aspect) => this.faceTexture(it, text, color, aspect));
+      textFaces(custom, (aspect) => this.faceTexture(it, words, tint, aspect));
       add(custom);
       this.playLoops(custom, this.itemIndex(it));
       if (custom.userData.clips) g.userData.moving = true;
