@@ -212,6 +212,31 @@ function noise(i: number): number {
   return x - Math.floor(x);
 }
 
+/** Banner pictures by URL, loaded once and shared; a load the browser cancels is tried again a few times before the words are kept (Boss, 1 Nov 2026). */
+const bannerImages = new Map<string, Promise<HTMLImageElement | null>>();
+function bannerImage(url: string): Promise<HTMLImageElement | null> {
+  let p = bannerImages.get(url);
+  if (!p) {
+    const once = () =>
+      new Promise<HTMLImageElement | null>((done) => {
+        const img = new Image();
+        img.onload = () => done(img);
+        img.onerror = () => done(null);
+        img.src = url;
+      });
+    p = (async () => {
+      for (let i = 0; i < 4; i++) {
+        const img = await once();
+        if (img) return img;
+        await new Promise((r) => setTimeout(r, 500 * (i + 1)));
+      }
+      return null;
+    })();
+    bannerImages.set(url, p);
+  }
+  return p;
+}
+
 export class RaceView {
   readonly surface: TrackSurface;
   /** The lap in metres, for distances along it in the race view (tricks). */
@@ -1679,12 +1704,13 @@ export class RaceView {
     const words = this.textTexture(text, color, '#ffffff', Math.min(2048, Math.max(64, Math.round(h * aspect))), h);
     const path = PICTURE_ITEMS.has(it.type) ? bannerPath(it.image) : null;
     if (!path) return words;
-    const tex = new THREE.TextureLoader().load(`${import.meta.env.BASE_URL}${path}`, undefined, undefined, () => {
-      tex.image = words.image;
+    // The words show until the picture arrives, and stay if it never does.
+    const tex = words;
+    void bannerImage(`${import.meta.env.BASE_URL}${path}`).then((img) => {
+      if (!img) return;
+      tex.image = img;
       tex.needsUpdate = true;
     });
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.anisotropy = 4;
     return tex;
   }
 
