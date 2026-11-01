@@ -65,6 +65,10 @@ describe('championships (Spec 12.5, 18.6)', () => {
     for (const c of content.championships.championships) for (const r of c.rewards) if (r.image) expect(publicFileExists(`assets/${r.image}`), r.image).toBe(true);
   });
 
+  it('gives Areas 2 to 8 their own numbered badge (placeholders like Area 1: Boss, 1 Nov 2026)', () => {
+    for (let n = 2; n <= 8; n++) expect(champById(content.championships, `area${n}.local_champion`)!.rewards[0].image).toBe(`art/ui/badge-area${n}.png`);
+  });
+
   it('rejects a round at a venue that has no race day, and a field bigger than its pool', () => {
     const bad = { championships: [{ ...local, rounds: ['backyard', 'nowhere'], size: 60 }] };
     const errs = checkChampionships(bad, content).map((e) => e.field);
