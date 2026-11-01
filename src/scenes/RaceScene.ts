@@ -1738,16 +1738,18 @@ export class RaceScene extends Phaser.Scene {
     // Stopping counts the lap you are on, as riding alone always has; a broken bike counts every lap run.
     const now = forced ? null : this.practiceNow();
     const laps = forced ? sim.player!.lapTimes : this.practiceLaps();
-    const payout = applyRide(services.content, career, now ? { ...sim.playerBike!, parts: now.parts } : sim.playerBike, -this.args.fee, now?.xp ?? sim.xp);
+    // Stopped before a lap was done (practice picked by accident): no practice fee (Boss, 1 Nov 2026).
+    const fee = laps.length ? this.args.fee : 0;
+    const payout = applyRide(services.content, career, now ? { ...sim.playerBike!, parts: now.parts } : sim.playerBike, -fee, now?.xp ?? sim.xp);
     const p = { lapTimes: laps };
     if (p.lapTimes.length) noteActivity(services.content.shops, career, 'activity');
     const c = this.openModal(760, 520);
     c.add(this.add.text(0, -220, forced ? 'Practice over: your bike is broken' : 'Practice done', textStyle(26, COLORS.accent)).setOrigin(0.5));
     const best = p.lapTimes.length ? formatTime(Math.min(...p.lapTimes)) : '—';
-    const lines = [`Laps: ${p.lapTimes.length}   Best lap: ${best}${this.args.fee ? `   Practice fee: ${formatMoney(this.args.fee)}` : ''}`, '', 'Practice XP (about a tenth of race XP)', ...this.xpLines(payout.xp), '', ...this.wearLines(before, career.bike.parts).slice(0, 4)];
+    const lines = [`Laps: ${p.lapTimes.length}   Best lap: ${best}${fee ? `   Practice fee: ${formatMoney(fee)}` : this.args.fee ? '   No practice fee taken' : ''}`, '', 'Practice XP (about a tenth of race XP)', ...this.xpLines(payout.xp), '', ...this.wearLines(before, career.bike.parts).slice(0, 4)];
     c.add(this.add.text(-330, -180, lines.join('\n'), textStyle(17, COLORS.cream, { lineSpacing: 4 })));
     if (payout.levelUps.length) c.add(this.add.text(-330, 150, payout.levelUps.map((u) => `Level up! ${u.name} is now level ${u.level}.`).join('\n'), textStyle(17, 0x9fe07a)));
-    c.add(button(this, 0, 215, 'Done', () => this.done(`Practice: ${p.lapTimes.length} laps, best ${best}.`), 220, 46));
+    c.add(button(this, 0, 215, 'Done', () => this.done(p.lapTimes.length ? `Practice: ${p.lapTimes.length} laps, best ${best}.` : 'Practice: no laps done, so no fee taken.'), 220, 46));
   }
 
   // ---- No-Turn Takedown knockouts (Boss, 30 Oct 2026) ----
