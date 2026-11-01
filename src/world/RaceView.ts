@@ -2112,7 +2112,7 @@ export class RaceView {
     figure.add(board);
     g.add(figure);
     this.fitFigure(PIT_CREW_ITEM, g, [['Base', g], ['Body', figure], ['Arms', arms]], { keep: [board] });
-    // A model's Team and TeamTrim materials take the crew's team colour (Boss, 1 Nov 2026).
+    // A model's Team and TeamTrim materials take the crew's own colour until the race gives them a rider (updateFinishCrew).
     paintModel(figure, { team: built.colour, teamtrim: shade(built.colour, 0.78) }, PIT_CREW_PAINT);
     this.faceTrack(g, it);
     const crew: PitCrew = {
@@ -2198,7 +2198,14 @@ export class RaceView {
     if (riders.length && this.crews.some((c) => c.rider === null)) {
       const player = riders.find((r) => r.player)?.pose.id ?? '';
       const picks = assignCrews(this.crews.length, riders.map((r) => r.pose.id), player, this.crews.length + Math.round(g.total));
-      this.crews.forEach((c, k) => (c.rider = picks[k] ?? ''));
+      this.crews.forEach((c, k) => {
+        c.rider = picks[k] ?? '';
+        // A model's crew wears the team colour of the rider they're boarding this race: their bike's (Boss, 1 Nov 2026).
+        const r = riders.find((x) => x.pose.id === c.rider);
+        if (!r) return;
+        const team = bikeColours(r.color, r.player, r.look).plastics;
+        paintModel(c.figure, { team, teamtrim: shade(team, 0.78) }, PIT_CREW_PAINT);
+      });
     }
     for (const c of this.crews) {
       const r = riders.find((x) => x.pose.id === c.rider);
