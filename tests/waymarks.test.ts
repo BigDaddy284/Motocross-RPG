@@ -46,7 +46,12 @@ describe('tutorial markers (Boss, 28 Oct 2026)', () => {
 
   it("doesn't send the rider down a road that is still shut", () => {
     expect(hop('area1-home-town', 'venue-motocross')).toBeNull();
-    expect(hop('area1-home-town', 'venue-motocross', { van_loaded: true })).toMatchObject({ kind: 'exit', to: 'venue-motocross' });
+    // The roadworks clear before the van is bought, at the end of the opening chain.
+    expect(hop('area1-home-town', 'venue-motocross', { van_loaded: true, roadworks_done: true })).toMatchObject({ kind: 'exit', to: 'venue-motocross' });
+    // Behind a roadblock is shut too (Boss, 1 Nov 2026): Home Town's north road opens with Area 2.
+    expect(hop('area1-home-town', 'venue-motocross', { van_loaded: true })).toBeNull();
+    const north = hop('area1-home-town', 'area2-mountain-town', { roadworks_done: true, 'area.2.open': true })!;
+    expect(north.via.map((o) => o.name)).toEqual(['North road']);
   });
 
   it('points to the work benches while short of the van money, then back to the van seller at £600 (Boss, 28 Oct 2026)', () => {

@@ -12,7 +12,8 @@ const T = 64;
 /** The Home Town map file as it stands (Alpha v1: 2×2 road exits and the local racer outside the garage). */
 // Updated for the Used Motors building and its seller (Boss, 28 Oct 2026), the garage renamed Phoenix MX and Used Motors renamed Nicholls Used Motors and the bike shop renamed Moto78 (29 Oct 2026).
 // The closed south road's edge row narrowed to the Capital's road width under the roadworks gravel (Boss, 31 Oct 2026: "slim it down to normal road width").
-const HOME_TOWN_SHA256 = 'd9eef01dc1fb73ff4ad8f2e4d20fdf61803a7c87fb0ea86afd5acd3621a9e9cc';
+// The north and south roads' roadworks became roadblocks with their exits, opened by Area 2 and by winning the Area 8 Championship (Boss, 1 Nov 2026).
+const HOME_TOWN_SHA256 = '41c26235c872bb57e092e6551038d50dd10671e363e01ac138e025fcb52036a7';
 
 function pngSize(rel: string): [number, number] {
   const b = fs.readFileSync(`public/assets/${rel}`);
