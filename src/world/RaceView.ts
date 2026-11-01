@@ -3,9 +3,9 @@ import Phaser from 'phaser';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { SceneryItem, TrackDef } from '../core/race';
-import { LOOP_RISE, START_HOLD, type RiderPose, type RiderState } from '../core/riderAI';
+import { LOOP_RISE, type RiderPose, type RiderState } from '../core/riderAI';
 import { CHEER_ITEM, CHEER_RANGE, CHEER_WALK, cheerAction, cheerColour, cheerRoute, cheerTiming, cheerVariant, REACT_SECONDS, VARIANT_SCALE, type CheerAction } from '../core/cheer';
-import { alongRoute, OFFICIAL_ITEM, OFFICIAL_SCALE, officialPlan, placedOfficial, routeLength, walkProgress, BOARD_MOVE, BOARD_SIDEWAYS, WALK_FROM, WALK_TO, type OfficialSpot } from '../core/startOfficial';
+import { alongRoute, boardPose, OFFICIAL_ITEM, OFFICIAL_SCALE, officialPlan, placedOfficial, routeLength, walkProgress, WALK_FROM, WALK_TO, type OfficialSpot } from '../core/startOfficial';
 import { gridOf, hiddenSpans, isSprint, NO_TURN_LANES, NO_TURN_PLATFORM, lapMetres, nearestOnLap, pointAt, RETURN_LANE, START_PAD, startPointAt } from '../core/trackGeom';
 import { DEFAULT_TRACK_WIDTH, trackKind, type SceneryDef, type TrackPartsData } from '../core/trackParts';
 import { archSpan, SPANS_TRACK, sprintPlace, SPRINT_START_ITEM, SurfaceIndex, surfacePoints } from '../core/trackClearance';
@@ -15,13 +15,14 @@ import { APPROACH as TRICK_APPROACH, trickPose, type Trick } from '../core/trick
 import { COLORS, TEXT_RES } from '../ui/theme';
 import { isPaddock } from '../core/paddock';
 import { paddockParts, U as METRE } from './paddock';
-import { FACES_TRACK, flaggerParts, marshalParts, pitCrewParts, starterBox, tracksideParts, type Label } from './trackside';
+import { FACES_TRACK, flaggerParts, MATE_AT, marshalParts, pitCrewParts, starterBox, tracksideParts, type Label } from './trackside';
 import { FIREWORK_LEAD, fireworkShow, fireworksDue, hasFireworks, ROCKET_RISE, type Rocket } from '../core/fireworks';
 import { APPROACH, assignCrews, BOARD_PAST, boardOut, boardText, crewSpot, FLAGGER_ITEM, flagState, PIT_CREW_ITEM } from '../core/finishCrew';
 import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../core/marshal';
-import { bikeColours, modelFor as bikeKind, raceBikeParts, type RaceLook } from './raceBike';
+import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
 import { LOCKED_ITEMS } from '../core/modModels';
-import { BIKE_PAINT, bikeModel, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
+import { SIDECAR_CLASS } from '../core/sidecar';
+import { sidecarCrew, BIKE_PAINT, bikeModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
 // isometric camera in the spirit of Super Off Road's overhead arcade view. The track is solid
@@ -78,8 +79,13 @@ interface Marshal {
   watch: Watch;
   figure: THREE.Group;
   arm: THREE.Mesh;
+  /** A model's forearm, at the elbow, and its flag, on the pole; empty on the game's own marshal. */
+  forearm: THREE.Group;
+  flag: THREE.Group;
   /** 0 flag down, 1 up and waving; eased between. */
   raise: number;
+  /** How far up the raised flag swings: overhead, or lower under the roof of a tower. */
+  reach: number;
   phase: number;
 }
 
@@ -89,6 +95,11 @@ interface Flagger {
   figure: THREE.Group;
   white: THREE.Mesh;
   chequered: THREE.Mesh;
+  /** A model's forearms, at the elbows, and flags, on the poles; empty on the game's own flag man. */
+  whiteForearm: THREE.Group;
+  whiteFlag: THREE.Group;
+  chequeredForearm: THREE.Group;
+  chequeredFlag: THREE.Group;
   /** How far each flag is up: 0 down, 1 up; eased, the white coming down before the chequered goes up. */
   wk: number;
   ck: number;
@@ -104,6 +115,10 @@ interface PitCrew {
   figure: THREE.Group;
   arms: THREE.Mesh;
   board: THREE.Mesh;
+  /** The whole item, for painting a model's team colours (the mate's too). */
+  root: THREE.Object3D;
+  /** How far the arms are turned forward while waiting: down by their side, or the pole resting out on a pit wall. */
+  rest: number;
   /** The board's offset from the shoulder before the arms swing, and the shoulder's from the feet (scene units). */
   boardAt: THREE.Vector3;
   shoulderAt: THREE.Vector3;
@@ -144,6 +159,10 @@ interface Bike {
   seat: THREE.Vector3;
   /** Which side a rider who comes off lands, 1 or -1. */
   side: number;
+  /** A sidecar outfit (core/sidecar.ts): it doesn't lean into corners. */
+  sidecar?: boolean;
+  /** A sidecar's rider and passenger from sidecar_crew.glb, each on a pivot at its hips (crewPose), and how far through a hang-out and a tuck they are. */
+  crew?: { pivots: Map<string, THREE.Group>; hang: number; tuck: number };
   /** The rider's kit colours, for their figure on foot. */
   kit: Kit;
   /** The rider on foot after a crash (crashRecovery.ts), made the first time they need it. */
@@ -1393,16 +1412,12 @@ export class RaceView {
   private updateStart(clock: number): void {
     if (this.board) {
       const { stand, panel, arms, legs, route, length } = this.board;
-      const ease = (x: number) => {
-        const t = Math.max(0, Math.min(1, x));
-        return t * t * (3 - 2 * t);
-      };
-      // How far up the board is: 0 held low, 1 held high. Practice has no start, so it stays low.
-      const up = !this.hasStart ? 0 : clock < WALK_TO ? ease((clock + START_HOLD) / BOARD_MOVE) : 1 - ease((clock - WALK_TO) / BOARD_MOVE);
-      // Low: in front of the official's legs, turned round so the white back faces out.
-      panel.position.set(0, 0.72 + (2.45 - 0.72) * up, 0.42 + (0.12 - 0.42) * up);
-      panel.rotation.set(0, Math.PI * (1 - up), clock >= BOARD_SIDEWAYS ? (Math.PI / 2) * up : 0);
-      for (const arm of arms) arm.rotation.x = 2.7 * (1 - up);
+      // The board's path (core boardPose): raised in front, flipped face out above their head,
+      // turned sideways and lowered again, never through the official; the arms follow its height.
+      const b = boardPose(clock, this.hasStart);
+      panel.position.set(0, b.y, b.z);
+      panel.rotation.set(0, b.flip, b.side);
+      for (const arm of arms) arm.rotation.x = 2.7 * (1 - b.arms);
       // The walk from A along the route to B, setting off and stopping gently, with the legs swinging in step.
       const k = !this.hasStart ? 0 : Math.max(0, Math.min(1, (clock - WALK_FROM) / (WALK_TO - WALK_FROM)));
       const walked = this.hasStart ? length * walkProgress(clock) : 0;
@@ -2010,14 +2025,28 @@ export class RaceView {
     arm.position.set((built.shoulder[0] - built.feet[0]) * METRE, (built.shoulder[1] - built.feet[1]) * METRE, (built.shoulder[2] - built.feet[2]) * METRE);
     arm.name = 'Arm';
     figure.add(arm);
+    // The elbow, and the cloth's edge on the pole, for a model's Forearm and Flag (the game's own arm is one piece).
+    const forearm = new THREE.Group();
+    forearm.name = 'Forearm';
+    forearm.position.set(0, -0.35 * METRE, 0);
+    arm.add(forearm);
+    const flag = new THREE.Group();
+    flag.name = 'Flag';
+    // At the foot of the game's pole (marshalParts), where its flag hangs, from the elbow.
+    flag.position.set(0.06 * METRE, (built.feet[1] + 0.12 - (built.shoulder[1] - 0.35)) * METRE, 0.12 * METRE);
+    forearm.add(flag);
     g.add(figure);
-    this.fitFigure(MARSHAL_ITEM, g, [['Base', g], ['Body', figure], ['Arm', arm]]);
+    const mate = this.mate(g, built.mate, MATE_AT);
+    const fitted = this.fitFigure(MARSHAL_ITEM, g, [['Base', g], ['Body', figure], ['Arm', arm], ['Forearm', forearm], ['Flag', flag], ...mate]);
+    // A model is built standing on the ground; without its own Base it stands on the game's stand, at its height.
+    if (fitted && !figureHas(MARSHAL_ITEM, 'Base')) figure.position.y += built.feet[1] * METRE;
     const watch = marshalWatch(this.surface.g, it);
     if (it.rot === undefined) {
       const at = watchFocus(this.surface.g, watch);
       g.rotation.y = -Math.atan2(at.y - it.y, at.x - it.x) + Math.PI / 2;
     }
-    this.marshals.push({ watch, figure, arm, raise: 0, phase: noise(i * 29 + 7) * Math.PI * 2 });
+    // On a tower the flag stays under the roof, as the flag man's does (Boss, 1 Nov 2026).
+    this.marshals.push({ watch, figure, arm, forearm, flag, raise: 0, reach: built.variant === 'tower' ? 0.52 : 0.9, phase: noise(i * 29 + 7) * Math.PI * 2 });
   }
 
   /** The race's laps, for the flag man and the pit boards. */
@@ -2033,7 +2062,18 @@ export class RaceView {
     return arm;
   }
 
-  /** A figure group standing at the feet, with the body built in the item's frame. */
+  /**
+   * The mate beside a marshal, flag man or pit crew on their pair design (else nothing): still, standing at `at`, for a
+   * model's Mate to take their place (Boss, 1 Nov 2026). Returns the joint to fit, if any.
+   */
+  private mate(g: THREE.Group, parts: THREE.Mesh[], at: [number, number, number]): [string, THREE.Object3D][] {
+    if (!parts.length) return [];
+    const mate = Object.assign(this.pivotArm(parts, at, [0, 0, 0]), { name: 'Mate' });
+    g.add(mate);
+    return [['Mate', mate]];
+  }
+
+    /** A figure group standing at the feet, with the body built in the item's frame. */
   private standingFigure(parts: THREE.Mesh[], feet: [number, number, number]): THREE.Group {
     const figure = new THREE.Group();
     figure.name = 'Body';
@@ -2060,11 +2100,25 @@ export class RaceView {
     const white = Object.assign(this.pivotArm(built.white, built.left, built.feet), { name: 'WhiteArm' });
     const chequered = Object.assign(this.pivotArm(built.chequered, built.right, built.feet), { name: 'ChequeredArm' });
     figure.add(white, chequered);
+    // The elbows, and the cloths' edges on the poles, for a model's forearms and flags (the game's own arms are one piece).
+    const joint = (name: string, parent: THREE.Object3D): THREE.Group => {
+      const j = new THREE.Group();
+      j.name = name;
+      parent.add(j);
+      return j;
+    };
+    const whiteForearm = joint('WhiteForearm', white);
+    const whiteFlag = joint('WhiteFlag', whiteForearm);
+    const chequeredForearm = joint('ChequeredForearm', chequered);
+    const chequeredFlag = joint('ChequeredFlag', chequeredForearm);
     g.add(figure);
-    this.fitFigure(FLAGGER_ITEM, g, [['Base', g], ['Body', figure], ['WhiteArm', white], ['ChequeredArm', chequered]]);
+    const mate = this.mate(g, built.mate, MATE_AT);
+    const fitted = this.fitFigure(FLAGGER_ITEM, g, [...mate, ['Base', g], ['Body', figure], ['WhiteArm', white], ['WhiteForearm', whiteForearm], ['WhiteFlag', whiteFlag], ['ChequeredArm', chequered], ['ChequeredForearm', chequeredForearm], ['ChequeredFlag', chequeredFlag]]);
+    // A model is built standing on the ground; without its own Base it stands on the game's stand, at its height.
+    if (fitted && !figureHas(FLAGGER_ITEM, 'Base')) figure.position.y += built.feet[1] * METRE;
     this.faceTrack(g, it);
     const roofed = built.variant === 'tower';
-    this.flaggers.push({ spot: crewSpot(this.surface.g, it), figure, white, chequered, wk: 0, ck: 0, reach: roofed ? 0.6 : 0.92, phase: noise(i * 31 + 3) * Math.PI * 2 });
+    this.flaggers.push({ spot: crewSpot(this.surface.g, it), figure, white, chequered, whiteForearm, whiteFlag, chequeredForearm, chequeredFlag, wk: 0, ck: 0, reach: roofed ? 0.52 : 0.92, phase: noise(i * 31 + 3) * Math.PI * 2 });
   }
 
   /** A pit crew member: the figure, the arms with the pole, and the board with its words, which the view keeps up to date. */
@@ -2085,11 +2139,18 @@ export class RaceView {
     board.userData.gameOnly = true;
     figure.add(board);
     g.add(figure);
-    this.fitFigure(PIT_CREW_ITEM, g, [['Base', g], ['Body', figure], ['Arms', arms]], { keep: [board] });
+    // The mate beside them, still, for a model's Mate (Boss, 1 Nov 2026).
+    const mate = this.mate(g, built.mate, built.mateAt);
+    this.fitFigure(PIT_CREW_ITEM, g, [['Base', g], ['Body', figure], ['Arms', arms], ...mate], { keep: [board] });
+    // A model's Team and TeamTrim materials take the crew's own colour until the race gives them a rider (updateFinishCrew).
+    paintModel(g, { team: built.colour, teamtrim: shade(built.colour, 0.78) }, PIT_CREW_PAINT);
     this.faceTrack(g, it);
     const crew: PitCrew = {
       index: this.crews.length,
       spot: crewSpot(this.surface.g, it),
+      root: g,
+      // Behind a pit wall the pole rests out on the wall, so the board never swings through it (Boss, 1 Nov 2026).
+      rest: built.variant === 'wall' ? 1.05 : 0.35,
       figure,
       arms,
       board,
@@ -2131,7 +2192,7 @@ export class RaceView {
   /** Puts the arms and the board where the crew's lean (k) has them: down by their side, or held out towards the track. */
   private poseCrew(c: PitCrew): void {
     const k = c.k;
-    c.arms.rotation.x = -0.35 - 1.45 * k;
+    c.arms.rotation.x = -c.rest - (1.8 - c.rest) * k;
     c.figure.rotation.x = 0.2 * k;
     const p = c.boardAt.clone().applyAxisAngle(new THREE.Vector3(1, 0, 0), c.arms.rotation.x).add(c.shoulderAt);
     c.board.position.copy(p);
@@ -2155,17 +2216,29 @@ export class RaceView {
       const wantC = want === 'chequered' && f.wk < 0.15 ? 1 : 0;
       f.wk += Math.max(-dt * 2.2, Math.min(dt * 2.2, wantW - f.wk));
       f.ck += Math.max(-dt * 2.2, Math.min(dt * 2.2, wantC - f.ck));
-      f.white.rotation.x = -f.reach * Math.PI * f.wk;
-      f.white.rotation.z = 0.12 * f.wk * Math.sin(clock * 3 + f.phase);
-      f.chequered.rotation.x = -f.reach * Math.PI * f.ck;
-      f.chequered.rotation.z = -0.5 * f.ck * Math.sin(clock * 9 + f.phase);
+      // The white flag is held out steady, a little above level (Boss, 1 Nov 2026): only a model's cloth stirs.
+      f.white.rotation.x = -Math.min(f.reach, 0.62) * Math.PI * f.wk;
+      f.whiteForearm.rotation.x = -0.25 * f.wk;
+      f.whiteFlag.rotation.y = 0.12 * f.wk * Math.sin(clock * 3 + f.phase);
+      f.whiteFlag.scale.x = 0.3 + 0.7 * f.wk;
+      // The chequered flag is waved as a marshal waves theirs (Boss, 1 Nov 2026).
+      const w = clock * 7 + f.phase;
+      this.waveFlag(f.chequered, f.chequeredForearm, f.chequeredFlag, f.ck, f.reach, w);
       f.figure.rotation.x = 0.12 * Math.max(f.wk, f.ck);
+      f.figure.rotation.z = -0.06 * f.ck * Math.sin(w);
     }
     if (!this.crews.length) return;
     if (riders.length && this.crews.some((c) => c.rider === null)) {
       const player = riders.find((r) => r.player)?.pose.id ?? '';
       const picks = assignCrews(this.crews.length, riders.map((r) => r.pose.id), player, this.crews.length + Math.round(g.total));
-      this.crews.forEach((c, k) => (c.rider = picks[k] ?? ''));
+      this.crews.forEach((c, k) => {
+        c.rider = picks[k] ?? '';
+        // A model's crew wears the team colour of the rider they're boarding this race: their bike's (Boss, 1 Nov 2026).
+        const r = riders.find((x) => x.pose.id === c.rider);
+        if (!r) return;
+        const team = bikeColours(r.color, r.player, r.look).plastics;
+        paintModel(c.root, { team, teamtrim: shade(team, 0.78) }, PIT_CREW_PAINT);
+      });
     }
     for (const c of this.crews) {
       const r = riders.find((x) => x.pose.id === c.rider);
@@ -2177,13 +2250,25 @@ export class RaceView {
   }
 
   /** Raises each marshal's flag while a rider is down on their watch: the arm swings up and waves, the figure leans out. */
+  /**
+   * A flag raised and waving, `k` of the way up, to `reach` of a half turn, at `w` through its beat. A model's forearm bends a
+   * little at the elbow (the way an elbow bends) and whips the wave on a beat behind the arm; its flag swings round the pole,
+   * and is bunched against it while it's down.
+   */
+  private waveFlag(arm: THREE.Object3D, forearm: THREE.Object3D, flag: THREE.Object3D, k: number, reach: number, w: number): void {
+    arm.rotation.z = k * 0.45 * Math.sin(w);
+    arm.rotation.x = -reach * Math.PI * k;
+    forearm.rotation.set(-0.25 * k, 0, k * 0.4 * Math.sin(w - 0.9));
+    flag.rotation.y = k * 0.7 * Math.sin(w - 1.8);
+    flag.scale.x = 0.3 + 0.7 * k;
+  }
+
   updateMarshals(dt: number, clock: number, riders: { dist: number; state: RiderState }[]): void {
     for (const m of this.marshals) {
       const want = flagUp(m.watch, riders) ? 1 : 0;
       m.raise += Math.max(-dt * 2.5, Math.min(dt * 2.5, want - m.raise));
       const k = m.raise;
-      m.arm.rotation.z = k * 0.45 * Math.sin(clock * 7 + m.phase);
-      m.arm.rotation.x = -0.9 * Math.PI * k;
+      this.waveFlag(m.arm, m.forearm, m.flag, k, m.reach, clock * 7 + m.phase);
       m.figure.rotation.x = 0.22 * k;
       m.figure.rotation.z = -0.06 * k * Math.sin(clock * 7 + m.phase);
     }
@@ -2221,9 +2306,12 @@ export class RaceView {
     const figure = new THREE.Group();
     figure.name = 'Body';
     figure.scale.set(OFFICIAL_SCALE * sc.w, OFFICIAL_SCALE * sc.h, OFFICIAL_SCALE * sc.w);
-    const kit = this.mat(hex(cheerColour(it, i), 0xe04040));
-    const trousers = this.mat([0x2a3a5a, 0x4a4a50, 0x6a5040, 0x3a5a3a][Math.floor(noise(i * 17 + 9) * 4)]);
-    const skin = this.mat([0xe0b090, 0xc08860, 0x8a5a3a, 0xf0d0b0][Math.floor(noise(i * 19 + 11) * 4)]);
+    const kitColour = hex(cheerColour(it, i), 0xe04040);
+    const trousersColour = [0x2a3a5a, 0x4a4a50, 0x6a5040, 0x3a5a3a][Math.floor(noise(i * 17 + 9) * 4)];
+    const skinColour = [0xe0b090, 0xc08860, 0x8a5a3a, 0xf0d0b0][Math.floor(noise(i * 19 + 11) * 4)];
+    const kit = this.mat(kitColour);
+    const trousers = this.mat(trousersColour);
+    const skin = this.mat(skinColour);
     // Left and right are the fan's own: they face +z, so their right is -x.
     const legs = [-0.1, 0.1].map((x) => {
       const leg = new THREE.Group();
@@ -2247,6 +2335,8 @@ export class RaceView {
     });
     g.add(figure);
     this.fitFigure(CHEER_ITEM, g, [['Body', figure], ['LegR', legs[0]], ['LegL', legs[1]], ['ArmR', arms[0]], ['ArmL', arms[1]]], { scale: new THREE.Vector3(sc.w, sc.h, sc.w) });
+    // A model's fans keep the colours this fan would have had (Boss, 31 Oct 2026).
+    paintModel(figure, { top: kitColour, toptrim: shade(kitColour, 0.78), trousers: trousersColour, skin: skinColour }, FAN_PAINT);
     const route = cheerRoute(it);
     // Where they end up they face the track (the nearest point of it), unless turned by hand.
     const end = route[route.length - 1];
@@ -2329,9 +2419,10 @@ export class RaceView {
         right.rotation.set(up, 0, -0.45 * env * Math.sin(k * Math.PI * 6));
         break;
       case 'clap': {
+        // arms[0] (`left` here) is the fan's right arm, on -x: turning it +z brings the hands together (Boss, 31 Oct 2026).
         const meet = 0.32 * env * (0.5 + 0.5 * Math.sin(k * Math.PI * 8));
-        left.rotation.set(-Math.PI / 2 * env, 0, -meet);
-        right.rotation.set(-Math.PI / 2 * env, 0, meet);
+        left.rotation.set(-Math.PI / 2 * env, 0, meet);
+        right.rotation.set(-Math.PI / 2 * env, 0, -meet);
         break;
       }
       case 'fist_pump':
@@ -2380,14 +2471,21 @@ export class RaceView {
     root.add(body);
     // Your own race bike and rider models (world/modModels.ts), painted in this rider's colours.
     const c0 = bikeColours(color, player, look);
-    const custom = this.builtIn ? { bike: null, rider: null } : { bike: bikeModel(!!look && bikeKind(look.cls) === 'youth'), rider: riderModel() };
+    // A sidecar carries its rider and passenger from sidecar_crew.glb when there is one (Boss, 1 Nov 2026).
+    const crew = !this.builtIn && look?.cls === SIDECAR_CLASS ? sidecarCrew() : null;
+    const custom = this.builtIn ? { bike: null, rider: null } : { bike: bikeModel(look?.cls ?? ''), rider: crew?.root ?? riderModel() };
     if (custom.bike) paintModel(custom.bike, { plastics: c0.plastics, frame: c0.frame, plate: c0.plate }, BIKE_PAINT);
+    // A youth class's smaller bike carries a rider of the same scale, a child of that size (Boss, 1 Nov 2026).
+    const riderScale = custom.bike?.userData.riderScale as number | undefined;
+    if (custom.rider && riderScale) custom.rider.scale.multiplyScalar(riderScale);
     if (look) {
       const all = raceBikeParts(look, BIKE_LENGTH);
       const bikeOnly = raceBikeParts(look, BIKE_LENGTH, { rider: false }).length;
       const g = look.gear;
       const kit = { helmet: g.helmet, visor: g.visor, jersey: g.jersey, pants: g.pants, boot: g.boot, glove: g.glove };
-      return this.finishBike(root, body, all.slice(0, bikeOnly), all.slice(bikeOnly), kit, custom);
+      const made = this.finishBike(root, body, all.slice(0, bikeOnly), all.slice(bikeOnly), kit, custom);
+      if (crew) made.crew = { pivots: crew.pivots, hang: 0, tuck: 0 };
+      return made;
     }
     const L = BIKE_LENGTH;
     const r = 0.22;
@@ -2507,6 +2605,56 @@ export class RaceView {
     return mesh;
   }
 
+  /**
+   * A sidecar's crew through the corners and over the jumps (Boss, 1 Nov 2026): `turn` is how hard
+   * the outfit is turning, positive to the right. In a left-hander the passenger hangs out over the
+   * chair, low and leaning out; in a right-hander they climb across over the back of the bike to
+   * keep the chair down. The rider leans a little into each turn. In the air and on landing both
+   * tuck down and forward. Eased, so the crew moves rather than snapping.
+   */
+  private crewPose(b: Bike, turn: number, air: boolean, dt: number): void {
+    const c = b.crew!;
+    const ease = 1 - Math.exp(-Math.min(0.1, dt) * 6);
+    c.hang += (Math.max(-1, Math.min(1, turn / 0.45)) - c.hang) * ease;
+    c.tuck += ((air ? 1 : 0) - c.tuck) * ease;
+    const rider = c.pivots.get('Rider');
+    const passenger = c.pivots.get('Passenger');
+    const out = Math.max(0, -c.hang);
+    const over = Math.max(0, c.hang);
+    // A figure with its own poses as shape keys (Left, Right, Jump; core SIDECAR_CREW_POSES) blends
+    // between them and stays on its hips: the passenger's hang-out, climb across and jump grip as
+    // Boss shaped them. Without them, the whole figure is moved and turned about its hips.
+    const posed = new Set<THREE.Object3D>();
+    for (const pivot of [rider, passenger]) {
+      if (!pivot) continue;
+      pivot.traverse((o) => {
+        const m = o as THREE.Mesh;
+        const keys = m.isMesh ? m.morphTargetDictionary : undefined;
+        if (!keys || !m.morphTargetInfluences) return;
+        const set = (name: string, v: number) => {
+          const i = keys[name] ?? keys[name.toLowerCase()];
+          if (i !== undefined) {
+            m.morphTargetInfluences![i] = v;
+            posed.add(pivot);
+          }
+        };
+        // In the air the jump grip takes over from any corner pose, so the two never add up.
+        set('Left', out * (1 - c.tuck));
+        set('Right', over * (1 - c.tuck));
+        set('Jump', c.tuck);
+      });
+    }
+    // Model metres: +X forward, Y up, +Z to the right (the chair is at -Z).
+    for (const [pivot, k] of [[rider, 0.35], [passenger, 1]] as const) {
+      if (!pivot || posed.has(pivot)) continue;
+      const rest = pivot.userData.rest as THREE.Vector3;
+      // A left-hander: out over the chair; a right-hander: across over the bike.
+      pivot.position.set(rest.x - 0.12 * c.tuck * k - 0.1 * over * k, rest.y - (0.1 * c.tuck + 0.12 * out) * k, rest.z - 0.28 * out * k + 0.38 * over * k);
+      // Roll about the direction of travel into the turn, and bend forward in a tuck.
+      pivot.rotation.set(0.7 * c.hang * k, 0, -0.35 * c.tuck);
+    }
+  }
+
   /** Draws the riders at their poses. clock is race time, dt real seconds since the last frame. */
   update(riders: ViewRider[], clock: number, dt: number, focus: string | null): void {
     if (this.dead) return;
@@ -2521,6 +2669,7 @@ export class RaceView {
       let b = this.bikes.get(p.id);
       if (!b) {
         b = this.makeBike(r.color, r.player, r.look);
+        b.sidecar = r.look?.cls === SIDECAR_CLASS;
         this.bikes.set(p.id, b);
       }
       // Not on show: waiting off the start platform for their turn, or gone from the run-off (riderAI).
@@ -2552,7 +2701,9 @@ export class RaceView {
         pitch = flying.pitch;
       }
       // Lean into the corner, more the faster the bike.
-      let lean = Math.max(-0.6, Math.min(0.6, s.curvatureAt(dist) * Math.min(p.speed, 20) * 0.9));
+      // A sidecar outfit stays flat on its three wheels (Boss, 1 Nov 2026); its crew lean instead (crewPose).
+      const turn = Math.max(-0.6, Math.min(0.6, s.curvatureAt(dist) * Math.min(p.speed, 20) * 0.9));
+      let lean = b.sidecar ? 0 : turn;
       if (p.state === 'wobble') yaw += 0.35 * Math.sin(clock * 16);
       b.root.position.set(mx, my, mz);
       b.root.rotation.set(0, -yaw, 0);
@@ -2583,6 +2734,7 @@ export class RaceView {
           b.body.position.copy(TRICK_PIVOT).sub(TRICK_PIVOT.clone().applyEuler(b.body.rotation));
         }
       }
+      if (b.crew) this.crewPose(b, p.down || p.state === 'crashed' ? 0 : turn, !p.down && (p.air > 0.25 || !!flying), dt);
       if (!p.down) {
         if (b.runner) b.runner.group.visible = false;
         b.rider.visible = true;

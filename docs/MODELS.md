@@ -14,9 +14,11 @@ The file name decides what the model does:
 | File name | What it does |
 |---|---|
 | the id of a scenery item, e.g. `hay_bale.glb` | replaces that item on every track |
-| `race_bike.glb` | replaces the race bike for classes over 85cc, and for youth classes too if there is no youth model |
-| `race_bike_youth.glb` | replaces the race bike for 85cc and under |
+| `race_bike.glb` | replaces the race bike for the 250F and up and the vets (the four-strokes), and for every class if there is no youth model |
+| `race_bike_youth.glb` | replaces the race bike for 85cc and under, drawn at each class's size (50cc 1.88 m, 65cc 1.95 m, 85cc small wheel 2.03 m, big wheel 2.07 m long) with the rider scaled to match; and, scaled to `race_bike.glb`'s length, for the 125s (two-strokes like it) |
+| `sidecar.glb` | every outfit in a sidecar race (Boss, 1 Nov 2026): the motorcycle with its chair on the left (+Y in Blender), the middle of the motorcycle's wheelbase at the origin; never a solo bike. Without it the game draws its own bike with a chair |
 | `race_rider.glb` | replaces the rider on every race bike |
+| `sidecar_crew.glb` | the rider and passenger on every sidecar (Boss, 1 Nov 2026): objects named **Rider** and **Passenger**, each with its origin at its hips, in the sidecar's frame, at most 8,000 triangles, lowest point 0 to 0.6 m up, rider material names for the team's gear. The game leans the passenger out over the chair in left-handers, across over the bike in right-handers, and tucks both down over the jumps; shape keys named **Left**, **Right** and **Jump** on a figure are blended in for those instead (export with Shape Keys on) |
 | any other name, e.g. `round_bale.glb` | a new scenery item called "Round bale" in the track editor's Scenery palette |
 
 ## Rules for every model
@@ -38,7 +40,7 @@ The file name decides what the model does:
 | **Scenery, replacing an item** (`tree.glb`, `van.glb`, `bike_stand.glb`…) | 20,000 | longest side 30 m, height 16 m | on the ground | Drawn at its own size when the item is at its default size. When an item is placed longer or deeper (a long tyre wall or line of tape), the model stretches with it, and its height grows only with the smaller stretch. Start from the exported file so it matches the default footprint. |
 | **Scenery, new item** (`round_bale.glb`) | 20,000 | longest side 30 m, height 16 m | on the ground | Its footprint in the editor is the model's length (X) by depth (Y), drawn in grey on the 2D map. Resizing it in the editor stretches it the same way. |
 | **Scenery bikes** (`bike_stand`, `bike_trailer`, paddock vans and haulers) | 20,000 | as scenery | on the ground | These are plain scenery: one model, one look. They aren't recoloured by brand or rider. |
-| **Race bike** (`race_bike.glb`, `race_bike_youth.glb`) | 6,000 | 1.4 m to 2.6 m long along X, at most 1.6 m tall | wheels on the ground | Points along +X, with the middle of the wheelbase at the origin. Every bike in the race uses it, so keep it light. Name materials **Plastics**, **Frame** and **Plate** to get each rider's brand colours. Other materials keep their own colour. |
+| **Race bike** (`race_bike.glb`, `race_bike_youth.glb`, `sidecar.glb`) | 6,000 | 1.4 m to 2.6 m long along X, at most 1.6 m tall | wheels on the ground | Points along +X, with the middle of the wheelbase at the origin. Every bike in the race uses it, so keep it light. Name materials **Plastics**, **Frame** and **Plate** to get each rider's brand colours. Other materials keep their own colour. |
 | **Race rider** (`race_rider.glb`) | 6,000 | at most 2.4 m long, 2 m tall | boots 0 to 0.6 m up, on the pegs | Sits on the bike in the same space as the exported `race_bike.glb`. Export both and model the rider on the bike. Name materials **Helmet**, **Visor**, **Jersey**, **Pants**, **Boots** and **Gloves** to get each rider's gear colours. The rider leans and moves as one piece. There are no moving arms or legs. |
 | **Moving figures** (`marshal`, `flagger`, `pit_crew`, `cheer`, `start_official`) | 8,000 | longest side 8 m, height 8 m | on the ground | Swapped part by part (see *Moving figures* below). A file with none of the figure's part names is listed as not used. |
 | **Locked items** | — | — | — | `start_gate`, `finish_arch` and `sprint_start` stretch to fit the track's width, so they can't be replaced. |
@@ -54,13 +56,15 @@ The marshals, flag man, pit crews, fans and start official move with the race. T
 - Build it in its **rest pose**. Arms and legs hang down, except a start official's arms, which point straight up holding the board high. The game turns them from there.
 - A part you leave out keeps the game's own. Objects with other names are left out.
 - The pit board and the start board stay the game's, because the game paints and moves them.
+- On a `cheer` model, name materials **Top**, **TopTrim** (a darker shade of the top), **Trousers** and **Skin** so each fan keeps their own colours. Any other material, such as a cap or shoes, is the same on every fan.
+- On a `pit_crew` model, name materials **Team** (the shirt and cap) and **TeamTrim** (a darker shade) so each crew wears the team colour of the rider they board that race (their bike's colour). Arms must hang straight down with no turn on the object (the game adds its own lean), and the pole should end about 1.5 m below and 6 cm in front of the Arms origin, where the game hangs its board.
 - Start from the figure exported on the Models page. It has every part named, in its rest pose.
 
 | Figure | Parts |
 |---|---|
-| `marshal` | **Body**, **Arm** (the flag arm, with its flag), **Base** (the stand, if any) |
-| `flagger` | **Body**, **WhiteArm**, **ChequeredArm** (each arm with its flag), **Base** (the stand or tower) |
-| `pit_crew` | **Body**, **Arms** (both arms and the pole, as one), **Base** |
+| `marshal` | **Body**, **Arm** (the flag arm, with its flag), **Base** (the stand, if any). For a better wave, also **Forearm** (origin at the elbow, with the hand and pole; Arm is then the upper arm only) and **Flag** (the cloth alone, origin on the pole, with the pole upright in the rest pose). With no Base the marshal stands on the game's stand at its height. Optionally **Mate**, the second marshal with the extinguisher on the pair design (still, origin at the feet), shown only there in place of the game's own. |
+| `flagger` | **Body**, **WhiteArm**, **ChequeredArm** (each arm with its flag), **Base** (the stand or tower). For a better wave, also **WhiteForearm**, **WhiteFlag**, **ChequeredForearm** and **ChequeredFlag**, built like the marshal's Forearm and Flag. With no Base he stands on the game's stand at its height. Optionally **Mate**, as on the marshal. |
+| `pit_crew` | **Body**, **Arms** (both arms and the pole, as one), **Base**. Optionally **Mate**, the mechanic standing beside him (still, origin at the feet), shown only on the pair design in place of the game's own; their Team materials take the team colour too. Behind a pit wall the game rests the pole out on the wall. |
 | `cheer` | **Body** (with the head), **LegL**, **LegR**, **ArmL**, **ArmR** |
 | `start_official` | **Body** (with the head), **LegL**, **LegR**, **ArmL**, **ArmR** |
 

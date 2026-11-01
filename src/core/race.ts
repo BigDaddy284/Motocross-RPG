@@ -378,6 +378,11 @@ export interface MotoOptions {
   noiseScale?: number;
   /** The day's weather (racing.json weather): its time factor and mistake risk (Spec 10.5). */
   weather?: { factor: number; risk: number };
+  /**
+   * A sidecar race (core/sidecar.ts; Boss, 1 Nov 2026): outfits on every other gate, no loop-outs
+   * out of the gate (a chair keeps the front down), and in the race view no whips or scrubs.
+   */
+  sidecar?: boolean;
 }
 
 /** A small seeded generator (mulberry32), so a race can be replayed exactly. */
@@ -568,7 +573,7 @@ export class MotoSim {
       for (let i = 0; i < n; i++) incident.add(pool.splice(Math.floor(lapRng() * pool.length), 1)[0]);
     }
     // A loop-out out of the gate on lap 1, from its own draw so the first-corner draws stay as they were.
-    const startLeg = lap === 1 && sim.loopOut && !this.opts.practice && !this.sprint ? plan.secs.indexOf(-1) : -1;
+    const startLeg = lap === 1 && sim.loopOut && !this.opts.practice && !this.sprint && !this.opts.sidecar ? plan.secs.indexOf(-1) : -1;
     let looper: RiderState | null = null;
     if (startLeg >= 0) {
       const loopRng = seededRng(mixSeed(this.opts.seed, lap * 256 + 254));

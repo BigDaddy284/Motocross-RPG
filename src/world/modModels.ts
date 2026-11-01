@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { BIKE_SLOTS, checkModel, FIGURE_PARTS, partName, glbInfo, MODEL_DIR, MODEL_INDEX, modelDef, modelId, modelRole, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, RIDER_SLOTS, materialSlot, type ModelEntry } from '../core/modModels';
+import { ADULT_BIKE_METRES, BIKE_SLOTS, raceBikeKind, YOUTH_BIKE_METRES, checkModel, FAN_SLOTS, PIT_CREW_SLOTS, FIGURE_PARTS, partName, glbInfo, MODEL_DIR, MODEL_INDEX, modelDef, modelId, modelRole, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, RIDER_SLOTS, SIDECAR_CREW, SIDECAR_MODEL, materialSlot, type ModelEntry } from '../core/modModels';
 import type { SceneryDef } from '../core/trackParts';
+import { SIDECAR_CLASS } from '../core/sidecar';
 import { U } from './paddock';
 
 // The models in public/mods/models/ (core/modModels.ts has the rules), loaded once when the game
@@ -92,9 +93,78 @@ export function figureParts(id: string): Map<string, FigurePart> | null {
   return out.size ? out : null;
 }
 
-/** The race bike to draw for a class: the youth model for youth classes when there is one. */
-export function bikeModel(youth: boolean): THREE.Group | null {
-  return (youth ? modModel(RACE_BIKE_YOUTH) : null) ?? modModel(RACE_BIKE);
+/** Whether a moving figure's model has a part, such as a marshal's own Base. */
+export function figureHas(id: string, part: string): boolean {
+  const m = models.get(id);
+  const names = FIGURE_PARTS[id];
+  if (!m?.object || !names) return false;
+  let found = false;
+  m.object.traverse((o) => {
+    if (partName(o.name, names) === part) found = true;
+  });
+  return found;
+}
+
+/**
+ * The race bike to draw for a class (core raceBikeKind): the youth model for the youth classes,
+ * drawn at the class's size (YOUTH_BIKE_METRES); the youth model scaled up to the adult model's
+ * length for the 125s; else the adult model. Without a youth model, every class falls back to the
+ * adult one. For a youth class, how much it was scaled is left in userData.riderScale, for the rider to match.
+ */
+export function bikeModel(cls: string): THREE.Group | null {
+  // A sidecar outfit is its own model, never a solo bike's (core/sidecar.ts).
+  if (cls === SIDECAR_CLASS) return modModel(SIDECAR_MODEL);
+  const kind = raceBikeKind(cls);
+  if (kind === 'adult') return modModel(RACE_BIKE);
+  const youth = modModel(RACE_BIKE_YOUTH);
+  if (!youth) return modModel(RACE_BIKE);
+  // Scaled about its origin (mid-wheelbase, on the ground), so the wheels stay on the ground.
+  const full = (): number => {
+    const adult = modModel(RACE_BIKE);
+    return adult ? lengthOf(adult) : ADULT_BIKE_METRES * U;
+  };
+  const target = kind === 'youth' ? (YOUTH_BIKE_METRES[cls] !== undefined ? YOUTH_BIKE_METRES[cls] * U : null) : full();
+  const own = lengthOf(youth);
+  if (target !== null && own > 0) {
+    const k = target / own;
+    youth.scale.multiplyScalar(k);
+    // A youth class's rider is a child, scaled to their bike's size beside a full-size bike's, so
+    // the rider's size doesn't hang on how big the youth model was built; a 125's rider stays full size.
+    if (kind === 'youth') youth.userData.riderScale = target / full();
+  }
+  return youth;
+}
+
+/** A model's length, bumper to bumper (its X). */
+function lengthOf(o: THREE.Object3D): number {
+  const box = new THREE.Box3().setFromObject(o);
+  return box.max.x - box.min.x;
+}
+
+/**
+ * A sidecar's rider and passenger (core SIDECAR_CREW), in grid units, each part on a pivot at its
+ * hips for the race view to turn and move; null without a usable sidecar_crew.glb.
+ */
+export function sidecarCrew(): { root: THREE.Group; pivots: Map<string, THREE.Group> } | null {
+  const parts = figureParts(SIDECAR_CREW);
+  if (!parts) return null;
+  const metres = new THREE.Group();
+  const pivots = new Map<string, THREE.Group>();
+  for (const [name, part] of parts) {
+    const pivot = new THREE.Group();
+    pivot.position.copy(part.origin);
+    const holder = new THREE.Group();
+    new THREE.Matrix4().makeTranslation(-part.origin.x, -part.origin.y, -part.origin.z).multiply(part.matrix).decompose(holder.position, holder.quaternion, holder.scale);
+    holder.add(part.object);
+    pivot.add(holder);
+    pivot.userData.rest = pivot.position.clone();
+    metres.add(pivot);
+    pivots.set(name, pivot);
+  }
+  metres.scale.setScalar(U);
+  const root = new THREE.Group();
+  root.add(metres);
+  return { root, pivots };
 }
 
 export function riderModel(): THREE.Group | null {
@@ -123,6 +193,8 @@ export function paintModel(g: THREE.Object3D, colours: Record<string, number>, s
 
 export const BIKE_PAINT = BIKE_SLOTS;
 export const RIDER_PAINT = RIDER_SLOTS;
+export const FAN_PAINT = FAN_SLOTS;
+export const PIT_CREW_PAINT = PIT_CREW_SLOTS;
 
 /**
  * Loads the models folder's files: every one is read and checked, and the good ones parsed. The

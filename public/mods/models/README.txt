@@ -6,6 +6,8 @@ Put .glb files here (Blender: File > Export > glTF 2.0, Format: glTF Binary) and
   <scenery id>.glb      replaces that scenery item, e.g. hay_bale.glb or tree.glb
   race_bike.glb         replaces the race bike (race_bike_youth.glb for 85cc and under)
   race_rider.glb        replaces the rider on every race bike
+  sidecar.glb           every outfit in a sidecar race (chair on the left, +Y in Blender)
+  sidecar_crew.glb      the sidecar's rider and passenger: objects Rider and Passenger, origins at the hips
   any other name        a new scenery item in the track editor, e.g. round_bale.glb
   marshal.glb, flagger.glb, pit_crew.glb, cheer.glb, start_official.glb
                         a moving figure: objects named for its parts (Body, Arm, LegL...)

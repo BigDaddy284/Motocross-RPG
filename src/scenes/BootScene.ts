@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { sidecarTrack } from '../core/sidecar';
 import { CONTENT_FILES, checkContent, type Manifest, type RawContent } from '../core/content';
 import type { BakedMap } from '../core/mapTypes';
 import { newCareerState, type BikesData, type WorldData } from '../core/career';
@@ -108,22 +109,24 @@ export class BootScene extends Phaser.Scene {
     // The models page: export the game's objects for Blender, and see what the models folder holds (ModelsScene).
     if (params.has('models')) return void this.scene.start('models');
     const test = params.get('testtrack');
-    if (test && content.tracks.tracks.some((t) => t.id === test)) this.testRide(test);
+    if (test && content.tracks.tracks.some((t) => t.id === test)) this.testRide(test, import.meta.env.DEV && params.has('sidecar'));
     else this.scene.start('menu');
   }
 
   /**
    * Dev only: ?testtrack=<track id> goes straight to a race day on that track with a new rider
-   * and the local field, without a venue or a save, to try a track from the track editor.
+   * and the local field, without a venue or a save, to try a track from the track editor. With
+   * &sidecar as well, on a Motocross track under `npm run dev` only, it is a TEST sidecar race
+   * (core/sidecar.ts): sidecars are off for players until they come in late game (Boss, 1 Nov 2026).
    */
-  private testRide(trackId: string): void {
+  private testRide(trackId: string, sidecar = false): void {
     const { bikes, story, tracks } = services.content;
     const track = tracks.tracks.find((t) => t.id === trackId)!;
     const career = newCareerState(bikes, story, bikes.brands[0].id);
     for (const part of Object.values(career.bike.parts)) part.condition = 1;
     const save: SaveData = { version: SAVE_VERSION, savedAt: new Date().toISOString(), rider: { name: 'Tester', look: '' }, position: { map: START_MAP, x: 0, y: 0, facing: 'down' }, flags: { first_race_done: true }, stats: { playSeconds: 0 }, career, van: null, driving: false };
     const venue: VenueDef = { id: `test-${trackId}`, name: track.name, map: START_MAP, track: trackId, class: '50cc', field: 'area1.local' };
-    const data: RaceSceneData = { mode: track.practiceOnly ? 'practice' : 'raceday', venue, save, fee: 0, onDone: () => this.scene.start('menu') };
+    const data: RaceSceneData = { mode: track.practiceOnly ? 'practice' : 'raceday', venue, save, fee: 0, ...(sidecar && sidecarTrack(track) ? { sidecarTest: true } : {}), onDone: () => this.scene.start('menu') };
     this.scene.start('race', data);
   }
 

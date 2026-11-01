@@ -20,6 +20,10 @@ import {
   modelRole,
   partName,
   RIDER_SLOTS,
+  FAN_SLOTS,
+  raceBikeKind,
+  YOUTH_BIKE_METRES,
+  PIT_CREW_SLOTS,
   BIKE_SLOTS,
   SCENERY_LIMITS,
   type ModelInfo,
@@ -124,7 +128,13 @@ describe('what a model does', () => {
     expect(modelRole('race_bike_youth', scenery)).toBe('bike');
     expect(modelRole('race_rider', scenery)).toBe('rider');
     expect(modelRole('round_bale', scenery)).toBe('new');
+    // The sidecar outfit is a race bike model, never a new scenery item (Boss, 1 Nov 2026).
+    expect(modelRole('sidecar', scenery)).toBe('bike');
+    // The sidecar's rider and passenger, one model with two moving parts (Boss, 1 Nov 2026).
+    expect(modelRole('sidecar_crew', scenery)).toBe('crew');
+    expect(FIGURE_PARTS.sidecar_crew).toEqual(['Rider', 'Passenger']);
   });
+
 
   it('locks the items that move or stretch to fit the track', () => {
     for (const id of [OFFICIAL_ITEM, CHEER_ITEM, MARSHAL_ITEM, FLAGGER_ITEM, PIT_CREW_ITEM, SPRINT_START_ITEM, 'start_gate', ...SPANS_TRACK]) expect(LOCKED_ITEMS.has(id)).toBe(true);
@@ -134,18 +144,22 @@ describe('what a model does', () => {
 
   it('swaps a moving figure part by part, by the names of its parts (Boss, 31 Oct 2026)', () => {
     // Every animated figure has parts, and only those.
-    expect(Object.keys(FIGURE_PARTS).sort()).toEqual([CHEER_ITEM, FLAGGER_ITEM, MARSHAL_ITEM, PIT_CREW_ITEM, OFFICIAL_ITEM].sort());
+    // ...and the sidecar's crew, a model of its own rather than a scenery item (Boss, 1 Nov 2026).
+    expect(Object.keys(FIGURE_PARTS).sort()).toEqual([CHEER_ITEM, FLAGGER_ITEM, MARSHAL_ITEM, PIT_CREW_ITEM, OFFICIAL_ITEM, 'sidecar_crew'].sort());
     for (const [id, parts] of Object.entries(FIGURE_PARTS)) {
+      if (id === 'sidecar_crew') continue;
       expect(LOCKED_ITEMS.has(id)).toBe(true);
       expect(parts).toContain('Body');
       expect(modelRole(id, scenery)).toBe('figure');
     }
     const figure = (names: string[]) => ({ ...info([-0.4, 0, -0.2], [0.4, 1.8, 0.2]), names });
     expect(checkModel('marshal.glb', 100, figure(['Scene', 'Body', 'Arm']), scenery)).toEqual([]);
+    expect(checkModel('marshal.glb', 100, figure(['Scene', 'Body', 'Arm', 'Forearm', 'Flag']), scenery)).toEqual([]);
+    expect(checkModel('flagger.glb', 100, figure(['Scene', 'Body', 'WhiteArm', 'WhiteForearm', 'WhiteFlag', 'ChequeredArm', 'ChequeredForearm', 'ChequeredFlag']), scenery)).toEqual([]);
     // A part on its own is enough: the rest stay the game's.
     expect(checkModel('cheer.glb', 100, figure(['armL.001']), scenery)).toEqual([]);
     // With no named parts the game can't move it.
-    expect(checkModel('marshal.glb', 100, figure(['Cube', 'Cube.001']), scenery).join(' ')).toMatch(/Body, Arm, Base/);
+    expect(checkModel('marshal.glb', 100, figure(['Cube', 'Cube.001']), scenery).join(' ')).toMatch(/Body, Arm, Forearm, Flag, Mate, Base/);
     expect(checkModel('marshal.glb', 100, info([-0.4, 0, -0.2], [0.4, 1.8, 0.2]), scenery).join(' ')).toMatch(/named/);
     // A figure is kept light: crowds can be big.
     expect(checkModel('cheer.glb', 100, { ...figure(['Body']), tris: FIGURE_LIMITS.tris + 1 }, scenery).join(' ')).toMatch(/triangles/);
@@ -155,6 +169,9 @@ describe('what a model does', () => {
     expect(partName('Body', FIGURE_PARTS.marshal)).toBe('Body');
     expect(partName('armL.002', FIGURE_PARTS.cheer)).toBe('ArmL');
     expect(partName(' WhiteArm ', FIGURE_PARTS.flagger)).toBe('WhiteArm');
+    expect(partName('ChequeredForearm.001', FIGURE_PARTS.flagger)).toBe('ChequeredForearm');
+    expect(partName('chequeredflag', FIGURE_PARTS.flagger)).toBe('ChequeredFlag');
+    expect(partName('WhiteForearm', FIGURE_PARTS.flagger)).toBe('WhiteForearm');
     expect(partName('Arm', FIGURE_PARTS.cheer)).toBeNull();
     expect(partName(undefined, FIGURE_PARTS.cheer)).toBeNull();
   });
@@ -176,6 +193,10 @@ describe('what a model does', () => {
     expect(materialSlot('Jersey', RIDER_SLOTS)).toBe('jersey');
     expect(materialSlot('Chrome', BIKE_SLOTS)).toBeNull();
     expect(materialSlot(undefined, RIDER_SLOTS)).toBeNull();
+    expect(materialSlot('TopTrim', FAN_SLOTS)).toBe('toptrim');
+    expect(materialSlot('Fan_Cap', FAN_SLOTS)).toBeNull();
+    expect(materialSlot('TeamTrim', PIT_CREW_SLOTS)).toBe('teamtrim');
+    expect(materialSlot('Team.001', PIT_CREW_SLOTS)).toBe('team');
   });
 });
 
@@ -218,6 +239,19 @@ describe('the rules for each kind of model', () => {
     expect(ok('race_bike.glb', info([-1.08, 0, -0.38], [1.1, 1.28, 0.38], BIKE_LIMITS.tris + 1)).join(' ')).toMatch(/triangles/);
   });
 
+  it("passes Boss's sidecar outfit as a race bike: chair on the left, inside the bike limits (Boss, 1 Nov 2026)", () => {
+    // sidecar.glb as exported: 2.19 m long, its chair out to 1.12 m on the left (glTF -Z), 5,984 triangles.
+    expect(ok('sidecar.glb', info([-1.09, 0, -1.12], [1.1, 1.18, 0.43], 5984))).toEqual([]);
+    expect(ok('sidecar.glb', info([-1.09, 0, -1.12], [1.1, 1.18, 0.43], BIKE_LIMITS.tris + 1)).join(' ')).toMatch(/triangles/);
+  });
+
+  it("takes the sidecar's rider and passenger as one model: 8,000 triangles, boots on the pegs and the platform, parts named (Boss, 1 Nov 2026)", () => {
+    const crew = (tris: number, names = ['Rider', 'Passenger']): ModelInfo => ({ ...info([-0.9, 0.29, -0.9], [0.4, 1.7, 0.3], tris), names });
+    expect(ok('sidecar_crew.glb', crew(7192))).toEqual([]);
+    expect(ok('sidecar_crew.glb', crew(8001)).join(' ')).toMatch(/triangles/);
+    expect(ok('sidecar_crew.glb', crew(7192, ['Body'])).join(' ')).toMatch(/Rider, Passenger/);
+  });
+
   it('lets a rider sit on the pegs, off the ground', () => {
     expect(ok('race_rider.glb', info([-0.3, 0.25, -0.47], [0.5, 1.87, 0.47], 2608))).toEqual([]);
     expect(ok('race_rider.glb', info([-0.3, 1, -0.47], [0.5, 1.9, 0.47])).join(' ')).toMatch(/pegs/);
@@ -238,5 +272,15 @@ describe('the rules for each kind of model', () => {
   it("knows every one of the game's locked items", () => {
     const ids = new Set(readPublic<{ scenery: { id: string }[] }>('data/trackParts.json').scenery.map((s) => s.id));
     for (const id of LOCKED_ITEMS) expect(ids.has(id)).toBe(true);
+  });
+
+  it('picks each class its race bike model (Boss, 1 Nov 2026)', () => {
+    for (const cls of ['50cc', '65cc', '85cc-small', '85cc-big']) expect(raceBikeKind(cls)).toBe('youth');
+    for (const cls of ['125cc-youth', '125cc']) expect(raceBikeKind(cls)).toBe('two-stroke');
+    for (const cls of ['250f', '450f', 'vets-40', 'vets-50', 'vets-60']) expect(raceBikeKind(cls)).toBe('adult');
+    // Each youth class has its own size, smallest first; the 125s ride full size.
+    const sizes = ['50cc', '65cc', '85cc-small', '85cc-big'].map((c) => YOUTH_BIKE_METRES[c]);
+    expect(sizes.every((m, i) => m > 0 && (i === 0 || m > sizes[i - 1]))).toBe(true);
+    expect(YOUTH_BIKE_METRES['125cc-youth']).toBeUndefined();
   });
 });

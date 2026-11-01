@@ -8,7 +8,8 @@ import type { SceneryDef } from './trackParts';
 //   everywhere, on every track;
 // - named anything else (my_tower.glb), it is a new scenery item in the track editor's palette,
 //   its footprint the model's size;
-// - race_bike.glb, race_bike_youth.glb and race_rider.glb replace the bikes and riders on track.
+// - race_bike.glb, race_bike_youth.glb and race_rider.glb replace the bikes and riders on track,
+//   and sidecar.glb is every outfit in a sidecar race.
 //
 // The models page (the game's address with ?models, or Models in the toolkit) lists them with any
 // problems, previews them, and exports any built-in item as a .glb to start from in Blender.
@@ -31,8 +32,53 @@ export const MODEL_INDEX = `${MODEL_DIR}index.json`;
 export const RACE_BIKE = 'race_bike';
 /** The race bike for the youth classes (50 to 85 cc). */
 export const RACE_BIKE_YOUTH = 'race_bike_youth';
+
+/**
+ * Which race bike model a class rides (Boss, 1 Nov 2026): the youth classes up to 85 cc ride the
+ * youth model; the 125s, two-strokes like it, ride the youth model scaled up to the adult model's
+ * size; the 250F and up, and the vets, ride the adult (four-stroke) model.
+ */
+export type RaceBikeKind = 'youth' | 'two-stroke' | 'adult';
+export function raceBikeKind(cls: string): RaceBikeKind {
+  const cc = parseInt(cls, 10);
+  if (!Number.isFinite(cc)) return 'adult';
+  return cc <= 85 ? 'youth' : cc <= 125 ? 'two-stroke' : 'adult';
+}
+/**
+ * How long the youth model is drawn for each small youth class, in metres bumper to bumper, its
+ * rider scaled with it as a child of that size (Boss, 1 Nov 2026). Real 50, 65 and 85 cc bike
+ * sizes looked too small in the game, so these sit nearer full size (Boss, 1 Nov 2026).
+ * Other classes ride full size.
+ */
+export const YOUTH_BIKE_METRES: Readonly<Record<string, number>> = { '50cc': 1.88, '65cc': 1.95, '85cc-small': 2.03, '85cc-big': 2.07 };
+/** The game's own adult bike's length in metres, the size a scaled-up youth model takes when there's no adult model. */
+export const ADULT_BIKE_METRES = 2.18;
 /** The rider on the race bikes. */
 export const RACE_RIDER = 'race_rider';
+/**
+ * The sidecar outfit (Boss, 1 Nov 2026; core/sidecar.ts): a race bike model like the others, with
+ * its chair on the left (+Y in Blender) and the middle of the motorcycle's wheelbase at the origin.
+ * Every outfit in a sidecar race uses it, painted Plastics, Frame and Plate; without it the game
+ * draws its own. The race rider sits on its motorcycle (no passenger model yet).
+ */
+export const SIDECAR_MODEL = 'sidecar';
+/**
+ * The sidecar's rider and passenger as one model (Boss, 1 Nov 2026): two objects named Rider and
+ * Passenger, each with its origin at its hips, placed on sidecar.glb in its own frame (+X forward,
+ * the middle of the motorcycle's wheelbase at the origin). The race view moves each about its hips:
+ * the passenger hangs out over the chair in left-handers and over the bike in right-handers, and
+ * both tuck down over the jumps. Painted in each team's gear like the race rider (RIDER_SLOTS).
+ * Without it, sidecars carry the race rider and no passenger.
+ */
+export const SIDECAR_CREW = 'sidecar_crew';
+/**
+ * Shape keys the sidecar crew's figures can carry for their own poses (Boss, 1 Nov 2026, from his
+ * video and photos): Left, the passenger hanging out low over the chair through a left-hander,
+ * feet on the foothold and a hand on the grab rail; Right, the passenger across on the back of the
+ * rider's seat through a right-hander; Jump, crouched on the platform holding the grab rail in the
+ * air. Each is blended in as the outfit turns or flies; a figure without them is moved whole about its hips.
+ */
+export const SIDECAR_CREW_POSES = ['Left', 'Right', 'Jump'] as const;
 
 /**
  * Scenery whose look the race view moves or sizes as it goes, so a plain model can't stand in for
@@ -59,6 +105,8 @@ export const SCENERY_LIMITS: ModelLimits = { tris: 20000, long: 30, tall: 16 };
 /** On-track bikes and riders: up to 32 on track at once, so they are kept light. */
 export const BIKE_LIMITS: ModelLimits = { tris: 6000, long: 2.6, tall: 1.6, minLength: 1.4, maxLength: 2.6 };
 export const RIDER_LIMITS: ModelLimits = { tris: 6000, long: 2.4, tall: 2.0 };
+/** A sidecar's rider and passenger together (SIDECAR_CREW): a moving figure's 8,000 triangles, on an outfit's footprint. */
+export const CREW_LIMITS: ModelLimits = { tris: 8000, long: 2.6, tall: 2.0 };
 /** Moving figures: a crowd can have dozens of fans; a flag man's tower is about 5 m tall. */
 export const FIGURE_LIMITS: ModelLimits = { tris: 8000, long: 8, tall: 8 };
 /** The highest a rider model's lowest point (its boots on the pegs) can be, in metres. */
@@ -80,6 +128,10 @@ export const MODEL_FILE = /^[a-z0-9][a-z0-9_-]{0,47}\.glb$/;
  */
 export const BIKE_SLOTS = ['plastics', 'frame', 'plate'] as const;
 export const RIDER_SLOTS = ['helmet', 'visor', 'jersey', 'pants', 'boots', 'gloves'] as const;
+/** The same on a cheering fan's model: each fan keeps their own colours, as the game's own fans do (Boss, 31 Oct 2026). */
+export const FAN_SLOTS = ['top', 'toptrim', 'trousers', 'skin'] as const;
+/** On a pit crew's model: the team's colour (shirt and cap) and a darker shade of it, so each crew keeps their team's colours, as the game's own do (Boss, 1 Nov 2026). */
+export const PIT_CREW_SLOTS = ['team', 'teamtrim'] as const;
 
 /** What a .glb holds, read from its JSON chunk: its size (in its own units, metres from Blender) and how heavy it is. */
 export interface ModelInfo {
@@ -109,7 +161,7 @@ export interface ModelEntry {
   def?: SceneryDef;
 }
 
-export type ModelRole = 'replace' | 'new' | 'bike' | 'rider' | 'figure';
+export type ModelRole = 'replace' | 'new' | 'bike' | 'rider' | 'figure' | 'crew';
 
 /**
  * The moving figures whose parts can be swapped for a model's (Boss, 31 Oct 2026): each part is an
@@ -121,9 +173,14 @@ export type ModelRole = 'replace' | 'new' | 'bike' | 'rider' | 'figure';
  * pose (a start official's arms point straight up, holding the board high; the rest hang down).
  */
 export const FIGURE_PARTS: Readonly<Record<string, readonly string[]>> = {
-  marshal: ['Body', 'Arm', 'Base'],
-  flagger: ['Body', 'WhiteArm', 'ChequeredArm', 'Base'],
-  pit_crew: ['Body', 'Arms', 'Base'],
+  // Forearm (turning at the elbow, under Arm) and Flag (the cloth, turning about the pole, under Forearm) are optional: the wave uses them (Boss, 1 Nov 2026).
+  // Mate, on the marshal, flag man and pit crew, is the still figure beside them on the pair design, shown only there (Boss, 1 Nov 2026).
+  marshal: ['Body', 'Arm', 'Forearm', 'Flag', 'Mate', 'Base'],
+  // The same optional Forearm and Flag for each of the flag man's arms (Boss, 1 Nov 2026).
+  flagger: ['Body', 'WhiteArm', 'WhiteForearm', 'WhiteFlag', 'ChequeredArm', 'ChequeredForearm', 'ChequeredFlag', 'Mate', 'Base'],
+  pit_crew: ['Body', 'Arms', 'Mate', 'Base'],
+  // A sidecar's rider and passenger, each turning about its hips (SIDECAR_CREW; Boss, 1 Nov 2026).
+  sidecar_crew: ['Rider', 'Passenger'],
   cheer: ['Body', 'LegL', 'LegR', 'ArmL', 'ArmR'],
   start_official: ['Body', 'LegL', 'LegR', 'ArmL', 'ArmR'],
 };
@@ -147,15 +204,16 @@ export function modelName(id: string): string {
 
 /** What a model named `id` does, given the scenery the game has. */
 export function modelRole(id: string, scenery: { id: string }[]): ModelRole {
-  if (id === RACE_BIKE || id === RACE_BIKE_YOUTH) return 'bike';
+  if (id === RACE_BIKE || id === RACE_BIKE_YOUTH || id === SIDECAR_MODEL) return 'bike';
   if (id === RACE_RIDER) return 'rider';
+  if (id === SIDECAR_CREW) return 'crew';
   if (FIGURE_PARTS[id]) return 'figure';
   return scenery.some((s) => s.id === id) ? 'replace' : 'new';
 }
 
 /** The limits for a model of this role. */
 export function limitsFor(role: ModelRole): ModelLimits {
-  return role === 'bike' ? BIKE_LIMITS : role === 'rider' ? RIDER_LIMITS : role === 'figure' ? FIGURE_LIMITS : SCENERY_LIMITS;
+  return role === 'bike' ? BIKE_LIMITS : role === 'rider' ? RIDER_LIMITS : role === 'crew' ? CREW_LIMITS : role === 'figure' ? FIGURE_LIMITS : SCENERY_LIMITS;
 }
 
 /** The size of a model's box in metres: length (X), depth (glTF Z, Blender Y) and height (Y). */
@@ -186,7 +244,7 @@ export function checkModel(file: string, bytes: number, info: ModelInfo | null, 
   if (height > lim.tall) out.push(`It is ${m(height)} tall; the most is ${m(lim.tall)}.`);
   if (lim.minLength !== undefined && length < lim.minLength) out.push(`It is ${m(length)} long, front to back along X; a race bike is ${m(lim.minLength)} to ${m(lim.maxLength!)}. Check it points along +X and is in metres.`);
   // A rider sits on the bike, feet on the pegs, in the same place as the exported race_rider.glb.
-  if (role === 'rider') {
+  if (role === 'rider' || role === 'crew') {
     if (info.min[1] < -0.05 || info.min[1] > RIDER_FEET) out.push(`Its lowest point is ${m(info.min[1])} from the ground; a rider's boots rest on the pegs, 0 to ${m(RIDER_FEET)} up. Start from the exported race_rider.glb so it sits on the bike.`);
   } else if (info.min[1] < -0.05 || info.min[1] > 0.05) out.push(`Its lowest point is ${m(info.min[1])} from the ground; it should sit on the ground (Z = 0 in Blender).`);
   return out;
