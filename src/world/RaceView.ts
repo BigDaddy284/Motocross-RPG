@@ -957,9 +957,10 @@ export class RaceView {
       middle.position.x *= k;
     }
     // The group has no parent yet, so its world is its own frame; boxes in the model's metres are taken through the copy's.
-    const toModel = (b: THREE.Box3): THREE.Box3 => {
+    const toModel = (o: THREE.Object3D): THREE.Box3 => {
+      // Every matrix up to date first, or the first side is measured where it was drawn.
       group.updateMatrixWorld(true);
-      return b.applyMatrix4(copy.matrixWorld.clone().invert());
+      return new THREE.Box3().setFromObject(o).applyMatrix4(copy.matrixWorld.clone().invert());
     };
     const tops: THREE.Vector3[] = [];
     for (const [name, side] of [['Left', -1], ['Right', 1]] as const) {
@@ -967,7 +968,7 @@ export class RaceView {
       if (!o) continue;
       o.position.x += side * out;
       // Stretched down from its top, which stays put under the beam, until its foot is on the ground.
-      const b = toModel(new THREE.Box3().setFromObject(o));
+      const b = toModel(o);
       const down = Math.max(0, drop(side)) / METRE;
       if (down > 0.01 && b.max.y > b.min.y) {
         const k = (b.max.y - b.min.y + down) / (b.max.y - b.min.y);
