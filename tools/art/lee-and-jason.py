@@ -19,7 +19,7 @@ RED = (194, 28, 21)
 FONT = '/usr/share/fonts/truetype/freefont/FreeSansBoldOblique.ttf'
 # Each board on buildings-exterior-v3.png: the building's crop origin, then the board's face box in it.
 BOARDS = [
-    ((512, 320), (24, 109, 319, 147), "LEE'S T'S & WHEELS"),
+    ((512, 320), (24, 106, 319, 144), "LEE'S T'S & WHEELS"),
     ((512, 960), (82, 117, 287, 154), "J'S TOOLS"),
 ]
 
@@ -61,7 +61,7 @@ def repaint(sheet: Image.Image, origin, box, text):
 
 def main(repo: Path, preview: Path):
     sys.path.insert(0, str(Path(__file__).parent))
-    from shop_logos import lee_logo, js_logo
+    from shop_logos import lee_logo, js_logo_e as js_logo  # Boss chose option E, 1 Nov 2026
     path = repo / 'public/assets/art/buildings/sheets/buildings-exterior-v3.png'
     sheet = Image.open(path).convert('RGBA')
     for ((ox, oy), (x0, y0, x1, y1), text), logo in zip(BOARDS, (lee_logo, js_logo)):
