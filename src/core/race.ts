@@ -959,6 +959,24 @@ export function gateBonus(track: Pick<TrackDef, 'gates'>, gate: number): number 
   return curve[gate] ?? 0;
 }
 
+/**
+ * The track with its gate bonuses dealt out to the gates at random for one moto or heat (Boss, 1 Nov
+ * 2026: "fully randomise the placement of the effects so the player doesn't just chose the in side or
+ * out side gates all the time"). The same bonuses, so the start is no better or worse overall, on
+ * different gates every time, from the seed so a replay deals them the same way. count is the gates in use.
+ */
+export function dealGates<T extends Pick<TrackDef, 'gates'>>(track: T, seed: number, count: number): T {
+  if (!track.gates?.length) return track;
+  const rng = seededRng(seed);
+  const gates = [...track.gates];
+  // Only the gates in use trade places, so a small field's start keeps the same bonuses overall.
+  for (let i = Math.min(count, gates.length) - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [gates[i], gates[j]] = [gates[j], gates[i]];
+  }
+  return { ...track, gates };
+}
+
 /** A time as m:ss.s, or with more decimals (qualifying times to the thousandth). */
 export function formatTime(s: number, digits = 1): string {
   const m = Math.floor(s / 60);

@@ -1,7 +1,7 @@
 import { className, dayClass } from './classes';
 import { bikeProblem, pence, type BikesData, type Bike, type CareerState } from './career';
 import { isSprint, lapMetres } from './trackGeom';
-import { MotoSim, formatTime, gateBonus, mixSeed, seededRng, type Entrant, type RacingData, type RiderResult, type Tactic, type TrackDef } from './race';
+import { MotoSim, dealGates, formatTime, gateBonus, mixSeed, seededRng, type Entrant, type RacingData, type RiderResult, type Tactic, type TrackDef } from './race';
 import { addXp, childLevels, leadLevel, type LevelUp, type SkillsData } from './skills';
 import { TRICKS_FLAG } from './tricks';
 import { areaOfMap, rollWeather, type AreasData } from './areas';
@@ -24,7 +24,7 @@ export interface CpuRiderDef {
   bike: { brand: string; grade: number; condition: number };
   tactic: Tactic;
   style?: RiderStyle;
-  /** Their own race kit, a gear set on the race screen (Neal Gizard's blue and black); left out, the field's kits in turn. */
+  /** Their own race kit, a gear set on the race screen (Neal Borne's blue and black); left out, the field's kits in turn. */
   kit?: string;
 }
 
@@ -335,6 +335,16 @@ export class RaceDay {
     for (const [g, id] of taken) this.field.find((e) => e.id === id)!.gate = g;
   }
 
+  /**
+   * The track as this moto rides it: its gate bonuses dealt to the gates at random (dealGates; Boss,
+   * 1 Nov 2026), so no gate is the best one every time. Nobody sees the deal: CPU riders pick by habit,
+   * from the track's drawn curve (inside first), and the player picks blind (the gate screen hides the
+   * bonuses until start gate training shows them).
+   */
+  motoTrack(): TrackDef {
+    return dealGates(this.track, mixSeed(this.seed, 0x6a7e5 + this.motos.length), this.gateCount);
+  }
+
   /** One gate per rider in the field (two rows of 8): gate 1 is the inside of the first corner. */
   get gateCount(): number {
     return this.field.length;
@@ -439,7 +449,7 @@ export class RaceDay {
   /** The moto simulation for the next moto. The caller runs it (live or auto-complete). */
   startMoto(message: string, retireAtBroken?: number): MotoSim {
     if (this.sprint) this.startInPickOrder();
-    return new MotoSim(this.rc.racing, this.rc.bikes, this.track, this.cls, this.field, {
+    return new MotoSim(this.rc.racing, this.rc.bikes, this.motoTrack(), this.cls, this.field, {
       laps: this.laps,
       // Ruts deepen through the day, qualifying counting as one step (Spec 10, Round 111).
       motoIndex: this.motos.length + (this.qualifying ? 1 : 0),

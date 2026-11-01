@@ -1,4 +1,5 @@
 import { afterTask, currentStep, pence, type CareerState, type WorldData } from './career';
+import { behindBlocker } from './mapState';
 import type { Content } from './content';
 import { routeFor, routePlaces } from './guides';
 import type { BakedMap, MapObject } from './mapTypes';
@@ -85,6 +86,7 @@ function links(map: BakedMap, maps: Map<string, BakedMap>, world: WorldData, tra
   const out: { via: MapObject; to: string }[] = [];
   for (const via of map.objects) {
     if (via.type !== 'door' && via.type !== 'exit') continue;
+    if (behindBlocker(map, via, flags)) continue;
     const r = travel.resolve(map, via, flags);
     if (r?.kind === 'travel') out.push({ via, to: r.to.map });
     else if (r?.kind === 'route') {

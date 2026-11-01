@@ -1,7 +1,7 @@
 import { dayClass } from './classes';
 import { pence } from './career';
 import { buffRider } from './championship';
-import { KNOCKOUT_DEFAULTS, MotoSim, formatTime, mixSeed, seededRng, type Entrant, type KnockoutRules, type RiderResult } from './race';
+import { KNOCKOUT_DEFAULTS, MotoSim, dealGates, formatTime, mixSeed, seededRng, type Entrant, type KnockoutRules, type RiderResult } from './race';
 import { cpuEntrant, drawPool, motoPrize, PLAYER_ID, scaleXp, sumXp, trackById, type RaceContent, type VenueDef } from './raceDay';
 
 // A No-Turn Takedown race day (Boss, 30 Oct 2026): a knockout on a straight drag strip. Everyone
@@ -277,10 +277,12 @@ export class Knockout {
   startHeat(heat: KnockoutHeat, message: string, playerGate?: number): MotoSim {
     this.assignGates(heat, playerGate);
     const riders = heat.riders.map((id) => this.entrant(id));
-    return new MotoSim(this.rc.racing, this.rc.bikes, this.track, this.cls, riders, {
+    // Each run deals the gate bonuses afresh (dealGates; Boss, 1 Nov 2026).
+    const seed = mixSeed(this.seed, 1 + heat.round * 64 + heat.index * 4 + heat.runs.length);
+    return new MotoSim(this.rc.racing, this.rc.bikes, dealGates(this.track, mixSeed(seed, 0x6a7e5), this.rules.heatSize), this.cls, riders, {
       laps: 1,
       motoIndex: heat.round,
-      seed: mixSeed(this.seed, 1 + heat.round * 64 + heat.index * 4 + heat.runs.length),
+      seed,
       message,
       noiseScale: this.rules.noise,
     });
