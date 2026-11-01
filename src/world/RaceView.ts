@@ -1708,6 +1708,8 @@ export class RaceView {
     const tex = words;
     void bannerImage(`${import.meta.env.BASE_URL}${path}`).then((img) => {
       if (!img) return;
+      // Free the words' GPU copy, sized for the words, so the picture gets storage of its own size.
+      tex.dispose();
       tex.image = img;
       tex.needsUpdate = true;
     });
