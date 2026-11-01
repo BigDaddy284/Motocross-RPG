@@ -19,6 +19,8 @@ The file name decides what the model does:
 | `race_rider.glb` | replaces the rider on every race bike |
 | any other name, e.g. `round_bale.glb` | a new scenery item called "Round bale" in the track editor's Scenery palette |
 
+**The 125s' size check (Boss, 1 Nov 2026).** The 125s ride `race_bike_youth.glb` scaled up to `race_bike.glb`'s length, so build each bike at its real size: the youth bike at most 2.0 m long (an 85cc is about 1.85 m), the race bike at least 1.95 m (a 450 is about 2.15 m). A model outside those isn't used. With both in the folder, the game also checks the scaled-up 125: about ×1.05 to ×1.35, no taller than 1.6 m, and within 12% of the race bike's height. Anything off shows as **Check:** beside the youth bike on the models page, and **Race bike (125)** there shows the scaled-up 125 beside the race bike. Look at it whenever either bike model changes.
+
 ## Rules for every model
 
 - **File name:** lower-case letters, digits, `-` and `_`, ending `.glb`. No spaces or capitals. At most 48 characters before `.glb`.

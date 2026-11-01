@@ -23,6 +23,9 @@ import {
   BIKE_SLOTS,
   SCENERY_LIMITS,
   type ModelInfo,
+  checkBikeSizes,
+  fullSizeScale,
+  BUILT_IN_FULL_SCALE,
 } from '../src/core/modModels';
 import { OFFICIAL_ITEM } from '../src/core/startOfficial';
 import { SPANS_TRACK, SPRINT_START_ITEM } from '../src/core/trackClearance';
@@ -238,5 +241,37 @@ describe('the rules for each kind of model', () => {
   it("knows every one of the game's locked items", () => {
     const ids = new Set(readPublic<{ scenery: { id: string }[] }>('data/trackParts.json').scenery.map((s) => s.id));
     for (const id of LOCKED_ITEMS) expect(ids.has(id)).toBe(true);
+  });
+});
+
+// Boss, 1 Nov 2026: "Add a check somewhere so when the new models come in they must be checked for this sizing
+// change to make sure they look right". The 125s ride race_bike_youth.glb scaled up to race_bike.glb's length.
+describe('race bike sizes for the 125s (Boss, 1 Nov 2026)', () => {
+  // Real sizes: an 85cc about 1.86 m long and 1.17 m tall, a 450 2.15 m by 1.28 m.
+  const youth = info([-0.93, 0, -0.38], [0.93, 1.17, 0.38], 4000);
+  const adult = info([-1.075, 0, -0.415], [1.075, 1.28, 0.415], 4988);
+
+  it('wants the youth bike at youth size and the race bike at full size', () => {
+    expect(checkModel('race_bike_youth.glb', 1000, youth, [])).toEqual([]);
+    expect(checkModel('race_bike.glb', 1000, adult, [])).toEqual([]);
+    expect(checkModel('race_bike_youth.glb', 1000, adult, []).join(' ')).toMatch(/youth size/);
+    expect(checkModel('race_bike.glb', 1000, youth, []).join(' ')).toMatch(/full size/);
+  });
+
+  it('scales the youth bike by the race bike\'s length, or the built-in ratio without one', () => {
+    expect(fullSizeScale(1.86, 2.15)).toBeCloseTo(2.15 / 1.86, 5);
+    expect(fullSizeScale(1.86, null)).toBe(BUILT_IN_FULL_SCALE);
+  });
+
+  it('passes a real pair, and flags a scaled 125 that would look wrong beside the race bike', () => {
+    expect(checkBikeSizes(youth, adult)).toEqual([]);
+    expect(checkBikeSizes(youth, null)).toEqual([]);
+    expect(checkBikeSizes(null, adult)).toEqual([]);
+    // A tall, stubby youth bike: scaled to the race bike's length it towers over it.
+    const stubby = info([-0.8, 0, -0.38], [0.8, 1.3, 0.38]);
+    expect(checkBikeSizes(stubby, adult).join(' ')).toMatch(/about the same height/);
+    // Nearly as long as the race bike already: hardly scaled, so probably not built at youth size.
+    const long = info([-1.05, 0, -0.4], [1.05, 1.25, 0.4]);
+    expect(checkBikeSizes(long, adult).join(' ')).toMatch(/×1.02/);
   });
 });

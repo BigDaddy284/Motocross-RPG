@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { BIKE_SLOTS, checkModel, FIGURE_PARTS, partName, glbInfo, MODEL_DIR, MODEL_INDEX, modelDef, modelId, modelRole, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, RIDER_SLOTS, materialSlot, type ModelEntry } from '../core/modModels';
+import { BIKE_SLOTS, checkModel, FIGURE_PARTS, partName, glbInfo, MODEL_DIR, MODEL_INDEX, modelDef, modelId, modelRole, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, RIDER_SLOTS, checkBikeSizes, fullSizeScale, materialSlot, type ModelEntry } from '../core/modModels';
 import type { SceneryDef } from '../core/trackParts';
 import { U } from './paddock';
 
@@ -101,21 +101,19 @@ export function figureParts(id: string): Map<string, FigurePart> | null {
 export function bikeModel(youth: boolean, full = false): THREE.Group | null {
   const y = youth ? modModel(RACE_BIKE_YOUTH) : null;
   if (!y) return modModel(RACE_BIKE);
-  if (full) y.scale.setScalar(fullSizeScale());
+  if (full) y.scale.setScalar(fullScale());
   return y;
 }
 
-/** How much bigger the race bike is than the youth bike, nose to tail; the built-in models' wheelbases (1.46 and 1.3 m) without a race bike. */
-function fullSizeScale(): number {
+/** How much the 125s scale the youth bike up (core fullSizeScale), from the models as loaded. */
+function fullScale(): number {
   const length = (id: string) => {
     const o = models.get(id)?.object;
-    if (!o) return 0;
+    if (!o) return null;
     const b = new THREE.Box3().setFromObject(o);
     return b.max.x - b.min.x;
   };
-  const adult = length(RACE_BIKE);
-  const youth = length(RACE_BIKE_YOUTH);
-  return adult > 0 && youth > 0 ? adult / youth : 1.46 / 1.3;
+  return fullSizeScale(length(RACE_BIKE_YOUTH) ?? 0, length(RACE_BIKE));
 }
 
 export function riderModel(): THREE.Group | null {
@@ -198,6 +196,13 @@ export async function loadModModels(base: string, scenery: SceneryDef[]): Promis
       if (object && info && role === 'new') added.push(modelDef(id, info, U));
     }),
   );
+  // The 125s ride the youth bike scaled up to the race bike: check the pair comes out the right size (Boss, 1 Nov 2026).
+  const usable = (id: string) => (models.get(id)?.object ? models.get(id)!.info : null);
+  const youth = models.get(RACE_BIKE_YOUTH);
+  if (youth?.object) {
+    youth.warnings = checkBikeSizes(usable(RACE_BIKE_YOUTH), usable(RACE_BIKE));
+    for (const w of youth.warnings) console.warn(`mods/models/${youth.file}: ${w}`);
+  }
   for (const m of models.values()) if (m.problems.length) console.warn(`mods/models/${m.file}: ${m.problems.join(' ')}`);
   return added.sort((a, b) => a.id.localeCompare(b.id));
 }

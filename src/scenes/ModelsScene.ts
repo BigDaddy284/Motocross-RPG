@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { FIGURE_PARTS, LOCKED_ITEMS, MODEL_DIR, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, modelName } from '../core/modModels';
 import { services } from '../services';
 import { glbOf, download, raceModels } from '../world/modelExport';
-import { modelList, modModel } from '../world/modModels';
+import { bikeModel, modelList, modModel } from '../world/modModels';
 import { U } from '../world/paddock';
 import { RaceView } from '../world/RaceView';
 
@@ -73,6 +73,8 @@ export class ModelsScene extends Phaser.Scene {
     const race: Row[] = [
       { id: RACE_BIKE, label: 'Race bike', file: `${RACE_BIKE}.glb`, note: '250F and up', make: () => raceModels(false).bike },
       { id: RACE_BIKE_YOUTH, label: 'Race bike (youth)', file: `${RACE_BIKE_YOUTH}.glb`, note: 'Up to 125cc (125s scaled up to race bike size)', make: () => raceModels(true).bike },
+      // The 125s' bike beside the race bike, to check the scaled-up youth model looks right (Boss, 1 Nov 2026).
+      { id: 'race_bike_125', label: 'Race bike (125)', note: 'Your youth bike scaled up for the 125s, beside your race bike: they should match in size', make: () => bikePair() },
       { id: RACE_RIDER, label: 'Race rider', file: `${RACE_RIDER}.glb`, note: 'Sits on every race bike', make: () => raceModels(false).rider },
     ];
     const builtIn: Row[] = scenery
@@ -92,8 +94,8 @@ export class ModelsScene extends Phaser.Scene {
       .map((m) => ({
         id: m.id,
         label: m.file,
-        note: m.problems.length ? `Not used: ${m.problems.join(' ')}` : role[m.role],
-        bad: m.problems.length > 0,
+        note: m.problems.length ? `Not used: ${m.problems.join(' ')}` : m.warnings?.length ? `${role[m.role]}. Check: ${m.warnings.join(' ')}` : role[m.role],
+        bad: m.problems.length > 0 || !!m.warnings?.length,
         make: () => modModel(m.id),
       }));
     this.page([
@@ -264,4 +266,18 @@ export class ModelsScene extends Phaser.Scene {
     this.root?.remove();
     this.root = null;
   }
+}
+
+/** The 125s' bike (the youth model scaled up) and the race bike side by side, or null without a youth model. */
+function bikePair(): THREE.Object3D | null {
+  const small = bikeModel(true, true);
+  if (!modelList().some((m) => m.id === RACE_BIKE_YOUTH && m.object) || !small) return null;
+  const g = new THREE.Group();
+  g.add(small);
+  const big = bikeModel(false);
+  if (big) {
+    big.position.z = -1.2 * U;
+    g.add(big);
+  }
+  return g;
 }
