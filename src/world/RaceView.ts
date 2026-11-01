@@ -36,6 +36,9 @@ import { BIKE_PAINT, bikeModel, figureParts, modModel, paintModel, RIDER_PAINT, 
 
 /** Camera direction: degrees round from straight in front, and degrees down from level. */
 const CAM_EL = 38;
+/** How fast the race camera catches up across the ground and in height, per second. */
+const CAM_PAN = 4;
+const CAM_RISE = 0.8;
 /** Grid units across the view, by track kind. Riders stay big enough to follow at this size. */
 const VIEW_UNITS: Record<string, number> = { stadium: 36, outdoor: 32, endurance: 32 };
 /** Ground drawn round the grid (100 × 60, or a No-Turn Takedown's 200 × 30), in grid units. */
@@ -2986,8 +2989,14 @@ export class RaceView {
       const p = this.surface.place(this.surface.start.from, 0);
       return new THREE.Vector3(p.x, 0, p.z);
     })();
+    // A steady TV-style camera (Boss, 1 Nov 2026): it pans after the rider smoothly, and only slowly
+    // follows their height, so jumps, whoops and bumps don't bounce the picture; hills still come through.
     if (!this.cam || want.distanceTo(this.cam) > this.viewUnits) this.cam = want.clone();
-    else this.cam.lerp(want, 1 - Math.exp(-dt * 9));
+    else {
+      const pan = 1 - Math.exp(-dt * CAM_PAN);
+      const rise = 1 - Math.exp(-dt * CAM_RISE);
+      this.cam.set(this.cam.x + (want.x - this.cam.x) * pan, this.cam.y + (want.y - this.cam.y) * rise, this.cam.z + (want.z - this.cam.z) * pan);
+    }
     this.camera.position.copy(this.cam).addScaledVector(this.dir, 120);
     this.camera.lookAt(this.cam);
     // The sun follows the camera so shadows near the action stay sharp.
