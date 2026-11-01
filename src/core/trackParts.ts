@@ -49,6 +49,8 @@ export interface SceneryDef {
   variants?: [string, string][];
   setups?: [string, string][];
   colours?: string[];
+  /** A new item from a model in the models folder (modModels.ts), added when the game loads; never in trackParts.json. */
+  model?: boolean;
 }
 
 export interface TrackPartsData {

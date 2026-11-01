@@ -8,7 +8,7 @@ The editors are kept apart from the game as the **Motocross RPG Toolkit**: its f
 
 ### Opening the toolkit as a desktop app (Windows)
 
-Double-click **`Toolkit.cmd`** in the repo's folder. It checks Node.js is installed (and offers the download page if not), runs `npm install` the first time, starts the dev server out of sight and opens the toolkit in Edge or Chrome's app mode: a plain window with no address bar or menus, so none of the editors' shortcuts are taken by the browser (Alt+E, for one, opens the browser's own menu in a normal tab). Closing the window stops the server. If a dev server is already running on port 5173, the window just opens on it. The script is `tools/toolkit.ps1`; the window's browser profile is kept in `.toolkit-browser/`, which git ignores.
+Double-click **`Toolkit.cmd`** in the repo's folder. It checks Node.js is installed (and offers the download page if not), runs `npm install` the first time, starts the dev server out of sight and opens the toolkit in Edge or Chrome's app mode: a plain window with no address bar or menus, so none of the editors' shortcuts are taken by the browser (Alt+E, for one, opens the browser's own menu in a normal tab). Closing the window stops the server. If a dev server is already running (`npm run dev` in a terminal), the window just opens on it; otherwise it starts one on the first free port from 5173 up. The script is `tools/toolkit.ps1`; the window's browser profile is kept in `.toolkit-browser/`, which git ignores.
 
 ## Editing maps
 
@@ -87,3 +87,7 @@ The editor has five modes (keys 1 to 5):
 The lists of track kinds, surfaces, ground tiles and scenery are in `public/data/trackParts.json`, with tile art from `public/assets/art/area-map/tiled/tiles`. Its `sectionEditor` switch shows the section editing tools while the game is in development; Final v1 turns it off (preview with `?final=1`), leaving the layout, surface, ground and scenery editing. The section data and the race simulation work the same either way.
 
 A new track can be raced from the world once a venue in the `venues` list of `tracks.json` points at it. An unchanged file saves back byte for byte. After saving, run `npm test`.
+
+## Models
+
+The **Models** card (or **Models…** in the track editor, or the game with `?models`) lists the race view's objects: the race bike (adult and youth), the race rider, the moving figures (marshal, flag man, pit crew, cheering fan and start official, exported with their parts named) and every scenery item that can be swapped. Animated models play their animation in the preview. Pick one to see it turning on a 1 m grid with its size and triangle count, then click **Export** to save it as a `.glb` that Blender opens. Change it in Blender, export it as glTF Binary into `public/mods/models/` under the same name to replace it, or under a new name to add a new scenery item, and reload. The page's last list, **Your models**, shows every file in that folder with what it does in the game, or in red why it isn't used. The rules for each type are in [MODELS.md](MODELS.md).

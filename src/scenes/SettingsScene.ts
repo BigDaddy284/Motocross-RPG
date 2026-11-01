@@ -102,6 +102,8 @@ export class SettingsScene extends Phaser.Scene {
         label(2, 'Repeated reminders'); toggle(this, sliderX + 26, rowY(2), s.gameplay.reminders, upd('gameplay', 'reminders'));
         // TEST ONLY, REMOVE BEFORE RELEASE (Boss, 30 Oct 2026): test ride tracks on your own.
         label(3, 'TEST: Ride alone (no AI)'); toggle(this, sliderX + 26, rowY(3), s.gameplay.testRideAlone, upd('gameplay', 'testRideAlone'));
+        // TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 31 Oct 2026): the player wins every moto.
+        label(4, 'TEST: Always win'); toggle(this, sliderX + 26, rowY(4), s.gameplay.testAlwaysWin, upd('gameplay', 'testAlwaysWin'));
         break;
       case 'Controls': {
         const c = s.controls;

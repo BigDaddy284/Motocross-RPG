@@ -270,6 +270,28 @@ export function sellSpare(data: ShopsData, shop: ShopDef, career: CareerState, i
   return { ok: true, message: `Sold for ${formatMoney(value)}.` };
 }
 
+/**
+ * Sells several spares from the bag at once, by bag index (Sell selected and Sell all; Boss,
+ * 31 Oct 2026). Parts the shop won't buy, or that are lent, stay in the bag.
+ */
+export function sellSpares(data: ShopsData, shop: ShopDef, career: CareerState, indices: number[]): Result {
+  let sold = 0;
+  let total = 0;
+  // Highest index first, so selling one doesn't move the ones still to sell.
+  for (const i of [...new Set(indices)].sort((a, b) => b - a)) {
+    const part = career.bag[i]?.part;
+    if (!part || part.owner || data.consumables?.includes(part.slot)) continue;
+    const value = resaleValue(data, shop, career, part);
+    if (value === null) continue;
+    career.bag.splice(i, 1);
+    career.money += value;
+    sold++;
+    total += value;
+  }
+  if (!sold) return { ok: false, message: 'Nothing here this shop will buy.' };
+  return { ok: true, message: `Sold ${sold} part${sold === 1 ? '' : 's'} for ${formatMoney(total)}.` };
+}
+
 /** Sends a spare to the dump: deleted, no resale (Spec 7.2). */
 export function dumpSpare(career: CareerState, index: number): boolean {
   const part = career.bag[index]?.part;

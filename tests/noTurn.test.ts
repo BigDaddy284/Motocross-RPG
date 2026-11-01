@@ -131,6 +131,9 @@ describe('No-Turn Takedown knockouts', () => {
     // Everyone leaves on their own, the seeding interval apart.
     const traces = seed.runToEnd();
     const away = Object.values(traces[0].times).map((t) => t[0]).sort((a, b) => a - b);
+    // The player goes second, with just one rider ahead of them (Boss, 31 Oct 2026).
+    expect(k.player.gate).toBe(1);
+    expect(traces[0].times[PLAYER_ID][0]).toBeCloseTo(away[1]);
     for (let i = 1; i < away.length; i++) expect(away[i] - away[i - 1]).toBeGreaterThanOrEqual(k.rules.seedInterval - 1e-6);
     const rec = k.finishSeeding(seed);
     expect(rec.results).toHaveLength(32);

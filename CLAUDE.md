@@ -52,7 +52,7 @@ Dev URL params (handled in `src/scenes/BootScene.ts`): `?testtrack=<track id>` j
 
 - Comments and README notes record design decisions with who agreed and when, e.g. `(Boss, 29 Oct 2026)`, and tests cite the design document as `GDD x.y`. Keep that style, and don't reverse a dated decision without being asked.
 - The README is updated alongside features (what the build offers, controls, project status). Update the relevant section when behaviour players see changes.
-- Testing aids to remove before final release are listed under "Before release" in the README (currently `testPayMultiplier` in `public/data/world.json`).
+- Testing aids to remove before final release are listed under "Before release" in the README (currently `testPayMultiplier` in `public/data/world.json`, and the "TEST: Always win" setting, which MUST be removed before the final merge to `main`).
 - Version strings: `package.json` `version` and `BUILD_LABEL` in `src/services.ts`.
 
 ## Branches (Boss, 30 Oct 2026)

@@ -4108,7 +4108,16 @@ async function fileCheck(show) {
   if (!lib.manifest) { if (show) status('The file check needs the game maps: open public (or public/assets) or load them from the server.', 'err'); return; }
   const items = [];
   const mapsDir = joinPath(lib.assets, 'maps');
-  const files = [...source.files.keys()].filter((p) => dirOf(p) === mapsDir && p.endsWith('.json')).sort();
+  // A map's id is its file name, and the game only takes lower-case letters, digits, dots, dashes
+  // and underscores: a file named otherwise (a space slipped in when renaming it) is never added,
+  // and one already listed is offered for taking off the list below (Boss, 31 Oct 2026).
+  const okId = (id) => /^[a-z0-9_.-]+$/.test(id);
+  const all = [...source.files.keys()].filter((p) => dirOf(p) === mapsDir && p.endsWith('.json')).sort();
+  for (const p of all.filter((f) => !okId(stem(f)))) {
+    const fix = stem(p).trim().toLowerCase().replace(/[^a-z0-9_.-]+/g, '-').replace(/^-+|-+$/g, '');
+    items.push({ kind: 'warn', text: `"${baseName(p)}" can't be a game map: map file names are lower-case letters, digits, dots, dashes and underscores, with no spaces or capitals. Rename it ${fix || 'something else'}.json in public/assets/maps, then Check files again.` });
+  }
+  const files = all.filter((f) => okId(stem(f)));
   const fileIds = new Set(files.map(stem));
   const seen = new Set();
   for (const m of lib.manifest.maps) {
@@ -4127,9 +4136,14 @@ async function fileCheck(show) {
     const entry = lib.manifest.maps.find((m) => m.id === id);
     if (!entry) {
       const clash = fixId && lib.manifest.maps.some((m) => m.id === raw.id);
+      // An exit to the world map needs a route in world.json listing where it can go, or the game
+      // won't start (content.ts): such a map is offered unticked, saying so (Boss, 31 Oct 2026).
+      const routes = known.world?.data.routes ?? [];
+      const unrouted = kind === 'area' && known.world ? (raw.objects ?? []).filter((o) => o.type === 'exit' && o.props?.to === 'world_map' && !routes.some((r) => r.map === id && r.exit === o.name)).map((o) => `"${o.name}"`) : [];
       const it = {
         kind: 'add',
-        text: `New ${kind === 'interior' ? 'interior' : 'map'} ${baseName(p)} ("${title}"): add it to the game's map list${kind === 'area' && known.world ? ', and to the world map in:' : '.'}${fixId ? ` The id inside it is ${raw.id}${clash ? ', which is already another map\'s,' : ''} so it's changed to ${id} to match the file name.` : ''}`,
+        off: unrouted.length > 0,
+        text: `New ${kind === 'interior' ? 'interior' : 'map'} ${baseName(p)} ("${title}")${unrouted.length ? ` (left unticked: its exit ${unrouted.join(', ')} goes to the world map and no route in world.json says where to, so the game won't start with it listed until one does)` : ''}: add it to the game's map list${kind === 'area' && known.world ? ', and to the world map in:' : '.'}${fixId ? ` The id inside it is ${raw.id}${clash ? ', which is already another map\'s,' : ''} so it's changed to ${id} to match the file name.` : ''}`,
         zone: kind === 'area' && known.world ? zoneSelect(title, zoneOf(id)?.id) : null,
         apply: async (c) => { if (fixId) await writeId(); lib.manifest.maps.push({ id, title, kind }); c.manifest = true; if (it.zone && putInZone(id, title, it.zone.value)) c.world = true; },
       };
@@ -4156,7 +4170,8 @@ async function fileCheck(show) {
   }
   for (const m of lib.manifest.maps) {
     if (fileIds.has(m.id)) continue;
-    items.push({ kind: 'remove', text: `${m.title ?? m.id} (${m.id}) is in the map list but maps/${m.id}.json isn't in the folder: take it off the list (the game won't start while it's missing).`, apply: (c) => { lib.manifest.maps = lib.manifest.maps.filter((x) => x !== m); c.manifest = true; if (takeOutOfZones(m.id)) c.world = true; } });
+    const why = okId(m.id) ? `maps/${m.id}.json isn't in the folder` : `"${m.id}" isn't a name the game takes (a space or capital in it)`;
+    items.push({ kind: 'remove', text: `${m.title ?? m.id} (${m.id}) is in the map list but ${why}: take it off the list and the world map (the game won't start while it's there).`, apply: (c) => { lib.manifest.maps = lib.manifest.maps.filter((x) => x !== m); c.manifest = true; if (takeOutOfZones(m.id)) c.world = true; } });
   }
   if (lib.data) {
     // Over http only the pictures made here are listed, so only those can be found missing.

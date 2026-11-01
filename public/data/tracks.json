@@ -522,10 +522,7 @@
         { "type": "cheer", "x": 16, "y": 30.5, "rot": 311 },
         { "type": "flagger", "x": 25.9, "y": 37.1, "rot": 355 }
       ],
-      "features": [
-        { "type": "tabletop", "at": 86.5, "len": 12, "passing": 0.5 },
-        { "type": "tabletop", "at": 10.5, "len": 12, "passing": 0.5 }
-      ],
+      "features": [{"type": "tabletop", "at": 86.5, "len": 12, "passing": 0.5}, {"type": "tabletop", "at": 10.5, "len": 12, "passing": 0.5}],
       "hills": [
         { "at": 274.3, "len": 16, "height": 1 },
         { "at": 275.8, "len": 16, "height": 1 },

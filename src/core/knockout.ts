@@ -142,9 +142,14 @@ export class Knockout {
 
   // ---- seeding ----
 
-  /** The seeding run: everyone on their own, in a random order, the seeding interval apart. */
+  /**
+   * The seeding run: everyone on their own, the seeding interval apart, in a random order except
+   * that the player goes second, so only one rider is ahead of them and the screen can move on
+   * once they have their time (Boss, 31 Oct 2026).
+   */
   startSeeding(message: string): MotoSim {
-    const order = shuffle(this.field.map((e) => e.id), this.rng);
+    const order = shuffle(this.field.map((e) => e.id).filter((id) => id !== PLAYER_ID), this.rng);
+    if (this.field.some((e) => e.id === PLAYER_ID)) order.splice(Math.min(1, order.length), 0, PLAYER_ID);
     order.forEach((id, i) => (this.entrant(id).gate = i));
     return new MotoSim(this.rc.racing, this.rc.bikes, this.track, this.cls, this.field, {
       laps: 1,

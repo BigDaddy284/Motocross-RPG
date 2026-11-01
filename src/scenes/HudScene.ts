@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import { modsLabel } from '../core/modifiers';
 import { bikeProblem, bikeStats, formatMoney, journal, pence, statMax, type CareerState } from '../core/career';
-import { addXp, childLevel, childXp, leadLevel, leadXp, levelProgress } from '../core/skills';
-import { nextRoundVenue, rewardTexture, standings } from '../core/championship';
+import { addXp, childLevel, childXp, leadLevel, leadXp, levelProgress, levelStatus } from '../core/skills';
+import { champLine, nextRoundVenue, rewardTexture, standings } from '../core/championship';
 import {
   buyPart,
   dumpSpare,
@@ -13,6 +13,7 @@ import {
   resaleValue,
   tradeIn,
   sellSpare,
+  sellSpares,
   sellsFor,
   shopStock,
   slotName,
@@ -36,7 +37,7 @@ import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
 import { button, panel, slider, statBar } from '../ui/widgets';
 import type { WorldScene } from './WorldScene';
 import { HUD_BAR, cssSize, view } from '../ui/view';
-import { worldMapTexture, type WorldMapData, type WorldMapZone } from '../core/worldMap';
+import { bikeImage, worldMapTexture, type WorldMapData, type WorldMapZone } from '../core/worldMap';
 
 // Screen-space layer over the world: map name, money and task, messages, the dialogue box, the
 // bike / bag / task panel, confirm boxes, the work progress bar, the pause menu and
@@ -120,9 +121,12 @@ export class HudScene extends Phaser.Scene {
     this.modal = null;
     this.progressBox = null;
     const outline = { stroke: '#14141e', strokeThickness: 4 };
-    this.titleText = this.add.text(16, 14, '', textStyle(this.ts(20), COLORS.cream, outline));
+    // The place and task in orange with a black outline, easier to read on a phone; the money
+    // keeps its own colours (Boss, 31 Oct 2026).
+    const black = { stroke: '#000000', strokeThickness: 5 };
+    this.titleText = this.add.text(16, 14, '', textStyle(this.ts(20), COLORS.accent, black));
     this.moneyText = this.add.text(16, 44, '', textStyle(this.ts(20), COLORS.accent, { ...outline, fontStyle: 'bold' }));
-    this.taskText = this.add.text(16, 74, '', textStyle(this.ts(16), COLORS.cream, { ...outline, wordWrap: { width: 420 } }));
+    this.taskText = this.add.text(16, 74, '', textStyle(this.ts(16), COLORS.accent, { ...black, wordWrap: { width: 420 } }));
     this.shiftText = this.add.text(0, 0, '', textStyle(this.ts(18), COLORS.cream, { ...outline, align: 'center' })).setOrigin(0.5, 0);
     // Toasts sit above panels, so a shop's "Bought" message shows over the shop.
     this.toastBg = this.add.rectangle(0, 0, 10, 10, COLORS.ink, 0.88).setStrokeStyle(2, COLORS.panelLight).setVisible(false).setDepth(10);
@@ -182,6 +186,8 @@ export class HudScene extends Phaser.Scene {
   /** True while the rider is driving the van: shows the Get out button. */
   private driving = false;
   private bagPage = 0;
+  /** Spares ticked on a shop's Sell tab, by bag entry, kept across its pages until the tab is left. */
+  private sellPicks = new Set<object>();
   /** Saves and refreshes the money line after a shop, repair or bag change. Set by the world. */
   onShopChange: (() => void) | null = null;
   /** The rider's look and wardrobe (the save's rider), for the champion's kit that comes with the sponsor's free bike. */
@@ -261,13 +267,83 @@ export class HudScene extends Phaser.Scene {
     return !!this.pause || !!this.modal || this.input.hitTestPointer(p).length > 0;
   }
 
-  /** Money and the current task, shown under the map name. */
+  /**
+   * Money and, under the map name, the championship in progress at a venue or the current task
+   * everywhere else (Boss, 31 Oct 2026). A venue with no championship on shows the task too.
+   */
   showCareer(career: CareerState, flags: Record<string, boolean>): void {
+    // Money coming in shows as a bank note over the rider's head.
+    if (this.career === career && this.shownMoney !== null && career.money > this.shownMoney) this.moneyNote(career.money - this.shownMoney);
+    this.shownMoney = career.money;
     this.career = career;
     this.flags = flags;
     this.moneyText.setText(formatMoney(career.money));
-    this.taskText.setText(`Task: ${journal(services.content.story, career, flags)}`);
+    const c = services.content;
+    // The backyard loop is a practice venue on the Home Town map, so it doesn't count.
+    const atVenue = !!this.mapId && c.tracks.venues.some((v) => v.map === this.mapId && !v.practiceOnly);
+    const champ = atVenue ? champLine(c, c.championships, career) : null;
+    this.taskText.setText(champ ? `Championship: ${champ}` : `Task: ${journal(c.story, career, flags)}`);
   }
+
+  /** The money last shown, to spot money coming in. */
+  private shownMoney: number | null = null;
+
+  /** Where the rider's head is on screen, set by the world scene; null when there is no rider to show. */
+  headAt: (() => { x: number; y: number } | null) | null = null;
+
+  private note: Phaser.GameObjects.Container | null = null;
+
+  /**
+   * Money in (shift and job pay, errands, the story's gifts, sales, prize money back from a race)
+   * shows as a small bank note over the rider's head: cream paper, an orange frame and a £ oval at
+   * each end, with a tail to the head (Boss, 1 Nov 2026: design 2 at 37.5% of its mock-up), so it
+   * never sits over the chat box. It follows the rider for a moment, then floats up and fades.
+   */
+  moneyNote(amount: number): void {
+    const head = this.headAt?.();
+    if (!head) return;
+    this.note?.destroy();
+    const k = this.ts(100) / 100;
+    const label = this.add.text(0, 0, `+${formatMoney(amount)}`, textStyle(this.ts(12), COLORS.ink, { fontStyle: 'bold' })).setOrigin(0.5);
+    const end = 8 * k;
+    const w = Math.max(66 * k, label.width + 2 * (2 * end + 4 * k));
+    const h = Math.max(22 * k, label.height + 6 * k);
+    const y0 = -h - 4 * k;
+    label.setY(y0 + h / 2);
+    const g = this.add.graphics();
+    g.fillStyle(0x000000, 0.35).fillRect(-w / 2 + 1.5, y0 + 1.5, w, h);
+    g.fillStyle(0xf3e3c3, 1).fillRect(-w / 2, y0, w, h);
+    g.lineStyle(2, COLORS.accent, 1).strokeRect(-w / 2, y0, w, h);
+    g.lineStyle(1, COLORS.ink, 0.6).strokeRect(-w / 2 + 3 * k, y0 + 3 * k, w - 6 * k, h - 6 * k);
+    g.fillStyle(COLORS.accent, 1).fillTriangle(-4 * k, y0 + h, 4 * k, y0 + h, 0, y0 + h + 4 * k);
+    const parts: Phaser.GameObjects.GameObject[] = [g];
+    for (const sx of [-1, 1]) {
+      g.fillStyle(COLORS.accent, 1).fillEllipse(sx * (w / 2 - end), y0 + h / 2, 10 * k, 14 * k);
+      parts.push(this.add.text(sx * (w / 2 - end), y0 + h / 2, '£', textStyle(this.ts(9), 0xf3e3c3, { fontStyle: 'bold' })).setOrigin(0.5));
+    }
+    parts.push(label);
+    const note = this.add.container(head.x, head.y, parts).setDepth(9);
+    this.note = note;
+    let lift = 0;
+    const follow = () => {
+      const at = this.headAt?.();
+      if (!note.active) return;
+      if (at) note.setPosition(at.x, at.y - lift);
+    };
+    this.events.on('update', follow);
+    note.once('destroy', () => this.events.off('update', follow));
+    this.tweens.add({
+      targets: note,
+      alpha: 0,
+      delay: 2600,
+      duration: 500,
+      onUpdate: (tw) => (lift = 14 * tw.progress),
+      onComplete: () => note.destroy(),
+    });
+  }
+
+  /** The map the rider is on, for what the line under its name shows. */
+  private mapId: string | null = null;
 
   private wayArrow: Phaser.GameObjects.Container | null = null;
 
@@ -313,8 +389,9 @@ export class HudScene extends Phaser.Scene {
     this.shiftText.setText(text ?? '');
   }
 
-  showMapTitle(title: string): void {
+  showMapTitle(title: string, mapId?: string): void {
     this.titleText.setText(title);
+    this.mapId = mapId ?? null;
   }
 
   toast(message: string): void {
@@ -458,15 +535,20 @@ export class HudScene extends Phaser.Scene {
     const { width, height, k } = this.page();
     const w = Math.min(560, width - 32);
     const c = this.add.container((width / 2) * k, (height / 2) * k).setScale(k);
-    this.backdrop(c, w, 220, false);
-    c.add(this.add.text(0, -50, text, textStyle(this.pts(20), COLORS.cream, { align: 'center', wordWrap: { width: w - 60 } })).setOrigin(0.5));
+    // The box grows to fit its text, so a long question at a big Text size stays inside it (Boss, 31 Oct 2026).
+    const msg = this.add.text(0, 0, text, textStyle(this.pts(20), COLORS.cream, { align: 'center', wordWrap: { width: w - 60 } })).setOrigin(0.5, 0);
+    const h = Math.max(220, msg.height + 28 + 28 + 46 + 28);
+    this.backdrop(c, w, h, false);
+    msg.setY(-h / 2 + 28);
+    c.add(msg);
     let answered = false;
-    c.add(button(this, -120, 55, yes, () => {
+    const by = h / 2 - 28 - 23;
+    c.add(button(this, -120, by, yes, () => {
       answered = true;
       this.closeModal();
       onYes();
     }, 200, 46));
-    c.add(button(this, 120, 55, 'Not now', () => this.closeModal(), 200, 46));
+    c.add(button(this, 120, by, 'Not now', () => this.closeModal(), 200, 46));
     this.openModal(c, () => !answered && onNo());
   }
 
@@ -884,6 +966,19 @@ export class HudScene extends Phaser.Scene {
       // The stats start below the note, however many lines it takes.
       const statsY = Math.max(y0 + 100, note.y + note.height + 22);
       bikes.stats.forEach((st, i) => c.add(statBar(this, left, statsY + i * 34, st.name, w / 2 - 260, max, 110).setValue(stats[st.id])));
+      // A picture of the rider's bike, brand and class, in the space under the stat bars (Boss, 31 Oct 2026).
+      // It's the world map's bike picture, scaled to fit and never past 2x so the pixels stay sharp.
+      const wm = services.content.world.worldMap;
+      const pic = wm ? worldMapTexture(bikeImage(wm, bike, bikes)) : '';
+      if (pic && this.textures.exists(pic)) {
+        const picTop = statsY + bikes.stats.length * 34 + 6;
+        const picW = px - 24 - left;
+        const picH = h / 2 - 20 - picTop;
+        const img = this.add.image(0, 0, pic);
+        const s = Math.min(2, picW / img.width, picH / img.height);
+        if (s >= 0.5) c.add(img.setScale(s).setPosition(left + picW / 2, picTop + picH / 2));
+        else img.destroy();
+      }
       line(px, y0, 'Parts', 20, COLORS.accent, w / 2 - 28 - px);
       // Columns: the part's name, its grade, a bar and the percentage, each kept to its own space.
       const barW = w / 2 - 330;
@@ -990,6 +1085,45 @@ export class HudScene extends Phaser.Scene {
       // The note goes at the foot first, so the rows can share out the room above it.
       const foot = body(left, 0, 'Racing and practice train Rider Ability. Training minigames for every skill come in later builds.', 14, COLORS.muted);
       foot.setY(h / 2 - 14 - foot.height);
+      // Hover a skill with the mouse, or tap it on a phone, to see its XP and the XP the next level
+      // starts at (Boss, 31 Oct 2026). One box at a time; tapping the panel's empty space hides it.
+      let tip: Phaser.GameObjects.Container | null = null;
+      const hideTip = () => {
+        tip?.destroy();
+        tip = null;
+      };
+      (c.list[1] as Phaser.GameObjects.Rectangle).on('pointerdown', hideTip);
+      const showTip = (xp: number, multiplier: number, x: number, y: number, rowH: number) => {
+        hideTip();
+        const st = levelStatus(xp, multiplier, skills.maxLevel);
+        const fmt = (n: number) => Math.floor(n).toLocaleString();
+        // No level line: the menu already shows it. Kept to two short lines so millions of XP still
+        // fit beside the next column (Boss, 31 Oct 2026).
+        const lines = st.next === null
+          ? [`${fmt(st.xp)} XP`, 'Top level']
+          : [`${fmt(st.xp)} / ${fmt(st.next)} XP`, `${fmt(st.toGo)} to the next level`];
+        const t = this.add.text(12, 10, lines.join('\n'), textStyle(this.pts(14), COLORS.cream, { lineSpacing: 4 }));
+        const bw = t.width + 24;
+        const bh = t.height + 20;
+        // Under the row, kept inside the panel; above it when there's no room below.
+        const tx = Math.min(x, w / 2 - 12 - bw);
+        const ty = y + rowH + bh <= h / 2 - 12 ? y + rowH : y - bh;
+        tip = this.add.container(tx, ty, [this.add.rectangle(0, 0, bw, bh, COLORS.ink, 0.97).setOrigin(0).setStrokeStyle(2, COLORS.accent), t]);
+        c.add(tip);
+      };
+      /** An invisible hit area over a skill's row: hover shows its box, leaving hides it, a tap shows it. */
+      const hover = (x: number, y: number, rowW: number, rowH: number, xp: () => number, multiplier: number) => {
+        const zone = this.add.rectangle(x, y, rowW, rowH, 0, 0.001).setOrigin(0).setInteractive();
+        const show = () => showTip(xp(), multiplier, x, y, rowH);
+        zone.on('pointerover', show);
+        zone.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, ev: Phaser.Types.Input.EventData) => {
+          ev.stopPropagation();
+          show();
+        });
+        // A finger lifting counts as leaving the row, so on a phone the box stays until the next tap.
+        zone.on('pointerout', (p: Phaser.Input.Pointer) => !p.wasTouch && hideTip());
+        c.add(zone);
+      };
       skills.leads.forEach((lead, i) => {
         const x = left + i * colW;
         const lx = leadXp(career.skills, lead);
@@ -999,6 +1133,7 @@ export class HudScene extends Phaser.Scene {
         const leadBarY = Math.max(y0 + 58, level.y + level.height + 6);
         c.add(this.add.rectangle(x, leadBarY, barW, 8, COLORS.panelLight).setOrigin(0, 0.5));
         c.add(this.add.rectangle(x, leadBarY, Math.max(1, barW * levelProgress(lx, lead.multiplier, skills.maxLevel)), 8, COLORS.accent).setOrigin(0, 0.5));
+        hover(x, y0, barW, leadBarY + 6 - y0, () => lx, lead.multiplier);
         const first = leadBarY + 18;
         const rowH = Math.min(48, (foot.y - 6 - first) / Math.max(1, lead.children.length));
         lead.children.forEach((ch, j) => {
@@ -1010,6 +1145,7 @@ export class HudScene extends Phaser.Scene {
           const barY = y + Math.min(rowH - 8, Math.max(26, name.height + 4));
           c.add(this.add.rectangle(x, barY, barW, 6, COLORS.panelLight).setOrigin(0, 0.5));
           c.add(this.add.rectangle(x, barY, Math.max(1, barW * levelProgress(xp, 1, skills.maxLevel)), 6, 0x6fa84a).setOrigin(0, 0.5));
+          hover(x, y - 4, barW, barY + 6 - (y - 4), () => xp, 1);
         });
       });
     }
@@ -1049,6 +1185,7 @@ export class HudScene extends Phaser.Scene {
       if (tab === 'buy' && milestone.kind === 'ready' && page === 0) tab = 'newbike';
     }
     if (!tabs.some(([t]) => t === tab)) tab = tabs[0][0];
+    if (tab !== 'sell') this.sellPicks.clear();
     // Laid out 900 wide and at least 600 tall, taller when a tab's rows need it (a shop selling frames
     // as well as its own parts, or a garage repairing every slot plus a lent part), then scaled down
     // to fit the screen, so rows and the note under them never overlap or spill out of the panel.
@@ -1076,12 +1213,23 @@ export class HudScene extends Phaser.Scene {
     const repairRowH = Math.max(34, Math.round(this.pts(15) * 1.25) + 8);
     const toolRowH = Math.max(64, Math.round((this.pts(16) + this.pts(13)) * 1.25) + 16);
     const lentRows = spareRows.filter((r) => r.part!.owner).length;
-    const milestoneBrands = tab === 'newbike' && milestone.kind === 'ready' ? bikes.brands.length : 0;
+    // The New bike tab's words, worked out here so the panel can be sized to them.
+    const newBike = tab === 'newbike' && milestone.kind !== 'none' ? (() => {
+      const next = milestone.cls;
+      const champ = milestoneOf(services.content.championships, next.id);
+      const sponsor = sponsorBrand(bikes, career, next.id);
+      const sponsorName = bikes.brands.find((b) => b.id === sponsor)?.name ?? sponsor;
+      const won = `${champ?.name ?? 'The championship'} is yours, so you've earned a ${next.name}.`;
+      const more = milestone.kind === 'needLevel'
+        ? `You'll need Rider Ability ${milestone.level} to ride it; you're level ${milestone.have}. Race on and come back.`
+        : `The champion's sponsor rides ${sponsorName}: a new stock ${next.name}, Grade 1 all round, for nothing and no strings. Or buy a stock bike of any brand.`;
+      return { next, champ, sponsor, sponsorName, won, more };
+    })() : null;
     const rowsH =
       tab === 'buy' ? (sellsFor(shop, cls) ? shop.sells!.slots.length * buyRowH : 40)
       : tab === 'repair' ? (bikes.slots.length + (lentRows ? lentRows + 0.5 : 0)) * repairRowH
       : tab === 'tools' ? services.content.tools.sets.length * toolRowH
-      : tab === 'newbike' ? 60 + (milestoneBrands ? 100 + milestoneBrands * 46 : 0)
+      : newBike ? measure(newBike.won, 17) + 8 + measure(newBike.more, 15) + (milestone.kind === 'ready' ? 16 + 42 + 38 + bikes.brands.length * 46 : 0)
       : 0;
     // Title and tabs (118) and the greeting above the rows, the rows, then the note and a margin.
     const h = Math.max(600, Math.ceil(118 + measure(shop.greeting, 15) + 34 + rowsH + (noteH ? noteH + 18 : 0) + 24));
@@ -1173,27 +1321,68 @@ export class HudScene extends Phaser.Scene {
       footNote();
     } else if (tab === 'sell') {
       if (!spareRows.length) text(left, y0, 'You have no spare parts to sell. Parts you take off the bike go in your bag.', 16, COLORS.muted);
+      const value = (p: NonNullable<(typeof spareRows)[number]['part']>) => (p.owner ? null : resaleValue(shops, shop, career, p));
+      const sellable = spareRows.filter((r) => value(r.part!) !== null);
+      // Ticks only stay on parts still in the bag.
+      for (const b of [...this.sellPicks]) if (!sellable.some((r) => career.bag[r.i] === b)) this.sellPicks.delete(b);
+      const picked = sellable.filter((r) => this.sellPicks.has(career.bag[r.i]));
+      const sum = (rows: typeof sellable) => rows.reduce((a, r) => a + (value(r.part!) ?? 0), 0);
       const { from, to, pg } = listPage(spareRows.length, 46);
       spareRows.slice(from, to).forEach(({ part, i }, k) => {
         const p = part!;
         const y = y0 + k * 46;
-        const value = resaleValue(shops, shop, career, p);
+        const v = value(p);
         const special = shop.sells!.slots.includes(p.slot);
-        line(left, y + 6, `G${p.grade} ${bikes.slots.find((s) => s.id === p.slot)?.name ?? p.slot}`, 16, COLORS.cream, 260);
-        line(left + 270, y + 6, `${Math.round(p.condition * 100)}%${special ? '' : ' · not their line, half price'}`, 14, COLORS.muted, w / 2 - 200 - (left + 270));
+        // A tick box for Sell selected, on every part the shop will buy (Boss, 31 Oct 2026).
+        if (v !== null) {
+          const entry = career.bag[i];
+          const on = this.sellPicks.has(entry);
+          const tick = button(this, left + 16, y + 16, on ? '✓' : '', () => {
+            if (on) this.sellPicks.delete(entry);
+            else this.sellPicks.add(entry);
+            inner(() => reopen('sell', pg));
+          }, 32, 32);
+          tick.setSelected(on);
+          c.add(tick);
+        }
+        line(left + 44, y + 6, `G${p.grade} ${bikes.slots.find((s) => s.id === p.slot)?.name ?? p.slot}`, 16, COLORS.cream, 226);
+        line(left + 280, y + 6, `${Math.round(p.condition * 100)}%${special ? '' : ' · not their line, half price'}`, 14, COLORS.muted, w / 2 - 200 - (left + 280));
         if (p.owner) {
           c.add(button(this, w / 2 - 110, y + 16, 'Not yours', () => this.toast(notMine(p)), 170, 38));
           return;
         }
-        const b = button(this, w / 2 - 110, y + 16, value === null ? "Won't buy" : `Sell ${formatMoney(value)}`, () => {
+        const b = button(this, w / 2 - 110, y + 16, v === null ? "Won't buy" : `Sell ${formatMoney(v)}`, () => {
           const sell = () => done(sellSpare(shops, shop, career, i), 'sell', pg);
           // Small sales are one click; bigger ones ask first (GDD 8.3).
-          if (value !== null && value >= 5000) inner(() => this.confirm(`Sell your G${p.grade} ${slotName(bikes, p.slot)} for ${formatMoney(value)}?`, 'Sell', sell, () => reopen('sell', pg)));
+          // A note under the question: the part's condition when it's still at half or better (Boss, 31 Oct 2026).
+          const pct = Math.round(p.condition * 100);
+          const sure = pct >= 50 ? `It's still at ${pct}%.\nAre you sure you want to sell it?` : 'Are you sure you want to sell it?';
+          if (v !== null && v >= 5000) inner(() => this.confirm(`Sell your G${p.grade} ${slotName(bikes, p.slot)} for ${formatMoney(v)}?\n${sure}`, 'Sell', sell, () => reopen('sell', pg)));
           else sell();
         }, 170, 38);
-        b.setEnabled(value !== null);
+        b.setEnabled(v !== null);
         c.add(b);
       });
+      // Sell selected and Sell all, either side of the pager, always asking first.
+      const sellMany = (rows: typeof sellable, label: string) => inner(() => this.confirm(
+        `Sell ${rows.length === 1 ? '1 part' : `${rows.length} parts`} for ${formatMoney(sum(rows))}?`,
+        label,
+        () => {
+          this.sellPicks.clear();
+          done(sellSpares(shops, shop, career, rows.map((r) => r.i)), 'sell');
+        },
+        () => reopen('sell', pg),
+      ));
+      if (sellable.length) {
+        const bw = 230;
+        const sel = button(this, left + bw / 2, h / 2 - 32, picked.length ? `Sell selected (${picked.length})` : 'Sell selected', () => sellMany(picked, 'Sell'), bw, 38);
+        this.fitWidth(sel.list[1] as Phaser.GameObjects.Text, bw - 12);
+        sel.setEnabled(picked.length > 0);
+        c.add(sel);
+        const all = button(this, w / 2 - 28 - bw / 2, h / 2 - 32, `Sell all (${sellable.length})`, () => sellMany(sellable, 'Sell all'), bw, 38);
+        this.fitWidth(all.list[1] as Phaser.GameObjects.Text, bw - 12);
+        c.add(all);
+      }
     } else if (tab === 'repair') {
       bikes.slots.forEach((slot, i) => {
         const y = y0 - 12 + i * repairRowH;
@@ -1259,11 +1448,12 @@ export class HudScene extends Phaser.Scene {
         line(left + 520, y + 4, `→ G${q.grade} at 100%`, 14, COLORS.muted, w / 2 - 20 - (left + 520));
       });
     } else if (tab === 'newbike' && milestone.kind !== 'none') {
-      const next = milestone.cls;
-      const champ = milestoneOf(services.content.championships, next.id);
-      text(left, y0, `${champ?.name ?? 'The championship'} is yours, so you've earned a ${next.name}.`, 17, COLORS.cream);
+      const { next, champ, sponsor, sponsorName } = newBike!;
+      const won = text(left, y0, newBike!.won, 17, COLORS.cream);
+      // Each line sits under the one before by its real height, so wrapped text never runs into the buttons (Boss, 31 Oct 2026).
+      const below = won.y + won.height + 8;
       if (milestone.kind === 'needLevel') {
-        text(left, y0 + 36, `You'll need Rider Ability ${milestone.level} to ride it; you're level ${milestone.have}. Race on and come back.`, 15, COLORS.muted);
+        text(left, below, newBike!.more, 15, COLORS.muted);
       } else {
         const collect = (brand: string, price: number) => inner(() => {
           const name = bikes.brands.find((b) => b.id === brand)?.name ?? brand;
@@ -1280,16 +1470,16 @@ export class HudScene extends Phaser.Scene {
             () => reopen(),
           );
         });
-        const sponsor = sponsorBrand(bikes, career, next.id);
-        const sponsorName = bikes.brands.find((b) => b.id === sponsor)?.name ?? sponsor;
-        text(left, y0 + 36, `The champion's sponsor rides ${sponsorName}: a new stock ${next.name}, Grade 1 all round, for nothing and no strings. Or buy a stock bike of any brand.`, 15, COLORS.muted);
-        c.add(button(this, left + 160, y0 + 100, `${sponsorName} ${next.name}: free`, () => collect(sponsor, 0), 320, 42));
+        const offer = text(left, below, newBike!.more, 15, COLORS.muted);
+        const freeY = offer.y + offer.height + 16 + 21;
+        c.add(button(this, left + 160, freeY, `${sponsorName} ${next.name}: free`, () => collect(sponsor, 0), 320, 42));
         const price = stockBikePrice(shops, bikes, next.id);
         bikes.brands.forEach((b, i) => {
-          const btn = button(this, left + 160, y0 + 160 + i * 46, `${b.name}: ${formatMoney(price)}`, () => collect(b.id, price), 320, 40);
+          const by = freeY + 21 + 18 + 20 + i * 46;
+          const btn = button(this, left + 160, by, `${b.name}: ${formatMoney(price)}`, () => collect(b.id, price), 320, 40);
           btn.setEnabled(career.money >= price);
           c.add(btn);
-          line(left + 340, y0 + 150 + i * 46, b.character, 13, COLORS.muted, w / 2 - 40 - (left + 340));
+          line(left + 340, by, b.character, 13, COLORS.muted, w / 2 - 40 - (left + 340)).setOrigin(0, 0.5);
         });
       }
     } else if (tab === 'tools') {
