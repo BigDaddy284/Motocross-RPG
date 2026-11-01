@@ -52,6 +52,26 @@ export interface KnockoutRules {
 /** A knockout's rules when racing.json leaves them out. */
 export const KNOCKOUT_DEFAULTS: KnockoutRules = { seedInterval: 8, heatSize: 4, through: 2, finalRuns: 3, buff: 0, noise: 1 };
 
+/**
+ * A Supercross night (core/supercross.ts, Boss 1 Nov 2026): the AMA night programme. Two heats,
+ * the first heatThrough of each into the Main, the last heatOut of each going home and the rest
+ * into the LCQ, whose first lcqThrough make the Main.
+ */
+export interface SupercrossRules {
+  /** Riders on the night, the player one of them, when the field's pool is big enough. */
+  field: number;
+  heatLaps: number;
+  lcqLaps: number;
+  /** The Main's laps; left out, the race day's usual length (lapsFor). */
+  mainLaps?: number;
+  heatThrough: number;
+  heatOut: number;
+  lcqThrough: number;
+}
+
+/** A Supercross night's rules when racing.json leaves them out. */
+export const SUPERCROSS_DEFAULTS: SupercrossRules = { field: 32, heatLaps: 4, lcqLaps: 3, mainLaps: 8, heatThrough: 6, heatOut: 2, lcqThrough: 4 };
+
 /** A sprint's rules when racing.json leaves them out. */
 export const SPRINT_DEFAULTS: SprintRules = { interval: 10, returnSpeed: 0.5 };
 
@@ -126,6 +146,8 @@ export interface RacingData {
     sprint?: SprintRules;
     /** No-Turn Takedown knockouts (core/knockout.ts): the seeding run's interval, heat size, riders through from each heat and the final's runs. */
     knockout?: KnockoutRules;
+    /** Supercross nights (core/supercross.ts): the field, each race's laps and who goes through. */
+    supercross?: Partial<SupercrossRules>;
   };
   xp: {
     sectionFactor: number;
