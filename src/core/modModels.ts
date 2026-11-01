@@ -87,6 +87,23 @@ export const SIDECAR_CREW = 'sidecar_crew';
  * TeamDark materials take the item's colour. A figure model's own Base still wins over it.
  */
 export const STAND_MODELS: Readonly<Record<string, string>> = { pallet: 'stand_pallet', tower: 'stand_tower', bales: 'stand_bales', wall: 'pit_wall' };
+/**
+ * The paddock stand a scenery bike stands on (Boss, 1 Nov 2026: "fix the static bike on stand ... so it
+ * matches the new style bike models"). With it and race_bike.glb in the folder, every bike on a
+ * stand item is this stand with Boss's race bike on it (the youth bike for the youth, mini and pit
+ * bike designs), sized to the design and painted in the item's colour, so the item keeps its six
+ * designs and its colours. Built for the adult bike: origin in the middle, on the ground, the bike
+ * along +X; an empty named Bike marks where the bike's origin (the middle of its wheelbase, wheels'
+ * ground) sits, else the bike's wheels are BIKE_ON_STAND_LIFT up. A bike_stand.glb, if there is
+ * one, still replaces the whole item instead.
+ */
+export const PADDOCK_STAND = 'paddock_stand';
+/** Where a bike on a paddock stand sits, by the stand model's object named this. */
+export const PADDOCK_STAND_BIKE = 'Bike';
+/** How far a bike's wheels sit off the ground on a stand model with no Bike empty, in metres. */
+export const BIKE_ON_STAND_LIFT = 0.08;
+/** The bike on a stand designs that carry the youth bike model; the rest carry the adult one. */
+export const STAND_YOUTH_DESIGNS: ReadonlySet<string> = new Set(['youth', 'mini', 'pitbike']);
 /** A stand model's materials that take the item's colour, and a darker shade of it. */
 export const STAND_SLOTS = ['team', 'teamdark'] as const;
 
@@ -262,7 +279,7 @@ export function modelRole(id: string, scenery: { id: string }[]): ModelRole {
   if (id === RACE_RIDER) return 'rider';
   if (id === SIDECAR_CREW) return 'crew';
   if (FIGURE_PARTS[id]) return 'figure';
-  if (Object.values(STAND_MODELS).includes(id)) return 'stand';
+  if (Object.values(STAND_MODELS).includes(id) || id === PADDOCK_STAND) return 'stand';
   return scenery.some((s) => s.id === id) ? 'replace' : 'new';
 }
 

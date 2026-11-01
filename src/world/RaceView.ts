@@ -13,7 +13,7 @@ import { BIKE_LENGTH, CAM_AZ, LIP_AT, LOGS_AT, TrackSurface, type Flight } from 
 import { downPhase } from '../core/crashRecovery';
 import { APPROACH as TRICK_APPROACH, trickPose, type Trick } from '../core/tricks';
 import { COLORS, TEXT_RES } from '../ui/theme';
-import { isPaddock } from '../core/paddock';
+import { isPaddock, paddockColour, paddockVariant } from '../core/paddock';
 import { paddockParts, U as METRE } from './paddock';
 import { FACES_TRACK, flaggerParts, MATE_AT, marshalParts, pitCrewParts, starterBox, tracksideParts, type Label } from './trackside';
 import { FIREWORK_LEAD, fireworkShow, fireworksDue, hasFireworks, ROCKET_RISE, type Rocket } from '../core/fireworks';
@@ -22,7 +22,7 @@ import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../c
 import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
 import { LOCKED_ITEMS } from '../core/modModels';
 import { SIDECAR_CLASS } from '../core/sidecar';
-import { sidecarCrew, BIKE_PAINT, bikeModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, standModel, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
+import { sidecarCrew, BIKE_PAINT, bikeModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, standModel, bikeOnStandModel, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
 // isometric camera in the spirit of Super Off Road's overhead arcade view. The track is solid
@@ -1710,6 +1710,15 @@ export class RaceView {
     if (def && it.type === PIT_CREW_ITEM) {
       this.pitCrewFigure(g, it, def);
       return g;
+    }
+    // A bike on a stand from Boss's paddock stand and race bike models, in its design and colour (Boss, 1 Nov 2026).
+    if (def && it.type === 'bike_stand' && !this.builtIn) {
+      const index = this.itemIndex(it);
+      const model = bikeOnStandModel(paddockVariant(def, it, index) ?? 'adult', hex(paddockColour(def, it, index), hex(def.color, 0xc21c15)));
+      if (model) {
+        add(model);
+        return g;
+      }
     }
     if (def && isPaddock(def)) {
       // A paddock vehicle or a trackside item (paddock.ts, trackside.ts): one vertex-coloured mesh
