@@ -746,8 +746,8 @@ export class RaceScene extends Phaser.Scene {
     this.pen.setVisible(!practice);
     // Just the pit board message, centred between the map's left edge and the pen: no "to the flag" or
     // "to lap N", since the player picked it and Auto-complete shows in the race line, in the same text
-    // as Position (Boss, 31 Oct 2026).
-    this.ui.ink = this.text((map.x + map.x + map.w - penW) / 2, rowY, '', 18, COLORS.cream, OVERLAY).setOrigin(0.5, 0.5);
+    // as Position but in the pen's blue (Boss, 31 Oct and 1 Nov 2026).
+    this.ui.ink = this.text((map.x + map.x + map.w - penW) / 2, rowY, '', 18, 0x2e95ff, OVERLAY).setOrigin(0.5, 0.5);
     this.box(right, 16, sideW, dh - 160);
     // The standings show as many rows as fit above the log, scrolled to keep you in view.
     // Your row is picked out by a bar behind it, so the standings lose the arrow column and the
