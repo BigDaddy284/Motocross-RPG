@@ -86,7 +86,7 @@ export const GEAR_SETS: Record<string, Gear> = {
   'cpu-camo': gear('black', 'white', 'white', 'camo', 'camo', 'camo'),
   'cpu-black': gear('black', 'orange', 'black', 'black', 'black', 'black'),
   'cpu-champion': gear('hivis', 'hivis', 'hivis', 'black', 'black', 'black'),
-  // Neal Gizard, the pro: blue with black (Boss, 28 Oct 2026).
+  // Neal Borne, the pro: blue with black (Boss, 28 Oct 2026).
   'cpu-neal': gear('blue', 'black', 'blue', 'black', 'blue', 'black'),
   // The named racers in their map kits, on bikes to match (Boss, 29 Oct 2026).
   'cpu-dan': gear('orange', 'black', 'orange', 'black', 'black', 'black', 'orange'),

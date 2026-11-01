@@ -24,7 +24,7 @@ export interface CpuRiderDef {
   bike: { brand: string; grade: number; condition: number };
   tactic: Tactic;
   style?: RiderStyle;
-  /** Their own race kit, a gear set on the race screen (Neal Gizard's blue and black); left out, the field's kits in turn. */
+  /** Their own race kit, a gear set on the race screen (Neal Borne's blue and black); left out, the field's kits in turn. */
   kit?: string;
 }
 
