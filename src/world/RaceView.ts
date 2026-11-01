@@ -22,7 +22,7 @@ import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../c
 import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
 import { LOCKED_ITEMS } from '../core/modModels';
 import { SIDECAR_CLASS } from '../core/sidecar';
-import { sidecarCrew, BIKE_PAINT, bikeModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, standModel, bikeOnStandModel, STAND_PAINT, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
+import { sidecarCrew, BIKE_PAINT, bikeModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, standModel, bikeOnStandModel, STAND_PAINT, textFaces, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
 // isometric camera in the spirit of Super Off Road's overhead arcade view. The track is solid
@@ -1695,6 +1695,11 @@ export class RaceView {
       custom.scale.set(sx, Math.min(sx, sz), sz);
       // Its Team and TeamDark materials take the item's colour, as the game's own item does (Boss, 1 Nov 2026).
       paintModel(custom, { team: color, teamdark: shade(color, 0.7) }, STAND_PAINT);
+      // Its Text material shows the item's words on its colour, as the game's own banner does (Boss, 1 Nov 2026).
+      textFaces(custom, (aspect) => {
+        const h = 64;
+        return this.textTexture(text, color, '#ffffff', Math.min(2048, Math.max(64, Math.round(h * aspect))), h);
+      });
       add(custom);
       this.playLoops(custom, this.itemIndex(it));
       if (custom.userData.clips) g.userData.moving = true;

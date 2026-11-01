@@ -104,6 +104,8 @@ export const PADDOCK_STAND_BIKE = 'Bike';
 export const BIKE_ON_STAND_LIFT = 0.08;
 /** The bike on a stand designs that carry the youth bike model; the rest carry the adult one. */
 export const STAND_YOUTH_DESIGNS: ReadonlySet<string> = new Set(['youth', 'mini', 'pitbike']);
+/** A scenery model's material that shows the item's typed words (a banner's or sponsor board's face; world textFaces). */
+export const TEXT_SLOTS = ['text'] as const;
 /** A stand model's materials that take the item's colour, and a darker shade of it. */
 export const STAND_SLOTS = ['team', 'teamdark'] as const;
 
