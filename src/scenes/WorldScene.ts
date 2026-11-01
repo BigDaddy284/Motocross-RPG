@@ -136,6 +136,13 @@ export class WorldScene extends Phaser.Scene {
     this.map = map;
     if (!this.scene.isActive('hud')) this.scene.launch('hud');
     this.hud = this.scene.get('hud') as HudScene;
+    // Where the rider's head is on screen, for the bank note shown when money comes in.
+    this.hud.headAt = () => {
+      if (!this.player || !this.scene.isActive()) return null;
+      const cam = this.cameras.main;
+      const b = this.player.sprite.getBounds();
+      return { x: ((b.centerX - cam.worldView.x) * cam.zoom) / DPR, y: ((b.top - cam.worldView.y) * cam.zoom) / DPR };
+    };
     this.cameras.main.setBackgroundColor('#14141e');
 
     const firstVisit = !isMapCached(this, map);
@@ -730,8 +737,8 @@ export class WorldScene extends Phaser.Scene {
         onClose();
         this.refreshWaymarks();
         if (!completed) return;
-        if (step.effects?.money) this.hud.toast(step.toast ?? `${step.effects.money > 0 ? '+' : ''}${formatMoney(pence(step.effects.money))}`);
-        else if (step.toast) this.hud.toast(step.toast);
+        // Money shows as the bank note over your head (HudScene.moneyNote), not along the bottom.
+        if (step.toast) this.hud.toast(step.toast);
         if (step.effects?.flags?.length) this.refreshMapState();
         this.milestoneSave();
       };

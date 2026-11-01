@@ -194,6 +194,8 @@ Every step of the opening chain shows where to go next (`src/core/waymarks.ts`, 
 
 Markers come from `story.json` and the maps' doors and exits, so a new step needs no marker data. They never point down a road that is still shut. Reduced effects (Settings) keeps them still.
 
+**Money in** (Boss, 1 Nov 2026): when money comes in, from the story, shift and job pay, an errand, a sale or prize money, a small bank note with the amount pops up over your rider's head instead of along the bottom of the screen, so it never sits over the chat box. It follows you for a moment, then floats up and fades.
+
 #### After the tutorial: challenges, errands and records (Boss, 28 Oct 2026)
 
 - **Story after the tutorial.** Paul Phoenix, the mechanic at Phoenix MX, gives a word of advice the first time you talk to him after the opening chain: level up your skills, watch your parts wear and upgrade them, and how repairs work (one grade down at 100%; Grade 1 and broken parts can't be repaired). Then he points you to Mickey Alington by the practice track gate. The fabrication shop boss tells you about Dan Smyth by the Industrial Zone practice yard. Both are in the Task journal until you've heard them (a `talk` rule with `sets` in `npcs.json` is said once).
