@@ -21,6 +21,7 @@ import { APPROACH, assignCrews, BOARD_PAST, boardOut, boardText, crewSpot, FLAGG
 import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../core/marshal';
 import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
 import { LOCKED_ITEMS } from '../core/modModels';
+import { bannerPath, PICTURE_ITEMS } from '../core/banners';
 import { SIDECAR_CLASS } from '../core/sidecar';
 import { sidecarCrew, BIKE_PAINT, bikeModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, standModel, bikeOnStandModel, STAND_PAINT, textFaces, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
 
@@ -1523,6 +1524,25 @@ export class RaceView {
     return mesh;
   }
 
+  /**
+   * The picture on a banner's or sponsor board's face, `aspect` wide to 1 high: the item's words on
+   * its colour, or its PNG from the banners folder when one is picked (core/banners.ts; Boss, 1 Nov
+   * 2026), which shows once loaded. A picture that won't load leaves the words.
+   */
+  private faceTexture(it: SceneryItem, text: string, color: number, aspect: number): THREE.Texture {
+    const h = 64;
+    const words = this.textTexture(text, color, '#ffffff', Math.min(2048, Math.max(64, Math.round(h * aspect))), h);
+    const path = PICTURE_ITEMS.has(it.type) ? bannerPath(it.image) : null;
+    if (!path) return words;
+    const tex = new THREE.TextureLoader().load(`${import.meta.env.BASE_URL}${path}`, undefined, undefined, () => {
+      tex.image = words.image;
+      tex.needsUpdate = true;
+    });
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+    return tex;
+  }
+
   private textTexture(text: string, bg: number, fg = '#ffffff', w = 256, h = 48, vertical = false): THREE.CanvasTexture {
     const cv = document.createElement('canvas');
     cv.width = w;
@@ -1696,10 +1716,7 @@ export class RaceView {
       // Its Team and TeamDark materials take the item's colour, as the game's own item does (Boss, 1 Nov 2026).
       paintModel(custom, { team: color, teamdark: shade(color, 0.7) }, STAND_PAINT);
       // Its Text material shows the item's words on its colour, as the game's own banner does (Boss, 1 Nov 2026).
-      textFaces(custom, (aspect) => {
-        const h = 64;
-        return this.textTexture(text, color, '#ffffff', Math.min(2048, Math.max(64, Math.round(h * aspect))), h);
-      });
+      textFaces(custom, (aspect) => this.faceTexture(it, text, color, aspect));
       add(custom);
       this.playLoops(custom, this.itemIndex(it));
       if (custom.userData.clips) g.userData.moving = true;
@@ -1743,7 +1760,7 @@ export class RaceView {
       case 'banner':
       case 'sponsor_board': {
         const H = it.type === 'banner' ? 1 : 1.3;
-        const face = this.mat(0xffffff, { map: this.textTexture(text, color) });
+        const face = this.mat(0xffffff, { map: this.faceTexture(it, text, color, w / H) });
         const side = this.mat(shade(color, 0.7));
         add(this.boxMesh(w, H, 0.1, [side, side, side, side, face, face], 0, 0.35, 0));
         for (const sx of [-0.45, 0.45]) add(this.boxMesh(0.08, 0.35, 0.08, this.mat(0x5a5a60), sx * w, 0, 0));

@@ -235,6 +235,11 @@ export interface SceneryItem {
   rot?: number;
   text?: string;
   color?: string;
+  /**
+   * A banner's or sponsor board's picture (Boss, 1 Nov 2026): a PNG in public/mods/banners/, by its
+   * name without .png, shown on the face instead of the text (core/banners.ts).
+   */
+  image?: string;
   /** A start official (start_official) only: the walk from where they stand to where they end up, as grid points after their own. */
   route?: [number, number][];
 }

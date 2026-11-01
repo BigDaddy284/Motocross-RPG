@@ -47,6 +47,14 @@ describe('checking a mod track like the game’s own', () => {
     expect(problems(JSON.stringify(farmland()))).toEqual([]);
   });
 
+  it("takes a banner's picture by its name in the banners folder, and refuses a path (Boss, 1 Nov 2026)", () => {
+    const t = farmland();
+    t.scenery = [...(t.scenery ?? []), { type: 'banner', x: 2, y: 2, image: 'example_banner' }];
+    expect(problems(asFile(t))).toEqual([]);
+    t.scenery[t.scenery.length - 1].image = '../saves/x';
+    expect(problems(asFile(t)).join()).toMatch(/image/);
+  });
+
   it('takes a finish-line jump and a tunnel through a deck, as the editor saves them', () => {
     const t = farmland();
     const jump = t.sections.find((s) => s.type === 'tabletop')!;
