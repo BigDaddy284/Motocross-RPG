@@ -9,6 +9,7 @@ import {
   FIGURE_PARTS,
   STAND_LIMITS,
   STAND_MODELS,
+  TEXT_SLOTS,
   glbInfo,
   GRID_PER_METRE,
   LOCKED_ITEMS,
@@ -272,6 +273,12 @@ describe('the rules for each kind of model', () => {
     expect(ok('stand_tower.glb', tower(2712))).toEqual([]);
     expect(ok('stand_tower.glb', tower(STAND_LIMITS.tris + 1)).join(' ')).toMatch(/triangles/);
     expect(ok('stand_tower.glb', tower(2712, 1)).join(' ')).toMatch(/ground/);
+  });
+
+  it("finds a banner's or sponsor board's Text material, whatever Blender called the copy (Boss, 1 Nov 2026)", () => {
+    expect(materialSlot('Text', TEXT_SLOTS)).toBe('text');
+    expect(materialSlot('text.001', TEXT_SLOTS)).toBe('text');
+    expect(materialSlot('TextFrame', TEXT_SLOTS)).toBeNull();
   });
 
   it('lets a rider sit on the pegs, off the ground', () => {

@@ -47,6 +47,14 @@ describe('checking a mod track like the game’s own', () => {
     expect(problems(JSON.stringify(farmland()))).toEqual([]);
   });
 
+  it("takes a banner's picture by its name in the banners folder, and refuses a path (Boss, 1 Nov 2026)", () => {
+    const t = farmland();
+    t.scenery = [...(t.scenery ?? []), { type: 'banner', x: 2, y: 2, image: 'example_banner' }];
+    expect(problems(asFile(t))).toEqual([]);
+    t.scenery[t.scenery.length - 1].image = '../saves/x';
+    expect(problems(asFile(t)).join()).toMatch(/image/);
+  });
+
   it('takes a finish-line jump and a tunnel through a deck, as the editor saves them', () => {
     const t = farmland();
     const jump = t.sections.find((s) => s.type === 'tabletop')!;
@@ -118,5 +126,18 @@ describe('racing a mod track', () => {
     const road = home.objects.find((o) => o.type === 'exit' && o.name === 'To the venue route')!;
     const to = routeArrival(home, road, content.world, maps, MOD_PLACE);
     expect(typeof to === 'string' ? to : to.map).toBe('venue-motocross');
+  });
+});
+
+// Ruts was only a darker paint on the track, and is gone (Boss, 2 Nov 2026: "Remove it").
+describe('retired surfaces', () => {
+  it('drops Ruts patches from an older track, keeping the rest', async () => {
+    const { dropRetiredPatches, RETIRED_SURFACES } = await import('../src/core/trackParts');
+    const t = { patches: [{ surface: 'ruts', at: 10, length: 25 }, { surface: 'mud', at: 50, length: 20 }] };
+    expect(dropRetiredPatches(t)).toBe(1);
+    expect(t.patches).toEqual([{ surface: 'mud', at: 50, length: 20 }]);
+    expect(RETIRED_SURFACES.has('ruts')).toBe(true);
+    const html = (await import('node:fs')).readFileSync('tools/track-editor.html', 'utf8');
+    expect(html).toContain("const RETIRED_SURFACES = new Set(['ruts']);");
   });
 });

@@ -13,7 +13,7 @@ import { biggestBike, bikeImage, zoneFor } from '../core/worldMap';
 import { ROUTE, spawnTile, stepTriggerAt, type Arrival, type StepResult } from '../core/travel';
 import { areaFlag, areaOfMap, buyHouse, buyMotor, houseFlag, motorProblem, openAreas, openReleasedAreas, roadWaiting, soldTexture } from '../core/areas';
 import { defaultSetup, effectiveSetup, positionValue, positionsFor, setupReport, sliderUnlocked, type SliderDef } from '../core/setup';
-import { DriveMap, FACING_OF, bayFor, ensureVan, exitTile, footprint, haulerAt, inwardHeading, nearestFree, placeNear, planDrive, sheetFor, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
+import { DriveMap, FACING_OF, ON_FOOT, needsMotor, bayFor, ensureVan, exitTile, footprint, haulerAt, inwardHeading, nearestFree, placeNear, planDrive, sheetFor, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
 import { venueClassFor, entryFee, fieldCount, lapsFor, practiceFee, coachedFee, trackById, venueProblem, type VenueDef } from '../core/raceDay';
 import { champProblem, otherActive, enter, nextRoundVenue, nextRoundVenues, rewardTexture, roundEntry, roundsHere, standings, titlePossible, withdraw, type ChampionshipDef } from '../core/championship';
@@ -510,7 +510,8 @@ export class WorldScene extends Phaser.Scene {
     if (o.type === 'travel' && o.props.to === ROUTE) {
       // Signs and stops for the roads out: the road itself asks where to.
       const lock = services.travel.lockFor(this.map, o, this.save.flags);
-      this.hud.toast(lock ? lock.message : `${o.name}: walk out onto the road to pick where to go.`);
+      const how = needsMotor(this.save.van, this.map.id, this.driving) ? 'drive' : 'walk';
+      this.hud.toast(lock ? lock.message : `${o.name}: ${how} out onto the road to pick where to go.`);
       return;
     }
     const msg = actionMessage(o, this.save.flags);
@@ -896,6 +897,13 @@ export class WorldScene extends Phaser.Scene {
         const hop = nextHop(services.maps, services.content.world, services.travel, this.save.flags, this.map.id, goal.map);
         if (!hop || hop.via.every((o) => seen.has(o))) continue;
         for (const o of hop.via) seen.add(o);
+        // On foot with the motor parked here, a road out starts at the motor (Boss, 2 Nov 2026: no walking between areas and venues).
+        if (hop.kind === 'exit' && hop.via[0].props.to === ROUTE && this.van && needsMotor(this.save.van, this.map.id, this.driving)) {
+          const tiles = footprint(this.van.pose, this.van.design.length);
+          marks.push({ kind: 'object', tiles });
+          points.push({ ...middle(tiles), label: this.van.design.name, sub: services.maps.get(hop.to)?.title });
+          continue;
+        }
         // One arrow per doorway: a building's side door (its own spawn inside) is a doorway of its own.
         const doorways = new Map<string, Tile[]>();
         for (const o of hop.via) {
@@ -1734,10 +1742,9 @@ export class WorldScene extends Phaser.Scene {
     this.player.stopWalking();
     this.sitInVan();
     const step = currentStep(services.content.story, this.save.career);
-    if (step?.markVan && !this.save.flags[step.markVan]) {
-      this.save.flags[step.markVan] = true;
-      this.refreshWaymarks();
-    }
+    if (step?.markVan && !this.save.flags[step.markVan]) this.save.flags[step.markVan] = true;
+    // In the cab, a road out is marked at the road again, not at the motor.
+    this.refreshWaymarks();
     this.quickSave();
   }
 
@@ -1762,6 +1769,7 @@ export class WorldScene extends Phaser.Scene {
     this.player.idle();
     this.cameras.main.startFollow(this.player.sprite, true, 0.2, 0.2, 0, TILE / 2);
     this.hud.setDriving(false);
+    this.refreshWaymarks();
     this.quickSave();
   }
 
@@ -2145,6 +2153,12 @@ export class WorldScene extends Phaser.Scene {
       if (this.josephFirst()) {
         this.path = [];
         this.onArrive = null;
+        return false;
+      }
+      if (needsMotor(this.save.van, this.map.id, this.driving)) {
+        this.path = [];
+        this.onArrive = null;
+        this.hud.toast(ON_FOOT);
         return false;
       }
       const go = (to: Arrival) => this.leaveTo({ map: to.map, x: to.tile.x, y: to.tile.y, facing: 'up' });

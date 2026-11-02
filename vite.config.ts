@@ -3,6 +3,7 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFi
 import { dirname } from 'node:path';
 import { defineConfig } from 'vite';
 import { modelEntry } from './src/core/modModels';
+import { BANNER_FILE } from './src/core/banners';
 
 // Mod tracks (src/core/modTracks.ts): a website can't list a folder, so the game reads an index
 // of public/mods/tracks/, made here from whatever track files are in it.
@@ -23,6 +24,10 @@ function modelIndex(): string {
   const files = readdirSync(MODEL_DIR).filter((f) => /\.glb$/i.test(f)).sort();
   return JSON.stringify(files.map((f) => modelEntry(f, new Uint8Array(readFileSync(`${MODEL_DIR}/${f}`)), scenery)));
 }
+
+// Banner pictures (src/core/banners.ts): the PNGs in public/mods/banners/, listed the same way.
+const BANNER_DIR = 'public/mods/banners';
+const bannerIndex = () => JSON.stringify(existsSync(BANNER_DIR) ? readdirSync(BANNER_DIR).filter((f) => BANNER_FILE.test(f)).sort() : []);
 
 // The map editor saves into the game while developing: these files under public/, and nothing else.
 const TOOLKIT_SAVES = [/^assets\/maps\/[A-Za-z0-9_-]+\.json$/, /^assets\/manifest\.json$/, /^assets\/custom\/[a-z0-9_-]+(\/[a-z0-9_-]+)*\.png$/, /^data\/(buildings|world)\.json$/];
@@ -48,6 +53,10 @@ export default defineConfig({
           if (url.endsWith('/mods/tracks/index.json')) {
             res.setHeader('Content-Type', 'application/json');
             return res.end(modIndex());
+          }
+          if (url.endsWith('/mods/banners/index.json')) {
+            res.setHeader('Content-Type', 'application/json');
+            return res.end(bannerIndex());
           }
           if (url.endsWith('/mods/models/index.json')) {
             res.setHeader('Content-Type', 'application/json');
@@ -129,6 +138,8 @@ export default defineConfig({
         writeFileSync('dist/mods/tracks/index.json', `${modIndex()}\n`);
         mkdirSync('dist/mods/models', { recursive: true });
         writeFileSync('dist/mods/models/index.json', `${modelIndex()}\n`);
+        mkdirSync('dist/mods/banners', { recursive: true });
+        writeFileSync('dist/mods/banners/index.json', `${bannerIndex()}\n`);
       },
     },
     {

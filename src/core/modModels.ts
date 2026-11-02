@@ -97,6 +97,175 @@ export const STAND_MODELS: Readonly<Record<string, string>> = { pallet: 'stand_p
  * ground) sits, else the bike's wheels are BIKE_ON_STAND_LIFT up. A bike_stand.glb, if there is
  * one, still replaces the whole item instead.
  */
+/**
+ * The finish arches built over a finish-line jump (Boss, 1 Nov 2026): the supercross gantry at
+ * supercross kinds of track (finishCrew.ts sxArch), with the flag man's scaffold tower, and the
+ * motocross truss arch everywhere else. In metres, the origin the track's middle on the jump's
+ * deck under the banner, X across the track, drawn for ARCH_GAP between its two sides. The race
+ * view fits it to the track: Left and Right (the towers or posts) move out to the track's edges
+ * and stretch down to the ground, Middle (the beam) stretches across, FlagTower moves with Right
+ * and stands on the ground, Flagger (an empty) is where the flag man stands; anything else stays.
+ */
+export const ARCH_MODELS = { mx: 'finish_arch_mx', sx: 'finish_arch_sx' } as const;
+/**
+ * Live parts any scenery model can have (Boss, 1 Nov 2026), found by name like a figure's parts:
+ * a node named Track (Track.001 and so on) turns about its vertical to follow the nearest rider in
+ * range (a TV camera's head, a camera operator), back to rest with none; a node named Flash is
+ * hidden and shows for a blink as a rider goes by close (a photographer's flash); a node named
+ * Drone flies off after a rider and back (droneStep; Boss, 2 Nov 2026); a node named Cheer is a
+ * seated section that stands up as its own rider goes by (cheerStep; Boss, 2 Nov 2026).
+ */
+export const LIVE_PARTS = ['Track', 'Flash', 'Drone', 'Cheer', 'Supporter'] as const;
+/** Grid units a Track part follows a rider from, and how fast it turns (radians a second). */
+export const TRACK_RANGE = 40;
+export const TRACK_TURN = 2.5;
+/** Grid units a rider passes within for a Flash, how long it shows (seconds), and the least time between two. */
+export const FLASH_RANGE = 12;
+export const FLASH_TIME = 0.09;
+export const FLASH_GAP = 0.7;
+/** A live part's kind from its node name: "Track.001" (three.js: "Track001") is Track. */
+export type LivePart = (typeof LIVE_PARTS)[number];
+export function livePart(name: string | undefined): LivePart | null {
+  const n = (name ?? '').trim().replace(/[._]?\d+$/, '').toLowerCase();
+  return LIVE_PARTS.find((k) => k.toLowerCase() === n) ?? null;
+}
+
+/**
+ * A node named Cheer: one seated section of a stand or crowd (Boss, 2 Nov 2026: "No more mexican
+ * wave, each seated section gets a random rider each lap and only that section stands up to cheer as
+ * their rider goes past"). Each section is given a rider at random; as that rider comes within
+ * CHEER_RANGE it stands up (its child named Standing shows and Seated hides, or with neither it rises
+ * CHEER_RISE metres) and stays up CHEER_HOLD seconds after they have gone by, then sits and is
+ * given a new rider at random for the next lap.
+ */
+export const CHEER_RANGE = 14;
+/**
+ * A node named Supporter: one fan on their own, anywhere in a stand or crowd (Boss, 2 Nov 2026: "have
+ * random people form different sections cheers for the same rider"). They stand and cheer like a
+ * section, but their rider is picked each lap from the item's few favourites (SUPPORTER_RIDERS, drawn
+ * at random for the race), so fans dotted about different sections jump up for the same rider.
+ */
+export const SUPPORTER_RIDERS = 3;
+/** An item's favourite riders for its supporters: up to SUPPORTER_RIDERS different ones of `count`, from `rnd` in [0, 1). */
+export function supporterFavourites(count: number, rnd: () => number): number[] {
+  const all = Array.from({ length: count }, (_, i) => i);
+  for (let i = all.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [all[i], all[j]] = [all[j], all[i]];
+  }
+  return all.slice(0, Math.min(SUPPORTER_RIDERS, count));
+}
+export const CHEER_HOLD = 1.2;
+export const CHEER_RISE = 0.35;
+export interface CheerState {
+  /** The section's rider, as an index into the riders passed to cheerStep; -1 for none yet. */
+  rider: number;
+  /** Whether the rider has come within range this pass. */
+  near: boolean;
+  /** Seconds left standing after the rider has gone. */
+  hold: number;
+}
+export const cheerAtRest = (): CheerState => ({ rider: -1, near: false, hold: 0 });
+/**
+ * One step of a section or supporter: its rider, and whether it is standing. `choose` picks a rider
+ * index below the count given (at random, seeded by the caller: any rider for a section, one of the
+ * item's favourites for a supporter).
+ */
+export function cheerStep(s: CheerState, dt: number, at: { x: number; z: number }, riders: readonly { x: number; z: number }[], choose: (count: number) => number): CheerState & { up: boolean } {
+  const pick = () => Math.max(0, Math.min(riders.length - 1, Math.floor(choose(riders.length))));
+  const n = { ...s };
+  if (!riders.length) return { ...cheerAtRest(), up: false };
+  if (n.rider < 0 || n.rider >= riders.length) {
+    n.rider = pick();
+    n.near = false;
+    n.hold = 0;
+  }
+  const r = riders[n.rider];
+  const close = Math.hypot(r.x - at.x, r.z - at.z) <= CHEER_RANGE;
+  if (close) {
+    n.near = true;
+    n.hold = CHEER_HOLD;
+    return { ...n, up: true };
+  }
+  if (n.near) {
+    n.hold -= dt;
+    if (n.hold > 0) return { ...n, up: true };
+    // Gone by: sit down and take a new rider for the next lap.
+    n.rider = pick();
+    n.near = false;
+    n.hold = 0;
+  }
+  return { ...n, up: false };
+}
+
+/**
+ * A node named Drone (Boss, 2 Nov 2026: "have the drone follow a random rider for half a lap or
+ * something then return to pilot ready for when the bikes come past next and a new random rider is
+ * followed"): it hovers at its rest spot by the pilot; when riders come within DRONE_PICKUP of it, it
+ * picks one of them at random and flies after them for DRONE_FOLLOW seconds (or until they are
+ * DRONE_LEASH from the pilot), then flies home and waits at least DRONE_REST before the next.
+ * Distances in grid units, the speed in grid units a second (fast enough to keep up with a bike).
+ */
+export const DRONE_PICKUP = 16;
+export const DRONE_FOLLOW = 12;
+export const DRONE_LEASH = 90;
+export const DRONE_SPEED = 32;
+export const DRONE_REST = 4;
+/** Where a drone is (x, z on the ground plane) and what it is doing. */
+export interface DroneState {
+  mode: 'home' | 'follow' | 'back';
+  /** The rider followed, as an index into the riders passed to droneStep. */
+  rider: number;
+  /** Seconds in this mode. */
+  t: number;
+  x: number;
+  z: number;
+}
+export const droneAtHome = (home: { x: number; z: number }): DroneState => ({ mode: 'home', rider: -1, t: DRONE_REST, x: home.x, z: home.z });
+/**
+ * One step of a drone: what it does next and where it moves, towards its rider or home at most
+ * DRONE_SPEED. `pick` gives a number in [0, 1) to choose the rider (seeded by the caller, so a race
+ * replays the same). Riders are the ones still racing, in a steady order.
+ */
+export function droneStep(s: DroneState, dt: number, home: { x: number; z: number }, riders: readonly { x: number; z: number }[], pick: () => number): DroneState {
+  const n = { ...s, t: s.t + dt };
+  const dist = (a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(a.x - b.x, a.z - b.z);
+  if (n.mode === 'home' && n.t >= DRONE_REST) {
+    const near = riders.map((r, i) => ({ r, i })).filter(({ r }) => dist(r, home) <= DRONE_PICKUP);
+    if (near.length) {
+      n.mode = 'follow';
+      n.rider = near[Math.min(near.length - 1, Math.floor(pick() * near.length))].i;
+      n.t = 0;
+    }
+  }
+  const rider = n.mode === 'follow' ? riders[n.rider] : undefined;
+  if (n.mode === 'follow' && (!rider || n.t >= DRONE_FOLLOW || dist(rider, home) > DRONE_LEASH)) {
+    n.mode = 'back';
+    n.rider = -1;
+    n.t = 0;
+  }
+  const to = n.mode === 'follow' && rider ? rider : home;
+  const d = dist(n, to);
+  const step = DRONE_SPEED * dt;
+  if (d <= step) {
+    n.x = to.x;
+    n.z = to.z;
+    if (n.mode === 'back') {
+      n.mode = 'home';
+      n.t = 0;
+    }
+  } else {
+    n.x += ((to.x - n.x) / d) * step;
+    n.z += ((to.z - n.z) / d) * step;
+  }
+  return n;
+}
+/** The finish arch's named parts (ARCH_MODELS). */
+export const ARCH_PARTS = ['Left', 'Right', 'Middle', 'FlagTower', 'Flagger'] as const;
+/** The gap between a finish arch model's two sides, in metres, as drawn. */
+export const ARCH_GAP = 10;
+/** How high a finish arch model's banner's bottom edge is over its origin, in metres: jumps.ts ARCH_CLEAR in metres. */
+export const ARCH_BANNER_AT = 6.1;
 export const PADDOCK_STAND = 'paddock_stand';
 /** Where a bike on a paddock stand sits, by the stand model's object named this. */
 export const PADDOCK_STAND_BIKE = 'Bike';
@@ -104,6 +273,8 @@ export const PADDOCK_STAND_BIKE = 'Bike';
 export const BIKE_ON_STAND_LIFT = 0.08;
 /** The bike on a stand designs that carry the youth bike model; the rest carry the adult one. */
 export const STAND_YOUTH_DESIGNS: ReadonlySet<string> = new Set(['youth', 'mini', 'pitbike']);
+/** A scenery model's material that shows the item's typed words (a banner's or sponsor board's face; world textFaces). */
+export const TEXT_SLOTS = ['text'] as const;
 /** A stand model's materials that take the item's colour, and a darker shade of it. */
 export const STAND_SLOTS = ['team', 'teamdark'] as const;
 
@@ -178,6 +349,8 @@ export const CREW_LIMITS: ModelLimits = { tris: 8000, long: 2.6, tall: 2.0 };
 export const FIGURE_LIMITS: ModelLimits = { tris: 8000, long: 8, tall: 8 };
 /** A marshal's, flag man's or pit crew's stand (STAND_MODELS): one on every post, so light; a tower's canopy is about 4 m up. */
 export const STAND_LIMITS: ModelLimits = { tris: 8000, long: 5, tall: 6 };
+/** A finish arch (ARCH_MODELS): one a track, spanning it, the supercross one with its flag man's tower beside it. */
+export const ARCH_LIMITS: ModelLimits = { tris: 12000, long: 24, tall: 17 };
 /** The highest a rider model's lowest point (its boots on the pegs) can be, in metres. */
 export const RIDER_FEET = 0.6;
 /** Grid units a metre: world/paddock.ts U (trackSurface BIKE_LENGTH 1.1 over a 1.46 m bike), here so vite.config.ts can use it. */
@@ -232,7 +405,7 @@ export interface ModelEntry {
   def?: SceneryDef;
 }
 
-export type ModelRole = 'replace' | 'new' | 'bike' | 'rider' | 'figure' | 'crew' | 'stand';
+export type ModelRole = 'replace' | 'new' | 'bike' | 'rider' | 'figure' | 'crew' | 'stand' | 'arch';
 
 /**
  * The moving figures whose parts can be swapped for a model's (Boss, 31 Oct 2026): each part is an
@@ -280,12 +453,13 @@ export function modelRole(id: string, scenery: { id: string }[]): ModelRole {
   if (id === SIDECAR_CREW) return 'crew';
   if (FIGURE_PARTS[id]) return 'figure';
   if (Object.values(STAND_MODELS).includes(id) || id === PADDOCK_STAND) return 'stand';
+  if ((Object.values(ARCH_MODELS) as string[]).includes(id)) return 'arch';
   return scenery.some((s) => s.id === id) ? 'replace' : 'new';
 }
 
 /** The limits for a model of this role. */
 export function limitsFor(role: ModelRole): ModelLimits {
-  return role === 'bike' ? BIKE_LIMITS : role === 'rider' ? RIDER_LIMITS : role === 'crew' ? CREW_LIMITS : role === 'figure' ? FIGURE_LIMITS : role === 'stand' ? STAND_LIMITS : SCENERY_LIMITS;
+  return role === 'bike' ? BIKE_LIMITS : role === 'rider' ? RIDER_LIMITS : role === 'crew' ? CREW_LIMITS : role === 'figure' ? FIGURE_LIMITS : role === 'stand' ? STAND_LIMITS : role === 'arch' ? ARCH_LIMITS : SCENERY_LIMITS;
 }
 
 /** The size of a model's box in metres: length (X), depth (glTF Z, Blender Y) and height (Y). */
@@ -321,6 +495,9 @@ export function checkModel(file: string, bytes: number, info: ModelInfo | null, 
   // A rider sits on the bike, feet on the pegs, in the same place as the exported race_rider.glb.
   if (role === 'rider' || role === 'crew') {
     if (info.min[1] < -0.05 || info.min[1] > RIDER_FEET) out.push(`Its lowest point is ${m(info.min[1])} from the ground; a rider's boots rest on the pegs, 0 to ${m(RIDER_FEET)} up. Start from the exported race_rider.glb so it sits on the bike.`);
+  } else if (role === 'arch') {
+    // A finish arch's origin is on the jump's deck, and the supercross tower's legs reach down to the ground below it (ARCH_MODELS).
+    if (info.min[1] < -4 || info.min[1] > 0.05) out.push(`Its lowest point is ${m(info.min[1])}; a finish arch's origin is on the deck under the banner, with nothing above it there and at most 4 m below (the flag tower's legs).`);
   } else if (info.min[1] < -0.05 || info.min[1] > 0.05) out.push(`Its lowest point is ${m(info.min[1])} from the ground; it should sit on the ground (Z = 0 in Blender).`);
   return out;
 }

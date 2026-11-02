@@ -13,7 +13,8 @@ import { brandFromColour, modelFor, MODELS, raceBikeParts } from './raceBike';
 /** Grid units per metre: the adult race bike's 1.46 m wheelbase is BIKE_LENGTH apart. */
 export const U = BIKE_LENGTH / 1.46;
 
-export const GLASS = 0x223344;
+/** Window glass: a pale sky blue, so a windscreen reads as glass against a dark cab (Boss, 2 Nov 2026). */
+export const GLASS = 0x8fb2cc;
 export const TYRE = 0x1c1c22;
 export const RIM = 0x9a9ca0;
 export const STEEL = 0x8a8c90;
@@ -56,6 +57,38 @@ export class Build {
     m.position.set(x * U, (y + h / 2) * U, z * U);
     m.rotation.set(rx, 0, rz);
     this.parts.push(m);
+    return m;
+  }
+  /**
+   * A wedge across z: the cab's front between the bonnet and the roof, its vertical back face at
+   * xb rising h from bottom y, its slope running down to the bonnet's top edge at xf (Boss, 2 Nov
+   * 2026: the vans, hauler and motorhomes had no windscreens; the glass sat inside the cab's box).
+   */
+  wedge(xf: number, xb: number, y: number, z: number, h: number, w: number, c: number): THREE.Mesh {
+    const A = [xf * U, y * U], B = [xb * U, y * U], C = [xb * U, (y + h) * U];
+    const hw = (w / 2) * U;
+    const tri = (p: number[], q: number[], r: number[], zz: number) => [p[0], p[1], zz, q[0], q[1], zz, r[0], r[1], zz];
+    const quad = (p: number[], q: number[]) => [p[0], p[1], hw, q[0], q[1], -hw, q[0], q[1], hw, p[0], p[1], hw, p[0], p[1], -hw, q[0], q[1], -hw];
+    const v = [...tri(A, C, B, hw), ...tri(A, B, C, -hw), ...quad(A, C), ...quad(C, B), ...quad(B, A)];
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+    g.computeVertexNormals();
+    const m = new THREE.Mesh(g, this.mat(c));
+    m.position.set(0, 0, z * U);
+    this.parts.push(m);
+    return m;
+  }
+  /** A windscreen lying on a wedge's slope (same xf, xb, y, h), a little proud of it, with a pillar left each side of its width w. */
+  screen(xf: number, xb: number, y: number, z: number, h: number, w: number, margin = 0.08): THREE.Mesh {
+    const l = xf - xb;
+    const len = Math.hypot(l, h);
+    const rz = Math.atan2(l, h);
+    const t = 0.04;
+    const nx = h / len, ny = l / len;
+    const cx = (xf + xb) / 2 + nx * (t / 2 + 0.01);
+    const cy = y + h / 2 + ny * (t / 2 + 0.01);
+    const m = this.box(cx, cy, z, t, len - 2 * margin, w, GLASS, rz);
+    m.position.y = cy * U;
     return m;
   }
   /** A cylinder standing on y (axis up): centre x, z, bottom y, radius r, height h. */
@@ -238,9 +271,11 @@ function rustyTruck(b: Build, col: number, setup: Setup): void {
   b.box(ox, 0.35, 0, 4.6, 0.3, 1.5, CHASSIS);
   b.box(ox + 1.75, 0.6, 0, 1.4, 0.55, 1.85, col);
   b.box(ox + 2.42, 0.62, 0, 0.1, 0.45, 1.5, CHROME);
-  b.box(ox + 0.5, 0.6, 0, 1.3, 1.25, 1.85, col);
-  b.box(ox + 0.5, 1.2, 0, 1.0, 0.5, 1.88, GLASS);
-  b.box(ox + 1.12, 1.1, 0, 0.08, 0.6, 1.7, GLASS, 0.4);
+  b.box(ox + 0.5, 0.6, 0, 1.3, 0.55, 1.85, col);
+  b.box(ox + 0.35, 1.15, 0, 1.0, 0.7, 1.85, col);
+  b.wedge(ox + 1.15, ox + 0.85, 1.15, 0, 0.7, 1.85, col);
+  b.screen(ox + 1.15, ox + 0.85, 1.15, 0, 0.7, 1.55);
+  b.box(ox + 0.35, 1.25, 0, 0.85, 0.45, 1.88, GLASS);
   b.box(ox - 1.3, 0.85, 0, 2.3, 0.08, 1.85, dark);
   for (const s of [-1, 1]) b.box(ox - 1.3, 0.85, s * 0.88, 2.3, 0.5, 0.08, col);
   b.box(ox - 0.18, 0.85, 0, 0.08, 0.5, 1.85, col);
@@ -260,11 +295,13 @@ function rustyTruck(b: Build, col: number, setup: Setup): void {
 /** The old van's shape; `rusty` adds the rust patches (the TV van and the ambulance are clean). */
 export function rustyVan(b: Build, col: number, setup: Setup, bz: number, rusty = true): void {
   b.box(0, 0.3, bz, 4.2, 0.25, 1.4, CHASSIS);
-  b.box(-0.55, 0.5, bz, 3.3, 1.6, 1.8, col);
+  b.box(-0.55, 0.5, bz, 3.3, 0.8, 1.8, col);
+  b.box(-0.75, 1.3, bz, 2.9, 0.8, 1.8, col);
   b.box(1.6, 0.5, bz, 1.0, 0.8, 1.75, col);
   b.box(2.1, 0.55, bz, 0.08, 0.4, 1.5, CHROME);
-  b.box(1.18, 1.2, bz, 0.08, 0.75, 1.6, GLASS, 0.4);
-  b.box(0.55, 1.3, bz, 1.0, 0.5, 1.84, GLASS);
+  b.wedge(1.1, 0.7, 1.3, bz, 0.8, 1.8, col);
+  b.screen(1.1, 0.7, 1.3, bz, 0.8, 1.5);
+  b.box(0.2, 1.4, bz, 0.9, 0.5, 1.84, GLASS);
   b.wheels([1.4, -1.4], bz, 0.8, 0.34);
   if (rusty) for (const s of [-1, 1]) {
     b.rust(-0.6, 0.6, bz + s * 0.9, s, 5);
@@ -286,10 +323,12 @@ function mxVan(b: Build, col: number, setup: Setup, bz: number, long: boolean): 
   const x0 = -L / 2;
   const x1 = L / 2;
   b.box(0, 0.3, bz, L - 0.2, 0.25, 1.6, CHASSIS);
-  b.box((x0 + x1 - 1.2) / 2, 0.5, bz, L - 1.2, H - 0.5, 1.95, col);
+  b.box((x0 + x1 - 1.2) / 2, 0.5, bz, L - 1.2, 0.9, 1.95, col);
+  b.box((x0 + x1 - 1.8) / 2, 1.4, bz, L - 1.8, H - 1.4, 1.95, col);
   b.box(x1 - 0.6, 0.5, bz, 1.2, 0.9, 1.9, col);
-  b.box(x1 - 1.05, 1.35, bz, 0.1, 0.8, 1.75, GLASS, 0.45);
-  b.box(x1 - 1.75, 1.35, bz, 1.0, 0.6, 1.99, GLASS);
+  b.wedge(x1 - 1.2, x1 - 1.8, 1.4, bz, H - 1.5, 1.95, col);
+  b.screen(x1 - 1.2, x1 - 1.8, 1.4, bz, H - 1.5, 1.65);
+  b.box(x1 - 2.15, 1.5, bz, 0.7, 0.55, 1.99, GLASS);
   b.box(x1, 0.4, bz, 0.1, 0.4, 1.9, CHASSIS);
   b.box(x0, 0.4, bz, 0.1, 0.4, 1.9, CHASSIS);
   for (const s of [-1, 1]) b.box(x0, 0.9, bz + s * 0.8, 0.04, 0.3, 0.2, 0xc02020);
@@ -314,9 +353,11 @@ function mxVan(b: Build, col: number, setup: Setup, bz: number, long: boolean): 
 function motorhome(b: Build, col: number, setup: Setup, bz: number, long: boolean): void {
   if (long) {
     b.box(0, 0.3, bz, 11.6, 0.25, 1.9, CHASSIS);
-    b.box(0, 0.5, bz, 11.8, 2.9, 2.4, col);
+    b.box(0, 0.5, bz, 11.8, 0.9, 2.4, col);
+    b.box(-0.1, 1.4, bz, 11.6, 2.0, 2.4, col);
     b.box(0, 0.55, bz, 11.8, 0.5, 2.42, shade(col, 0.7));
-    b.box(5.9, 1.4, bz, 0.08, 1.6, 2.2, GLASS, 0.12);
+    b.wedge(5.9, 5.7, 1.4, bz, 1.9, 2.4, col);
+    b.screen(5.9, 5.7, 1.4, bz, 1.9, 2.1);
     b.box(0.5, 1.9, bz, 9.5, 0.9, 2.44, GLASS);
     b.box(-5.3, 1.7, bz, 0.6, 1.1, 2.44, GLASS);
     b.box(5.95, 0.4, bz, 0.12, 0.5, 2.3, CHASSIS);
@@ -335,11 +376,13 @@ function motorhome(b: Build, col: number, setup: Setup, bz: number, long: boolea
   b.box(0, 0.3, bz, 6.8, 0.3, 1.8, CHASSIS);
   b.box(-0.8, 0.6, bz, 5.4, 2.4, 2.25, col);
   b.box(-0.8, 0.65, bz, 5.4, 0.4, 2.27, shade(col, 0.75));
-  b.box(2.7, 0.55, bz, 1.6, 1.0, 2.05, col);
+  b.box(2.7, 0.55, bz, 1.6, 0.8, 2.05, col);
+  b.box(2.1, 1.35, bz, 0.4, 0.65, 2.05, col);
   b.box(3.5, 0.45, bz, 0.1, 0.5, 2.0, CHASSIS);
-  b.box(3.0, 1.5, bz, 0.1, 0.9, 1.9, GLASS, 0.5);
-  b.box(2.5, 2.0, bz, 1.3, 0.9, 2.15, col);
-  b.box(2.4, 1.55, bz, 0.9, 0.5, 2.1, GLASS);
+  b.wedge(2.65, 2.3, 1.35, bz, 0.65, 2.05, col);
+  b.screen(2.65, 2.3, 1.35, bz, 0.65, 1.75, 0.06);
+  b.box(2.3, 2.0, bz, 0.9, 0.9, 2.15, col);
+  b.box(2.05, 1.45, bz, 0.5, 0.45, 2.09, GLASS);
   for (const s of [-1, 1]) {
     b.box(-2.5, 1.6, bz + s * 1.125, 1.0, 0.7, 0.03, GLASS);
     b.box(0, 1.6, bz + s * 1.125, 1.2, 0.7, 0.03, GLASS);
@@ -357,10 +400,12 @@ function motorhome(b: Build, col: number, setup: Setup, bz: number, long: boolea
 function hauler(b: Build, col: number, setup: Setup, bz: number): void {
   // Tractor unit.
   b.box(8.2, 0.5, bz, 5.0, 0.4, 2.2, CHASSIS);
-  b.box(9.5, 1.1, bz, 2.4, 2.6, 2.5, col);
+  b.box(9.5, 1.1, bz, 2.4, 1.1, 2.5, col);
+  b.box(9.4, 2.2, bz, 2.2, 1.5, 2.5, col);
   b.box(9.5, 1.1, bz, 2.42, 0.9, 2.52, DARK);
-  b.box(10.7, 2.2, bz, 0.06, 1.0, 2.3, GLASS, 0.08);
-  b.box(9.6, 2.3, bz, 1.2, 0.8, 2.54, GLASS);
+  b.wedge(10.7, 10.5, 2.2, bz, 1.4, 2.5, col);
+  b.screen(10.7, 10.5, 2.2, bz, 1.4, 2.2);
+  b.box(9.3, 2.35, bz, 1.1, 0.8, 2.54, GLASS);
   b.box(10.75, 0.6, bz, 0.15, 0.6, 2.4, DARK);
   b.box(10.72, 1.3, bz, 0.06, 0.7, 1.8, 0x3a3a40);
   b.box(9.1, 3.7, bz, 1.4, 0.5, 2.3, col, 0.3);

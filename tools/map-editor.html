@@ -19,23 +19,84 @@
 <style>
 :root {
   --bg: #16181d; --panel: #1f2229; --panel2: #262a33; --line: #343945; --text: #e4e6eb; --dim: #9aa1ad;
-  --accent: #f0a020; --accent2: #3a8fd8; --danger: #e05252; --ok: #4fb36b;
+  --accent: #f0a020; --accent2: #3a8fd8; --danger: #e05252; --ok: #4fb36b; --panel3: #2d323c;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 13px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif; }
-body { display: grid; grid-template-rows: auto 1fr auto; grid-template-columns: 236px 1fr 300px; grid-template-areas: "top top top" "left main right" "foot foot foot"; overflow: hidden; }
-header { grid-area: top; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 8px; background: var(--panel); border-bottom: 1px solid var(--line); }
+/* The window (Boss, 2 Nov 2026, the same as the track editor): header, left dock, the tool rail, the map with a bottom dock under it, right dock, status bar. Each dock holds panels that drag, resize, collapse, pop out and hide. */
+body { display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; grid-template-columns: var(--lw, 250px) 6px auto minmax(0, 1fr) 6px var(--rw, 320px); grid-template-areas: "top top top top top top" "left ls tools main rs right" "left ls tools bottom rs right" "foot foot foot foot foot foot"; overflow: hidden; }
+body.noleft { grid-template-columns: 0 0 auto minmax(0, 1fr) 6px var(--rw, 320px); }
+body.noright { grid-template-columns: var(--lw, 250px) 6px auto minmax(0, 1fr) 0 0; }
+body.noleft.noright { grid-template-columns: 0 0 auto minmax(0, 1fr) 0 0; }
+body.nobottom { grid-template-rows: auto minmax(0, 1fr) 0 auto; }
+.zone { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--panel); overflow: hidden; }
+#zoneLeft { grid-area: left; border-right: 1px solid var(--line); }
+#zoneRight { grid-area: right; border-left: 1px solid var(--line); }
+#zoneBottom { grid-area: bottom; flex-direction: row; border-top: 1px solid var(--line); height: var(--bh, 230px); position: relative; }
+body.noleft #zoneLeft, body.noright #zoneRight, body.nobottom #zoneBottom { display: none; }
+.zone.drop { outline: 2px dashed var(--accent2); outline-offset: -3px; background: #1d2a3a; }
+.split { background: var(--line); cursor: col-resize; }
+#splitLeft { grid-area: ls; } #splitRight { grid-area: rs; }
+body.noleft #splitLeft, body.noright #splitRight { display: none; }
+.hsplit { height: 6px; background: var(--line); cursor: row-resize; flex: none; }
+#zoneBottom .hsplit { width: 6px; height: auto; cursor: col-resize; }
+.bsplit { position: absolute; left: 0; right: 0; top: 0; height: 6px; cursor: row-resize; z-index: 2; }
+.panel { display: flex; flex-direction: column; min-height: 30px; min-width: 0; flex: 1 1 var(--basis, 220px); background: var(--panel); overflow: hidden; }
+#zoneBottom .panel { flex: 1 1 var(--bbasis, 320px); min-width: 160px; }
+#panel-buildings { --basis: 300px; } #panel-markers { --basis: 220px; } #panel-layers { --basis: 320px; } #panel-props { --basis: 300px; } #panel-selection { --basis: 190px; } #panel-replace { --basis: 230px; } #panel-checks { --basis: 160px; } #panel-palette { --basis: 420px; }
+.panel.collapsed { flex: 0 0 auto; }
+.panel.collapsed .pb { display: none; }
+.ph { display: flex; align-items: center; gap: 6px; padding: 3px 5px 3px 8px; background: #22262e; border-bottom: 1px solid var(--line); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); cursor: grab; user-select: none; flex: none; }
+.ph:active { cursor: grabbing; }
+.ph .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #c8ccd4; }
+.ph .extra { display: flex; gap: 4px; align-items: center; text-transform: none; letter-spacing: 0; min-width: 0; }
+.ph .extra button, .ph > button { padding: 0 6px; font-size: 11px; line-height: 18px; }
+.ph .extra select, .ph .extra input { padding: 1px 5px; font-size: 12px; max-width: 190px; min-width: 0; }
+.ph .t { min-width: 54px; }
+.ph > button { border-color: transparent; background: none; color: var(--dim); }
+.ph > button:hover { background: var(--panel3); color: var(--text); border-color: var(--line); }
+.pb { padding: 8px; overflow: auto; flex: 1; min-height: 0; position: relative; }
+.panel.floating { position: fixed; z-index: 10; width: 340px; height: 380px; min-width: 220px; min-height: 120px; border: 1px solid #4a5160; border-radius: 9px; box-shadow: 0 12px 36px #000c; resize: both; overflow: hidden; background: #1f2229f6; }
+.panel.floating .ph { border-radius: 8px 8px 0 0; cursor: move; }
+.panel.dragging { opacity: .5; }
+.dragGhost { position: fixed; z-index: 50; pointer-events: none; padding: 4px 10px; background: var(--panel2); border: 1px solid var(--accent2); border-radius: 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #fff; box-shadow: 0 6px 20px #000a; }
+main.drop::after { content: "Drop here to pop the panel out"; position: absolute; inset: 8px; border: 2px dashed var(--accent2); border-radius: 8px; display: grid; place-items: center; color: #9cd0ff; background: #1d2a3a66; font-weight: 600; z-index: 3; pointer-events: none; }
+.dd { position: fixed; z-index: 40; display: flex; flex-direction: column; min-width: 170px; padding: 4px; background: var(--panel2); border: 1px solid var(--line); border-radius: 7px; box-shadow: 0 8px 24px #000a; }
+.dd button { text-align: left; border-color: transparent; background: none; }
+.dd button:hover { background: var(--panel3); }
+.dd hr { border: 0; border-top: 1px solid var(--line); margin: 3px 0; }
+/* Every button word starts with a capital (Boss, 2 Nov 2026), whatever the code names it. */
+button, #toolbar label.chk { text-transform: capitalize; }
+.tools button small, .swatches button { text-transform: none; }
+/* The tool rail: the map tools down the left of the map, one column, scrolling when the window is short, so nothing ever stacks over the map (Boss, 2 Nov 2026). */
+#toolbar { grid-area: tools; display: flex; flex-direction: column; gap: 3px; padding: 6px 4px; background: #191c22; border-right: 1px solid var(--line); overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; }
+.tools { display: flex; flex-direction: column; gap: 3px; }
+.tools button { width: 64px; min-height: 40px; padding: 4px 2px; font-size: 11px; line-height: 1.15; white-space: normal; }
+.tools button small { display: block; color: var(--dim); font-size: 10px; }
+/* Properties: the marker being set up, or a word when nothing is. */
+#mkBox:not([hidden]) + #propsNone { display: none; }
+/* The palette panel: the brush at the top, the tiles filling the rest; along the bottom dock the tiles run in two rows that scroll sideways. */
+#panel-palette .pb { display: flex; flex-direction: column; gap: 6px; }
+#zoneBottom #palette { grid-auto-flow: column; grid-template-columns: none; grid-template-rows: repeat(2, minmax(0, 1fr)); grid-auto-columns: 56px; overflow-x: auto; overflow-y: hidden; }
+#zoneBottom #palette .pt { aspect-ratio: auto; height: 100%; }
+#zoneBottom #brushBox { min-height: 0; padding: 3px 6px; }
+#zoneBottom #brushBox .sw { width: 36px; height: 36px; }
+#zoneBottom #brushBox .sw img, #zoneBottom #brushBox canvas { max-width: 36px; max-height: 36px; }
+#zoneBottom #brushHint { display: none; }
+/* The status bar: the pointer, the layer, the message, and the map's checks always in view (red with problems, green when every marker is on a free tile). */
+#checkBadge { margin-left: auto; padding: 1px 9px; border-radius: 10px; font-size: 11px; font-weight: 600; cursor: pointer; background: #3a2222; color: #f0a0a0; border: 1px solid #6a3030; }
+#checkBadge.good { background: #1f3a28; color: #9fe0b0; border-color: #2f6a40; cursor: default; }
+#checkBadge.none { background: var(--panel2); color: var(--dim); border-color: var(--line); cursor: default; }
+#checkBadge[hidden] { display: none; }
+header { grid-area: top; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 8px; background: var(--panel); border-bottom: 1px solid var(--line); min-width: 0; }
 header h1 { font-size: 14px; margin: 0 8px 0 2px; white-space: nowrap; }
 header h1 span { color: var(--accent); }
 #toolkitLink { color: var(--dim); text-decoration: none; font-size: 12px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 5px; white-space: nowrap; }
 #toolkitLink:hover { color: var(--text); border-color: #556; }
-#left, #right { background: var(--panel); overflow-y: auto; padding: 8px; }
-#left { grid-area: left; border-right: 1px solid var(--line); }
-#right { grid-area: right; border-left: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
-main { grid-area: main; position: relative; overflow: hidden; background: #0d0e11; }
+main { grid-area: main; position: relative; overflow: hidden; background: #0d0e11; min-width: 0; min-height: 0; }
 canvas#view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-footer { grid-area: foot; display: flex; gap: 14px; padding: 4px 10px; background: var(--panel); border-top: 1px solid var(--line); color: var(--dim); white-space: nowrap; overflow: hidden; }
+footer { grid-area: foot; display: flex; align-items: center; gap: 14px; padding: 4px 10px; background: var(--panel); border-top: 1px solid var(--line); color: var(--dim); white-space: nowrap; overflow: hidden; }
 footer #msg { color: var(--text); overflow: hidden; text-overflow: ellipsis; }
 footer #msg.err { color: var(--danger); }
 footer #msg.ok { color: var(--ok); }
@@ -48,12 +109,10 @@ button:disabled { opacity: .45; cursor: default; }
 button.primary { background: #3b2c10; border-color: #7a5512; }
 button.on { background: #233a52; border-color: var(--accent2); }
 select { max-width: 260px; }
+#mapSelect { max-width: 200px; }
 .sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 2px; }
 .grow { flex: 1; }
 #dirty { color: var(--accent); font-weight: 600; }
-.tools { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
-.tools button { padding: 6px 2px; font-size: 12px; }
-.tools button small { display: block; color: var(--dim); font-size: 10px; }
 .layer { display: grid; grid-template-columns: 22px 1fr; grid-template-rows: auto auto; gap: 0 6px; padding: 5px 6px; border: 1px solid transparent; border-radius: 6px; cursor: pointer; }
 .layer:hover { background: var(--panel2); }
 .layer.active { border-color: var(--accent); background: #2a2516; }
@@ -75,7 +134,7 @@ label.chk { display: flex; gap: 6px; align-items: center; color: var(--dim); }
 #brushBox .sw { width: 52px; height: 52px; display: grid; place-items: center; background: #111; border-radius: 4px; flex: none; overflow: hidden; }
 #brushBox .sw img, #brushBox canvas { max-width: 52px; max-height: 52px; image-rendering: pixelated; }
 #brushName { overflow: hidden; text-overflow: ellipsis; }
-#palette { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)); gap: 4px; align-content: start; padding: 2px; min-height: 120px; }
+#palette { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)); gap: 4px; align-content: start; padding: 2px; min-height: 120px; }
 #palette .pt { position: relative; aspect-ratio: 1; background: #111 center/contain no-repeat; border: 2px solid transparent; border-radius: 4px; cursor: pointer; padding: 0; image-rendering: pixelated; }
 #palette .pt:hover { border-color: #666; }
 #palette .pt.sel { border-color: var(--accent); }
@@ -113,11 +172,11 @@ input[type=file] { display: none; }
 #modes { display: flex; gap: 2px; background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 2px; }
 #modes button { border: 0; background: transparent; padding: 4px 12px; }
 #modes button.on { background: var(--accent); color: #111; font-weight: 600; }
-body.in-studio #left, body.in-studio main, body.in-studio #right, body.in-studio .maponly { display: none; }
+body.in-studio .zone, body.in-studio .split, body.in-studio #toolbar, body.in-studio main, body.in-studio .panel.floating, body.in-studio .maponly { display: none; }
 .studio label.f input[type=text] { min-width: 0; width: 100%; }
 #mkBox select { max-width: 100%; min-width: 0; }
 #mkBox input[type=number] { width: 46px; }
-.studio { grid-row: 2; grid-column: 1 / 4; display: none; min-height: 0; overflow: hidden; background: var(--bg); }
+.studio { grid-row: 2 / 4; grid-column: 1 / -1; display: none; min-height: 0; overflow: hidden; background: var(--bg); }
 body.mode-tiles #tileStudio { display: grid; grid-template-columns: 250px 1fr 290px; }
 body.mode-buildings #bldStudio { display: grid; grid-template-columns: 360px 1fr; }
 .studio > .side { background: var(--panel); overflow-y: auto; padding: 8px; border-right: 1px solid var(--line); }
@@ -180,6 +239,7 @@ body.mode-buildings #bldStudio { display: grid; grid-template-columns: 360px 1fr
   <button class="maponly" id="btnNewMap" title="Start a new map from this one: its ground, collision, props and spawns, without its buildings, doors, people and triggers">New map…</button>
   <span class="sep maponly"></span>
   <button class="maponly" id="btnSave" disabled title="Ctrl+S">Save</button>
+  <label class="chk maponly" id="autosaveLabel" title="Every 2 minutes, save the map into its file without asking (with a folder or the dev server that can be written to)"><input type="checkbox" id="autosave" checked> Autosave</label>
   <button class="maponly" id="btnDownload" disabled title="Download the map file">Download</button>
   <span class="maponly" id="dirty"></span>
   <span class="sep maponly"></span>
@@ -192,11 +252,13 @@ body.mode-buildings #bldStudio { display: grid; grid-template-columns: 360px 1fr
   <button class="maponly" id="btnFit" title="Fit the whole map (0)">Fit</button>
   <span class="grow"></span>
   <button id="btnCheck" title="Compare the game's map list and building library with what's in the folders, and offer to fix any difference">Check files</button>
+  <button class="maponly" id="btnWindow" title="Show or hide the panels, and put the layout back as it was">Window ▾</button>
   <button id="btnHelp">Help</button>
 </header>
 
-<aside id="left">
-  <h2>Tools</h2>
+<div id="zoneLeft" class="zone" data-zone="left"></div>
+<div id="splitLeft" class="split" data-col="lw" title="Drag to resize"></div>
+<div id="toolbar">
   <div class="tools" id="tools">
     <button data-tool="brush" title="Paint the selected tile. Shift+drag paints a rectangle.">Brush<small>B</small></button>
     <button data-tool="eraser" title="Clear tiles or collision. Shift+drag clears a rectangle.">Eraser<small>E</small></button>
@@ -207,7 +269,32 @@ body.mode-buildings #bldStudio { display: grid; grid-template-columns: 360px 1fr
     <button data-tool="hand" title="Pan the view (or hold Space, or drag with the right/middle button)">Pan<small>H</small></button>
   </div>
 
-  <h2>Buildings</h2>
+</div>
+<main>
+  <canvas id="view"></canvas>
+  <div id="welcome">
+    <div class="card">
+      <h3>Open your map files</h3>
+      <p>Click <b>Open folder…</b> and pick one of these folders:</p>
+      <ul>
+        <li><code>the-motocross-rpg/public</code> to edit the <b>game maps</b> exactly as the game loads them, with their tiles and the building library (best).</li>
+        <li><code>the-motocross-rpg/public/assets</code> works for the maps and tiles, but not the buildings.</li>
+        <li>The shared <code>art</code> folder to edit the <b>Tiled source maps</b> (<code>.tmj</code>) that <code>npm run import-art</code> bakes into the game.</li>
+        <li>The whole repo folder also works; <code>node_modules</code> is skipped where the browser allows it.</li>
+      </ul>
+      <p>In Chrome or Edge, <b>Save</b> writes straight back into the folder. In other browsers, Save downloads the file for you to copy into place.</p>
+      <div class="row"><button class="primary" id="btnOpen2">Open folder…</button><button id="btnHelp2">Help and shortcuts</button></div>
+      <p id="serverHint" class="hint"></p>
+    </div>
+  </div>
+</main>
+<div id="zoneBottom" class="zone" data-zone="bottom"><div class="bsplit" title="Drag to resize"></div></div>
+<div id="splitRight" class="split" data-col="rw" title="Drag to resize"></div>
+<div id="zoneRight" class="zone" data-zone="right"></div>
+
+<!-- The panels, placed into the docks by the layout (they wait here, never leaving the page). -->
+<div id="panelStore" hidden>
+<div class="panel" id="panel-buildings" data-title="Buildings">
   <div id="bldBox">
     <select id="bldList" style="width:100%" disabled><option>Open a game map</option></select>
     <canvas id="bldThumb" width="216" height="96"></canvas>
@@ -227,14 +314,21 @@ body.mode-buildings #bldStudio { display: grid; grid-template-columns: 360px 1fr
     <div class="hint" id="bldInfo"></div>
   </div>
 
-  <h2>Markers</h2>
+</div>
+<div class="panel" id="panel-markers" data-title="Markers">
   <div class="mkadd" id="mkAdd"></div>
   <div class="hint" id="mkHint">Spawns, exits, doors, block zones and other triggers. Pick one and click the map (drag for an area); click a marker with Objects (V) to edit it.</div>
 
-  <h2>Layers</h2>
+</div>
+<div class="panel" id="panel-layers" data-title="Layers">
   <div id="layers"><div class="hint">Open a map to see its layers.</div></div>
 
-  <h2>Selection</h2>
+</div>
+<div class="panel" id="panel-props" data-title="Properties">
+  <div id="mkBox" hidden></div>
+  <div id="propsNone" class="hint">Nothing selected. Click a marker with Objects (V) to set it up here.</div>
+</div>
+<div class="panel" id="panel-selection" data-title="Selection">
   <div class="row" style="margin-bottom:4px">
     <label class="chk" title="Region tools change every layer (tiles, collision, props and markers), or only the active layer">
       <select id="scope"><option value="all">All layers</option><option value="active">Active layer only</option></select>
@@ -252,7 +346,8 @@ body.mode-buildings #bldStudio { display: grid; grid-template-columns: 360px 1fr
   </div>
   <div class="hint" id="selInfo">No selection. Use the Select tool (M).</div>
 
-  <h2>Replace tiles</h2>
+</div>
+<div class="panel" id="panel-replace" data-title="Replace tiles">
   <div class="slots">
     <div class="slot"><div class="sw" id="slotA"></div><div id="slotAName">Find: —</div><button id="btnSetA" style="margin-top:3px">Use brush</button></div>
     <div class="slot"><div class="sw" id="slotB"></div><div id="slotBName">With: —</div><button id="btnSetB" style="margin-top:3px">Use brush</button></div>
@@ -263,45 +358,24 @@ body.mode-buildings #bldStudio { display: grid; grid-template-columns: 360px 1fr
   </div>
   <div class="hint">Works on the active tile layer, inside the selection if there is one, otherwise the whole layer. Empty slot = empty cell.</div>
 
-  <h2>Checks</h2>
+</div>
+<div class="panel" id="panel-checks" data-title="Checks">
   <div id="checks" class="hint">Open a map.</div>
-</aside>
-
-<main>
-  <canvas id="view"></canvas>
-  <div id="welcome">
-    <div class="card">
-      <h3>Open your map files</h3>
-      <p>Click <b>Open folder…</b> and pick one of these folders:</p>
-      <ul>
-        <li><code>the-motocross-rpg/public</code> to edit the <b>game maps</b> exactly as the game loads them, with their tiles and the building library (best).</li>
-        <li><code>the-motocross-rpg/public/assets</code> works for the maps and tiles, but not the buildings.</li>
-        <li>The shared <code>art</code> folder to edit the <b>Tiled source maps</b> (<code>.tmj</code>) that <code>npm run import-art</code> bakes into the game.</li>
-        <li>The whole repo folder also works; <code>node_modules</code> is skipped where the browser allows it.</li>
-      </ul>
-      <p>In Chrome or Edge, <b>Save</b> writes straight back into the folder. In other browsers, Save downloads the file for you to copy into place.</p>
-      <div class="row"><button class="primary" id="btnOpen2">Open folder…</button><button id="btnHelp2">Help and shortcuts</button></div>
-      <p id="serverHint" class="hint"></p>
-    </div>
-  </div>
-</main>
-
-<aside id="right">
-  <div id="mkBox" hidden></div>
-  <h2>Brush</h2>
+</div>
+<div class="panel" id="panel-palette" data-title="Palette" data-extra="#palGroup, #palSearch">
+  <select id="palGroup" title="Which group of tiles to show"></select>
+  <input type="search" id="palSearch" placeholder="Search tiles…">
   <div id="brushBox"><div class="sw" id="brushSw"></div><div><div id="brushName">Nothing selected</div><div class="hint" id="brushHint">Click a tile below, or use the Picker on the map.</div></div></div>
-  <h2>Palette</h2>
-  <div class="row">
-    <select id="palGroup" style="flex:1"></select>
-  </div>
-  <input type="search" id="palSearch" placeholder="Search tiles by name…">
   <div id="palette"><div id="palEmpty">Open a map to load its tiles.</div></div>
-</aside>
+</div>
+</div>
+
 
 <footer>
   <span id="posLabel">—</span>
   <span id="layerLabel"></span>
   <span id="msg"></span>
+  <span id="checkBadge" class="none maponly" hidden title="The map's checks: every door, spawn, exit and trigger on a free tile. Click to see them."></span>
 </footer>
 
 <dialog id="newMapDlg">
@@ -1612,7 +1686,7 @@ function afterHistory() {
 }
 function setDirty(d) {
   app.dirty = d;
-  $('#dirty').textContent = d ? '● unsaved' : '';
+  $('#dirty').textContent = d ? '● Unsaved' : '';
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -3229,6 +3303,8 @@ function updateButtons() {
   $('#btnSave').disabled = !has;
   $('#btnDownload').disabled = !has;
   $('#btnSave').textContent = source?.canWrite ? 'Save' : 'Save (download)';
+  $('#autosave').disabled = !source?.canWrite;
+  $('#autosaveLabel').title = source?.canWrite ? 'Every 2 minutes, save the map into its file without asking' : 'Autosave needs a folder or dev server the editor can write into; here Save can only download';
   $('#btnUndo').disabled = !app.undo.length;
   $('#btnRedo').disabled = !app.redo.length;
   const s = !!app.sel;
@@ -3323,7 +3399,9 @@ window.addEventListener('beforeunload', (e) => { if (app.dirty) { e.preventDefau
 function runChecks() {
   const box = $('#checks');
   const doc = app.doc;
-  if (!doc || !doc.layerDefs.some((d) => d.id === 'collision')) { box.innerHTML = '<div class="hint">No collision layer on this map.</div>'; return; }
+  const badge = $('#checkBadge');
+  badge.hidden = !doc;
+  if (!doc || !doc.layerDefs.some((d) => d.id === 'collision')) { box.innerHTML = '<div class="hint">No collision layer on this map.</div>'; badge.className = 'none maponly'; badge.textContent = 'No collision layer'; return; }
   const problems = [];
   for (const m of doc.state.markers) {
     if (!MUST_BE_FREE.has(m.type)) continue;
@@ -3332,6 +3410,8 @@ function runChecks() {
     else if (doc.state.collision[t.y * doc.width + t.x]) problems.push({ m, t, why: 'is on a blocked tile' });
   }
   box.innerHTML = '';
+  badge.className = problems.length ? 'maponly' : 'good maponly';
+  badge.textContent = problems.length ? `${problems.length} check ${problems.length === 1 ? 'problem' : 'problems'}` : '✓ Checks pass';
   if (!problems.length) { box.innerHTML = '<div class="good">✓ Every door, spawn, exit and trigger is on a free tile.</div>'; return; }
   for (const p of problems) {
     const el = document.createElement('div');
@@ -3384,6 +3464,27 @@ async function save(forceDownload) {
   setDirty(false);
   status(`Downloaded ${baseName(doc.path)}. Copy it over ${doc.path}.`, 'ok');
 }
+
+// Autosave (Boss, 2 Nov 2026): every two minutes, an unsaved map is written into its file without
+// asking, when the folder or dev server can be written to (where Save would only download, there is
+// nothing to do quietly). Never mid-stroke, mid-drag, while placing a building or a floating chunk,
+// nor in the Tiles and Buildings workspaces. The Autosave tick by Save is remembered in the browser.
+const AUTOSAVE_EVERY = 2 * 60 * 1000;
+const AUTOSAVE_KEY = 'mapEditor.autosave';
+function autosaveOn() { return $('#autosave').checked; }
+async function autosave() {
+  const doc = app.doc;
+  if (!autosaveOn() || !doc || !app.dirty || !source?.canWrite || app.mode !== 'map' || app.drag || app.float || app.placing || app.addMarker) return;
+  let text;
+  try { text = exportText(doc); } catch (e) { console.error(e); status(`Autosave couldn't build the file (${e.message}). Use Save.`, 'err'); return; }
+  try { await source.write(doc.path, text); } catch (e) { console.error(e); status(`Autosave couldn't write ${doc.path} (${e.message}). Use Save.`, 'err'); return; }
+  setDirty(false);
+  const at = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  status(`Autosaved ${doc.path} at ${at}.`, 'ok');
+}
+try { $('#autosave').checked = localStorage.getItem(AUTOSAVE_KEY) !== 'off'; } catch { /* the default, on */ }
+$('#autosave').addEventListener('change', () => { try { localStorage.setItem(AUTOSAVE_KEY, autosaveOn() ? 'on' : 'off'); } catch { /* lasts the page */ } status(autosaveOn() ? 'Autosave on: the map is saved every 2 minutes.' : 'Autosave off.', 'ok'); });
+setInterval(() => { autosave().catch((e) => console.error(e)); }, AUTOSAVE_EVERY);
 
 // ---------------------------------------------------------------------------------------------
 // Status line
@@ -4281,6 +4382,261 @@ setTool('brush');
 updateButtons();
 tryServer();
 window.mapEditor = { app, lib, exportText, useSource, openMap, HttpSource, ListSource, libText, placementProblems, placedBuildings, buildingProblems }; // for tests
+
+// ---------------------------------------------------------------------------------------------
+// Panels and docks (Boss, 2 Nov 2026). Every panel (Buildings, Markers, Layers, Properties,
+// Selection, Replace tiles, Checks, Palette) can be dragged by its header to the left, right or bottom dock, or dropped on the
+// view to pop out as a floating window that drags and resizes; the bars between panels and beside
+// the docks resize them; a panel collapses to its header with —, and the Window menu shows and
+// hides panels or puts the layout back. The layout is kept in this browser (localStorage).
+
+const PANEL_IDS = ['buildings', 'markers', 'layers', 'props', 'selection', 'replace', 'checks', 'palette'];
+const LAYOUT_KEY = 'mapEditor.layout.1';
+/** Buildings, Markers and Layers on the left; Properties, Selection, Replace tiles and Checks on the right; the Palette along the bottom. */
+const DEFAULT_LAYOUT = { left: ['buildings', 'markers', 'layers'], right: ['props', 'selection', 'replace', 'checks'], bottom: ['palette'], float: [], hidden: [], lw: 250, rw: 320, bh: 230, basis: {}, pos: {} };
+var docks = loadLayout(); // var: dockZones may run before this, and steps out until the layout is loaded
+/** Where each panel was docked before it popped out, to dock it back. */
+const lastDock = {};
+
+function loadLayout() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? 'null');
+    if (!saved || !Array.isArray(saved.left)) return structuredClone(DEFAULT_LAYOUT);
+    const l = { ...structuredClone(DEFAULT_LAYOUT), ...saved };
+    // Every panel exactly once: new panels go where the default puts them, unknown names are dropped.
+    const seen = new Set();
+    for (const z of ['left', 'right', 'bottom', 'float']) l[z] = (l[z] ?? []).filter((id) => PANEL_IDS.includes(id) && !seen.has(id) && seen.add(id));
+    for (const z of ['left', 'right', 'bottom', 'float']) for (const id of DEFAULT_LAYOUT[z]) if (!seen.has(id)) { l[z].push(id); seen.add(id); }
+    l.hidden = (l.hidden ?? []).filter((id) => PANEL_IDS.includes(id));
+    return l;
+  } catch { return structuredClone(DEFAULT_LAYOUT); }
+}
+function saveLayout() { try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(docks)); } catch { /* private window: the layout lasts the page */ } }
+
+/** The panel's header: title, its own controls, the dock menu, pop out or dock back, collapse. */
+function panelHeader(id, floating) {
+  const el = $(`#panel-${id}`);
+  let ph = el.querySelector(':scope > .ph');
+  if (!ph) {
+    ph = document.createElement('div');
+    ph.className = 'ph';
+    const t = document.createElement('span');
+    t.className = 't';
+    t.textContent = el.dataset.title;
+    const extra = document.createElement('span');
+    extra.className = 'extra';
+    if (el.dataset.extra) extra.append(...el.querySelectorAll(el.dataset.extra));
+    const menu = document.createElement('button');
+    menu.textContent = '▾';
+    menu.title = 'Dock this panel somewhere else, or hide it';
+    menu.addEventListener('click', (e) => { e.stopPropagation(); dockMenu(id, menu); });
+    const out = document.createElement('button');
+    out.className = 'popout';
+    const fold = document.createElement('button');
+    fold.textContent = '—';
+    fold.title = 'Collapse to the header (click again to open)';
+    fold.addEventListener('click', (e) => { e.stopPropagation(); el.classList.toggle('collapsed'); });
+    ph.append(t, extra, menu, out, fold);
+    ph.addEventListener('pointerdown', (e) => dragPanel(e, id));
+    const body = document.createElement('div');
+    body.className = 'pb';
+    body.append(...[...el.childNodes].filter((n) => n !== ph));
+    el.append(ph, body);
+  }
+  const out = ph.querySelector('.popout');
+  out.textContent = floating ? '⤡' : '⤢';
+  out.title = floating ? 'Dock it back where it was' : 'Pop out over the view';
+  out.onclick = (e) => { e.stopPropagation(); movePanel(id, floating ? 'back' : 'float'); };
+  return ph;
+}
+
+/** Puts every panel where the layout says, with the bars between them. */
+function applyLayout() {
+  // Every panel back in the store (never out of the page: the editor finds them by id), then placed.
+  for (const el of document.querySelectorAll('.panel')) $('#panelStore').appendChild(el);
+  for (const z of ['left', 'right', 'bottom']) {
+    const zone = $(`#zone${z[0].toUpperCase()}${z.slice(1)}`);
+    for (const n of [...zone.children]) if (!n.classList.contains('bsplit')) n.remove();
+    let first = true;
+    for (const id of docks[z]) {
+      const el = $(`#panel-${id}`);
+      panelHeader(id, false);
+      el.classList.remove('floating');
+      el.style.cssText = '';
+      const b = docks.basis[id];
+      if (b) el.style.flex = z === 'bottom' ? `1 1 ${b}px` : `1 1 ${b}px`;
+      el.hidden = docks.hidden.includes(id);
+      if (!first && !el.hidden) {
+        const bar = document.createElement('div');
+        bar.className = 'hsplit';
+        bar.dataset.split = z;
+        bar.addEventListener('pointerdown', (e) => dragBar(e, bar, z));
+        zone.appendChild(bar);
+      }
+      zone.appendChild(el);
+      if (!el.hidden) first = false;
+    }
+    tidyBars(zone);
+  }
+  docks.float.forEach((id, i) => {
+    const el = $(`#panel-${id}`);
+    panelHeader(id, true);
+    el.classList.add('floating');
+    el.hidden = docks.hidden.includes(id);
+    const p = docks.pos[id] ?? { x: 360 + i * 30, y: 120 + i * 30, w: 340, h: 380 };
+    el.style.cssText = `left:${p.x}px;top:${p.y}px;width:${p.w}px;height:${p.h}px`;
+    document.body.appendChild(el);
+  });
+  document.documentElement.style.setProperty('--lw', `${docks.lw}px`);
+  document.documentElement.style.setProperty('--rw', `${docks.rw}px`);
+  document.documentElement.style.setProperty('--bh', `${docks.bh}px`);
+  dockZones();
+}
+/** A bar only between two panels that show. */
+function tidyBars(zone) {
+  let prev = null;
+  for (const n of [...zone.children]) {
+    if (n.classList.contains('bsplit')) continue;
+    if (n.classList.contains('hsplit')) { n.hidden = !prev; if (prev) prev = null; else n.remove(); continue; }
+    if (n.hidden || n.classList.contains('offmode')) continue;
+    prev = n;
+  }
+}
+/** Hides a dock with nothing showing in it, so the view takes the room. */
+function dockZones() {
+  if (!docks) return;
+  const showing = (z) => docks[z].some((id) => { const el = $(`#panel-${id}`); return !el.hidden && !el.classList.contains('offmode'); });
+  document.body.classList.toggle('noleft', !showing('left'));
+  document.body.classList.toggle('noright', !showing('right'));
+  document.body.classList.toggle('nobottom', !showing('bottom'));
+  for (const z of ['Left', 'Right', 'Bottom']) tidyBars($(`#zone${z}`));
+  requestDraw();
+}
+function movePanel(id, to, index) {
+  let from = null;
+  for (const z of ['left', 'right', 'bottom', 'float']) { const i = docks[z].indexOf(id); if (i >= 0) { from = z; docks[z].splice(i, 1); } }
+  if (to === 'back') to = lastDock[id] ?? 'right';
+  if (from && from !== 'float') lastDock[id] = from;
+  if (to === 'float' && from === 'float') to = 'float';
+  if (index === undefined || index > docks[to].length) docks[to].push(id); else docks[to].splice(index, 0, id);
+  docks.hidden = docks.hidden.filter((h) => h !== id);
+  saveLayout();
+  applyLayout();
+}
+function dockMenu(id, at) {
+  const items = [['Dock left', () => movePanel(id, 'left')], ['Dock right', () => movePanel(id, 'right')], ['Dock bottom', () => movePanel(id, 'bottom')], ['Pop out', () => movePanel(id, 'float')], null, ['Hide', () => { docks.hidden.push(id); saveLayout(); applyLayout(); }]];
+  dropdown(at, items);
+}
+let openMenu = null;
+function dropdown(at, items) {
+  openMenu?.remove();
+  const dd = document.createElement('div');
+  dd.className = 'dd';
+  for (const it of items) {
+    if (!it) { dd.appendChild(document.createElement('hr')); continue; }
+    const b = document.createElement('button');
+    b.textContent = it[0];
+    if (it[2]) b.classList.add('on');
+    b.addEventListener('click', () => { dd.remove(); openMenu = null; it[1](); });
+    dd.appendChild(b);
+  }
+  document.body.appendChild(dd);
+  const r = at.getBoundingClientRect();
+  dd.style.top = `${r.bottom + 4}px`;
+  dd.style.left = `${Math.max(4, Math.min(window.innerWidth - dd.offsetWidth - 4, r.right - dd.offsetWidth))}px`;
+  openMenu = dd;
+  setTimeout(() => document.addEventListener('pointerdown', (e) => { if (!dd.contains(e.target)) { dd.remove(); if (openMenu === dd) openMenu = null; } }, { once: true }), 0);
+}
+/** The Window menu: show or hide each panel, and put the layout back. */
+$('#btnWindow').addEventListener('click', (e) => {
+  const names = { buildings: 'Buildings', markers: 'Markers', layers: 'Layers', props: 'Properties', selection: 'Selection', replace: 'Replace tiles', checks: 'Checks', palette: 'Palette' };
+  const items = PANEL_IDS.map((id) => [`${docks.hidden.includes(id) ? '○' : '●'} ${names[id]}`, () => {
+    if (docks.hidden.includes(id)) docks.hidden = docks.hidden.filter((h) => h !== id); else docks.hidden.push(id);
+    saveLayout(); applyLayout();
+  }]);
+  items.push(null, ['Reset layout', () => { docks = structuredClone(DEFAULT_LAYOUT); saveLayout(); applyLayout(); }]);
+  dropdown(e.currentTarget, items);
+});
+
+/** Dragging a panel by its header: into a dock (before the panel it is dropped on), or onto the view to pop it out. */
+function dragPanel(e, id) {
+  if (e.target.closest('button, input, select')) return;
+  const el = $(`#panel-${id}`);
+  const floating = el.classList.contains('floating');
+  const sx = e.clientX, sy = e.clientY, ox = el.offsetLeft, oy = el.offsetTop;
+  let ghost = null, over = null, moved = false, before = null;
+  const zoneAt = (x, y) => document.elementsFromPoint(x, y).find((n) => (n.dataset?.zone || n.tagName === 'MAIN') && !n.closest('.panel.floating')) ?? null;
+  const mv = (ev) => {
+    if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 4) return;
+    moved = true;
+    if (floating) { el.style.left = `${ox + ev.clientX - sx}px`; el.style.top = `${oy + ev.clientY - sy}px`; }
+    else if (!ghost) { ghost = document.createElement('div'); ghost.className = 'dragGhost'; ghost.textContent = el.dataset.title; document.body.appendChild(ghost); el.classList.add('dragging'); }
+    if (ghost) { ghost.style.left = `${ev.clientX + 12}px`; ghost.style.top = `${ev.clientY + 12}px`; }
+    const z = zoneAt(ev.clientX, ev.clientY);
+    const target = z && !(floating && z.tagName === 'MAIN') ? z : null;
+    if (over !== target) { over?.classList.remove('drop'); over = target; over?.classList.add('drop'); }
+    before = null;
+    if (over && over.dataset.zone) {
+      const p = document.elementsFromPoint(ev.clientX, ev.clientY).find((n) => n.classList?.contains('panel') && over.contains(n));
+      if (p && p !== el) { const r = p.getBoundingClientRect(); const half = over.dataset.zone === 'bottom' ? ev.clientX < r.left + r.width / 2 : ev.clientY < r.top + r.height / 2; before = half ? p : p.nextElementSibling?.closest('.panel') ?? null; if (!half && !before) before = 'end'; }
+    }
+  };
+  const ph = e.currentTarget;
+  const up = (ev) => {
+    ph.removeEventListener('pointermove', mv); ph.removeEventListener('pointerup', up); ph.removeEventListener('pointercancel', up);
+    try { ph.releasePointerCapture(e.pointerId); } catch { /* already released */ }
+    ghost?.remove(); el.classList.remove('dragging'); over?.classList.remove('drop');
+    if (floating) { docks.pos[id] = { x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight }; saveLayout(); }
+    if (!moved || !over) return;
+    if (over.tagName === 'MAIN') { docks.pos[id] = { x: ev.clientX - 60, y: ev.clientY - 12, w: el.offsetWidth || 340, h: el.offsetHeight || 380 }; movePanel(id, 'float'); return; }
+    const z = over.dataset.zone;
+    const index = before && before !== 'end' ? docks[z].indexOf(before.id.replace('panel-', '')) : undefined;
+    movePanel(id, z, index);
+  };
+  // The header keeps the pointer, so the drag carries on over the map.
+  try { ph.setPointerCapture(e.pointerId); } catch { /* a synthetic event */ }
+  ph.addEventListener('pointermove', mv); ph.addEventListener('pointerup', up); ph.addEventListener('pointercancel', up);
+  e.preventDefault();
+}
+/** Dragging the bar between two docked panels: the panel before it takes the room. */
+function dragBar(e, bar, z) {
+  const prev = (() => { let n = bar.previousElementSibling; while (n && (n.hidden || n.classList.contains('offmode') || !n.classList.contains('panel'))) n = n.previousElementSibling; return n; })();
+  if (!prev) return;
+  const horizontal = z === 'bottom';
+  const start = horizontal ? e.clientX : e.clientY, b0 = horizontal ? prev.offsetWidth : prev.offsetHeight;
+  const mv = (ev) => { const b = Math.max(40, b0 + (horizontal ? ev.clientX : ev.clientY) - start); prev.style.flex = `1 1 ${b}px`; docks.basis[prev.id.replace('panel-', '')] = b; };
+  const up = () => { bar.removeEventListener('pointermove', mv); bar.removeEventListener('pointerup', up); saveLayout(); };
+  bar.setPointerCapture(e.pointerId);
+  bar.addEventListener('pointermove', mv); bar.addEventListener('pointerup', up);
+  e.preventDefault();
+}
+/** The bars beside the docks and above the bottom dock. */
+for (const bar of document.querySelectorAll('.split[data-col]')) bar.addEventListener('pointerdown', (e) => {
+  const key = bar.dataset.col, start = e.clientX, v0 = docks[key];
+  const mv = (ev) => { docks[key] = Math.max(160, Math.min(700, v0 + (key === 'lw' ? 1 : -1) * (ev.clientX - start))); document.documentElement.style.setProperty(`--${key}`, `${docks[key]}px`); requestDraw(); };
+  const up = () => { bar.removeEventListener('pointermove', mv); bar.removeEventListener('pointerup', up); saveLayout(); };
+  bar.setPointerCapture(e.pointerId);
+  bar.addEventListener('pointermove', mv); bar.addEventListener('pointerup', up);
+  e.preventDefault();
+});
+$('#zoneBottom .bsplit').addEventListener('pointerdown', (e) => {
+  const bar = e.currentTarget, start = e.clientY, v0 = docks.bh;
+  const mv = (ev) => { docks.bh = Math.max(80, Math.min(560, v0 - (ev.clientY - start))); document.documentElement.style.setProperty('--bh', `${docks.bh}px`); requestDraw(); };
+  const up = () => { bar.removeEventListener('pointermove', mv); bar.removeEventListener('pointerup', up); saveLayout(); };
+  bar.setPointerCapture(e.pointerId);
+  bar.addEventListener('pointermove', mv); bar.addEventListener('pointerup', up);
+  e.preventDefault();
+});
+// A floating panel resized by its corner keeps its size.
+for (const id of PANEL_IDS) new ResizeObserver(() => { const el = $(`#panel-${id}`); if (el.classList.contains('floating') && !el.hidden) { docks.pos[id] = { x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight }; saveLayout(); } }).observe($(`#panel-${id}`));
+applyLayout();
+/** Shows the Checks panel (from the status bar badge). */
+$('#checkBadge').addEventListener('click', () => {
+  if (docks.hidden.includes('checks')) { docks.hidden = docks.hidden.filter((h) => h !== 'checks'); saveLayout(); applyLayout(); }
+  const el = $('#panel-checks');
+  el.classList.remove('collapsed');
+  el.scrollIntoView({ block: 'nearest' });
+});
 </script>
 </body>
 </html>

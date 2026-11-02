@@ -36,3 +36,26 @@ export function paddockColour(def: SceneryDef, it: SceneryItem, i: number): stri
   if (def.colours?.length) return def.colours[Math.floor(hash(i * 7 + 3) * def.colours.length)];
   return def.color;
 }
+
+/**
+ * The factory hauler's words, by its colour (Boss, 1 Nov 2026): a hauler in a bike brand's colour
+ * is that brand's factory team (bikes.json brands), any other colour a plain factory team. A
+ * hauler model shows them on its material named Text.
+ */
+export const HAULER_ITEM = 'hauler';
+export const HAULER_BRANDS: Readonly<Record<string, string>> = { '#2a4a90': 'Yamamoto', '#c82828': 'Hondmoto', '#2a8a40': 'Kwakmoto', '#e8c020': 'Sukimoto' };
+export const FACTORY_TEAM = 'FACTORY RACING TEAM';
+export function haulerWords(colour: string): string {
+  const brand = HAULER_BRANDS[colour.toLowerCase()];
+  return brand ? `${brand.toUpperCase()} FACTORY RACING` : FACTORY_TEAM;
+}
+
+/**
+ * Which set-ups a part of a vehicle model shows in (Boss, 1 Nov 2026): a Blender custom property
+ * `setups` on the object, set-up ids split by commas ("awning,awning_bikes"), exported as glTF
+ * extras. A part without one is always shown.
+ */
+export function showsInSetup(setups: unknown, setup: string | undefined): boolean {
+  if (typeof setups !== 'string' || !setups.trim()) return true;
+  return setups.split(',').map((x) => x.trim()).includes(setup ?? '');
+}

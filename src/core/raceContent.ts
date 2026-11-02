@@ -1,3 +1,4 @@
+import { BANNER_NAME } from './banners';
 import type { BikesData } from './career';
 import type { BakedMap } from './mapTypes';
 import type { RacingData } from './race';
@@ -223,8 +224,8 @@ export const TRACKS_SCHEMA: Schema = {
             type: 'array',
             items: {
               type: 'object',
-              optional: ['w', 'h', 'rot', 'text', 'color', 'route', 'variant', 'action'],
-              fields: { type: IDS, x: N, y: N, variant: { type: 'string' }, action: { type: 'string' }, w: { type: 'number', min: 0.1 }, h: { type: 'number', min: 0.1 }, rot: N, text: { type: 'string' }, color: { type: 'string', pattern: /^#[0-9a-fA-F]{3,8}$/ }, route: { type: 'array', items: { type: 'array', items: N, minItems: 2, maxItems: 2 } } },
+              optional: ['w', 'h', 'rot', 'text', 'color', 'route', 'variant', 'action', 'image'],
+              fields: { type: IDS, x: N, y: N, variant: { type: 'string' }, action: { type: 'string' }, image: { type: 'string', pattern: BANNER_NAME }, w: { type: 'number', min: 0.1 }, h: { type: 'number', min: 0.1 }, rot: N, text: { type: 'string' }, color: { type: 'string', pattern: /^#[0-9a-fA-F]{3,8}$/ }, route: { type: 'array', items: { type: 'array', items: N, minItems: 2, maxItems: 2 } } },
             },
           },
         },
