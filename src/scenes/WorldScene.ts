@@ -8,7 +8,7 @@ import type { SaveData } from '../core/saves';
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
 import { applyMapState, clearedPatches, hiddenSprites } from '../core/mapState';
 import { roadMenu, routeArrival, sideOf, venueHere, type RoadStop } from '../core/guides';
-import { earning, goalObjects, nextHop, storyGoals } from '../core/waymarks';
+import { earning, goalObjects, hopsTo, nextHop, storyGoals } from '../core/waymarks';
 import { biggestBike, bikeImage, zoneFor } from '../core/worldMap';
 import { ROUTE, spawnTile, stepTriggerAt, type Arrival, type StepResult } from '../core/travel';
 import { areaFlag, areaOfMap, buyHouse, buyMotor, houseFlag, motorProblem, openAreas, openReleasedAreas, roadWaiting } from '../core/areas';
@@ -40,6 +40,7 @@ import { standLift } from '../world/standLift';
 import { VanView, type Driver, type VanLoad } from '../world/VanView';
 import { modelFor } from '../world/raceBike';
 import type { ChooseOption, HudScene } from './HudScene';
+import { TASK_MARK } from '../ui/widgets';
 import { ordinal, type RaceSceneData } from './RaceScene';
 
 // The walkable world: one map at a time, the player, NPCs, doors and exits, and the player's van.
@@ -106,6 +107,8 @@ export class WorldScene extends Phaser.Scene {
   private outWhenStopped = false;
   private lastBumpToast = 0;
   private waymarks!: Waymarks;
+  /** The maps the task's markers lead to, for the road menu's "!" (Boss, 2 Nov 2026). */
+  private goalMaps: string[] = [];
   /** The news NPCs' bubbles (Manny Festo), kept apart from the story markers. */
   private newsMarks!: Waymarks;
   /** The tutorial marker the screen-edge arrow points to while it is off screen, in world pixels. */
@@ -823,6 +826,7 @@ export class WorldScene extends Phaser.Scene {
     for (const c of openChains(services.content.story, career, this.save.flags)) this.hud.news(`${services.content.areas.areas.find((a) => a.intro === c.id)?.name ?? 'A new area'}: a new task.`);
     this.markEarning = earning(services.content, career);
     const goals = storyGoals(services.content, services.maps, career, this.save.flags, this.save.van ?? null, this.map.id);
+    this.goalMaps = goals.map((g) => g.map);
     if (!goals.length) return;
     const ts = this.map.tileSize;
     const nearest = <P extends { x: number; y: number }>(points: P[]) => {
@@ -1941,8 +1945,16 @@ export class WorldScene extends Phaser.Scene {
       const image = def.rewards[0]?.image;
       return image ? rewardTexture(image) : true;
     };
+    // Where the task is (Boss, 2 Nov 2026: the arrow only pointed at the road): the places on this
+    // road nearest the task's map get the task's "!", and so do the Tracks or Areas holding them.
+    const away = new Map([...menu.tracks.flatMap((t) => t.places), ...menu.areas].filter((p: PlaceDef) => p.map !== this.map.id).map((p: PlaceDef) => {
+      const ds = this.goalMaps.map((g) => hopsTo(services.maps, rc.world, services.travel, this.save.flags, p.map, g)).filter((d): d is number => d !== null);
+      return [p.map, ds.length ? Math.min(...ds) : Infinity] as const;
+    }));
+    const best = Math.min(Infinity, ...away.values());
+    const task = (p: PlaceDef | RoadStop) => best < Infinity && away.get(p.map) === best && p.map !== this.map.id;
     const item = (p: PlaceDef | RoadStop) => {
-      const mark = 'venue' in p ? markOf(p.venue) : undefined;
+      const mark = ('venue' in p ? markOf(p.venue) : undefined) ?? (task(p) ? TASK_MARK : undefined);
       return p.map === this.map.id && (!('venue' in p) || p.venue === atVenue)
         ? { label: p.name, note: "You're here.", enabled: false, mark, onPick: done }
         : { label: p.name, note: p.note, mark, onPick: () => arrive(p) };
@@ -1957,7 +1969,7 @@ export class WorldScene extends Phaser.Scene {
       // Just the type buttons, centred: the tracks are inside each type (Boss, 30 Oct 2026).
       const types = menu.tracks.map((t) => ({
         label: t.name,
-        mark: t.places.map((p) => markOf(p.venue)).find((m) => m !== undefined),
+        mark: t.places.map((p) => markOf(p.venue)).find((m) => m !== undefined) ?? (t.places.some(task) ? TASK_MARK : undefined),
         onPick: () =>
           t.comingSoon
             ? this.hud.choose(t.name, 'Coming soon.', [{ label: 'Back', onPick: openTracks }], openTracks, true)
@@ -1974,8 +1986,8 @@ export class WorldScene extends Phaser.Scene {
     };
 
     this.hud.choose('Where to?', 'Pick a track, another area, or a mod track.', [
-      { label: 'Tracks', note: `${plural(tracks, 'track')} to go to${champs.length ? `, ${plural(champs.length, 'championship')}` : ''}.`, onPick: openTracks },
-      { label: 'Areas', note: areas.length ? areas.map((p) => p.name).join(', ') : 'No other areas on this road.', enabled: areas.length > 0, onPick: () => this.roadList('Areas', 'Head into an area.', menu.areas.map(item), top) },
+      { label: 'Tracks', mark: menu.tracks.some((t) => t.places.some(task)) ? TASK_MARK : undefined, note: `${plural(tracks, 'track')} to go to${champs.length ? `, ${plural(champs.length, 'championship')}` : ''}.`, onPick: openTracks },
+      { label: 'Areas', mark: areas.some(task) ? TASK_MARK : undefined, note: areas.length ? areas.map((p) => p.name).join(', ') : 'No other areas on this road.', enabled: areas.length > 0, onPick: () => this.roadList('Areas', 'Head into an area.', menu.areas.map(item), top) },
       ...(menu.mods ? [{ label: 'Mod Tracks', note: `${plural(services.modTracks.length, 'track')} installed or imported. Race one, or import a track file.`, onPick: () => this.openModTracks(0, top) }] : []),
       { label: 'Not now', onPick: done },
     ], done);

@@ -34,7 +34,7 @@ import { careerRecords, recordText } from '../core/records';
 import { services } from '../services';
 import { COLORS, hex, textStyle } from '../ui/theme';
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
-import { button, panel, slider, statBar, trophyIcon } from '../ui/widgets';
+import { button, panel, slider, statBar, TASK_MARK, trophyIcon } from '../ui/widgets';
 import type { WorldScene } from './WorldScene';
 import { HUD_BAR, cssSize, view } from '../ui/view';
 import { bikeImage, worldMapTexture, type WorldMapData, type WorldMapZone } from '../core/worldMap';
@@ -44,7 +44,15 @@ import { bikeImage, worldMapTexture, type WorldMapData, type WorldMapZone } from
 // touch buttons. Runs alongside the world scene at a fixed zoom.
 
 type PanelTab = 'bike' | 'bag' | 'task' | 'skills' | 'records';
-/** A choice on a `choose` menu. mark: a texture to show on the button (a badge), or true for a drawn trophy. */
+/** An orange round "!" like the task markers over an NPC, for a menu button. */
+function taskIcon(scene: Phaser.Scene, x: number, y: number, fontPx: number): Phaser.GameObjects.Container {
+  const c = scene.add.container(x, y);
+  c.add(scene.add.circle(0, 0, 17, COLORS.accent).setStrokeStyle(3, 0x27292c));
+  c.add(scene.add.text(0, 0, '!', textStyle(fontPx, 0xffffff, { fontStyle: 'bold' })).setOrigin(0.5));
+  return c;
+}
+
+/** A choice on a `choose` menu. mark: a texture to show on the button (a badge), true for a drawn trophy, or TASK_MARK for the task's "!". */
 export interface ChooseOption {
   label: string;
   note?: string;
@@ -738,7 +746,8 @@ export class HudScene extends Phaser.Scene {
       // A championship's next round is here (Boss, 2 Nov 2026): its badge, or a trophy, at the button's right end.
       if (o.mark) {
         const mx = b.x + 125 - 24;
-        if (o.mark !== true && this.textures.exists(o.mark)) c.add(this.add.image(mx, y, o.mark).setDisplaySize(44, 44));
+        if (o.mark === TASK_MARK) c.add(taskIcon(this, mx, y, 22));
+        else if (o.mark !== true && this.textures.exists(o.mark)) c.add(this.add.image(mx, y, o.mark).setDisplaySize(44, 44));
         else c.add(trophyIcon(this, mx, y, 32));
         (b.list[1] as Phaser.GameObjects.Text).setX(-20);
       }

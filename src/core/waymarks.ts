@@ -128,3 +128,19 @@ export function nextHop(maps: Map<string, BakedMap>, world: WorldData, travel: T
   }
   return null;
 }
+
+/**
+ * How many doors and exits it takes to get from one map to another following the markers (0 when
+ * already there), or null if there's no open way. The road menu marks the places nearest the
+ * task (Boss, 2 Nov 2026).
+ */
+export function hopsTo(maps: Map<string, BakedMap>, world: WorldData, travel: Travel, flags: Record<string, boolean>, from: string, to: string): number | null {
+  let at = from;
+  for (let n = 0; n < 16; n++) {
+    if (at === to) return n;
+    const h = nextHop(maps, world, travel, flags, at, to);
+    if (!h) return null;
+    at = h.to;
+  }
+  return null;
+}
