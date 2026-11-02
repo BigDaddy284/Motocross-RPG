@@ -1289,8 +1289,10 @@ export class HudScene extends Phaser.Scene {
       return o;
     };
     /** Applies a shop action, shows what happened and redraws the panel. */
-    const done = (r: Result, t: ShopTab = tab, pg = 0) => {
-      this.toast(r.message);
+    // A sale's money shows as the bank note over the rider's head, so a sale that goes through has no
+    // message as well, which would cover the chat box (Boss, 2 Nov 2026). A refusal still says why.
+    const done = (r: Result, t: ShopTab = tab, pg = 0, sale = false) => {
+      if (!(sale && r.ok)) this.toast(r.message);
       if (r.ok) this.onShopChange?.();
       reopen(t, pg);
     };
@@ -1382,7 +1384,7 @@ export class HudScene extends Phaser.Scene {
           return;
         }
         const b = button(this, w / 2 - 110, y + 16, v === null ? "Won't buy" : `Sell ${formatMoney(v)}`, () => {
-          const sell = () => done(sellSpare(shops, shop, career, i), 'sell', pg);
+          const sell = () => done(sellSpare(shops, shop, career, i), 'sell', pg, true);
           // Small sales are one click; bigger ones ask first (GDD 8.3).
           // A note under the question: the part's condition when it's still at half or better (Boss, 31 Oct 2026).
           const pct = Math.round(p.condition * 100);
@@ -1399,7 +1401,7 @@ export class HudScene extends Phaser.Scene {
         label,
         () => {
           this.sellPicks.clear();
-          done(sellSpares(shops, shop, career, rows.map((r) => r.i)), 'sell');
+          done(sellSpares(shops, shop, career, rows.map((r) => r.i)), 'sell', 0, true);
         },
         () => reopen('sell', pg),
       ));

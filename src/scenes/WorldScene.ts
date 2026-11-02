@@ -620,7 +620,7 @@ export class WorldScene extends Phaser.Scene {
     const { shops, bikes } = services.content;
     const career = this.save.career;
     const saved = (message: string) => {
-      this.hud.toast(message);
+      if (message) this.hud.toast(message);
       this.hud.showCareer(career, this.save.flags);
       this.milestoneSave();
       back();
@@ -631,7 +631,8 @@ export class WorldScene extends Phaser.Scene {
       return this.say(npc.name, def.thanks, () => {
         const r = finishErrand(career, def);
         if (r.ok && def.sets) this.save.flags[def.sets] = true;
-        saved(r.message);
+        // Paid: the bank note over the head says it, with no message on top (Boss, 2 Nov 2026).
+        saved(r.ok ? '' : r.message);
       });
     }
     this.say(npc.name, def.offer, () => {
