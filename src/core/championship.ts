@@ -1,5 +1,5 @@
 import { className, dayClass, milestoneFlag, nextClass } from './classes';
-import { areaFlag } from './areas';
+import { areaFlag, roadFlag } from './areas';
 import { pence, wholePounds, type CareerState } from './career';
 import { mixSeed, seededRng } from './race';
 import { PLAYER_ID, fieldRider, type CpuRiderDef, type RaceContent, type RaceDay, type VenueDef } from './raceDay';
@@ -44,7 +44,7 @@ export interface ChampionshipDef {
   won?: string;
   /** The class this championship is the milestone for (Spec 18.3): its first win sets milestone.<class>. */
   milestone?: string;
-  /** The area a first win opens (Spec 18.2): sets area.N.open. */
+  /** The area a first win opens the road to (Spec 18.2): sets road.N.won, and Manny sets area.N.open later. */
   opens?: number;
 }
 
@@ -391,6 +391,7 @@ export function finishChampionship(career: CareerState, flags: Record<string, bo
   career.money += money;
   if (reward?.flag) flags[reward.flag] = true;
   if (me.position === 1 && def.milestone) flags[milestoneFlag(def.milestone)] = true;
-  if (me.position === 1 && def.opens && def.opens <= lastArea) flags[areaFlag(def.opens)] = true;
+  // The road opens through Joseph, Bill and Manny (areas.ts roadFlag, Boss, 2 Nov 2026), not straight away.
+  if (me.position === 1 && def.opens && def.opens <= lastArea && !flags[areaFlag(def.opens)]) flags[roadFlag(def.opens, 'won')] = true;
   return { position: me.position, money, flag: reward?.flag, title: me.position === 1 && !firstWin ? undefined : reward?.title, firstWin };
 }

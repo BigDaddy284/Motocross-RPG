@@ -223,6 +223,111 @@
     "challenger_iz.lost": { "lines": [
       { "speaker": "npc", "text": "Ha! Too slow. The zone is mine. Come back when you think you're ready." }
     ] },
+    "track_official.area1_won": { "lines": [
+      { "speaker": "npc", "text": "Area 1 champion! Well ridden, {rider}. That's one for the board in the office." },
+      { "speaker": "npc", "text": "Before you head off: Bill at Moto78 in Home Town has your 65cc waiting. Go and sort it out with him." },
+      { "speaker": "npc", "text": "And keep an ear out. There's talk of the road to Mountain Town opening up." }
+    ] },
+    "bike_shop_owner.area1_won": { "lines": [
+      { "speaker": "npc", "text": "There's the Area 1 champion! Joseph rang ahead. Your 65cc is ready when you are." },
+      { "speaker": "npc", "text": "Take the champion's sponsor's bike, or buy a stock one. Have a look." },
+      { "speaker": "npc", "text": "Oh, and Manny Festo was in asking after you. He's got news about the road to Mountain Town. You'll find him here in Home Town." }
+    ] },
+    "news.area2_road": { "lines": [
+      { "speaker": "npc", "text": "Manny Festo with the news! Area 1 champion, {rider}. Congratulations!" },
+      { "speaker": "npc", "text": "And here's the big one: the road to Mountain Town is open, as of right now. They're lifting the barrier as we speak." },
+      { "speaker": "npc", "text": "Pick Mountain Town under Areas when you head out. I'll see you up there." }
+    ] },
+    "track_official.area2_won": { "lines": [
+      { "speaker": "npc", "text": "Area 2 champion! Well ridden, {rider}. That's one for the board in the office." },
+      { "speaker": "npc", "text": "Before you head off: Bill at Moto78 in Home Town has your 85cc Small Wheel waiting. Go and sort it out with him." },
+      { "speaker": "npc", "text": "And keep an ear out. There's talk of the road to Beach Town opening up." }
+    ] },
+    "bike_shop_owner.area2_won": { "lines": [
+      { "speaker": "npc", "text": "There's the Area 2 champion! Joseph rang ahead. Your 85cc Small Wheel is ready when you are." },
+      { "speaker": "npc", "text": "Take the champion's sponsor's bike, or buy a stock one. Have a look." },
+      { "speaker": "npc", "text": "Oh, and Manny Festo was in asking after you. He's got news about the road to Beach Town. You'll find him up in Mountain Town." }
+    ] },
+    "news.area3_road": { "lines": [
+      { "speaker": "npc", "text": "Manny Festo with the news! Area 2 champion, {rider}. Congratulations!" },
+      { "speaker": "npc", "text": "And here's the big one: the road to Beach Town is open, as of right now. They're lifting the barrier as we speak." },
+      { "speaker": "npc", "text": "Pick Beach Town under Areas when you head out. I'll see you up there." }
+    ] },
+    "track_official.area3_won": { "lines": [
+      { "speaker": "npc", "text": "Area 3 champion! Well ridden, {rider}. That's one for the board in the office." },
+      { "speaker": "npc", "text": "Before you head off: Bill at Moto78 in Home Town has your 85cc Big Wheel waiting. Go and sort it out with him." },
+      { "speaker": "npc", "text": "And keep an ear out. There's talk of the road to Forest Town opening up." }
+    ] },
+    "bike_shop_owner.area3_won": { "lines": [
+      { "speaker": "npc", "text": "There's the Area 3 champion! Joseph rang ahead. Your 85cc Big Wheel is ready when you are." },
+      { "speaker": "npc", "text": "Take the champion's sponsor's bike, or buy a stock one. Have a look." },
+      { "speaker": "npc", "text": "Oh, and Manny Festo was in asking after you. He's got news about the road to Forest Town. You'll find him up in Beach Town." }
+    ] },
+    "news.area4_road": { "lines": [
+      { "speaker": "npc", "text": "Manny Festo with the news! Area 3 champion, {rider}. Congratulations!" },
+      { "speaker": "npc", "text": "And here's the big one: the road to Forest Town is open, as of right now. They're lifting the barrier as we speak." },
+      { "speaker": "npc", "text": "Pick Forest Town under Areas when you head out. I'll see you up there." }
+    ] },
+    "track_official.area4_won": { "lines": [
+      { "speaker": "npc", "text": "Area 4 champion! Well ridden, {rider}. That's one for the board in the office." },
+      { "speaker": "npc", "text": "Before you head off: Bill at Moto78 in Home Town has your 125cc Youth waiting. Go and sort it out with him." },
+      { "speaker": "npc", "text": "And keep an ear out. There's talk of the road to Northern Works opening up." }
+    ] },
+    "bike_shop_owner.area4_won": { "lines": [
+      { "speaker": "npc", "text": "There's the Area 4 champion! Joseph rang ahead. Your 125cc Youth is ready when you are." },
+      { "speaker": "npc", "text": "Take the champion's sponsor's bike, or buy a stock one. Have a look." },
+      { "speaker": "npc", "text": "Oh, and Manny Festo was in asking after you. He's got news about the road to Northern Works. You'll find him up in Forest Town." }
+    ] },
+    "news.area5_road": { "lines": [
+      { "speaker": "npc", "text": "Manny Festo with the news! Area 4 champion, {rider}. Congratulations!" },
+      { "speaker": "npc", "text": "And here's the big one: the road to Northern Works is open, as of right now. They're lifting the barrier as we speak." },
+      { "speaker": "npc", "text": "Pick Northern Works under Areas when you head out. I'll see you up there." }
+    ] },
+    "track_official.area5_won": { "lines": [
+      { "speaker": "npc", "text": "Area 5 champion! Well ridden, {rider}. That's one for the board in the office." },
+      { "speaker": "npc", "text": "Before you head off: Bill at Moto78 in Home Town has your 125cc waiting. Go and sort it out with him." },
+      { "speaker": "npc", "text": "And keep an ear out. There's talk of the road to Highlands opening up." }
+    ] },
+    "bike_shop_owner.area5_won": { "lines": [
+      { "speaker": "npc", "text": "There's the Area 5 champion! Joseph rang ahead. Your 125cc is ready when you are." },
+      { "speaker": "npc", "text": "Take the champion's sponsor's bike, or buy a stock one. Have a look." },
+      { "speaker": "npc", "text": "Oh, and Manny Festo was in asking after you. He's got news about the road to Highlands. You'll find him up in Northern Works." }
+    ] },
+    "news.area6_road": { "lines": [
+      { "speaker": "npc", "text": "Manny Festo with the news! Area 5 champion, {rider}. Congratulations!" },
+      { "speaker": "npc", "text": "And here's the big one: the road to Highlands is open, as of right now. They're lifting the barrier as we speak." },
+      { "speaker": "npc", "text": "Pick Highlands under Areas when you head out. I'll see you up there." }
+    ] },
+    "track_official.area6_won": { "lines": [
+      { "speaker": "npc", "text": "Area 6 champion! Well ridden, {rider}. That's one for the board in the office." },
+      { "speaker": "npc", "text": "Before you head off: Bill at Moto78 in Home Town has your 250cc F waiting. Go and sort it out with him." },
+      { "speaker": "npc", "text": "And keep an ear out. There's talk of the road to The City opening up." }
+    ] },
+    "bike_shop_owner.area6_won": { "lines": [
+      { "speaker": "npc", "text": "There's the Area 6 champion! Joseph rang ahead. Your 250cc F is ready when you are." },
+      { "speaker": "npc", "text": "Take the champion's sponsor's bike, or buy a stock one. Have a look." },
+      { "speaker": "npc", "text": "Oh, and Manny Festo was in asking after you. He's got news about the road to The City. You'll find him up in Highlands." }
+    ] },
+    "news.area7_road": { "lines": [
+      { "speaker": "npc", "text": "Manny Festo with the news! Area 6 champion, {rider}. Congratulations!" },
+      { "speaker": "npc", "text": "And here's the big one: the road to The City is open, as of right now. They're lifting the barrier as we speak." },
+      { "speaker": "npc", "text": "Pick The City under Areas when you head out. I'll see you up there." }
+    ] },
+    "track_official.area7_won": { "lines": [
+      { "speaker": "npc", "text": "Area 7 champion! Well ridden, {rider}. That's one for the board in the office." },
+      { "speaker": "npc", "text": "Before you head off: Bill at Moto78 in Home Town has your 450cc F waiting. Go and sort it out with him." },
+      { "speaker": "npc", "text": "And keep an ear out. There's talk of the road to Capital opening up." }
+    ] },
+    "bike_shop_owner.area7_won": { "lines": [
+      { "speaker": "npc", "text": "There's the Area 7 champion! Joseph rang ahead. Your 450cc F is ready when you are." },
+      { "speaker": "npc", "text": "Take the champion's sponsor's bike, or buy a stock one. Have a look." },
+      { "speaker": "npc", "text": "Oh, and Manny Festo was in asking after you. He's got news about the road to Capital. You'll find him up in The City." }
+    ] },
+    "news.area8_road": { "lines": [
+      { "speaker": "npc", "text": "Manny Festo with the news! Area 7 champion, {rider}. Congratulations!" },
+      { "speaker": "npc", "text": "And here's the big one: the road to Capital is open, as of right now. They're lifting the barrier as we speak." },
+      { "speaker": "npc", "text": "Pick Capital under Areas when you head out. I'll see you up there." }
+    ] },
     "news.area2_dec2026": { "lines": [
       { "speaker": "npc", "text": "Manny Festo, at your service. I keep everyone up to date on what's coming next." },
       { "speaker": "npc", "text": "Area 2 is under construction right now. It's due to be ready in December 2026." },

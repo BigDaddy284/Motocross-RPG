@@ -11,7 +11,7 @@ import { roadMenu, routeArrival, sideOf, venueHere, type RoadStop } from '../cor
 import { earning, goalObjects, nextHop, storyGoals } from '../core/waymarks';
 import { biggestBike, bikeImage, zoneFor } from '../core/worldMap';
 import { ROUTE, spawnTile, stepTriggerAt, type Arrival, type StepResult } from '../core/travel';
-import { areaFlag, areaOfMap, buyHouse, buyMotor, houseFlag, motorProblem, openAreas, openReleasedAreas } from '../core/areas';
+import { areaFlag, areaOfMap, buyHouse, buyMotor, houseFlag, motorProblem, openAreas, openReleasedAreas, roadWaiting } from '../core/areas';
 import { defaultSetup, effectiveSetup, positionValue, positionsFor, setupReport, sliderUnlocked, type SliderDef } from '../core/setup';
 import { DriveMap, FACING_OF, bayFor, ensureVan, exitTile, footprint, haulerAt, inwardHeading, nearestFree, placeNear, planDrive, sheetFor, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
@@ -507,7 +507,8 @@ export class WorldScene extends Phaser.Scene {
     if (npc.news) {
       // News for the players: read once, and the bubble turns white until there's a new message.
       // The news can move on with the story (talk rules: Area 3's date once Area 2 is won, Boss, 1 Nov 2026).
-      const news = this.talkRule(npc)?.dialogue ?? npc.dialogue;
+      const rule = this.talkRule(npc);
+      const news = rule?.dialogue ?? npc.dialogue;
       this.say(npc.name, news, () => {
         const read = newsRead(news);
         if (!this.save.flags[read]) {
@@ -516,6 +517,8 @@ export class WorldScene extends Phaser.Scene {
           this.quickSave();
         }
         this.faceBack(placement, character);
+        // Manny opens the road to the next area (areas.ts roadFlag, Boss, 2 Nov 2026).
+        if (rule?.sets && !this.save.flags[rule.sets]) this.storyFlag(rule.sets);
       });
       return;
     }
@@ -526,10 +529,7 @@ export class WorldScene extends Phaser.Scene {
       const open = () => this.openVenue(office, () => this.faceBack(placement, character));
       if (!hello) return open();
       this.say(npc.name, hello.dialogue, () => {
-        if (hello.sets) {
-          this.save.flags[hello.sets] = true;
-          this.milestoneSave();
-        }
+        if (hello.sets && !this.save.flags[hello.sets]) this.storyFlag(hello.sets);
         open();
       });
       return;
@@ -550,13 +550,10 @@ export class WorldScene extends Phaser.Scene {
     if (shop && !rule && this.openShop(shop, 'buy', back)) return;
     this.say(npc.name, rule?.dialogue ?? npc.dialogue, () => {
       // A one-off talk (the mechanic's advice after the opening chain): said once, then the NPC's usual lines.
-      if (rule?.sets && !this.save.flags[rule.sets]) {
-        this.save.flags[rule.sets] = true;
-        this.hud.showCareer(this.save.career, this.save.flags);
-        // The next task line's NPC gets the markers.
-        this.refreshWaymarks();
-        this.milestoneSave();
-      }
+      const once = !!rule?.sets && !this.save.flags[rule.sets];
+      if (once) this.storyFlag(rule!.sets!);
+      // A shop's one-off talk then opens the shop (Bill after a championship: the new bike, Boss, 2 Nov 2026).
+      if (once && shop && this.openShop(shop, 'buy', back)) return;
       back();
     });
   }
@@ -680,6 +677,20 @@ export class WorldScene extends Phaser.Scene {
   private faceBack(placement: NpcPlacement, character: Character): void {
     this.player.idle();
     character.face(placement.facing);
+  }
+
+  /**
+   * Sets a flag a talk gives: the task line and markers move on, an area opened starts its intro,
+   * and a map with things shown or hidden by flags (the road's barrier) is drawn again.
+   */
+  private storyFlag(flag: string): void {
+    this.save.flags[flag] = true;
+    this.hud.showCareer(this.save.career, this.save.flags);
+    this.refreshWaymarks();
+    this.refreshNews();
+    this.milestoneSave();
+    // Only an area opening changes what a map shows (the barrier on its road); a reload would cut off a shop or office opening next.
+    if (flag.startsWith('area.')) this.refreshMapState();
   }
 
   /** The NPC's line set for the current flags (npcs.json talk), if any; otherwise their default dialogue is said. */
@@ -811,7 +822,7 @@ export class WorldScene extends Phaser.Scene {
     // An area just opened starts its intro chain (core/career.ts openChains).
     for (const c of openChains(services.content.story, career, this.save.flags)) this.hud.news(`${services.content.areas.areas.find((a) => a.intro === c.id)?.name ?? 'A new area'}: a new task.`);
     this.markEarning = earning(services.content, career);
-    const goals = storyGoals(services.content, services.maps, career, this.save.flags, this.save.van ?? null);
+    const goals = storyGoals(services.content, services.maps, career, this.save.flags, this.save.van ?? null, this.map.id);
     if (!goals.length) return;
     const ts = this.map.tileSize;
     const nearest = <P extends { x: number; y: number }>(points: P[]) => {
@@ -1828,10 +1839,21 @@ export class WorldScene extends Phaser.Scene {
     return false;
   }
 
+  /**
+   * After a championship that opens a new area, the rider can't leave the track until Joseph has
+   * had a word (Boss, 2 Nov 2026). Says so and returns true while he's waiting.
+   */
+  private josephFirst(): boolean {
+    if (!this.venueHere() || roadWaiting(this.save.flags) === null) return false;
+    this.hud.toast('Joseph Halden wants a word before you go. He\'s at the race office.');
+    return true;
+  }
+
   /** Takes the van out by an exit it has reached, or says why it can't go. Returns true when leaving. */
   private vanThrough(r: NonNullable<StepResult>): boolean {
     if (r.kind === 'blocked') this.hud.toast(r.message);
     else if (r.kind === 'route') {
+      if (this.josephFirst()) return false;
       let went = false;
       this.routeTo(r.via, (to) => { went = this.driveTo(to); });
       return went;
@@ -2075,6 +2097,11 @@ export class WorldScene extends Phaser.Scene {
       return false;
     }
     if (r.kind === 'route') {
+      if (this.josephFirst()) {
+        this.path = [];
+        this.onArrive = null;
+        return false;
+      }
       const go = (to: Arrival) => this.leaveTo({ map: to.map, x: to.tile.x, y: to.tile.y, facing: 'up' });
       if (this.routeTo(via, go)) return true;
       this.path = [];

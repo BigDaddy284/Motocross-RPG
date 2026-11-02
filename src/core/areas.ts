@@ -13,6 +13,20 @@ export const AREA_COUNT = 8;
 /** The flag that opens an area (Area 1 needs none). */
 export const areaFlag = (area: number) => `area.${area}.open`;
 
+/**
+ * The road to a new area after its way in is won (Boss, 2 Nov 2026): the win sets road.N.won, and
+ * the rider can't leave the track until Joseph has had a word (road.N.told). He sends them to Bill
+ * at Moto78 about the new bike (road.N.bill), and Bill to Manny Festo, who opens the road while
+ * they talk (area.N.open). The talks are npcs.json talk rules; the task line, story.json after.
+ */
+export const roadFlag = (area: number, stage: 'won' | 'told' | 'bill') => `road.${area}.${stage}`;
+
+/** The area whose road Joseph still has to tell the rider about, or null. */
+export function roadWaiting(flags: Record<string, boolean>): number | null {
+  for (let n = 2; n <= AREA_COUNT; n++) if (flags[roadFlag(n, 'won')] && !flags[roadFlag(n, 'told')] && !flags[areaFlag(n)]) return n;
+  return null;
+}
+
 /** How many areas are open to the rider, counting up from Area 1 until one is shut. */
 export function openAreas(flags: Record<string, boolean>): number {
   let n = 1;
@@ -75,8 +89,9 @@ export interface AreasData {
 export const lastReleasedArea = (data: AreasData): number => data.release?.lastArea ?? AREA_COUNT;
 
 /**
- * Opens every released area whose way in has been won (the championship with opens: N won at least
- * once), for saves from a build that held it back. Returns the areas it opened.
+ * Starts the road to every released area whose way in has been won (the championship with opens: N
+ * won at least once), for saves from a build that held it back: Joseph, Bill and Manny then open it
+ * (roadFlag). Returns the areas whose road it started.
  */
 export function openReleasedAreas(
   data: AreasData,
@@ -86,9 +101,9 @@ export function openReleasedAreas(
 ): number[] {
   const opened: number[] = [];
   for (const c of champs.championships) {
-    if (!c.opens || c.opens > lastReleasedArea(data) || flags[areaFlag(c.opens)]) continue;
+    if (!c.opens || c.opens > lastReleasedArea(data) || flags[areaFlag(c.opens)] || flags[roadFlag(c.opens, 'won')]) continue;
     if ((career.champs?.done[c.id]?.wins ?? 0) > 0) {
-      flags[areaFlag(c.opens)] = true;
+      flags[roadFlag(c.opens, 'won')] = true;
       opened.push(c.opens);
     }
   }

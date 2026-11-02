@@ -40,7 +40,7 @@ function npcMap(content: Content, maps: Map<string, BakedMap>, id: string): stri
  * until the rider has got in, the van. Empty once the opening
  * chain is over.
  */
-export function storyGoals(content: Content, maps: Map<string, BakedMap>, career: CareerState, flags: Record<string, boolean> = {}, van: { map: string } | null = null): Goal[] {
+export function storyGoals(content: Content, maps: Map<string, BakedMap>, career: CareerState, flags: Record<string, boolean> = {}, van: { map: string } | null = null, here?: string): Goal[] {
   const step = currentStep(content.story, career);
   // Just bought: first to the van to get in, then on with the step (Boss, 28 Oct 2026).
   if (step?.markVan && !flags[step.markVan] && van && maps.has(van.map)) return [{ kind: 'van', map: van.map }];
@@ -51,7 +51,9 @@ export function storyGoals(content: Content, maps: Map<string, BakedMap>, career
   if (goal) return [goal];
   // After the opening chain, the task line's NPC (Boss, 30 Oct 2026: Paul's bike care advice had no arrows).
   const after = !step ? afterTask(content.story, flags) : undefined;
-  const npc = after?.talk ? content.npcs.find((n) => n.id === after.talk) : undefined;
+  const named = after?.talk ? content.npcs.find((n) => n.id === after.talk) : undefined;
+  // The same person on this map (Joseph is at every venue, Boss 2 Nov 2026): them, not the one elsewhere.
+  const npc = (named && here && content.npcs.find((n) => n.map === here && n.name === named.name && n.dialogue === named.dialogue)) || named;
   const map = npc ? npcMap(content, maps, npc.id) : null;
   return npc && map ? [{ kind: 'npc', map, npc: npc.id, name: npc.name }] : [];
 }
