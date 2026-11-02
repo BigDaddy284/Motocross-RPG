@@ -8,7 +8,7 @@ import { HEADINGS, type VanState } from './vehicles';
 // - a save from an older build loads through the migration steps below;
 // - a save that cannot be read is kept under a "corrupt" key and the newest good backup is offered.
 
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 export const BACKUP_COUNT = 5;
 
 export interface SaveData {
@@ -56,6 +56,23 @@ const MIGRATIONS: Record<number, Migration> = {
   5: (old) => {
     const van = old.van as { design?: unknown } | null | undefined;
     return van && typeof van.design === 'string' ? { ...old, van: { ...van, design: van.design.replace(/^van-(\d+)$/, 'motor-$1') } } : old;
+  },
+  // Money is whole pounds (Boss, 2 Nov 2026): round the purse, a sponsor's running total and what a lent part's repair cost.
+  6: (old) => {
+    const round = (p: unknown) => (typeof p === 'number' ? Math.round(p / 100) * 100 : p);
+    const career = old.career as Record<string, unknown> | undefined;
+    if (!career) return old;
+    const sponsor = career.sponsor as Record<string, unknown> | undefined;
+    const bag = Array.isArray(career.bag) ? (career.bag as Record<string, unknown>[]) : undefined;
+    return {
+      ...old,
+      career: {
+        ...career,
+        money: round(career.money),
+        ...(sponsor ? { sponsor: { ...sponsor, cashReceived: round(sponsor.cashReceived) } } : {}),
+        ...(bag ? { bag: bag.map((b) => { const part = b.part as Record<string, unknown> | undefined; const owner = part?.owner as Record<string, unknown> | undefined; return owner && 'paid' in owner ? { ...b, part: { ...part, owner: { ...owner, paid: round(owner.paid) } } } : b; }) } : {}),
+      },
+    };
   },
 };
 

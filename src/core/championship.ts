@@ -1,6 +1,6 @@
 import { className, dayClass, milestoneFlag, nextClass } from './classes';
 import { areaFlag } from './areas';
-import { pence, type CareerState } from './career';
+import { pence, wholePounds, type CareerState } from './career';
 import { mixSeed, seededRng } from './race';
 import { PLAYER_ID, fieldRider, type CpuRiderDef, type RaceContent, type RaceDay, type VenueDef } from './raceDay';
 import type { ContentError, Schema } from './validate';
@@ -387,7 +387,7 @@ export function finishChampionship(career: CareerState, flags: Record<string, bo
   if (me.position === 1) record.wins++;
   record.best = Math.min(record.best, me.position);
   delete state.active[def.id];
-  const money = reward ? Math.round(pence(reward.money) * share) : 0;
+  const money = reward ? wholePounds(pence(reward.money) * share) : 0;
   career.money += money;
   if (reward?.flag) flags[reward.flag] = true;
   if (me.position === 1 && def.milestone) flags[milestoneFlag(def.milestone)] = true;

@@ -154,6 +154,8 @@ export class HudScene extends Phaser.Scene {
         this.layout();
       }
       if (this.zoomPop && !this.zoomDragging) this.openZoom();
+      // Show task on screen (Settings > Gameplay) applies at once.
+      if (this.career && this.flags) this.showCareer(this.career, this.flags);
     });
     this.events.once('shutdown', () => {
       this.scale.off('resize', this.layout, this);
@@ -201,6 +203,9 @@ export class HudScene extends Phaser.Scene {
   /** The rider's look and wardrobe (the save's rider), for the champion's kit that comes with the sponsor's free bike. */
   rider: RiderLook | null = null;
 
+  /** The bottom bar's clear stretch, in screen pixels, set by layout(): the chat box stays inside it. */
+  private barClear = { left: 0, right: Infinity };
+
   private layout(): void {
     const { width, height } = view(this);
     for (const b of this.uiButtons) b.destroy();
@@ -226,6 +231,8 @@ export class HudScene extends Phaser.Scene {
     this.uiButtons.push(add('Bike', 56, free(() => this.openPanel('bike'))));
     if (services.content.world.worldMap) this.uiButtons.push(add('Map', 52, free(() => this.world.openWorldMap())));
     if (this.driving) this.uiButtons.push(add('Get out', 78, free(() => this.world.getOut())));
+    // The clear stretch of the bottom bar between the menu button and the right-hand buttons.
+    this.barClear = { left: 8 + 42, right: right };
     if (this.zoomPop) this.openZoom();
     this.saveText.setPosition(width - 70, 18);
     this.shiftText.setPosition(width / 2, 14);
@@ -278,6 +285,7 @@ export class HudScene extends Phaser.Scene {
   /**
    * Money and, under the map name, the championship in progress at a venue or the current task
    * everywhere else (Boss, 31 Oct 2026). A venue with no championship on shows the task too.
+   * Settings > Gameplay > Show task on screen hides the task line; a championship still shows (Boss, 2 Nov 2026).
    */
   showCareer(career: CareerState, flags: Record<string, boolean>): void {
     // Money coming in shows as a bank note over the rider's head.
@@ -290,7 +298,8 @@ export class HudScene extends Phaser.Scene {
     // The backyard loop is a practice venue on the Home Town map, so it doesn't count.
     const atVenue = !!this.mapId && c.tracks.venues.some((v) => v.map === this.mapId && !v.practiceOnly);
     const champ = atVenue ? champLine(c, c.championships, career) : null;
-    this.taskText.setText(champ ? `Championship: ${champ}` : `Task: ${journal(c.story, career, flags)}`);
+    const showTask = services.settings.get().gameplay.showTask;
+    this.taskText.setText(champ ? `Championship: ${champ}` : showTask ? `Task: ${journal(c.story, career, flags)}` : '');
   }
 
   /** The money last shown, to spot money coming in. */
@@ -433,7 +442,13 @@ export class HudScene extends Phaser.Scene {
     const at = { args: [npcName, riderName, lines, onClose] as [string, string, DialogueLine[], () => void], line: from };
     this.dialogueAt = at;
     const { width, height, k } = this.page();
-    const w = Math.min(960, width - 24);
+    // The box always leaves a gap beside the bottom bar's buttons (Boss, 2 Nov 2026): it narrows to
+    // fit between them, and on a screen too narrow for that it sits above the bar instead.
+    const gap = 14;
+    const half = Math.min(width / 2 - this.barClear.left / k, this.barClear.right / k - width / 2) - gap;
+    const between = half * 2 >= 440;
+    const w = between ? Math.min(960, half * 2) : Math.min(960, width - 24);
+    const above = between ? 12 : HUD_BAR / k + 8;
     const pad = 20;
     const nameStyle = textStyle(this.pts(18), COLORS.accent, { fontStyle: 'bold' });
     const bodyStyle = textStyle(this.pts(20), COLORS.cream, { wordWrap: { width: w - 2 * pad - 8 }, lineSpacing: 4 });
@@ -444,7 +459,7 @@ export class HudScene extends Phaser.Scene {
     const tallest = Math.max(...lines.map((l) => body.setText(l.text).height));
     const hintH = this.pts(16) + 16;
     const h = Math.max(140, pad + nameH + 8 + tallest + hintH + pad / 2);
-    const c = this.add.container((width / 2) * k, (height - h / 2 - 12) * k).setScale(k);
+    const c = this.add.container((width / 2) * k, (height - h / 2 - above) * k).setScale(k);
     const bg = panel(this, 0, 0, w, h).setInteractive({ useHandCursor: true });
     name.setPosition(-w / 2 + pad, -h / 2 + pad - 4);
     // Next and Close as a black-on-orange button in the corner, so it's plain where to click (Boss, 28 Oct 2026).
@@ -538,7 +553,7 @@ export class HudScene extends Phaser.Scene {
     this.openModal(c, onClose);
   }
 
-  /** A yes / no box. Esc or No cancels. */
+  /** A yes / no box. Esc or No cancels. The yes button is on the right, Not now on the left (Boss, 2 Nov 2026). */
   confirm(text: string, yes: string, onYes: () => void, onNo: () => void): void {
     const { width, height, k } = this.page();
     const w = Math.min(560, width - 32);
@@ -551,12 +566,12 @@ export class HudScene extends Phaser.Scene {
     c.add(msg);
     let answered = false;
     const by = h / 2 - 28 - 23;
-    c.add(button(this, -120, by, yes, () => {
+    c.add(button(this, 120, by, yes, () => {
       answered = true;
       this.closeModal();
       onYes();
     }, 200, 46));
-    c.add(button(this, 120, by, 'Not now', () => this.closeModal(), 200, 46));
+    c.add(button(this, -120, by, 'Not now', () => this.closeModal(), 200, 46));
     this.openModal(c, () => !answered && onNo());
   }
 
@@ -649,16 +664,16 @@ export class HudScene extends Phaser.Scene {
       clear();
       body.add(this.add.text(0, -60, drill.how, textStyle(this.pts(18), COLORS.cream, { align: 'center', wordWrap: { width: w - 70 }, lineSpacing: 4 })).setOrigin(0.5));
       body.add(this.add.text(0, 10, `About ${Math.round(drill.ms / 1000)} seconds. Every round you finish counts.`, textStyle(this.pts(15), COLORS.muted)).setOrigin(0.5));
-      body.add(button(this, -120, 100, 'Start', () => round(), 200, 46));
-      body.add(button(this, 120, 100, 'Not now', () => this.closeModal(), 200, 46));
+      body.add(button(this, 120, 100, 'Start', () => round(), 200, 46));
+      body.add(button(this, -120, 100, 'Not now', () => this.closeModal(), 200, 46));
     };
     const done = (score: string) => {
       clear();
       const lines = onFinish();
       body.add(this.add.text(0, -70, score, textStyle(this.pts(20), COLORS.cream, { align: 'center' })).setOrigin(0.5));
       body.add(this.add.text(0, -10, lines.join('\n'), textStyle(this.pts(17), 0x9fe07a, { align: 'center', lineSpacing: 4 })).setOrigin(0.5));
-      body.add(button(this, -120, 100, 'Again', () => round(), 200, 46));
-      body.add(button(this, 120, 100, 'Done', () => this.closeModal(), 200, 46));
+      body.add(button(this, 120, 100, 'Again', () => round(), 200, 46));
+      body.add(button(this, -120, 100, 'Done', () => this.closeModal(), 200, 46));
     };
     // A floating word over the picture ("+1", "Miss") that drifts up and fades.
     const pop = (holder: Phaser.GameObjects.Container, x: number, y: number, text: string, color: number) => {
@@ -1274,8 +1289,10 @@ export class HudScene extends Phaser.Scene {
       return o;
     };
     /** Applies a shop action, shows what happened and redraws the panel. */
-    const done = (r: Result, t: ShopTab = tab, pg = 0) => {
-      this.toast(r.message);
+    // A sale's money shows as the bank note over the rider's head, so a sale that goes through has no
+    // message as well, which would cover the chat box (Boss, 2 Nov 2026). A refusal still says why.
+    const done = (r: Result, t: ShopTab = tab, pg = 0, sale = false) => {
+      if (!(sale && r.ok)) this.toast(r.message);
       if (r.ok) this.onShopChange?.();
       reopen(t, pg);
     };
@@ -1367,7 +1384,7 @@ export class HudScene extends Phaser.Scene {
           return;
         }
         const b = button(this, w / 2 - 110, y + 16, v === null ? "Won't buy" : `Sell ${formatMoney(v)}`, () => {
-          const sell = () => done(sellSpare(shops, shop, career, i), 'sell', pg);
+          const sell = () => done(sellSpare(shops, shop, career, i), 'sell', pg, true);
           // Small sales are one click; bigger ones ask first (GDD 8.3).
           // A note under the question: the part's condition when it's still at half or better (Boss, 31 Oct 2026).
           const pct = Math.round(p.condition * 100);
@@ -1384,7 +1401,7 @@ export class HudScene extends Phaser.Scene {
         label,
         () => {
           this.sellPicks.clear();
-          done(sellSpares(shops, shop, career, rows.map((r) => r.i)), 'sell');
+          done(sellSpares(shops, shop, career, rows.map((r) => r.i)), 'sell', 0, true);
         },
         () => reopen('sell', pg),
       ));
