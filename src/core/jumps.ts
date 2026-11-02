@@ -14,7 +14,7 @@ export interface Peak {
   b: number;
   c: number;
   d: number;
-  /** Its height as a share of the section's. */
+  /** Its height as a share of the section's; below 0 a hole dug into the ground (a bomb hole). */
   h: number;
 }
 
@@ -81,6 +81,8 @@ export const DEFAULT_HEIGHTS: Record<string, number> = {
   tyre_bed: 0.3,
   tyre_wall: 2.0,
   log_stack: 1.2,
+  // A bomb hole (Boss, 2 Nov 2026): how deep it is dug.
+  bomb_hole: 2.5,
 };
 
 const peak = (a: number, b: number, c: number, d: number, h = 1): Peak => ({ a, b, c, d, h });
@@ -264,6 +266,21 @@ export const JUMPS: Record<string, JumpDef> = {
       { name: 'ride up, jump off', hops: [[0.74, 0.9]], w: [1, 0.1] },
     ],
   },
+  // A bomb hole (Boss, 2 Nov 2026: "like a tabletop shape turned upside down and dug out, riders drop
+  // off the in and jump up and out the other see"; then, with a picture: "add a jump lip at the top
+  // one side and skilled riders can clear it, others drop off and jump out, variety like normal").
+  // A lip on the way in, the hole dug out behind it with a flat bottom, and a steep face up and out.
+  // Its height is how deep it is dug.
+  bomb_hole: {
+    peaks: [peak(0.04, 0.14, 0.14, 0.17, 0.35), peak(0.15, 0.32, 0.58, 0.8, -1)],
+    ways: [
+      { name: 'clear', hops: [[0.14, 0.9]], w: [0, 0.8] },
+      { name: 'drop in, jump out', hops: [[0.14, 0.42], [0.79, 0.92]], w: [0.5, 0.45] },
+      { name: 'roll in, jump out', hops: [[0.79, 0.9]], w: [0.6, 0.1] },
+      { name: 'roll through', hops: [], w: [0.35, 0] },
+      { name: 'case', hops: [[0.14, 0.72]], w: [0, 0], short: true },
+    ],
+  },
 };
 
 /**
@@ -301,9 +318,15 @@ const ramp = (u: number, a: number, b: number) => smooth((u - a) / (b - a));
 export function jumpShape(type: string, u: number): number {
   const def = JUMPS[type];
   if (!def) return 0;
-  let h = 0;
-  for (const p of def.peaks) h = Math.max(h, p.h * ramp(u, p.a, p.b) * (1 - ramp(u, p.c, p.d)));
-  return h;
+  // The tallest hump there, less the deepest hole.
+  let up = 0;
+  let down = 0;
+  for (const p of def.peaks) {
+    const v = p.h * ramp(u, p.a, p.b) * (1 - ramp(u, p.c, p.d));
+    if (v > up) up = v;
+    else if (v < down) down = v;
+  }
+  return up + down;
 }
 
 /**

@@ -763,6 +763,7 @@ export class RaceView {
         }
       }
     }
+    this.digHoles();
     if (!hills.length) return;
     const r0 = s.hw * 1.3;
     for (let j = 0; j < th; j++) {
@@ -787,6 +788,40 @@ export class RaceView {
         this.terrain[j * tw + i] += h;
       }
     }
+  }
+
+  /**
+   * Bomb holes (jumps.ts; Boss, 2 Nov 2026) are dug into the ground: the terrain under and beside one
+   * comes down to the hole's floor and sides, so the hole isn't buried under the grass.
+   */
+  private digHoles(): void {
+    const s = this.surface;
+    const tw = this.gw + 2 * MARGIN + 1;
+    const th = this.gh + 2 * MARGIN + 1;
+    s.track.sections.forEach((sec, si) => {
+      if (sec.type !== 'bomb_hole') return;
+      const f0 = s.bounds[si];
+      const f1 = s.bounds[si + 1];
+      let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+      for (let k = 0; k <= 40; k++) {
+        const f = f0 + ((f1 - f0) * k) / 40;
+        const p = s.spot(f, 0);
+        const r = s.hwAt(f) * (LIP_AT + s.skirt(f, 1)) + 1;
+        x0 = Math.min(x0, p.x - r); x1 = Math.max(x1, p.x + r);
+        z0 = Math.min(z0, p.z - r); z1 = Math.max(z1, p.z + r);
+      }
+      for (let j = Math.max(0, Math.floor(z0 + MARGIN)); j <= Math.min(th - 1, Math.ceil(z1 + MARGIN)); j++) {
+        for (let i = Math.max(0, Math.floor(x0 + MARGIN)); i <= Math.min(tw - 1, Math.ceil(x1 + MARGIN)); i++) {
+          const x = i - MARGIN;
+          const z = j - MARGIN;
+          const near = nearestOnLap(s.g, x, z);
+          if (near.f < f0 || near.f > f1 || s.centre(near.f) >= 0) continue;
+          const dug = s.height(near.f, near.d / s.hwAt(near.f)) - 0.15;
+          const k = j * tw + i;
+          if (dug < this.terrain[k]) this.terrain[k] = dug;
+        }
+      }
+    });
   }
 
   /** Ground height at a point on the grid. */

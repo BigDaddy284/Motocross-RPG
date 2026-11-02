@@ -24,14 +24,16 @@ describe('jumps', () => {
         let last = 0;
         for (const [a, b] of w.hops) {
           expect(a >= last && b > a && b < 1, `${type} ${w.name}`).toBe(true);
-          // A hop takes off on a hump (its face or deck), never from flat ground.
-          expect(jumpShape(type, a), `${type} ${w.name} takes off at ${a}`).toBeGreaterThan(0.1);
+          // A hop takes off on a hump (its face or deck), never from flat ground; out of a bomb hole,
+          // off the top of its face out.
+          if (type === 'bomb_hole' && a > 0.5) expect(jumpShape(type, a) - jumpShape(type, a - 0.05), `${type} ${w.name} takes off up the face`).toBeGreaterThan(0.02);
+          else expect(jumpShape(type, a), `${type} ${w.name} takes off at ${a}`).toBeGreaterThan(0.1);
           last = b;
         }
       }
-      // The top of the tallest hump is the section's full height.
+      // The top of the tallest hump (the bottom of a bomb hole) is the section's full height.
       let top = 0;
-      for (let u = 0; u <= 1; u += 0.005) top = Math.max(top, jumpShape(type, u));
+      for (let u = 0; u <= 1; u += 0.005) top = Math.max(top, Math.abs(jumpShape(type, u)));
       expect(top, type).toBeCloseTo(1, 2);
     }
   });
@@ -67,7 +69,7 @@ describe('jumps', () => {
   });
 
   it('flies each wheel from the lip along the face, clear of the ground, and lands where the hop says', () => {
-    for (const type of ['tabletop', 'double', 'triple', 'quad', 'rhythm', 'dragon_back', 'ski_jump', 'step_on', 'step_on_two', 'step_on_three', 'step_up']) {
+    for (const type of ['tabletop', 'double', 'triple', 'quad', 'rhythm', 'dragon_back', 'bomb_hole', 'ski_jump', 'step_on', 'step_on_two', 'step_on_three', 'step_up']) {
       const track = trackWith(type);
       const s = new TrackSurface(track);
       const f0 = s.bounds[1];
@@ -121,5 +123,31 @@ describe('finish-line jumps', () => {
         }
       }
     }
+  });
+});
+
+// A bomb hole (Boss, 2 Nov 2026): dug out like a tabletop turned upside down, with a lip on the way in.
+describe('bomb hole', () => {
+  it('has a lip on the way in, a hole dug below the ground and a face up and out, its height its depth', () => {
+    expect(jumpShape('bomb_hole', 0.14)).toBeGreaterThan(0.3);
+    expect(jumpShape('bomb_hole', 0.45)).toBeCloseTo(-1, 2);
+    expect(jumpShape('bomb_hole', 0.02)).toBe(0);
+    expect(jumpShape('bomb_hole', 0.95)).toBe(0);
+    const s = new TrackSurface(trackWith('bomb_hole', 20));
+    const f0 = s.bounds[1];
+    const span = s.bounds[2] - f0;
+    expect(s.height(f0 + 0.45 * span, 0)).toBeLessThan(s.height(f0 - 0.01, 0) - 0.5);
+    // The hole's sides climb back up to the ground beside the track.
+    expect(s.height(f0 + 0.45 * span, 3)).toBeGreaterThan(s.height(f0 + 0.45 * span, 1.3));
+  });
+
+  it('is cleared off the lip by skilled riders, dropped into and jumped out of by most, rolled by a few', () => {
+    const way = (j: number) => new Set(Array.from({ length: 100 }, (_, k) => pickWay('bomb_hole', j, k / 100)!.name));
+    expect(way(0)).not.toContain('clear');
+    expect(way(0)).toContain('drop in, jump out');
+    expect(way(0)).toContain('roll through');
+    expect(way(1)).toContain('clear');
+    expect(way(1)).not.toContain('roll through');
+    expect(pickWay('bomb_hole', 1, 0.2, true)!.short).toBe(true);
   });
 });

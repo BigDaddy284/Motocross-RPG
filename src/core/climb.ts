@@ -27,6 +27,8 @@ function faceEnd(type: string): number {
   return at;
 }
 const FACES = new Map<string, number>();
+/** How much of a bomb hole its face out is (jumps.ts: from the bottom at 0.58 to the top at 0.8). */
+const BOMB_HOLE_FACE = 0.22;
 
 /** The extra metres a section rides as, for a jump face or hill set taller than usual; 0 otherwise. */
 export function climbExtra(sec: { type: string; length: number; height?: number }): number {
@@ -35,7 +37,8 @@ export function climbExtra(sec: { type: string; length: number; height?: number 
   const usual = DEFAULT_HEIGHTS[sec.type];
   if (usual === undefined || sec.height <= usual) return 0;
   if (!FACES.has(sec.type)) FACES.set(sec.type, faceEnd(sec.type));
-  const run = Math.max(0.5, FACES.get(sec.type)! * sec.length);
+  // A bomb hole's climb is its face up and out of the bottom.
+  const run = Math.max(0.5, (sec.type === 'bomb_hole' ? BOMB_HOLE_FACE : FACES.get(sec.type)!) * sec.length);
   const slope = Math.hypot(run, sec.height) - Math.hypot(run, usual);
   return slope + CLIMB_COST * (sec.height - usual);
 }

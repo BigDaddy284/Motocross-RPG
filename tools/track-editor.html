@@ -496,9 +496,9 @@ const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', '.vite', 'coverage', 
 const ART_DIR = 'assets/art/area-map/tiled/tiles';
 const ID = /^[a-z0-9_.-]+$/;
 // Mirrors src/world/TrackView.ts.
-const JUMPS = new Set(['tabletop', 'double', 'step_up', 'triple', 'quad', 'step_down', 'step_on', 'step_on_two', 'step_on_three', 'on_off', 'single_over_table', 'table_over_single', 'wall_jump', 'ski_jump', 'rhythm', 'whoops', 'rollers', 'dragon_back']);
+const JUMPS = new Set(['tabletop', 'double', 'step_up', 'triple', 'quad', 'step_down', 'step_on', 'step_on_two', 'step_on_three', 'on_off', 'single_over_table', 'table_over_single', 'wall_jump', 'ski_jump', 'bomb_hole', 'rhythm', 'whoops', 'rollers', 'dragon_back']);
 // How many humps each jump has, for the map's bars (mirrors src/core/jumps.ts).
-const HUMPS = { tabletop: 1, double: 2, step_up: 2, triple: 3, quad: 4, step_down: 2, step_on: 3, step_on_two: 4, step_on_three: 5, on_off: 2, single_over_table: 2, table_over_single: 2, wall_jump: 1, ski_jump: 1, rhythm: 3, whoops: 3, rollers: 2, dragon_back: 4 };
+const HUMPS = { tabletop: 1, double: 2, step_up: 2, triple: 3, quad: 4, step_down: 2, step_on: 3, step_on_two: 4, step_on_three: 5, on_off: 2, single_over_table: 2, table_over_single: 2, wall_jump: 1, ski_jump: 1, bomb_hole: 1, rhythm: 3, whoops: 3, rollers: 2, dragon_back: 4 };
 const HEIGHTS = new Set([...JUMPS, 'uphill', 'downhill', 'hill_climb', 'rocks', 'roots', 'logs', 'log_step', 'pipe', 'tyre_bed', 'tyre_wall', 'log_stack']);
 // Mirrors src/core/trackSurface.ts DECKS and WALK_HOLE: the flat top of each jump that can carry a tunnel.
 const DECKS = { tabletop: [0.32, 0.6], step_on: [0.34, 0.6], step_up: [0.36, 0.58] };
@@ -511,7 +511,7 @@ const ARCH_AT = { tabletop: 0.3, double: 0.3 };
 const SX_ARCH_KINDS = new Set(['stadium', 'endurocross', 'no_turn']);
 function towerFlagman(t) { return SX_ARCH_KINDS.has(t.kind ?? '') && ((t.sections ?? []).some((s) => s.finish) || (t.features ?? []).some((f) => f.finish)); }
 // Mirrors src/core/riderAI.ts DEFAULT_HEIGHTS.
-const DEFAULT_HEIGHTS_ED = { tabletop: 2.5, double: 3.5, step_up: 3, triple: 3.5, quad: 3.5, step_down: 3, step_on: 2, step_on_two: 2.2, step_on_three: 2.4, on_off: 2.2, single_over_table: 2.8, table_over_single: 2.8, wall_jump: 2.6, ski_jump: 3, rhythm: 1.5, whoops: 0.6, rollers: 0.9, dragon_back: 2.2, uphill: 6, downhill: 6, hill_climb: 5, rocks: 0.35, roots: 0.18, logs: 0.55, log_step: 0.6, pipe: 1.8, tyre_bed: 0.3, tyre_wall: 2, log_stack: 1.2 };
+const DEFAULT_HEIGHTS_ED = { tabletop: 2.5, double: 3.5, step_up: 3, triple: 3.5, quad: 3.5, step_down: 3, step_on: 2, step_on_two: 2.2, step_on_three: 2.4, on_off: 2.2, single_over_table: 2.8, table_over_single: 2.8, wall_jump: 2.6, ski_jump: 3, bomb_hole: 2.5, rhythm: 1.5, whoops: 0.6, rollers: 0.9, dragon_back: 2.2, uphill: 6, downhill: 6, hill_climb: 5, rocks: 0.35, roots: 0.18, logs: 0.55, log_step: 0.6, pipe: 1.8, tyre_bed: 0.3, tyre_wall: 2, log_stack: 1.2 };
 /** The lowest height (metres) a jump with the track under it should have, so a bike clears it. */
 const TUNNEL_MIN_HEIGHT = 3.5;
 /** The shortest feature (grid units) whose deck can take the lower track with its lips and banks through it. */
@@ -523,7 +523,7 @@ const KINDS = [
   { name: 'Start', color: '#ffffff', types: ['start_gate'] },
   { name: 'Corners', color: '#3a8fd8', types: ['first_corner', 'flat_corner', 'berm', 'rutted_corner', 'hairpin'] },
   { name: 'Fast', color: '#4fb36b', types: ['straight', 'fast_sweeper', 'uphill', 'downhill'] },
-  { name: 'Jumps', color: '#e05252', types: ['tabletop', 'double', 'step_up', 'triple', 'quad', 'step_down', 'step_on', 'step_on_two', 'step_on_three', 'on_off', 'single_over_table', 'table_over_single', 'wall_jump', 'ski_jump', 'rhythm', 'dragon_back'] },
+  { name: 'Jumps', color: '#e05252', types: ['tabletop', 'double', 'step_up', 'triple', 'quad', 'step_down', 'step_on', 'step_on_two', 'step_on_three', 'on_off', 'single_over_table', 'table_over_single', 'wall_jump', 'ski_jump', 'bomb_hole', 'rhythm', 'dragon_back'] },
   { name: 'Rough', color: '#b06ad8', types: ['whoops', 'rollers', 'braking_bumps', 'sand', 'mud'] },
   { name: 'Concrete', color: '#9c9c96', types: ['concrete_straight', 'concrete_corner', 'surface_change'] },
   { name: 'Enduro', color: '#c8a040', types: ['rocks', 'roots', 'logs', 'log_step', 'pipe', 'tyre_bed', 'tyre_wall', 'log_stack', 'water_crossing', 'off_camber', 'hill_climb', 'woods'] },
@@ -5280,7 +5280,7 @@ function renderOfficialDetail(box, t, it) {
 /** Metres a grid unit, as for sections from the drawing (about the game's tracks). */
 const PIECE_MPU = 2.7;
 /** A feature's length in grid units when first placed, by type (others 12). */
-const PIECE_LEN = { straight: 14, tabletop: 12, double: 12, step_up: 10, triple: 16, quad: 20, step_down: 12, step_on: 14, step_on_two: 22, step_on_three: 28, on_off: 14, single_over_table: 16, table_over_single: 16, wall_jump: 8, ski_jump: 14, rhythm: 14, whoops: 12, rollers: 12, dragon_back: 14, braking_bumps: 8, sand: 10, mud: 10, uphill: 12, downhill: 12, rocks: 10, roots: 10, logs: 8, log_step: 4, pipe: 6, tyre_bed: 10, tyre_wall: 10, log_stack: 10, water_crossing: 8, off_camber: 12, hill_climb: 14, woods: 20 };
+const PIECE_LEN = { straight: 14, tabletop: 12, double: 12, step_up: 10, triple: 16, quad: 20, step_down: 12, step_on: 14, step_on_two: 22, step_on_three: 28, on_off: 14, single_over_table: 16, table_over_single: 16, wall_jump: 8, ski_jump: 14, bomb_hole: 14, rhythm: 14, whoops: 12, rollers: 12, dragon_back: 14, braking_bumps: 8, sand: 10, mud: 10, uphill: 12, downhill: 12, rocks: 10, roots: 10, logs: 8, log_step: 4, pipe: 6, tyre_bed: 10, tyre_wall: 10, log_stack: 10, water_crossing: 8, off_camber: 12, hill_climb: 14, woods: 20 };
 const PIECE_PASS = { straight: 0.6, sweeper: 0.5, corner: 0.6, hairpin: 0.7 };
 
 /** A point of the drawing by index, counting round past the end on a closed lap. */
