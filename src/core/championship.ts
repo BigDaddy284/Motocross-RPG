@@ -265,6 +265,20 @@ export function nextRoundVenue(def: ChampionshipDef, active: ActiveChampionship)
   return def.rounds[active.rounds.length] ?? null;
 }
 
+/**
+ * The venues where the championships under way hold their next round, for the trophy on the road
+ * menu's track type and track buttons (Boss, 2 Nov 2026), with the championship held there.
+ */
+export function nextRoundVenues(data: Pick<ChampionshipsData, 'championships'>, career: CareerState): Map<string, ChampionshipDef> {
+  const active = career.champs?.active ?? {};
+  const out = new Map<string, ChampionshipDef>();
+  for (const d of data.championships) {
+    const venue = active[d.id] && nextRoundVenue(d, active[d.id]);
+    if (venue && !out.has(venue)) out.set(venue, d);
+  }
+  return out;
+}
+
 /** Active championships whose next round is at this venue. */
 export function roundsHere(data: ChampionshipsData, career: CareerState, venue: VenueDef): ChampionshipDef[] {
   const state = career.champs;
