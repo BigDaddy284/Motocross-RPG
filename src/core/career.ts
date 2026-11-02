@@ -3,8 +3,12 @@
 // standalone economy tool (GDD 2.2).
 
 import type { ChampionshipState } from './championship';
+import type { SetupState } from './setup';
 import type { ErrandState } from './errands';
+import type { JobState } from './jobs';
+import type { ClassDef, RetiredBike } from './classes';
 import type { ShopState, SparePart } from './shops';
+import type { Contract, Offer } from './sponsors';
 import type { WorldMapData } from './worldMap';
 import { newSkillState, type SkillState } from './skills';
 
@@ -33,7 +37,8 @@ export interface BrandDef {
 export interface BikesData {
   stats: StatDef[];
   slots: SlotDef[];
-  classes: { id: string; name: string; ceiling: number }[];
+  /** In class order, 50cc first (core/classes.ts). */
+  classes: ClassDef[];
   starter: { class: string; grade: number; condition: [number, number]; brokenSlot: string };
   brands: BrandDef[];
 }
@@ -52,6 +57,8 @@ export interface StoryEffects {
   /** Fits a part item from the bag into its bike slot. */
   fit?: string;
   flags?: string[];
+  /** Spare parts for the bag, in the bike's class (Mad Maggie's test part, Areas 2 to 8 plan). */
+  giveParts?: { slot: string; grade: number; condition: number; mods?: { type: string; value: number }[] }[];
 }
 
 export interface StoryStep {
@@ -60,7 +67,8 @@ export interface StoryStep {
   on: { talk?: string; use?: string; map?: string };
   /** Uses of different objects needed before the step completes (default 1). */
   times?: number;
-  needs?: { money?: number; items?: string[] };
+  /** Money, items, and lead skill levels (by lead id: Mad Maggie's machine needs Mechanical Engineer 30, Boss 30 Oct 2026). */
+  needs?: { money?: number; items?: string[]; skills?: Record<string, number> };
   /** Lines shown when the needs are not met. */
   notReady?: string;
   /** While the rider is short of needs.money, the tutorial markers point here to earn it (Boss, 28 Oct 2026). */
@@ -73,11 +81,23 @@ export interface StoryStep {
   toast?: string;
 }
 
+/**
+ * A later chain of steps (the area intros, Areas 2 to 8 plan, Boss 31 Oct 2026): played like the
+ * opening chain once it has started (openChains), after the opening chain and any chain before it.
+ */
+export interface StoryChain {
+  id: string;
+  /** The flag that starts it: the area's open flag. */
+  needs: string;
+  steps: StoryStep[];
+}
+
 export interface StoryData {
   startMoney: number;
   intro: string;
   steps: StoryStep[];
   done: string;
+  chains?: StoryChain[];
   /** Task lines once the opening chain is over: the first whose if is set, or whose unless is not. */
   /** The task line once the opening chain is done: the first whose if is set, or whose unless is not. talk marks that NPC on the map, as a story step's NPC is. */
   after?: { if?: string; unless?: string; text: string; talk?: string }[];
@@ -94,7 +114,14 @@ export interface JobDef {
   /** Pounds per part. */
   pay: number;
   needs?: string;
-  stations: { object: string; label: string; ms: number }[];
+  /** The facility the job locks while it is open (Spec 15.1); the job's own id when left out. */
+  facility?: string;
+  /** Spec 15.3 facilityBonus, 0 to 1.5, on the grade of the kept part. */
+  facilityBonus?: number;
+  /** Bike slots the employer's kept part can be, one at random per finished batch (Spec 15.1). */
+  keeps?: string[];
+  /** xp: child skill XP for each go at the station (Spec 3.2). */
+  stations: { object: string; label: string; ms: number; xp?: Record<string, number> }[];
 }
 
 export interface PlaceDef {
@@ -106,6 +133,8 @@ export interface PlaceDef {
   note: string;
   /** Not a map: picking it opens the list of mod tracks to race (core/modTracks.ts). */
   mods?: boolean;
+  /** The flag that puts the place on the road menu (an area's open flag). */
+  needs?: string;
 }
 
 export interface RouteDef {
@@ -135,6 +164,8 @@ export interface Part {
   grade: number;
   /** 0 to 1. A part at 0 is broken. */
   condition: number;
+  /** Modifiers from the Modifying Machine (core/modifiers.ts, Spec 6); shop parts have none. */
+  mods?: { type: string; value: number }[];
 }
 
 export interface Bike {
@@ -156,6 +187,8 @@ export interface CareerState {
   bag: BagItem[];
   /** Index of the current opening-chain step, and the objects already used for a multi-use step. */
   story: { step: number; used: string[] };
+  /** Later chains (story.json chains) by id, once started: where the rider is in each. */
+  chains?: Record<string, ChainState>;
   /** Running totals such as batches finished per employer, race days and wins. */
   counters: Record<string, number>;
   skills: SkillState;
@@ -165,6 +198,23 @@ export interface CareerState {
   champs?: ChampionshipState;
   /** Errands for NPCs (core/errands.ts), made on taking the first one. */
   errands?: ErrandState;
+  /** Batch jobs under way (core/jobs.ts), made on the first shift. */
+  jobs?: JobState;
+  /** Bikes retired at a class milestone (GDD 8.1), oldest first. */
+  retired?: RetiredBike[];
+  /** Tool sets owned (core/tools.ts): the version id by set id. */
+  tools?: Record<string, string>;
+  /** Bike setup (core/setup.ts): a preset or the rider's own slider values, once they have touched it. */
+  setup?: SetupState;
+  /** Spare parts in the house storage chest (core/house.ts), shared by every house. */
+  storage?: SparePart[];
+  /** The venue picked on the road for the venue map the rider is on: one venue map holds every track of its type (core/guides.ts venueHere). */
+  venue?: string;
+  /** Reputation among sponsors, 0 to 1000 (core/sponsors.ts, Spec 16.1). */
+  reputation?: number;
+  /** The sponsor contract under way, and the offers open to sign. */
+  sponsor?: Contract;
+  sponsorOffers?: Offer[];
 }
 
 export const pence = (pounds: number) => Math.round(pounds * 100);
@@ -234,6 +284,20 @@ export function bikeProblem(bikes: BikesData, bike: Bike): string | null {
   return broken.length ? `Won't start: the ${broken[0].name.toLowerCase()} is broken.` : null;
 }
 
+/**
+ * Why the bike can't start a moto, or null when it can: a broken engine part, or as many broken
+ * parts as the race retires a rider at (race.ts mustRetire). Shown after qualifying and before a
+ * moto, beside the Leave button (Boss, 31 Oct 2026).
+ */
+export function raceStopper(bikes: BikesData, bike: Bike, retireAtBroken: number): string | null {
+  const broken = bikes.slots.filter((s) => bike.parts[s.id]?.condition <= 0);
+  const engine = broken.find((s) => s.engine);
+  if (engine) return `The ${engine.name.toLowerCase()} is broken, so the bike won't start.`;
+  if (broken.length < retireAtBroken) return null;
+  const names = broken.map((s) => s.name.toLowerCase());
+  return `${broken.length} parts are broken (${names.slice(0, -1).join(', ')} and ${names.at(-1)}), and a rider retires at ${retireAtBroken}.`;
+}
+
 export const hasItems = (state: CareerState, ids: string[] = []) => {
   const left = state.bag.map((b) => b.id);
   return ids.every((id) => {
@@ -261,9 +325,17 @@ export function applyEffects(state: CareerState, flags: Record<string, boolean>,
     }
   }
   for (const f of e.flags ?? []) flags[f] = true;
+  for (const p of e.giveParts ?? []) state.bag.push({ id: 'spare', part: { slot: p.slot, class: state.bike.class, grade: p.grade, condition: p.condition, ...(p.mods ? { mods: p.mods.map((m) => ({ ...m })) } : {}) } });
 }
 
 // ---- the opening chain ----
+
+/** Where the rider is in a later chain. heard: steps whose lines were heard early (hearEarly; Boss, 1 Nov 2026). */
+export interface ChainState {
+  step: number;
+  used: string[];
+  heard?: string[];
+}
 
 export type StoryEvent = { talk: string } | { use: string; map: string; object: string };
 
@@ -272,34 +344,108 @@ export type StoryMatch =
   | { kind: 'notReady'; step: StoryStep; short: number }
   | { kind: 'alreadyUsed'; step: StoryStep };
 
+/** The chain the rider is on: the opening chain while it lasts, then each started chain in turn. */
+function activeChain(story: StoryData, state: CareerState): { steps: StoryStep[]; st: ChainState } | null {
+  if (state.story.step < story.steps.length) return { steps: story.steps, st: state.story };
+  for (const c of story.chains ?? []) {
+    const st = state.chains?.[c.id];
+    if (st && st.step < c.steps.length) return { steps: c.steps, st };
+  }
+  return null;
+}
+
+/**
+ * Starts every chain whose flag is set and which hasn't started (called when flags change, and
+ * on loading a save). Returns the chains started.
+ */
+export function openChains(story: StoryData, state: CareerState, flags: Record<string, boolean>): StoryChain[] {
+  const started: StoryChain[] = [];
+  for (const c of story.chains ?? []) {
+    if (!flags[c.needs] || state.chains?.[c.id]) continue;
+    (state.chains ??= {})[c.id] = { step: 0, used: [] };
+    started.push(c);
+  }
+  return started;
+}
+
+/** Whether a chain has been played to its end. */
+export const chainDone = (story: StoryData, state: CareerState, id: string): boolean => {
+  const c = story.chains?.find((x) => x.id === id);
+  return !!c && (state.chains?.[id]?.step ?? 0) >= c.steps.length;
+};
+
 export function currentStep(story: StoryData, state: CareerState): StoryStep | null {
-  return story.steps[state.story.step] ?? null;
+  const c = activeChain(story, state);
+  return c ? (c.steps[c.st.step] ?? null) : null;
 }
 
 /** Whether a talk or object use is the current step, and whether the rider can do it yet. */
-export function matchStory(story: StoryData, state: CareerState, ev: StoryEvent): StoryMatch | null {
+export function matchStory(story: StoryData, state: CareerState, ev: StoryEvent, levels: Record<string, number> = {}): StoryMatch | null {
   const step = currentStep(story, state);
   if (!step) return null;
   if ('talk' in ev) {
     if (step.on.talk !== ev.talk) return null;
   } else {
     if (step.on.use !== ev.use || (step.on.map && step.on.map !== ev.map)) return null;
-    if (state.story.used.includes(ev.object)) return { kind: 'alreadyUsed', step };
+    if (activeChain(story, state)!.st.used.includes(ev.object)) return { kind: 'alreadyUsed', step };
   }
   const needMoney = pence(step.needs?.money ?? 0);
-  if (state.money < needMoney || !hasItems(state, step.needs?.items)) return { kind: 'notReady', step, short: Math.max(0, needMoney - state.money) };
+  const skilled = Object.entries(step.needs?.skills ?? {}).every(([lead, level]) => (levels[lead] ?? 0) >= level);
+  if (state.money < needMoney || !hasItems(state, step.needs?.items) || !skilled) return { kind: 'notReady', step, short: Math.max(0, needMoney - state.money) };
   return { kind: 'ready', step };
 }
 
 /** Records one use of the current step. Returns true when the step finished and its effects applied. */
 export function advanceStory(story: StoryData, state: CareerState, flags: Record<string, boolean>, items: Record<string, ItemDef>, object?: string): boolean {
-  const step = currentStep(story, state);
-  if (!step) return false;
-  if (object) state.story.used.push(object);
-  if (state.story.used.length < (step.times ?? 1) && object) return false;
+  const c = activeChain(story, state);
+  const step = c?.steps[c.st.step];
+  if (!c || !step) return false;
+  if (object) c.st.used.push(object);
+  if (c.st.used.length < (step.times ?? 1) && object) return false;
   applyEffects(state, flags, items, step.effects);
-  state.story = { step: state.story.step + 1, used: [] };
+  c.st.step += 1;
+  c.st.used = [];
   return true;
+}
+
+/**
+ * A later step of the area chain under way that this talk can play now, out of turn (Boss, 1 Nov 2026:
+ * "if i speak to Area Champ and Local or Area champ while walking around during the tutorial, they say
+ * there bit there and then, can repeat if i go back but I shouldn't be sent back for the same lines").
+ * Only a step that is just lines: no items given or taken, nothing needed, no question, one talk, and only
+ * in an area chain (the opening chain stays in its order). Its effects still wait for its turn (catchUp).
+ */
+export function earlyStep(story: StoryData, state: CareerState, ev: StoryEvent): StoryStep | null {
+  if (!('talk' in ev) || state.story.step < story.steps.length) return null;
+  const c = activeChain(story, state);
+  if (!c) return null;
+  return c.steps.slice(c.st.step + 1).find((s) => s.on.talk === ev.talk && isJustLines(s)) ?? null;
+}
+
+const isJustLines = (s: StoryStep): boolean =>
+  !!s.lines && !s.needs && !s.confirm && (s.times ?? 1) === 1 && !s.effects?.give?.length && !s.effects?.take?.length && !s.effects?.fit && !s.effects?.giveParts?.length;
+
+/** Records a step's lines as heard early, so the chain won't send the rider back for them. */
+export function hearEarly(story: StoryData, state: CareerState, step: StoryStep): void {
+  const c = activeChain(story, state);
+  if (c && !(c.st.heard ??= []).includes(step.id)) c.st.heard.push(step.id);
+}
+
+/**
+ * Plays out every step now due whose lines were heard early: its effects apply and the chain moves on,
+ * without sending the rider back. Returns the steps, for their toasts.
+ */
+export function catchUp(story: StoryData, state: CareerState, flags: Record<string, boolean>, items: Record<string, ItemDef>): StoryStep[] {
+  const done: StoryStep[] = [];
+  for (;;) {
+    const c = activeChain(story, state);
+    const step = c?.steps[c.st.step];
+    if (!c || !step || !c.st.heard?.includes(step.id)) return done;
+    applyEffects(state, flags, items, step.effects);
+    c.st.step += 1;
+    c.st.used = [];
+    done.push(step);
+  }
 }
 
 /** The task after the opening chain for these flags (story.json after), if any. */
@@ -312,7 +458,7 @@ export function journal(story: StoryData, state: CareerState, flags: Record<stri
   const step = currentStep(story, state);
   if (!step) return afterTask(story, flags)?.text ?? story.done;
   const n = step.times ?? 1;
-  return n > 1 ? `${step.journal} (${state.story.used.length} of ${n})` : step.journal;
+  return n > 1 ? `${step.journal} (${activeChain(story, state)!.st.used.length} of ${n})` : step.journal;
 }
 
 export function fillText(text: string, vars: Record<string, string>): string {

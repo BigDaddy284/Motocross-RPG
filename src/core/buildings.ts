@@ -195,17 +195,21 @@ export function checkBuildings(lib: BuildingsData, maps: Map<string, BakedMap>):
       // Its doors and returns, where the entry puts them.
       const mine = (type: string) => m.objects.filter((d) => d.type === type && d.props.building === id && near(d, o, w, h, T));
       const doors = mine('door');
+      // A stamped town (tools/gen-area.mjs; Areas 2 to 8 plan) places Home Town's buildings with
+      // their own insides: int.a<N>.<the same key>, an area copy of the blueprint's interior.
+      const areaCopy = (interior: string) => interior.replace(/^int\.a\d+\./, `${b.doors[0]?.interior.split('.').slice(0, 2).join('.') ?? 'int.home'}.`);
       const want = b.doors.map((d) => `${t0.x + d.tile[0]},${t0.y + d.tile[1]} ${d.interior}${d.spawn ? ` ${d.spawn}` : ''}`).sort();
-      const have = doors.map((d) => `${tileKey(d, T)} ${String(d.props.interior)}${d.props.spawn ? ` ${String(d.props.spawn)}` : ''}`).sort();
+      const have = doors.map((d) => `${tileKey(d, T)} ${areaCopy(String(d.props.interior))}${d.props.spawn ? ` ${String(d.props.spawn)}` : ''}`).sort();
       if (want.join('|') !== have.join('|')) err(file, where, `has doors [${have.join('; ')}] but ${b.id} has [${want.join('; ')}]`);
       const rWant = b.returns.map((r) => `${t0.x + r.tile[0]},${t0.y + r.tile[1]}${r.name ? ` ${r.name}` : ''}`).sort();
       const rHave = mine('return').map((r) => `${tileKey(r, T)}${r.name !== o.name ? ` ${r.name}` : ''}`).sort();
       if (rWant.join('|') !== rHave.join('|')) err(file, where, `has returns [${rHave.join('; ')}] but ${b.id} has [${rWant.join('; ')}]`);
-      for (const d of b.doors) {
-        const prev = placedInterior.get(d.interior);
+      for (const d of doors) {
+        const interior = String(d.props.interior);
+        const prev = placedInterior.get(interior);
         const here = `${m.id} ${t0.x},${t0.y}`;
-        if (prev && prev !== here) err(file, where, `leads into ${d.interior}, which the building at ${prev} already leads into`);
-        placedInterior.set(d.interior, here);
+        if (prev && prev !== here) err(file, where, `leads into ${interior}, which the building at ${prev} already leads into`);
+        placedInterior.set(interior, here);
       }
     }
   }

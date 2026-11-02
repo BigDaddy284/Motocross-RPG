@@ -1,5 +1,5 @@
 {
-  "note": "Bike stat model (Spec 5) and the four starter 50cc bikes (Spec 18.8, 18.9). Numbers are provisional first-pass values.",
+  "note": "Bike stat model (Spec 5) and the four starter 50cc bikes (Spec 18.8, 18.9). Numbers are provisional first-pass values. classes are in class order (GDD 6.4): unlock is the Rider Ability level that unlocks the class, and the class also needs the main championship of the class below won (its milestone, championships.json) before the new bike is collected (Spec 18.3). Ceilings step up about 25% a class from 50cc (provisional). youth classes wear at the youth rate (racing.json wear.youth). mapImage names the world-map bike picture to use while a class has none of its own (art/ui/world-map-bikes). sidecar marks a sidecar class (Boss, 1 Nov 2026): its own class, brought in late, after the solo ladder and never moved up to from it; its unlock of 99 holds its place until Boss sets when it opens.",
   "stats": [
     { "id": "power", "name": "Power" },
     { "id": "response", "name": "Response" },
@@ -21,7 +21,18 @@
     { "id": "bodywork", "name": "Bodywork and controls", "weights": { "handling": 0.2 } }
   ],
   "classes": [
-    { "id": "50cc", "name": "50cc", "ceiling": 400 }
+    { "id": "50cc", "name": "50cc", "ceiling": 400, "unlock": 1, "youth": true },
+    { "id": "65cc", "name": "65cc", "ceiling": 500, "unlock": 10, "youth": true },
+    { "id": "85cc-small", "name": "85cc Small Wheel", "ceiling": 625, "unlock": 20, "youth": true },
+    { "id": "85cc-big", "name": "85cc Big Wheel", "ceiling": 780, "unlock": 30, "youth": true },
+    { "id": "125cc-youth", "name": "125cc Youth", "ceiling": 975, "unlock": 40, "youth": true, "mapImage": "85cc-big" },
+    { "id": "125cc", "name": "125cc", "ceiling": 1220, "unlock": 50, "mapImage": "85cc-big" },
+    { "id": "250f", "name": "250cc F", "ceiling": 1525, "unlock": 60, "mapImage": "85cc-big" },
+    { "id": "450f", "name": "450cc F", "ceiling": 1900, "unlock": 70, "mapImage": "85cc-big" },
+    { "id": "vets-40", "name": "40+ Vets", "ceiling": 1900, "unlock": 80, "mapImage": "85cc-big" },
+    { "id": "vets-50", "name": "50+ Vets", "ceiling": 1900, "unlock": 90, "mapImage": "85cc-big" },
+    { "id": "vets-60", "name": "60+ Vets", "ceiling": 1900, "unlock": 95, "mapImage": "85cc-big" },
+    { "id": "sidecar", "name": "Sidecar", "ceiling": 1900, "unlock": 99, "mapImage": "85cc-big", "sidecar": true }
   ],
   "starter": { "class": "50cc", "grade": 1, "condition": [0.5, 0.8], "brokenSlot": "top_end" },
   "brands": [

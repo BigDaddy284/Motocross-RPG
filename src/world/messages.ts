@@ -6,7 +6,7 @@ import type { MapObject } from '../core/mapTypes';
 const ACTIONS: Record<string, string> = {
   outfit: 'Changing outfits',
   'storage.parts': 'Parts storage',
-  'storage.tools': 'Tool storage',
+  'storage.tools': 'Your tools',
   'train.bodyweight': 'Bodyweight training',
   'workshop.fit_tune': 'Fitting and tuning',
   'workshop.bike': 'Working on bikes',
@@ -18,7 +18,7 @@ const ACTIONS: Record<string, string> = {
   'shop.display_bike': 'The display bike',
   'shop.bike_parts': 'The parts shop',
   'shop.tyres_wheels': 'The tyres and wheels shop',
-  'shop.tool_sets': 'The tool set shop',
+  'shop.tool_sets': "J's Tools",
   'shop.van': 'Buying the motor',
   'story.neighbour_pc': "The neighbour's computer",
   'job.shift': 'Work shifts',

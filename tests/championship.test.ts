@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { newCareerState, type CareerState } from '../src/core/career';
-import { checkChampionships, champById, champRiders, champProblem, drawChampField, enter, finishChampionship, nextRoundVenue, recordRound, roundEntry, roundOptions, roundsHere, standings, titlePossible, withdraw, type ActiveChampionship } from '../src/core/championship';
+import { champLine, checkChampionships, champById, otherActive, champRiders, champProblem, drawChampField, enter, finishChampionship, nextRoundVenue, recordRound, roundEntry, roundOptions, roundsHere, standings, titlePossible, withdraw, type ActiveChampionship } from '../src/core/championship';
 import { checkContent } from '../src/core/content';
 import { PLAYER_ID, RaceDay, playerEntrant } from '../src/core/raceDay';
 import { directorFor } from '../src/core/riderAI';
@@ -37,6 +37,21 @@ function rideRound(career: CareerState, active: ActiveChampionship, seed: number
 }
 
 describe('championships (Spec 12.5, 18.6)', () => {
+  it('one championship at a time, and the venue line shows the one in progress (Boss, 31 Oct 2026)', () => {
+    const career = rider();
+    expect(otherActive(content.championships, career, main)).toBeNull();
+    expect(champLine(content, content.championships, career)).toBeNull();
+    const active = enter(career, content, local, 7);
+    expect(otherActive(content.championships, career, main)?.id).toBe(local.id);
+    expect(otherActive(content.championships, career, local)).toBeNull();
+    expect(champLine(content, content.championships, career)).toBe(`${local.short}: round 1 of 3 next, at ${venue(local.rounds[0]).name}.`);
+    rideRound(career, active, 3);
+    const me = standings(points, active).find((r) => r.player)!;
+    expect(champLine(content, content.championships, career)).toMatch(new RegExp(`^${local.short}: round 2 of 3 next, at ${venue(local.rounds[1]).name}\\. You're \\d+(st|nd|rd|th) on ${me.points} points\\.$`));
+    withdraw(career, local);
+    expect(otherActive(content.championships, career, main)).toBeNull();
+  });
+
   it('loads both Area 1 championships: 3 Local Champion rounds, one a track, then 6 for the area', () => {
     expect(local.rounds).toEqual(['venue-farmland', 'venue-riverside', 'venue-longmoor']);
     expect(main.rounds).toHaveLength(6);
@@ -50,8 +65,12 @@ describe('championships (Spec 12.5, 18.6)', () => {
     for (const c of content.championships.championships) for (const r of c.rewards) if (r.image) expect(publicFileExists(`assets/${r.image}`), r.image).toBe(true);
   });
 
+  it('gives Areas 2 to 8 their own numbered badge (placeholders like Area 1: Boss, 1 Nov 2026)', () => {
+    for (let n = 2; n <= 8; n++) expect(champById(content.championships, `area${n}.local_champion`)!.rewards[0].image).toBe(`art/ui/badge-area${n}.png`);
+  });
+
   it('rejects a round at a venue that has no race day, and a field bigger than its pool', () => {
-    const bad = { championships: [{ ...local, rounds: ['backyard', 'nowhere'], size: 40 }] };
+    const bad = { championships: [{ ...local, rounds: ['backyard', 'nowhere'], size: 60 }] };
     const errs = checkChampionships(bad, content).map((e) => e.field);
     expect(errs).toEqual(expect.arrayContaining(['championships[0].rounds[0]', 'championships[0].rounds[1]', 'championships[0].size']));
   });
@@ -63,8 +82,6 @@ describe('championships (Spec 12.5, 18.6)', () => {
     expect(champProblem(content, local, flags)).toBeNull();
     expect(champProblem(content, main, flags)).toMatch(/badge/);
     flags['badge.area1'] = true;
-    expect(champProblem(content, main, flags)).toMatch(/Area 2/);
-    flags['area2.ready'] = true;
     expect(champProblem(content, main, flags)).toBeNull();
   });
 

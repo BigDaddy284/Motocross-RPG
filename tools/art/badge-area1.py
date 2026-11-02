@@ -1,10 +1,15 @@
-"""Draws the Area 1 badge: a knobbly motocross tyre with the badge medallion in its hub.
+"""Draws the area badges: a knobbly motocross tyre with the badge medallion in its hub.
+
+Area 1's is the original; Areas 2 to 8 are placeholders, the same badge with their own number
+(Boss, 1 Nov 2026: "For now give them placeholders same as Area 1 but with updated number").
 
 Drawn on a 64 x 64 grid and doubled, for the style guide's 2 px pixel clusters, with every colour
 snapped to the reference palette (art/palette/palette-ref-v1.hex). Writes the game's 128 px badge
 and a 4x preview:
 
-    python3 tools/art/badge-area1.py <palette.hex> <out-dir>
+    python3 tools/art/badge-area1.py <palette.hex> <out-dir> [areas, default 1]
+
+e.g. `2-8` or `1,3` writes badge-area2.png to badge-area8.png.
 """
 import math
 import sys
@@ -49,9 +54,20 @@ ONE = [
     '#######',
     '#######',
 ]
+# Big digits for Areas 2 to 8, 7 x 13, drawn in the 1's 3-pixel strokes.
+DIGITS = {
+    1: ONE,
+    2: ['.#####.', '#######', '###.###', '....###', '....###', '...###.', '..###..', '.###...', '###....', '###....', '###....', '#######', '#######'],
+    3: ['######.', '#######', '....###', '....###', '....###', '.#####.', '.######', '....###', '....###', '....###', '....###', '#######', '######.'],
+    4: ['...####', '..#####', '.###.##', '###..##', '###..##', '###..##', '#######', '#######', '....###', '....###', '....###', '....###', '....###'],
+    5: ['#######', '#######', '###....', '###....', '######.', '#######', '....###', '....###', '....###', '....###', '....###', '#######', '######.'],
+    6: ['.######', '#######', '###....', '###....', '######.', '#######', '###.###', '###.###', '###.###', '###.###', '###.###', '#######', '.#####.'],
+    7: ['#######', '#######', '....###', '....###', '...###.', '...###.', '..###..', '..###..', '..###..', '.###...', '.###...', '.###...', '.###...'],
+    8: ['.#####.', '#######', '###.###', '###.###', '###.###', '.#####.', '.#####.', '###.###', '###.###', '###.###', '###.###', '#######', '.#####.'],
+}
 
 
-def draw(pal):
+def draw(pal, area=1):
     img = Image.new('RGBA', (N, N), (0, 0, 0, 0))
     px = img.load()
     col = lambda rgb: snap(pal, rgb) + (255,)
@@ -124,7 +140,7 @@ def draw(pal):
     x0 = int(C - (len(word) * 4 - 1) / 2) + 1
     for n, ch in enumerate(word):
         put(FONT[ch], x0 + n * 4, 18, cream, face_lo)
-    put(ONE, int(C) - 3, 24, white, outline)
+    put(DIGITS[area], int(C) - 3, 24, white, outline)
     for i in range(14):
         for j in range(2):
             x, y = int(C) - 6 + i, 40 + j
@@ -132,13 +148,22 @@ def draw(pal):
     return img
 
 
+def areas(arg):
+    out = []
+    for part in arg.split(','):
+        a, _, b = part.partition('-')
+        out += range(int(a), int(b or a) + 1)
+    return out
+
+
 def main():
     pal = load_palette(sys.argv[1])
     out = Path(sys.argv[2])
     out.mkdir(parents=True, exist_ok=True)
-    img = draw(pal)
-    img.resize((N * 2, N * 2), Image.NEAREST).save(out / 'badge-area1.png')
-    img.resize((N * 4, N * 4), Image.NEAREST).save(out / 'badge-area1-preview.png')
+    for area in areas(sys.argv[3] if len(sys.argv) > 3 else '1'):
+        img = draw(pal, area)
+        img.resize((N * 2, N * 2), Image.NEAREST).save(out / f'badge-area{area}.png')
+        img.resize((N * 4, N * 4), Image.NEAREST).save(out / f'badge-area{area}-preview.png')
 
 
 if __name__ == '__main__':

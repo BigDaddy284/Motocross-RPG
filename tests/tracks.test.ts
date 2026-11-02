@@ -7,6 +7,7 @@ import { checkTrackParts, trackKind } from '../src/core/trackParts';
 import { sceneryIssues, SurfaceIndex, surfacePoints } from '../src/core/trackClearance';
 import { lapGeom, lapMetres, pointAt, sectionTurns } from '../src/core/trackGeom';
 import { TrackSurface } from '../src/core/trackSurface';
+import { TRACK_GROUPS } from './trackGroups';
 import { loadManifest, loadMaps, rawContent } from './helpers';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -15,6 +16,13 @@ const artExists = (rel: string) => fs.existsSync(path.join(TILES, `${rel}.png`))
 const content = checkContent(rawContent(), loadManifest(), loadMaps()).content!;
 
 describe('track parts and track layouts', () => {
+  it('puts every track in exactly one per-track test group (trackGroups.ts)', () => {
+    for (const t of content.tracks.tracks) {
+      const groups = Object.entries(TRACK_GROUPS).filter(([, inGroup]) => inGroup(t.id)).map(([g]) => g);
+      expect(groups, t.id).toHaveLength(1);
+    }
+  });
+
   it('finds the art for every ground tile and scenery piece', () => {
     expect(checkTrackParts(content.trackParts, content.tracks.tracks, artExists)).toEqual([]);
   });
