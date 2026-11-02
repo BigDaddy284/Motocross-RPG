@@ -1118,7 +1118,7 @@ export class WorldScene extends Phaser.Scene {
     const roundOptions = rounds.map((def) => {
       const f = roundEntry(rc, def, dayCls);
       const n = career.champs!.active[def.id].rounds.length + 1;
-      return { label: `${def.short} round ${n}`, note: `Entry: ${formatMoney(f)}${short(f) ? " — you can't afford it" : ''}. Qualifying, then 2 motos against the championship's ${def.size + 1} riders.`, enabled: !short(f), onPick: () => this.ride('raceday', venue, f, onClose, def) };
+      return { label: `${def.short} round ${n}`, note: `Entry: ${formatMoney(f)}${short(f) ? " — you can't afford it" : ''}. 2 motos against the championship's ${def.size + 1} riders.`, enabled: !short(f), onPick: () => this.ride('raceday', venue, f, onClose, def) };
     });
     const hasChamps = !mod && champs.championships.some((d) => d.rounds.includes(venue.id));
     const others = mod ? [] : rc.tracks.venues.filter((v) => v.map === venue.map && v.id !== venue.id && !v.practiceOnly && !v.locked && (!v.needs || this.save.flags[v.needs]));
@@ -1390,7 +1390,7 @@ export class WorldScene extends Phaser.Scene {
       const onPick = problem ? () => { this.hud.toast(problem); this.openChampionships(venue, onClose); } : () => this.openChampionship(def, venue, onClose);
       return { label: problem ? `${def.short} (locked)` : def.short, note, onPick };
     });
-    this.hud.choose('Championships', 'Each round is entered separately at its track\'s race office, with qualifying and the same field of riders every round. There is no calendar: a championship waits for you.', [...options, { label: 'Back', onPick: back }], back);
+    this.hud.choose('Championships', 'Each round is entered separately at its track\'s race office, with the same field of riders every round. There is no calendar: a championship waits for you.', [...options, { label: 'Back', onPick: back }], back);
   }
 
   private openChampionship(def: ChampionshipDef, venue: VenueDef, onClose: () => void): void {
@@ -1403,7 +1403,7 @@ export class WorldScene extends Phaser.Scene {
       const reward = def.rewards[0];
       const text = [
         `${def.class}. ${def.rounds.length} rounds: ${rounds}`,
-        `${def.size + 1} riders, the same at every round. Qualifying sets the gate pick for moto 1; points for every moto (25 for a win). Entry ${formatMoney(roundEntry(rc, def, career.bike.class))} a round, with bigger prize money than a race day.`,
+        `${def.size + 1} riders, the same at every round. Moto 1 gate picks are drawn at random, moto 2 goes in moto 1 order; points for every moto (25 for a win). Entry ${formatMoney(roundEntry(rc, def, career.bike.class))} a round, with bigger prize money than a race day.`,
         `The winner takes ${reward.title ?? 'the title'}${reward.money ? ` and £${reward.money}` : ''}; 2nd and 3rd win a smaller prize.`,
       ].join('\n\n');
       this.hud.choose(def.name, text, [
@@ -1440,7 +1440,7 @@ export class WorldScene extends Phaser.Scene {
     const fee = roundEntry(rc, def, venueClassFor(rc, venue, career));
     const short = career.money < fee;
     this.hud.choose(def.name, text, [
-      ...(here ? [{ label: `Race round ${active.rounds.length + 1}`, note: `Entry: ${formatMoney(fee)}${short ? " — you can't afford it" : ''}. Qualifying, then 2 motos.`, enabled: !short, onPick: () => this.ride('raceday', venue, fee, onClose, def) }] : []),
+      ...(here ? [{ label: `Race round ${active.rounds.length + 1}`, note: `Entry: ${formatMoney(fee)}${short ? " — you can't afford it" : ''}. 2 motos.`, enabled: !short, onPick: () => this.ride('raceday', venue, fee, onClose, def) }] : []),
       { label: 'Give it up', note: 'Leave the championship. You can enter again later, from round 1.', onPick: giveUp },
       { label: 'Back', onPick: back },
     ], back);
