@@ -111,9 +111,10 @@ export const ARCH_MODELS = { mx: 'finish_arch_mx', sx: 'finish_arch_sx' } as con
  * Live parts any scenery model can have (Boss, 1 Nov 2026), found by name like a figure's parts:
  * a node named Track (Track.001 and so on) turns about its vertical to follow the nearest rider in
  * range (a TV camera's head, a camera operator), back to rest with none; a node named Flash is
- * hidden and shows for a blink as a rider goes by close (a photographer's flash).
+ * hidden and shows for a blink as a rider goes by close (a photographer's flash); a node named
+ * Drone flies off after a rider and back (droneStep; Boss, 2 Nov 2026).
  */
-export const LIVE_PARTS = ['Track', 'Flash'] as const;
+export const LIVE_PARTS = ['Track', 'Flash', 'Drone'] as const;
 /** Grid units a Track part follows a rider from, and how fast it turns (radians a second). */
 export const TRACK_RANGE = 40;
 export const TRACK_TURN = 2.5;
@@ -122,9 +123,72 @@ export const FLASH_RANGE = 12;
 export const FLASH_TIME = 0.09;
 export const FLASH_GAP = 0.7;
 /** A live part's kind from its node name: "Track.001" (three.js: "Track001") is Track. */
-export function livePart(name: string | undefined): 'Track' | 'Flash' | null {
+export function livePart(name: string | undefined): 'Track' | 'Flash' | 'Drone' | null {
   const n = (name ?? '').trim().replace(/[._]?\d+$/, '').toLowerCase();
-  return n === 'track' ? 'Track' : n === 'flash' ? 'Flash' : null;
+  return n === 'track' ? 'Track' : n === 'flash' ? 'Flash' : n === 'drone' ? 'Drone' : null;
+}
+
+/**
+ * A node named Drone (Boss, 2 Nov 2026: "have the drone follow a random rider for half a lap or
+ * something then return to pilot ready for when the bikes come past next and a new random rider is
+ * followed"): it hovers at its rest spot by the pilot; when riders come within DRONE_PICKUP of it, it
+ * picks one of them at random and flies after them for DRONE_FOLLOW seconds (or until they are
+ * DRONE_LEASH from the pilot), then flies home and waits at least DRONE_REST before the next.
+ * Distances in grid units, the speed in grid units a second (fast enough to keep up with a bike).
+ */
+export const DRONE_PICKUP = 16;
+export const DRONE_FOLLOW = 12;
+export const DRONE_LEASH = 90;
+export const DRONE_SPEED = 32;
+export const DRONE_REST = 4;
+/** Where a drone is (x, z on the ground plane) and what it is doing. */
+export interface DroneState {
+  mode: 'home' | 'follow' | 'back';
+  /** The rider followed, as an index into the riders passed to droneStep. */
+  rider: number;
+  /** Seconds in this mode. */
+  t: number;
+  x: number;
+  z: number;
+}
+export const droneAtHome = (home: { x: number; z: number }): DroneState => ({ mode: 'home', rider: -1, t: DRONE_REST, x: home.x, z: home.z });
+/**
+ * One step of a drone: what it does next and where it moves, towards its rider or home at most
+ * DRONE_SPEED. `pick` gives a number in [0, 1) to choose the rider (seeded by the caller, so a race
+ * replays the same). Riders are the ones still racing, in a steady order.
+ */
+export function droneStep(s: DroneState, dt: number, home: { x: number; z: number }, riders: readonly { x: number; z: number }[], pick: () => number): DroneState {
+  const n = { ...s, t: s.t + dt };
+  const dist = (a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(a.x - b.x, a.z - b.z);
+  if (n.mode === 'home' && n.t >= DRONE_REST) {
+    const near = riders.map((r, i) => ({ r, i })).filter(({ r }) => dist(r, home) <= DRONE_PICKUP);
+    if (near.length) {
+      n.mode = 'follow';
+      n.rider = near[Math.min(near.length - 1, Math.floor(pick() * near.length))].i;
+      n.t = 0;
+    }
+  }
+  const rider = n.mode === 'follow' ? riders[n.rider] : undefined;
+  if (n.mode === 'follow' && (!rider || n.t >= DRONE_FOLLOW || dist(rider, home) > DRONE_LEASH)) {
+    n.mode = 'back';
+    n.rider = -1;
+    n.t = 0;
+  }
+  const to = n.mode === 'follow' && rider ? rider : home;
+  const d = dist(n, to);
+  const step = DRONE_SPEED * dt;
+  if (d <= step) {
+    n.x = to.x;
+    n.z = to.z;
+    if (n.mode === 'back') {
+      n.mode = 'home';
+      n.t = 0;
+    }
+  } else {
+    n.x += ((to.x - n.x) / d) * step;
+    n.z += ((to.z - n.z) / d) * step;
+  }
+  return n;
 }
 /** The finish arch's named parts (ARCH_MODELS). */
 export const ARCH_PARTS = ['Left', 'Right', 'Middle', 'FlagTower', 'Flagger'] as const;

@@ -20,7 +20,7 @@ import { FIREWORK_LEAD, fireworkShow, fireworksDue, hasFireworks, ROCKET_RISE, t
 import { APPROACH, assignCrews, BOARD_PAST, boardOut, boardText, crewSpot, FLAGGER_ITEM, flagState, PIT_CREW_ITEM, SX_ARCH_KINDS, sxArch } from '../core/finishCrew';
 import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../core/marshal';
 import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
-import { ARCH_GAP, ARCH_MODELS, ARCH_PARTS, FLASH_GAP, FLASH_RANGE, FLASH_TIME, livePart, LOCKED_ITEMS, partName, TRACK_RANGE, TRACK_TURN } from '../core/modModels';
+import { ARCH_GAP, ARCH_MODELS, ARCH_PARTS, droneAtHome, droneStep, type DroneState, FLASH_GAP, FLASH_RANGE, FLASH_TIME, livePart, LOCKED_ITEMS, partName, TRACK_RANGE, TRACK_TURN } from '../core/modModels';
 import { bannerPath, PICTURE_ITEMS } from '../core/banners';
 import { SIDECAR_CLASS } from '../core/sidecar';
 import { sidecarCrew, BIKE_PAINT, bikeModel, bikeOnWheelsModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, standModel, bikeOnStandModel, STAND_PAINT, textFaces, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
@@ -352,6 +352,8 @@ export class RaceView {
   private readonly trackers: { node: THREE.Object3D; rest: number }[] = [];
   /** Scenery models' Flash parts, blinking as a rider goes by close. */
   private readonly flashes: { node: THREE.Object3D; until: number; next: number; seed: number }[] = [];
+  /** Scenery models' Drone parts, flying off after a rider and back (core droneStep; Boss, 2 Nov 2026). */
+  private readonly drones: { node: THREE.Object3D; rest: THREE.Vector3; restY: number; state: DroneState | null; seed: number; lift: number }[] = [];
   private liveClock = 0;
   /** Frame times in ms (whole update, the 3D draw, and handing the picture to Phaser), for the performance check. */
   readonly frameMs: number[] = [];
@@ -1907,12 +1909,14 @@ export class RaceView {
     const loops = this.loops.length;
     const trackers = this.trackers.length;
     const flashes = this.flashes.length;
+    const drones = this.drones.length;
     this.ghostIndex = index ?? -1;
     const obj = this.buildItem(it);
     this.ghostIndex = -1;
     this.loops.length = loops;
     this.trackers.length = trackers;
     this.flashes.length = flashes;
+    this.drones.length = drones;
     this.marshals.length = marshals;
     this.flaggers.length = flaggers;
     this.crews.length = crews;
@@ -2015,7 +2019,7 @@ export class RaceView {
       else if (kind === 'Flash') {
         o.visible = false;
         this.flashes.push({ node: o, until: 0, next: 0, seed: index * 17 + this.flashes.length * 5 + 1 });
-      }
+      } else if (kind === 'Drone') this.drones.push({ node: o, rest: o.position.clone(), restY: o.rotation.y, state: null, seed: index * 31 + this.drones.length * 7 + 3, lift: 0 });
       if (kind) found = true;
     });
     return found;
@@ -2068,6 +2072,44 @@ export class RaceView {
       f.until = now + FLASH_TIME;
       f.next = now + FLASH_GAP * (1 + noise(f.seed * 3.1));
     }
+    for (const dr of this.drones) this.flyDrone(dr, dt, bikes);
+  }
+
+  /**
+   * A Drone part (core droneStep; Boss, 2 Nov 2026): it hovers at its rest spot by the pilot, flies
+   * off after a rider picked at random as the riders come by, keeping its height above the ground
+   * it crosses, faces the way it flies, and comes home to wait for the next pass.
+   */
+  private flyDrone(dr: RaceView['drones'][number], dt: number, bikes: { x: number; z: number }[]): void {
+    const parent = dr.node.parent;
+    if (!parent) return;
+    const homeW = parent.localToWorld(dr.rest.clone());
+    const home = { x: homeW.x, z: homeW.z };
+    const state = (dr.state ??= droneAtHome(home));
+    const was = { x: state.x, z: state.z };
+    dr.state = droneStep(state, dt, home, bikes, () => {
+      dr.seed += 1;
+      return noise(dr.seed * 7.3);
+    });
+    const s = dr.state;
+    // Its height over the ground it is above, the same as at rest; a gentle bob while it waits.
+    const above = homeW.y - this.terrainAt(home.x, home.z);
+    const bob = s.mode === 'home' ? 0.06 * Math.sin(this.liveClock * 2.2 + dr.seed) : 0;
+    const wantY = this.terrainAt(s.x, s.z) + above + bob;
+    dr.lift = s.mode === 'home' && Math.hypot(s.x - home.x, s.z - home.z) < 0.01 ? wantY : dr.lift === 0 ? wantY : dr.lift + (wantY - dr.lift) * Math.min(1, dt * 4);
+    const local = parent.worldToLocal(new THREE.Vector3(s.x, dr.lift, s.z));
+    dr.node.position.copy(local);
+    // Face the way it flies (its front is +Z); at home it turns back to its rest heading.
+    const moved = Math.hypot(s.x - was.x, s.z - was.z);
+    let want = dr.restY;
+    if (moved > 1e-4) {
+      const a = parent.worldToLocal(new THREE.Vector3(was.x, dr.lift, was.z));
+      want = Math.atan2(local.x - a.x, local.z - a.z);
+    }
+    let d = want - dr.node.rotation.y;
+    d = Math.atan2(Math.sin(d), Math.cos(d));
+    const step = TRACK_TURN * 2 * dt;
+    dr.node.rotation.y += Math.max(-step, Math.min(step, d));
   }
 
   /**
@@ -3269,11 +3311,11 @@ export class RaceView {
     for (const mixer of this.loops) mixer.update(Math.min(0.1, dt));
     if (this.marshals.length) this.updateMarshals(Math.min(0.1, dt), clock, riders.map((r) => r.pose));
     if (this.flaggers.length || this.crews.length) this.updateFinishCrew(Math.min(0.1, dt), clock, riders);
-    if (this.cheers.length || this.trackers.length || this.flashes.length) {
+    if (this.cheers.length || this.trackers.length || this.flashes.length || this.drones.length) {
       const spots: { x: number; z: number }[] = [];
       for (const r of riders) { const b = this.bikes.get(r.pose.id); if (b && r.pose.state !== 'retired') spots.push({ x: b.root.position.x, z: b.root.position.z }); }
       if (this.cheers.length) this.updateCheers(Math.min(0.1, dt), spots);
-      if (this.trackers.length || this.flashes.length) this.updateLiveParts(Math.min(0.1, dt), spots);
+      if (this.trackers.length || this.flashes.length || this.drones.length) this.updateLiveParts(Math.min(0.1, dt), spots);
     }
     if (!riders.some((r) => r.player && r.pose.state !== 'retired')) this.marker.visible = false;
     else this.marker.visible = true;
