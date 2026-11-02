@@ -201,6 +201,17 @@ const SPARKS = 2400;
 /** How big a firework spark looks, in grid units. */
 const SPARK_SIZE = 0.55;
 
+/** The one small renderer the scenery pictures share, made the first time one is asked for. */
+let pictureGl: THREE.WebGLRenderer | null = null;
+function pictureRenderer(): THREE.WebGLRenderer {
+  if (!pictureGl) {
+    pictureGl = new THREE.WebGLRenderer({ canvas: document.createElement('canvas'), antialias: true, alpha: true, preserveDrawingBuffer: true });
+    pictureGl.setPixelRatio(1);
+    pictureGl.shadowMap.enabled = true;
+    pictureGl.shadowMap.type = THREE.PCFSoftShadowMap;
+  }
+  return pictureGl;
+}
 const hex = (s: string | undefined, fallback: number) => (s && /^#[0-9a-f]{6}$/i.test(s) ? parseInt(s.slice(1), 16) : fallback);
 function shade(c: number, k: number): number {
   const ch = (v: number) => Math.max(0, Math.min(255, Math.round(v * k)));
@@ -1919,6 +1930,61 @@ export class RaceView {
   private itemIndex(it: SceneryItem): number {
     const i = (this.track.scenery ?? []).indexOf(it);
     return i >= 0 ? i : this.ghostIndex;
+  }
+
+  /**
+   * A picture of one scenery item as the race view draws it (your model when the models folder has
+   * one, else the game's own), at its default size from the race camera's angle, on a see-through
+   * background with its shadow: the track editor's Scenery tiles (Boss, 2 Nov 2026). A PNG data URL,
+   * or null for an item that can't be drawn.
+   */
+  picture(type: string, w: number, h: number): string | null {
+    const obj = type === OFFICIAL_ITEM ? this.officialFigure().stand : this.buildItem({ type, x: 0, y: 0, rot: 0 });
+    if (!obj) return null;
+    obj.position.set(0, 0, 0);
+    obj.rotation.set(0, 0, 0);
+    obj.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) o.castShadow = true;
+    });
+    const box = new THREE.Box3().setFromObject(obj);
+    if (box.isEmpty()) return null;
+    const c = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const scene = new THREE.Scene();
+    scene.add(new THREE.HemisphereLight(0xe8f0ff, 0x6a5a40, 1.1));
+    const sun = new THREE.DirectionalLight(0xfff1dc, 2.2);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.bias = -0.0006;
+    sun.shadow.normalBias = 0.02;
+    const reach = Math.max(size.x, size.z) * 1.5 + 2;
+    sun.shadow.camera.left = -reach;
+    sun.shadow.camera.right = reach;
+    sun.shadow.camera.top = reach;
+    sun.shadow.camera.bottom = -reach;
+    sun.shadow.camera.near = 1;
+    sun.shadow.camera.far = 200;
+    sun.position.copy(c).add(new THREE.Vector3(-30, 60, -12));
+    sun.target.position.copy(c);
+    scene.add(sun, sun.target, obj);
+    // The ground only shows the shadow: the tile's own background shows round the item.
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(reach * 4, reach * 4), new THREE.ShadowMaterial({ opacity: 0.3 }));
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.set(c.x, box.min.y, c.z);
+    ground.receiveShadow = true;
+    scene.add(ground);
+    // Framed as the race camera sees it: the item's longest span across the tile, with room round it.
+    const halfW = Math.max(size.x, size.y, size.z) * 0.6 + 0.4;
+    const halfH = (halfW * h) / w;
+    const camera = new THREE.OrthographicCamera(-halfW, halfW, halfH, -halfH, 1, 400);
+    camera.position.copy(c).add(this.dir.clone().multiplyScalar(60));
+    camera.lookAt(c);
+    const r = pictureRenderer();
+    r.setSize(w, h, false);
+    r.setClearColor(0x000000, 0);
+    r.render(scene, camera);
+    ground.geometry.dispose();
+    return r.domElement.toDataURL('image/png');
   }
 
   /**
