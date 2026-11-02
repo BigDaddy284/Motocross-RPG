@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { newCareerState, type CareerState } from '../src/core/career';
-import { champLine, checkChampionships, champById, otherActive, champRiders, champProblem, drawChampField, enter, finishChampionship, nextRoundVenue, recordRound, roundEntry, roundOptions, roundsHere, standings, titlePossible, withdraw, type ActiveChampionship } from '../src/core/championship';
+import { champLine, checkChampionships, champById, otherActive, champRiders, champProblem, drawChampField, enter, finishChampionship, nextRoundVenue, nextRoundVenues, recordRound, roundEntry, roundOptions, roundsHere, standings, titlePossible, withdraw, type ActiveChampionship } from '../src/core/championship';
 import { checkContent } from '../src/core/content';
 import { PLAYER_ID, RaceDay, playerEntrant } from '../src/core/raceDay';
 import { directorFor } from '../src/core/riderAI';
@@ -274,6 +274,17 @@ describe('championships (Spec 12.5, 18.6)', () => {
     // Saves from before championships have none, and still load.
     const { champs: _c, ...old } = career;
     expect(parseSave(JSON.stringify({ ...save, career: old }))!.career.champs).toBeUndefined();
+  });
+});
+
+describe('next round marks on the road menu (Boss, 2 Nov 2026)', () => {
+  it('names each next round venue with its championship, none before entering, and moves on after a round', () => {
+    const career = rider();
+    expect(nextRoundVenues(content.championships, career).size).toBe(0);
+    const active = enter(career, content, local, 7);
+    expect([...nextRoundVenues(content.championships, career)]).toEqual([[local.rounds[0], local]]);
+    rideRound(career, active, 3);
+    expect([...nextRoundVenues(content.championships, career)]).toEqual([[local.rounds[1], local]]);
   });
 });
 
