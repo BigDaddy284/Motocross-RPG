@@ -1,5 +1,6 @@
 {
   "note": "The areas (Spec 18.1; Areas 2 to 8 plan, Boss 30 and 31 Oct 2026). Area N opens with the flag area.N.open, set by winning the main championship of Area N - 1 (championships.json opens). field is the riders.json field the area's race days draw from; its level there sets every pool rider's skill (riders.json fields[].level: AI skill follows the track's area, not the player). intro is the story.json chain that opens the area's tracks. house: the one house in the town, bought at its door (Boss, 30 Oct 2026: the Area 2 Starter terrace unlocks the wardrobe). motor: what Nicholls sells there, old motor in part exchange. weather: the odds of each kind on a race day (Spec 10.5: rain from Area 2).",
+  "release": {"lastArea": 2},
   "areas": [
     { "n": 1, "name": "Home Town", "map": "area1-home-town", "field": "area1.local" },
     {

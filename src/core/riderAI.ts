@@ -1,7 +1,7 @@
 import type { BikesData } from './career';
 import { mixSeed, seededRng, type LapTrace, type MessageDef, type MistakeOutcome, type MotoSim, type TrackDef, type TrackSection } from './race';
 import { riderProfile, type RiderProfile } from './riderProfile';
-import { isNoTurn, isSprint, lapGeom, lapMetres, NO_TURN_LANES, NO_TURN_RUNOFF, pointAt, sectionBounds, sectionTurns, SPRINT_QUEUE, START_PAD, startGeom, type StartGeom } from './trackGeom';
+import { isNoTurn, isSprint, lapGeom, lapMetres, NO_TURN_LANES, NO_TURN_RUNOFF, pointAt, sectionBounds, sectionTurns, RETURN_LANE, SPRINT_QUEUE, START_PAD, startGeom, type StartGeom } from './trackGeom';
 import { DEFAULT_HEIGHTS, HOP_JUMPS, landingOf, pickWay, type Way } from './jumps';
 import { HILLS, sectionShape, TrackSurface, type Flight } from './trackSurface';
 import { showmanOf, trickFor, type Trick } from './tricks';
@@ -144,6 +144,29 @@ const smooth = (x: number) => {
   return t * t * (3 - 2 * t);
 };
 const frac = (x: number) => x - Math.floor(x);
+
+/** A section's average riding speed in lap units a second (the time lost to a mistake left out); 0 in a sprint's queue. */
+function segSpeed(seg: Seg): number {
+  if (seg.si === SPRINT_QUEUE) return 0;
+  const dur = Math.max(1e-6, seg.t1 - seg.t0);
+  const ride = Math.max(1e-6, dur - Math.min(seg.mistake?.lost ?? 0, dur * 0.95));
+  return (seg.d1 - seg.d0) / ride;
+}
+
+/**
+ * Speed through a section as a share of its average, starting at e0 and ending at e1 (both shares
+ * of the average), with a style term c that is 0 at both ends and adds nothing overall: positive is
+ * fastest in the middle, negative slowest. `at` is the share of the section ridden at time share
+ * tau, so at(1) is 1 whatever the ends: the rider always reaches the end on time.
+ */
+export function speedShape(e0: number, e1: number, c: number): { speed: (tau: number) => number; at: (tau: number) => number } {
+  // Linear from e0 to e1, plus a bump 6τ(1 − τ) sized so the average is 1, plus the style term.
+  const k = 1 - (e0 + e1) / 2;
+  return {
+    speed: (x) => e0 * (1 - x) + e1 * x + 6 * k * x * (1 - x) + c * (1 - Math.cos(2 * Math.PI * x) - 6 * x * (1 - x)),
+    at: (x) => e0 * (x - (x * x) / 2) + (e1 * x * x) / 2 + k * (3 * x * x - 2 * x * x * x) + c * (x - Math.sin(2 * Math.PI * x) / (2 * Math.PI) - 3 * x * x + 2 * x * x * x),
+  };
+}
 /** The ids in a seeded random order (its own draws, so the line-up's other draws stay as they were). */
 const shuffled = (ids: string[], seed: number) => {
   const rnd = seededRng(mixSeed(seed, 1));
@@ -515,10 +538,21 @@ export class RaceDirector {
     } else tau = (s - lost) / ride;
     tau = clamp(tau, 0, 1);
 
-    const c = this.warp(p, sec.type);
-    const u = clamp(tau - (c * Math.sin(2 * Math.PI * tau)) / (2 * Math.PI), 0, 1);
+    // Speed through the section (Boss, 2 Nov 2026: no slowing then a burst of speed). The rider
+    // carries their speed from one section into the next: each section starts at the speed the last
+    // one ended on and ends on a speed between its own and the next one's, so speed never jumps at a
+    // section's edge, and the rider still reaches its end exactly when the simulation says.
+    const V = segSpeed(seg);
+    // A sprint's return lane is ridden single file at an even speed, so the riders keep their spacing.
+    const lane0 = sec.type === RETURN_LANE;
+    const v0 = lane0 ? V : !prev ? 0 : Math.min(this.edgeSpeed(list, lo - 1), 3 * V);
+    const v1 = lane0 ? V : this.edgeSpeed(list, lo);
+    // The rider's style on top: braking in and driving out of a corner, flat out down a straight.
+    const c = lane0 ? 0 : 0.5 * this.warp(p, sec.type);
+    const shape = speedShape(v0 / V, v1 / V, c);
+    const u = clamp(shape.at(tau), 0, 1);
     const dist = seg.d0 + u * (seg.d1 - seg.d0);
-    const speed = stopped ? 0 : (((seg.d1 - seg.d0) * this.metres) / Math.max(1e-6, ride)) * (1 - c * Math.cos(2 * Math.PI * tau));
+    const speed = stopped ? 0 : Math.max(0, V * shape.speed(tau) * this.metres);
 
     // Line: from the last section's line into this one's, quicker for a nimble rider on a good bike.
     const from = prev ? this.target(id, p, prev) : (this.gateLane.get(id) ?? 0);
@@ -772,6 +806,23 @@ export class RaceDirector {
     // One swing out and back, or across and back the other way too.
     const waves = pick(k + 2) < 0.6 ? 1 : 2;
     return side * amp * Math.sin(Math.PI * waves * u) * smooth(u / 0.1) * (1 - smooth((u - 0.9) / 0.1));
+  }
+
+  /**
+   * The rider's speed (lap units a second) where section list[i] ends and the next begins: halfway
+   * between the two sections' average speeds, so the rider is already driving out of a slow section
+   * as it ends and braking into one, but never more than 2.2 times the slower one, so a slow section
+   * is never ridden backwards to make up for a fast edge. At the
+   * end of a lap it is the last section's own, as the next lap may not have been run yet, and a
+   * section never changes once ridden into.
+   */
+  private edgeSpeed(list: Seg[], i: number): number {
+    const a = list[i];
+    const b = list[i + 1];
+    const va = segSpeed(a);
+    if (!b || b.lap !== a.lap || this.section(b.si).type === RETURN_LANE) return va;
+    const vb = segSpeed(b);
+    return va > 0 && vb > 0 ? Math.min((va + vb) / 2, 2.2 * Math.min(va, vb)) : 0;
   }
 
   /**

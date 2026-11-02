@@ -11,7 +11,7 @@ import { roadMenu, routeArrival, sideOf, venueHere, type RoadStop } from '../cor
 import { earning, goalObjects, nextHop, storyGoals } from '../core/waymarks';
 import { biggestBike, bikeImage, zoneFor } from '../core/worldMap';
 import { ROUTE, spawnTile, stepTriggerAt, type Arrival, type StepResult } from '../core/travel';
-import { areaFlag, areaOfMap, buyHouse, buyMotor, houseFlag, motorProblem, openAreas } from '../core/areas';
+import { areaFlag, areaOfMap, buyHouse, buyMotor, houseFlag, motorProblem, openAreas, openReleasedAreas } from '../core/areas';
 import { defaultSetup, effectiveSetup, positionValue, positionsFor, setupReport, sliderUnlocked, type SliderDef } from '../core/setup';
 import { DriveMap, FACING_OF, bayFor, ensureVan, exitTile, footprint, haulerAt, inwardHeading, nearestFree, placeNear, planDrive, sheetFor, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
@@ -118,6 +118,8 @@ export class WorldScene extends Phaser.Scene {
 
   init(data: WorldData): void {
     this.save = structuredClone(data.save);
+    // A build that releases more areas (areas.json release) opens the ones already won the way into.
+    openReleasedAreas(services.content.areas, services.content.championships, this.save.career, this.save.flags);
     this.intro = !!data.intro;
     this.shift = null;
     this.stationMarks = [];
@@ -503,8 +505,10 @@ export class WorldScene extends Phaser.Scene {
     this.faceNpc(character);
     if (npc.news) {
       // News for the players: read once, and the bubble turns white until there's a new message.
-      this.say(npc.name, npc.dialogue, () => {
-        const read = newsRead(npc.dialogue);
+      // The news can move on with the story (talk rules: Area 3's date once Area 2 is won, Boss, 1 Nov 2026).
+      const news = this.talkRule(npc)?.dialogue ?? npc.dialogue;
+      this.say(npc.name, news, () => {
+        const read = newsRead(news);
         if (!this.save.flags[read]) {
           this.save.flags[read] = true;
           this.refreshNews();
@@ -789,7 +793,7 @@ export class WorldScene extends Phaser.Scene {
     const marks: Mark[] = this.npcs
       // Like their talk, the bubble waits until the opening chain is done (GDD 4.2).
       .filter((n) => n.placement.npc.news && (!n.placement.npc.quietUntil || this.save.flags[n.placement.npc.quietUntil]))
-      .map((n) => ({ kind: 'news', x: n.character.sprite.x, y: n.character.sprite.y, fresh: !this.save.flags[newsRead(n.placement.npc.dialogue)] }));
+      .map((n) => ({ kind: 'news', x: n.character.sprite.x, y: n.character.sprite.y, fresh: !this.save.flags[newsRead(this.talkRule(n.placement.npc)?.dialogue ?? n.placement.npc.dialogue)] }));
     this.newsMarks.show(marks);
   }
 
