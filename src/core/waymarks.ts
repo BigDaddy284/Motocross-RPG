@@ -40,7 +40,7 @@ function npcMap(content: Content, maps: Map<string, BakedMap>, id: string): stri
  * until the rider has got in, the van. Empty once the opening
  * chain is over.
  */
-export function storyGoals(content: Content, maps: Map<string, BakedMap>, career: CareerState, flags: Record<string, boolean> = {}, van: { map: string } | null = null): Goal[] {
+export function storyGoals(content: Content, maps: Map<string, BakedMap>, career: CareerState, flags: Record<string, boolean> = {}, van: { map: string } | null = null, here?: string): Goal[] {
   const step = currentStep(content.story, career);
   // Just bought: first to the van to get in, then on with the step (Boss, 28 Oct 2026).
   if (step?.markVan && !flags[step.markVan] && van && maps.has(van.map)) return [{ kind: 'van', map: van.map }];
@@ -51,7 +51,9 @@ export function storyGoals(content: Content, maps: Map<string, BakedMap>, career
   if (goal) return [goal];
   // After the opening chain, the task line's NPC (Boss, 30 Oct 2026: Paul's bike care advice had no arrows).
   const after = !step ? afterTask(content.story, flags) : undefined;
-  const npc = after?.talk ? content.npcs.find((n) => n.id === after.talk) : undefined;
+  const named = after?.talk ? content.npcs.find((n) => n.id === after.talk) : undefined;
+  // The same person on this map (Joseph is at every venue, Boss 2 Nov 2026): them, not the one elsewhere.
+  const npc = (named && here && content.npcs.find((n) => n.map === here && n.name === named.name && n.dialogue === named.dialogue)) || named;
   const map = npc ? npcMap(content, maps, npc.id) : null;
   return npc && map ? [{ kind: 'npc', map, npc: npc.id, name: npc.name }] : [];
 }
@@ -83,7 +85,7 @@ export function goalObjects(map: BakedMap, action: string, used: string[]): MapO
 
 /** Where each open door and exit on a map leads: a route leads to every place along it. */
 function links(map: BakedMap, maps: Map<string, BakedMap>, world: WorldData, travel: Travel, flags: Record<string, boolean>): { via: MapObject; to: string }[] {
-  const out: { via: MapObject; to: string }[] = [];
+  const out: { via: MapObject; to: string; main?: boolean }[] = [];
   for (const via of map.objects) {
     if (via.type !== 'door' && via.type !== 'exit') continue;
     if (behindBlocker(map, via, flags)) continue;
@@ -91,10 +93,11 @@ function links(map: BakedMap, maps: Map<string, BakedMap>, world: WorldData, tra
     if (r?.kind === 'travel') out.push({ via, to: r.to.map });
     else if (r?.kind === 'route') {
       const route = routeFor(world, map, via);
-      for (const p of route ? routePlaces(world, maps, route, flags) : []) if (!p.mods) out.push({ via, to: p.map });
+      for (const p of route ? routePlaces(world, maps, route, flags) : []) if (!p.mods) out.push({ via, to: p.map, main: route!.to[0] === p.map });
     }
   }
-  return out;
+  // A town's own road to its neighbour first (Boss, 2 Nov 2026): north to Mountain Town, not round by the hub road.
+  return out.sort((a, b) => Number(!!b.main) - Number(!!a.main));
 }
 
 /** The first door or exit on the shortest way from one map to another, or null if there's no open way. */
@@ -123,6 +126,22 @@ export function nextHop(maps: Map<string, BakedMap>, world: WorldData, travel: T
       first.set(l.to, first.get(id)!);
       queue.push(l.to);
     }
+  }
+  return null;
+}
+
+/**
+ * How many doors and exits it takes to get from one map to another following the markers (0 when
+ * already there), or null if there's no open way. The road menu marks the places nearest the
+ * task (Boss, 2 Nov 2026).
+ */
+export function hopsTo(maps: Map<string, BakedMap>, world: WorldData, travel: Travel, flags: Record<string, boolean>, from: string, to: string): number | null {
+  let at = from;
+  for (let n = 0; n < 16; n++) {
+    if (at === to) return n;
+    const h = nextHop(maps, world, travel, flags, at, to);
+    if (!h) return null;
+    at = h.to;
   }
   return null;
 }

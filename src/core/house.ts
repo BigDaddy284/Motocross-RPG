@@ -176,3 +176,13 @@ export function checkHouse(file: string, data: HouseData, c: { sheets: string[];
   }
   return errors;
 }
+
+/**
+ * The sheet the rider is drawn with: a race kit in their bike's brand colours when the art has it
+ * (tools/art/kit-brands.py, <sheet>-<brand>), so the kit matches the bike (Boss, 2 Nov 2026). The
+ * save keeps the kit's own sheet, so a new bike of another brand changes the colours with it.
+ */
+export function shownLook(look: string, brand: string, hasSheet: (sheet: string) => boolean): string {
+  const branded = `${look}-${brand}`;
+  return hasSheet(branded) ? branded : look;
+}

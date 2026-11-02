@@ -29,7 +29,7 @@ describe('areas (Spec 18.1, 18.2; Areas 2 to 8 plan, Boss 30 and 31 Oct 2026)', 
     expect(AREA_COUNT).toBe(8);
   });
 
-  it('winning the Area 1 Championship opens Area 2, which starts its intro chain', () => {
+  it('winning the Area 1 Championship starts the road to Area 2, which Manny opens and its intro chain starts (Boss, 2 Nov 2026)', () => {
     const career = fresh();
     const flags: Record<string, boolean> = { 'badge.area1': true, 'found.venue-farmland': true };
     const main = championships.championships.find((c) => c.id === 'area1.main')!;
@@ -38,7 +38,10 @@ describe('areas (Spec 18.1, 18.2; Areas 2 to 8 plan, Boss 30 and 31 Oct 2026)', 
     enter(career, content, main, 7);
     const r = finishChampionship(career, flags, main, [50, 10, 5]);
     expect(r.position).toBe(1);
-    expect(flags[areaFlag(2)]).toBe(true);
+    expect(flags[areaFlag(2)]).toBeUndefined();
+    expect(flags['road.2.won']).toBe(true);
+    // Joseph, Bill and Manny (npcs.json talk rules) set the rest; Manny opens it.
+    Object.assign(flags, { 'road.2.told': true, 'road.2.bill': true, [areaFlag(2)]: true });
     // The intro chain starts once the flag is set, and only once.
     career.story.step = story.steps.length;
     expect(currentStep(story, career)).toBeNull();

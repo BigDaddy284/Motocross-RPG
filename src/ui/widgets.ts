@@ -44,6 +44,9 @@ export function button(scene: Phaser.Scene, x: number, y: number, label: string,
  * A small gold trophy drawn with shapes, about `size` tall, centred on (x, y): marks where a
  * championship's next round is on the road menu (Boss, 2 Nov 2026).
  */
+/** The road menu's mark for where the task is (Boss, 2 Nov 2026): the orange "!" of the task markers. */
+export const TASK_MARK = '__task';
+
 export function trophyIcon(scene: Phaser.Scene, x: number, y: number, size = 30): Phaser.GameObjects.Graphics {
   const g = scene.add.graphics({ x, y });
   const u = size / 30;

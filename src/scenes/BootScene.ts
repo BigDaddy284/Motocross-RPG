@@ -1,3 +1,4 @@
+import { soldTexture, type AreasData } from '../core/areas';
 import Phaser from 'phaser';
 import { sidecarTrack } from '../core/sidecar';
 import { CONTENT_FILES, checkContent, type Manifest, type RawContent } from '../core/content';
@@ -61,6 +62,8 @@ export class BootScene extends Phaser.Scene {
     for (const b of (this.cache.json.get('content:bikes') as BikesData | undefined)?.brands ?? []) {
       for (const model of ['youth', 'adult']) for (const h of HEADINGS) this.load.image(bikeTexture(model, b.id, h), `assets/${bikeImagePath(model, b.id, h)}`);
     }
+    // The houses' fronts with the For Sale sign gone, drawn once bought (areas.json house.sold).
+    for (const a of (this.cache.json.get('content:areas') as AreasData | undefined)?.areas ?? []) if (a.house?.sold) this.load.image(soldTexture(a.house.sold.image), `assets/${a.house.sold.image}`);
     // Badges and trophies (championships.json rewards).
     const champs = this.cache.json.get('content:championships') as ChampionshipsData | undefined;
     for (const c of champs?.championships ?? []) for (const r of c.rewards) if (r.image) this.load.image(rewardTexture(r.image), `assets/${r.image}`);
