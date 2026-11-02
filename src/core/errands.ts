@@ -1,4 +1,4 @@
-import { formatMoney, pence, type BikesData, type CareerState } from './career';
+import { pence, type BikesData, type CareerState } from './career';
 import { repairQuote, slotName, spareCount, SPARE, type Result, type ShopsData } from './shops';
 import type { ContentError, Schema } from './validate';
 
@@ -113,7 +113,8 @@ export function finishErrand(career: CareerState, def: ErrandDef): Result {
   const s = errandState(career);
   s.active = null;
   s.done[def.id] = (s.done[def.id] ?? 0) + 1;
-  return { ok: true, message: `Paid ${formatMoney(pay)}: the repair, plus ${formatMoney(pence(def.reward))} for your trouble.` };
+  // The amount shows as the bank note over the rider's head (Boss, 2 Nov 2026).
+  return { ok: true, message: 'Paid back for the repair, plus a bit for your trouble.' };
 }
 
 export const ERRANDS_SCHEMA: Schema = {

@@ -1,5 +1,5 @@
 import { className, dayClass } from './classes';
-import { bikeProblem, pence, type BikesData, type Bike, type CareerState } from './career';
+import { bikeProblem, pence, wholePounds, type BikesData, type Bike, type CareerState } from './career';
 import { isSprint, lapMetres } from './trackGeom';
 import { MotoSim, dealGates, formatTime, gateBonus, mixSeed, seededRng, type Entrant, type RacingData, type RiderResult, type Tactic, type TrackDef } from './race';
 import { addXp, childLevels, leadLevel, type LevelUp, type SkillsData } from './skills';
@@ -128,7 +128,7 @@ export function entryFee(rc: RaceContent, venue: VenueDef, flags: Record<string,
 
 /** A trainer's coached practice (Big Pete, Boss, 1 Nov 2026): feeTimes the venue's practice fee, in pence. */
 export function coachedFee(fee: number, trainer: { feeTimes: number }): number {
-  return Math.round(fee * trainer.feeTimes);
+  return wholePounds(fee * trainer.feeTimes);
 }
 
 export function practiceFee(rc: RaceContent, venue: VenueDef, cls = venue.class ?? '50cc'): number {
@@ -571,14 +571,14 @@ export class RaceDay {
     const me = rows.find((r) => r.player)!;
     const share = this.rc.racing.prize.podium[me.position - 1] ?? 0;
     const finishedAll = me.positions.every((p) => p !== null);
-    return { overall: rows, podiumBonus: finishedAll && !this.sidecar?.test ? Math.round(this.entryForPrize * share) : 0 };
+    return { overall: rows, podiumBonus: finishedAll && !this.sidecar?.test ? wholePounds(this.entryForPrize * share) : 0 };
   }
 }
 
 /** Prize for one moto in pence: the winner gets 3 × entry, the rest a share of that (Spec 14.3). */
 export function motoPrize(racing: RacingData, entryPence: number, position: number): number {
   const share = racing.prize.shares[position - 1] ?? 0;
-  return Math.round(entryPence * racing.prize.winnerTimesEntry * share);
+  return wholePounds(entryPence * racing.prize.winnerTimesEntry * share);
 }
 
 // ---- putting it back on the career ----

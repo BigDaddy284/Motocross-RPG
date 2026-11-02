@@ -177,7 +177,7 @@ describe('race simulation (Spec 10)', () => {
 describe('race day (Spec 12, 14)', () => {
   it('pays 3 × entry to the winner and shares down to 10th', () => {
     expect(motoPrize(content.racing, 2000, 1)).toBe(6000);
-    expect(motoPrize(content.racing, 2000, 6)).toBe(1440);
+    expect(motoPrize(content.racing, 2000, 6)).toBe(1400); // £14.40, to the nearest £1 (Boss, 2 Nov 2026)
     expect(motoPrize(content.racing, 2000, 11)).toBe(0);
   });
 

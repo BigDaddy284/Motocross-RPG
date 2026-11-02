@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { newCareerState, type CareerState } from '../src/core/career';
+import { newCareerState, wholePounds, type CareerState } from '../src/core/career';
 import { champLine, checkChampionships, champById, otherActive, champRiders, champProblem, drawChampField, enter, finishChampionship, nextRoundVenue, nextRoundVenues, recordRound, roundEntry, roundOptions, roundsHere, standings, titlePossible, withdraw, type ActiveChampionship } from '../src/core/championship';
 import { checkContent } from '../src/core/content';
 import { PLAYER_ID, RaceDay, playerEntrant } from '../src/core/raceDay';
@@ -128,7 +128,7 @@ describe('championships (Spec 12.5, 18.6)', () => {
     const rec = day.finishMoto(sim);
     const me = rec.results.find((r) => r.player)!;
     const share = content.racing.prize.shares[me.position - 1] ?? 0;
-    if (!me.retired) expect(rec.prize).toBe(Math.round(2000 * 1.8 * content.racing.prize.winnerTimesEntry * share));
+    if (!me.retired) expect(rec.prize).toBe(wholePounds(2000 * 1.8 * content.racing.prize.winnerTimesEntry * share));
   });
 
   it('has no qualifying (Boss, 2 Nov 2026): moto 1 gate picks are drawn at random, moto 2 in moto 1 finishing order', () => {

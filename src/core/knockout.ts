@@ -1,5 +1,5 @@
 import { dayClass } from './classes';
-import { pence } from './career';
+import { pence, wholePounds } from './career';
 import { buffRider } from './championship';
 import { KNOCKOUT_DEFAULTS, MotoSim, dealGates, formatTime, mixSeed, seededRng, type Entrant, type KnockoutRules, type RiderResult } from './race';
 import { cpuEntrant, drawPool, motoPrize, PLAYER_ID, scaleXp, sumXp, trackById, type RaceContent, type VenueDef } from './raceDay';
@@ -391,7 +391,7 @@ export class Knockout {
     const position = places.find((p) => p.player)!.position;
     const purse = pence(this.rc.racing.classes[this.cls].entry);
     const prize = 2 * motoPrize(this.rc.racing, purse, position);
-    const podiumBonus = Math.round(purse * (this.rc.racing.prize.podium[position - 1] ?? 0));
+    const podiumBonus = wholePounds(purse * (this.rc.racing.prize.podium[position - 1] ?? 0));
     return { places, position, prize, podiumBonus, xp: scaleXp(sumXp(...this.xp), 1) };
   }
 }

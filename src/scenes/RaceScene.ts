@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { lastReleasedArea } from '../core/areas';
 import { bikeStats, formatMoney, raceStopper, type Bike } from '../core/career';
-import { formatTime, gateBonus, setTestAlwaysWin, type LapTrace, type MotoSim, type RaceEvent, type RiderResult, type TrackDef } from '../core/race';
+import { formatTime, gateBonus, setTestAlwaysWin, setTestNoWear, type LapTrace, type MotoSim, type RaceEvent, type RiderResult, type TrackDef } from '../core/race';
 import { PLAYER_ID, RaceDay, applyRide, playerEntrant, practiceSim, sumXp, trackById, type MotoRecord, type VenueDef } from '../core/raceDay';
 import { Knockout, type KnockoutHeat, roundName } from '../core/knockout';
 import { isSupercross, MAIN_COUNTS, SupercrossNight, type NightRace } from '../core/supercross';
@@ -197,6 +197,10 @@ export class RaceScene extends Phaser.Scene {
     this.fit();
     this.scale.on('resize', this.relayout, this);
     this.events.once('shutdown', () => this.scale.off('resize', this.relayout, this));
+    // TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 31 Oct 2026): "TEST: Always win" puts the player
+    // first, set before any branch so a challenge gets it too; "TEST: No bike wear" (Boss, 2 Nov 2026) likewise.
+    setTestAlwaysWin(services.settings.get().gameplay.testAlwaysWin);
+    setTestNoWear(services.settings.get().gameplay.testNoWear);
     if (this.args.mode === 'practice') this.startPractice();
     else if (this.args.challenge) this.showChallengeStart(this.args.challenge);
     else {
@@ -356,6 +360,38 @@ export class RaceScene extends Phaser.Scene {
     const p = panel(this, x + w / 2, y + h / 2, w, h);
     into.add(p);
     return p;
+  }
+
+  /** Steps a text's size down until it ends above `bottom`, so a long list stays inside its box. */
+  private fitIn(t: Phaser.GameObjects.Text, bottom: number, min = 11): Phaser.GameObjects.Text {
+    let size = parseFloat(String(t.style.fontSize));
+    while (t.y + t.height > bottom && size > min) t.setFontSize(--size);
+    return t;
+  }
+
+  /**
+   * The right-hand box on a results screen (box 580, 110, 680 × 530): the money, sponsor and XP
+   * lines down the left, level ups and bike wear down the right, each shrunk to fit inside the box
+   * (Boss, 2 Nov 2026: the challenge result ran out of its box).
+   */
+  private resultColumns(lines: string[], ups: string[], wear: string[], wearTitle: string): void {
+    const bottom = 110 + 530 - 14;
+    this.fitIn(this.text(604, 170, lines.join('\n'), 17, COLORS.cream, { lineSpacing: 4, wordWrap: { width: 310 } }), bottom);
+    let size = 17;
+    for (;;) {
+      const made: Phaser.GameObjects.Text[] = [];
+      let y = 170;
+      if (ups.length) {
+        const u = this.text(930, y, ['Level up!', ...ups].join('\n'), size, 0x9fe07a, { lineSpacing: 4, wordWrap: { width: 310 } });
+        made.push(u);
+        y += u.height + Math.round(size * 1.4);
+      }
+      if (wear.length) made.push(this.text(930, y, [wearTitle, ...wear].join('\n'), size - 2, COLORS.muted, { lineSpacing: 4, wordWrap: { width: 310 } }));
+      const end = Math.max(y, ...made.map((t) => t.y + t.height));
+      if (end <= bottom || size <= 12) return;
+      made.forEach((t) => t.destroy());
+      size--;
+    }
   }
 
   private openModal(w: number, h: number): Phaser.GameObjects.Container {
@@ -623,12 +659,12 @@ export class RaceScene extends Phaser.Scene {
     if (this.sx) {
       const m = this.openModal(640, 240);
       m.add(this.add.text(0, -60, "Leave the night now? You won't make the Main Event:\nno prize money or points. You keep the XP and the wear.", textStyle(20, COLORS.cream, { align: 'center' })).setOrigin(0.5));
-      m.add(button(this, -130, 50, 'Leave', () => {
+      m.add(button(this, 130, 50, 'Leave', () => {
         this.closeModal();
         this.sx!.leaveEarly();
         this.showSxNightResults();
       }, 200, 46));
-      m.add(button(this, 130, 50, 'Stay', () => this.closeModal(), 200, 46));
+      m.add(button(this, -130, 50, 'Stay', () => this.closeModal(), 200, 46));
       return;
     }
     const c = this.openModal(620, 240);
@@ -637,12 +673,12 @@ export class RaceScene extends Phaser.Scene {
       ? `Leave before moto ${n}? It counts as a DNF.\nYou keep everything you earned in ${n > 2 ? 'the motos so far' : 'moto 1'}.`
       : 'Leave before moto 1? Every moto counts as a DNF,\nwith no points or prize money for the day.';
     c.add(this.add.text(0, -60, text, textStyle(20, COLORS.cream, { align: 'center' })).setOrigin(0.5));
-    c.add(button(this, -130, 50, 'Leave', () => {
+    c.add(button(this, 130, 50, 'Leave', () => {
       this.closeModal();
       this.day!.leaveEarly();
       this.showDayResults();
     }, 200, 46));
-    c.add(button(this, 130, 50, 'Stay', () => this.closeModal(), 200, 46));
+    c.add(button(this, -130, 50, 'Stay', () => this.closeModal(), 200, 46));
   }
 
   /**
@@ -655,11 +691,11 @@ export class RaceScene extends Phaser.Scene {
     this.btn(x, 682, 'Pull out', () => {
       const c = this.openModal(620, 240);
       c.add(this.add.text(0, -60, "Pull out before the racing starts?\nNo entry fee, and nothing goes on your record.", textStyle(20, COLORS.cream, { align: 'center' })).setOrigin(0.5));
-      c.add(button(this, -130, 50, 'Pull out', () => {
+      c.add(button(this, 130, 50, 'Pull out', () => {
         this.closeModal();
         this.done(`You pulled out of ${this.args.venue.name}. No entry fee taken.`);
       }, 200, 46));
-      c.add(button(this, 130, 50, 'Stay', () => this.closeModal(), 200, 46));
+      c.add(button(this, -130, 50, 'Stay', () => this.closeModal(), 200, 46));
     }, w, 44);
   }
 
@@ -799,7 +835,9 @@ export class RaceScene extends Phaser.Scene {
     // as Position but in the pen's ink colour (Boss, 31 Oct and 1 Nov 2026), the orange of the picked
     // speed button since 2 Nov 2026 (Boss).
     this.ui.ink = this.text((map.x + map.x + map.w - penW) / 2, rowY, '', 18, COLORS.accentDark, OVERLAY).setOrigin(0.5, 0.5);
-    this.box(right, 16, sideW, dh - 160);
+    // TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 2 Nov 2026): room under the standings for "TEST: Win now".
+    const testH = practice ? 0 : 44;
+    this.box(right, 16, sideW, dh - 160 - testH);
     // The standings show as many rows as fit above the log, scrolled to keep you in view.
     // Your row is picked out by a bar behind it, so the standings lose the arrow column and the
     // times sit just after the field's longest name (Boss, 31 Oct 2026).
@@ -807,7 +845,7 @@ export class RaceScene extends Phaser.Scene {
     this.screen.add(this.towerMark);
     this.ui.tower = this.text(right + 12, 30, '', 16, COLORS.cream, { lineSpacing: 7 }).setFontFamily(MONO);
     // The log always starts under the last row.
-    this.towerRows = Math.max(6, Math.floor((dh - 160 - 14 - 8) / this.towerLineH));
+    this.towerRows = Math.max(6, Math.floor((dh - 160 - testH - 14 - 8) / this.towerLineH));
     // The race log floats over the track's bottom-left corner in the Position text one size down,
     // five lines at most. It is just wide enough for the longest line the log can write (a big crash
     // at the longest-named section breaking three parts) to split over two near-equal lines
@@ -860,6 +898,10 @@ export class RaceScene extends Phaser.Scene {
     } else {
       this.btn(right + aw / 2, dh - 60, 'Retire', () => this.confirmRetire(), aw, 44);
       this.btn(right + aw * 1.5 + 8, dh - 60, 'Details', () => this.toggleDetail(), aw, 44);
+      // TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 2 Nov 2026): "TEST: Win now", under the
+      // standings, ends the race at once with the player first and goes straight to its results screen,
+      // in any race, heat, qualifying or challenge.
+      this.btn(right + sideW / 2, dh - 144 - testH + 4 + 18, 'TEST: Win now', () => this.testWinNow(), sideW, 36);
     }
     this.addLap(sim.nextLap());
     // A race opens with the start procedure: the line-up, then the board and the five-second
@@ -1393,13 +1435,13 @@ export class RaceScene extends Phaser.Scene {
       c.add(this.add.text(40, 186, `Loss is the condition each part has lost this race. Low (${Math.round(racing.wear.lowAt * 100)}% or less) wears faster.`, textStyle(14, COLORS.muted, { wordWrap: { width: 520 } })));
     }
 
-    c.add(button(this, -150, 262, "It's over, bike blown", () => {
+    c.add(button(this, 150, 262, "It's over, bike blown", () => {
       this.closeModal();
       // You pull off at the line, so the lap you were starting is run without you.
       this.redoMyLap(() => sim.retirePlayer("It's over, bike blown"));
       this.retireNow();
     }, 280, 46));
-    c.add(button(this, 170, 262, 'Watch on', set, 200, 46));
+    c.add(button(this, -170, 262, 'Watch on', set, 200, 46));
   }
 
   private confirmRetire(): void {
@@ -1408,11 +1450,11 @@ export class RaceScene extends Phaser.Scene {
     const c = this.openModal(560, 220);
     const what = this.qualifying || (this.ko && !this.koHeat) ? 'You pull off and set no more times.' : this.ko ? 'You pull off: a DNF, and out of this heat.' : this.sx ? `You pull off and score a DNF in the ${this.sxRace!.name}.` : 'You pull off and score a DNF for this moto.';
     c.add(this.add.text(0, -50, `It's over, bike blown?\n${what}`, textStyle(20, COLORS.cream, { align: 'center' })).setOrigin(0.5));
-    c.add(button(this, -120, 55, 'Retire', () => {
+    c.add(button(this, 120, 55, 'Retire', () => {
       this.closeModal();
       this.retireNow();
     }, 200, 46));
-    c.add(button(this, 120, 55, 'Keep racing', () => this.closeModal(), 200, 46));
+    c.add(button(this, -120, 55, 'Keep racing', () => this.closeModal(), 200, 46));
   }
 
   private retireNow(): void {
@@ -1423,6 +1465,20 @@ export class RaceScene extends Phaser.Scene {
   }
 
   // ---- results ----
+
+  /** TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 2 Nov 2026): runs the race to the end with the player first. */
+  private testWinNow(): void {
+    const sim = this.sim;
+    if (!sim || !this.live) return;
+    setTestAlwaysWin(true);
+    try {
+      while (!sim.finished) this.addLap(sim.nextLap());
+      this.live = false;
+      this.finishMoto();
+    } finally {
+      setTestAlwaysWin(services.settings.get().gameplay.testAlwaysWin);
+    }
+  }
 
   private finishMoto(): void {
     if (this.qualifying) return this.showQualifyingResults();
@@ -1446,7 +1502,7 @@ export class RaceScene extends Phaser.Scene {
     const mine = results.findIndex((r) => r.player);
     if (mine >= 0) {
       const lh = t.height / (rows.length + 1);
-      const bar = this.add.rectangle(x - 6, y + lh * (mine + 1), 660, lh, COLORS.accentDark, 0.45).setOrigin(0, 0);
+      const bar = this.add.rectangle(x - 6, y + lh * (mine + 1), t.width + 12, lh, COLORS.accentDark, 0.45).setOrigin(0, 0);
       this.screen.add(bar);
       this.screen.bringToTop(t);
     }
@@ -1551,21 +1607,13 @@ export class RaceScene extends Phaser.Scene {
     });
     if (settled.lines.length) lines.push('', 'Sponsor', ...settled.lines);
     lines.push('', 'Rider XP', ...this.xpLines(payout.xp));
-    this.text(604, 170, lines.join('\n'), 17, COLORS.cream, { lineSpacing: 4, wordWrap: { width: 310 } });
-    const ups = payout.levelUps.map((u) => `${u.name} → level ${u.level}`);
-    const wear = this.wearLines(this.args.save.career.bike.parts, career.bike.parts);
-    let y = 170;
-    if (ups.length) {
-      const t = this.text(930, y, ['Level up!', ...ups].join('\n'), 17, 0x9fe07a, { lineSpacing: 4 });
-      y += t.height + 24;
-    }
-    this.text(930, y, ['Bike wear today', ...wear].join('\n'), 15, COLORS.muted, { lineSpacing: 4 });
+    this.resultColumns(lines, this.upLines(payout.levelUps), this.wearLines(this.args.save.career.bike.parts, career.bike.parts), 'Bike wear today');
     if (champ) {
       recordRound(champ.active, this.args.venue, day);
       this.btn(W / 2 + 300, 670, 'Championship standings', () => this.showStandings(champ.def, champ.active), 300, 50);
       return;
     }
-    this.btn(W / 2 + 300, 670, 'Back to the paddock', () => this.done(`Race day done: ${ordinal(me.position)} overall, ${money >= 0 ? '+' : ''}${formatMoney(money)}.`), 300, 50);
+    this.btn(W / 2 + 300, 670, 'Back to the paddock', () => this.done(`Race day done: ${ordinal(me.position)} overall.`), 300, 50);
   }
 
   /** The championship table after a round, and the final result after the last one (Spec 12.5). */
@@ -1618,11 +1666,16 @@ export class RaceScene extends Phaser.Scene {
     if (fin.position > 3) lines.push('', 'The top three win a prize. Enter again from any race office.');
     if (offers.length) lines.push('', `${offers.length} sponsor offer${offers.length === 1 ? '' : 's'} waiting: see Sponsors at any race office.`);
     lines.push('', `Money now: ${formatMoney(career.money)}`);
-    this.text(764, 176, lines.join('\n'), 19, COLORS.cream, { lineSpacing: 6, wordWrap: { width: 450 } });
-    // The badge or trophy won, as it shows in the Task tab.
     const image = fin.title ? def.rewards[fin.position - 1]?.image : undefined;
-    if (image && this.textures.exists(rewardTexture(image))) this.screen.add(this.add.image(990, 500, rewardTexture(image)).setDisplaySize(160, 160));
+    const shown = image && this.textures.exists(rewardTexture(image));
+    this.fitIn(this.text(764, 176, lines.join('\n'), 19, COLORS.cream, { lineSpacing: 6, wordWrap: { width: 450 } }), shown ? 415 : 596);
+    // The badge or trophy won, as it shows in the Task tab.
+    if (shown) this.screen.add(this.add.image(990, 500, rewardTexture(image)).setDisplaySize(160, 160));
     this.btn(W / 2 + 300, 670, 'Back to the paddock', () => this.done(fin.position === 1 ? `${def.name}: champion!` : `${def.name}: ${ordinal(fin.position)}.`), 300, 50);
+  }
+
+  private upLines(ups: { name: string; level: number }[]): string[] {
+    return ups.map((u) => `${u.name} → level ${u.level}`);
   }
 
   private xpLines(xp: Record<string, number>): string[] {
@@ -1682,8 +1735,9 @@ export class RaceScene extends Phaser.Scene {
     c[challengeRuns(def.id)] = (c[challengeRuns(def.id)] ?? 0) + 1;
     if (prize) c[challengeWins(def.id)] = (c[challengeWins(def.id)] ?? 0) + 1;
     noteActivity(services.content.shops, career, 'activity');
-    this.box(740, 110, 500, 530);
-    this.text(764, 126, me.retired ? `DNF: ${me.reason ?? 'retired'}` : prize ? `You won!` : `Finished ${ordinal(me.position)}`, 26, COLORS.accent);
+    // Laid out like a race day's results (Boss, 2 Nov 2026: the one long list ran out of its box).
+    this.box(580, 110, 680, 530);
+    this.text(604, 124, me.retired ? `DNF: ${me.reason ?? 'retired'}` : prize ? `You won!` : `Finished ${ordinal(me.position)}`, 26, COLORS.accent);
     const lines = [
       `Entry: −${formatMoney(this.args.fee)}`,
       `Winnings: ${formatMoney(prize)}`,
@@ -1692,13 +1746,9 @@ export class RaceScene extends Phaser.Scene {
       '',
       'Rider XP',
       ...this.xpLines(payout.xp),
-      ...payout.levelUps.map((u) => `Level up! ${u.name} → level ${u.level}`),
-      '',
-      'Bike wear',
-      ...this.wearLines(this.args.save.career.bike.parts, career.bike.parts).slice(0, 5),
     ];
-    this.text(764, 172, lines.join('\n'), 17, COLORS.cream, { lineSpacing: 4, wordWrap: { width: 450 } });
-    this.btn(990, 670, 'Back', () => this.done(prize ? `${def.name}: you won ${formatMoney(prize)}!` : `${def.name}: ${me.retired ? 'DNF' : ordinal(me.position)}, no winnings this time.`), 260, 50);
+    this.resultColumns(lines, this.upLines(payout.levelUps), this.wearLines(this.args.save.career.bike.parts, career.bike.parts), 'Bike wear');
+    this.btn(W / 2 + 300, 670, 'Back', () => this.done(prize ? `${def.name}: you won!` : `${def.name}: ${me.retired ? 'DNF' : ordinal(me.position)}, no winnings this time.`), 260, 50);
   }
 
   // ---- practice ----
@@ -2082,16 +2132,8 @@ export class RaceScene extends Phaser.Scene {
       'Rider XP',
       ...this.xpLines(payout.xp),
     ];
-    this.text(604, 170, lines.join('\n'), 17, COLORS.cream, { lineSpacing: 4, wordWrap: { width: 310 } });
-    const ups = payout.levelUps.map((u) => `${u.name} → level ${u.level}`);
-    const wear = this.wearLines(this.args.save.career.bike.parts, career.bike.parts);
-    let y = 170;
-    if (ups.length) {
-      const u = this.text(930, y, ['Level up!', ...ups].join('\n'), 17, 0x9fe07a, { lineSpacing: 4 });
-      y += u.height + 24;
-    }
-    this.text(930, y, ['Bike wear today', ...wear].join('\n'), 15, COLORS.muted, { lineSpacing: 4 });
-    this.btn(W / 2 + 300, 670, 'Back to the paddock', () => this.done(`No-Turn Takedown done: ${ordinal(res.position)} overall, ${money >= 0 ? '+' : ''}${formatMoney(money)}.`), 300, 50);
+    this.resultColumns(lines, this.upLines(payout.levelUps), this.wearLines(this.args.save.career.bike.parts, career.bike.parts), 'Bike wear today');
+    this.btn(W / 2 + 300, 670, 'Back to the paddock', () => this.done(`No-Turn Takedown done: ${ordinal(res.position)} overall.`), 300, 50);
   }
 
   // ---- a Supercross night (core/supercross.ts, Boss 1 Nov 2026) ----
@@ -2294,22 +2336,14 @@ export class RaceScene extends Phaser.Scene {
     });
     if (settled.lines.length) lines.push('', 'Sponsor', ...settled.lines);
     lines.push('', 'Rider XP', ...this.xpLines(payout.xp));
-    this.text(604, 170, lines.join('\n'), 17, COLORS.cream, { lineSpacing: 4, wordWrap: { width: 310 } });
-    const ups = payout.levelUps.map((u) => `${u.name} → level ${u.level}`);
-    const wear = this.wearLines(this.args.save.career.bike.parts, career.bike.parts);
-    let y = 170;
-    if (ups.length) {
-      const u = this.text(930, y, ['Level up!', ...ups].join('\n'), 17, 0x9fe07a, { lineSpacing: 4 });
-      y += u.height + 24;
-    }
-    this.text(930, y, ['Bike wear tonight', ...wear].join('\n'), 15, COLORS.muted, { lineSpacing: 4 });
+    this.resultColumns(lines, this.upLines(payout.levelUps), this.wearLines(this.args.save.career.bike.parts, career.bike.parts), 'Bike wear tonight');
     if (champ) {
       recordNight(champ.active, this.args.venue, sx.championshipMotos());
       this.btn(W / 2 + 300, 670, 'Championship standings', () => this.showStandings(champ.def, champ.active), 300, 50);
       return;
     }
     const said = res.main !== null ? `${ordinal(res.main)} in the Main` : 'no Main';
-    this.btn(W / 2 + 300, 670, 'Back to the paddock', () => this.done(`Supercross night done: ${said}, ${money >= 0 ? '+' : ''}${formatMoney(money)}.`), 300, 50);
+    this.btn(W / 2 + 300, 670, 'Back to the paddock', () => this.done(`Supercross night done: ${said}.`), 300, 50);
   }
 
   // ---- back to the world ----
