@@ -322,26 +322,7 @@ export class HudScene extends Phaser.Scene {
     const head = this.headAt?.();
     if (!head) return;
     this.note?.destroy();
-    const k = this.ts(100) / 100;
-    const label = this.add.text(0, 0, `+${formatMoney(amount)}`, textStyle(this.ts(12), COLORS.ink, { fontStyle: 'bold' })).setOrigin(0.5);
-    const end = 8 * k;
-    const w = Math.max(66 * k, label.width + 2 * (2 * end + 4 * k));
-    const h = Math.max(22 * k, label.height + 6 * k);
-    const y0 = -h - 4 * k;
-    label.setY(y0 + h / 2);
-    const g = this.add.graphics();
-    g.fillStyle(0x000000, 0.35).fillRect(-w / 2 + 1.5, y0 + 1.5, w, h);
-    g.fillStyle(0xf3e3c3, 1).fillRect(-w / 2, y0, w, h);
-    g.lineStyle(2, COLORS.accent, 1).strokeRect(-w / 2, y0, w, h);
-    g.lineStyle(1, COLORS.ink, 0.6).strokeRect(-w / 2 + 3 * k, y0 + 3 * k, w - 6 * k, h - 6 * k);
-    g.fillStyle(COLORS.accent, 1).fillTriangle(-4 * k, y0 + h, 4 * k, y0 + h, 0, y0 + h + 4 * k);
-    const parts: Phaser.GameObjects.GameObject[] = [g];
-    for (const sx of [-1, 1]) {
-      g.fillStyle(COLORS.accent, 1).fillEllipse(sx * (w / 2 - end), y0 + h / 2, 10 * k, 14 * k);
-      parts.push(this.add.text(sx * (w / 2 - end), y0 + h / 2, '£', textStyle(this.ts(9), 0xf3e3c3, { fontStyle: 'bold' })).setOrigin(0.5));
-    }
-    parts.push(label);
-    const note = this.add.container(head.x, head.y, parts).setDepth(9);
+    const note = this.add.container(head.x, head.y, this.bankNote(`+${formatMoney(amount)}`, COLORS.accent, true)).setDepth(9);
     this.note = note;
     let lift = 0;
     const follow = () => {
@@ -361,19 +342,41 @@ export class HudScene extends Phaser.Scene {
     });
   }
 
+  /** The bank note's parts, centred above (0, 0): cream paper, a frame and a £ oval at each end in `frame`, and a tail when `tail`. */
+  private bankNote(text: string, frame: number, tail: boolean): Phaser.GameObjects.GameObject[] {
+    const k = this.ts(100) / 100;
+    const label = this.add.text(0, 0, text, textStyle(this.ts(12), COLORS.ink, { fontStyle: 'bold' })).setOrigin(0.5);
+    const end = 8 * k;
+    const w = Math.max(66 * k, label.width + 2 * (2 * end + 4 * k));
+    const h = Math.max(22 * k, label.height + 6 * k);
+    const y0 = -h - 4 * k;
+    label.setY(y0 + h / 2);
+    const g = this.add.graphics();
+    g.fillStyle(0x000000, 0.35).fillRect(-w / 2 + 1.5, y0 + 1.5, w, h);
+    g.fillStyle(0xf3e3c3, 1).fillRect(-w / 2, y0, w, h);
+    g.lineStyle(2, frame, 1).strokeRect(-w / 2, y0, w, h);
+    g.lineStyle(1, COLORS.ink, 0.6).strokeRect(-w / 2 + 3 * k, y0 + 3 * k, w - 6 * k, h - 6 * k);
+    if (tail) g.fillStyle(frame, 1).fillTriangle(-4 * k, y0 + h, 4 * k, y0 + h, 0, y0 + h + 4 * k);
+    const parts: Phaser.GameObjects.GameObject[] = [g];
+    for (const sx of [-1, 1]) {
+      g.fillStyle(frame, 1).fillEllipse(sx * (w / 2 - end), y0 + h / 2, 10 * k, 14 * k);
+      parts.push(this.add.text(sx * (w / 2 - end), y0 + h / 2, '£', textStyle(this.ts(9), 0xf3e3c3, { fontStyle: 'bold' })).setOrigin(0.5));
+    }
+    parts.push(label);
+    return parts;
+  }
+
   private spent: Phaser.GameObjects.Container | null = null;
 
   /**
    * Money spent (Boss, 2 Nov 2026: in place of the "Bought…" messages that sat over the shop menus):
-   * a small "−£X" box in the middle of the screen, over any open panel, that rises a little and fades.
+   * the bank note with "−£X" in the middle of the screen, over any open panel, that rises a little and fades.
    */
   spendNote(amount: number): void {
     const { width, height } = view(this);
     this.spent?.destroy();
-    const k = this.ts(100) / 100;
-    const label = this.add.text(0, 0, `−${formatMoney(amount)}`, textStyle(this.ts(22), 0xff8a80, { fontStyle: 'bold', stroke: '#14141e', strokeThickness: 4 })).setOrigin(0.5);
-    const bg = this.add.rectangle(0, 0, label.width + 28 * k, label.height + 12 * k, COLORS.ink, 0.9).setStrokeStyle(2, COLORS.panelLight);
-    const note = this.add.container(width / 2, height / 2, [bg, label]).setDepth(12);
+    // The same bank note as money coming in, framed in red, at 1.5 times the size (Boss, 2 Nov 2026).
+    const note = this.add.container(width / 2, height / 2, this.bankNote(`−${formatMoney(amount)}`, 0xd83a34, false)).setDepth(12).setScale(1.5);
     this.spent = note;
     this.tweens.add({ targets: note, y: height / 2 - 24, alpha: 0, delay: 900, duration: 600, onComplete: () => note.destroy() });
   }
