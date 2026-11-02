@@ -247,6 +247,7 @@ body.final .final-hide { display: none !important; }
   <span id="srcName" class="hint"></span>
   <span class="sep"></span>
   <button id="btnSave" disabled title="Ctrl+S">Save</button>
+  <label class="chk" id="autosaveLabel" title="Every 2 minutes, save any changes without asking: mod tracks into their files, and the game's own tracks.json when it passes the checks. A new track still needs its name from Save first."><input type="checkbox" id="autosave" checked> Autosave</label>
   <button id="btnDownload" disabled title="Download tracks.json">Download</button>
   <span id="dirty"></span>
   <span class="sep"></span>
@@ -1014,7 +1015,13 @@ async function useSource(src) {
         banners = (Array.isArray(list) ? list : []).filter((f) => typeof f === 'string' && /^[a-z0-9][a-z0-9_-]{0,47}\.png$/.test(f)).map((f) => f.slice(0, -4)).sort();
       } catch { /* no banners folder */ }
     }
-    Object.assign(app, { banners, tracksPath, modDir, modSaved, data, sectionDefs, parts, final, artBase, cur: 0, undo: [], redo: [], savedText: text, play: null, images: new Map() });
+    // A tracks.json laid out differently from how the editor writes it (the game's own is, bar one
+    // track) is not unsaved work: when the data is the same, the editor's layout counts as saved,
+    // so the editor doesn't open on "Unsaved" and autosave doesn't keep asking for a download.
+    const laidOut = gameTracksText(data);
+    let savedText = text;
+    try { if (JSON.stringify(JSON.parse(text)) === JSON.stringify(JSON.parse(laidOut))) savedText = laidOut; } catch { /* keep the file's text */ }
+    Object.assign(app, { banners, tracksPath, modDir, modSaved, data, sectionDefs, parts, final, artBase, cur: 0, undo: [], redo: [], savedText, play: null, images: new Map() });
     // The editor opens on the mod tracks (the example, and any saved): the game's own four are for
     // developing the game, listed only when asked for in the Development edition.
     let remembered = false;
@@ -1030,7 +1037,7 @@ async function useSource(src) {
     document.body.classList.toggle('final', final);
     $('#edition').textContent = final ? 'Final v1' : 'Development';
     $('#edition').classList.toggle('final', final);
-    setDirty(gameTracksText(data) !== text);
+    setDirty(gameTracksText(data) !== savedText || modsDirty());
     $('#welcome').style.display = 'none';
     $('#srcName').textContent = src.http ? `${src.base}tracks.json` : `${src.name}/${tracksPath}`;
     if (app.dirty) status(`Loaded. The file is laid out differently from how the editor saves it, so it shows as changed.${notes.length ? ` Also: ${notes.join('; ')}.` : ''}`, 'err');
@@ -6509,13 +6516,14 @@ async function save(forceDownload) {
 }
 
 /** The game's own tracks into tracks.json, or a download when the folder can't be written. Returns what it did. */
-async function writeTracks(text) {
+async function writeTracks(text, silent = false) {
   if (source.canWrite) {
     try {
       await source.write(app.tracksPath, text);
       return `Saved ${app.tracksPath}.`;
     } catch (e) {
       console.error(e);
+      if (silent) throw e;
       download('tracks.json', text);
       return `Saving into the folder failed (${e.message}), so tracks.json was downloaded: copy it over public/data/tracks.json.`;
     }
@@ -6525,7 +6533,7 @@ async function writeTracks(text) {
 }
 
 /** A mod track into the mods folder: through the dev server, into the opened folder, or as a download. Returns what it did. */
-async function writeMod(file, text) {
+async function writeMod(file, text, silent = false) {
   const where = `${MOD_DIR}/${file}`;
   try {
     if (source.http) {
@@ -6545,12 +6553,56 @@ async function writeMod(file, text) {
     }
   } catch (e) {
     console.error(e);
+    if (silent) throw e;
     download(file, text);
     return `Couldn't save ${where} (${e.message}), so ${file} was downloaded: put it in public/${MOD_DIR}.`;
   }
   download(file, text);
   return `Downloaded ${file}: put it in public/${MOD_DIR}.`;
 }
+
+// Autosave (Boss, 2 Nov 2026): every two minutes, changes are saved without asking wherever that
+// can happen silently: mod tracks into their files (through the dev server or the opened folder),
+// and the game's own tracks.json into the opened folder when every track passes the checks (a
+// tracks.json with errors stops the game starting, so that waits for Save and its question). A new
+// track with no name yet, and anything that would only download, is left for Save. Off and on with
+// the Autosave tick by Save, remembered in the browser.
+const AUTOSAVE_EVERY = 2 * 60 * 1000;
+const AUTOSAVE_KEY = 'trackEditor.autosave';
+function autosaveOn() { return $('#autosave').checked; }
+async function autosave() {
+  if (!autosaveOn() || !app.data || !app.dirty || drag || app.placing || app.drawing) return;
+  const left = [];
+  const said = [];
+  try {
+    for (const t of app.data.tracks) {
+      if (!isMod(t)) continue;
+      if (t.modFile === '') { left.push(`“${t.name}” needs a name (Save)`); continue; }
+      const text = modText(t);
+      if (app.modSaved[t.modFile] === text) continue;
+      if (!(source.http || (source.root && app.modDir !== null))) { left.push(`${t.modFile} can only be downloaded (Save)`); continue; }
+      said.push(await writeMod(t.modFile, text, true));
+      app.modSaved[t.modFile] = text;
+    }
+    const text = gameTracksText(app.data);
+    if (text !== app.savedText) {
+      if (!source.canWrite) left.push(`${app.tracksPath} can only be downloaded (Save)`);
+      else if (hasErrors()) left.push(`${app.tracksPath} has tracks failing the checks (Save decides)`);
+      else { said.push(await writeTracks(text, true)); app.savedText = text; }
+    }
+  } catch (e) {
+    status(`Autosave couldn't write (${e.message}). Use Save.`, 'err');
+    return;
+  }
+  if (!said.length) return;
+  if (!left.length) setDirty(false);
+  refresh();
+  const at = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  status(`Autosaved at ${at}: ${said.join(' ')}${left.length ? ` Still unsaved: ${left.join('; ')}.` : ''}`, 'ok');
+}
+try { $('#autosave').checked = localStorage.getItem(AUTOSAVE_KEY) !== 'off'; } catch { /* the default, on */ }
+$('#autosave').addEventListener('change', () => { try { localStorage.setItem(AUTOSAVE_KEY, autosaveOn() ? 'on' : 'off'); } catch { /* lasts the page */ } status(autosaveOn() ? 'Autosave on: changes are saved every 2 minutes.' : 'Autosave off.', 'ok'); });
+setInterval(() => { autosave().catch((e) => console.error(e)); }, AUTOSAVE_EVERY);
 
 /** Asks for a new mod track's name, which also names its file. False if cancelled. */
 function nameModTrack(t) {
