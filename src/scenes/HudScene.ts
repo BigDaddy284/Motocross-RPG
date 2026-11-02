@@ -1520,7 +1520,9 @@ export class HudScene extends Phaser.Scene {
               // The champion's offer brings the sponsor's kit too, up to Area 4 (Boss, 31 Oct 2026).
               const kit = r.ok && !price && champ && this.rider ? championsKit(services.content.house, champ) : null;
               const given = kit ? awardOutfit(kit, this.rider!) : null;
-              done(given?.ok ? { ...r, message: `${r.message} ${given.message}` } : r, 'buy');
+              // A bike bought shows as the −£ note; the champion's free bike (and kit) still says so.
+              if (r.ok && !price) this.toast(given?.ok ? `${r.message} ${given.message}` : r.message);
+              done(r, 'buy');
             },
             () => reopen(),
           );

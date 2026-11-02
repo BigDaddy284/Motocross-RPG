@@ -702,8 +702,8 @@ export class WorldScene extends Phaser.Scene {
     const extras = area.house.unlocks?.includes('wardrobe') ? ' It comes with a wardrobe, so the clothing rack at Phoenix MX opens to you.' : '';
     this.hud.confirm(`${area.house.name}: for sale at £${area.house.price}.${extras}\nBuy it?`, 'Buy', () => {
       const r = buyHouse(area, career, this.save.flags);
-      this.hud.toast(r.message);
-      if (!r.ok) return;
+      // Bought: the −£ note says it, with no message (Boss, 2 Nov 2026). A refusal still says why.
+      if (!r.ok) return void this.hud.toast(r.message);
       this.hud.showCareer(career, this.save.flags);
       this.refreshMapState();
       this.milestoneSave();
@@ -723,7 +723,8 @@ export class WorldScene extends Phaser.Scene {
       if (problem) return void this.hud.toast(problem), back();
       this.hud.confirm(`${design?.name ?? area.motor!.design}: £${area.motor!.price} with your old motor in part exchange. ${area.motor!.pitch ?? 'Bigger than the old one, and it never needs looking after.'}\nBuy it?`, 'Buy', () => {
         const r = buyMotor(vehicles, area, career, this.save.van!, this.save.flags);
-        this.hud.toast(r.message);
+        // Bought: the −£ note says it (Boss, 2 Nov 2026); only where the new motor is parked gets a message.
+        if (!r.ok) this.hud.toast(r.message);
         if (r.ok) {
           this.hud.showCareer(career, this.save.flags);
           this.milestoneSave();
@@ -1179,7 +1180,7 @@ export class WorldScene extends Phaser.Scene {
       ...(c ? [{ label: `Leave ${c.name}`, note: `Costs ${formatMoney(dropPenalty(data, c))} of what they've paid you, and your name among sponsors.`, onPick: () => this.hud.confirm(`Leave ${c.name} now for ${formatMoney(dropPenalty(data, c))}?`, 'Leave', () => {
         const r = dropSponsor(data, career);
         this.hud.showCareer(career, this.save.flags);
-        this.hud.toast(r.message);
+        if (!r.ok) this.hud.toast(r.message);
         this.milestoneSave();
         again();
       }, again) }] : []),
