@@ -20,7 +20,7 @@ import { FIREWORK_LEAD, fireworkShow, fireworksDue, hasFireworks, ROCKET_RISE, t
 import { APPROACH, assignCrews, BOARD_PAST, boardOut, boardText, crewSpot, FLAGGER_ITEM, flagState, PIT_CREW_ITEM, SX_ARCH_KINDS, sxArch } from '../core/finishCrew';
 import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../core/marshal';
 import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
-import { ARCH_GAP, ARCH_MODELS, ARCH_PARTS, droneAtHome, droneStep, type DroneState, FLASH_GAP, FLASH_RANGE, FLASH_TIME, livePart, LOCKED_ITEMS, partName, TRACK_RANGE, TRACK_TURN } from '../core/modModels';
+import { ARCH_GAP, ARCH_MODELS, ARCH_PARTS, CHEER_RISE, cheerAtRest, cheerStep, type CheerState, droneAtHome, droneStep, type DroneState, supporterFavourites, FLASH_GAP, FLASH_RANGE, FLASH_TIME, livePart, LOCKED_ITEMS, partName, TRACK_RANGE, TRACK_TURN } from '../core/modModels';
 import { bannerPath, PICTURE_ITEMS } from '../core/banners';
 import { SIDECAR_CLASS } from '../core/sidecar';
 import { sidecarCrew, BIKE_PAINT, bikeModel, bikeOnWheelsModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, standModel, bikeOnStandModel, STAND_PAINT, textFaces, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
@@ -354,6 +354,11 @@ export class RaceView {
   private readonly flashes: { node: THREE.Object3D; until: number; next: number; seed: number }[] = [];
   /** Scenery models' Drone parts, flying off after a rider and back (core droneStep; Boss, 2 Nov 2026). */
   private readonly drones: { node: THREE.Object3D; rest: THREE.Vector3; restY: number; state: DroneState | null; seed: number; lift: number }[] = [];
+  /**
+   * Scenery models' Cheer sections and Supporters, standing as their rider goes by (core cheerStep;
+   * Boss, 2 Nov 2026). Supporters of one item share its favourites.
+   */
+  private readonly cheerParts: { node: THREE.Object3D; seated: THREE.Object3D | null; standing: THREE.Object3D | null; restY: number; state: CheerState; seed: number; up: boolean; favourites: { list: number[] | null } | null }[] = [];
   private liveClock = 0;
   /** Frame times in ms (whole update, the 3D draw, and handing the picture to Phaser), for the performance check. */
   readonly frameMs: number[] = [];
@@ -1910,6 +1915,7 @@ export class RaceView {
     const trackers = this.trackers.length;
     const flashes = this.flashes.length;
     const drones = this.drones.length;
+    const cheerParts = this.cheerParts.length;
     this.ghostIndex = index ?? -1;
     const obj = this.buildItem(it);
     this.ghostIndex = -1;
@@ -1917,6 +1923,7 @@ export class RaceView {
     this.trackers.length = trackers;
     this.flashes.length = flashes;
     this.drones.length = drones;
+    this.cheerParts.length = cheerParts;
     this.marshals.length = marshals;
     this.flaggers.length = flaggers;
     this.crews.length = crews;
@@ -2013,12 +2020,21 @@ export class RaceView {
   /** A scenery model's live parts (core LIVE_PARTS): its Track parts to turn and its Flash parts, hidden until they blink. */
   private liveParts(model: THREE.Object3D, index: number): boolean {
     let found = false;
+    const favourites = { list: null as number[] | null };
     model.traverse((o) => {
       const kind = livePart(o.name);
       if (kind === 'Track') this.trackers.push({ node: o, rest: o.rotation.y });
       else if (kind === 'Flash') {
         o.visible = false;
         this.flashes.push({ node: o, until: 0, next: 0, seed: index * 17 + this.flashes.length * 5 + 1 });
+      } else if (kind === 'Cheer' || kind === 'Supporter') {
+        // A section's (or supporter's) children named Seated and Standing swap; with neither it rises.
+        const child = (name: string) => o.children.find((c) => c.name.trim().replace(/[._]?\d+$/, '').toLowerCase() === name) ?? null;
+        const seated = child('seated');
+        const standing = child('standing');
+        if (standing) standing.visible = false;
+        const seed = index * 53 + this.cheerParts.length * 11 + 5;
+        this.cheerParts.push({ node: o, seated, standing, restY: o.position.y, state: cheerAtRest(), seed, up: false, favourites: kind === 'Supporter' ? favourites : null });
       } else if (kind === 'Drone') this.drones.push({ node: o, rest: o.position.clone(), restY: o.rotation.y, state: null, seed: index * 31 + this.drones.length * 7 + 3, lift: 0 });
       if (kind) found = true;
     });
@@ -2073,6 +2089,37 @@ export class RaceView {
       f.next = now + FLASH_GAP * (1 + noise(f.seed * 3.1));
     }
     for (const dr of this.drones) this.flyDrone(dr, dt, bikes);
+    for (const c of this.cheerParts) this.cheerPart(c, dt, bikes, at);
+  }
+
+  /**
+   * A Cheer section or Supporter (core cheerStep; Boss, 2 Nov 2026): sat down until their rider comes
+   * by, then up cheering (Standing shown, Seated hidden, or raised CHEER_RISE) until a moment after.
+   */
+  private cheerPart(c: RaceView['cheerParts'][number], dt: number, bikes: { x: number; z: number }[], at: THREE.Vector3): void {
+    if (!c.node.parent) return;
+    c.node.getWorldPosition(at);
+    const rnd = () => {
+      c.seed += 1;
+      return noise(c.seed * 5.9);
+    };
+    const choose = (count: number): number => {
+      if (!c.favourites) return rnd() * count;
+      const fav = c.favourites;
+      if (!fav.list || fav.list.some((i) => i >= count)) fav.list = supporterFavourites(count, rnd);
+      return fav.list[Math.floor(rnd() * fav.list.length)] ?? 0;
+    };
+    const next = cheerStep(c.state, dt, { x: at.x, z: at.z }, bikes, choose);
+    c.state = next;
+    if (next.up === c.up && !(next.up && !c.standing)) return;
+    c.up = next.up;
+    if (c.standing || c.seated) {
+      if (c.standing) c.standing.visible = c.up;
+      if (c.seated) c.seated.visible = !c.up;
+      return;
+    }
+    // No Standing pose: the section rises out of its seats (model metres), with a little bounce while up.
+    c.node.position.y = c.restY + (c.up ? CHEER_RISE * (1 + 0.15 * Math.sin(this.liveClock * 9 + c.seed)) : 0);
   }
 
   /**
@@ -3311,11 +3358,11 @@ export class RaceView {
     for (const mixer of this.loops) mixer.update(Math.min(0.1, dt));
     if (this.marshals.length) this.updateMarshals(Math.min(0.1, dt), clock, riders.map((r) => r.pose));
     if (this.flaggers.length || this.crews.length) this.updateFinishCrew(Math.min(0.1, dt), clock, riders);
-    if (this.cheers.length || this.trackers.length || this.flashes.length || this.drones.length) {
+    if (this.cheers.length || this.trackers.length || this.flashes.length || this.drones.length || this.cheerParts.length) {
       const spots: { x: number; z: number }[] = [];
       for (const r of riders) { const b = this.bikes.get(r.pose.id); if (b && r.pose.state !== 'retired') spots.push({ x: b.root.position.x, z: b.root.position.z }); }
       if (this.cheers.length) this.updateCheers(Math.min(0.1, dt), spots);
-      if (this.trackers.length || this.flashes.length || this.drones.length) this.updateLiveParts(Math.min(0.1, dt), spots);
+      if (this.trackers.length || this.flashes.length || this.drones.length || this.cheerParts.length) this.updateLiveParts(Math.min(0.1, dt), spots);
     }
     if (!riders.some((r) => r.player && r.pose.state !== 'retired')) this.marker.visible = false;
     else this.marker.visible = true;

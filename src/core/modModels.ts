@@ -112,9 +112,10 @@ export const ARCH_MODELS = { mx: 'finish_arch_mx', sx: 'finish_arch_sx' } as con
  * a node named Track (Track.001 and so on) turns about its vertical to follow the nearest rider in
  * range (a TV camera's head, a camera operator), back to rest with none; a node named Flash is
  * hidden and shows for a blink as a rider goes by close (a photographer's flash); a node named
- * Drone flies off after a rider and back (droneStep; Boss, 2 Nov 2026).
+ * Drone flies off after a rider and back (droneStep; Boss, 2 Nov 2026); a node named Cheer is a
+ * seated section that stands up as its own rider goes by (cheerStep; Boss, 2 Nov 2026).
  */
-export const LIVE_PARTS = ['Track', 'Flash', 'Drone'] as const;
+export const LIVE_PARTS = ['Track', 'Flash', 'Drone', 'Cheer', 'Supporter'] as const;
 /** Grid units a Track part follows a rider from, and how fast it turns (radians a second). */
 export const TRACK_RANGE = 40;
 export const TRACK_TURN = 2.5;
@@ -123,9 +124,78 @@ export const FLASH_RANGE = 12;
 export const FLASH_TIME = 0.09;
 export const FLASH_GAP = 0.7;
 /** A live part's kind from its node name: "Track.001" (three.js: "Track001") is Track. */
-export function livePart(name: string | undefined): 'Track' | 'Flash' | 'Drone' | null {
+export type LivePart = (typeof LIVE_PARTS)[number];
+export function livePart(name: string | undefined): LivePart | null {
   const n = (name ?? '').trim().replace(/[._]?\d+$/, '').toLowerCase();
-  return n === 'track' ? 'Track' : n === 'flash' ? 'Flash' : n === 'drone' ? 'Drone' : null;
+  return LIVE_PARTS.find((k) => k.toLowerCase() === n) ?? null;
+}
+
+/**
+ * A node named Cheer: one seated section of a stand or crowd (Boss, 2 Nov 2026: "No more mexican
+ * wave, each seated section gets a random rider each lap and only that section stands up to cheer as
+ * their rider goes past"). Each section is given a rider at random; as that rider comes within
+ * CHEER_RANGE it stands up (its child named Standing shows and Seated hides, or with neither it rises
+ * CHEER_RISE metres) and stays up CHEER_HOLD seconds after they have gone by, then sits and is
+ * given a new rider at random for the next lap.
+ */
+export const CHEER_RANGE = 14;
+/**
+ * A node named Supporter: one fan on their own, anywhere in a stand or crowd (Boss, 2 Nov 2026: "have
+ * random people form different sections cheers for the same rider"). They stand and cheer like a
+ * section, but their rider is picked each lap from the item's few favourites (SUPPORTER_RIDERS, drawn
+ * at random for the race), so fans dotted about different sections jump up for the same rider.
+ */
+export const SUPPORTER_RIDERS = 3;
+/** An item's favourite riders for its supporters: up to SUPPORTER_RIDERS different ones of `count`, from `rnd` in [0, 1). */
+export function supporterFavourites(count: number, rnd: () => number): number[] {
+  const all = Array.from({ length: count }, (_, i) => i);
+  for (let i = all.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [all[i], all[j]] = [all[j], all[i]];
+  }
+  return all.slice(0, Math.min(SUPPORTER_RIDERS, count));
+}
+export const CHEER_HOLD = 1.2;
+export const CHEER_RISE = 0.35;
+export interface CheerState {
+  /** The section's rider, as an index into the riders passed to cheerStep; -1 for none yet. */
+  rider: number;
+  /** Whether the rider has come within range this pass. */
+  near: boolean;
+  /** Seconds left standing after the rider has gone. */
+  hold: number;
+}
+export const cheerAtRest = (): CheerState => ({ rider: -1, near: false, hold: 0 });
+/**
+ * One step of a section or supporter: its rider, and whether it is standing. `choose` picks a rider
+ * index below the count given (at random, seeded by the caller: any rider for a section, one of the
+ * item's favourites for a supporter).
+ */
+export function cheerStep(s: CheerState, dt: number, at: { x: number; z: number }, riders: readonly { x: number; z: number }[], choose: (count: number) => number): CheerState & { up: boolean } {
+  const pick = () => Math.max(0, Math.min(riders.length - 1, Math.floor(choose(riders.length))));
+  const n = { ...s };
+  if (!riders.length) return { ...cheerAtRest(), up: false };
+  if (n.rider < 0 || n.rider >= riders.length) {
+    n.rider = pick();
+    n.near = false;
+    n.hold = 0;
+  }
+  const r = riders[n.rider];
+  const close = Math.hypot(r.x - at.x, r.z - at.z) <= CHEER_RANGE;
+  if (close) {
+    n.near = true;
+    n.hold = CHEER_HOLD;
+    return { ...n, up: true };
+  }
+  if (n.near) {
+    n.hold -= dt;
+    if (n.hold > 0) return { ...n, up: true };
+    // Gone by: sit down and take a new rider for the next lap.
+    n.rider = pick();
+    n.near = false;
+    n.hold = 0;
+  }
+  return { ...n, up: false };
 }
 
 /**
