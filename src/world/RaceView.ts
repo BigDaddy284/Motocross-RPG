@@ -3617,9 +3617,14 @@ export class RaceView {
       const [back, front] = s.wheels(at, lane, flight);
       return Math.max(-0.7, Math.min(0.7, Math.atan2(front.y - back.y, BIKE_LENGTH)));
     };
+    let last = -Infinity;
     for (const [f0, f1] of flight.hops) {
-      // From the front wheel reaching the lip to the back wheel touching down.
-      const from = f0 - half;
+      // From the front wheel reaching the lip to the back wheel touching down. Off a tyre tap (a hop
+      // taking off where the last landed; jumps.ts tapsAfter) it carries on from the tap, the bike
+      // pivoting on its back wheel with the front still up, never dipping its nose to the hump.
+      const tap = Math.abs(f0 - last) < 1e-9;
+      const from = tap ? f0 + half : f0 - half;
+      last = f1;
       const to = f1 + half;
       if (f <= from || f >= to) continue;
       const k = (f - from) / (to - from);

@@ -29,6 +29,17 @@ export interface Way {
   w: [number, number];
   /** The way a jump comes up short on a mistake: a hard landing on the face. */
   short?: boolean;
+  /**
+   * Tyre taps (Boss, 2 Nov 2026: "Back wheel tyre taps"): a hop that lands on a hump's top only
+   * taps the back wheel there, front wheel still up, and pops straight off it into the next hop.
+   */
+  tap?: true;
+}
+
+/** Whether hop i of a way ends in a tyre tap: the next hop takes off right where it lands. */
+export function tapsAfter(way: Way, i: number): boolean {
+  const next = way.hops[i + 1];
+  return !!next && Math.abs(next[0] - way.hops[i][1]) < 1e-9;
 }
 
 export interface JumpDef {
@@ -139,6 +150,7 @@ export const JUMPS: Record<string, JumpDef> = {
     ways: [
       { name: 'clear', hops: [[0.3, 0.76]], w: [0.3, 1] },
       { name: 'singles', hops: [[0.3, 0.42], [0.68, 0.8]], w: [0.8, 0.1] },
+      { name: 'tap the second', hops: [[0.3, 0.68], [0.68, 0.8]], w: [0, 0.3], tap: true },
       { name: 'case', hops: [[0.3, 0.64]], w: [0.15, 0], short: true },
     ],
   },
@@ -161,6 +173,7 @@ export const JUMPS: Record<string, JumpDef> = {
       { name: 'double single', hops: [[0.3, 0.61], [0.68, 0.78]], w: [0.5, 0.4] },
       { name: 'single double', hops: [[0.3, 0.42], [0.5, 0.77]], w: [0.4, 0.3] },
       { name: 'singles', hops: [[0.3, 0.42], [0.5, 0.61], [0.68, 0.78]], w: [0.8, 0.05] },
+      { name: 'tap the middle, double', hops: [[0.3, 0.5], [0.5, 0.77]], w: [0, 0.4], tap: true },
       { name: 'case', hops: [[0.3, 0.66]], w: [0.1, 0], short: true },
     ],
   },
@@ -172,6 +185,7 @@ export const JUMPS: Record<string, JumpDef> = {
       { name: 'single double single', hops: [[0.2, 0.29], [0.4, 0.69], [0.8, 0.9]], w: [0.6, 0.3] },
       { name: 'triple single', hops: [[0.2, 0.69], [0.8, 0.9]], w: [0.1, 0.5] },
       { name: 'singles', hops: [[0.2, 0.29], [0.4, 0.49], [0.6, 0.69], [0.8, 0.9]], w: [0.8, 0.05] },
+      { name: 'double, tap, double', hops: [[0.2, 0.6], [0.6, 0.9]], w: [0, 0.4], tap: true },
       { name: 'case', hops: [[0.2, 0.76]], w: [0.05, 0], short: true },
     ],
   },
@@ -237,6 +251,7 @@ export const JUMPS: Record<string, JumpDef> = {
       { name: 'double single', hops: [[0.15, 0.6], [0.81, 0.92]], w: [0.2, 1] },
       { name: 'single double', hops: [[0.15, 0.27], [0.48, 0.92]], w: [0.2, 0.8] },
       { name: 'singles', hops: [[0.15, 0.27], [0.48, 0.6], [0.81, 0.92]], w: [1, 0.1] },
+      { name: 'tap and double', hops: [[0.15, 0.48], [0.48, 0.92]], w: [0, 0.5], tap: true },
       { name: 'case', hops: [[0.15, 0.45]], w: [0.1, 0], short: true },
     ],
   },
@@ -244,8 +259,8 @@ export const JUMPS: Record<string, JumpDef> = {
     // Four humps, each bigger than the last, building up to the big final mound and the launch off its top.
     peaks: [peak(0.05, 0.12, 0.12, 0.18, 0.18), peak(0.23, 0.3, 0.3, 0.36, 0.32), peak(0.41, 0.48, 0.48, 0.54, 0.55), peak(0.58, 0.72, 0.74, 0.88, 1)],
     ways: [
-      { name: 'skip the tops', hops: [[0.12, 0.3], [0.3, 0.48], [0.48, 0.72], [0.74, 0.93]], w: [0.3, 1] },
-      { name: 'double double', hops: [[0.12, 0.48], [0.48, 0.93]], w: [0, 0.6] },
+      { name: 'skip the tops', hops: [[0.12, 0.3], [0.3, 0.48], [0.48, 0.72], [0.74, 0.93]], w: [0.3, 1], tap: true },
+      { name: 'double double', hops: [[0.12, 0.48], [0.48, 0.93]], w: [0, 0.6], tap: true },
       { name: 'ride up, jump off', hops: [[0.74, 0.9]], w: [1, 0.1] },
     ],
   },

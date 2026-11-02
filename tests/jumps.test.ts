@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { JUMPS, jumpShape, landingOf, pickWay } from '../src/core/jumps';
+import { JUMPS, jumpShape, landingOf, pickWay, tapsAfter } from '../src/core/jumps';
 import type { TrackDef } from '../src/core/race';
 import { BIKE_LENGTH, TrackSurface } from '../src/core/trackSurface';
 
@@ -47,8 +47,27 @@ describe('jumps', () => {
     expect(pickWay('straight', 1, 0.5)).toBeNull();
   });
 
+  // Back wheel tyre taps (Boss, 2 Nov 2026).
+  it('has tyre taps: a good jumper lands the back wheel on a hump top and pops straight off it', () => {
+    const taps = Object.entries(JUMPS).flatMap(([type, def]) => def.ways.filter((w) => w.tap).map((w) => ({ type, w })));
+    expect(new Set(taps.map((t) => t.type))).toEqual(new Set(['double', 'triple', 'quad', 'rhythm', 'dragon_back']));
+    for (const { type, w } of taps) {
+      const at = w.hops.map((_, i) => i).filter((i) => tapsAfter(w, i));
+      expect(at.length, `${type} ${w.name}`).toBeGreaterThan(0);
+      // On a hump's top, not its face.
+      for (const i of at) expect(jumpShape(type, w.hops[i][1]), `${type} ${w.name}`).toBeGreaterThan(0.3);
+      if (type !== 'dragon_back') {
+        expect(w.w[0], `${type} ${w.name}`).toBe(0);
+        expect(w.w[1]).toBeGreaterThan(0);
+      }
+    }
+    const good = Array.from({ length: 50 }, (_, k) => pickWay('rhythm', 1, k / 50)!.name);
+    expect(good).toContain('tap and double');
+    expect(Array.from({ length: 50 }, (_, k) => pickWay('rhythm', 0, k / 50)!.name)).not.toContain('tap and double');
+  });
+
   it('flies each wheel from the lip along the face, clear of the ground, and lands where the hop says', () => {
-    for (const type of ['tabletop', 'triple', 'quad', 'dragon_back', 'ski_jump', 'step_on', 'step_on_two', 'step_on_three', 'step_up']) {
+    for (const type of ['tabletop', 'double', 'triple', 'quad', 'rhythm', 'dragon_back', 'ski_jump', 'step_on', 'step_on_two', 'step_on_three', 'step_up']) {
       const track = trackWith(type);
       const s = new TrackSurface(track);
       const f0 = s.bounds[1];

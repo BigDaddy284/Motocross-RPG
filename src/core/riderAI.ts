@@ -4,7 +4,7 @@ import { riderProfile, type RiderProfile } from './riderProfile';
 import { wheelieAt } from './wheelie';
 import { climbExtra } from './climb';
 import { isNoTurn, isSprint, lapGeom, lapMetres, NO_TURN_LANES, NO_TURN_RUNOFF, pointAt, sectionBounds, sectionTurns, RETURN_LANE, SPRINT_QUEUE, START_PAD, startGeom, type StartGeom } from './trackGeom';
-import { DEFAULT_HEIGHTS, HOP_JUMPS, landingOf, pickWay, type Way } from './jumps';
+import { DEFAULT_HEIGHTS, HOP_JUMPS, landingOf, pickWay, tapsAfter, type Way } from './jumps';
 import { HILLS, sectionShape, TrackSurface, type Flight } from './trackSurface';
 import { showmanOf, trickFor, type Trick } from './tricks';
 import { SIDECAR_LEFT, SIDECAR_ROOM, SIDECAR_SETTLE, isSidecarGate } from './sidecar';
@@ -915,6 +915,8 @@ export class RaceDirector {
   /** The trick a rider would throw on hop i of a way through a section (tricks.ts), before any mistake. */
   private hopTrick(p: RiderProfile, seg: Seg, way: Way, i: number): Trick | null {
     const [a, b] = way.hops[i];
+    // Nothing thrown into a tyre tap: the bike comes down straight to tap its back wheel.
+    if (tapsAfter(way, i)) return null;
     const metres = (b - a) * (this.bounds[seg.si + 1] - this.bounds[seg.si]) * this.metres;
     const next = this.turns.slice(seg.si + 1).find((t) => t !== 0) ?? this.turns.find((t) => t !== 0) ?? 0;
     if (this.sidecar) return null;
