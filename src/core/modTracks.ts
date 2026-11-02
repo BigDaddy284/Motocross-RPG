@@ -3,7 +3,7 @@ import { TRACKS_SCHEMA } from './raceContent';
 import type { RaceContent, VenueDef } from './raceDay';
 import type { KeyValueStore } from './storage';
 import { layoutProblems } from './trackCheck';
-import { checkTrackParts, type TrackPartsData } from './trackParts';
+import { checkTrackParts, dropRetiredPatches, type TrackPartsData } from './trackParts';
 import { validate, type Schema } from './validate';
 
 // Mod tracks: player-made tracks raced without a venue map. A mod track is the file the track
@@ -76,6 +76,8 @@ export function readModTrack(rc: RaceContent & { trackParts: TrackPartsData }, f
   // The editor's working flags aren't part of a raced track.
   const { draft: _draft, ...rest } = t;
   const track = { ...rest, id: `${MOD_PREFIX}${source === 'imported' ? 'imp.' : ''}${fileId(file)}` } as unknown as TrackDef;
+  // Patches on a surface the game no longer has (Ruts) are dropped, so an older file still races.
+  dropRetiredPatches(track as { patches?: { surface: string }[] });
   const say = (field: string, message: string) => out.problems.push(field ? `${field}: ${message}` : message);
   for (const e of validate(file, track, TRACK_SCHEMA)) say(e.field, e.message);
   if (out.problems.length) return out;

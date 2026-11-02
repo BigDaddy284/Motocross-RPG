@@ -375,7 +375,8 @@ export class TrackSurface {
   skirt(f: number, lane: number): number {
     const side = lane < 0 ? -1 : 1;
     const top = (this.onHill(f) ? 0 : this.centre(f)) + this.bank(f, side) + LIP_H;
-    return Math.max(0.35, top * 0.9) / this.hwAt(f);
+    // Down in a bomb hole the bank is the hole's side, climbing back up to the ground.
+    return Math.max(0.35, Math.abs(top) * 0.9) / this.hwAt(f);
   }
 
   /** Height of the surface at lap fraction f and lane (-1 left edge, 1 right edge, further is off the track). */

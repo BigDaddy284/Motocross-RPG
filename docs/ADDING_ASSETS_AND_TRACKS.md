@@ -308,7 +308,7 @@ You can add an eleventh by adding one entry to that file. This is **data, not co
 
 ### 5.5 A new colour of surface patch
 
-Surface patches (Mud, Sand, Water splash, Ruts, Loose stones, Concrete pad) are coloured stripes along the track. They are listed under `"surfaces"` in `public/data/trackParts.json`, like this:
+Surface patches (Mud, Sand, Water splash, Loose stones, Concrete pad) are coloured stripes along the track. Ruts was taken out on 2 Nov 2026 (Boss): it was only a darker stripe, and the Rutted corner section and ruts deepening through the day are the real ruts; an older track's Ruts patches are dropped when it loads (`RETIRED_SURFACES` in `src/core/trackParts.ts`). They are listed under `"surfaces"` in `public/data/trackParts.json`, like this:
 
 ```json
 {"id": "mud", "name": "Mud", "color": "#5a3d22"},
@@ -428,7 +428,7 @@ Features are placed **on top of** the route. In **Layout** mode, the **Features*
 1. Click a feature type, such as **Tabletop**.
 2. Move the pointer onto the route. A band shows where it would go. **,** and **.** make it shorter or longer (2 to 60 grid units).
 3. Click to place it.
-4. Afterwards, drag it along the route, drag its **white diamonds** to stretch it, or press **Del** to remove it. Its line and jump height are under **Sections**.
+4. Afterwards, drag it along the route, drag its **white diamonds** to stretch it, or press **Del** to remove it. Its line and jump height are under **Sections**. A jump or hill set taller than its usual height takes longer to ride: its face is longer and the climb costs speed, so the section races as if it were longer (`src/core/climb.ts`; Boss, 2 Nov 2026). Lower than usual changes nothing.
 
 Good to know:
 

@@ -13,7 +13,6 @@
     {"id": "mud", "name": "Mud", "color": "#5a3d22"},
     {"id": "sand", "name": "Sand", "color": "#d9c27a"},
     {"id": "water", "name": "Water splash", "color": "#4a86c0"},
-    {"id": "ruts", "name": "Ruts", "color": "#6e4524"},
     {"id": "gravel", "name": "Loose stones", "color": "#9a9488"},
     {"id": "concrete", "name": "Concrete pad", "color": "#a8a8a0"}
   ],
