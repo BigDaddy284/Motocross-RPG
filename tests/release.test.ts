@@ -37,9 +37,11 @@ describe('area release cap (Boss, 1 Nov 2026)', () => {
     expect(flags[areaFlag(3)]).toBeUndefined();
     // Loading again in this build opens nothing.
     expect(openReleasedAreas(content.areas, content.championships, career, flags)).toEqual([]);
-    // A later build that releases Area 3 opens it from the win already made.
+    // A later build that releases Area 3 starts its road from the win already made: Joseph, Bill and Manny open it.
     expect(openReleasedAreas({ ...content.areas, release: { lastArea: 3 } }, content.championships, career, flags)).toEqual([3]);
-    expect(flags[areaFlag(3)]).toBe(true);
+    expect(flags['road.3.won']).toBe(true);
+    expect(flags[areaFlag(3)]).toBeUndefined();
+    expect(openReleasedAreas({ ...content.areas, release: { lastArea: 3 } }, content.championships, career, flags)).toEqual([]);
   });
 
   it("has Manny tell you Area 3 is coming in February 2027 once Area 2 is won, in Home Town and Mountain Town", () => {

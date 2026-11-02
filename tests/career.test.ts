@@ -115,7 +115,12 @@ describe('the opening chain', () => {
     expect(journal(story, state, { ...flags, first_race_done: true })).toBe(story.after![3].text);
     expect(journal(story, state, { ...flags, first_race_done: true, first_race_finished: true })).toBe(story.after![4].text);
     expect(journal(story, state, { ...flags, first_race_done: true, first_race_finished: true, 'badge.area1': true })).toBe(story.after![5].text);
-    expect(journal(story, state, { ...flags, first_race_done: true, first_race_finished: true, 'badge.area1': true, 'trophy.area1.main': true })).toBe(story.after![6].text);
+    // The win: Joseph, then Bill, then Manny opens the road (Boss, 2 Nov 2026).
+    const won = { ...flags, first_race_done: true, first_race_finished: true, 'badge.area1': true, 'trophy.area1.main': true, 'road.2.won': true };
+    expect(journal(story, state, won)).toBe(story.after![6].text);
+    expect(journal(story, state, { ...won, 'road.2.told': true })).toBe(story.after![7].text);
+    expect(journal(story, state, { ...won, 'road.2.told': true, 'road.2.bill': true })).toBe(story.after![8].text);
+    expect(journal(story, state, { ...flags, first_race_done: true, first_race_finished: true, 'badge.area1': true, 'trophy.area1.main': true })).toBe(story.after![9].text);
     expect(journal(story, state, { ...flags, first_race_done: true, first_race_finished: true, 'badge.area1': true, 'trophy.area1.main': true, 'class.65cc': true })).toBe(story.done);
   });
 

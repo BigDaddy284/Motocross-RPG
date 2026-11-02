@@ -1,5 +1,5 @@
 import type { PlaceDef, RouteDef, WorldData } from './career';
-import { objectTile, type BakedMap, type MapObject } from './mapTypes';
+import { objectTile, type BakedMap, type MapObject, type Tile } from './mapTypes';
 import type { VenueDef } from './raceDay';
 import { ROUTE, spawnTile, type Arrival, type Travel } from './travel';
 
@@ -78,7 +78,51 @@ export function routeArrival(map: BakedMap, exit: MapObject, world: WorldData, m
   const real = places.filter((p) => !p.mods);
   if (!real.length) return "This road doesn't go anywhere yet.";
   const place = real.find((p) => p.map === pick) ?? real[0];
-  return { map: place.map, tile: spawnTile(maps.get(place.map)!, place.spawn!)!, place, others: places.filter((p) => p !== place) };
+  return { map: place.map, tile: placeArrival(world, maps, map.id, route, place), place, others: places.filter((p) => p !== place) };
+}
+
+/**
+ * Where the rider comes in at a place picked on a road (Boss, 2 Nov 2026: the roads between towns
+ * should flow). A town's own road to its neighbour (the route whose first place is that neighbour,
+ * like Home Town's North road to Mountain Town) comes in on the neighbour's road back, so north out
+ * of Home Town arrives on Mountain Town's South road and south out of Mountain Town on Home Town's
+ * North road. Anything else (the hub roads to the venues, a venue's lane) comes in at the place's
+ * own spawn, the hub side of town.
+ */
+export function placeArrival(world: WorldData, maps: Map<string, BakedMap>, from: string, route: RouteDef | undefined, place: PlaceDef): Tile {
+  const target = maps.get(place.map)!;
+  const own = spawnTile(target, place.spawn!)!;
+  if (!route || route.to[0] !== place.map) return own;
+  const back = world.routes.find((r) => r.map === place.map && r.to[0] === from);
+  const exit = back && target.objects.find((o) => (o.type === 'exit' || o.type === 'travel') && o.name === back.exit);
+  return exit ? besideExit(target, exit) ?? own : own;
+}
+
+/** The spawn by a road's exit (within 6 tiles), or else the first open tile in from it. */
+function besideExit(map: BakedMap, exit: MapObject): Tile | null {
+  const ts = map.tileSize;
+  const x0 = Math.floor(exit.x / ts);
+  const y0 = Math.floor(exit.y / ts);
+  const x1 = Math.max(x0, Math.ceil((exit.x + exit.w) / ts) - 1);
+  const y1 = Math.max(y0, Math.ceil((exit.y + exit.h) / ts) - 1);
+  const cx = (x0 + x1) / 2;
+  const cy = (y0 + y1) / 2;
+  const near = map.objects
+    .filter((o) => o.type === 'spawn')
+    .map((o) => ({ t: objectTile(o, ts), o }))
+    .map((s) => ({ ...s, d: Math.hypot(s.t.x - cx, s.t.y - cy) }))
+    .filter((s) => s.d <= 6)
+    .sort((a, b) => a.d - b.d)[0];
+  if (near) return near.t;
+  // In from the map edge the exit sits on.
+  const step = y0 <= 0 ? { x: 0, y: 1 } : y1 >= map.height - 1 ? { x: 0, y: -1 } : x0 <= 0 ? { x: 1, y: 0 } : { x: -1, y: 0 };
+  const start = step.y === 1 ? { x: Math.round(cx), y: y1 + 1 } : step.y === -1 ? { x: Math.round(cx), y: y0 - 1 } : step.x === 1 ? { x: x1 + 1, y: Math.round(cy) } : { x: x0 - 1, y: Math.round(cy) };
+  for (let i = 0; i < 10; i++) {
+    const t = { x: start.x + step.x * i, y: start.y + step.y * i };
+    if (t.x < 0 || t.y < 0 || t.x >= map.width || t.y >= map.height) break;
+    if (map.blocked[t.y]?.[t.x] !== '#') return t;
+  }
+  return null;
 }
 
 // ---- the road menu (Boss, 30 Oct 2026) ----
