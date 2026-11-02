@@ -271,12 +271,10 @@ export function cpuGatePick(track: TrackDef, seed: number, step: number, pickOrd
   return best;
 }
 
-/** A championship round's race day (Spec 12.2a, 12.5): its fixed field, qualifying and the tier's purse. */
+/** A championship round's race day (Spec 12.2a, 12.5): its fixed field and the tier's purse. No qualifying (Boss, 2 Nov 2026). */
 export interface RoundOptions {
   /** The CPU riders, the same every round, in place of a field drawn for the day. */
   cpus: CpuRiderDef[];
-  /** Timed laps in qualifying, after an out lap. */
-  qualifyingLaps: number;
   /** Prize money times the class's (Spec 14.2 tier, with a replay's share). */
   purseTimes: number;
   /** XP times (a replay's share). */
@@ -317,7 +315,7 @@ export interface SidecarDay {
 export class RaceDay {
   readonly field: Entrant[];
   readonly motos: MotoRecord[] = [];
-  /** Qualifying, once it has been ridden (championship rounds only). */
+  /** Qualifying, once it has been ridden (enduro sprints only; championship rounds have none since Boss, 2 Nov 2026). */
   qualifying: QualifyingRecord | null = null;
   readonly track: TrackDef;
   readonly cls: string;
@@ -450,9 +448,12 @@ export class RaceDay {
     return cpuGatePick(this.track, this.seed, this.motos.length, this.pickOrder, id, taken, gates, this.gateSlots);
   }
 
-  /** True while a championship round's or a sprint's qualifying is still to ride. */
+  /**
+   * True while a sprint's qualifying is still to ride. Championship rounds don't qualify (Boss,
+   * 2 Nov 2026): moto 1's gate picks go in a random order, as on any race day.
+   */
   get qualifyingDue(): boolean {
-    return (!!this.round || this.sprint) && !this.qualifying;
+    return this.sprint && !this.qualifying;
   }
 
   /** A sprint: every rider leaves the start line in the pick order (their gate is their place in it). */
@@ -462,14 +463,13 @@ export class RaceDay {
   }
 
   /**
-   * Qualifying (Spec 12.2): an out lap from the gate, then the timed laps. Riders line up in a
-   * random order (the day's first pick order); nobody picks a gate for it.
+   * A sprint's qualifying: one timed test, riders leaving the line in a random order (the day's
+   * first pick order); nobody picks a gate for it.
    */
   startQualifying(message: string): MotoSim {
     this.startInPickOrder();
-    // A sprint qualifies on one timed test, riders leaving in a random order; a round has an out lap first.
     return new MotoSim(this.rc.racing, this.rc.bikes, this.track, this.cls, this.field, {
-      laps: this.sprint ? 1 : this.round!.qualifyingLaps + 1,
+      laps: 1,
       motoIndex: 0,
       seed: mixSeed(this.seed, 0x7175616c),
       message,
@@ -478,9 +478,9 @@ export class RaceDay {
     });
   }
 
-  /** Records qualifying: the order by best timed lap sets moto 1's gate pick order. No points or prize. */
+  /** Records a sprint's qualifying: the order by timed lap sets moto 1's start order. No points or prize. */
   finishQualifying(sim: MotoSim): QualifyingRecord {
-    const timed = (laps: number[]) => (this.sprint ? (laps[0] ?? null) : laps.length > 1 ? Math.min(...laps.slice(1)) : null);
+    const timed = (laps: number[]) => laps[0] ?? null;
     const rows = sim.riders.map((r) => ({ r, best: timed(r.lapTimes) }));
     rows.sort((a, b) => (a.best ?? Infinity) - (b.best ?? Infinity) || b.r.laps - a.r.laps || a.r.time - b.r.time || a.r.e.gate - b.r.e.gate);
     const pole = rows[0].best;

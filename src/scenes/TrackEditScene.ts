@@ -85,6 +85,7 @@ const REBUILD_EVERY = 300;
 
 export class TrackEditScene extends Phaser.Scene {
   private view: RaceView | null = null;
+  private pictureTimer = 0;
   private holder!: Phaser.GameObjects.Container;
   private turnLabel!: Phaser.GameObjects.Text;
   private state: EditViewState | null = null;
@@ -125,6 +126,7 @@ export class TrackEditScene extends Phaser.Scene {
       // Camera keys pressed while the editor around the view has the keyboard.
       if (e.data.type === 'camkey') return void this.camKey(String(e.data.key), !!e.data.down);
       if (e.data.type === 'play') return void this.markPlay(typeof e.data.f === 'number' ? e.data.f : null);
+      if (e.data.type === 'pictures') return void this.pictures(Array.isArray(e.data.ids) ? e.data.ids.map(String) : [], Number(e.data.w) || 160, Number(e.data.h) || 130);
       if (e.data.type !== 'track') return;
       this.state = e.data.state as EditViewState;
       status.setVisible(false);
@@ -235,6 +237,7 @@ export class TrackEditScene extends Phaser.Scene {
     });
     this.events.once('shutdown', () => {
       for (const f of this.off) f();
+      window.clearTimeout(this.pictureTimer);
       this.view?.destroy();
     });
     send({ type: 'ready' });
@@ -299,6 +302,35 @@ export class TrackEditScene extends Phaser.Scene {
   /** Rebuilds the 3D scene for a changed track, at most every REBUILD_EVERY ms. */
   private queue(): void {
     this.pending = true;
+  }
+
+  /**
+   * Pictures of scenery items for the editor's Scenery tiles (RaceView.picture; Boss, 2 Nov 2026),
+   * sent back one by one as they are drawn, a few a frame so the view keeps moving. They wait for the
+   * first track, since the view that draws them is built from it.
+   */
+  private pictures(ids: string[], w: number, h: number): void {
+    const queue = [...ids];
+    const step = () => {
+      if (!this.view) {
+        this.pictureTimer = window.setTimeout(step, 250);
+        return;
+      }
+      const t0 = performance.now();
+      while (queue.length && performance.now() - t0 < 12) {
+        const id = queue.shift()!;
+        let url: string | null = null;
+        try {
+          url = this.view.picture(id, w, h);
+        } catch {
+          url = null;
+        }
+        window.parent.postMessage({ type: 'picture', id, url }, '*');
+      }
+      if (queue.length) this.pictureTimer = window.setTimeout(step, 0);
+    };
+    window.clearTimeout(this.pictureTimer);
+    step();
   }
 
   private rebuild(): void {
