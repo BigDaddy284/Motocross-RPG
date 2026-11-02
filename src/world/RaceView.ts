@@ -358,7 +358,7 @@ export class RaceView {
    * Scenery models' Cheer sections and Supporters, standing as their rider goes by (core cheerStep;
    * Boss, 2 Nov 2026). Supporters of one item share its favourites.
    */
-  private readonly cheerParts: { node: THREE.Object3D; seated: THREE.Object3D | null; standing: THREE.Object3D | null; restY: number; state: CheerState; seed: number; up: boolean; favourites: { list: number[] | null } | null }[] = [];
+  private readonly cheerParts: { node: THREE.Object3D; seated: THREE.Object3D | null; standing: THREE.Object3D | null; restY: number; state: CheerState; seed: number; up: boolean; favourites: { list: number[] | null; count: number } | null }[] = [];
   private liveClock = 0;
   /** Frame times in ms (whole update, the 3D draw, and handing the picture to Phaser), for the performance check. */
   readonly frameMs: number[] = [];
@@ -2020,7 +2020,7 @@ export class RaceView {
   /** A scenery model's live parts (core LIVE_PARTS): its Track parts to turn and its Flash parts, hidden until they blink. */
   private liveParts(model: THREE.Object3D, index: number): boolean {
     let found = false;
-    const favourites = { list: null as number[] | null };
+    const favourites = { list: null as number[] | null, count: 0 };
     model.traverse((o) => {
       const kind = livePart(o.name);
       if (kind === 'Track') this.trackers.push({ node: o, rest: o.rotation.y });
@@ -2029,7 +2029,8 @@ export class RaceView {
         this.flashes.push({ node: o, until: 0, next: 0, seed: index * 17 + this.flashes.length * 5 + 1 });
       } else if (kind === 'Cheer' || kind === 'Supporter') {
         // A section's (or supporter's) children named Seated and Standing swap; with neither it rises.
-        const child = (name: string) => o.children.find((c) => c.name.trim().replace(/[._]?\d+$/, '').toLowerCase() === name) ?? null;
+        // By the start of the name, as three.js drops a name's dots ("Seated.s000" loads as "Seateds000").
+        const child = (name: string) => o.children.find((c) => c.name.trim().toLowerCase().startsWith(name)) ?? null;
         const seated = child('seated');
         const standing = child('standing');
         if (standing) standing.visible = false;
@@ -2106,7 +2107,11 @@ export class RaceView {
     const choose = (count: number): number => {
       if (!c.favourites) return rnd() * count;
       const fav = c.favourites;
-      if (!fav.list || fav.list.some((i) => i >= count)) fav.list = supporterFavourites(count, rnd);
+      // Drawn again when the field changes size (riders joining or retiring), so every rider can be a favourite.
+      if (!fav.list || fav.count !== count) {
+        fav.list = supporterFavourites(count, rnd);
+        fav.count = count;
+      }
       return fav.list[Math.floor(rnd() * fav.list.length)] ?? 0;
     };
     const next = cheerStep(c.state, dt, { x: at.x, z: at.z }, bikes, choose);
