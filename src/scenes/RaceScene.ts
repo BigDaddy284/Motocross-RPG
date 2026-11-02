@@ -669,8 +669,8 @@ export class RaceScene extends Phaser.Scene {
    * Race clicked by accident (Boss, 31 Oct 2026). The fee is only ever taken at the end of the day,
    * and the scene works on a copy of the save, so leaving it untouched is all it takes.
    */
-  private pullOutButton(): void {
-    this.btn(W / 2, 682, 'Pull out', () => {
+  private pullOutButton(x = W / 2, w = 200): void {
+    this.btn(x, 682, 'Pull out', () => {
       const c = this.openModal(620, 240);
       c.add(this.add.text(0, -60, "Pull out before the racing starts?\nNo entry fee, and nothing goes on your record.", textStyle(20, COLORS.cream, { align: 'center' })).setOrigin(0.5));
       c.add(button(this, -130, 50, 'Pull out', () => {
@@ -678,7 +678,7 @@ export class RaceScene extends Phaser.Scene {
         this.done(`You pulled out of ${this.args.venue.name}. No entry fee taken.`);
       }, 200, 46));
       c.add(button(this, 130, 50, 'Stay', () => this.closeModal(), 200, 46));
-    }, 200, 44);
+    }, w, 44);
   }
 
   /** The bike's condition; on a Supercross night, with trackside repairs. `said` is the last repair's message. */
@@ -2199,8 +2199,9 @@ export class RaceScene extends Phaser.Scene {
     const other = sx.heats.find((h) => h !== mine);
     const note = mine && other?.riders.length ? (mine.index === 0 ? `You ride ${mine.name}. ${other.name} runs after it.` : `You ride ${mine.name}. ${other.name} runs first: you'll see its results.`) : '';
     this.text(W / 2, 640, note, 18, COLORS.accent).setOrigin(0.5, 0.5);
-    this.btn(W / 2 + 300, 682, 'To the gate', () => this.sxNext(), 240, 44);
-    this.pullOutButton();
+    // Race in the middle and Pull out to its right (Boss, 2 Nov 2026).
+    this.btn(W / 2, 682, 'Race', () => this.sxNext(), 240, 44);
+    this.pullOutButton(W / 2 + 300, 240);
   }
 
   /** Runs the races before the player's next one and shows them, then the player's gate pick, or the night's results. */
