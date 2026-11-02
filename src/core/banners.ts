@@ -26,7 +26,8 @@ export const PICTURE_ITEMS: ReadonlySet<string> = new Set([
 /**
  * The best size for each item's picture, in pixels: the shape of its words' face on a default-sized
  * item (a banner 10 to 1, a sponsor board about 4.6 to 1, a feather flag tall and thin). Another size
- * is stretched to fit. A sponsor inflatable's column has tall faces (about 300 × 900) instead.
+ * is stretched to fit. A sponsor inflatable's column has tall faces (about 300 × 900) instead. On a
+tall face a wide picture is turned to read upwards, as the words are (world/RaceView.ts uprightPicture).
  */
 export const BANNER_SIZES: Readonly<Record<string, readonly [number, number]>> = {
   banner: [2000, 200],

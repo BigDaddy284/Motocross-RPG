@@ -220,6 +220,23 @@ function noise(i: number): number {
 }
 
 /** Banner pictures by URL, loaded once and shared; a load the browser cancels is tried again a few times before the words are kept (Boss, 1 Nov 2026). */
+/**
+ * A picture for a tall face (a feather flag, an inflatable's column): a wide picture is turned a
+ * quarter to read upwards, as the words do there, so one sponsor PNG suits a banner and a flag alike;
+ * a tall one is used as it is (Boss, 2 Nov 2026).
+ */
+function uprightPicture(img: HTMLImageElement): HTMLImageElement | HTMLCanvasElement {
+  if (img.naturalWidth <= img.naturalHeight) return img;
+  const cv = document.createElement('canvas');
+  cv.width = img.naturalHeight;
+  cv.height = img.naturalWidth;
+  const ctx = cv.getContext('2d');
+  if (!ctx) return img;
+  ctx.translate(0, cv.height);
+  ctx.rotate(-Math.PI / 2);
+  ctx.drawImage(img, 0, 0);
+  return cv;
+}
 const bannerImages = new Map<string, Promise<HTMLImageElement | null>>();
 function bannerImage(url: string): Promise<HTMLImageElement | null> {
   let p = bannerImages.get(url);
@@ -1835,7 +1852,7 @@ export class RaceView {
    * has loaded (Boss, 2 Nov 2026: every item with words can show a PNG). No picture, a bad name or one
    * that won't load leaves the words.
    */
-  private withPicture(words: THREE.Texture, image: string | undefined): THREE.Texture {
+  private withPicture(words: THREE.Texture, image: string | undefined, vertical = false): THREE.Texture {
     const path = bannerPath(image);
     if (!path) return words;
     // The words show until the picture arrives, and stay if it never does.
@@ -1843,7 +1860,7 @@ export class RaceView {
       if (!img) return;
       // Free the words' GPU copy, sized for the words, so the picture gets storage of its own size.
       words.dispose();
-      words.image = img;
+      words.image = vertical ? uprightPicture(img) : img;
       words.needsUpdate = true;
     });
     return words;
@@ -2167,7 +2184,7 @@ export class RaceView {
       for (const l of built.labels) {
         // The item's own words show its picture when one is picked (Boss, 2 Nov 2026).
         const words = this.textTexture(l.text, l.bg, l.fg, l.vertical ? 48 : 256, l.vertical ? 256 : 48, l.vertical);
-        const face = this.mat(0xffffff, { map: l.picture && PICTURE_ITEMS.has(it.type) ? this.withPicture(words, it.image) : words });
+        const face = this.mat(0xffffff, { map: l.picture && PICTURE_ITEMS.has(it.type) ? this.withPicture(words, it.image, l.vertical) : words });
         const side = this.mat(l.bg);
         const back = l.both ? face : side;
         const box = this.boxMesh(l.l * METRE, l.h * METRE, l.w * METRE, [side, side, side, side, face, back], l.x * METRE, l.y * METRE, l.z * METRE);

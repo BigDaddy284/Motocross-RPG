@@ -11,6 +11,8 @@ Best sizes (the picture is stretched to fill the face):
   sponsor board       1200 x 260 pixels   (about 4.6 to 1)
   feather flags        200 x 1000 pixels  (tall: the flag's upright face)
   sponsor inflatable  1240 x 200 pixels   (the arch; a column's four faces are about 300 x 900)
+On a tall face (a feather flag, the inflatable's column) a wide picture is turned to read
+upwards, as the words do, so a banner's picture works there too; a tall picture fills it upright.
   finish arch         2000 x 200 pixels
   sprint start        1400 x 200 pixels
   podium              1200 x 250 pixels
