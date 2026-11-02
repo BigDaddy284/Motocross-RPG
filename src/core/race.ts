@@ -433,6 +433,12 @@ export function setTestAlwaysWin(on: boolean): void {
   testAlwaysWin = on;
 }
 
+/** TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 2 Nov 2026): when on, the player's bike takes no wear or crash damage. */
+let testNoWear = false;
+export function setTestNoWear(on: boolean): void {
+  testNoWear = on;
+}
+
 export class MotoSim {
   readonly riders: RiderState[];
   readonly player: RiderState | undefined;
@@ -869,6 +875,8 @@ export class MotoSim {
     const hit: string[] = [];
     for (let i = 0; i < n && pool.length; i++) hit.push(pool.splice(Math.floor(this.rng() * pool.length), 1)[0]);
     if (r.e.player && this.playerBike) {
+      // TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 2 Nov 2026): "TEST: No bike wear".
+      if (testNoWear) return hit;
       for (const slot of hit) {
         const part = this.playerBike.parts[slot];
         if (!part) continue;
@@ -925,7 +933,8 @@ export class MotoSim {
   /** Distance wear for one lap of `km` (Spec 7.3), plus the small chance of a random breakage. */
   private wearPlayer(trace: LapTrace, km: number): void {
     const bike = this.playerBike;
-    if (!bike || !this.player) return;
+    // TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 2 Nov 2026): "TEST: No bike wear".
+    if (!bike || !this.player || testNoWear) return;
     const w = this.racing.wear;
     const parts = Object.entries(bike.parts);
     const low = parts.filter(([, p]) => p.condition > 0 && p.condition <= w.lowAt);

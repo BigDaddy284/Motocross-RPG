@@ -106,6 +106,8 @@ export class SettingsScene extends Phaser.Scene {
         label(4, 'TEST: Ride alone (no AI)'); toggle(this, sliderX + 26, rowY(4), s.gameplay.testRideAlone, upd('gameplay', 'testRideAlone'));
         // TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 31 Oct 2026): the player wins every moto.
         label(5, 'TEST: Always win'); toggle(this, sliderX + 26, rowY(5), s.gameplay.testAlwaysWin, upd('gameplay', 'testAlwaysWin'));
+        // TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 2 Nov 2026): the bike takes no wear or crash damage.
+        label(6, 'TEST: No bike wear'); toggle(this, sliderX + 26, rowY(6), s.gameplay.testNoWear, upd('gameplay', 'testNoWear'));
         break;
       case 'Controls': {
         const c = s.controls;

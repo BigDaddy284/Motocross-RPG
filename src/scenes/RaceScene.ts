@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { lastReleasedArea } from '../core/areas';
 import { bikeStats, formatMoney, raceStopper, type Bike } from '../core/career';
-import { formatTime, gateBonus, setTestAlwaysWin, type LapTrace, type MotoSim, type RaceEvent, type RiderResult, type TrackDef } from '../core/race';
+import { formatTime, gateBonus, setTestAlwaysWin, setTestNoWear, type LapTrace, type MotoSim, type RaceEvent, type RiderResult, type TrackDef } from '../core/race';
 import { PLAYER_ID, RaceDay, applyRide, playerEntrant, practiceSim, sumXp, trackById, type MotoRecord, type VenueDef } from '../core/raceDay';
 import { Knockout, type KnockoutHeat, roundName } from '../core/knockout';
 import { isSupercross, MAIN_COUNTS, SupercrossNight, type NightRace } from '../core/supercross';
@@ -197,6 +197,10 @@ export class RaceScene extends Phaser.Scene {
     this.fit();
     this.scale.on('resize', this.relayout, this);
     this.events.once('shutdown', () => this.scale.off('resize', this.relayout, this));
+    // TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 31 Oct 2026): "TEST: Always win" puts the player
+    // first, set before any branch so a challenge gets it too; "TEST: No bike wear" (Boss, 2 Nov 2026) likewise.
+    setTestAlwaysWin(services.settings.get().gameplay.testAlwaysWin);
+    setTestNoWear(services.settings.get().gameplay.testNoWear);
     if (this.args.mode === 'practice') this.startPractice();
     else if (this.args.challenge) this.showChallengeStart(this.args.challenge);
     else {
@@ -831,7 +835,9 @@ export class RaceScene extends Phaser.Scene {
     // as Position but in the pen's ink colour (Boss, 31 Oct and 1 Nov 2026), the orange of the picked
     // speed button since 2 Nov 2026 (Boss).
     this.ui.ink = this.text((map.x + map.x + map.w - penW) / 2, rowY, '', 18, COLORS.accentDark, OVERLAY).setOrigin(0.5, 0.5);
-    this.box(right, 16, sideW, dh - 160);
+    // TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 2 Nov 2026): room under the standings for "TEST: Win now".
+    const testH = practice ? 0 : 44;
+    this.box(right, 16, sideW, dh - 160 - testH);
     // The standings show as many rows as fit above the log, scrolled to keep you in view.
     // Your row is picked out by a bar behind it, so the standings lose the arrow column and the
     // times sit just after the field's longest name (Boss, 31 Oct 2026).
@@ -839,7 +845,7 @@ export class RaceScene extends Phaser.Scene {
     this.screen.add(this.towerMark);
     this.ui.tower = this.text(right + 12, 30, '', 16, COLORS.cream, { lineSpacing: 7 }).setFontFamily(MONO);
     // The log always starts under the last row.
-    this.towerRows = Math.max(6, Math.floor((dh - 160 - 14 - 8) / this.towerLineH));
+    this.towerRows = Math.max(6, Math.floor((dh - 160 - testH - 14 - 8) / this.towerLineH));
     // The race log floats over the track's bottom-left corner in the Position text one size down,
     // five lines at most. It is just wide enough for the longest line the log can write (a big crash
     // at the longest-named section breaking three parts) to split over two near-equal lines
@@ -892,6 +898,10 @@ export class RaceScene extends Phaser.Scene {
     } else {
       this.btn(right + aw / 2, dh - 60, 'Retire', () => this.confirmRetire(), aw, 44);
       this.btn(right + aw * 1.5 + 8, dh - 60, 'Details', () => this.toggleDetail(), aw, 44);
+      // TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 2 Nov 2026): "TEST: Win now", under the
+      // standings, ends the race at once with the player first and goes straight to its results screen,
+      // in any race, heat, qualifying or challenge.
+      this.btn(right + sideW / 2, dh - 144 - testH + 4 + 18, 'TEST: Win now', () => this.testWinNow(), sideW, 36);
     }
     this.addLap(sim.nextLap());
     // A race opens with the start procedure: the line-up, then the board and the five-second
@@ -1455,6 +1465,20 @@ export class RaceScene extends Phaser.Scene {
   }
 
   // ---- results ----
+
+  /** TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 2 Nov 2026): runs the race to the end with the player first. */
+  private testWinNow(): void {
+    const sim = this.sim;
+    if (!sim || !this.live) return;
+    setTestAlwaysWin(true);
+    try {
+      while (!sim.finished) this.addLap(sim.nextLap());
+      this.live = false;
+      this.finishMoto();
+    } finally {
+      setTestAlwaysWin(services.settings.get().gameplay.testAlwaysWin);
+    }
+  }
 
   private finishMoto(): void {
     if (this.qualifying) return this.showQualifyingResults();
