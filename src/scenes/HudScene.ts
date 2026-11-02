@@ -34,7 +34,7 @@ import { careerRecords, recordText } from '../core/records';
 import { services } from '../services';
 import { COLORS, hex, textStyle } from '../ui/theme';
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
-import { button, panel, slider, statBar } from '../ui/widgets';
+import { button, panel, slider, statBar, trophyIcon } from '../ui/widgets';
 import type { WorldScene } from './WorldScene';
 import { HUD_BAR, cssSize, view } from '../ui/view';
 import { bikeImage, worldMapTexture, type WorldMapData, type WorldMapZone } from '../core/worldMap';
@@ -44,6 +44,14 @@ import { bikeImage, worldMapTexture, type WorldMapData, type WorldMapZone } from
 // touch buttons. Runs alongside the world scene at a fixed zoom.
 
 type PanelTab = 'bike' | 'bag' | 'task' | 'skills' | 'records';
+/** A choice on a `choose` menu. mark: a texture to show on the button (a badge), or true for a drawn trophy. */
+export interface ChooseOption {
+  label: string;
+  note?: string;
+  enabled?: boolean;
+  mark?: string | true;
+  onPick: () => void;
+}
 export type ShopTab = 'buy' | 'sell' | 'repair' | 'fit' | 'newbike' | 'tools';
 
 /** The smallest page panels are laid out on (see page()). */
@@ -554,7 +562,7 @@ export class HudScene extends Phaser.Scene {
 
   /** A box with a few choices, such as the race office's menu. Esc or the last button closes it. */
   /** A menu of buttons with notes beside them; `centre` puts the buttons in the middle, for a menu without notes. */
-  choose(title: string, text: string, options: { label: string; note?: string; enabled?: boolean; onPick: () => void }[], onClose: () => void, centre = false): void {
+  choose(title: string, text: string, options: ChooseOption[], onClose: () => void, centre = false): void {
     const { width, height, k } = this.page();
     const w = Math.min(720, width - 32);
     const textObj = this.add.text(0, 0, text, textStyle(this.pts(18), COLORS.cream, { wordWrap: { width: w - 60 }, lineSpacing: 4 }));
@@ -578,6 +586,13 @@ export class HudScene extends Phaser.Scene {
       }, 250, 48);
       b.setEnabled(o.enabled !== false);
       c.add(b);
+      // A championship's next round is here (Boss, 2 Nov 2026): its badge, or a trophy, at the button's right end.
+      if (o.mark) {
+        const mx = b.x + 125 - 24;
+        if (o.mark !== true && this.textures.exists(o.mark)) c.add(this.add.image(mx, y, o.mark).setDisplaySize(44, 44));
+        else c.add(trophyIcon(this, mx, y, 32));
+        (b.list[1] as Phaser.GameObjects.Text).setX(-20);
+      }
       if (o.note) c.add(this.add.text(-w / 2 + 290, y, o.note, textStyle(this.pts(15), COLORS.muted, { wordWrap: { width: w - 310 } })).setOrigin(0, 0.5));
     });
     this.openModal(c, () => !picked && onClose());
