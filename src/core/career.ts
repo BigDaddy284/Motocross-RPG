@@ -217,15 +217,28 @@ export interface CareerState {
   sponsorOffers?: Offer[];
 }
 
-export const pence = (pounds: number) => Math.round(pounds * 100);
+// Money is whole pounds (Boss, 2 Nov 2026: no pennies). It is still held in pence, so saves and
+// sums keep their shape, but every amount that is charged, paid or shown is rounded to the nearest £1.
 
-/** A shift job's pay per part in pence, after the testing multiplier. */
-export const jobPay = (world: WorldData, job: JobDef) => pence(job.pay * (world.testPayMultiplier ?? 1));
+/** Pence rounded to the nearest whole pound (£2.49 is £2, £2.50 is £3). */
+export const wholePounds = (p: number) => Math.round(p / 100) * 100;
+
+/** Pounds to pence, rounded to the nearest whole pound. */
+export const pence = (pounds: number) => Math.round(pounds) * 100;
+
+/**
+ * A shift job's pay per part in pence, after the testing multiplier. Kept exact (75p a bracket):
+ * the shift pays it out in whole pounds as the running total passes each £1 (core/jobs.ts finishPass).
+ */
+export const jobPay = (world: WorldData, job: JobDef) => Math.round(job.pay * (world.testPayMultiplier ?? 1) * 100);
+
+/** A whole batch's pay in pence, rounded to the nearest £1: what a shift pays in all. */
+export const batchPay = (world: WorldData, job: JobDef) => wholePounds(jobPay(world, job) * job.batch);
 
 export function formatMoney(p: number): string {
   const sign = p < 0 ? '−' : '';
-  const a = Math.abs(p);
-  return a % 100 === 0 ? `${sign}£${a / 100}` : `${sign}£${(a / 100).toFixed(2)}`;
+  const a = Math.round(Math.abs(p) / 100);
+  return `${a ? sign : ''}£${a}`;
 }
 
 /** A new starter bike: the starter grade everywhere, random 50–80% condition, and one broken part (GDD 4.1). */

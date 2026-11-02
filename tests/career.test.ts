@@ -4,6 +4,7 @@ import {
   bikeProblem,
   bikeStats,
   formatMoney,
+  wholePounds,
   jobPay,
   journal,
   matchStory,
@@ -153,9 +154,14 @@ describe('the opening chain', () => {
 });
 
 describe('money', () => {
-  it('shows whole pounds plainly and pence when there are any', () => {
+  it('is whole pounds: no pennies shown or charged (Boss, 2 Nov 2026)', () => {
     expect(formatMoney(pence(600))).toBe('£600');
-    expect(formatMoney(pence(0.75) * 3)).toBe('£2.25');
+    expect(formatMoney(225)).toBe('£2');
+    expect(formatMoney(250)).toBe('£3');
+    expect(formatMoney(-1249)).toBe('−£12');
+    expect(formatMoney(-40)).toBe('£0');
+    expect(pence(17.5)).toBe(1800);
+    expect(wholePounds(3750)).toBe(3800);
   });
 
   it('the Area 1 shifts are the Spec 15.5 batches: 50 brackets at 75p and 100 pistons at £1.25', () => {

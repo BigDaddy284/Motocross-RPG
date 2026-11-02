@@ -4,7 +4,7 @@
 // its riders race in and their skill level there, its house, the motor Nicholls sells there, and
 // its weather (Spec 10.5: rain arrives in Area 2). Pure rules, no graphics.
 
-import type { CareerState } from './career';
+import { pence, type CareerState } from './career';
 import type { VehiclesData } from './vehicles';
 import type { ContentError, Schema } from './validate';
 
@@ -110,7 +110,7 @@ export function buyHouse(area: AreaDef, career: CareerState, flags: Record<strin
   const house = area.house;
   if (!house) return { ok: false, message: 'Nothing for sale here.' };
   if (flags[houseFlag(area.n)]) return { ok: false, message: `The ${house.name.toLowerCase()} is already yours.` };
-  const price = Math.round(house.price * 100);
+  const price = pence(house.price);
   if (career.money < price) return { ok: false, message: `You're short: the ${house.name.toLowerCase()} is £${house.price}.` };
   career.money -= price;
   flags[houseFlag(area.n)] = true;
@@ -126,7 +126,7 @@ export function motorProblem(vehicles: VehiclesData, area: AreaDef, career: Care
   if (motor.needs && !flags[motor.needs]) return `The ${vehicles.designs.find((d) => d.id === motor.design)?.name ?? motor.design} is for factory riders: come back with a factory sponsor.`;
   const designs = vehicles.designs.map((d) => d.id);
   if (designs.indexOf(van.design) >= designs.indexOf(motor.design)) return `You already have a motor as good as the ${vehicles.designs.find((d) => d.id === motor.design)?.name ?? motor.design}.`;
-  if (career.money < Math.round(motor.price * 100)) return `You're short: it's £${motor.price} with your old motor in part exchange.`;
+  if (career.money < pence(motor.price)) return `You're short: it's £${motor.price} with your old motor in part exchange.`;
   return null;
 }
 
@@ -134,7 +134,7 @@ export function motorProblem(vehicles: VehiclesData, area: AreaDef, career: Care
 export function buyMotor(vehicles: VehiclesData, area: AreaDef, career: CareerState, van: { design: string }, flags: Record<string, boolean> = {}): Result {
   const problem = motorProblem(vehicles, area, career, van, flags);
   if (problem) return { ok: false, message: problem };
-  career.money -= Math.round(area.motor!.price * 100);
+  career.money -= pence(area.motor!.price);
   van.design = area.motor!.design;
   return { ok: true, message: `The ${vehicles.designs.find((d) => d.id === van.design)?.name ?? van.design} is yours. It's parked where the old one stood.` };
 }

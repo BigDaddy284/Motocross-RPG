@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { advanceStory, bikeProblem, catchUp, currentStep, earlyStep, hearEarly, fillText, formatMoney, jobPay, matchStory, openChains, pence, type JobDef, type PlaceDef, type StoryEvent, type StoryStep } from '../core/career';
+import { advanceStory, bikeProblem, catchUp, currentStep, earlyStep, hearEarly, fillText, formatMoney, batchPay, jobPay, matchStory, openChains, pence, type JobDef, type PlaceDef, type StoryEvent, type StoryStep } from '../core/career';
 import { newsRead, npcsOnMap, properName, type DialogueLine, type NpcDef, type NpcPlacement } from '../core/content';
 import { Grid, STEPS } from '../core/grid';
 import { objectTiles, type BakedMap, type Facing, type MapObject, type Tile } from '../core/mapTypes';
@@ -951,13 +951,14 @@ export class WorldScene extends Phaser.Scene {
       this.hud.toast(`You're part way through another batch here. Finish that first.`);
       return true;
     }
-    const pay = formatMoney(jobPay(services.content.world, job));
+    // Money is whole pounds (Boss, 2 Nov 2026), so the offer gives the batch's pay, not the pence a part.
+    const pay = formatMoney(batchPay(services.content.world, job));
     const skills = services.content.skills.leads.flatMap((l) => l.children);
     const xp = Object.entries(passXp(job)).map(([id, n]) => `${n} ${skills.find((c) => c.id === id)?.name ?? id}`).join(', ');
     const keeps = job.keeps ? ` Finish the batch and one ${job.keeps.length === 1 ? slotName(services.content.bikes, job.keeps[0]) : 'part'} is yours to keep.` : '';
     const text = open
-      ? `${job.name}: carry on your batch, ${open.made} of ${job.batch} ${job.product}s made, at ${pay} each.${keeps}`
-      : `${job.name}: make a batch of ${job.batch} ${job.product}s at ${pay} each, with ${xp} XP every part.\nYou're paid for every part, even if you stop early, and the batch waits for you.${keeps}`;
+      ? `${job.name}: carry on your batch, ${open.made} of ${job.batch} ${job.product}s made, ${pay} for the whole batch.${keeps}`
+      : `${job.name}: make a batch of ${job.batch} ${job.product}s for ${pay}, with ${xp} XP every part.\nYou're paid as you go, even if you stop early, and the batch waits for you.${keeps}`;
     this.hud.confirm(text, open ? 'Carry on' : 'Start shift', () => {
       const r = startJob(career, job);
       if (!r.ok) return void this.hud.toast(r.reason);
@@ -985,7 +986,7 @@ export class WorldScene extends Phaser.Scene {
     if (open?.ticket) {
       const job = ticketJob(board, tools, bikes, open.ticket);
       const ticket = open.ticket;
-      this.hud.confirm(`${job.name} is still on the bench (${formatMoney(jobPay(services.content.world, job))} when it's done). Carry on?`, 'Carry on', () => begin(job, ticket), () => this.player.idle());
+      this.hud.confirm(`${job.name} is still on the bench (${formatMoney(batchPay(services.content.world, job))} when it's done). Carry on?`, 'Carry on', () => begin(job, ticket), () => this.player.idle());
       return;
     }
     const tickets = ticketsOffered(board, bikes, career);
@@ -995,7 +996,7 @@ export class WorldScene extends Phaser.Scene {
         const job = ticketJob(board, tools, bikes, t);
         return {
           label: `${t.customer}: G${t.grade} ${slotName(bikes, t.slot)}`,
-          note: `${formatMoney(jobPay(services.content.world, job))}, ${board.xpPerStation * board.stations.length} ${tools.sets.find((s) => s.slots.includes(t.slot))?.skill.replace('_', ' ') ?? ''} XP.${problem ? ` ${problem}` : ''}`,
+          note: `${formatMoney(batchPay(services.content.world, job))}, ${board.xpPerStation * board.stations.length} ${tools.sets.find((s) => s.slots.includes(t.slot))?.skill.replace('_', ' ') ?? ''} XP.${problem ? ` ${problem}` : ''}`,
           enabled: !problem,
           onPick: () => begin(job, t),
         };
@@ -1542,10 +1543,13 @@ export class WorldScene extends Phaser.Scene {
       onDone: (save, message) => {
         this.scene.wake('hud');
         this.scene.wake();
+        // Money won comes back as the bank note over the rider's head, not in the message (Boss, 2 Nov 2026).
+        const gain = save.career.money - this.save.career.money;
         this.save = save;
         this.busy = false;
         onClose();
         this.hud.showCareer(this.save.career, this.save.flags);
+        if (gain > 0) this.time.delayedCall(250, () => this.hud.moneyNote(gain));
         this.milestoneSave();
         this.hud.toast(message);
       },

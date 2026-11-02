@@ -3,6 +3,13 @@ import { DEFAULT_SETTINGS, SettingsStore } from '../src/core/settings';
 import { MemoryStore } from '../src/core/storage';
 
 describe('SettingsStore', () => {
+  it('shows the task on screen unless switched off in Gameplay (Boss, 2 Nov 2026)', () => {
+    const store = new MemoryStore();
+    expect(new SettingsStore(store).get().gameplay.showTask).toBe(true);
+    new SettingsStore(store).update('gameplay', 'showTask', false);
+    expect(new SettingsStore(store).get().gameplay.showTask).toBe(false);
+  });
+
   it('applies and saves a change at once', () => {
     const store = new MemoryStore();
     const s = new SettingsStore(store);

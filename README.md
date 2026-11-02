@@ -274,6 +274,15 @@ Known limits: a finish line placed inside a bend splits that section, and a shor
 
 To resume: `npm install`, `npm test`, `npm run dev`, then open `/tools/` (the toolkit) or `/tools/track-editor.html` or `/tools/map-editor.html`.
 
+### Whole pounds, the task line and button order (Boss, 2 Nov 2026)
+
+- **Money is whole pounds, no pennies.** Every price, fee, prize, repair, sale, trade-in, sponsor payment and championship prize is rounded to the nearest £1, and the HUD and every screen show plain pounds. Shift jobs still pay per part (75p a bracket), but in whole pounds as the batch's running total passes each £1, so a full batch pays its total to the nearest pound (50 brackets: £38); the shift offer now shows the batch's pay. Older saves round their money on loading (save version 7).
+- **Settings > Gameplay > Show task on screen** switches off the task line under your money. The task is still in the Bag's Task tab, and a championship in progress still shows at its venue.
+- **The accept button is on the right** in every yes / no pop-up (Race, Buy, Sell, Start shift…), with Not now on the left, and the same in the race screen's Leave / Pull out / Retire boxes, the fitness drills, the damaged-save box and the map editor's dialogs. Menus with a list of choices (the race office and road menus) are unchanged.
+- **Money you receive shows as the bank note over your head**, including prize money and challenge winnings when you come back from a race (the paddock message no longer repeats the amount), and errand pay.
+- **The chat box keeps a gap from the bottom buttons** when the window is resized: it narrows to fit between ☰ and Map / Bike / Zoom, and on a screen too narrow for that it sits above them.
+- **Results screens keep their text inside the box.** The challenge result is laid out like a race day's (money and XP on the left, level ups and bike wear on the right), and every results box shrinks its text to fit when there is a lot to show.
+
 ## Before release
 
 Testing aids to take out before the final release:

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { jobPay, newCareerState, pence } from '../src/core/career';
+import { batchPay, jobPay, newCareerState, pence, wholePounds } from '../src/core/career';
 import { checkContent } from '../src/core/content';
 import { doublePartChance, finishBatch, finishPass, openJobAt, passXp, rollGrade, startJob } from '../src/core/jobs';
 import { SAVE_VERSION, parseSave } from '../src/core/saves';
@@ -20,15 +20,35 @@ const seq = (...values: number[]) => {
 };
 
 describe('batch jobs (Spec 15.1, 15.5)', () => {
+  it('a whole batch pays its total to the nearest £1, a pound at a time (Boss, 2 Nov 2026)', () => {
+    const career = fresh();
+    const money = career.money;
+    let paid = 0;
+    for (let i = 0; i < fab.batch; i++) {
+      const r = finishPass(skills, career, fab, 75, () => 0.99);
+      expect(r.pay % 100).toBe(0);
+      paid += r.pay;
+    }
+    expect(paid).toBe(3800); // 50 × 75p = £37.50, to £38
+    expect(career.money - money).toBe(paid);
+    expect(batchPay(world, fab)).toBe(wholePounds(jobPay(world, fab) * fab.batch));
+  });
+
   it('every pass pays per part and gives the stations\' XP in Mechanical Engineer child skills', () => {
     const career = fresh();
     const money = career.money;
-    const r = finishPass(skills, career, fab, jobPay(world, fab), () => 0.99);
+    // 75p a part, as at the fabrication shop without the testing multiplier.
+    const r = finishPass(skills, career, fab, 75, () => 0.99);
     expect(r.parts).toBe(1);
     expect(r.done).toBe(false);
-    expect(career.money - money).toBe(jobPay(world, fab));
-    expect(career.skills.xp).toMatchObject({ bodywork: 6, welding: 6 });
-    expect(openJobAt(career, fab)).toEqual({ job: 'job.fabrication', made: 1 });
+    // Whole pounds (Boss, 2 Nov 2026): the first 75p part takes the running total to £1.
+    expect(career.money - money).toBe(100);
+    // The second part (£1.50 in all, rounds to £2) pays £1 more; the third (£2.25, £2) pays nothing.
+    expect(finishPass(skills, career, fab, 75, () => 0.99).pay).toBe(100);
+    expect(finishPass(skills, career, fab, 75, () => 0.99).pay).toBe(0);
+    expect(career.money - money).toBe(200);
+    expect(career.skills.xp).toMatchObject({ bodywork: 18, welding: 18 });
+    expect(openJobAt(career, fab)).toEqual({ job: 'job.fabrication', made: 3 });
     expect(passXp(engine)).toEqual({ engine_components: 6, machining: 6, engine_assembly: 3 });
   });
 
@@ -117,6 +137,6 @@ describe('batch jobs (Spec 15.1, 15.5)', () => {
     const back = parseSave(JSON.stringify(save));
     expect(back?.career.jobs).toEqual({ open: { 'job.fabrication': { job: 'job.fabrication', made: 1 } } });
     expect(parseSave(JSON.stringify({ ...save, career: { ...career, jobs: { open: { x: { job: 1 } } } } }))).toBeNull();
-    expect(pence(0.75)).toBe(75);
+    expect(pence(0.75)).toBe(100);
   });
 });

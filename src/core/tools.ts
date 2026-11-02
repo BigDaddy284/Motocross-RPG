@@ -4,7 +4,7 @@
 // nothing, instead of paying Phoenix MX. Sets are bought once at J's Tools in Home Town and
 // last for good; a better version replaces the one below it.
 
-import type { BikesData, CareerState, Part } from './career';
+import { pence, type BikesData, type CareerState, type Part } from './career';
 import { openAreas } from './areas';
 import { addXp, type LevelUp, type SkillsData } from './skills';
 import { notMine, repairQuote, slotName, type Result, type ShopsData, type SparePart } from './shops';
@@ -62,7 +62,7 @@ export function buyTools(career: CareerState, flags: Record<string, boolean>, se
   const next = nextVersion(career, flags, set);
   if (!next) return { ok: false, message: `You have the best ${set.name.toLowerCase()} there are.` };
   if (!next.open) return { ok: false, message: `${next.version.name} come in with Area ${next.version.area}.` };
-  const price = Math.round(next.version.price * 100);
+  const price = pence(next.version.price);
   if (career.money < price) return { ok: false, message: "You can't afford them." };
   career.money -= price;
   (career.tools ??= {})[set.id] = next.version.id;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { jobPay, newCareerState } from '../src/core/career';
+import { jobPay, newCareerState, wholePounds } from '../src/core/career';
 import { checkContent } from '../src/core/content';
 import { finishBatch, finishPass, openJobAt, startJob } from '../src/core/jobs';
 import { ticketJob, ticketPay, ticketProblem, ticketsOffered } from '../src/core/jobBoard';
@@ -61,7 +61,7 @@ describe('customer repair tickets (Spec 3.2, 14.5a; Areas 2 to 8 plan gap 5)', (
     const pass = finishPass(skills, career, job, jobPay(world, job), () => 0);
     expect(pass.parts).toBe(1);
     expect(pass.done).toBe(true);
-    expect(career.money - money).toBe(jobPay(world, job));
+    expect(career.money - money).toBe(wholePounds(jobPay(world, job))); // whole pounds (Boss, 2 Nov 2026)
     expect(career.skills.xp.bodywork).toBe(board.xpPerStation * job.stations.length);
     finishBatch(skills, career, job, new Set());
     expect(openJobAt(career, job)).toBeNull();

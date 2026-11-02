@@ -1,5 +1,5 @@
 import { dayClass } from './classes';
-import { pence } from './career';
+import { pence, wholePounds } from './career';
 import { areaOfMap, rollWeather } from './areas';
 import { MotoSim, SUPERCROSS_DEFAULTS, dealGates, mixSeed, seededRng, type Entrant, type RiderResult, type SupercrossRules, type TrackDef } from './race';
 import { PLAYER_ID, cpuEntrant, cpuGatePick, drawPool, lapsFor, motoPrize, scaleXp, sumXp, trackById, tunePlayer, type CpuRiderDef, type RaceContent, type RoundOptions, type VenueDef } from './raceDay';
@@ -344,7 +344,7 @@ export class SupercrossNight {
     const main = me.reached === 'Main Event' ? me.finish : null;
     const purse = this.entryForPrize;
     const prize = main === null ? 0 : MAIN_COUNTS * motoPrize(this.rc.racing, purse, main);
-    const podiumBonus = main === null ? 0 : Math.round(purse * (this.rc.racing.prize.podium[main - 1] ?? 0));
+    const podiumBonus = main === null ? 0 : wholePounds(purse * (this.rc.racing.prize.podium[main - 1] ?? 0));
     return { places, position: me.position, main, prize, podiumBonus, xp: sumXp(...this.xp) };
   }
 

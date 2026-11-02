@@ -3545,8 +3545,8 @@ function renderCheerDetail(box, t, it, field, editItem) {
   btns.style.marginTop = '4px';
   const mk = (txt, title, fn, on = false) => { const b = document.createElement('button'); b.textContent = txt; b.title = title; b.classList.toggle('on', on); b.addEventListener('click', fn); btns.appendChild(b); return b; };
   if (app.routeDraw) {
-    mk('Done', 'Keep the route drawn (Esc)', () => routeDrawing(false), true);
     mk('Cancel', 'Put the route back as it was', cancelRoute);
+    mk('Done', 'Keep the route drawn (Esc)', () => routeDrawing(false), true);
   } else {
     mk('Draw route', 'Click points on the ground, in order, from where they are placed to where they stand and cheer', () => routeDrawing(true));
     mk('Reset route', 'Clear the route: they stand where placed', resetRoute).disabled = !n;
@@ -5070,8 +5070,8 @@ function renderOfficialDetail(box, t, it) {
   btns.style.marginTop = '4px';
   const mk = (txt, title, fn, on = false) => { const b = document.createElement('button'); b.textContent = txt; b.title = title; b.classList.toggle('on', on); b.addEventListener('click', fn); btns.appendChild(b); return b; };
   if (app.routeDraw) {
-    mk('Done', 'Keep the route drawn (Esc)', () => routeDrawing(false), true);
     mk('Cancel', 'Put the route back as it was', cancelRoute);
+    mk('Done', 'Keep the route drawn (Esc)', () => routeDrawing(false), true);
   } else {
     mk('Draw route', 'Click points on the ground, in order, from where they stand to where they end up', () => routeDrawing(true));
     mk('Plan walk', 'Give them a walk from where they stand to a clear spot trackside further up the start straight', planWalkHere).disabled = !at;
