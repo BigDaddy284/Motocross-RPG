@@ -2,7 +2,7 @@
 // every part made, one open job per facility that can be stopped and picked up again, and the
 // random part the employer gives the rider from each finished batch. Pure rules, no graphics.
 
-import type { CareerState, JobDef } from './career';
+import { wholePounds, type CareerState, type JobDef } from './career';
 import type { SkillsData } from './skills';
 import { addXp, childLevel, leadLevel, type LevelUp } from './skills';
 import { SPARE, type SparePart } from './shops';
@@ -72,8 +72,11 @@ export function finishPass(skills: SkillsData, career: CareerState, job: JobDef,
   if (!open.ok) return { parts: 0, pay: 0, ups: [], done: false };
   // A double only when the batch has room for it: a one-part ticket is one part.
   const parts = job.batch - open.open.made > 1 && rng() < doublePartChance(skills, career) ? 2 : 1;
+  // Whole pounds only (Boss, 2 Nov 2026): pay what takes the batch's running total to the next
+  // whole pound, so 50 brackets at 75p pay £38 in all, a pound at a time, stopping early or not.
+  const before = wholePounds(open.open.made * payPerPart);
   open.open.made += parts;
-  const pay = payPerPart * parts;
+  const pay = wholePounds(open.open.made * payPerPart) - before;
   career.money += pay;
   const gains: Record<string, number> = {};
   for (const st of job.stations) for (const [skill, xp] of Object.entries(st.xp ?? {})) gains[skill] = (gains[skill] ?? 0) + xp;

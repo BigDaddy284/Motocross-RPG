@@ -309,14 +309,14 @@ body.mode-buildings #bldStudio { display: grid; grid-template-columns: 360px 1fr
   <p class="hint">A new area map from <b id="nmFrom"></b>: its ground, collision, props and spawns are copied; its buildings, doors, people and triggers are left out, since each can be on one map only.</p>
   <label class="chk" style="display:grid;grid-template-columns:110px 1fr;gap:6px">Name <input type="text" id="nmName" placeholder="Riverside Town"></label>
   <label class="chk" style="display:grid;grid-template-columns:110px 1fr;gap:6px;margin-top:6px">On the world map <span id="nmZone"></span></label>
-  <div class="row" style="margin-top:12px"><button id="nmMake" class="primary">Make the map</button><button id="nmCancel">Cancel</button></div>
+  <div class="row" style="margin-top:12px"><button id="nmCancel">Cancel</button><button id="nmMake" class="primary">Make the map</button></div>
 </dialog>
 
 <dialog id="checkDlg">
   <h3 style="margin-top:0">File check</h3>
   <p class="hint">The game's lists (its map list and building library) don't match what's in the folders. Untick anything you don't want changed.</p>
   <div id="checkList"></div>
-  <div class="row" style="margin-top:10px"><button id="checkApply" class="primary">Apply ticked</button><button id="checkLater">Not now</button></div>
+  <div class="row" style="margin-top:10px"><button id="checkLater">Not now</button><button id="checkApply" class="primary">Apply ticked</button></div>
 </dialog>
 
 <dialog id="help">
@@ -380,7 +380,7 @@ body.mode-buildings #bldStudio { display: grid; grid-template-columns: 360px 1fr
     <div id="bPicture" hidden>
       <div class="hint" id="bPicInfo"></div>
       <div id="bPadHost"></div>
-      <div class="row"><button id="bPicSave" class="primary">Use this picture</button><button id="bPicCancel">Cancel</button></div>
+      <div class="row"><button id="bPicCancel">Cancel</button><button id="bPicSave" class="primary">Use this picture</button></div>
     </div>
     <div class="row">
       <button id="bSave" class="primary">Save to library</button>

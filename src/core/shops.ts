@@ -1,4 +1,4 @@
-import { bikeStats, formatMoney, pence, type BikesData, type CareerState, type Part } from './career';
+import { bikeStats, formatMoney, pence, wholePounds, type BikesData, type CareerState, type Part } from './career';
 import type { PartOwner } from './errands';
 import type { BakedMap } from './mapTypes';
 import { seededRng } from './race';
@@ -166,7 +166,7 @@ export function resaleValue(data: ShopsData, shop: ShopDef, career: CareerState,
   if (!shop.sells || part.condition <= 0 || part.owner || data.consumables?.includes(part.slot)) return null;
   const r = data.resale;
   const factor = shop.sells.slots.includes(part.slot) ? 1 : r.otherShop;
-  return Math.round(partPrice(data, part.slot, part.grade, part.class) * (r.base + r.perCondition * part.condition) * factor * demand(data, shop, career));
+  return wholePounds(partPrice(data, part.slot, part.grade, part.class) * (r.base + r.perCondition * part.condition) * factor * demand(data, shop, career));
 }
 
 export type RepairQuote = { ok: true; grade: number; cost: number } | { ok: false; reason: string };
@@ -178,7 +178,7 @@ export function repairQuote(data: ShopsData, slot: string, part: Part, cls: stri
   if (part.grade <= 1) return { ok: false, reason: "Grade 1 can't be repaired. Replace it when it wears out." };
   if (part.condition >= 1) return { ok: false, reason: 'Like new: nothing to repair.' };
   const grade = part.grade - 1;
-  return { ok: true, grade, cost: Math.round(partPrice(data, slot, grade, cls) * data.repairShare) };
+  return { ok: true, grade, cost: wholePounds(partPrice(data, slot, grade, cls) * data.repairShare) };
 }
 
 export type Result = { ok: true; message: string } | { ok: false; message: string };
@@ -228,7 +228,7 @@ export function tradeIn(data: ShopsData, career: CareerState, item: StockItem): 
   const gap = item.grade - old.grade;
   const fade = Math.max(0, Math.min(1, 1 - (gap - 1) / (TRADE_IN_GRADES - 1)));
   const value = partPrice(data, item.slot, old.grade, career.bike.class) * Math.min(1, old.condition) * fade;
-  return Math.round(Math.min(value, item.price * 0.5));
+  return wholePounds(Math.min(value, item.price * 0.5));
 }
 
 /** A trade-in fades to nothing at this many grades below the new set. */

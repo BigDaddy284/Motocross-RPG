@@ -3,7 +3,7 @@
 // brings contracts for a set number of race days, paid only for objectives met, with tiers from
 // the local shop to a factory team, and the reputation table behind the offers. Every number is
 // in data/sponsors.json.
-import { pence, type CareerState } from './career';
+import { pence, wholePounds, type CareerState } from './career';
 import { mixSeed, seededRng } from './race';
 import type { RaceContent, VenueDef } from './raceDay';
 import type { Schema } from './validate';
@@ -164,7 +164,7 @@ export function signOffer(data: SponsorsData, offer: Offer, career: CareerState,
 export function dropPenalty(data: SponsorsData, contract: Contract): number {
   const tier = data.tiers.find((t) => t.id === contract.tier)!;
   const remaining = Math.max(0, contract.days - contract.daysDone);
-  return Math.round(tier.cancel * contract.cashReceived * (1 + remaining / contract.days));
+  return wholePounds(tier.cancel * contract.cashReceived * (1 + remaining / contract.days));
 }
 
 export function dropSponsor(data: SponsorsData, career: CareerState): { ok: boolean; message: string } {
