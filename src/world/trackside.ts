@@ -11,10 +11,13 @@ import { paddockColour, paddockSetup, paddockVariant } from '../core/paddock';
 import type { SceneryDef } from '../core/trackParts';
 import { Build, CANVAS, CHASSIS, DARK, GLASS, hexNum, MAT, rustyVan, shade, SHIRTS, STEEL, TABLE, TYRE, U } from './paddock';
 
-/** A box with words on it, in metres, for the race view to texture: the text faces +z (and -z when `both`). */
+/**
+ * A box with words on it, in metres, for the race view to texture: the text faces +z (and -z when `both`).
+ * `picture`: the words are the item's own, so a PNG picked for the item shows there instead (core/banners.ts; Boss, 2 Nov 2026).
+ */
 export interface Label {
   x: number; y: number; z: number; l: number; h: number; w: number; ry?: number;
-  text: string; bg: number; fg?: string; vertical?: boolean; both?: boolean;
+  text: string; bg: number; fg?: string; vertical?: boolean; both?: boolean; picture?: boolean;
 }
 export interface Built { parts: Build['parts']; labels: Label[] }
 
@@ -177,7 +180,7 @@ const builders: Record<string, (c: Ctx) => void> = {
     const beam = b.cyl(0, h, 0, 0.55, L, col, 14);
     beam.rotation.z = Math.PI / 2;
     beam.position.y = h * U;
-    labels.push({ x: 0, y: h - 0.45, z: 0, l: L - 2.2, h: 0.9, w: 1.12, text, bg: col, both: true });
+    labels.push({ x: 0, y: h - 0.45, z: 0, l: L - 2.2, h: 0.9, w: 1.12, text, picture: true, bg: col, both: true });
     // The timing beam: a cell on a post each side just inside the arch, and the line across.
     for (const s of [-1, 1]) {
       b.pole(s * (L / 2 - 1.4), 0, 0.7, 1.0, 0xf0a020, 0.07);
@@ -324,7 +327,7 @@ const builders: Record<string, (c: Ctx) => void> = {
   pit_setup({ b, col, setup, i, text, labels }) {
     // The tent is open-fronted: the team's name on the front valance, the bikes just inside it and the people out front, where the race camera sees them.
     gazebo(b, -3.0, 3.0, -2.6, 1.0, col, 2.6);
-    labels.push({ x: 0, y: 2.2, z: 1.03, l: 6.0, h: 0.4, w: 0.03, text, bg: shade(col, 0.85) });
+    labels.push({ x: 0, y: 2.2, z: 1.03, l: 6.0, h: 0.4, w: 0.03, text, picture: true, bg: shade(col, 0.85) });
     b.box(0, 0, -0.8, 6.0, 0.02, 3.6, MAT);
     const bikes = setup === 'bikes' || setup === 'both';
     const people = setup === 'people' || setup === 'both';
@@ -375,7 +378,7 @@ const builders: Record<string, (c: Ctx) => void> = {
   },
   trade_stand({ b, col, i, text, labels }) {
     gazebo(b, -1.5, 1.5, -2.0, 1.0, col);
-    labels.push({ x: 0, y: 1.8, z: 1.02, l: 3.0, h: 0.3, w: 0.03, text, bg: shade(col, 0.85) });
+    labels.push({ x: 0, y: 1.8, z: 1.02, l: 3.0, h: 0.3, w: 0.03, text, picture: true, bg: shade(col, 0.85) });
     b.box(0, 0.75, 0.5, 2.6, 0.05, 0.7, TABLE);
     for (const [sx, sz] of [[-1.2, 0.2], [1.2, 0.2], [-1.2, 0.8], [1.2, 0.8]]) b.pole(sx, 0, sz, 0.75, STEEL, 0.04);
     for (let k = 0; k < 5; k++) b.box(-1.0 + k * 0.5, 0.8, 0.5, 0.35, 0.2 + (k % 2) * 0.15, 0.4, SHIRTS[(i + k) % SHIRTS.length]);
@@ -392,7 +395,7 @@ const builders: Record<string, (c: Ctx) => void> = {
     b.box(-0.3, 1.3, z + 1.11, 2.8, 0.9, 0.04, GLASS);
     b.box(-0.3, 2.2, z + 1.5, 2.9, 0.05, 0.9, shade(col, 0.9));
     b.box(-0.3, 1.2, z + 1.15, 2.9, 0.08, 0.3, TABLE);
-    labels.push({ x: -0.3, y: 2.72, z: z + 0.2, l: 4.0, h: 0.5, w: 0.06, text, bg: shade(col, 0.8), both: true });
+    labels.push({ x: -0.3, y: 2.72, z: z + 0.2, l: 4.0, h: 0.5, w: 0.06, text, picture: true, bg: shade(col, 0.8), both: true });
     b.box(-0.3, 2.7, z, 4.0, 0.55, 2.0, shade(col, 0.95));
     b.box(1.6, 0, z + 1.4, 0.6, 1.2, 0.08, BLACK);
     b.box(1.6, 0.3, z + 1.4, 0.5, 0.8, 0.04, WHITE);
@@ -432,7 +435,7 @@ const builders: Record<string, (c: Ctx) => void> = {
   },
   time_check({ b, col, i, text, labels }) {
     gazebo(b, -1.5, 1.5, -1.5, 1.5, col);
-    labels.push({ x: 0, y: 1.8, z: 1.52, l: 3.0, h: 0.3, w: 0.03, text, bg: shade(col, 0.85) });
+    labels.push({ x: 0, y: 1.8, z: 1.52, l: 3.0, h: 0.3, w: 0.03, text, picture: true, bg: shade(col, 0.85) });
     b.table(0.3, 0.2);
     b.box(-1.0, 0, -0.9, 0.5, 2.0, 0.5, BLACK);
     b.box(-1.0, 1.4, -0.63, 0.44, 0.44, 0.03, WHITE);
@@ -574,7 +577,7 @@ const builders: Record<string, (c: Ctx) => void> = {
       b.disc(x, 0, 0.3, BLACK, 0.03);
       b.pole(x, 0, 0, 4.0, 0xe8e8e8, 0.04);
       b.box(x, 3.98, 0, 0.3, 0.35, 0.06, col, 0.5);
-      labels.push({ x: x + 0.33, y: 0.6, z: 0, l: 0.62, h: 3.2, w: 0.02, text, bg: col, vertical: true, both: true });
+      labels.push({ x: x + 0.33, y: 0.6, z: 0, l: 0.62, h: 3.2, w: 0.02, text, picture: true, bg: col, vertical: true, both: true });
     }
   },
   inflatable({ b, col, variant, L, text, labels }) {
@@ -583,7 +586,7 @@ const builders: Record<string, (c: Ctx) => void> = {
       b.cyl(0, 0, 0, 0.75, 0.5, dark, 16);
       b.cyl(0, 0.5, 0, 0.7, 5.5, col, 16);
       b.cyl(0, 6.0, 0, 0.7, 0.5, col, 16, 0.3);
-      for (const ry of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) labels.push({ x: Math.sin(ry) * 0.66, y: 1.5, z: Math.cos(ry) * 0.66, l: 1.0, h: 3.0, w: 0.04, ry, text, bg: col, vertical: true });
+      for (const ry of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) labels.push({ x: Math.sin(ry) * 0.66, y: 1.5, z: Math.cos(ry) * 0.66, l: 1.0, h: 3.0, w: 0.04, ry, text, picture: true, bg: col, vertical: true });
       return;
     }
     const h = 4.8;
@@ -594,7 +597,7 @@ const builders: Record<string, (c: Ctx) => void> = {
     const beam = b.cyl(0, h, 0, 0.6, L, col, 14);
     beam.rotation.z = Math.PI / 2;
     beam.position.y = h * U;
-    labels.push({ x: 0, y: h - 0.5, z: 0, l: L - 2.4, h: 1.0, w: 1.22, text, bg: col, both: true });
+    labels.push({ x: 0, y: h - 0.5, z: 0, l: L - 2.4, h: 1.0, w: 1.22, text, picture: true, bg: col, both: true });
   },
   cones({ b, col, L }) {
     const n = Math.max(1, Math.round(L / 1.5));
@@ -683,7 +686,7 @@ const builders: Record<string, (c: Ctx) => void> = {
   },
   press_tent({ b, col, i, text, labels }) {
     gazebo(b, -2.0, 2.0, -2.0, 2.0, col);
-    labels.push({ x: 0, y: 1.8, z: 2.02, l: 4.0, h: 0.3, w: 0.03, text, bg: shade(col, 0.85) });
+    labels.push({ x: 0, y: 1.8, z: 2.02, l: 4.0, h: 0.3, w: 0.03, text, picture: true, bg: shade(col, 0.85) });
     for (const z of [-1.0, 0.8]) {
       b.box(0, 0.72, z, 3.6, 0.05, 0.7, TABLE);
       for (const sx of [-1.7, 1.7]) for (const sz of [-0.3, 0.3]) b.pole(sx, 0, z + sz, 0.72, STEEL, 0.04);
@@ -700,7 +703,7 @@ const builders: Record<string, (c: Ctx) => void> = {
     b.box(0, 0.05, -0.0, 2.4, 0.7, 0.03, col);
     for (const sx of [-1.1, 1.1]) b.pole(sx, 0, -0.3, 0.75, STEEL, 0.04);
     b.box(0, 0, -1.4, 2.8, 2.0, 0.08, shade(col, 0.9));
-    labels.push({ x: 0, y: 1.5, z: -1.35, l: 2.6, h: 0.4, w: 0.02, text, bg: col });
+    labels.push({ x: 0, y: 1.5, z: -1.35, l: 2.6, h: 0.4, w: 0.02, text, picture: true, bg: col });
     b.person(-0.4, -0.95, 0, i, { pose: 'sit', arms: 'forward', shirt: BIKES[i % 5] });
     b.person(0.5, -0.95, 0, i + 1, { pose: 'sit', arms: 'forward', shirt: BIKES[(i + 2) % 5] });
     for (let k = 0; k < 3; k++) b.person(-0.3 + k * 0.1, 0.4 + k * 0.7, Math.PI, i + 3 + k, { arms: k ? 'down' : 'forward' });
@@ -752,7 +755,7 @@ const builders: Record<string, (c: Ctx) => void> = {
     b.box(0, 0.65, z + 1.0, 5.2, 0.9, 0.3, shade(col, 0.9));
     b.box(0, 1.55, z + 1.0, 5.2, 0.05, 0.35, TABLE);
     b.box(0, 2.85, z + 1.9, 5.6, 0.05, 1.8, CANVAS, 0, -0.2);
-    labels.push({ x: 0, y: 2.0, z: z + 1.85, l: 4.5, h: 0.6, w: 0.03, text, bg: shade(col, 0.85) });
+    labels.push({ x: 0, y: 2.0, z: z + 1.85, l: 4.5, h: 0.6, w: 0.03, text, picture: true, bg: shade(col, 0.85) });
     b.box(0, 1.95, z + 1.83, 4.6, 0.7, 0.03, shade(col, 0.85));
     b.person(-1.2, z + 0.6, 0, i, { shirt: col });
     b.person(1.6, z + 2.0, Math.PI, i + 1, { arms: 'forward' });
@@ -800,7 +803,7 @@ const builders: Record<string, (c: Ctx) => void> = {
     const bh = sx ? 3.6 : 2.4;
     b.box(0, floor, -2.0, bw, bh, 0.1, col);
     for (const x of [-bw / 2 + 0.1, bw / 2 - 0.1]) b.pole(x, floor, -2.0, bh + 0.2, dark, 0.06);
-    labels.push({ x: 0, y: floor + bh * 0.62, z: -1.94, l: bw - 0.4, h: bh * 0.32, w: 0.02, text, bg: col });
+    labels.push({ x: 0, y: floor + bh * 0.62, z: -1.94, l: bw - 0.4, h: bh * 0.32, w: 0.02, text, picture: true, bg: col });
     b.box(0, floor + bh * 0.1, -1.94, bw - 0.4, bh * 0.32, 0.02, WHITE);
     // The three steps: 1 in the middle and tallest, 2 on its right (the viewer's left), 3 on its left.
     const steps: [number, number, string][] = [[0, 0.9, '1'], [-1.3, 0.6, '2'], [1.3, 0.4, '3']];
@@ -820,7 +823,7 @@ const builders: Record<string, (c: Ctx) => void> = {
   holeshot_board({ b, col, text, labels }) {
     for (const x of [-1.4, 1.4]) b.pole(x, 0, 0, 2.6, STEEL, 0.05);
     b.box(0, 1.5, 0, 3.0, 1.1, 0.06, col);
-    labels.push({ x: 0, y: 1.75, z: 0.04, l: 2.8, h: 0.6, w: 0.02, text, bg: col, both: true });
+    labels.push({ x: 0, y: 1.75, z: 0.04, l: 2.8, h: 0.6, w: 0.02, text, picture: true, bg: col, both: true });
     // The arrow pointing down at the holeshot line.
     b.box(0, 1.0, 0.04, 0.5, 0.4, 0.02, WHITE);
     b.box(0, 2.4, 0, 3.2, 0.12, 0.12, shade(col, 0.7));
@@ -858,7 +861,7 @@ const builders: Record<string, (c: Ctx) => void> = {
       b.box(x, h - 0.35, 0, 0.3, 0.4, 0.3, BLACK);
       b.box(x, h - 0.37, 0, 0.24, 0.02, 0.24, 0xfff6c0);
     }
-    if (text) labels.push({ x: 0, y: h + 0.6, z: 0, l: Math.max(1, L - 3), h: 0.7, w: 0.52, text, bg: col, both: true });
+    if (text) labels.push({ x: 0, y: h + 0.6, z: 0, l: Math.max(1, L - 3), h: 0.7, w: 0.52, text, picture: true, bg: col, both: true });
   },
   stadium_tunnel({ b, col, text, labels }) {
     // The riders' way onto the floor: a stadium wall with an arched opening, the seating rising behind.
@@ -871,7 +874,7 @@ const builders: Record<string, (c: Ctx) => void> = {
     for (const s of [-1, 1]) b.box(s * (open / 2 + 0.02), 0, -1.6, 0.3, H - 0.8, 3.0, 0x6a6a68);
     b.box(0, H - 0.85, -1.6, open + 0.6, 0.1, 3.0, 0x5a5a58);
     for (let k = 0; k < 4; k++) b.box(0, H + k * 0.6, -1.8 - k * 0.8, W, 0.6, 0.8, k % 2 ? col : shade(col, 1.15));
-    labels.push({ x: 0, y: H - 0.4, z: 0.31, l: open + 0.2, h: 0.5, w: 0.02, text, bg: BLACK });
+    labels.push({ x: 0, y: H - 0.4, z: 0.31, l: open + 0.2, h: 0.5, w: 0.02, text, picture: true, bg: BLACK });
     b.box(0, H + 2.4, -4.4, W, 0.2, 0.3, STEEL);
   },
   trophy_table({ b, col, i }) {

@@ -1,13 +1,30 @@
 Banner pictures (Boss, 1 Nov 2026)
 
-Put PNG pictures here to show them on banners and sponsor boards instead of typed text.
-In the track editor, select a banner or sponsor board and pick the picture under "Picture".
+Put PNG pictures here to show them on banners, sponsor boards and every other item with words
+(feather flags, the sponsor inflatable, the finish arch, tents, vans and boards; Boss, 2 Nov 2026)
+instead of typed text. In the track editor, select the item and pick the picture under "Picture".
 
 File names: lower-case letters, digits, - and _ only, ending .png (for example acme_oils.png).
 
 Best sizes (the picture is stretched to fill the face):
-  banner          2000 x 200 pixels   (10 to 1)
-  sponsor board   1200 x 260 pixels   (about 4.6 to 1)
+  banner              2000 x 200 pixels   (10 to 1)
+  sponsor board       1200 x 260 pixels   (about 4.6 to 1)
+  feather flags        200 x 1000 pixels  (tall: the flag's upright face)
+  sponsor inflatable  1240 x 200 pixels   (the arch; a column's four faces are about 300 x 900)
+On a tall face (a feather flag, the inflatable's column) a wide picture is turned to read
+upwards, as the words do, so a banner's picture works there too; a tall picture fills it upright.
+  finish arch         2000 x 200 pixels
+  sprint start        1400 x 200 pixels
+  podium              1200 x 250 pixels
+  holeshot board      1000 x 200 pixels
+  stadium tunnel      1360 x 200 pixels
+  pit tent valance    1500 x 100 pixels
+  catering van        1200 x 150 pixels
+  merchandise trailer 1200 x 160 pixels
+  press tent          1300 x 100 pixels
+  signing table       1000 x 150 pixels
+  trade stand, time check  1000 x 100 pixels
+The track editor's Picture box shows the best size for the item selected.
 
 A banner placed longer than its default stretches its picture with it.
 Examples: example_banner.png and example_sponsor_board.png.

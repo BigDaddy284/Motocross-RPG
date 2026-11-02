@@ -111,9 +111,11 @@ export const ARCH_MODELS = { mx: 'finish_arch_mx', sx: 'finish_arch_sx' } as con
  * Live parts any scenery model can have (Boss, 1 Nov 2026), found by name like a figure's parts:
  * a node named Track (Track.001 and so on) turns about its vertical to follow the nearest rider in
  * range (a TV camera's head, a camera operator), back to rest with none; a node named Flash is
- * hidden and shows for a blink as a rider goes by close (a photographer's flash).
+ * hidden and shows for a blink as a rider goes by close (a photographer's flash); a node named
+ * Drone flies off after a rider and back (droneStep; Boss, 2 Nov 2026); a node named Cheer is a
+ * seated section that stands up as its own rider goes by (cheerStep; Boss, 2 Nov 2026).
  */
-export const LIVE_PARTS = ['Track', 'Flash'] as const;
+export const LIVE_PARTS = ['Track', 'Flash', 'Drone', 'Cheer', 'Supporter'] as const;
 /** Grid units a Track part follows a rider from, and how fast it turns (radians a second). */
 export const TRACK_RANGE = 40;
 export const TRACK_TURN = 2.5;
@@ -122,9 +124,141 @@ export const FLASH_RANGE = 12;
 export const FLASH_TIME = 0.09;
 export const FLASH_GAP = 0.7;
 /** A live part's kind from its node name: "Track.001" (three.js: "Track001") is Track. */
-export function livePart(name: string | undefined): 'Track' | 'Flash' | null {
+export type LivePart = (typeof LIVE_PARTS)[number];
+export function livePart(name: string | undefined): LivePart | null {
   const n = (name ?? '').trim().replace(/[._]?\d+$/, '').toLowerCase();
-  return n === 'track' ? 'Track' : n === 'flash' ? 'Flash' : null;
+  return LIVE_PARTS.find((k) => k.toLowerCase() === n) ?? null;
+}
+
+/**
+ * A node named Cheer: one seated section of a stand or crowd (Boss, 2 Nov 2026: "No more mexican
+ * wave, each seated section gets a random rider each lap and only that section stands up to cheer as
+ * their rider goes past"). Each section is given a rider at random; as that rider comes within
+ * CHEER_RANGE it stands up (its child named Standing shows and Seated hides, or with neither it rises
+ * CHEER_RISE metres) and stays up CHEER_HOLD seconds after they have gone by, then sits and is
+ * given a new rider at random for the next lap.
+ */
+export const CHEER_RANGE = 14;
+/**
+ * A node named Supporter: one fan on their own, anywhere in a stand or crowd (Boss, 2 Nov 2026: "have
+ * random people form different sections cheers for the same rider"). They stand and cheer like a
+ * section, but their rider is picked each lap from the item's few favourites (SUPPORTER_RIDERS, drawn
+ * at random for the race), so fans dotted about different sections jump up for the same rider.
+ */
+export const SUPPORTER_RIDERS = 3;
+/** An item's favourite riders for its supporters: up to SUPPORTER_RIDERS different ones of `count`, from `rnd` in [0, 1). */
+export function supporterFavourites(count: number, rnd: () => number): number[] {
+  const all = Array.from({ length: count }, (_, i) => i);
+  for (let i = all.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [all[i], all[j]] = [all[j], all[i]];
+  }
+  return all.slice(0, Math.min(SUPPORTER_RIDERS, count));
+}
+export const CHEER_HOLD = 1.2;
+export const CHEER_RISE = 0.35;
+export interface CheerState {
+  /** The section's rider, as an index into the riders passed to cheerStep; -1 for none yet. */
+  rider: number;
+  /** Whether the rider has come within range this pass. */
+  near: boolean;
+  /** Seconds left standing after the rider has gone. */
+  hold: number;
+}
+export const cheerAtRest = (): CheerState => ({ rider: -1, near: false, hold: 0 });
+/**
+ * One step of a section or supporter: its rider, and whether it is standing. `choose` picks a rider
+ * index below the count given (at random, seeded by the caller: any rider for a section, one of the
+ * item's favourites for a supporter).
+ */
+export function cheerStep(s: CheerState, dt: number, at: { x: number; z: number }, riders: readonly { x: number; z: number }[], choose: (count: number) => number): CheerState & { up: boolean } {
+  const pick = () => Math.max(0, Math.min(riders.length - 1, Math.floor(choose(riders.length))));
+  const n = { ...s };
+  if (!riders.length) return { ...cheerAtRest(), up: false };
+  if (n.rider < 0 || n.rider >= riders.length) {
+    n.rider = pick();
+    n.near = false;
+    n.hold = 0;
+  }
+  const r = riders[n.rider];
+  const close = Math.hypot(r.x - at.x, r.z - at.z) <= CHEER_RANGE;
+  if (close) {
+    n.near = true;
+    n.hold = CHEER_HOLD;
+    return { ...n, up: true };
+  }
+  if (n.near) {
+    n.hold -= dt;
+    if (n.hold > 0) return { ...n, up: true };
+    // Gone by: sit down and take a new rider for the next lap.
+    n.rider = pick();
+    n.near = false;
+    n.hold = 0;
+  }
+  return { ...n, up: false };
+}
+
+/**
+ * A node named Drone (Boss, 2 Nov 2026: "have the drone follow a random rider for half a lap or
+ * something then return to pilot ready for when the bikes come past next and a new random rider is
+ * followed"): it hovers at its rest spot by the pilot; when riders come within DRONE_PICKUP of it, it
+ * picks one of them at random and flies after them for DRONE_FOLLOW seconds (or until they are
+ * DRONE_LEASH from the pilot), then flies home and waits at least DRONE_REST before the next.
+ * Distances in grid units, the speed in grid units a second (fast enough to keep up with a bike).
+ */
+export const DRONE_PICKUP = 16;
+export const DRONE_FOLLOW = 12;
+export const DRONE_LEASH = 90;
+export const DRONE_SPEED = 32;
+export const DRONE_REST = 4;
+/** Where a drone is (x, z on the ground plane) and what it is doing. */
+export interface DroneState {
+  mode: 'home' | 'follow' | 'back';
+  /** The rider followed, as an index into the riders passed to droneStep. */
+  rider: number;
+  /** Seconds in this mode. */
+  t: number;
+  x: number;
+  z: number;
+}
+export const droneAtHome = (home: { x: number; z: number }): DroneState => ({ mode: 'home', rider: -1, t: DRONE_REST, x: home.x, z: home.z });
+/**
+ * One step of a drone: what it does next and where it moves, towards its rider or home at most
+ * DRONE_SPEED. `pick` gives a number in [0, 1) to choose the rider (seeded by the caller, so a race
+ * replays the same). Riders are the ones still racing, in a steady order.
+ */
+export function droneStep(s: DroneState, dt: number, home: { x: number; z: number }, riders: readonly { x: number; z: number }[], pick: () => number): DroneState {
+  const n = { ...s, t: s.t + dt };
+  const dist = (a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(a.x - b.x, a.z - b.z);
+  if (n.mode === 'home' && n.t >= DRONE_REST) {
+    const near = riders.map((r, i) => ({ r, i })).filter(({ r }) => dist(r, home) <= DRONE_PICKUP);
+    if (near.length) {
+      n.mode = 'follow';
+      n.rider = near[Math.min(near.length - 1, Math.floor(pick() * near.length))].i;
+      n.t = 0;
+    }
+  }
+  const rider = n.mode === 'follow' ? riders[n.rider] : undefined;
+  if (n.mode === 'follow' && (!rider || n.t >= DRONE_FOLLOW || dist(rider, home) > DRONE_LEASH)) {
+    n.mode = 'back';
+    n.rider = -1;
+    n.t = 0;
+  }
+  const to = n.mode === 'follow' && rider ? rider : home;
+  const d = dist(n, to);
+  const step = DRONE_SPEED * dt;
+  if (d <= step) {
+    n.x = to.x;
+    n.z = to.z;
+    if (n.mode === 'back') {
+      n.mode = 'home';
+      n.t = 0;
+    }
+  } else {
+    n.x += ((to.x - n.x) / d) * step;
+    n.z += ((to.z - n.z) / d) * step;
+  }
+  return n;
 }
 /** The finish arch's named parts (ARCH_MODELS). */
 export const ARCH_PARTS = ['Left', 'Right', 'Middle', 'FlagTower', 'Flagger'] as const;

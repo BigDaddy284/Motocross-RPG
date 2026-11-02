@@ -20,7 +20,7 @@ import { FIREWORK_LEAD, fireworkShow, fireworksDue, hasFireworks, ROCKET_RISE, t
 import { APPROACH, assignCrews, BOARD_PAST, boardOut, boardText, crewSpot, FLAGGER_ITEM, flagState, PIT_CREW_ITEM, SX_ARCH_KINDS, sxArch } from '../core/finishCrew';
 import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../core/marshal';
 import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
-import { ARCH_GAP, ARCH_MODELS, ARCH_PARTS, FLASH_GAP, FLASH_RANGE, FLASH_TIME, livePart, LOCKED_ITEMS, partName, TRACK_RANGE, TRACK_TURN } from '../core/modModels';
+import { ARCH_GAP, ARCH_MODELS, ARCH_PARTS, CHEER_RISE, cheerAtRest, cheerStep, type CheerState, droneAtHome, droneStep, type DroneState, supporterFavourites, FLASH_GAP, FLASH_RANGE, FLASH_TIME, livePart, LOCKED_ITEMS, partName, TRACK_RANGE, TRACK_TURN } from '../core/modModels';
 import { bannerPath, PICTURE_ITEMS } from '../core/banners';
 import { SIDECAR_CLASS } from '../core/sidecar';
 import { sidecarCrew, BIKE_PAINT, bikeModel, bikeOnWheelsModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, standModel, bikeOnStandModel, STAND_PAINT, textFaces, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
@@ -231,6 +231,23 @@ function noise(i: number): number {
 }
 
 /** Banner pictures by URL, loaded once and shared; a load the browser cancels is tried again a few times before the words are kept (Boss, 1 Nov 2026). */
+/**
+ * A picture for a tall face (a feather flag, an inflatable's column): a wide picture is turned a
+ * quarter to read upwards, as the words do there, so one sponsor PNG suits a banner and a flag alike;
+ * a tall one is used as it is (Boss, 2 Nov 2026).
+ */
+function uprightPicture(img: HTMLImageElement): HTMLImageElement | HTMLCanvasElement {
+  if (img.naturalWidth <= img.naturalHeight) return img;
+  const cv = document.createElement('canvas');
+  cv.width = img.naturalHeight;
+  cv.height = img.naturalWidth;
+  const ctx = cv.getContext('2d');
+  if (!ctx) return img;
+  ctx.translate(0, cv.height);
+  ctx.rotate(-Math.PI / 2);
+  ctx.drawImage(img, 0, 0);
+  return cv;
+}
 const bannerImages = new Map<string, Promise<HTMLImageElement | null>>();
 function bannerImage(url: string): Promise<HTMLImageElement | null> {
   let p = bannerImages.get(url);
@@ -346,6 +363,13 @@ export class RaceView {
   private readonly trackers: { node: THREE.Object3D; rest: number }[] = [];
   /** Scenery models' Flash parts, blinking as a rider goes by close. */
   private readonly flashes: { node: THREE.Object3D; until: number; next: number; seed: number }[] = [];
+  /** Scenery models' Drone parts, flying off after a rider and back (core droneStep; Boss, 2 Nov 2026). */
+  private readonly drones: { node: THREE.Object3D; rest: THREE.Vector3; restY: number; state: DroneState | null; seed: number; lift: number }[] = [];
+  /**
+   * Scenery models' Cheer sections and Supporters, standing as their rider goes by (core cheerStep;
+   * Boss, 2 Nov 2026). Supporters of one item share its favourites.
+   */
+  private readonly cheerParts: { node: THREE.Object3D; seated: THREE.Object3D | null; standing: THREE.Object3D | null; restY: number; state: CheerState; seed: number; up: boolean; favourites: { list: number[] | null; count: number } | null }[] = [];
   private liveClock = 0;
   /** Frame times in ms (whole update, the 3D draw, and handing the picture to Phaser), for the performance check. */
   readonly frameMs: number[] = [];
@@ -960,7 +984,7 @@ export class RaceView {
    * and Team its colour. The posts' tops and the flag man's spot are in the group's own frame.
    * Null without the model.
    */
-  private archModel(sx: boolean, gap: number, text: string, color: number, drop: (side: number) => number, tower: boolean): { group: THREE.Group; tops: [THREE.Vector3, THREE.Vector3]; flagger: THREE.Vector3 | null } | null {
+  private archModel(sx: boolean, gap: number, text: string, color: number, drop: (side: number) => number, tower: boolean, image?: string): { group: THREE.Group; tops: [THREE.Vector3, THREE.Vector3]; flagger: THREE.Vector3 | null } | null {
     const group = modModel(sx ? ARCH_MODELS.sx : ARCH_MODELS.mx);
     if (!group) return null;
     const copy = group.children[0];
@@ -1015,7 +1039,7 @@ export class RaceView {
       tops.splice(0, tops.length, new THREE.Vector3(-gap / 2, high, 0), new THREE.Vector3(gap / 2, high, 0));
     }
     paintModel(group, { team: color, teamdark: shade(color, 0.7) }, STAND_PAINT);
-    textFaces(group, (aspect) => this.textTexture(text, color, inkOn(color), Math.min(2048, Math.max(64, Math.round(64 * aspect))), 64));
+    textFaces(group, (aspect) => this.withPicture(this.textTexture(text, color, inkOn(color), Math.min(2048, Math.max(64, Math.round(64 * aspect))), 64), image));
     group.traverse((o) => {
       o.castShadow = true;
       o.receiveShadow = true;
@@ -1832,25 +1856,32 @@ export class RaceView {
   }
 
   /**
-   * The picture on a banner's or sponsor board's face, `aspect` wide to 1 high: the item's words on
-   * its colour, or its PNG from the banners folder when one is picked (core/banners.ts; Boss, 1 Nov
-   * 2026), which shows once loaded. A picture that won't load leaves the words.
+   * The picture on an item's face, `aspect` wide to 1 high: the item's words on its colour, or its
+   * PNG from the banners folder when one is picked (core/banners.ts; Boss, 1 Nov 2026), which shows
+   * once loaded. A picture that won't load leaves the words.
    */
   private faceTexture(it: SceneryItem, text: string, color: number, aspect: number): THREE.Texture {
     const h = 64;
-    const words = this.textTexture(text, color, inkOn(color), Math.min(2048, Math.max(64, Math.round(h * aspect))), h);
-    const path = PICTURE_ITEMS.has(it.type) ? bannerPath(it.image) : null;
+    return this.withPicture(this.textTexture(text, color, inkOn(color), Math.min(2048, Math.max(64, Math.round(h * aspect))), h), PICTURE_ITEMS.has(it.type) ? it.image : undefined);
+  }
+
+  /**
+   * The words' texture, given the picture named `image` from the banners folder in their place once it
+   * has loaded (Boss, 2 Nov 2026: every item with words can show a PNG). No picture, a bad name or one
+   * that won't load leaves the words.
+   */
+  private withPicture(words: THREE.Texture, image: string | undefined, vertical = false): THREE.Texture {
+    const path = bannerPath(image);
     if (!path) return words;
     // The words show until the picture arrives, and stay if it never does.
-    const tex = words;
     void bannerImage(`${import.meta.env.BASE_URL}${path}`).then((img) => {
       if (!img) return;
       // Free the words' GPU copy, sized for the words, so the picture gets storage of its own size.
-      tex.dispose();
-      tex.image = img;
-      tex.needsUpdate = true;
+      words.dispose();
+      words.image = vertical ? uprightPicture(img) : img;
+      words.needsUpdate = true;
     });
-    return tex;
+    return words;
   }
 
   private textTexture(text: string, bg: number, fg = '#ffffff', w = 256, h = 48, vertical = false): THREE.CanvasTexture {
@@ -1894,12 +1925,16 @@ export class RaceView {
     const loops = this.loops.length;
     const trackers = this.trackers.length;
     const flashes = this.flashes.length;
+    const drones = this.drones.length;
+    const cheerParts = this.cheerParts.length;
     this.ghostIndex = index ?? -1;
     const obj = this.buildItem(it);
     this.ghostIndex = -1;
     this.loops.length = loops;
     this.trackers.length = trackers;
     this.flashes.length = flashes;
+    this.drones.length = drones;
+    this.cheerParts.length = cheerParts;
     this.marshals.length = marshals;
     this.flaggers.length = flaggers;
     this.crews.length = crews;
@@ -2051,13 +2086,23 @@ export class RaceView {
   /** A scenery model's live parts (core LIVE_PARTS): its Track parts to turn and its Flash parts, hidden until they blink. */
   private liveParts(model: THREE.Object3D, index: number): boolean {
     let found = false;
+    const favourites = { list: null as number[] | null, count: 0 };
     model.traverse((o) => {
       const kind = livePart(o.name);
       if (kind === 'Track') this.trackers.push({ node: o, rest: o.rotation.y });
       else if (kind === 'Flash') {
         o.visible = false;
         this.flashes.push({ node: o, until: 0, next: 0, seed: index * 17 + this.flashes.length * 5 + 1 });
-      }
+      } else if (kind === 'Cheer' || kind === 'Supporter') {
+        // A section's (or supporter's) children named Seated and Standing swap; with neither it rises.
+        // By the start of the name, as three.js drops a name's dots ("Seated.s000" loads as "Seateds000").
+        const child = (name: string) => o.children.find((c) => c.name.trim().toLowerCase().startsWith(name)) ?? null;
+        const seated = child('seated');
+        const standing = child('standing');
+        if (standing) standing.visible = false;
+        const seed = index * 53 + this.cheerParts.length * 11 + 5;
+        this.cheerParts.push({ node: o, seated, standing, restY: o.position.y, state: cheerAtRest(), seed, up: false, favourites: kind === 'Supporter' ? favourites : null });
+      } else if (kind === 'Drone') this.drones.push({ node: o, rest: o.position.clone(), restY: o.rotation.y, state: null, seed: index * 31 + this.drones.length * 7 + 3, lift: 0 });
       if (kind) found = true;
     });
     return found;
@@ -2110,6 +2155,79 @@ export class RaceView {
       f.until = now + FLASH_TIME;
       f.next = now + FLASH_GAP * (1 + noise(f.seed * 3.1));
     }
+    for (const dr of this.drones) this.flyDrone(dr, dt, bikes);
+    for (const c of this.cheerParts) this.cheerPart(c, dt, bikes, at);
+  }
+
+  /**
+   * A Cheer section or Supporter (core cheerStep; Boss, 2 Nov 2026): sat down until their rider comes
+   * by, then up cheering (Standing shown, Seated hidden, or raised CHEER_RISE) until a moment after.
+   */
+  private cheerPart(c: RaceView['cheerParts'][number], dt: number, bikes: { x: number; z: number }[], at: THREE.Vector3): void {
+    if (!c.node.parent) return;
+    c.node.getWorldPosition(at);
+    const rnd = () => {
+      c.seed += 1;
+      return noise(c.seed * 5.9);
+    };
+    const choose = (count: number): number => {
+      if (!c.favourites) return rnd() * count;
+      const fav = c.favourites;
+      // Drawn again when the field changes size (riders joining or retiring), so every rider can be a favourite.
+      if (!fav.list || fav.count !== count) {
+        fav.list = supporterFavourites(count, rnd);
+        fav.count = count;
+      }
+      return fav.list[Math.floor(rnd() * fav.list.length)] ?? 0;
+    };
+    const next = cheerStep(c.state, dt, { x: at.x, z: at.z }, bikes, choose);
+    c.state = next;
+    if (next.up === c.up && !(next.up && !c.standing)) return;
+    c.up = next.up;
+    if (c.standing || c.seated) {
+      if (c.standing) c.standing.visible = c.up;
+      if (c.seated) c.seated.visible = !c.up;
+      return;
+    }
+    // No Standing pose: the section rises out of its seats (model metres), with a little bounce while up.
+    c.node.position.y = c.restY + (c.up ? CHEER_RISE * (1 + 0.15 * Math.sin(this.liveClock * 9 + c.seed)) : 0);
+  }
+
+  /**
+   * A Drone part (core droneStep; Boss, 2 Nov 2026): it hovers at its rest spot by the pilot, flies
+   * off after a rider picked at random as the riders come by, keeping its height above the ground
+   * it crosses, faces the way it flies, and comes home to wait for the next pass.
+   */
+  private flyDrone(dr: RaceView['drones'][number], dt: number, bikes: { x: number; z: number }[]): void {
+    const parent = dr.node.parent;
+    if (!parent) return;
+    const homeW = parent.localToWorld(dr.rest.clone());
+    const home = { x: homeW.x, z: homeW.z };
+    const state = (dr.state ??= droneAtHome(home));
+    const was = { x: state.x, z: state.z };
+    dr.state = droneStep(state, dt, home, bikes, () => {
+      dr.seed += 1;
+      return noise(dr.seed * 7.3);
+    });
+    const s = dr.state;
+    // Its height over the ground it is above, the same as at rest; a gentle bob while it waits.
+    const above = homeW.y - this.terrainAt(home.x, home.z);
+    const bob = s.mode === 'home' ? 0.06 * Math.sin(this.liveClock * 2.2 + dr.seed) : 0;
+    const wantY = this.terrainAt(s.x, s.z) + above + bob;
+    dr.lift = s.mode === 'home' && Math.hypot(s.x - home.x, s.z - home.z) < 0.01 ? wantY : dr.lift === 0 ? wantY : dr.lift + (wantY - dr.lift) * Math.min(1, dt * 4);
+    const local = parent.worldToLocal(new THREE.Vector3(s.x, dr.lift, s.z));
+    dr.node.position.copy(local);
+    // Face the way it flies (its front is +Z); at home it turns back to its rest heading.
+    const moved = Math.hypot(s.x - was.x, s.z - was.z);
+    let want = dr.restY;
+    if (moved > 1e-4) {
+      const a = parent.worldToLocal(new THREE.Vector3(was.x, dr.lift, was.z));
+      want = Math.atan2(local.x - a.x, local.z - a.z);
+    }
+    let d = want - dr.node.rotation.y;
+    d = Math.atan2(Math.sin(d), Math.cos(d));
+    const step = TRACK_TURN * 2 * dt;
+    dr.node.rotation.y += Math.max(-step, Math.min(step, d));
   }
 
   /**
@@ -2224,7 +2342,9 @@ export class RaceView {
       const rest = this.standBikes(built.parts, add);
       if (rest.length) add(this.mergeParts(rest));
       for (const l of built.labels) {
-        const face = this.mat(0xffffff, { map: this.textTexture(l.text, l.bg, l.fg, l.vertical ? 48 : 256, l.vertical ? 256 : 48, l.vertical) });
+        // The item's own words show its picture when one is picked (Boss, 2 Nov 2026).
+        const words = this.textTexture(l.text, l.bg, l.fg, l.vertical ? 48 : 256, l.vertical ? 256 : 48, l.vertical);
+        const face = this.mat(0xffffff, { map: l.picture && PICTURE_ITEMS.has(it.type) ? this.withPicture(words, it.image, l.vertical) : words });
         const side = this.mat(l.bg);
         const back = l.both ? face : side;
         const box = this.boxMesh(l.l * METRE, l.h * METRE, l.w * METRE, [side, side, side, side, face, back], l.x * METRE, l.y * METRE, l.z * METRE);
@@ -2248,7 +2368,7 @@ export class RaceView {
       }
       case 'finish_arch': {
         // Boss's arch model, the supercross gantry at supercross kinds of track (without its flag man's tower) or the motocross one (Boss, 1 Nov 2026).
-        const model = this.builtIn ? null : this.archModel(SX_ARCH_KINDS.has(this.track.kind ?? ''), w - 1, text || 'FINISH', color, () => 0, false);
+        const model = this.builtIn ? null : this.archModel(SX_ARCH_KINDS.has(this.track.kind ?? ''), w - 1, text || 'FINISH', color, () => 0, false, it.image);
         if (model) {
           add(model.group);
           if ((this.track.scenery ?? []).includes(it) && this.ghostIndex < 0) {
@@ -2258,7 +2378,7 @@ export class RaceView {
           break;
         }
         for (const sx of [-1, 1]) add(this.boxMesh(0.5, 4.2, 0.5, this.mat(0xd8d8d8), sx * (w / 2 - 0.25), 0, 0));
-        const face = this.mat(0xffffff, { map: this.textTexture(text || 'FINISH', color) });
+        const face = this.mat(0xffffff, { map: this.withPicture(this.textTexture(text || 'FINISH', color), it.image) });
         const side = this.mat(shade(color, 0.8));
         add(this.boxMesh(w, 0.9, 0.35, [side, side, side, side, face, face], 0, 4.2, 0));
         // Not for an editor ghost: only an arch on the track has fireworks.
@@ -3309,11 +3429,11 @@ export class RaceView {
     for (const mixer of this.loops) mixer.update(Math.min(0.1, dt));
     if (this.marshals.length) this.updateMarshals(Math.min(0.1, dt), clock, riders.map((r) => r.pose));
     if (this.flaggers.length || this.crews.length) this.updateFinishCrew(Math.min(0.1, dt), clock, riders);
-    if (this.cheers.length || this.trackers.length || this.flashes.length) {
+    if (this.cheers.length || this.trackers.length || this.flashes.length || this.drones.length || this.cheerParts.length) {
       const spots: { x: number; z: number }[] = [];
       for (const r of riders) { const b = this.bikes.get(r.pose.id); if (b && r.pose.state !== 'retired') spots.push({ x: b.root.position.x, z: b.root.position.z }); }
       if (this.cheers.length) this.updateCheers(Math.min(0.1, dt), spots);
-      if (this.trackers.length || this.flashes.length) this.updateLiveParts(Math.min(0.1, dt), spots);
+      if (this.trackers.length || this.flashes.length || this.drones.length || this.cheerParts.length) this.updateLiveParts(Math.min(0.1, dt), spots);
     }
     if (!riders.some((r) => r.player && r.pose.state !== 'retired')) this.marker.visible = false;
     else this.marker.visible = true;
