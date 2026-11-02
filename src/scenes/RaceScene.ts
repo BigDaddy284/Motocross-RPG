@@ -820,7 +820,11 @@ export class RaceScene extends Phaser.Scene {
     this.ui.feed = this.text(30, dh - 50, longestLine, 17, COLORS.cream, { lineSpacing: 3, ...OVERLAY }).setOrigin(0, 1);
     const wordW = this.ui.feed.setText('controls, ').width;
     this.ui.feed.setText(longestLine);
-    this.ui.feed.setWordWrapWidth(Math.ceil(this.ui.feed.width / 2 + wordW * 0.6)).setText('');
+    this.ui.feed.setWordWrapWidth(Math.ceil(this.ui.feed.width / 2 + wordW * 0.6));
+    // The log's newest line is at the top and older lines move down (Boss, 2 Nov 2026), so it hangs
+    // from the top of its five lines, with the bottom line where it always was.
+    const fiveH = this.ui.feed.setText('A\nA\nA\nA\nA').height;
+    this.ui.feed.setOrigin(0, 0).setY(dh - 50 - fiveH).setText('');
     this.ui.detail = this.text(right + 12, 76, '', detailSize, COLORS.cream, { lineSpacing: 5 }).setVisible(false);
     // Details: the bike's parts, or section times.
     this.detailTabs = (['bike', 'sections'] as const).map((tab, i) => {
@@ -885,13 +889,17 @@ export class RaceScene extends Phaser.Scene {
     mark.setVisible(mine >= 0 && !this.detail);
   }
 
-  /** The newest log lines that fit in five lines on screen, long ones wrapping. */
-  private setFeed(entries: string[]): void {
+  /**
+   * The newest log lines that fit in five lines on screen, long ones wrapping. A race log comes in
+   * at the top and scrolls down (Boss, 2 Nov 2026); a list (the bike in practice) reads top down.
+   */
+  private setFeed(entries: string[], newestFirst = true): void {
     const t = this.ui.feed;
     let shown = entries.slice(-5);
+    if (newestFirst) shown.reverse();
     t.setText(shown.join('\n'));
     while (shown.length > 1 && t.getWrappedText(shown.join('\n')).length > 5) {
-      shown = shown.slice(1);
+      shown = newestFirst ? shown.slice(0, -1) : shown.slice(1);
       t.setText(shown.join('\n'));
     }
   }
@@ -1073,7 +1081,7 @@ export class RaceScene extends Phaser.Scene {
       const best = p.lapTimes.length ? Math.min(...p.lapTimes) : null;
       const xp = Object.values(this.practiceXpNow()).reduce((a, b) => a + b, 0);
       this.ui.me.setText([`Laps done: ${p.lapTimes.length}`, `Last lap: ${p.lapTimes.length ? formatTime(p.lapTimes.at(-1)!) : '—'}`, `Best lap: ${best !== null ? formatTime(best) : '—'}`, `Practice XP: ${xp.toFixed(1)}`].join('\n'));
-      this.setFeed(this.bikeLines());
+      this.setFeed(this.bikeLines(), false);
       const laps = p.lapTimes.map((t, i) => `Lap ${String(i + 1).padStart(3)}   ${formatTime(t)}${t === best ? '  best' : ''}`).slice(-(this.towerRows - 2));
       this.setTower(['Lap times', '', ...laps]);
       return;
