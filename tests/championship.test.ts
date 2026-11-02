@@ -19,13 +19,10 @@ function rider(): CareerState {
   return c;
 }
 
-/** Rides one round straight through: qualifying, both motos, recorded on the championship. */
+/** Rides one round straight through: both motos, recorded on the championship. */
 function rideRound(career: CareerState, active: ActiveChampionship, seed: number): RaceDay {
   const v = venue(nextRoundVenue(local, active)!);
   const day = new RaceDay(content, v, playerEntrant(content, career, 'Test'), seed, roundEntry(content, local), roundOptions(content, local, active));
-  const q = day.startQualifying('steady');
-  q.runToEnd();
-  day.finishQualifying(q);
   for (let m = 0; m < 2; m++) {
     day.assignGates(day.gatesForPlayer().free[0]);
     const sim = day.startMoto('steady');
@@ -125,9 +122,6 @@ describe('championships (Spec 12.5, 18.6)', () => {
     const plain = new RaceDay(content, venue('venue-farmland'), playerEntrant(content, career, 'Test'), 5, 2000);
     expect(day.field).toHaveLength(16);
     expect(plain.field).toHaveLength(16);
-    const q = day.startQualifying('steady');
-    q.runToEnd();
-    day.finishQualifying(q);
     day.assignGates(day.gatesForPlayer().free[0]);
     const sim = day.startMoto('steady');
     sim.runToEnd();
@@ -137,25 +131,18 @@ describe('championships (Spec 12.5, 18.6)', () => {
     if (!me.retired) expect(rec.prize).toBe(Math.round(2000 * 1.8 * content.racing.prize.winnerTimesEntry * share));
   });
 
-  it('qualifies on the best timed lap, after an untimed out lap, and sets moto 1 gate picks in that order', () => {
+  it('has no qualifying (Boss, 2 Nov 2026): moto 1 gate picks are drawn at random, moto 2 in moto 1 finishing order', () => {
     const career = rider();
     const active = enter(career, content, local, 11);
-    const day = new RaceDay(content, venue('venue-riverside'), playerEntrant(content, career, 'Test'), 21, 3000, roundOptions(content, local, active));
-    expect(day.qualifyingDue).toBe(true);
-    const sim = day.startQualifying('steady');
-    expect(sim.totalLaps).toBe(local.qualifyingLaps + 1);
-    sim.runToEnd();
-    const rec = day.finishQualifying(sim);
+    const day = new RaceDay(content, venue('venue-farmland'), playerEntrant(content, career, 'Test'), 21, 3000, roundOptions(content, local, active));
     expect(day.qualifyingDue).toBe(false);
-    const times = rec.results.map((r) => r.bestLap ?? Infinity);
-    expect([...times].sort((a, b) => a - b)).toEqual(times);
-    for (const r of rec.results) {
-      const laps = sim.riders.find((x) => x.e.id === r.id)!.lapTimes;
-      if (laps.length > 1) expect(r.bestLap).toBe(Math.min(...laps.slice(1)));
-    }
+    expect(new Set(day.pickOrder)).toEqual(new Set(day.field.map((e) => e.id)));
+    day.assignGates(day.gatesForPlayer().free[0]);
+    const moto = day.startMoto('steady');
+    expect(moto.opts.motoIndex).toBe(0);
+    moto.runToEnd();
+    const rec = day.finishMoto(moto);
     expect(day.pickOrder).toEqual(rec.results.map((r) => r.id));
-    // The first moto's ruts count qualifying as one step.
-    expect(day.startMoto('steady').opts.motoIndex).toBe(1);
   });
 
   it('races a field saved at the old 19 CPU riders as 15, the main rider kept', () => {
@@ -172,9 +159,6 @@ describe('championships (Spec 12.5, 18.6)', () => {
     const career = rider();
     const active = enter(career, content, local, 3);
     const day = new RaceDay(content, venue('venue-longmoor'), playerEntrant(content, career, 'Test'), 8, 3000, roundOptions(content, local, active));
-    const q = day.startQualifying('steady');
-    q.runToEnd();
-    day.finishQualifying(q);
     day.assignGates(day.gatesForPlayer().free.at(-1)!);
     const sim = day.startMoto('steady');
     const dir = directorFor(sim, content.bikes, content.racing.messages, day.pickOrder);
