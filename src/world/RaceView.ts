@@ -3406,8 +3406,13 @@ export class RaceView {
           // Shifted so the back axle sits where it would with no wheelie.
           TRICK_PIVOT.set(-BIKE_LENGTH / 2, 0, 0);
           const axle = TRICK_PIVOT.clone().applyEuler(b.body.rotation);
-          b.body.rotation.z = pitch + p.wheelie;
+          // Held across whoops or rollers (Boss's clip, 2 Nov 2026): the back wheel skims the tops,
+          // sinking a little between them, and the nose bobs a few degrees as it taps each one.
+          let drop = 0;
+          if (p.wheelieHold) drop = 0.2 * Math.min(0, s.height(f - BIKE_LENGTH / 2 / s.g.total, p.lane) - back.y);
+          b.body.rotation.z = pitch + p.wheelie + Math.min(0.08, -drop / BIKE_LENGTH);
           b.body.position.copy(axle).sub(TRICK_PIVOT.applyEuler(b.body.rotation));
+          b.body.position.y += drop;
         }
       }
       if (b.crew) this.crewPose(b, p.down || p.state === 'crashed' ? 0 : turn, !p.down && (p.air > 0.25 || !!flying), dt);

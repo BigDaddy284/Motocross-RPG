@@ -266,6 +266,24 @@ export const JUMPS: Record<string, JumpDef> = {
   },
 };
 
+/**
+ * Ways through whoops (Boss, 2 Nov 2026: "Wheelie through whoop, also jump rhythms in woops rider
+ * movement"). Whoops aren't jumps (no take-off faces, SKIM): most riders skim the tops, some hold a
+ * wheelie across them with the back wheel skimming, and good jumpers jump them in rhythm, two or
+ * three whoops a hop, tapping the back wheel on a top and popping straight off it (tyre taps). The
+ * whoops' tops are at WHOOP_TOPS (trackSurface.ts sectionShape: eight across the section).
+ */
+export const WHOOP_TOPS = Array.from({ length: 8 }, (_, k) => (k + 0.5) / 8);
+const top = (k: number) => WHOOP_TOPS[k];
+export const WHOOP_WAYS: Way[] = [
+  { name: 'skim', hops: [], w: [1, 0.35] },
+  { name: 'wheelie', hops: [], w: [0.15, 0.3] },
+  { name: 'doubles', hops: [[top(0), top(2)], [top(2), top(4)], [top(4), top(6)], [top(6), top(7)]], w: [0, 0.35], tap: true },
+  { name: 'triple, double, double', hops: [[top(0), top(3)], [top(3), top(5)], [top(5), top(7)]], w: [0, 0.2], tap: true },
+];
+/** Rollers are skimmed or wheelied across, never jumped. */
+export const ROLLER_WAYS: Way[] = [WHOOP_WAYS[0], { name: 'wheelie', hops: [], w: [0.2, 0.4] }];
+
 /** The section types that are jumps with hops (JUMPS), for the referee's mistakes and the editor. */
 export const HOP_JUMPS = new Set(Object.keys(JUMPS));
 /** The big single-arc jumps (a deck a tunnel can run through, the editor's tunnel kit). */
@@ -293,7 +311,9 @@ export function jumpShape(type: string, u: number): number {
  * the ways' weights at the rider's jumping (0 to 1). A mistake takes the way that comes up short.
  */
 export function pickWay(type: string, jumping: number, r: number, mistake = false): Way | null {
-  const def = JUMPS[type];
+  // A mistake in the whoops or rollers is a skim gone wrong, not a hop.
+  if ((type === 'whoops' || type === 'rollers') && mistake) return WHOOP_WAYS[0];
+  const def = type === 'whoops' ? { ways: WHOOP_WAYS } : type === 'rollers' ? { ways: ROLLER_WAYS } : JUMPS[type];
   if (!def) return null;
   if (mistake) {
     const short = def.ways.find((w) => w.short);

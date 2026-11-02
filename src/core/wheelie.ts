@@ -6,6 +6,12 @@
 
 /** The biggest front-wheel lift, in radians (about 13°: a power wheelie, never a 12 o'clock). */
 export const WHEELIE_MAX = 0.23;
+/**
+ * A wheelie held right across a whoop section is a proper one (Boss's clip, 2 Nov 2026: front wheel
+ * held up 25 to 40° the whole way, the rider stood right back, the back wheel skimming the tops and
+ * the nose bobbing a few degrees as it taps each one): about 24° to 34°.
+ */
+export const WHOOP_WHEELIE = 0.6;
 /** The smallest worth showing, in radians (about 3°). */
 export const WHEELIE_MIN = 0.05;
 /** A straight at least this long, in metres, may have a wheelie along it. */

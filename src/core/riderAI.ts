@@ -1,10 +1,10 @@
 import type { BikesData } from './career';
 import { mixSeed, seededRng, type LapTrace, type MessageDef, type MistakeOutcome, type MotoSim, type TrackDef, type TrackSection } from './race';
 import { riderProfile, type RiderProfile } from './riderProfile';
-import { wheelieAt } from './wheelie';
 import { climbExtra } from './climb';
 import { isNoTurn, isSprint, lapGeom, lapMetres, NO_TURN_LANES, NO_TURN_RUNOFF, pointAt, sectionBounds, sectionTurns, RETURN_LANE, SPRINT_QUEUE, START_PAD, startGeom, type StartGeom } from './trackGeom';
 import { DEFAULT_HEIGHTS, HOP_JUMPS, landingOf, pickWay, tapsAfter, type Way } from './jumps';
+import { WHOOP_WHEELIE, wheelieAt } from './wheelie';
 import { HILLS, sectionShape, TrackSurface, type Flight } from './trackSurface';
 import { showmanOf, trickFor, type Trick } from './tricks';
 import { SIDECAR_LEFT, SIDECAR_ROOM, SIDECAR_SETTLE, isSidecarGate } from './sidecar';
@@ -52,6 +52,8 @@ export interface RiderPose {
   down?: { t: number; lost: number };
   /** The front wheel lifted on the ground, in radians (wheelie.ts; Boss, 2 Nov 2026); left out for none. */
   wheelie?: number;
+  /** A wheelie held across whoops or rollers: the back wheel drops into each dip, the front held steady (RaceView). */
+  wheelieHold?: true;
 }
 
 interface Seg {
@@ -148,6 +150,13 @@ const smooth = (x: number) => {
   return t * t * (3 - 2 * t);
 };
 const frac = (x: number) => x - Math.floor(x);
+
+/** The front wheel's lift holding a wheelie across whoops: up over the first whoop, held, down off the last. */
+function whoopLift(p: RiderProfile, seg: Seg, u: number): number {
+  const size = WHOOP_WHEELIE * (0.7 + 0.3 * frac(p.seed * 13.1 + seg.lap * 0.37 + seg.si * 0.71));
+  const ramp = (x: number) => smooth(clamp(x, 0, 1));
+  return size * ramp(u / 0.1) * (1 - ramp((u - 0.88) / 0.12));
+}
 
 /** A section's average riding speed in lap units a second (the time lost to a mistake left out); 0 in a sprint's queue. */
 function segSpeed(seg: Seg): number {
@@ -587,7 +596,10 @@ export class RaceDirector {
     }
 
     const flight = this.flight(p, seg, list, lo);
-    const { air, elev } = this.height(p, sec.type, sec.height, u, dist - Math.floor(dist), flight, stopped);
+    // Holding a wheelie across the whoops or rollers: the back wheel works over them, the front held up.
+    const whoopWheelie = (sec.type === 'whoops' || sec.type === 'rollers') && !stopped && this.way(p, seg)?.name === 'wheelie' ? whoopLift(p, seg, u) : 0;
+    let { air, elev } = this.height(p, sec.type, sec.height, u, dist - Math.floor(dist), flight, stopped);
+    if (whoopWheelie > 0) air = Math.min(air, 0.02);
     if (air > 0.05 && state === 'riding') state = 'air';
     const pose: RiderPose = { id, dist, lane: clamp(lane, -1, 1), air, elev, flight, state, speed };
     if (stunt) pose.stunt = stunt;
@@ -596,6 +608,10 @@ export class RaceDirector {
     if (state === 'riding' && !stopped && !flight && air < 0.02 && speed > 4) {
       const lift = wheelieAt({ seed: p.seed, style: p.aggression, lap: seg.lap, si: seg.si, type: sec.type, prev: prev ? this.section(prev.si).type : null, u, metres: (seg.d1 - seg.d0) * this.metres });
       if (lift > 0) pose.wheelie = lift;
+    }
+    if (whoopWheelie > 0 && state === 'riding') {
+      pose.wheelie = whoopWheelie;
+      pose.wheelieHold = true;
     }
     return pose;
   }
@@ -890,7 +906,9 @@ export class RaceDirector {
     if (got !== undefined) return got;
     const type = this.track.sections[seg.si].type;
     let way: Way | null = null;
-    if (HOP_JUMPS.has(type)) {
+    // Whoops are skimmed, wheelied or jumped in rhythm (jumps.ts WHOOP_WAYS); a sidecar only skims them.
+    if (type === 'whoops' || type === 'rollers') way = this.sidecar ? null : pickWay(type, p.jump, frac(p.seed * 23.3 + seg.lap * 0.618 + seg.si * 0.2717), !!seg.mistake);
+    else if (HOP_JUMPS.has(type)) {
       const r = frac(p.seed * 31.7 + seg.lap * 0.618 + seg.si * 0.3819);
       // The showman goes big, so there are always hops to throw tricks off (only the view; the referee sets the time).
       const jumping = this.showsOff(p) ? Math.max(p.jump, SHOWMAN_JUMP) : p.jump;
@@ -916,7 +934,7 @@ export class RaceDirector {
   private hopTrick(p: RiderProfile, seg: Seg, way: Way, i: number): Trick | null {
     const [a, b] = way.hops[i];
     // Nothing thrown into a tyre tap: the bike comes down straight to tap its back wheel.
-    if (tapsAfter(way, i)) return null;
+    if (tapsAfter(way, i) || this.track.sections[seg.si].type === 'whoops') return null;
     const metres = (b - a) * (this.bounds[seg.si + 1] - this.bounds[seg.si]) * this.metres;
     const next = this.turns.slice(seg.si + 1).find((t) => t !== 0) ?? this.turns.find((t) => t !== 0) ?? 0;
     if (this.sidecar) return null;
