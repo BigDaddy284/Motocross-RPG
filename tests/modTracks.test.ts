@@ -128,3 +128,16 @@ describe('racing a mod track', () => {
     expect(typeof to === 'string' ? to : to.map).toBe('venue-motocross');
   });
 });
+
+// Ruts was only a darker paint on the track, and is gone (Boss, 2 Nov 2026: "Remove it").
+describe('retired surfaces', () => {
+  it('drops Ruts patches from an older track, keeping the rest', async () => {
+    const { dropRetiredPatches, RETIRED_SURFACES } = await import('../src/core/trackParts');
+    const t = { patches: [{ surface: 'ruts', at: 10, length: 25 }, { surface: 'mud', at: 50, length: 20 }] };
+    expect(dropRetiredPatches(t)).toBe(1);
+    expect(t.patches).toEqual([{ surface: 'mud', at: 50, length: 20 }]);
+    expect(RETIRED_SURFACES.has('ruts')).toBe(true);
+    const html = (await import('node:fs')).readFileSync('tools/track-editor.html', 'utf8');
+    expect(html).toContain("const RETIRED_SURFACES = new Set(['ruts']);");
+  });
+});

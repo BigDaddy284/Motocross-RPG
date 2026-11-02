@@ -308,7 +308,7 @@ You can add an eleventh by adding one entry to that file. This is **data, not co
 
 ### 5.5 A new colour of surface patch
 
-Surface patches (Mud, Sand, Water splash, Ruts, Loose stones, Concrete pad) are coloured stripes along the track. They are listed under `"surfaces"` in `public/data/trackParts.json`, like this:
+Surface patches (Mud, Sand, Water splash, Loose stones, Concrete pad) are coloured stripes along the track. Ruts was taken out on 2 Nov 2026 (Boss): it was only a darker stripe, and the Rutted corner section and ruts deepening through the day are the real ruts; an older track's Ruts patches are dropped when it loads (`RETIRED_SURFACES` in `src/core/trackParts.ts`). They are listed under `"surfaces"` in `public/data/trackParts.json`, like this:
 
 ```json
 {"id": "mud", "name": "Mud", "color": "#5a3d22"},

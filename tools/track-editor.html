@@ -792,6 +792,8 @@ const BANNER_DIR = 'mods/banners';
  * The items that can show a picture from the banners folder, and its best size (src/core/banners.ts
  * BANNER_SIZES): every item with its own words on a face (Boss, 2 Nov 2026).
  */
+/** Surfaces taken out of the game, whose patches are dropped on load (src/core/trackParts.ts RETIRED_SURFACES). */
+const RETIRED_SURFACES = new Set(['ruts']);
 const PICTURE_SIZES = {
   banner: [2000, 200], sponsor_board: [1200, 260], feather_flags: [200, 1000], inflatable: [1240, 200],
   finish_arch: [2000, 200], sprint_start: [1400, 200], time_check: [1000, 100], pit_setup: [1500, 100],
@@ -1053,6 +1055,12 @@ async function useSource(src) {
     app.showGame = !final && remembered;
     app.cur = firstShown();
     // A track with a section past the build boundary can't be raced: it is a draft until it is back inside.
+    // Surfaces taken out of the game (src/core/trackParts.ts RETIRED_SURFACES; Boss, 2 Nov 2026: Ruts removed): their patches are dropped.
+    for (const t of data.tracks) {
+      const n = t.patches?.length ?? 0;
+      if (t.patches) t.patches = t.patches.filter((p) => !RETIRED_SURFACES.has(p.surface));
+      if (n !== (t.patches?.length ?? 0)) notes.push(`"${t.name}": its Ruts patches are gone (Ruts is no longer a surface), so save it to keep the change`);
+    }
     for (const t of data.tracks) if (!t.draft && boundaryCrossings(t).length) { t.draft = true; notes.push(`"${t.name}" has a section past the build boundary, so it is a draft again`); }
     deselect();
     app.surfaceBrush = parts.surfaces[0]?.id ?? null;

@@ -4,6 +4,20 @@ import { OFFICIAL_ITEM, officialPlan, placedOfficial } from './startOfficial';
 import { cheerProblems } from './cheer';
 import { sceneryIssues } from './trackClearance';
 import { NO_TURN_KIND, SPRINT_KIND } from './trackGeom';
+/**
+ * Surfaces taken out of the game, whose patches an older track file still has: they are dropped
+ * when the track is read, so the track still loads. Ruts was only a darker paint with no effect on
+ * riding; the Rutted corner section and ruts deepening through the day are the real ruts (Boss,
+ * 2 Nov 2026: "Remove it").
+ */
+export const RETIRED_SURFACES: ReadonlySet<string> = new Set(['ruts']);
+/** A track's patches without those on retired surfaces, and how many were dropped. */
+export function dropRetiredPatches<T extends { patches?: { surface: string }[] }>(track: T): number {
+  const before = track.patches?.length ?? 0;
+  if (track.patches) track.patches = track.patches.filter((p) => !RETIRED_SURFACES.has(p.surface));
+  return before - (track.patches?.length ?? 0);
+}
+
 export { gridOf } from './trackGeom';
 import type { ContentError, Schema } from './validate';
 
