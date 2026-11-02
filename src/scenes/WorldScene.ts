@@ -7,11 +7,11 @@ import { findPathToAny, findPathTowards, standingTiles } from '../core/pathfindi
 import type { SaveData } from '../core/saves';
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
 import { applyMapState, clearedPatches, hiddenSprites } from '../core/mapState';
-import { roadMenu, routeArrival, sideOf, venueHere, type RoadStop } from '../core/guides';
-import { earning, goalObjects, nextHop, storyGoals } from '../core/waymarks';
+import { placeArrival, roadMenu, routeArrival, routeFor, sideOf, venueHere, type RoadStop } from '../core/guides';
+import { earning, goalObjects, hopsTo, nextHop, storyGoals } from '../core/waymarks';
 import { biggestBike, bikeImage, zoneFor } from '../core/worldMap';
 import { ROUTE, spawnTile, stepTriggerAt, type Arrival, type StepResult } from '../core/travel';
-import { areaFlag, areaOfMap, buyHouse, buyMotor, houseFlag, motorProblem, openAreas, openReleasedAreas } from '../core/areas';
+import { areaFlag, areaOfMap, buyHouse, buyMotor, houseFlag, motorProblem, openAreas, openReleasedAreas, roadWaiting, soldTexture } from '../core/areas';
 import { defaultSetup, effectiveSetup, positionValue, positionsFor, setupReport, sliderUnlocked, type SliderDef } from '../core/setup';
 import { DriveMap, FACING_OF, bayFor, ensureVan, exitTile, footprint, haulerAt, inwardHeading, nearestFree, placeNear, planDrive, sheetFor, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
@@ -20,7 +20,7 @@ import { champProblem, otherActive, enter, nextRoundVenue, nextRoundVenues, rewa
 import { noteActivity, shopForAction, slotName, type ShopDef } from '../core/shops';
 import { machineFee, machineProblem, modsLabel, runMachine } from '../core/modifiers';
 import { dayObjectives, dropPenalty, dropSponsor, objectiveText, offerProblem, reputationHint, signOffer, sponsorsOpen } from '../core/sponsors';
-import { buyOutfit, outfitProblem, outfitSheet, ownsOutfit, rackOpen, storageLimit, storeSpare, stored, takeSpare, wearOutfit, wornOutfit } from '../core/house';
+import { buyOutfit, outfitProblem, outfitSheet, ownsOutfit, rackOpen, shownLook, storageLimit, storeSpare, stored, takeSpare, wearOutfit, wornOutfit } from '../core/house';
 import { errandStage, finishErrand, takeErrand, type ErrandDef } from '../core/errands';
 import { challengeReady, challengeVenue, lossHint, type ChallengeDef } from '../core/challenge';
 import { drillForAction, drillForNpc, drillsAtVenue, finishRound, walked, type DrillDef } from '../core/training';
@@ -40,6 +40,7 @@ import { standLift } from '../world/standLift';
 import { VanView, type Driver, type VanLoad } from '../world/VanView';
 import { modelFor } from '../world/raceBike';
 import type { ChooseOption, HudScene } from './HudScene';
+import { TASK_MARK } from '../ui/widgets';
 import { ordinal, type RaceSceneData } from './RaceScene';
 
 // The walkable world: one map at a time, the player, NPCs, doors and exits, and the player's van.
@@ -106,6 +107,27 @@ export class WorldScene extends Phaser.Scene {
   private outWhenStopped = false;
   private lastBumpToast = 0;
   private waymarks!: Waymarks;
+  /** A house the rider owns loses its For Sale sign (Boss, 2 Nov 2026): its sold patch over the house front. */
+  private drawSoldHouses(map: BakedMap): void {
+    for (const a of services.content.areas.areas) {
+      const sold = a.house?.sold;
+      if (a.map !== map.id || !sold || !this.save.flags[houseFlag(a.n)] || !this.textures.exists(soldTexture(sold.image))) continue;
+      const b = map.objects.find((o) => o.type === 'building' && o.name === a.house!.door);
+      const front = b && map.sprites.find((s) => s.x === b.x && s.y === b.y);
+      if (!b || !front) continue;
+      this.add.image(b.x + sold.at[0], b.y + sold.at[1], soldTexture(sold.image)).setOrigin(0).setDepth(front.depth + 0.01);
+    }
+  }
+
+  /** The rider's sheet as drawn: their kit in the current bike's brand colours (core/house.ts shownLook). */
+  look(): string {
+    return shownLook(this.save.rider.look, this.save.career.bike.brand, (s) => !!services.manifest.characters.sheets[s]);
+  }
+
+  /** The road the road menu was opened from: where a town is picked on it, the rider comes in (placeArrival). */
+  private roadVia: MapObject | null = null;
+  /** The maps the task's markers lead to, for the road menu's "!" (Boss, 2 Nov 2026). */
+  private goalMaps: string[] = [];
   /** The news NPCs' bubbles (Manny Festo), kept apart from the story markers. */
   private newsMarks!: Waymarks;
   /** The tutorial marker the screen-edge arrow points to while it is off screen, in world pixels. */
@@ -142,7 +164,8 @@ export class WorldScene extends Phaser.Scene {
     this.hud.headAt = () => {
       if (!this.player || !this.scene.isActive()) return null;
       const cam = this.cameras.main;
-      const b = this.player.sprite.getBounds();
+      // The van's top while driving, for a speech note over it.
+      const b = (this.save.driving && this.van ? this.van.sprite : this.player.sprite).getBounds();
       return { x: ((b.centerX - cam.worldView.x) * cam.zoom) / DPR, y: ((b.top - cam.worldView.y) * cam.zoom) / DPR };
     };
     this.cameras.main.setBackgroundColor('#14141e');
@@ -151,6 +174,7 @@ export class WorldScene extends Phaser.Scene {
     const started = performance.now();
     await loadMapImages(this, map);
     new MapView(this, map, hiddenSprites(map, this.save.flags), clearedPatches(map, this.save.flags));
+    this.drawSoldHouses(map);
     if (firstVisit) console.info(`Map ${map.id}: first visit ${Math.round(performance.now() - started)} ms`);
     else console.info(`Map ${map.id}: cached visit ${Math.round(performance.now() - started)} ms`);
 
@@ -175,7 +199,7 @@ export class WorldScene extends Phaser.Scene {
     y = Math.min(Math.max(y, 0), map.height - 1);
     // Arriving on foot where the van is parked: step off to the nearest clear tile.
     if (!this.driving && !this.grid.isFree(x, y)) ({ x, y } = nearestFree(this.grid, { x, y }) ?? { x, y });
-    this.player = new Character(this, this.save.rider.look, { x, y }, facing);
+    this.player = new Character(this, this.look(), { x, y }, facing);
     // While overlapping an NPC, the player draws on top of them.
     this.player.depthFloor = () => {
       let floor = -Infinity;
@@ -506,15 +530,21 @@ export class WorldScene extends Phaser.Scene {
     if (npc.news) {
       // News for the players: read once, and the bubble turns white until there's a new message.
       // The news can move on with the story (talk rules: Area 3's date once Area 2 is won, Boss, 1 Nov 2026).
-      const news = this.talkRule(npc)?.dialogue ?? npc.dialogue;
+      const rule = this.talkRule(npc);
+      const news = rule?.dialogue ?? npc.dialogue;
       this.say(npc.name, news, () => {
         const read = newsRead(news);
         if (!this.save.flags[read]) {
           this.save.flags[read] = true;
           this.refreshNews();
+          // Reading the news can be the task (Manny's Area 3 news): the task line and markers move on.
+          this.hud.showCareer(this.save.career, this.save.flags);
+          this.refreshWaymarks();
           this.quickSave();
         }
         this.faceBack(placement, character);
+        // Manny opens the road to the next area (areas.ts roadFlag, Boss, 2 Nov 2026).
+        if (rule?.sets && !this.save.flags[rule.sets]) this.storyFlag(rule.sets);
       });
       return;
     }
@@ -525,10 +555,7 @@ export class WorldScene extends Phaser.Scene {
       const open = () => this.openVenue(office, () => this.faceBack(placement, character));
       if (!hello) return open();
       this.say(npc.name, hello.dialogue, () => {
-        if (hello.sets) {
-          this.save.flags[hello.sets] = true;
-          this.milestoneSave();
-        }
+        if (hello.sets && !this.save.flags[hello.sets]) this.storyFlag(hello.sets);
         open();
       });
       return;
@@ -549,13 +576,10 @@ export class WorldScene extends Phaser.Scene {
     if (shop && !rule && this.openShop(shop, 'buy', back)) return;
     this.say(npc.name, rule?.dialogue ?? npc.dialogue, () => {
       // A one-off talk (the mechanic's advice after the opening chain): said once, then the NPC's usual lines.
-      if (rule?.sets && !this.save.flags[rule.sets]) {
-        this.save.flags[rule.sets] = true;
-        this.hud.showCareer(this.save.career, this.save.flags);
-        // The next task line's NPC gets the markers.
-        this.refreshWaymarks();
-        this.milestoneSave();
-      }
+      const once = !!rule?.sets && !this.save.flags[rule.sets];
+      if (once) this.storyFlag(rule!.sets!);
+      // A shop's one-off talk then opens the shop (Bill after a championship: the new bike, Boss, 2 Nov 2026).
+      if (once && shop && this.openShop(shop, 'buy', back)) return;
       back();
     });
   }
@@ -654,7 +678,14 @@ export class WorldScene extends Phaser.Scene {
   private openShop(shop: ShopDef, tab: 'buy' | 'fit', onClose: () => void = () => this.player.idle()): boolean {
     if (shop.needs && !this.save.flags[shop.needs]) return false;
     this.hud.showCareer(this.save.career, this.save.flags);
-    this.hud.openShop(shop, tab, onClose);
+    // What was bought can finish the task (Bill's new bike, Boss 2 Nov 2026: his bubble stayed up): markers and task line again on close.
+    this.hud.openShop(shop, tab, () => {
+      this.refreshWaymarks();
+      // A new bike of another brand: the kit's colours follow it.
+      this.player.setSheet(this.look());
+      this.hud.showCareer(this.save.career, this.save.flags);
+      onClose();
+    });
     return true;
   }
 
@@ -679,6 +710,20 @@ export class WorldScene extends Phaser.Scene {
   private faceBack(placement: NpcPlacement, character: Character): void {
     this.player.idle();
     character.face(placement.facing);
+  }
+
+  /**
+   * Sets a flag a talk gives: the task line and markers move on, an area opened starts its intro,
+   * and a map with things shown or hidden by flags (the road's barrier) is drawn again.
+   */
+  private storyFlag(flag: string): void {
+    this.save.flags[flag] = true;
+    this.hud.showCareer(this.save.career, this.save.flags);
+    this.refreshWaymarks();
+    this.refreshNews();
+    this.milestoneSave();
+    // Only an area opening changes what a map shows (the barrier on its road); a reload would cut off a shop or office opening next.
+    if (flag.startsWith('area.')) this.refreshMapState();
   }
 
   /** The NPC's line set for the current flags (npcs.json talk), if any; otherwise their default dialogue is said. */
@@ -706,6 +751,7 @@ export class WorldScene extends Phaser.Scene {
       if (!r.ok) return void this.hud.toast(r.message);
       this.hud.showCareer(career, this.save.flags);
       this.refreshMapState();
+      this.drawSoldHouses(this.map);
       this.milestoneSave();
     }, () => {});
     return true;
@@ -778,7 +824,7 @@ export class WorldScene extends Phaser.Scene {
         this.refreshWaymarks();
         if (!completed) return;
         // Money shows as the bank note over your head (HudScene.moneyNote), not along the bottom.
-        for (const s of [step, ...caught]) if (s.toast) this.hud.toast(s.toast);
+        for (const s of [step, ...caught]) if (s.toast) this.hud.news(s.toast);
         if ([step, ...caught].some((s) => s.effects?.flags?.length)) this.refreshMapState();
         this.milestoneSave();
       };
@@ -808,9 +854,10 @@ export class WorldScene extends Phaser.Scene {
     this.markPoint = null;
     const career = this.save.career;
     // An area just opened starts its intro chain (core/career.ts openChains).
-    for (const c of openChains(services.content.story, career, this.save.flags)) this.hud.toast(`${services.content.areas.areas.find((a) => a.intro === c.id)?.name ?? 'A new area'}: a new task.`);
+    for (const c of openChains(services.content.story, career, this.save.flags)) this.hud.news(`${services.content.areas.areas.find((a) => a.intro === c.id)?.name ?? 'A new area'}: a new task.`);
     this.markEarning = earning(services.content, career);
-    const goals = storyGoals(services.content, services.maps, career, this.save.flags, this.save.van ?? null);
+    const goals = storyGoals(services.content, services.maps, career, this.save.flags, this.save.van ?? null, this.map.id);
+    this.goalMaps = goals.map((g) => g.map);
     if (!goals.length) return;
     const ts = this.map.tileSize;
     const nearest = <P extends { x: number; y: number }>(points: P[]) => {
@@ -936,7 +983,7 @@ export class WorldScene extends Phaser.Scene {
         return true;
       }
       if (this.shift.job.stations.some((s) => s.object === o.name)) {
-        this.hud.toast(`Next: ${st.label}.`);
+        this.hud.flashShift();
         return true;
       }
       return false;
@@ -983,7 +1030,7 @@ export class WorldScene extends Phaser.Scene {
       r.open.ticket = ticket;
       this.shift = { job, made: r.open.made, station: 0 };
       this.showShift();
-      this.hud.toast(`${job.name}: ${job.stations[0].label}.`);
+      this.hud.flashShift();
     };
     if (open?.ticket) {
       const job = ticketJob(board, tools, bikes, open.ticket);
@@ -1025,7 +1072,7 @@ export class WorldScene extends Phaser.Scene {
       const pass = finishPass(services.content.skills, career, shift.job, jobPay(services.content.world, shift.job));
       shift.made += pass.parts;
       if (pass.parts > 1) this.hud.toast(`Two ${shift.job.product}s in one go!`);
-      for (const u of pass.ups) this.hud.toast(`Level up! ${u.name} is now level ${u.level}.`);
+      for (const u of pass.ups) this.hud.levelUp(u.name, u.level);
       this.hud.showCareer(career, this.save.flags);
       if (pass.done) {
         const engine = new Set(services.content.bikes.slots.filter((sl) => sl.engine).map((sl) => sl.id));
@@ -1201,7 +1248,7 @@ export class WorldScene extends Phaser.Scene {
         const r = wearOutfit(o, rider);
         this.hud.toast(r.message);
         if (r.ok) {
-          this.player.setSheet(rider.look);
+          this.player.setSheet(this.look());
           this.milestoneSave();
         }
         back();
@@ -1414,7 +1461,7 @@ export class WorldScene extends Phaser.Scene {
         { label: 'Enter', note: 'Free to enter: you pay each round\'s entry when you ride it.', onPick: () => {
           enter(career, rc, def, (Math.random() * 2 ** 32) >>> 0);
           this.milestoneSave();
-          this.hud.toast(`Entered the ${def.name}. Round 1 is at ${rc.tracks.venues.find((v) => v.id === def.rounds[0])?.name}.`);
+          this.hud.news(`Entered the ${def.name}. Round 1 is at ${rc.tracks.venues.find((v) => v.id === def.rounds[0])?.name}.`);
           this.openVenue(venue, onClose);
         } },
         { label: 'Back', onPick: back },
@@ -1435,7 +1482,7 @@ export class WorldScene extends Phaser.Scene {
     const giveUp = () => this.hud.confirm(`Give up the ${def.name}?\nYour points so far are lost. You can enter again later.`, 'Give it up', () => {
       withdraw(career, def);
       this.milestoneSave();
-      this.hud.toast(`You gave up the ${def.name}.`);
+      this.hud.news(`You gave up the ${def.name}.`);
       this.openChampionships(venue, onClose);
     }, () => this.openChampionship(def, venue, onClose));
     // No Start again: Give it up and enter again does the same. At the next round's track, the
@@ -1514,7 +1561,7 @@ export class WorldScene extends Phaser.Scene {
         try {
           keepImport(services.store, file.name, text);
         } catch {
-          this.hud.toast("Couldn't keep it: this browser's storage is full or blocked.");
+          this.hud.errorBar("Couldn't keep it: this browser's storage is full or blocked.");
           return;
         }
         this.reloadMods();
@@ -1543,7 +1590,7 @@ export class WorldScene extends Phaser.Scene {
       challenge,
       coach,
       save: this.snapshot(),
-      onDone: (save, message) => {
+      onDone: (save) => {
         this.scene.wake('hud');
         this.scene.wake();
         // Money won comes back as the bank note over the rider's head, not in the message (Boss, 2 Nov 2026).
@@ -1554,7 +1601,7 @@ export class WorldScene extends Phaser.Scene {
         this.hud.showCareer(this.save.career, this.save.flags);
         if (gain > 0) this.time.delayedCall(250, () => this.hud.moneyNote(gain));
         this.milestoneSave();
-        this.hud.toast(message);
+        // No message on top: the results screen has said it all (Boss, 2 Nov 2026).
       },
     };
     this.cameras.main.fadeOut(200, 20, 20, 30);
@@ -1652,7 +1699,7 @@ export class WorldScene extends Phaser.Scene {
     this.player.sprite.setVisible(false);
     this.player.shadow.setVisible(false);
     this.player.placeAt(this.van.pose);
-    this.van.setDriver(this.save.rider.look);
+    this.van.setDriver(this.look());
     this.cameras.main.startFollow(this.van.sprite, true, 0.2, 0.2);
     this.hud.setDriving(true);
   }
@@ -1827,10 +1874,21 @@ export class WorldScene extends Phaser.Scene {
     return false;
   }
 
+  /**
+   * After a championship that opens a new area, the rider can't leave the track until Joseph has
+   * had a word (Boss, 2 Nov 2026). Says so and returns true while he's waiting.
+   */
+  private josephFirst(): boolean {
+    if (!this.venueHere() || roadWaiting(this.save.flags) === null) return false;
+    this.hud.toast('Joseph Halden wants a word before you go. He\'s at the race office.');
+    return true;
+  }
+
   /** Takes the van out by an exit it has reached, or says why it can't go. Returns true when leaving. */
   private vanThrough(r: NonNullable<StepResult>): boolean {
     if (r.kind === 'blocked') this.hud.toast(r.message);
     else if (r.kind === 'route') {
+      if (this.josephFirst()) return false;
       let went = false;
       this.routeTo(r.via, (to) => { went = this.driveTo(to); });
       return went;
@@ -1878,6 +1936,7 @@ export class WorldScene extends Phaser.Scene {
    * road menu at the road itself. Returns true when it went straight away.
    */
   private routeTo(via: MapObject, go: (to: Arrival) => void): boolean {
+    this.roadVia = via;
     const to = routeArrival(this.map, via, services.content.world, services.maps, null, this.save.flags);
     if (typeof to === 'string') {
       this.hud.toast(to);
@@ -1906,7 +1965,8 @@ export class WorldScene extends Phaser.Scene {
     // A track is a venue on its type's venue map (Boss, 30 Oct 2026): going there records which, for the gate and race office.
     const arrive = (p: PlaceDef | RoadStop) => {
       if ('venue' in p) this.save.career.venue = p.venue;
-      go({ map: p.map, tile: spawnTile(services.maps.get(p.map)!, p.spawn!)! });
+      // A town's road to its neighbour comes in on the neighbour's road back (core/guides.ts placeArrival).
+      go({ map: p.map, tile: 'venue' in p ? spawnTile(services.maps.get(p.map)!, p.spawn!)! : placeArrival(rc.world, services.maps, this.map.id, this.roadVia ? routeFor(rc.world, this.map, this.roadVia) : undefined, p) });
     };
     const atVenue = this.venueHere()?.id;
     // Where the championships under way hold their next round (Boss, 2 Nov 2026): that track and its
@@ -1918,8 +1978,16 @@ export class WorldScene extends Phaser.Scene {
       const image = def.rewards[0]?.image;
       return image ? rewardTexture(image) : true;
     };
+    // Where the task is (Boss, 2 Nov 2026: the arrow only pointed at the road): the places on this
+    // road nearest the task's map get the task's "!", and so do the Tracks or Areas holding them.
+    const away = new Map([...menu.tracks.flatMap((t) => t.places), ...menu.areas].filter((p: PlaceDef) => p.map !== this.map.id).map((p: PlaceDef) => {
+      const ds = this.goalMaps.map((g) => hopsTo(services.maps, rc.world, services.travel, this.save.flags, p.map, g)).filter((d): d is number => d !== null);
+      return [p.map, ds.length ? Math.min(...ds) : Infinity] as const;
+    }));
+    const best = Math.min(Infinity, ...away.values());
+    const task = (p: PlaceDef | RoadStop) => best < Infinity && away.get(p.map) === best && p.map !== this.map.id;
     const item = (p: PlaceDef | RoadStop) => {
-      const mark = 'venue' in p ? markOf(p.venue) : undefined;
+      const mark = ('venue' in p ? markOf(p.venue) : undefined) ?? (task(p) ? TASK_MARK : undefined);
       return p.map === this.map.id && (!('venue' in p) || p.venue === atVenue)
         ? { label: p.name, note: "You're here.", enabled: false, mark, onPick: done }
         : { label: p.name, note: p.note, mark, onPick: () => arrive(p) };
@@ -1934,7 +2002,7 @@ export class WorldScene extends Phaser.Scene {
       // Just the type buttons, centred: the tracks are inside each type (Boss, 30 Oct 2026).
       const types = menu.tracks.map((t) => ({
         label: t.name,
-        mark: t.places.map((p) => markOf(p.venue)).find((m) => m !== undefined),
+        mark: t.places.map((p) => markOf(p.venue)).find((m) => m !== undefined) ?? (t.places.some(task) ? TASK_MARK : undefined),
         onPick: () =>
           t.comingSoon
             ? this.hud.choose(t.name, 'Coming soon.', [{ label: 'Back', onPick: openTracks }], openTracks, true)
@@ -1951,8 +2019,8 @@ export class WorldScene extends Phaser.Scene {
     };
 
     this.hud.choose('Where to?', 'Pick a track, another area, or a mod track.', [
-      { label: 'Tracks', note: `${plural(tracks, 'track')} to go to${champs.length ? `, ${plural(champs.length, 'championship')}` : ''}.`, onPick: openTracks },
-      { label: 'Areas', note: areas.length ? areas.map((p) => p.name).join(', ') : 'No other areas on this road.', enabled: areas.length > 0, onPick: () => this.roadList('Areas', 'Head into an area.', menu.areas.map(item), top) },
+      { label: 'Tracks', mark: menu.tracks.some((t) => t.places.some(task)) ? TASK_MARK : undefined, note: `${plural(tracks, 'track')} to go to${champs.length ? `, ${plural(champs.length, 'championship')}` : ''}.`, onPick: openTracks },
+      { label: 'Areas', mark: areas.some(task) ? TASK_MARK : undefined, note: areas.length ? areas.map((p) => p.name).join(', ') : 'No other areas on this road.', enabled: areas.length > 0, onPick: () => this.roadList('Areas', 'Head into an area.', menu.areas.map(item), top) },
       ...(menu.mods ? [{ label: 'Mod Tracks', note: `${plural(services.modTracks.length, 'track')} installed or imported. Race one, or import a track file.`, onPick: () => this.openModTracks(0, top) }] : []),
       { label: 'Not now', onPick: done },
     ], done);
@@ -2045,7 +2113,7 @@ export class WorldScene extends Phaser.Scene {
     const { training, skills } = services.content;
     const r = walked(training, skills, this.save.career.skills, this.walkCarry);
     this.walkCarry = r.carry;
-    for (const u of r.ups) this.hud.toast(`Level up! ${u.name} is now level ${u.level}.`);
+    for (const u of r.ups) this.hud.levelUp(u.name, u.level);
   }
 
   /** A Fitness drill (core/training.ts): its round in the HUD, XP for every round finished, saved after each. */
@@ -2053,7 +2121,7 @@ export class WorldScene extends Phaser.Scene {
     const skill = services.content.skills.leads.flatMap((l) => l.children).find((c) => c.id === drill.skill);
     const coach = drill.npc ? services.content.npcs.find((n) => n.id === drill.npc)?.sprite : undefined;
     const level = childLevel(services.content.skills, this.save.career.skills, drill.skill);
-    this.hud.openDrill(drill, { player: this.save.rider.look, coach, level }, () => {
+    this.hud.openDrill(drill, { player: this.look(), coach, level }, () => {
       const ups = finishRound(services.content.skills, this.save.career.skills, drill);
       this.hud.showCareer(this.save.career, this.save.flags);
       this.milestoneSave();
@@ -2074,6 +2142,11 @@ export class WorldScene extends Phaser.Scene {
       return false;
     }
     if (r.kind === 'route') {
+      if (this.josephFirst()) {
+        this.path = [];
+        this.onArrive = null;
+        return false;
+      }
       const go = (to: Arrival) => this.leaveTo({ map: to.map, x: to.tile.x, y: to.tile.y, facing: 'up' });
       if (this.routeTo(via, go)) return true;
       this.path = [];
@@ -2130,7 +2203,7 @@ export class WorldScene extends Phaser.Scene {
       this.writeSave();
       this.hud.saveIndicator('Autosaved');
     } catch {
-      this.hud.toast('Saving failed: storage is full or blocked.');
+      this.hud.errorBar('Saving failed: storage is full or blocked.');
     }
   }
 
@@ -2140,7 +2213,7 @@ export class WorldScene extends Phaser.Scene {
       this.writeSave();
       this.hud.saveIndicator(reason === 'manual' ? 'Game saved' : 'Autosaved');
     } catch {
-      this.hud.toast('Saving failed: storage is full or blocked.');
+      this.hud.errorBar('Saving failed: storage is full or blocked.');
     }
   }
 
