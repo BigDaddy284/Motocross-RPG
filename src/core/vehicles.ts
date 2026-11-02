@@ -837,3 +837,16 @@ export function checkVehicles(file: string, raw: unknown, maps: Map<string, Bake
   }
   return { data, errors };
 }
+
+/**
+ * No walking between areas and venues (Boss, 2 Nov 2026): "the player can't travel to or from an
+ * area or venue without his vehicle", with the rider saying so to themself. Every road out (a route
+ * exit, to the venues or a neighbouring town) needs the motor once it is parked on this map; a
+ * rider whose motor is somewhere else (or who has none yet) may still walk, so nobody is stranded.
+ * Doors and the Industrial Zone's road from Home Town stay walkable.
+ */
+export const ON_FOOT = "That's a long way to go on foot. Best get the motor.";
+
+export function needsMotor(van: { map: string } | null | undefined, mapId: string, driving: boolean): boolean {
+  return !driving && !!van && van.map === mapId;
+}
