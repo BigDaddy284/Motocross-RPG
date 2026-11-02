@@ -7,11 +7,11 @@ import { findPathToAny, findPathTowards, standingTiles } from '../core/pathfindi
 import type { SaveData } from '../core/saves';
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
 import { applyMapState, clearedPatches, hiddenSprites } from '../core/mapState';
-import { roadMenu, routeArrival, sideOf, venueHere, type RoadStop } from '../core/guides';
+import { placeArrival, roadMenu, routeArrival, routeFor, sideOf, venueHere, type RoadStop } from '../core/guides';
 import { earning, goalObjects, hopsTo, nextHop, storyGoals } from '../core/waymarks';
 import { biggestBike, bikeImage, zoneFor } from '../core/worldMap';
 import { ROUTE, spawnTile, stepTriggerAt, type Arrival, type StepResult } from '../core/travel';
-import { areaFlag, areaOfMap, buyHouse, buyMotor, houseFlag, motorProblem, openAreas, openReleasedAreas, roadWaiting } from '../core/areas';
+import { areaFlag, areaOfMap, buyHouse, buyMotor, houseFlag, motorProblem, openAreas, openReleasedAreas, roadWaiting, soldTexture } from '../core/areas';
 import { defaultSetup, effectiveSetup, positionValue, positionsFor, setupReport, sliderUnlocked, type SliderDef } from '../core/setup';
 import { DriveMap, FACING_OF, bayFor, ensureVan, exitTile, footprint, haulerAt, inwardHeading, nearestFree, placeNear, planDrive, sheetFor, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
@@ -20,7 +20,7 @@ import { champProblem, otherActive, enter, nextRoundVenue, nextRoundVenues, rewa
 import { noteActivity, shopForAction, slotName, type ShopDef } from '../core/shops';
 import { machineFee, machineProblem, modsLabel, runMachine } from '../core/modifiers';
 import { dayObjectives, dropPenalty, dropSponsor, objectiveText, offerProblem, reputationHint, signOffer, sponsorsOpen } from '../core/sponsors';
-import { buyOutfit, outfitProblem, outfitSheet, ownsOutfit, rackOpen, storageLimit, storeSpare, stored, takeSpare, wearOutfit, wornOutfit } from '../core/house';
+import { buyOutfit, outfitProblem, outfitSheet, ownsOutfit, rackOpen, shownLook, storageLimit, storeSpare, stored, takeSpare, wearOutfit, wornOutfit } from '../core/house';
 import { errandStage, finishErrand, takeErrand, type ErrandDef } from '../core/errands';
 import { challengeReady, challengeVenue, lossHint, type ChallengeDef } from '../core/challenge';
 import { drillForAction, drillForNpc, drillsAtVenue, finishRound, walked, type DrillDef } from '../core/training';
@@ -107,6 +107,25 @@ export class WorldScene extends Phaser.Scene {
   private outWhenStopped = false;
   private lastBumpToast = 0;
   private waymarks!: Waymarks;
+  /** A house the rider owns loses its For Sale sign (Boss, 2 Nov 2026): its sold patch over the house front. */
+  private drawSoldHouses(map: BakedMap): void {
+    for (const a of services.content.areas.areas) {
+      const sold = a.house?.sold;
+      if (a.map !== map.id || !sold || !this.save.flags[houseFlag(a.n)] || !this.textures.exists(soldTexture(sold.image))) continue;
+      const b = map.objects.find((o) => o.type === 'building' && o.name === a.house!.door);
+      const front = b && map.sprites.find((s) => s.x === b.x && s.y === b.y);
+      if (!b || !front) continue;
+      this.add.image(b.x + sold.at[0], b.y + sold.at[1], soldTexture(sold.image)).setOrigin(0).setDepth(front.depth + 0.01);
+    }
+  }
+
+  /** The rider's sheet as drawn: their kit in the current bike's brand colours (core/house.ts shownLook). */
+  look(): string {
+    return shownLook(this.save.rider.look, this.save.career.bike.brand, (s) => !!services.manifest.characters.sheets[s]);
+  }
+
+  /** The road the road menu was opened from: where a town is picked on it, the rider comes in (placeArrival). */
+  private roadVia: MapObject | null = null;
   /** The maps the task's markers lead to, for the road menu's "!" (Boss, 2 Nov 2026). */
   private goalMaps: string[] = [];
   /** The news NPCs' bubbles (Manny Festo), kept apart from the story markers. */
@@ -155,6 +174,7 @@ export class WorldScene extends Phaser.Scene {
     const started = performance.now();
     await loadMapImages(this, map);
     new MapView(this, map, hiddenSprites(map, this.save.flags), clearedPatches(map, this.save.flags));
+    this.drawSoldHouses(map);
     if (firstVisit) console.info(`Map ${map.id}: first visit ${Math.round(performance.now() - started)} ms`);
     else console.info(`Map ${map.id}: cached visit ${Math.round(performance.now() - started)} ms`);
 
@@ -179,7 +199,7 @@ export class WorldScene extends Phaser.Scene {
     y = Math.min(Math.max(y, 0), map.height - 1);
     // Arriving on foot where the van is parked: step off to the nearest clear tile.
     if (!this.driving && !this.grid.isFree(x, y)) ({ x, y } = nearestFree(this.grid, { x, y }) ?? { x, y });
-    this.player = new Character(this, this.save.rider.look, { x, y }, facing);
+    this.player = new Character(this, this.look(), { x, y }, facing);
     // While overlapping an NPC, the player draws on top of them.
     this.player.depthFloor = () => {
       let floor = -Infinity;
@@ -655,7 +675,14 @@ export class WorldScene extends Phaser.Scene {
   private openShop(shop: ShopDef, tab: 'buy' | 'fit', onClose: () => void = () => this.player.idle()): boolean {
     if (shop.needs && !this.save.flags[shop.needs]) return false;
     this.hud.showCareer(this.save.career, this.save.flags);
-    this.hud.openShop(shop, tab, onClose);
+    // What was bought can finish the task (Bill's new bike, Boss 2 Nov 2026: his bubble stayed up): markers and task line again on close.
+    this.hud.openShop(shop, tab, () => {
+      this.refreshWaymarks();
+      // A new bike of another brand: the kit's colours follow it.
+      this.player.setSheet(this.look());
+      this.hud.showCareer(this.save.career, this.save.flags);
+      onClose();
+    });
     return true;
   }
 
@@ -721,6 +748,7 @@ export class WorldScene extends Phaser.Scene {
       if (!r.ok) return void this.hud.toast(r.message);
       this.hud.showCareer(career, this.save.flags);
       this.refreshMapState();
+      this.drawSoldHouses(this.map);
       this.milestoneSave();
     }, () => {});
     return true;
@@ -1217,7 +1245,7 @@ export class WorldScene extends Phaser.Scene {
         const r = wearOutfit(o, rider);
         this.hud.toast(r.message);
         if (r.ok) {
-          this.player.setSheet(rider.look);
+          this.player.setSheet(this.look());
           this.milestoneSave();
         }
         back();
@@ -1668,7 +1696,7 @@ export class WorldScene extends Phaser.Scene {
     this.player.sprite.setVisible(false);
     this.player.shadow.setVisible(false);
     this.player.placeAt(this.van.pose);
-    this.van.setDriver(this.save.rider.look);
+    this.van.setDriver(this.look());
     this.cameras.main.startFollow(this.van.sprite, true, 0.2, 0.2);
     this.hud.setDriving(true);
   }
@@ -1905,6 +1933,7 @@ export class WorldScene extends Phaser.Scene {
    * road menu at the road itself. Returns true when it went straight away.
    */
   private routeTo(via: MapObject, go: (to: Arrival) => void): boolean {
+    this.roadVia = via;
     const to = routeArrival(this.map, via, services.content.world, services.maps, null, this.save.flags);
     if (typeof to === 'string') {
       this.hud.toast(to);
@@ -1933,7 +1962,8 @@ export class WorldScene extends Phaser.Scene {
     // A track is a venue on its type's venue map (Boss, 30 Oct 2026): going there records which, for the gate and race office.
     const arrive = (p: PlaceDef | RoadStop) => {
       if ('venue' in p) this.save.career.venue = p.venue;
-      go({ map: p.map, tile: spawnTile(services.maps.get(p.map)!, p.spawn!)! });
+      // A town's road to its neighbour comes in on the neighbour's road back (core/guides.ts placeArrival).
+      go({ map: p.map, tile: 'venue' in p ? spawnTile(services.maps.get(p.map)!, p.spawn!)! : placeArrival(rc.world, services.maps, this.map.id, this.roadVia ? routeFor(rc.world, this.map, this.roadVia) : undefined, p) });
     };
     const atVenue = this.venueHere()?.id;
     // Where the championships under way hold their next round (Boss, 2 Nov 2026): that track and its
@@ -2088,7 +2118,7 @@ export class WorldScene extends Phaser.Scene {
     const skill = services.content.skills.leads.flatMap((l) => l.children).find((c) => c.id === drill.skill);
     const coach = drill.npc ? services.content.npcs.find((n) => n.id === drill.npc)?.sprite : undefined;
     const level = childLevel(services.content.skills, this.save.career.skills, drill.skill);
-    this.hud.openDrill(drill, { player: this.save.rider.look, coach, level }, () => {
+    this.hud.openDrill(drill, { player: this.look(), coach, level }, () => {
       const ups = finishRound(services.content.skills, this.save.career.skills, drill);
       this.hud.showCareer(this.save.career, this.save.flags);
       this.milestoneSave();

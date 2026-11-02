@@ -85,7 +85,7 @@ export function goalObjects(map: BakedMap, action: string, used: string[]): MapO
 
 /** Where each open door and exit on a map leads: a route leads to every place along it. */
 function links(map: BakedMap, maps: Map<string, BakedMap>, world: WorldData, travel: Travel, flags: Record<string, boolean>): { via: MapObject; to: string }[] {
-  const out: { via: MapObject; to: string }[] = [];
+  const out: { via: MapObject; to: string; main?: boolean }[] = [];
   for (const via of map.objects) {
     if (via.type !== 'door' && via.type !== 'exit') continue;
     if (behindBlocker(map, via, flags)) continue;
@@ -93,10 +93,11 @@ function links(map: BakedMap, maps: Map<string, BakedMap>, world: WorldData, tra
     if (r?.kind === 'travel') out.push({ via, to: r.to.map });
     else if (r?.kind === 'route') {
       const route = routeFor(world, map, via);
-      for (const p of route ? routePlaces(world, maps, route, flags) : []) if (!p.mods) out.push({ via, to: p.map });
+      for (const p of route ? routePlaces(world, maps, route, flags) : []) if (!p.mods) out.push({ via, to: p.map, main: route!.to[0] === p.map });
     }
   }
-  return out;
+  // A town's own road to its neighbour first (Boss, 2 Nov 2026): north to Mountain Town, not round by the hub road.
+  return out.sort((a, b) => Number(!!b.main) - Number(!!a.main));
 }
 
 /** The first door or exit on the shortest way from one map to another, or null if there's no open way. */

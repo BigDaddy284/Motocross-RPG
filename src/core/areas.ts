@@ -42,7 +42,16 @@ export interface HouseDef {
   door: string;
   /** Flags set with the house: wardrobe for the Area 2 Starter terrace (Boss, 30 Oct 2026). */
   unlocks?: string[];
+  /**
+   * The house front with its For Sale sign gone (tools/art/house-sold.py), drawn over the house once
+   * it is bought (Boss, 2 Nov 2026): an image under public/assets, at this offset in pixels from the
+   * house's top-left corner on the town map (its building object).
+   */
+  sold?: { image: string; at: number[] };
 }
+
+/** The texture key of a house's sold patch. */
+export const soldTexture = (image: string) => `sold:${image}`;
 
 export interface MotorDef {
   /** A vehicles.json design. */
@@ -189,8 +198,11 @@ export const AREAS_SCHEMA: Schema = {
           intro: { type: 'string', pattern: ID },
           house: {
             type: 'object',
-            optional: ['unlocks'],
-            fields: { name: { type: 'string', nonEmpty: true }, price: { type: 'number', min: 0 }, door: { type: 'string', nonEmpty: true }, unlocks: { type: 'array', items: { type: 'string', pattern: ID } } },
+            optional: ['unlocks', 'sold'],
+            fields: {
+              name: { type: 'string', nonEmpty: true }, price: { type: 'number', min: 0 }, door: { type: 'string', nonEmpty: true }, unlocks: { type: 'array', items: { type: 'string', pattern: ID } },
+              sold: { type: 'object', fields: { image: { type: 'string', nonEmpty: true }, at: { type: 'array', items: { type: 'number', integer: true, min: 0 } } } },
+            },
           },
           motor: { type: 'object', optional: ['needs', 'pitch'], fields: { design: { type: 'string', pattern: ID }, price: { type: 'number', min: 0 }, npc: { type: 'string', pattern: ID }, needs: { type: 'string', pattern: ID }, pitch: { type: 'string', nonEmpty: true } } },
           weather: { type: 'record', values: { type: 'number', min: 0 } },
