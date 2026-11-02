@@ -40,6 +40,38 @@ export function button(scene: Phaser.Scene, x: number, y: number, label: string,
   return c;
 }
 
+/**
+ * A small gold trophy drawn with shapes, about `size` tall, centred on (x, y): marks where a
+ * championship's next round is on the road menu (Boss, 2 Nov 2026).
+ */
+export function trophyIcon(scene: Phaser.Scene, x: number, y: number, size = 30): Phaser.GameObjects.Graphics {
+  const g = scene.add.graphics({ x, y });
+  const u = size / 30;
+  const gold = 0xf2c14e;
+  const dark = 0x8a5a12;
+  g.lineStyle(2 * u, dark, 1);
+  // Handles, then the cup, stem and base over them.
+  g.strokeCircle(-9 * u, -6 * u, 5 * u);
+  g.strokeCircle(9 * u, -6 * u, 5 * u);
+  g.fillStyle(gold, 1);
+  g.beginPath();
+  g.moveTo(-10 * u, -14 * u);
+  g.lineTo(10 * u, -14 * u);
+  g.lineTo(7 * u, 0);
+  g.lineTo(2 * u, 3 * u);
+  g.lineTo(-2 * u, 3 * u);
+  g.lineTo(-7 * u, 0);
+  g.closePath();
+  g.fillPath();
+  g.strokePath();
+  g.fillRect(-2 * u, 3 * u, 4 * u, 6 * u);
+  g.fillRect(-8 * u, 9 * u, 16 * u, 5 * u);
+  g.strokeRect(-8 * u, 9 * u, 16 * u, 5 * u);
+  g.fillStyle(0xfff3c4, 0.8);
+  g.fillRect(-6 * u, -12 * u, 3 * u, 8 * u);
+  return g;
+}
+
 /** A dark backing panel with a thin outline. */
 export function panel(scene: Phaser.Scene, x: number, y: number, w: number, h: number, alpha = 0.94): Phaser.GameObjects.Rectangle {
   return scene.add.rectangle(x, y, w, h, COLORS.ink, alpha).setStrokeStyle(2, COLORS.panelLight);
@@ -219,7 +251,7 @@ export function penMeter(scene: Phaser.Scene, x: number, y: number, segments: nu
     const ww = barrel - 2 * pad - 4;
     const seg = ww / n;
     for (let i = 0; i < n; i++) {
-      g.fillStyle(i < full ? 0x2e95ff : 0x34363f, 1).fillRect(wx + i * seg + (i ? 1 : 0), -h + pad, seg - (i ? 1 : 0) - (i < n - 1 ? 1 : 0), height - 2 * pad);
+      g.fillStyle(i < full ? COLORS.accentDark : 0x34363f, 1).fillRect(wx + i * seg + (i ? 1 : 0), -h + pad, seg - (i ? 1 : 0) - (i < n - 1 ? 1 : 0), height - 2 * pad);
     }
     // The section marks, drawn like the pen's printed ink lines.
     g.lineStyle(2, 0x0d0d12, 1);

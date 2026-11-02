@@ -16,7 +16,7 @@ import { defaultSetup, effectiveSetup, positionValue, positionsFor, setupReport,
 import { DriveMap, FACING_OF, bayFor, ensureVan, exitTile, footprint, haulerAt, inwardHeading, nearestFree, placeNear, planDrive, sheetFor, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
 import { venueClassFor, entryFee, fieldCount, lapsFor, practiceFee, coachedFee, trackById, venueProblem, type VenueDef } from '../core/raceDay';
-import { champProblem, otherActive, enter, nextRoundVenue, roundEntry, roundsHere, standings, titlePossible, withdraw, type ChampionshipDef } from '../core/championship';
+import { champProblem, otherActive, enter, nextRoundVenue, nextRoundVenues, rewardTexture, roundEntry, roundsHere, standings, titlePossible, withdraw, type ChampionshipDef } from '../core/championship';
 import { noteActivity, shopForAction, slotName, type ShopDef } from '../core/shops';
 import { machineFee, machineProblem, modsLabel, runMachine } from '../core/modifiers';
 import { dayObjectives, dropPenalty, dropSponsor, objectiveText, offerProblem, reputationHint, signOffer, sponsorsOpen } from '../core/sponsors';
@@ -39,7 +39,7 @@ import { DPR, HUD_BAR } from '../ui/view';
 import { standLift } from '../world/standLift';
 import { VanView, type Driver, type VanLoad } from '../world/VanView';
 import { modelFor } from '../world/raceBike';
-import type { HudScene } from './HudScene';
+import type { ChooseOption, HudScene } from './HudScene';
 import { ordinal, type RaceSceneData } from './RaceScene';
 
 // The walkable world: one map at a time, the player, NPCs, doors and exits, and the player's van.
@@ -1902,8 +1902,21 @@ export class WorldScene extends Phaser.Scene {
       go({ map: p.map, tile: spawnTile(services.maps.get(p.map)!, p.spawn!)! });
     };
     const atVenue = this.venueHere()?.id;
-    const item = (p: PlaceDef | RoadStop) =>
-      p.map === this.map.id && (!('venue' in p) || p.venue === atVenue) ? { label: p.name, note: "You're here.", enabled: false, onPick: done } : { label: p.name, note: p.note, onPick: () => arrive(p) };
+    // Where the championships under way hold their next round (Boss, 2 Nov 2026): that track and its
+    // type are marked with the championship's badge, or a trophy when it is played for a trophy.
+    const rounds = nextRoundVenues(rc.championships, this.save.career);
+    const markOf = (venue: string | undefined): string | true | undefined => {
+      const def = venue ? rounds.get(venue) : undefined;
+      if (!def) return undefined;
+      const image = def.rewards[0]?.image;
+      return image ? rewardTexture(image) : true;
+    };
+    const item = (p: PlaceDef | RoadStop) => {
+      const mark = 'venue' in p ? markOf(p.venue) : undefined;
+      return p.map === this.map.id && (!('venue' in p) || p.venue === atVenue)
+        ? { label: p.name, note: "You're here.", enabled: false, mark, onPick: done }
+        : { label: p.name, note: p.note, mark, onPick: () => arrive(p) };
+    };
     const champs = this.roadChampionships(arrive);
     const tracks = menu.tracks.reduce((n, t) => n + t.places.filter((p) => p.venue !== atVenue).length, 0);
     const areas = menu.areas.filter((p) => p.map !== this.map.id);
@@ -1914,6 +1927,7 @@ export class WorldScene extends Phaser.Scene {
       // Just the type buttons, centred: the tracks are inside each type (Boss, 30 Oct 2026).
       const types = menu.tracks.map((t) => ({
         label: t.name,
+        mark: t.places.map((p) => markOf(p.venue)).find((m) => m !== undefined),
         onPick: () =>
           t.comingSoon
             ? this.hud.choose(t.name, 'Coming soon.', [{ label: 'Back', onPick: openTracks }], openTracks, true)
@@ -1938,7 +1952,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /** The unlocked championships, for the road menu: picking one goes to its next round's track. */
-  private roadChampionships(arrive: (p: RoadStop) => void): { label: string; note: string; enabled?: boolean; onPick: () => void }[] {
+  private roadChampionships(arrive: (p: RoadStop) => void): ChooseOption[] {
     const rc = services.content;
     const career = this.save.career;
     return rc.championships.championships.flatMap((def) => {
@@ -1949,13 +1963,15 @@ export class WorldScene extends Phaser.Scene {
       if (!venue || !place) return [];
       const n = active ? active.rounds.length + 1 : 1;
       const note = `${active ? 'Entered' : 'Not entered'}. Round ${n} of ${def.rounds.length} is at ${venue.name}.`;
-      if (venue.id === this.venueHere()?.id) return [{ label: def.short, note: `${note} You're here: see the race office.`, enabled: false, onPick: () => {} }];
-      return [{ label: def.short, note, onPick: () => arrive({ ...place, venue: venue.id }) }];
+      const image = def.rewards[0]?.image;
+      const mark = active ? (image ? rewardTexture(image) : true) : undefined;
+      if (venue.id === this.venueHere()?.id) return [{ label: def.short, note: `${note} You're here: see the race office.`, enabled: false, mark, onPick: () => {} }];
+      return [{ label: def.short, note, mark, onPick: () => arrive({ ...place, venue: venue.id }) }];
     });
   }
 
   /** A list on the road menu, a few to a page, with Back. */
-  private roadList(title: string, text: string, items: { label: string; note?: string; enabled?: boolean; onPick: () => void }[], back: () => void, page = 0): void {
+  private roadList(title: string, text: string, items: ChooseOption[], back: () => void, page = 0): void {
     const per = 4;
     const pages = Math.max(1, Math.ceil(items.length / per));
     page = Math.min(page, pages - 1);
