@@ -98,7 +98,7 @@
       "toast": "The roadworks are finished and the west road to the tracks is open."
     }
   ],
-  "done": "Free roam: race at Farmland MX, practise on the backyard loop, or work shifts for money.",
+  "done": "Free roam: race, train and work shifts. Manny Festo has the news when there's more to come.",
   "after": [
     { "unless": "told.bike_care", "talk": "npc.garage_mechanic", "text": "Pop into Phoenix MX. Paul has some advice about looking after your bike." },
     { "unless": "told.iz_challenge", "talk": "npc.fabricator", "text": "See the fabrication shop boss in the Industrial Zone. There's a troublemaker by the practice yard." },
@@ -148,7 +148,8 @@
     {"if": "area.7.open", "unless": "class.450f", "talk": "npc.bike_shop_owner", "text": "Area 7 champion! Collect your 450cc F from Bill at Moto78 in Home Town."},
     {"if": "area.8.open", "unless": "badge.area8", "text": "Capital: win the Local Champion Championship for the Area 8 badge. Enter at any Capital race office."},
     {"if": "area.8.open", "unless": "trophy.area8.main", "text": "You hold the Area 8 badge. Win the Area 8 Championship (6 rounds) for your 40+ Vets."},
-    {"if": "area.8.open", "unless": "class.vets-40", "talk": "npc.bike_shop_owner", "text": "Area 8 champion! Collect your 40+ Vets from Bill at Moto78 in Home Town."}
+    {"if": "area.8.open", "unless": "class.vets-40", "talk": "npc.bike_shop_owner", "text": "Area 8 champion! Collect your 40+ Vets from Bill at Moto78 in Home Town."},
+    {"if": "trophy.area2.main", "unless": "read.news.area3_feb2027", "talk": "npc.news", "text": "Area 2 champion! Manny Festo has news about Area 3: find him in Home Town or Mountain Town."}
   ],
   "chains": [
     {"id": "area2", "needs": "area.2.open", "steps": [{"id": "a2_news", "journal": "Mountain Town. Find Manny Festo, up by the top field, for the news.", "on": {"talk": "npc.a2.news"}, "lines": "story.a2.news"}, {"id": "a2_shops", "journal": "See Paul at Phoenix MX, Mountain Town, about what's new in town.", "on": {"talk": "npc.a2.garage_mechanic"}, "lines": "story.a2.shops", "effects": {"give": ["task.parts_order"]}}, {"id": "a2_errand", "journal": "Take the parts order up to Lee at Lee's T's & Wheels.", "on": {"talk": "npc.a2.tyre_specialist"}, "lines": "story.a2.errand", "effects": {"take": ["task.parts_order"], "money": 30}}, {"id": "a2_works", "journal": "Call in at the Wheel works and meet the boss.", "on": {"talk": "npc.a2.works_boss"}, "lines": "story.a2.works"}, {"id": "a2_training", "journal": "See the coach at the town gym.", "on": {"talk": "npc.a2.gym_coach"}, "lines": "story.a2.training"}, {"id": "a2_champion", "journal": "Meet Cal Mercer, the Local Champion, by the practice yard.", "on": {"talk": "npc.a2.local_champion"}, "lines": "story.a2.champion", "effects": {"flags": ["area2.intro_done"]}, "toast": "Mountain Town's tracks are open: Clayhill MX, Valley Arena and Bog End Enduro."}]},

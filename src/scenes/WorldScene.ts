@@ -537,6 +537,9 @@ export class WorldScene extends Phaser.Scene {
         if (!this.save.flags[read]) {
           this.save.flags[read] = true;
           this.refreshNews();
+          // Reading the news can be the task (Manny's Area 3 news): the task line and markers move on.
+          this.hud.showCareer(this.save.career, this.save.flags);
+          this.refreshWaymarks();
           this.quickSave();
         }
         this.faceBack(placement, character);
