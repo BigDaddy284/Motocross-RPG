@@ -949,7 +949,7 @@ export class RaceView {
    * and Team its colour. The posts' tops and the flag man's spot are in the group's own frame.
    * Null without the model.
    */
-  private archModel(sx: boolean, gap: number, text: string, color: number, drop: (side: number) => number, tower: boolean): { group: THREE.Group; tops: [THREE.Vector3, THREE.Vector3]; flagger: THREE.Vector3 | null } | null {
+  private archModel(sx: boolean, gap: number, text: string, color: number, drop: (side: number) => number, tower: boolean, image?: string): { group: THREE.Group; tops: [THREE.Vector3, THREE.Vector3]; flagger: THREE.Vector3 | null } | null {
     const group = modModel(sx ? ARCH_MODELS.sx : ARCH_MODELS.mx);
     if (!group) return null;
     const copy = group.children[0];
@@ -1004,7 +1004,7 @@ export class RaceView {
       tops.splice(0, tops.length, new THREE.Vector3(-gap / 2, high, 0), new THREE.Vector3(gap / 2, high, 0));
     }
     paintModel(group, { team: color, teamdark: shade(color, 0.7) }, STAND_PAINT);
-    textFaces(group, (aspect) => this.textTexture(text, color, inkOn(color), Math.min(2048, Math.max(64, Math.round(64 * aspect))), 64));
+    textFaces(group, (aspect) => this.withPicture(this.textTexture(text, color, inkOn(color), Math.min(2048, Math.max(64, Math.round(64 * aspect))), 64), image));
     group.traverse((o) => {
       o.castShadow = true;
       o.receiveShadow = true;
@@ -1821,25 +1821,32 @@ export class RaceView {
   }
 
   /**
-   * The picture on a banner's or sponsor board's face, `aspect` wide to 1 high: the item's words on
-   * its colour, or its PNG from the banners folder when one is picked (core/banners.ts; Boss, 1 Nov
-   * 2026), which shows once loaded. A picture that won't load leaves the words.
+   * The picture on an item's face, `aspect` wide to 1 high: the item's words on its colour, or its
+   * PNG from the banners folder when one is picked (core/banners.ts; Boss, 1 Nov 2026), which shows
+   * once loaded. A picture that won't load leaves the words.
    */
   private faceTexture(it: SceneryItem, text: string, color: number, aspect: number): THREE.Texture {
     const h = 64;
-    const words = this.textTexture(text, color, inkOn(color), Math.min(2048, Math.max(64, Math.round(h * aspect))), h);
-    const path = PICTURE_ITEMS.has(it.type) ? bannerPath(it.image) : null;
+    return this.withPicture(this.textTexture(text, color, inkOn(color), Math.min(2048, Math.max(64, Math.round(h * aspect))), h), PICTURE_ITEMS.has(it.type) ? it.image : undefined);
+  }
+
+  /**
+   * The words' texture, given the picture named `image` from the banners folder in their place once it
+   * has loaded (Boss, 2 Nov 2026: every item with words can show a PNG). No picture, a bad name or one
+   * that won't load leaves the words.
+   */
+  private withPicture(words: THREE.Texture, image: string | undefined): THREE.Texture {
+    const path = bannerPath(image);
     if (!path) return words;
     // The words show until the picture arrives, and stay if it never does.
-    const tex = words;
     void bannerImage(`${import.meta.env.BASE_URL}${path}`).then((img) => {
       if (!img) return;
       // Free the words' GPU copy, sized for the words, so the picture gets storage of its own size.
-      tex.dispose();
-      tex.image = img;
-      tex.needsUpdate = true;
+      words.dispose();
+      words.image = img;
+      words.needsUpdate = true;
     });
-    return tex;
+    return words;
   }
 
   private textTexture(text: string, bg: number, fg = '#ffffff', w = 256, h = 48, vertical = false): THREE.CanvasTexture {
@@ -2158,7 +2165,9 @@ export class RaceView {
       const rest = this.standBikes(built.parts, add);
       if (rest.length) add(this.mergeParts(rest));
       for (const l of built.labels) {
-        const face = this.mat(0xffffff, { map: this.textTexture(l.text, l.bg, l.fg, l.vertical ? 48 : 256, l.vertical ? 256 : 48, l.vertical) });
+        // The item's own words show its picture when one is picked (Boss, 2 Nov 2026).
+        const words = this.textTexture(l.text, l.bg, l.fg, l.vertical ? 48 : 256, l.vertical ? 256 : 48, l.vertical);
+        const face = this.mat(0xffffff, { map: l.picture && PICTURE_ITEMS.has(it.type) ? this.withPicture(words, it.image) : words });
         const side = this.mat(l.bg);
         const back = l.both ? face : side;
         const box = this.boxMesh(l.l * METRE, l.h * METRE, l.w * METRE, [side, side, side, side, face, back], l.x * METRE, l.y * METRE, l.z * METRE);
@@ -2182,7 +2191,7 @@ export class RaceView {
       }
       case 'finish_arch': {
         // Boss's arch model, the supercross gantry at supercross kinds of track (without its flag man's tower) or the motocross one (Boss, 1 Nov 2026).
-        const model = this.builtIn ? null : this.archModel(SX_ARCH_KINDS.has(this.track.kind ?? ''), w - 1, text || 'FINISH', color, () => 0, false);
+        const model = this.builtIn ? null : this.archModel(SX_ARCH_KINDS.has(this.track.kind ?? ''), w - 1, text || 'FINISH', color, () => 0, false, it.image);
         if (model) {
           add(model.group);
           if ((this.track.scenery ?? []).includes(it) && this.ghostIndex < 0) {
@@ -2192,7 +2201,7 @@ export class RaceView {
           break;
         }
         for (const sx of [-1, 1]) add(this.boxMesh(0.5, 4.2, 0.5, this.mat(0xd8d8d8), sx * (w / 2 - 0.25), 0, 0));
-        const face = this.mat(0xffffff, { map: this.textTexture(text || 'FINISH', color) });
+        const face = this.mat(0xffffff, { map: this.withPicture(this.textTexture(text || 'FINISH', color), it.image) });
         const side = this.mat(shade(color, 0.8));
         add(this.boxMesh(w, 0.9, 0.35, [side, side, side, side, face, face], 0, 4.2, 0));
         // Not for an editor ghost: only an arch on the track has fireworks.
