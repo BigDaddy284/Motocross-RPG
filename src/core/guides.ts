@@ -74,11 +74,24 @@ export function waysOut(map: BakedMap, world: WorldData, maps: Map<string, Baked
  */
 export function routeArrival(map: BakedMap, exit: MapObject, world: WorldData, maps: Map<string, BakedMap>, pick: string | null, flags: Record<string, boolean> = {}): (Arrival & { place: PlaceDef; others: PlaceDef[] }) | string {
   const route = routeFor(world, map, exit);
+  // A town's road to its neighbouring town goes straight there, with no road menu, like the road
+  // to the Industrial Zone (Boss, 2 Nov 2026: only the roads to and from the venues ask where to).
+  if (route && townRoad(world, route)) {
+    const next = world.places.find((p) => p.map === route.to[0])!;
+    if (next.needs && !flags[next.needs]) return `The road to ${next.name} isn't open yet.`;
+    return { map: next.map, tile: placeArrival(world, maps, map.id, route, next), place: next, others: [] };
+  }
   const places = route ? routePlaces(world, maps, route, flags) : [];
   const real = places.filter((p) => !p.mods);
   if (!real.length) return "This road doesn't go anywhere yet.";
   const place = real.find((p) => p.map === pick) ?? real[0];
   return { map: place.map, tile: placeArrival(world, maps, map.id, route, place), place, others: places.filter((p) => p !== place) };
+}
+
+/** A road from one town straight to its neighbouring town (its first place is a town, not a venue). */
+export function townRoad(world: WorldData, route: RouteDef): boolean {
+  const town = (map: string) => world.places.some((p) => p.map === map && !p.mods) && map.startsWith('area');
+  return town(route.map) && !!route.to[0] && town(route.to[0]);
 }
 
 /**

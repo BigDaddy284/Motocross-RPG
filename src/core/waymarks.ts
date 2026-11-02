@@ -1,7 +1,7 @@
 import { afterTask, currentStep, pence, type CareerState, type WorldData } from './career';
 import { behindBlocker } from './mapState';
 import type { Content } from './content';
-import { routeFor, routePlaces } from './guides';
+import { routeFor, routePlaces, townRoad } from './guides';
 import type { BakedMap, MapObject } from './mapTypes';
 import type { Travel } from './travel';
 
@@ -93,7 +93,9 @@ function links(map: BakedMap, maps: Map<string, BakedMap>, world: WorldData, tra
     if (r?.kind === 'travel') out.push({ via, to: r.to.map });
     else if (r?.kind === 'route') {
       const route = routeFor(world, map, via);
-      for (const p of route ? routePlaces(world, maps, route, flags) : []) if (!p.mods) out.push({ via, to: p.map, main: route!.to[0] === p.map });
+      // A town road goes only to its neighbouring town (guides.ts townRoad); other roads to every place on them.
+      const places = route ? routePlaces(world, maps, route, flags) : [];
+      for (const p of route && townRoad(world, route) ? places.filter((q) => q.map === route.to[0]) : places) if (!p.mods) out.push({ via, to: p.map, main: route!.to[0] === p.map });
     }
   }
   // A town's own road to its neighbour first (Boss, 2 Nov 2026): north to Mountain Town, not round by the hub road.
