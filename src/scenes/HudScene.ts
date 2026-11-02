@@ -1219,8 +1219,8 @@ export class HudScene extends Phaser.Scene {
       }
       // Championships under way, then the badges and trophies won (Spec 12.5).
       for (const line of champLines(services.content, career, this.flags)) {
-        body(left, y, line, 16, COLORS.muted);
-        y += 28;
+        // A long line wraps, so step down by its real height.
+        y += Math.max(28, body(left, y, line, 16, COLORS.muted).height + 8);
       }
       // The badges and trophies themselves, in a row.
       const won = services.content.championships.championships.map((d) => d.rewards[0]).filter((r) => r?.image && r.flag && this.flags[r.flag]);
