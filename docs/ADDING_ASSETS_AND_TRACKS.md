@@ -428,7 +428,7 @@ Features are placed **on top of** the route. In **Layout** mode, the **Features*
 1. Click a feature type, such as **Tabletop**.
 2. Move the pointer onto the route. A band shows where it would go. **,** and **.** make it shorter or longer (2 to 60 grid units).
 3. Click to place it.
-4. Afterwards, drag it along the route, drag its **white diamonds** to stretch it, or press **Del** to remove it. Its line and jump height are under **Sections**.
+4. Afterwards, drag it along the route, drag its **white diamonds** to stretch it, or press **Del** to remove it. Its line and jump height are under **Sections**. A jump or hill set taller than its usual height takes longer to ride: its face is longer and the climb costs speed, so the section races as if it were longer (`src/core/climb.ts`; Boss, 2 Nov 2026). Lower than usual changes nothing.
 
 Good to know:
 

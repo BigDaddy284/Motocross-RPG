@@ -2,6 +2,7 @@ import { bikeStats, type Bike, type BikesData } from './career';
 import type { SetupState } from './setup';
 import { firstCorner, isSprint, lapPlan, RETURN_LANE, sectionBounds, SPRINT_QUEUE, startGeom, type DrawnShape, type FirstCorner, type StartGeom } from './trackGeom';
 import type { RiderStyle } from './riderProfile';
+import { climbFactor } from './climb';
 import { sectionGrades, type TrackElevation, type TrackHill } from './elevation';
 
 // The race simulation (Spec 10, GDD 11). Pure rules with no graphics: the race screen plays a
@@ -818,7 +819,8 @@ export class MotoSim {
     const { sim, messageEffects: me } = this.racing;
     const msg = this.message(r);
     const perf = this.performance(r, def);
-    const base = sec.length / this.cls.refSpeed;
+    // A jump face or hill raised above its usual height rides as a longer section (climb.ts).
+    const base = (sec.length * climbFactor(sec)) / this.cls.refSpeed;
     const pace = 1 - (msg.pace * me.pacePct) / 100 + (msg.consistency * me.consistencyTimePct) / 100;
     const gateK = gate >= 0 ? 1 - gateBonus(this.track, gate) / 100 : 1;
     const cons = r.e.skills.consistency ?? 1;

@@ -2,6 +2,7 @@ import type { BikesData } from './career';
 import { mixSeed, seededRng, type LapTrace, type MessageDef, type MistakeOutcome, type MotoSim, type TrackDef, type TrackSection } from './race';
 import { riderProfile, type RiderProfile } from './riderProfile';
 import { wheelieAt } from './wheelie';
+import { climbExtra } from './climb';
 import { isNoTurn, isSprint, lapGeom, lapMetres, NO_TURN_LANES, NO_TURN_RUNOFF, pointAt, sectionBounds, sectionTurns, RETURN_LANE, SPRINT_QUEUE, START_PAD, startGeom, type StartGeom } from './trackGeom';
 import { DEFAULT_HEIGHTS, HOP_JUMPS, landingOf, pickWay, type Way } from './jumps';
 import { HILLS, sectionShape, TrackSurface, type Flight } from './trackSurface';
@@ -551,7 +552,9 @@ export class RaceDirector {
     const v0 = lane0 ? V : !prev ? 0 : Math.min(this.edgeSpeed(list, lo - 1), 3 * V);
     const v1 = lane0 ? V : this.edgeSpeed(list, lo);
     // The rider's style on top: braking in and driving out of a corner, flat out down a straight.
-    const c = lane0 ? 0 : 0.5 * this.warp(p, sec.type);
+    // A raised jump or hill (climb.ts) slows the rider up its face, slowest near the top.
+    const climb = seg.si >= 0 ? Math.min(1, climbExtra(this.track.sections[seg.si]) / Math.max(1, this.track.sections[seg.si].length)) : 0;
+    const c = lane0 ? 0 : 0.5 * this.warp(p, sec.type) - 0.4 * climb;
     const shape = speedShape(v0 / V, v1 / V, c);
     const u = clamp(shape.at(tau), 0, 1);
     const dist = seg.d0 + u * (seg.d1 - seg.d0);
