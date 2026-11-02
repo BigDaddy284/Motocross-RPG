@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { checkContent } from '../src/core/content';
-import { placeArrival, routeFor } from '../src/core/guides';
+import { placeArrival, routeArrival, routeFor } from '../src/core/guides';
 import { objectTile } from '../src/core/mapTypes';
 import { stepTriggerAt } from '../src/core/travel';
 import { loadManifest, loadMaps, rawContent } from './helpers';
@@ -39,5 +39,27 @@ describe('roads between towns flow (Boss, 2 Nov 2026)', () => {
     const t = placeArrival(world, maps, home.id, routeFor(world, home, hub), place);
     const spawn = objectTile(maps.get(place.map)!.objects.find((o) => o.name === place.spawn)!, 64);
     expect(t).toEqual(spawn);
+  });
+});
+
+describe('town roads go straight through (Boss, 2 Nov 2026)', () => {
+  it('a road between towns takes you to the neighbour with no road menu; venue roads still ask', () => {
+    const flags = { 'area.2.open': true, 'area.3.open': true, 'area.8.open': true };
+    const home = maps.get('area1-home-town')!;
+    const north = routeArrival(home, home.objects.find((o) => o.name === 'North road')!, world, maps, null, flags);
+    expect(typeof north).not.toBe('string');
+    expect(north).toMatchObject({ map: 'area2-mountain-town', others: [] });
+    const hub = routeArrival(home, home.objects.find((o) => o.name === 'To the venue route')!, world, maps, null, flags);
+    expect(typeof hub !== 'string' && hub.others.length).toBeGreaterThan(0);
+    const mt = maps.get('area2-mountain-town')!;
+    expect(routeArrival(mt, mt.objects.find((o) => o.name === 'South road')!, world, maps, null, flags)).toMatchObject({ map: 'area1-home-town', others: [] });
+    const sw = routeArrival(mt, mt.objects.find((o) => o.name === 'South-west road')!, world, maps, null, flags);
+    expect(typeof sw !== 'string' && sw.others.length).toBeGreaterThan(0);
+    // A venue's lane still asks where to.
+    const v = maps.get('venue-motocross')!;
+    const lane = routeArrival(v, v.objects.find((o) => o.name === 'To the world map')!, world, maps, null, flags);
+    expect(typeof lane !== 'string' && lane.others.length).toBeGreaterThan(0);
+    // A town not open yet: the road says so.
+    expect(routeArrival(home, home.objects.find((o) => o.name === 'North road')!, world, maps, null, {})).toMatch(/isn't open yet/);
   });
 });
