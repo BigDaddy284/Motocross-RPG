@@ -251,7 +251,7 @@ export function penMeter(scene: Phaser.Scene, x: number, y: number, segments: nu
     const ww = barrel - 2 * pad - 4;
     const seg = ww / n;
     for (let i = 0; i < n; i++) {
-      g.fillStyle(i < full ? 0x2e95ff : 0x34363f, 1).fillRect(wx + i * seg + (i ? 1 : 0), -h + pad, seg - (i ? 1 : 0) - (i < n - 1 ? 1 : 0), height - 2 * pad);
+      g.fillStyle(i < full ? COLORS.accentDark : 0x34363f, 1).fillRect(wx + i * seg + (i ? 1 : 0), -h + pad, seg - (i ? 1 : 0) - (i < n - 1 ? 1 : 0), height - 2 * pad);
     }
     // The section marks, drawn like the pen's printed ink lines.
     g.lineStyle(2, 0x0d0d12, 1);
