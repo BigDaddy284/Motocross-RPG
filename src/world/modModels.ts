@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { ADULT_BIKE_METRES, BIKE_SLOTS, checkBikeSizes, raceBikeKind, YOUTH_BIKE_METRES, checkModel, FAN_SLOTS, PIT_CREW_SLOTS, FIGURE_PARTS, partName, glbInfo, MODEL_DIR, MODEL_INDEX, modelDef, modelId, modelRole, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, RIDER_SLOTS, SIDECAR_CREW, SIDECAR_MODEL, STAND_MODELS, STAND_SLOTS, PADDOCK_STAND, PADDOCK_STAND_BIKE, BIKE_ON_STAND_LIFT, STAND_YOUTH_DESIGNS, materialSlot, type ModelEntry } from '../core/modModels';
+import { ADULT_BIKE_METRES, BIKE_SLOTS, checkBikeSizes, raceBikeKind, YOUTH_BIKE_METRES, checkModel, FAN_SLOTS, PIT_CREW_SLOTS, FIGURE_PARTS, partName, glbInfo, MODEL_DIR, MODEL_INDEX, modelDef, modelId, modelRole, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, RIDER_SLOTS, SIDECAR_CREW, SIDECAR_MODEL, STAND_MODELS, STAND_SLOTS, TEXT_SLOTS, PADDOCK_STAND, PADDOCK_STAND_BIKE, BIKE_ON_STAND_LIFT, STAND_YOUTH_DESIGNS, materialSlot, type ModelEntry } from '../core/modModels';
 import type { SceneryDef } from '../core/trackParts';
 import { SIDECAR_CLASS } from '../core/sidecar';
 import { U } from './paddock';
@@ -165,6 +165,18 @@ export function bikeOnStandModel(variant: string, colour: number): THREE.Group |
   return g;
 }
 
+/**
+ * The race bike alone on its wheels (Boss, 1 Nov 2026), painted in `colour` as a bike on a stand is:
+ * for a bike strapped on a trailer. Null without race_bike.glb.
+ */
+export function bikeOnWheelsModel(colour: number): THREE.Group | null {
+  const bike = modModel(RACE_BIKE);
+  if (!bike) return null;
+  const c = brandFromColour(colour);
+  paintModel(bike, { plastics: c.body, frame: c.frame, plate: c.plate }, BIKE_PAINT);
+  return bike;
+}
+
 /** A model's length, bumper to bumper (its X). */
 function lengthOf(o: THREE.Object3D): number {
   const box = new THREE.Box3().setFromObject(o);
@@ -226,6 +238,41 @@ export const RIDER_PAINT = RIDER_SLOTS;
 export const FAN_PAINT = FAN_SLOTS;
 export const PIT_CREW_PAINT = PIT_CREW_SLOTS;
 export const STAND_PAINT = STAND_SLOTS;
+
+/**
+ * Puts an item's typed words on a scenery model (Boss, 1 Nov 2026: banners and sponsor boards keep
+ * the text typed in the track editor): every mesh with a material named Text gets the picture
+ * `texture` makes for its face, the face's width over its height as the model now stands (so a
+ * banner stretched longer gets a longer picture), mapped over the face's UVs. True if it had one.
+ */
+export function textFaces(g: THREE.Object3D, texture: (aspect: number) => THREE.Texture): boolean {
+  g.updateMatrixWorld(true);
+  let found = false;
+  g.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh) return;
+    const mats = Array.isArray(m.material) ? m.material : [m.material];
+    if (!mats.some((x) => materialSlot(x.name, TEXT_SLOTS))) return;
+    const size = new THREE.Box3().setFromObject(m).getSize(new THREE.Vector3());
+    // The face stands upright facing the track: its width is along X (or Z, if turned), its height Y.
+    const aspect = Math.max(size.x, size.z) / Math.max(1e-6, size.y);
+    const tex = texture(aspect);
+    // A glTF model's UVs read the picture top down, not flipped as three.js flips its own (else the words show upside down).
+    tex.flipY = false;
+    tex.needsUpdate = true;
+    const swap = (x: THREE.Material) => {
+      if (!materialSlot(x.name, TEXT_SLOTS)) return x;
+      const copy = x.clone() as THREE.MeshStandardMaterial;
+      copy.map = tex;
+      copy.color?.setHex(0xffffff);
+      copy.needsUpdate = true;
+      return copy;
+    };
+    m.material = Array.isArray(m.material) ? m.material.map(swap) : swap(m.material);
+    found = true;
+  });
+  return found;
+}
 
 /** The stand model for a marshal's, flag man's or pit crew's design (core STAND_MODELS), painted in `colour`, or null for the game's own. */
 export function standModel(variant: string, colour: number, dark: number): THREE.Group | null {

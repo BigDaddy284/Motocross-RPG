@@ -13,16 +13,17 @@ import { BIKE_LENGTH, CAM_AZ, LIP_AT, LOGS_AT, STACK_AT, TYRE_BED_ROWS, TYRE_ROW
 import { downPhase } from '../core/crashRecovery';
 import { APPROACH as TRICK_APPROACH, trickPose, type Trick } from '../core/tricks';
 import { COLORS, TEXT_RES } from '../ui/theme';
-import { isPaddock } from '../core/paddock';
+import { haulerWords, HAULER_ITEM, isPaddock, paddockColour, paddockSetup, paddockVariant, showsInSetup } from '../core/paddock';
 import { paddockParts, U as METRE, type StandBike } from './paddock';
 import { FACES_TRACK, flaggerParts, MATE_AT, marshalParts, pitCrewParts, starterBox, tracksideParts, type Label } from './trackside';
 import { FIREWORK_LEAD, fireworkShow, fireworksDue, hasFireworks, ROCKET_RISE, type Rocket } from '../core/fireworks';
-import { APPROACH, assignCrews, BOARD_PAST, boardOut, boardText, crewSpot, FLAGGER_ITEM, flagState, PIT_CREW_ITEM } from '../core/finishCrew';
+import { APPROACH, assignCrews, BOARD_PAST, boardOut, boardText, crewSpot, FLAGGER_ITEM, flagState, PIT_CREW_ITEM, SX_ARCH_KINDS, sxArch } from '../core/finishCrew';
 import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../core/marshal';
 import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
-import { LOCKED_ITEMS } from '../core/modModels';
+import { ARCH_GAP, ARCH_MODELS, ARCH_PARTS, FLASH_GAP, FLASH_RANGE, FLASH_TIME, livePart, LOCKED_ITEMS, partName, TRACK_RANGE, TRACK_TURN } from '../core/modModels';
+import { bannerPath, PICTURE_ITEMS } from '../core/banners';
 import { SIDECAR_CLASS } from '../core/sidecar';
-import { sidecarCrew, BIKE_PAINT, bikeModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, standModel, bikeOnStandModel, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
+import { sidecarCrew, BIKE_PAINT, bikeModel, bikeOnWheelsModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, standModel, bikeOnStandModel, STAND_PAINT, textFaces, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
 // isometric camera in the spirit of Super Off Road's overhead arcade view. The track is solid
@@ -205,10 +206,42 @@ function shade(c: number, k: number): number {
   const ch = (v: number) => Math.max(0, Math.min(255, Math.round(v * k)));
   return (ch((c >> 16) & 255) << 16) | (ch((c >> 8) & 255) << 8) | ch(c & 255);
 }
+/** Dark letters on a light colour, white on a dark one, so words on a white or yellow banner or hauler can be read (Boss, 1 Nov 2026). */
+/** Scenery whose model faces the track when not turned by hand, as the game's own stand rises away from it. */
+const MODEL_FACES_TRACK = new Set(['stand', 'crowd']);
+function inkOn(c: number): string {
+  const lum = (0.299 * ((c >> 16) & 255) + 0.587 * ((c >> 8) & 255) + 0.114 * (c & 255)) / 255;
+  return lum > 0.62 ? '#16161a' : '#ffffff';
+}
 /** A steady pseudo-random number from 0 to 1 for an integer, for grain and crowds. */
 function noise(i: number): number {
   const x = Math.sin(i * 127.1 + 311.7) * 43758.5453;
   return x - Math.floor(x);
+}
+
+/** Banner pictures by URL, loaded once and shared; a load the browser cancels is tried again a few times before the words are kept (Boss, 1 Nov 2026). */
+const bannerImages = new Map<string, Promise<HTMLImageElement | null>>();
+function bannerImage(url: string): Promise<HTMLImageElement | null> {
+  let p = bannerImages.get(url);
+  if (!p) {
+    const once = () =>
+      new Promise<HTMLImageElement | null>((done) => {
+        const img = new Image();
+        img.onload = () => done(img);
+        img.onerror = () => done(null);
+        img.src = url;
+      });
+    p = (async () => {
+      for (let i = 0; i < 4; i++) {
+        const img = await once();
+        if (img) return img;
+        await new Promise((r) => setTimeout(r, 500 * (i + 1)));
+      }
+      return null;
+    })();
+    bannerImages.set(url, p);
+  }
+  return p;
 }
 
 export class RaceView {
@@ -298,6 +331,11 @@ export class RaceView {
   private builtIn = false;
   /** Scenery models' own animations, each playing on a loop (playLoops); they run in the track editor's view too. */
   private readonly loops: THREE.AnimationMixer[] = [];
+  /** Scenery models' Track parts, turning to follow the nearest rider (core LIVE_PARTS; Boss, 1 Nov 2026). */
+  private readonly trackers: { node: THREE.Object3D; rest: number }[] = [];
+  /** Scenery models' Flash parts, blinking as a rider goes by close. */
+  private readonly flashes: { node: THREE.Object3D; until: number; next: number; seed: number }[] = [];
+  private liveClock = 0;
   /** Frame times in ms (whole update, the 3D draw, and handing the picture to Phaser), for the performance check. */
   readonly frameMs: number[] = [];
   readonly renderMs: number[] = [];
@@ -386,6 +424,7 @@ export class RaceView {
     this.ground.push(this.terrainMesh(), this.buildTrack(), ...this.buildPortals(), ...this.buildFinishArches());
     if (this.surface.start.total > 0) this.ground.push(this.buildStart());
     this.scene3.add(...this.ground);
+    if (this.archExtras.length) this.scene3.add(...this.archExtras);
     this.scene3.add(this.overlay);
     if (this.surface.start.total > 0 && this.surface.raised) {
       // A No-Turn Takedown's start platform: four gates, two each side of the starter's box, and no start board.
@@ -848,6 +887,24 @@ export class RaceView {
       const c = s.spot(f, 0);
       const deck = s.height(f, 0);
       const top = deck + ARCH_CLEAR;
+      // Boss's arch model for the kind of track, when there is one (core ARCH_MODELS; Boss, 1 Nov 2026).
+      const sx = sxArch(this.track);
+      const drop = (side: number): number => {
+        const lane = (side * span) / 2 / s.hwAt(f);
+        const p = s.spot(f, lane);
+        return deck - Math.min(this.terrainAt(p.x, p.z), s.height(f, lane)) + 0.2;
+      };
+      const model = this.builtIn ? null : this.archModel(sx, span - 1, def?.text || 'FINISH', color, drop, sx);
+      if (model) {
+        const g = model.group;
+        g.position.set(c.x, deck, c.z);
+        g.rotation.y = Math.PI / 2 - c.ang;
+        g.updateMatrixWorld(true);
+        this.archExtras.push(g);
+        this.archTops.push([g.localToWorld(model.tops[0]), g.localToWorld(model.tops[1])]);
+        if (sx) this.towerFlagman(model.flagger && g.localToWorld(model.flagger));
+        return;
+      }
       const tops: THREE.Vector3[] = [];
       for (const side of [-1, 1]) {
         const lane = (side * span) / 2 / s.hwAt(f);
@@ -869,8 +926,105 @@ export class RaceView {
       banner.castShadow = true;
       out.push(banner);
       this.archTops.push([tops[0], tops[1]]);
+      // The game's own supercross finish: the flag man up in a scaffold tower just before the line, beside the right post.
+      if (sx) {
+        const lane = (span / 2 + 1.3) / s.hwAt(f);
+        const back = Math.max(0, f - 1.2 / s.g.total);
+        const p = s.spot(back, lane);
+        this.towerFlagman(new THREE.Vector3(p.x, this.terrainAt(p.x, p.z), p.z), 'tower');
+      }
     });
     return out;
+  }
+
+  /** Finish arch models and the flag men in their towers, added to the scene after the ground (buildFinishArches). */
+  private readonly archExtras: THREE.Object3D[] = [];
+
+  /**
+   * Boss's finish arch model (core ARCH_MODELS; Boss, 1 Nov 2026), the supercross gantry or the
+   * motocross truss arch, fitted to a gap of `gap` grid units between its sides: Left and Right
+   * move out to it and stretch down from their tops by `drop(side)` grid units to reach the
+   * ground, Middle stretches across, and the flag man's tower (FlagTower, with Flagger where he
+   * stands) moves with Right, or is left out without `tower`. Its Text faces show the arch's words
+   * and Team its colour. The posts' tops and the flag man's spot are in the group's own frame.
+   * Null without the model.
+   */
+  private archModel(sx: boolean, gap: number, text: string, color: number, drop: (side: number) => number, tower: boolean): { group: THREE.Group; tops: [THREE.Vector3, THREE.Vector3]; flagger: THREE.Vector3 | null } | null {
+    const group = modModel(sx ? ARCH_MODELS.sx : ARCH_MODELS.mx);
+    if (!group) return null;
+    const copy = group.children[0];
+    const parts = new Map<string, THREE.Object3D>();
+    copy.traverse((o) => {
+      const n = partName(o.name, ARCH_PARTS);
+      if (n && !parts.has(n)) parts.set(n, o);
+    });
+    if (!tower) for (const n of ['FlagTower', 'Flagger']) parts.get(n)?.removeFromParent();
+    // In the model's own metres: how far each side moves out, from the gap it was drawn for to this one.
+    const metres = Math.max(1, gap / METRE);
+    const out = (metres - ARCH_GAP) / 2;
+    const middle = parts.get('Middle');
+    if (middle) {
+      const k = metres / ARCH_GAP;
+      middle.scale.x *= k;
+      middle.position.x *= k;
+    }
+    // The group has no parent yet, so its world is its own frame; boxes in the model's metres are taken through the copy's.
+    const toModel = (o: THREE.Object3D): THREE.Box3 => {
+      // Every matrix up to date first, or the first side is measured where it was drawn.
+      group.updateMatrixWorld(true);
+      return new THREE.Box3().setFromObject(o).applyMatrix4(copy.matrixWorld.clone().invert());
+    };
+    const tops: THREE.Vector3[] = [];
+    for (const [name, side] of [['Left', -1], ['Right', 1]] as const) {
+      const o = parts.get(name);
+      if (!o) continue;
+      o.position.x += side * out;
+      // Stretched down from its top, which stays put under the beam, until its foot is on the ground.
+      const b = toModel(o);
+      const down = Math.max(0, drop(side)) / METRE;
+      if (down > 0.01 && b.max.y > b.min.y) {
+        const k = (b.max.y - b.min.y + down) / (b.max.y - b.min.y);
+        o.scale.y *= k;
+        o.position.y = b.max.y - (b.max.y - o.position.y) * k;
+      }
+      group.updateMatrixWorld(true);
+      const w = new THREE.Box3().setFromObject(o);
+      tops.push(new THREE.Vector3((w.min.x + w.max.x) / 2, w.max.y, (w.min.z + w.max.z) / 2));
+    }
+    // The tower's legs and stairs are drawn reaching down below the deck, so it moves across with Right and no more.
+    for (const n of ['FlagTower', 'Flagger']) {
+      const o = parts.get(n);
+      if (o?.parent) o.position.x += out;
+    }
+    group.updateMatrixWorld(true);
+    const spot = parts.get('Flagger');
+    const flagger = tower && spot?.parent ? spot.getWorldPosition(new THREE.Vector3()) : null;
+    if (tops.length < 2) {
+      const high = new THREE.Box3().setFromObject(group).max.y;
+      tops.splice(0, tops.length, new THREE.Vector3(-gap / 2, high, 0), new THREE.Vector3(gap / 2, high, 0));
+    }
+    paintModel(group, { team: color, teamdark: shade(color, 0.7) }, STAND_PAINT);
+    textFaces(group, (aspect) => this.textTexture(text, color, inkOn(color), Math.min(2048, Math.max(64, Math.round(64 * aspect))), 64));
+    group.traverse((o) => {
+      o.castShadow = true;
+      o.receiveShadow = true;
+    });
+    return { group, tops: [tops[0], tops[1]], flagger };
+  }
+
+  /**
+   * The flag man up in the supercross finish tower (finishCrew.ts towerFlagman; Boss, 1 Nov 2026):
+   * the track's flag man, standing at `at` (on Boss's tower at its Flagger, else on the game's own
+   * tower), facing the track and flagging as a placed one does.
+   */
+  private towerFlagman(at: THREE.Vector3 | null, variant: 'ground' | 'tower' = 'ground'): void {
+    const def = this.parts.scenery.find((d) => d.id === FLAGGER_ITEM);
+    if (!def || !at) return;
+    const it: SceneryItem = { type: FLAGGER_ITEM, x: at.x, y: at.z, variant };
+    const g = new THREE.Group();
+    g.position.copy(at);
+    this.flaggerFigure(g, it, def);
+    this.archExtras.push(g);
   }
 
   /** Concrete portal frames round each tunnel's holes: a lintel along the deck's edge and a jamb at each end, both sides. */
@@ -1668,6 +1822,28 @@ export class RaceView {
     return mesh;
   }
 
+  /**
+   * The picture on a banner's or sponsor board's face, `aspect` wide to 1 high: the item's words on
+   * its colour, or its PNG from the banners folder when one is picked (core/banners.ts; Boss, 1 Nov
+   * 2026), which shows once loaded. A picture that won't load leaves the words.
+   */
+  private faceTexture(it: SceneryItem, text: string, color: number, aspect: number): THREE.Texture {
+    const h = 64;
+    const words = this.textTexture(text, color, inkOn(color), Math.min(2048, Math.max(64, Math.round(h * aspect))), h);
+    const path = PICTURE_ITEMS.has(it.type) ? bannerPath(it.image) : null;
+    if (!path) return words;
+    // The words show until the picture arrives, and stay if it never does.
+    const tex = words;
+    void bannerImage(`${import.meta.env.BASE_URL}${path}`).then((img) => {
+      if (!img) return;
+      // Free the words' GPU copy, sized for the words, so the picture gets storage of its own size.
+      tex.dispose();
+      tex.image = img;
+      tex.needsUpdate = true;
+    });
+    return tex;
+  }
+
   private textTexture(text: string, bg: number, fg = '#ffffff', w = 256, h = 48, vertical = false): THREE.CanvasTexture {
     const cv = document.createElement('canvas');
     cv.width = w;
@@ -1707,10 +1883,14 @@ export class RaceView {
     const flaggers = this.flaggers.length;
     const crews = this.crews.length;
     const loops = this.loops.length;
+    const trackers = this.trackers.length;
+    const flashes = this.flashes.length;
     this.ghostIndex = index ?? -1;
     const obj = this.buildItem(it);
     this.ghostIndex = -1;
     this.loops.length = loops;
+    this.trackers.length = trackers;
+    this.flashes.length = flashes;
     this.marshals.length = marshals;
     this.flaggers.length = flaggers;
     this.crews.length = crews;
@@ -1763,6 +1943,108 @@ export class RaceView {
       return obj;
     } finally {
       this.builtIn = was;
+    }
+  }
+
+  /**
+   * A vehicle or trackside model set up as picked (Boss, 1 Nov 2026): parts with a `setups` (or
+   * `variants`) custom property show only in those set-ups (or designs) (core/paddock.ts showsInSetup), and each empty named StandBike
+   * (shown in this set-up) gets a race bike on the paddock stand, in a colour picked for it, added
+   * to `g` where the empty stands (bikeOnStandModel).
+   */
+  private vehicleSetup(model: THREE.Group, g: THREE.Group, setup: string | undefined, variant: string | undefined, index: number, tint: number): void {
+    const hidden: THREE.Object3D[] = [];
+    const spots: THREE.Object3D[] = [];
+    model.traverse((o) => {
+      if (o === model) return;
+      // A `variants` property works the same for the item's designs (a camera operator standing or kneeling; Boss, 1 Nov 2026).
+      if (!showsInSetup(o.userData.setups, setup) || !showsInSetup(o.userData.variants, variant)) hidden.push(o);
+      // StandBike, StandBike.001 (three.js loads it as StandBike001) and so on.
+      else if (/^standbike\d*$/i.test(o.name.replace(/[._]\d+$/, ''))) spots.push(o);
+    });
+    for (const o of hidden) o.removeFromParent();
+    if (!spots.length) return;
+    model.updateMatrixWorld(true);
+    const colours = [0xc21c15, 0x3b86da, 0xecbe2a, 0xa0c33e, 0xe07020, 0xf0f0f0];
+    spots.forEach((o, k) => {
+      // Only spots still in the model: one inside a part left out for this set-up goes with it.
+      let inModel = false;
+      model.traverse((x) => { if (x === o) inModel = true; });
+      if (!inModel) return;
+      // A StandBike with a custom property colour = "item" is in the item's colour (a bike wash's bike), as the game's own.
+      const colour = o.userData.colour === 'item' ? tint : colours[Math.floor(noise(index * 13 + k * 7) * colours.length)];
+      // stand = "none": the bike on its wheels at the empty, with no stand or lift (strapped on a trailer).
+      const bike = o.userData.stand === 'none' ? bikeOnWheelsModel(colour) : bikeOnStandModel('adult', colour);
+      if (!bike) return;
+      const at = o.getWorldPosition(new THREE.Vector3());
+      const turn = new THREE.Euler().setFromQuaternion(o.getWorldQuaternion(new THREE.Quaternion()), 'YXZ');
+      bike.position.copy(at);
+      bike.rotation.y = turn.y;
+      g.add(bike);
+    });
+  }
+
+  /** A scenery model's live parts (core LIVE_PARTS): its Track parts to turn and its Flash parts, hidden until they blink. */
+  private liveParts(model: THREE.Object3D, index: number): boolean {
+    let found = false;
+    model.traverse((o) => {
+      const kind = livePart(o.name);
+      if (kind === 'Track') this.trackers.push({ node: o, rest: o.rotation.y });
+      else if (kind === 'Flash') {
+        o.visible = false;
+        this.flashes.push({ node: o, until: 0, next: 0, seed: index * 17 + this.flashes.length * 5 + 1 });
+      }
+      if (kind) found = true;
+    });
+    return found;
+  }
+
+  /**
+   * Turns each Track part about its vertical to face the nearest rider within TRACK_RANGE (back to
+   * rest with none), at most TRACK_TURN a second, and blinks each Flash part as a rider goes by
+   * within FLASH_RANGE, at most once every FLASH_GAP and a little at random, so a row of
+   * photographers doesn't flash as one.
+   */
+  private updateLiveParts(dt: number, bikes: { x: number; z: number }[]): void {
+    this.liveClock += dt;
+    const now = this.liveClock;
+    const at = new THREE.Vector3();
+    const nearest = (x: number, z: number): { x: number; z: number; d: number } | null => {
+      let best: { x: number; z: number; d: number } | null = null;
+      for (const b of bikes) {
+        const d = Math.hypot(b.x - x, b.z - z);
+        if (!best || d < best.d) best = { ...b, d };
+      }
+      return best;
+    };
+    for (const t of this.trackers) {
+      if (!t.node.parent) continue;
+      t.node.getWorldPosition(at);
+      const n = nearest(at.x, at.z);
+      let want = t.rest;
+      if (n && n.d <= TRACK_RANGE) {
+        // Where the rider is, in the frame the part turns in; the part's front is +Z.
+        const p = t.node.parent.worldToLocal(new THREE.Vector3(n.x, at.y, n.z));
+        want = Math.atan2(p.x - t.node.position.x, p.z - t.node.position.z);
+      }
+      let d = want - t.node.rotation.y;
+      d = Math.atan2(Math.sin(d), Math.cos(d));
+      const step = TRACK_TURN * dt;
+      t.node.rotation.y += Math.max(-step, Math.min(step, d));
+    }
+    for (const f of this.flashes) {
+      if (now < f.until) continue;
+      f.node.visible = false;
+      if (now < f.next) continue;
+      f.node.getWorldPosition(at);
+      const n = nearest(at.x, at.z);
+      if (!n || n.d > FLASH_RANGE) continue;
+      // A chance a frame, so each photographer fires in their own time while a rider is close.
+      f.seed += 1;
+      if (noise(f.seed * 13.7) > 4 * dt) continue;
+      f.node.visible = true;
+      f.until = now + FLASH_TIME;
+      f.next = now + FLASH_GAP * (1 + noise(f.seed * 3.1));
     }
   }
 
@@ -1838,10 +2120,23 @@ export class RaceView {
       const sx = def ? Math.max(0.1, w / def.w) : 1;
       const sz = def ? Math.max(0.1, d / def.h) : 1;
       custom.scale.set(sx, Math.min(sx, sz), sz);
+      // A paddock vehicle's colour and set-up are picked for it as for the game's own (core/paddock.ts; Boss, 1 Nov 2026).
+      const index = this.itemIndex(it);
+      const paddock = def && isPaddock(def);
+      const tint = paddock ? hex(paddockColour(def, it, index), color) : color;
+      const words = it.type === HAULER_ITEM && def ? (it.text ?? haulerWords(paddockColour(def, it, index))) : text;
+      if (paddock) this.vehicleSetup(custom, g, paddockSetup(def, it, index), paddockVariant(def, it, index), index, tint);
+      // Its Team and TeamDark materials take the item's colour, as the game's own item does (Boss, 1 Nov 2026).
+      paintModel(custom, { team: tint, teamdark: shade(tint, 0.7) }, STAND_PAINT);
+      // Its Text material shows the item's words on its colour, as the game's own banner does (Boss, 1 Nov 2026).
+      textFaces(custom, (aspect) => this.faceTexture(it, words, tint, aspect));
       add(custom);
+      // Live parts move, so the item is never baked into the still scenery.
+      if (this.liveParts(custom, this.itemIndex(it))) g.userData.moving = true;
       this.playLoops(custom, this.itemIndex(it));
       if (custom.userData.clips) g.userData.moving = true;
-      if (it.rot === undefined && FACES_TRACK.has(it.type) && this.awayFromTrack(it) === 1) g.rotation.y += Math.PI;
+      // People face the track, and so do the seats of a stand or crowd model (Boss, 1 Nov 2026), unless turned by hand.
+      if (it.rot === undefined && (FACES_TRACK.has(it.type) || MODEL_FACES_TRACK.has(it.type)) && this.awayFromTrack(it) === 1) g.rotation.y += Math.PI;
       return g;
     }
     if (def && it.type === MARSHAL_ITEM) {
@@ -1881,13 +2176,23 @@ export class RaceView {
       case 'banner':
       case 'sponsor_board': {
         const H = it.type === 'banner' ? 1 : 1.3;
-        const face = this.mat(0xffffff, { map: this.textTexture(text, color) });
+        const face = this.mat(0xffffff, { map: this.faceTexture(it, text, color, w / H) });
         const side = this.mat(shade(color, 0.7));
         add(this.boxMesh(w, H, 0.1, [side, side, side, side, face, face], 0, 0.35, 0));
         for (const sx of [-0.45, 0.45]) add(this.boxMesh(0.08, 0.35, 0.08, this.mat(0x5a5a60), sx * w, 0, 0));
         break;
       }
       case 'finish_arch': {
+        // Boss's arch model, the supercross gantry at supercross kinds of track (without its flag man's tower) or the motocross one (Boss, 1 Nov 2026).
+        const model = this.builtIn ? null : this.archModel(SX_ARCH_KINDS.has(this.track.kind ?? ''), w - 1, text || 'FINISH', color, () => 0, false);
+        if (model) {
+          add(model.group);
+          if ((this.track.scenery ?? []).includes(it) && this.ghostIndex < 0) {
+            g.updateMatrixWorld(true);
+            this.archTops.push([model.group.localToWorld(model.tops[0]), model.group.localToWorld(model.tops[1])]);
+          }
+          break;
+        }
         for (const sx of [-1, 1]) add(this.boxMesh(0.5, 4.2, 0.5, this.mat(0xd8d8d8), sx * (w / 2 - 0.25), 0, 0));
         const face = this.mat(0xffffff, { map: this.textTexture(text || 'FINISH', color) });
         const side = this.mat(shade(color, 0.8));
@@ -2940,10 +3245,11 @@ export class RaceView {
     for (const mixer of this.loops) mixer.update(Math.min(0.1, dt));
     if (this.marshals.length) this.updateMarshals(Math.min(0.1, dt), clock, riders.map((r) => r.pose));
     if (this.flaggers.length || this.crews.length) this.updateFinishCrew(Math.min(0.1, dt), clock, riders);
-    if (this.cheers.length) {
+    if (this.cheers.length || this.trackers.length || this.flashes.length) {
       const spots: { x: number; z: number }[] = [];
       for (const r of riders) { const b = this.bikes.get(r.pose.id); if (b && r.pose.state !== 'retired') spots.push({ x: b.root.position.x, z: b.root.position.z }); }
-      this.updateCheers(Math.min(0.1, dt), spots);
+      if (this.cheers.length) this.updateCheers(Math.min(0.1, dt), spots);
+      if (this.trackers.length || this.flashes.length) this.updateLiveParts(Math.min(0.1, dt), spots);
     }
     if (!riders.some((r) => r.player && r.pose.state !== 'retired')) this.marker.visible = false;
     else this.marker.visible = true;

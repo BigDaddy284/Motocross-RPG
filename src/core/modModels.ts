@@ -97,6 +97,41 @@ export const STAND_MODELS: Readonly<Record<string, string>> = { pallet: 'stand_p
  * ground) sits, else the bike's wheels are BIKE_ON_STAND_LIFT up. A bike_stand.glb, if there is
  * one, still replaces the whole item instead.
  */
+/**
+ * The finish arches built over a finish-line jump (Boss, 1 Nov 2026): the supercross gantry at
+ * supercross kinds of track (finishCrew.ts sxArch), with the flag man's scaffold tower, and the
+ * motocross truss arch everywhere else. In metres, the origin the track's middle on the jump's
+ * deck under the banner, X across the track, drawn for ARCH_GAP between its two sides. The race
+ * view fits it to the track: Left and Right (the towers or posts) move out to the track's edges
+ * and stretch down to the ground, Middle (the beam) stretches across, FlagTower moves with Right
+ * and stands on the ground, Flagger (an empty) is where the flag man stands; anything else stays.
+ */
+export const ARCH_MODELS = { mx: 'finish_arch_mx', sx: 'finish_arch_sx' } as const;
+/**
+ * Live parts any scenery model can have (Boss, 1 Nov 2026), found by name like a figure's parts:
+ * a node named Track (Track.001 and so on) turns about its vertical to follow the nearest rider in
+ * range (a TV camera's head, a camera operator), back to rest with none; a node named Flash is
+ * hidden and shows for a blink as a rider goes by close (a photographer's flash).
+ */
+export const LIVE_PARTS = ['Track', 'Flash'] as const;
+/** Grid units a Track part follows a rider from, and how fast it turns (radians a second). */
+export const TRACK_RANGE = 40;
+export const TRACK_TURN = 2.5;
+/** Grid units a rider passes within for a Flash, how long it shows (seconds), and the least time between two. */
+export const FLASH_RANGE = 12;
+export const FLASH_TIME = 0.09;
+export const FLASH_GAP = 0.7;
+/** A live part's kind from its node name: "Track.001" (three.js: "Track001") is Track. */
+export function livePart(name: string | undefined): 'Track' | 'Flash' | null {
+  const n = (name ?? '').trim().replace(/[._]?\d+$/, '').toLowerCase();
+  return n === 'track' ? 'Track' : n === 'flash' ? 'Flash' : null;
+}
+/** The finish arch's named parts (ARCH_MODELS). */
+export const ARCH_PARTS = ['Left', 'Right', 'Middle', 'FlagTower', 'Flagger'] as const;
+/** The gap between a finish arch model's two sides, in metres, as drawn. */
+export const ARCH_GAP = 10;
+/** How high a finish arch model's banner's bottom edge is over its origin, in metres: jumps.ts ARCH_CLEAR in metres. */
+export const ARCH_BANNER_AT = 6.1;
 export const PADDOCK_STAND = 'paddock_stand';
 /** Where a bike on a paddock stand sits, by the stand model's object named this. */
 export const PADDOCK_STAND_BIKE = 'Bike';
@@ -104,6 +139,8 @@ export const PADDOCK_STAND_BIKE = 'Bike';
 export const BIKE_ON_STAND_LIFT = 0.08;
 /** The bike on a stand designs that carry the youth bike model; the rest carry the adult one. */
 export const STAND_YOUTH_DESIGNS: ReadonlySet<string> = new Set(['youth', 'mini', 'pitbike']);
+/** A scenery model's material that shows the item's typed words (a banner's or sponsor board's face; world textFaces). */
+export const TEXT_SLOTS = ['text'] as const;
 /** A stand model's materials that take the item's colour, and a darker shade of it. */
 export const STAND_SLOTS = ['team', 'teamdark'] as const;
 
@@ -178,6 +215,8 @@ export const CREW_LIMITS: ModelLimits = { tris: 8000, long: 2.6, tall: 2.0 };
 export const FIGURE_LIMITS: ModelLimits = { tris: 8000, long: 8, tall: 8 };
 /** A marshal's, flag man's or pit crew's stand (STAND_MODELS): one on every post, so light; a tower's canopy is about 4 m up. */
 export const STAND_LIMITS: ModelLimits = { tris: 8000, long: 5, tall: 6 };
+/** A finish arch (ARCH_MODELS): one a track, spanning it, the supercross one with its flag man's tower beside it. */
+export const ARCH_LIMITS: ModelLimits = { tris: 12000, long: 24, tall: 17 };
 /** The highest a rider model's lowest point (its boots on the pegs) can be, in metres. */
 export const RIDER_FEET = 0.6;
 /** Grid units a metre: world/paddock.ts U (trackSurface BIKE_LENGTH 1.1 over a 1.46 m bike), here so vite.config.ts can use it. */
@@ -232,7 +271,7 @@ export interface ModelEntry {
   def?: SceneryDef;
 }
 
-export type ModelRole = 'replace' | 'new' | 'bike' | 'rider' | 'figure' | 'crew' | 'stand';
+export type ModelRole = 'replace' | 'new' | 'bike' | 'rider' | 'figure' | 'crew' | 'stand' | 'arch';
 
 /**
  * The moving figures whose parts can be swapped for a model's (Boss, 31 Oct 2026): each part is an
@@ -280,12 +319,13 @@ export function modelRole(id: string, scenery: { id: string }[]): ModelRole {
   if (id === SIDECAR_CREW) return 'crew';
   if (FIGURE_PARTS[id]) return 'figure';
   if (Object.values(STAND_MODELS).includes(id) || id === PADDOCK_STAND) return 'stand';
+  if ((Object.values(ARCH_MODELS) as string[]).includes(id)) return 'arch';
   return scenery.some((s) => s.id === id) ? 'replace' : 'new';
 }
 
 /** The limits for a model of this role. */
 export function limitsFor(role: ModelRole): ModelLimits {
-  return role === 'bike' ? BIKE_LIMITS : role === 'rider' ? RIDER_LIMITS : role === 'crew' ? CREW_LIMITS : role === 'figure' ? FIGURE_LIMITS : role === 'stand' ? STAND_LIMITS : SCENERY_LIMITS;
+  return role === 'bike' ? BIKE_LIMITS : role === 'rider' ? RIDER_LIMITS : role === 'crew' ? CREW_LIMITS : role === 'figure' ? FIGURE_LIMITS : role === 'stand' ? STAND_LIMITS : role === 'arch' ? ARCH_LIMITS : SCENERY_LIMITS;
 }
 
 /** The size of a model's box in metres: length (X), depth (glTF Z, Blender Y) and height (Y). */
@@ -321,6 +361,9 @@ export function checkModel(file: string, bytes: number, info: ModelInfo | null, 
   // A rider sits on the bike, feet on the pegs, in the same place as the exported race_rider.glb.
   if (role === 'rider' || role === 'crew') {
     if (info.min[1] < -0.05 || info.min[1] > RIDER_FEET) out.push(`Its lowest point is ${m(info.min[1])} from the ground; a rider's boots rest on the pegs, 0 to ${m(RIDER_FEET)} up. Start from the exported race_rider.glb so it sits on the bike.`);
+  } else if (role === 'arch') {
+    // A finish arch's origin is on the jump's deck, and the supercross tower's legs reach down to the ground below it (ARCH_MODELS).
+    if (info.min[1] < -4 || info.min[1] > 0.05) out.push(`Its lowest point is ${m(info.min[1])}; a finish arch's origin is on the deck under the banner, with nothing above it there and at most 4 m below (the flag tower's legs).`);
   } else if (info.min[1] < -0.05 || info.min[1] > 0.05) out.push(`Its lowest point is ${m(info.min[1])} from the ground; it should sit on the ground (Z = 0 in Blender).`);
   return out;
 }
