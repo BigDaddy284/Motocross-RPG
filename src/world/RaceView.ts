@@ -3400,6 +3400,14 @@ export class RaceView {
           b.body.rotation.set(lean + trick.roll, trick.yaw, pitch);
           TRICK_PIVOT.set(trick.kind === 'whip' ? BIKE_LENGTH * 0.35 : 0, 0.45, 0);
           b.body.position.copy(TRICK_PIVOT).sub(TRICK_PIVOT.clone().applyEuler(b.body.rotation));
+        } else if (p.wheelie && !b.sidecar && !flying) {
+          // A subtle wheelie (wheelie.ts; Boss, 2 Nov 2026): the front lifts, the bike turning on its
+          // back wheel so the rear tyre stays on the ground.
+          // Shifted so the back axle sits where it would with no wheelie.
+          TRICK_PIVOT.set(-BIKE_LENGTH / 2, 0, 0);
+          const axle = TRICK_PIVOT.clone().applyEuler(b.body.rotation);
+          b.body.rotation.z = pitch + p.wheelie;
+          b.body.position.copy(axle).sub(TRICK_PIVOT.applyEuler(b.body.rotation));
         }
       }
       if (b.crew) this.crewPose(b, p.down || p.state === 'crashed' ? 0 : turn, !p.down && (p.air > 0.25 || !!flying), dt);

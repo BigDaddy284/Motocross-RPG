@@ -1,6 +1,7 @@
 import type { BikesData } from './career';
 import { mixSeed, seededRng, type LapTrace, type MessageDef, type MistakeOutcome, type MotoSim, type TrackDef, type TrackSection } from './race';
 import { riderProfile, type RiderProfile } from './riderProfile';
+import { wheelieAt } from './wheelie';
 import { isNoTurn, isSprint, lapGeom, lapMetres, NO_TURN_LANES, NO_TURN_RUNOFF, pointAt, sectionBounds, sectionTurns, RETURN_LANE, SPRINT_QUEUE, START_PAD, startGeom, type StartGeom } from './trackGeom';
 import { DEFAULT_HEIGHTS, HOP_JUMPS, landingOf, pickWay, type Way } from './jumps';
 import { HILLS, sectionShape, TrackSurface, type Flight } from './trackSurface';
@@ -48,6 +49,8 @@ export interface RiderPose {
   stunt?: { kind: 'loop'; t: number };
   /** Down after a crash: seconds since it and how long it costs, for the view to act out (crashRecovery.ts). */
   down?: { t: number; lost: number };
+  /** The front wheel lifted on the ground, in radians (wheelie.ts; Boss, 2 Nov 2026); left out for none. */
+  wheelie?: number;
 }
 
 interface Seg {
@@ -586,6 +589,11 @@ export class RaceDirector {
     const pose: RiderPose = { id, dist, lane: clamp(lane, -1, 1), air, elev, flight, state, speed };
     if (stunt) pose.stunt = stunt;
     if (down) pose.down = down;
+    // A subtle wheelie out of a corner or down a long straight, only while riding on the ground.
+    if (state === 'riding' && !stopped && !flight && air < 0.02 && speed > 4) {
+      const lift = wheelieAt({ seed: p.seed, style: p.aggression, lap: seg.lap, si: seg.si, type: sec.type, prev: prev ? this.section(prev.si).type : null, u, metres: (seg.d1 - seg.d0) * this.metres });
+      if (lift > 0) pose.wheelie = lift;
+    }
     return pose;
   }
 
