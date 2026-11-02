@@ -1246,7 +1246,8 @@ export class WorldScene extends Phaser.Scene {
         return { label: `${o.name}: ${formatMoney(pence(o.price))}`, note: problem ?? o.desc ?? '', enabled: !problem, onPick: () => {
           const r = buyOutfit(data, o, career, rider, this.save.flags);
           this.hud.showCareer(career, this.save.flags);
-          this.hud.toast(r.message);
+          // Only a refusal gets a message over the rack (Boss, 2 Nov 2026).
+          if (!r.ok) this.hud.toast(r.message);
           this.milestoneSave();
           again();
         } };

@@ -290,6 +290,8 @@ export class HudScene extends Phaser.Scene {
   showCareer(career: CareerState, flags: Record<string, boolean>): void {
     // Money coming in shows as a bank note over the rider's head.
     if (this.career === career && this.shownMoney !== null && career.money > this.shownMoney) this.moneyNote(career.money - this.shownMoney);
+    // Money going out (a purchase, a repair, a fee) shows as a small "−£X" in the middle of the screen.
+    if (this.career === career && this.shownMoney !== null && career.money < this.shownMoney) this.spendNote(this.shownMoney - career.money);
     this.shownMoney = career.money;
     this.career = career;
     this.flags = flags;
@@ -357,6 +359,23 @@ export class HudScene extends Phaser.Scene {
       onUpdate: (tw) => (lift = 14 * tw.progress),
       onComplete: () => note.destroy(),
     });
+  }
+
+  private spent: Phaser.GameObjects.Container | null = null;
+
+  /**
+   * Money spent (Boss, 2 Nov 2026: in place of the "Bought…" messages that sat over the shop menus):
+   * a small "−£X" box in the middle of the screen, over any open panel, that rises a little and fades.
+   */
+  spendNote(amount: number): void {
+    const { width, height } = view(this);
+    this.spent?.destroy();
+    const k = this.ts(100) / 100;
+    const label = this.add.text(0, 0, `−${formatMoney(amount)}`, textStyle(this.ts(22), 0xff8a80, { fontStyle: 'bold', stroke: '#14141e', strokeThickness: 4 })).setOrigin(0.5);
+    const bg = this.add.rectangle(0, 0, label.width + 28 * k, label.height + 12 * k, COLORS.ink, 0.9).setStrokeStyle(2, COLORS.panelLight);
+    const note = this.add.container(width / 2, height / 2, [bg, label]).setDepth(12);
+    this.spent = note;
+    this.tweens.add({ targets: note, y: height / 2 - 24, alpha: 0, delay: 900, duration: 600, onComplete: () => note.destroy() });
   }
 
   /** The map the rider is on, for what the line under its name shows. */
@@ -1289,10 +1308,11 @@ export class HudScene extends Phaser.Scene {
       return o;
     };
     /** Applies a shop action, shows what happened and redraws the panel. */
-    // A sale's money shows as the bank note over the rider's head, so a sale that goes through has no
-    // message as well, which would cover the chat box (Boss, 2 Nov 2026). A refusal still says why.
-    const done = (r: Result, t: ShopTab = tab, pg = 0, sale = false) => {
-      if (!(sale && r.ok)) this.toast(r.message);
+    // Only a refusal gets a message (Boss, 2 Nov 2026: a "Bought…" message sat over the shop's menu).
+    // What went through shows in the shop itself: the money line, the stock, the bike and the bag,
+    // and a sale's money as the bank note over the rider's head.
+    const done = (r: Result, t: ShopTab = tab, pg = 0) => {
+      if (!r.ok) this.toast(r.message);
       if (r.ok) this.onShopChange?.();
       reopen(t, pg);
     };
@@ -1384,7 +1404,7 @@ export class HudScene extends Phaser.Scene {
           return;
         }
         const b = button(this, w / 2 - 110, y + 16, v === null ? "Won't buy" : `Sell ${formatMoney(v)}`, () => {
-          const sell = () => done(sellSpare(shops, shop, career, i), 'sell', pg, true);
+          const sell = () => done(sellSpare(shops, shop, career, i), 'sell', pg);
           // Small sales are one click; bigger ones ask first (GDD 8.3).
           // A note under the question: the part's condition when it's still at half or better (Boss, 31 Oct 2026).
           const pct = Math.round(p.condition * 100);
@@ -1401,7 +1421,7 @@ export class HudScene extends Phaser.Scene {
         label,
         () => {
           this.sellPicks.clear();
-          done(sellSpares(shops, shop, career, rows.map((r) => r.i)), 'sell', 0, true);
+          done(sellSpares(shops, shop, career, rows.map((r) => r.i)), 'sell');
         },
         () => reopen('sell', pg),
       ));
