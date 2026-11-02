@@ -62,6 +62,37 @@ export interface AreaDef {
 
 export interface AreasData {
   areas: AreaDef[];
+  /**
+   * The areas this build releases (Boss, 1 Nov 2026: "stops Area progress at Area 2… so we can release
+   * Areas 1 at a time"). Winning the last released area's championship opens nothing; the rider can
+   * still win every championship. A later build raises lastArea and the wins already made open the
+   * next area on load (openReleasedAreas). Left out, every area is released.
+   */
+  release?: { lastArea: number };
+}
+
+/** The highest area this build releases. */
+export const lastReleasedArea = (data: AreasData): number => data.release?.lastArea ?? AREA_COUNT;
+
+/**
+ * Opens every released area whose way in has been won (the championship with opens: N won at least
+ * once), for saves from a build that held it back. Returns the areas it opened.
+ */
+export function openReleasedAreas(
+  data: AreasData,
+  champs: { championships: { id: string; opens?: number }[] },
+  career: { champs?: { done: Record<string, { wins: number }> } },
+  flags: Record<string, boolean>,
+): number[] {
+  const opened: number[] = [];
+  for (const c of champs.championships) {
+    if (!c.opens || c.opens > lastReleasedArea(data) || flags[areaFlag(c.opens)]) continue;
+    if ((career.champs?.done[c.id]?.wins ?? 0) > 0) {
+      flags[areaFlag(c.opens)] = true;
+      opened.push(c.opens);
+    }
+  }
+  return opened;
 }
 
 export const areaDef = (data: AreasData, n: number): AreaDef | undefined => data.areas.find((a) => a.n === n);
@@ -125,9 +156,10 @@ const ID = /^[a-z0-9_.-]+$/;
 
 export const AREAS_SCHEMA: Schema = {
   type: 'object',
-  optional: ['note'],
+  optional: ['note', 'release'],
   fields: {
     note: { type: 'string' },
+    release: { type: 'object', fields: { lastArea: { type: 'number', integer: true, min: 1, max: AREA_COUNT } } },
     areas: {
       type: 'array',
       minItems: 1,
