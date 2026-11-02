@@ -6,8 +6,9 @@ import { PLAYER_ID, fieldRider, type CpuRiderDef, type RaceContent, type RaceDay
 import type { ContentError, Schema } from './validate';
 
 // Championships (Spec 12.5, 18.6): a series of rounds at the area's venues, each entered
-// separately at the race office, with qualifying, the same field of 16 every round, points for
-// every moto and a reward for the top three. No calendar: one stays active until it is finished,
+// separately at the race office, the same field of 16 every round, points for every moto and a
+// reward for the top three. No qualifying (Boss, 2 Nov 2026): moto 1's gate picks go in a random
+// order and moto 2's in moto 1's finishing order, as on any race day. No calendar: one stays active until it is finished,
 // started again or given up. Pure rules with no graphics.
 
 export interface ChampionshipDef {
@@ -33,7 +34,6 @@ export interface ChampionshipDef {
   /** Entry and prize money, times the class's (Spec 14.2 event tiers). */
   entryTimes: number;
   purseTimes: number;
-  qualifyingLaps: number;
   /** Flags that open it. */
   needs?: string[];
   /** By final position: prize money in pounds, a flag to set and what it is called. */
@@ -52,7 +52,7 @@ export interface ChampionshipsData {
   championships: ChampionshipDef[];
 }
 
-/** One round as it was raced: qualifying order and every rider's moto finishes (null for a DNF). */
+/** One round as it was raced: every rider's moto finishes (null for a DNF). qualifying is empty since 2 Nov 2026 (no qualifying), kept for saves. */
 export interface RoundRecord {
   venue: string;
   qualifying: string[];
@@ -98,7 +98,6 @@ export const CHAMPIONSHIPS_SCHEMA: Schema = {
           rounds: { type: 'array', minItems: 1, items: { type: 'string', nonEmpty: true } },
           entryTimes: { type: 'number', min: 0 },
           purseTimes: { type: 'number', min: 0 },
-          qualifyingLaps: { type: 'number', integer: true, min: 1, max: 10 },
           needs: { type: 'array', items: { type: 'string', nonEmpty: true } },
           rewards: {
             type: 'array',
@@ -291,7 +290,7 @@ export function roundEntry(rc: Pick<RaceContent, 'racing'>, def: ChampionshipDef
   return pence(rc.racing.classes[cls].entry * def.entryTimes);
 }
 
-/** What a round's race day runs with: the fixed field, qualifying and the purse (a replay's share). */
+/** What a round's race day runs with: the fixed field and the purse (a replay's share). */
 export function roundOptions(rc: Pick<RaceContent, 'riders'>, def: ChampionshipDef, active: ActiveChampionship) {
   const share = active.replay ? def.replay : 1;
   const inIt = new Set([...active.field, ...(def.without ?? [])]);
@@ -300,7 +299,7 @@ export function roundOptions(rc: Pick<RaceContent, 'riders'>, def: ChampionshipD
     .map((id) => fieldRider(rc, def.field, id))
     .filter((r): r is CpuRiderDef => !!r)
     .map((r) => buffRider(r, def.buff ?? 0));
-  return { cpus: champRiders(rc, def, active), qualifyingLaps: def.qualifyingLaps, purseTimes: def.purseTimes * share, xpTimes: share, others };
+  return { cpus: champRiders(rc, def, active), purseTimes: def.purseTimes * share, xpTimes: share, others };
 }
 
 /**
