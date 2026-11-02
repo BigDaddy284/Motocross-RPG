@@ -142,7 +142,8 @@ export class WorldScene extends Phaser.Scene {
     this.hud.headAt = () => {
       if (!this.player || !this.scene.isActive()) return null;
       const cam = this.cameras.main;
-      const b = this.player.sprite.getBounds();
+      // The van's top while driving, for a speech note over it.
+      const b = (this.save.driving && this.van ? this.van.sprite : this.player.sprite).getBounds();
       return { x: ((b.centerX - cam.worldView.x) * cam.zoom) / DPR, y: ((b.top - cam.worldView.y) * cam.zoom) / DPR };
     };
     this.cameras.main.setBackgroundColor('#14141e');
@@ -778,7 +779,7 @@ export class WorldScene extends Phaser.Scene {
         this.refreshWaymarks();
         if (!completed) return;
         // Money shows as the bank note over your head (HudScene.moneyNote), not along the bottom.
-        for (const s of [step, ...caught]) if (s.toast) this.hud.toast(s.toast);
+        for (const s of [step, ...caught]) if (s.toast) this.hud.news(s.toast);
         if ([step, ...caught].some((s) => s.effects?.flags?.length)) this.refreshMapState();
         this.milestoneSave();
       };
@@ -808,7 +809,7 @@ export class WorldScene extends Phaser.Scene {
     this.markPoint = null;
     const career = this.save.career;
     // An area just opened starts its intro chain (core/career.ts openChains).
-    for (const c of openChains(services.content.story, career, this.save.flags)) this.hud.toast(`${services.content.areas.areas.find((a) => a.intro === c.id)?.name ?? 'A new area'}: a new task.`);
+    for (const c of openChains(services.content.story, career, this.save.flags)) this.hud.news(`${services.content.areas.areas.find((a) => a.intro === c.id)?.name ?? 'A new area'}: a new task.`);
     this.markEarning = earning(services.content, career);
     const goals = storyGoals(services.content, services.maps, career, this.save.flags, this.save.van ?? null);
     if (!goals.length) return;
@@ -936,7 +937,7 @@ export class WorldScene extends Phaser.Scene {
         return true;
       }
       if (this.shift.job.stations.some((s) => s.object === o.name)) {
-        this.hud.toast(`Next: ${st.label}.`);
+        this.hud.flashShift();
         return true;
       }
       return false;
@@ -983,7 +984,7 @@ export class WorldScene extends Phaser.Scene {
       r.open.ticket = ticket;
       this.shift = { job, made: r.open.made, station: 0 };
       this.showShift();
-      this.hud.toast(`${job.name}: ${job.stations[0].label}.`);
+      this.hud.flashShift();
     };
     if (open?.ticket) {
       const job = ticketJob(board, tools, bikes, open.ticket);
@@ -1025,7 +1026,7 @@ export class WorldScene extends Phaser.Scene {
       const pass = finishPass(services.content.skills, career, shift.job, jobPay(services.content.world, shift.job));
       shift.made += pass.parts;
       if (pass.parts > 1) this.hud.toast(`Two ${shift.job.product}s in one go!`);
-      for (const u of pass.ups) this.hud.toast(`Level up! ${u.name} is now level ${u.level}.`);
+      for (const u of pass.ups) this.hud.levelUp(u.name, u.level);
       this.hud.showCareer(career, this.save.flags);
       if (pass.done) {
         const engine = new Set(services.content.bikes.slots.filter((sl) => sl.engine).map((sl) => sl.id));
@@ -1414,7 +1415,7 @@ export class WorldScene extends Phaser.Scene {
         { label: 'Enter', note: 'Free to enter: you pay each round\'s entry when you ride it.', onPick: () => {
           enter(career, rc, def, (Math.random() * 2 ** 32) >>> 0);
           this.milestoneSave();
-          this.hud.toast(`Entered the ${def.name}. Round 1 is at ${rc.tracks.venues.find((v) => v.id === def.rounds[0])?.name}.`);
+          this.hud.news(`Entered the ${def.name}. Round 1 is at ${rc.tracks.venues.find((v) => v.id === def.rounds[0])?.name}.`);
           this.openVenue(venue, onClose);
         } },
         { label: 'Back', onPick: back },
@@ -1435,7 +1436,7 @@ export class WorldScene extends Phaser.Scene {
     const giveUp = () => this.hud.confirm(`Give up the ${def.name}?\nYour points so far are lost. You can enter again later.`, 'Give it up', () => {
       withdraw(career, def);
       this.milestoneSave();
-      this.hud.toast(`You gave up the ${def.name}.`);
+      this.hud.news(`You gave up the ${def.name}.`);
       this.openChampionships(venue, onClose);
     }, () => this.openChampionship(def, venue, onClose));
     // No Start again: Give it up and enter again does the same. At the next round's track, the
@@ -1514,7 +1515,7 @@ export class WorldScene extends Phaser.Scene {
         try {
           keepImport(services.store, file.name, text);
         } catch {
-          this.hud.toast("Couldn't keep it: this browser's storage is full or blocked.");
+          this.hud.errorBar("Couldn't keep it: this browser's storage is full or blocked.");
           return;
         }
         this.reloadMods();
@@ -1543,7 +1544,7 @@ export class WorldScene extends Phaser.Scene {
       challenge,
       coach,
       save: this.snapshot(),
-      onDone: (save, message) => {
+      onDone: (save) => {
         this.scene.wake('hud');
         this.scene.wake();
         // Money won comes back as the bank note over the rider's head, not in the message (Boss, 2 Nov 2026).
@@ -1554,7 +1555,7 @@ export class WorldScene extends Phaser.Scene {
         this.hud.showCareer(this.save.career, this.save.flags);
         if (gain > 0) this.time.delayedCall(250, () => this.hud.moneyNote(gain));
         this.milestoneSave();
-        this.hud.toast(message);
+        // No message on top: the results screen has said it all (Boss, 2 Nov 2026).
       },
     };
     this.cameras.main.fadeOut(200, 20, 20, 30);
@@ -2045,7 +2046,7 @@ export class WorldScene extends Phaser.Scene {
     const { training, skills } = services.content;
     const r = walked(training, skills, this.save.career.skills, this.walkCarry);
     this.walkCarry = r.carry;
-    for (const u of r.ups) this.hud.toast(`Level up! ${u.name} is now level ${u.level}.`);
+    for (const u of r.ups) this.hud.levelUp(u.name, u.level);
   }
 
   /** A Fitness drill (core/training.ts): its round in the HUD, XP for every round finished, saved after each. */
@@ -2130,7 +2131,7 @@ export class WorldScene extends Phaser.Scene {
       this.writeSave();
       this.hud.saveIndicator('Autosaved');
     } catch {
-      this.hud.toast('Saving failed: storage is full or blocked.');
+      this.hud.errorBar('Saving failed: storage is full or blocked.');
     }
   }
 
@@ -2140,7 +2141,7 @@ export class WorldScene extends Phaser.Scene {
       this.writeSave();
       this.hud.saveIndicator(reason === 'manual' ? 'Game saved' : 'Autosaved');
     } catch {
-      this.hud.toast('Saving failed: storage is full or blocked.');
+      this.hud.errorBar('Saving failed: storage is full or blocked.');
     }
   }
 

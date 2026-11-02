@@ -63,8 +63,6 @@ export class HudScene extends Phaser.Scene {
   /** The open dialogue and the line it's on, so a resize can build it again to fit (Boss, 29 Oct 2026). */
   private dialogueAt: { args: [string, string, DialogueLine[], () => void]; line: number } | null = null;
   private pause: Phaser.GameObjects.Container | null = null;
-  private toastText!: Phaser.GameObjects.Text;
-  private toastBg!: Phaser.GameObjects.Rectangle;
   private titleText!: Phaser.GameObjects.Text;
   private saveText!: Phaser.GameObjects.Text;
   private moneyText!: Phaser.GameObjects.Text;
@@ -137,8 +135,6 @@ export class HudScene extends Phaser.Scene {
     this.taskText = this.add.text(16, 74, '', textStyle(this.ts(16), COLORS.accent, { ...hud, wordWrap: { width: 420 } }));
     this.shiftText = this.add.text(0, 0, '', textStyle(this.ts(18), COLORS.cream, { ...outline, align: 'center' })).setOrigin(0.5, 0);
     // Toasts sit above panels, so a shop's "Bought" message shows over the shop.
-    this.toastBg = this.add.rectangle(0, 0, 10, 10, COLORS.ink, 0.88).setStrokeStyle(2, COLORS.panelLight).setVisible(false).setDepth(10);
-    this.toastText = this.add.text(0, 0, '', textStyle(this.ts(18), COLORS.cream, { align: 'center' })).setOrigin(0.5).setVisible(false).setDepth(11);
     this.saveText = this.add.text(0, 0, '', textStyle(this.ts(16), COLORS.muted, { stroke: '#14141e', strokeThickness: 3 })).setOrigin(1, 0).setAlpha(0);
     this.zoomPop = null;
     this.wayArrow = null;
@@ -237,9 +233,6 @@ export class HudScene extends Phaser.Scene {
     this.saveText.setPosition(width - 70, 18);
     this.shiftText.setPosition(width / 2, 14);
     this.taskText.setWordWrapWidth(Math.min(520, width - 140));
-    this.toastText.setPosition(width / 2, height - HUD_BAR - 30);
-    this.toastText.setWordWrapWidth(Math.min(700, width - 60));
-    this.fitToast();
     // The dialogue box is placed and wrapped for the window it opened in: build it again for this one.
     if (this.dialogue && this.dialogueAt) this.openDialogue(...this.dialogueAt.args, this.dialogueAt.line);
   }
@@ -301,7 +294,7 @@ export class HudScene extends Phaser.Scene {
     const atVenue = !!this.mapId && c.tracks.venues.some((v) => v.map === this.mapId && !v.practiceOnly);
     const champ = atVenue ? champLine(c, c.championships, career) : null;
     const showTask = services.settings.get().gameplay.showTask;
-    this.taskText.setText(champ ? `Championship: ${champ}` : showTask ? `Task: ${journal(c.story, career, flags)}` : '');
+    if (!this.taskNews) this.taskText.setText(champ ? `Championship: ${champ}` : showTask ? `Task: ${journal(c.story, career, flags)}` : '');
   }
 
   /** The money last shown, to spot money coming in. */
@@ -343,10 +336,10 @@ export class HudScene extends Phaser.Scene {
   }
 
   /** The bank note's parts, centred above (0, 0): cream paper, a frame and a £ oval at each end in `frame`, and a tail when `tail`. */
-  private bankNote(text: string, frame: number, tail: boolean): Phaser.GameObjects.GameObject[] {
+  private bankNote(text: string, frame: number, tail: boolean, ovals = true): Phaser.GameObjects.GameObject[] {
     const k = this.ts(100) / 100;
-    const label = this.add.text(0, 0, text, textStyle(this.ts(12), COLORS.ink, { fontStyle: 'bold' })).setOrigin(0.5);
-    const end = 8 * k;
+    const label = this.add.text(0, 0, text, textStyle(this.ts(12), COLORS.ink, { fontStyle: 'bold', align: 'center' })).setOrigin(0.5);
+    const end = ovals ? 8 * k : 0;
     const w = Math.max(66 * k, label.width + 2 * (2 * end + 4 * k));
     const h = Math.max(22 * k, label.height + 6 * k);
     const y0 = -h - 4 * k;
@@ -358,7 +351,7 @@ export class HudScene extends Phaser.Scene {
     g.lineStyle(1, COLORS.ink, 0.6).strokeRect(-w / 2 + 3 * k, y0 + 3 * k, w - 6 * k, h - 6 * k);
     if (tail) g.fillStyle(frame, 1).fillTriangle(-4 * k, y0 + h, 4 * k, y0 + h, 0, y0 + h + 4 * k);
     const parts: Phaser.GameObjects.GameObject[] = [g];
-    for (const sx of [-1, 1]) {
+    for (const sx of ovals ? [-1, 1] : []) {
       g.fillStyle(frame, 1).fillEllipse(sx * (w / 2 - end), y0 + h / 2, 10 * k, 14 * k);
       parts.push(this.add.text(sx * (w / 2 - end), y0 + h / 2, '£', textStyle(this.ts(9), 0xf3e3c3, { fontStyle: 'bold' })).setOrigin(0.5));
     }
@@ -433,18 +426,130 @@ export class HudScene extends Phaser.Scene {
     this.mapId = mapId ?? null;
   }
 
+  // ---- messages (Boss, 2 Nov 2026: the old grey message box, faint over menus and chats, is gone) ----
+  // A menu's "can't do that" is a red line in the menu itself, a hint out in the world a speech note
+  // over the rider's head (or the van's), a level up a green note in the middle of the screen, news
+  // a flash of the task line, and a save that failed a red bar along the top.
+
+  /** A short message: a red line in the open menu, or else a speech note over the rider's head. */
   toast(message: string): void {
-    this.toastText.setText(message).setVisible(true).setAlpha(1);
-    this.fitToast();
-    this.toastBg.setVisible(true).setAlpha(1);
-    this.tweens.killTweensOf([this.toastText, this.toastBg]);
-    this.tweens.add({ targets: [this.toastText, this.toastBg], alpha: 0, delay: 2600, duration: 400 });
+    if (!message) return;
+    // A menu open now, or opened straight after (a refusal that reopens its menu), gets the red line.
+    this.menuNote(message);
+    if (this.modal) return;
+    this.menuNoteTaken = false;
+    this.time.delayedCall(0, () => !this.menuNoteTaken && this.speech(message));
   }
 
-  private fitToast(): void {
-    const b = this.toastText.getBounds();
-    this.toastBg.setPosition(this.toastText.x, this.toastText.y).setSize(b.width + 32, b.height + 18).setOrigin(0.5);
-    this.toastBg.setDisplaySize(b.width + 32, b.height + 18);
+  /** Set when a menu built this frame took the waiting red line. */
+  private menuNoteTaken = false;
+
+  /** The open menu's panel height (set by backdrop), for its red line. */
+  private modalH = new WeakMap<Phaser.GameObjects.Container, number>();
+  /** A red line waiting for the menu that is being rebuilt this frame. */
+  private pendingMenuNote: string | null = null;
+
+  /** A red line along the bottom edge of the open menu, until the menu is rebuilt or closed. */
+  private menuNote(message: string): void {
+    this.pendingMenuNote = message;
+    this.time.delayedCall(0, () => (this.pendingMenuNote = null));
+    if (this.modal) this.drawMenuNote(this.modal, message);
+  }
+
+  private drawMenuNote(c: Phaser.GameObjects.Container, msg: string): void {
+    const h = this.modalH.get(c);
+    if (h === undefined || !c.active) return;
+    const t = this.add.text(0, h / 2, msg, textStyle(this.pts(15), 0xffd4cf, { fontStyle: 'bold', align: 'center', wordWrap: { width: 560 } })).setOrigin(0.5);
+    const bg = this.add.rectangle(0, h / 2, t.width + 28, t.height + 12, 0x8e2622, 1).setStrokeStyle(2, 0xd83a34);
+    c.add([bg, t]);
+  }
+
+  private speechBox: Phaser.GameObjects.Container | null = null;
+
+  /**
+   * A speech note over the rider's head (the van's while driving): cream paper with a grey frame and
+   * a tail, in the bank note's style, above where a money note sits. It follows them, then fades.
+   * With nobody on screen it shows near the top of the screen instead.
+   */
+  speech(message: string): void {
+    this.speechBox?.destroy();
+    const k = this.ts(100) / 100;
+    const label = this.add.text(0, 0, message, textStyle(this.ts(13), COLORS.ink, { fontStyle: 'bold', align: 'center', wordWrap: { width: 280 * k } })).setOrigin(0.5);
+    const w = label.width + 20 * k;
+    const h = label.height + 12 * k;
+    const head = this.headAt?.();
+    const y0 = head ? -h - 40 * k : 0;
+    label.setY(y0 + h / 2);
+    const g = this.add.graphics();
+    g.fillStyle(0x000000, 0.35).fillRect(-w / 2 + 1.5, y0 + 1.5, w, h);
+    g.fillStyle(0xf3e3c3, 1).fillRect(-w / 2, y0, w, h);
+    g.lineStyle(2, 0x6b7080, 1).strokeRect(-w / 2, y0, w, h);
+    if (head) g.fillStyle(0x6b7080, 1).fillTriangle(-5 * k, y0 + h, 5 * k, y0 + h, 0, y0 + h + 6 * k);
+    const { width } = view(this);
+    const box = this.add.container(head?.x ?? width / 2, head?.y ?? 110, [g, label]).setDepth(9);
+    this.speechBox = box;
+    if (head) {
+      const follow = () => {
+        const at = this.headAt?.();
+        if (box.active && at) box.setPosition(at.x, at.y);
+      };
+      this.events.on('update', follow);
+      box.once('destroy', () => this.events.off('update', follow));
+    }
+    const stay = Math.min(5000, 1800 + 45 * message.length);
+    this.tweens.add({ targets: box, alpha: 0, delay: stay, duration: 400, onComplete: () => box.destroy() });
+  }
+
+  private levelLines: string[] = [];
+  private levelBox: Phaser.GameObjects.Container | null = null;
+
+  /** Level ups: a green note in the middle of the screen, every level up of the moment on one note. */
+  levelUp(name: string, level: number): void {
+    this.levelLines.push(`Level up! ${name} → level ${level}`);
+    if (this.levelLines.length > 1) return;
+    this.time.delayedCall(0, () => {
+      const lines = this.levelLines;
+      this.levelLines = [];
+      const { width, height } = view(this);
+      this.levelBox?.destroy();
+      const note = this.add.container(width / 2, height / 2 - 70, this.bankNote(lines.join('\n'), 0x3f9b3a, false, false)).setDepth(12).setScale(1.5);
+      this.levelBox = note;
+      this.tweens.add({ targets: note, y: height / 2 - 94, alpha: 0, delay: 1800 + 400 * lines.length, duration: 600, onComplete: () => note.destroy() });
+    });
+  }
+
+  /** News for the task line (a new task, a championship entered): it flashes and shows the news for a few seconds, even when the task line is switched off. */
+  private taskNews: string | null = null;
+  news(message: string): void {
+    this.taskNews = message;
+    this.taskText.setText(message).setAlpha(1);
+    this.tweens.killTweensOf(this.taskText);
+    this.tweens.add({ targets: this.taskText, alpha: 0.25, yoyo: true, repeat: 3, duration: 220 });
+    this.time.delayedCall(Math.min(7000, 3500 + 40 * message.length), () => {
+      if (this.taskNews !== message) return;
+      this.taskNews = null;
+      if (this.career) this.showCareer(this.career, this.flags);
+    });
+  }
+
+  /** The shift bar at the top centre flashes, to point at the next station. */
+  flashShift(): void {
+    this.tweens.killTweensOf(this.shiftText);
+    this.shiftText.setAlpha(1);
+    this.tweens.add({ targets: this.shiftText, alpha: 0.25, yoyo: true, repeat: 2, duration: 200 });
+  }
+
+  private errorBox: Phaser.GameObjects.Container | null = null;
+
+  /** Something wrong with the browser (a save that failed): a red bar along the top until it is tapped. */
+  errorBar(message: string): void {
+    this.errorBox?.destroy();
+    const { width } = view(this);
+    const t = this.add.text(width / 2, 22, `${message}  (tap to close)`, textStyle(this.ts(15), 0xffffff, { fontStyle: 'bold', align: 'center', wordWrap: { width: width - 40 } })).setOrigin(0.5);
+    const bg = this.add.rectangle(width / 2, 22, width, t.height + 16, 0xb3261e, 0.95).setInteractive({ useHandCursor: true });
+    const box = this.add.container(0, 0, [bg, t]).setDepth(20);
+    this.errorBox = box;
+    bg.on('pointerup', () => box.destroy());
   }
 
   saveIndicator(text: string): void {
@@ -545,6 +650,13 @@ export class HudScene extends Phaser.Scene {
     if (closeOnClick) shade.on('pointerup', () => this.closeModal());
     c.add(shade);
     c.add(panel(this, 0, 0, w, h).setInteractive());
+    this.modalH.set(c, h);
+    // A red line for this menu, when it is being rebuilt after something it refused.
+    const pending = this.pendingMenuNote;
+    if (pending) {
+      this.menuNoteTaken = true;
+      this.time.delayedCall(0, () => this.drawMenuNote(c, pending));
+    }
   }
 
   /**
@@ -1454,7 +1566,7 @@ export class HudScene extends Phaser.Scene {
               'Repair',
               () => {
                 const r = diyRepair(shops, services.content.tools, bikes, services.content.skills, career, slot.id);
-                for (const u of r.ups ?? []) this.toast(`Level up! ${u.name} is now level ${u.level}.`);
+                for (const u of r.ups ?? []) this.levelUp(u.name, u.level);
                 done(r);
               },
               () => reopen(),
@@ -1521,7 +1633,7 @@ export class HudScene extends Phaser.Scene {
               const kit = r.ok && !price && champ && this.rider ? championsKit(services.content.house, champ) : null;
               const given = kit ? awardOutfit(kit, this.rider!) : null;
               // A bike bought shows as the −£ note; the champion's free bike (and kit) still says so.
-              if (r.ok && !price) this.toast(given?.ok ? `${r.message} ${given.message}` : r.message);
+              if (r.ok && !price) this.news(given?.ok ? `${r.message} ${given.message}` : r.message);
               done(r, 'buy');
             },
             () => reopen(),
@@ -1574,7 +1686,7 @@ export class HudScene extends Phaser.Scene {
           const r = fitSpare(shops, bikes, shop, career, i);
           if (r.ok && shop.diy) {
             const set = toolsFor(services.content.tools, career, p.slot)!.set;
-            for (const u of addXp(services.content.skills, career.skills, { [set.skill]: services.content.tools.xp.fit })) this.toast(`Level up! ${u.name} is now level ${u.level}.`);
+            for (const u of addXp(services.content.skills, career.skills, { [set.skill]: services.content.tools.xp.fit })) this.levelUp(u.name, u.level);
           }
           done(r, 'fit', pg);
         }, 170, 38);
