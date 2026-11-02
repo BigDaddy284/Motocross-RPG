@@ -290,6 +290,8 @@ export class HudScene extends Phaser.Scene {
   showCareer(career: CareerState, flags: Record<string, boolean>): void {
     // Money coming in shows as a bank note over the rider's head.
     if (this.career === career && this.shownMoney !== null && career.money > this.shownMoney) this.moneyNote(career.money - this.shownMoney);
+    // Money going out (a purchase, a repair, a fee) shows as a small "−£X" in the middle of the screen.
+    if (this.career === career && this.shownMoney !== null && career.money < this.shownMoney) this.spendNote(this.shownMoney - career.money);
     this.shownMoney = career.money;
     this.career = career;
     this.flags = flags;
@@ -320,26 +322,7 @@ export class HudScene extends Phaser.Scene {
     const head = this.headAt?.();
     if (!head) return;
     this.note?.destroy();
-    const k = this.ts(100) / 100;
-    const label = this.add.text(0, 0, `+${formatMoney(amount)}`, textStyle(this.ts(12), COLORS.ink, { fontStyle: 'bold' })).setOrigin(0.5);
-    const end = 8 * k;
-    const w = Math.max(66 * k, label.width + 2 * (2 * end + 4 * k));
-    const h = Math.max(22 * k, label.height + 6 * k);
-    const y0 = -h - 4 * k;
-    label.setY(y0 + h / 2);
-    const g = this.add.graphics();
-    g.fillStyle(0x000000, 0.35).fillRect(-w / 2 + 1.5, y0 + 1.5, w, h);
-    g.fillStyle(0xf3e3c3, 1).fillRect(-w / 2, y0, w, h);
-    g.lineStyle(2, COLORS.accent, 1).strokeRect(-w / 2, y0, w, h);
-    g.lineStyle(1, COLORS.ink, 0.6).strokeRect(-w / 2 + 3 * k, y0 + 3 * k, w - 6 * k, h - 6 * k);
-    g.fillStyle(COLORS.accent, 1).fillTriangle(-4 * k, y0 + h, 4 * k, y0 + h, 0, y0 + h + 4 * k);
-    const parts: Phaser.GameObjects.GameObject[] = [g];
-    for (const sx of [-1, 1]) {
-      g.fillStyle(COLORS.accent, 1).fillEllipse(sx * (w / 2 - end), y0 + h / 2, 10 * k, 14 * k);
-      parts.push(this.add.text(sx * (w / 2 - end), y0 + h / 2, '£', textStyle(this.ts(9), 0xf3e3c3, { fontStyle: 'bold' })).setOrigin(0.5));
-    }
-    parts.push(label);
-    const note = this.add.container(head.x, head.y, parts).setDepth(9);
+    const note = this.add.container(head.x, head.y, this.bankNote(`+${formatMoney(amount)}`, COLORS.accent, true)).setDepth(9);
     this.note = note;
     let lift = 0;
     const follow = () => {
@@ -357,6 +340,45 @@ export class HudScene extends Phaser.Scene {
       onUpdate: (tw) => (lift = 14 * tw.progress),
       onComplete: () => note.destroy(),
     });
+  }
+
+  /** The bank note's parts, centred above (0, 0): cream paper, a frame and a £ oval at each end in `frame`, and a tail when `tail`. */
+  private bankNote(text: string, frame: number, tail: boolean): Phaser.GameObjects.GameObject[] {
+    const k = this.ts(100) / 100;
+    const label = this.add.text(0, 0, text, textStyle(this.ts(12), COLORS.ink, { fontStyle: 'bold' })).setOrigin(0.5);
+    const end = 8 * k;
+    const w = Math.max(66 * k, label.width + 2 * (2 * end + 4 * k));
+    const h = Math.max(22 * k, label.height + 6 * k);
+    const y0 = -h - 4 * k;
+    label.setY(y0 + h / 2);
+    const g = this.add.graphics();
+    g.fillStyle(0x000000, 0.35).fillRect(-w / 2 + 1.5, y0 + 1.5, w, h);
+    g.fillStyle(0xf3e3c3, 1).fillRect(-w / 2, y0, w, h);
+    g.lineStyle(2, frame, 1).strokeRect(-w / 2, y0, w, h);
+    g.lineStyle(1, COLORS.ink, 0.6).strokeRect(-w / 2 + 3 * k, y0 + 3 * k, w - 6 * k, h - 6 * k);
+    if (tail) g.fillStyle(frame, 1).fillTriangle(-4 * k, y0 + h, 4 * k, y0 + h, 0, y0 + h + 4 * k);
+    const parts: Phaser.GameObjects.GameObject[] = [g];
+    for (const sx of [-1, 1]) {
+      g.fillStyle(frame, 1).fillEllipse(sx * (w / 2 - end), y0 + h / 2, 10 * k, 14 * k);
+      parts.push(this.add.text(sx * (w / 2 - end), y0 + h / 2, '£', textStyle(this.ts(9), 0xf3e3c3, { fontStyle: 'bold' })).setOrigin(0.5));
+    }
+    parts.push(label);
+    return parts;
+  }
+
+  private spent: Phaser.GameObjects.Container | null = null;
+
+  /**
+   * Money spent (Boss, 2 Nov 2026: in place of the "Bought…" messages that sat over the shop menus):
+   * the bank note with "−£X" in the middle of the screen, over any open panel, that rises a little and fades.
+   */
+  spendNote(amount: number): void {
+    const { width, height } = view(this);
+    this.spent?.destroy();
+    // The same bank note as money coming in, framed in red, at 1.5 times the size (Boss, 2 Nov 2026).
+    const note = this.add.container(width / 2, height / 2, this.bankNote(`−${formatMoney(amount)}`, 0xd83a34, false)).setDepth(12).setScale(1.5);
+    this.spent = note;
+    this.tweens.add({ targets: note, y: height / 2 - 24, alpha: 0, delay: 900, duration: 600, onComplete: () => note.destroy() });
   }
 
   /** The map the rider is on, for what the line under its name shows. */
@@ -1289,10 +1311,11 @@ export class HudScene extends Phaser.Scene {
       return o;
     };
     /** Applies a shop action, shows what happened and redraws the panel. */
-    // A sale's money shows as the bank note over the rider's head, so a sale that goes through has no
-    // message as well, which would cover the chat box (Boss, 2 Nov 2026). A refusal still says why.
-    const done = (r: Result, t: ShopTab = tab, pg = 0, sale = false) => {
-      if (!(sale && r.ok)) this.toast(r.message);
+    // Only a refusal gets a message (Boss, 2 Nov 2026: a "Bought…" message sat over the shop's menu).
+    // What went through shows in the shop itself: the money line, the stock, the bike and the bag,
+    // and a sale's money as the bank note over the rider's head.
+    const done = (r: Result, t: ShopTab = tab, pg = 0) => {
+      if (!r.ok) this.toast(r.message);
       if (r.ok) this.onShopChange?.();
       reopen(t, pg);
     };
@@ -1384,7 +1407,7 @@ export class HudScene extends Phaser.Scene {
           return;
         }
         const b = button(this, w / 2 - 110, y + 16, v === null ? "Won't buy" : `Sell ${formatMoney(v)}`, () => {
-          const sell = () => done(sellSpare(shops, shop, career, i), 'sell', pg, true);
+          const sell = () => done(sellSpare(shops, shop, career, i), 'sell', pg);
           // Small sales are one click; bigger ones ask first (GDD 8.3).
           // A note under the question: the part's condition when it's still at half or better (Boss, 31 Oct 2026).
           const pct = Math.round(p.condition * 100);
@@ -1401,7 +1424,7 @@ export class HudScene extends Phaser.Scene {
         label,
         () => {
           this.sellPicks.clear();
-          done(sellSpares(shops, shop, career, rows.map((r) => r.i)), 'sell', 0, true);
+          done(sellSpares(shops, shop, career, rows.map((r) => r.i)), 'sell');
         },
         () => reopen('sell', pg),
       ));
@@ -1497,7 +1520,9 @@ export class HudScene extends Phaser.Scene {
               // The champion's offer brings the sponsor's kit too, up to Area 4 (Boss, 31 Oct 2026).
               const kit = r.ok && !price && champ && this.rider ? championsKit(services.content.house, champ) : null;
               const given = kit ? awardOutfit(kit, this.rider!) : null;
-              done(given?.ok ? { ...r, message: `${r.message} ${given.message}` } : r, 'buy');
+              // A bike bought shows as the −£ note; the champion's free bike (and kit) still says so.
+              if (r.ok && !price) this.toast(given?.ok ? `${r.message} ${given.message}` : r.message);
+              done(r, 'buy');
             },
             () => reopen(),
           );
