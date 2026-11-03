@@ -1,8 +1,9 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { ARCH_MODELS, modelEntry, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, SIDECAR_CREW, SIDECAR_MODEL } from '../src/core/modModels';
+import { ARCH_MODELS, modelEntry, STAND_BIKE_MODELS, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, SIDECAR_CREW, SIDECAR_MODEL } from '../src/core/modModels';
 import type { SceneryDef } from '../src/core/trackParts';
 import { isTrackside } from '../src/world/trackside';
+import { MODELS } from '../src/world/raceBike';
 
 // The game's own models (Boss, 2 Nov 2026: "I want the models you made to become the built in
 // models"): Boss's .glb files ship in public/assets/models as how every item looks, and the old
@@ -29,6 +30,21 @@ describe("the game's own models", () => {
     const missing = scenery.map((d) => d.id).filter((id) => id !== 'finish_arch' && !ids.has(id));
     expect(missing.sort()).toEqual(BUILT_IN_CODE);
     for (const id of [RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, SIDECAR_MODEL, SIDECAR_CREW, ARCH_MODELS.mx, ARCH_MODELS.sx]) expect(ids.has(id), id).toBe(true);
+  });
+
+  // The bike on a stand designs' own bikes (Boss, 3 Nov 2026: "lock em in, make the defaults"), each at its real size.
+  it('give the mini, pit bike, enduro and twin-shock a bike each, as bikes, at their real sizes', () => {
+    expect(Object.keys(STAND_BIKE_MODELS).sort()).toEqual(['enduro', 'mini', 'pitbike', 'twinshock']);
+    for (const [design, id] of Object.entries(STAND_BIKE_MODELS)) {
+      const e = modelEntry(`${id}.glb`, new Uint8Array(readFileSync(`${DIR}/${id}.glb`)), scenery);
+      expect(e.role, id).toBe('bike');
+      expect(e.problems, id).toEqual([]);
+      const length = e.info!.max[0] - e.info!.min[0];
+      // About the design's wheelbase plus its wheels and bodywork (raceBike MODELS): longer than the wheelbase, under twice it.
+      const wb = MODELS[design].wb;
+      expect(length, id).toBeGreaterThan(wb);
+      expect(length, id).toBeLessThan(wb * 1.6);
+    }
   });
 
   it('replace the old box-built items, which are gone', () => {
