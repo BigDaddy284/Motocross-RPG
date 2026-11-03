@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { sectionBounds } from '../src/core/trackGeom';
-import { content, JUMPY, race } from './raceHelpers';
+import { content, JUMPY, race, units } from './raceHelpers';
 import { tracksIn, type TrackGroup } from './trackGroups';
 
 /** The rider AI acts out the simulation's result on every track of the group (GDD 11.1). */
@@ -11,12 +11,18 @@ export function riderAITrackTests(group: TrackGroup): void {
       for (const seed of [3, 77]) {
         const { sim, dir, traces } = race(track.id, seed);
         const bounds = sectionBounds(track);
-        // At every checkpoint the referee recorded, the rider is exactly at that point of the race.
+        // At every lap checkpoint the referee recorded, the rider is exactly at that point of the
+        // race (unless held up behind a wheel there), and near the ones between sections: a short
+        // section borrows a little of its neighbours' time on screen, and a held-up rider sits
+        // behind a wheel short of the mark (Boss, 3 Nov 2026).
         for (const tr of traces) {
           for (const [id, times] of Object.entries(tr.times)) {
+            const held = new Set(tr.events.flatMap((e) => (e.kind === 'failedPass' && e.rider === id ? [e.section] : [])));
             for (let i = 1; i < times.length; i++) {
-              const p = dir.poses(times[i]).find((q) => q.id === id)!;
-              expect(p.dist).toBeCloseTo(tr.marks[i], 6);
+              const p = dir.poses(times[i] - 1e-6).find((q) => q.id === id)!;
+              const lapEnd = i === tr.marks.length - 1;
+              if (lapEnd && !held.has(tr.secs[i - 1])) expect(p.dist).toBeCloseTo(tr.marks[i], 5);
+              else expect(Math.abs(p.dist - tr.marks[i]) * units(track)).toBeLessThan(12);
             }
           }
         }

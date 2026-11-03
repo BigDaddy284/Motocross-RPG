@@ -161,24 +161,28 @@ function whoopLift(p: RiderProfile, seg: Seg, u: number): number {
 }
 
 /**
- * The time a rider spends riding a section at their own pace: its duration less the time lost to
- * a mistake and the time held up behind a rider they couldn't pass (Boss, 3 Nov 2026: a held-up
- * rider closes on the one ahead at their own pace and sits on their wheel, rather than crawling
- * the whole section). Returns the riding time and the two losses, each kept to a share of the section.
+ * The time a rider spends riding a section: its duration less the time lost to a mistake. Time
+ * held up behind a rider they couldn't pass is ridden, more slowly, not stood for (Boss, 3 Nov
+ * 2026: no parking at a section's edge and then catapulting off); the rider only keeps off that
+ * rider's wheel (pose). Returns the riding time, the time lost and the time held up.
  */
 function segRide(seg: Seg): { ride: number; lost: number; held: number } {
   const dur = Math.max(1e-6, seg.t1 - seg.t0);
   const lost = Math.min(seg.mistake?.lost ?? 0, dur * 0.95);
   const held = seg.blocked ? Math.min(seg.held ?? 0, (dur - lost) * 0.9) : 0;
-  return { ride: Math.max(1e-6, dur - lost - held), lost, held };
+  return { ride: Math.max(1e-6, dur - lost), lost, held };
 }
-/** A section's average riding speed in lap units a second (the time lost to a mistake or spent held up left out); 0 in a sprint's queue. */
+/** A section's average riding speed in lap units a second (the time lost to a mistake left out); 0 in a sprint's queue. */
 function segSpeed(seg: Seg): number {
   if (seg.si === SPRINT_QUEUE) return 0;
   return (seg.d1 - seg.d0) / segRide(seg).ride;
 }
+/** The most a rider is shown speeding up or slowing down through a short section, in metres a second a second (smoothTimes). */
+const SMOOTH_ACCEL = 5;
 /** How close a held-up rider sits to the wheel of the rider blocking them, in grid units (a bike is 1.1). */
 const HOLD_GAP = 2;
+/** Seconds over which a rider left behind a mark by a wheel they were held behind makes it up (pose). */
+const CATCH_UP = 2;
 
 /**
  * Speed through a section as a share of its average, starting at e0 and ending at e1 (both shares
@@ -236,6 +240,10 @@ export class RaceDirector {
   private readonly ways = new Map<string, Way | null>();
   /** Each rider's tricks over the hops of their way through each jump on each lap (id|lap|section). */
   private readonly tricks = new Map<string, (Trick | null)[]>();
+  /** As a held-up rider enters a section (id|segment index): their gap to the blocking rider's wheel in grid units, and where that rider was. */
+  private readonly holdGaps = new Map<string, { gap: number; lead: number }>();
+  /** How far short of a mark a held-up rider was as they entered a section (id|segment index), in laps. */
+  private readonly lags = new Map<string, number>();
   /** The field's showman: the best jumper who isn't the player, who whips and scrubs the big hops (tricks.ts). */
   readonly showman: string | null;
   private finishCache: { key: string; plan: Map<string, Finish> } | null = null;
@@ -410,9 +418,11 @@ export class RaceDirector {
     for (const [id, times] of Object.entries(trace.times)) {
       const list = this.segs.get(id);
       if (!list) continue;
+      const from = list.length;
       for (let i = 1; i < times.length; i++) {
         list.push({ lap: trace.lap, si: trace.secs[i - 1], t0: times[i - 1], t1: times[i], d0: trace.marks[i - 1], d1: trace.marks[i] });
       }
+      this.smoothTimes(list, from);
     }
     for (const e of trace.events) {
       if (e.kind === 'retire') {
@@ -432,12 +442,56 @@ export class RaceDirector {
     }
   }
 
+  /**
+   * Flow (Boss, 3 Nov 2026: "flow smoothly round the track gaining and losing speed
+   * realistically"): a short section the simulation times much faster than its neighbours (a few
+   * metres of straight between two rhythm sections) would need an impossible burst of speed to be
+   * ridden in its time, so on screen it is given a little of its neighbours' time instead: enough
+   * that getting up to its speed and back takes no more than SMOOTH_ACCEL. The lap's first and
+   * last timing points stay where the simulation put them, so laps and the finish are on time;
+   * the marks between sections may be crossed a few tenths of a second off. Sections with a
+   * mistake in them keep their time, as the mistake is placed by it.
+   */
+  private smoothTimes(list: Seg[], from: number): void {
+    const segs = list.slice(from);
+    const len = (g: Seg) => (g.d1 - g.d0) * this.metres;
+    const speed = (g: Seg) => len(g) / Math.max(1e-6, g.t1 - g.t0);
+    for (let pass = 0; pass < 3; pass++) {
+      for (let i = 0; i < segs.length; i++) {
+        const g = segs[i];
+        if (g.si < 0 || g.mistake) continue;
+        const prev = i > 0 && segs[i - 1].si >= 0 && !segs[i - 1].mistake ? segs[i - 1] : null;
+        const next = i + 1 < segs.length && segs[i + 1].si >= 0 && !segs[i + 1].mistake ? segs[i + 1] : null;
+        if (!prev && !next) continue;
+        const L = len(g);
+        const v = speed(g);
+        const vn = Math.min(prev ? speed(prev) : Infinity, next ? speed(next) : Infinity);
+        if (L <= 0 || v <= vn) continue;
+        const need = (v * v - vn * vn) / L;
+        if (need <= SMOOTH_ACCEL) continue;
+        // The time the section needs at the fastest speed it can reach and leave again.
+        const want = L / Math.sqrt(vn * vn + SMOOTH_ACCEL * L);
+        let extra = want - (g.t1 - g.t0);
+        // Taken from the neighbours in proportion to their time, up to a fifth of each.
+        const tp = prev ? prev.t1 - prev.t0 : 0;
+        const tn = next ? next.t1 - next.t0 : 0;
+        extra = Math.min(extra, 0.2 * (tp + tn));
+        if (extra <= 1e-6) continue;
+        const fromPrev = (extra * tp) / (tp + tn);
+        if (prev) { prev.t1 -= fromPrev; g.t0 -= fromPrev; }
+        if (next) { next.t0 += extra - fromPrev; g.t1 += extra - fromPrev; }
+      }
+    }
+  }
+
   /** Takes back the latest lap, to be replaced by the same lap run again (MotoSim.redoLap). */
   dropLap(trace: LapTrace): void {
     for (const list of this.segs.values()) while (list.length && list[list.length - 1].lap === trace.lap) list.pop();
     for (const e of trace.events) if (e.kind === 'retire' && this.out.get(e.rider) === e.t) this.out.delete(e.rider);
     // Its ways and tricks are picked again, as its mistakes may fall differently.
     for (const m of [this.ways, this.tricks]) for (const k of [...m.keys()]) if (k.split('|')[1] === String(trace.lap)) m.delete(k);
+    this.holdGaps.clear();
+    this.lags.clear();
   }
 
   /** The player pulled off (the pit board's "It's over, bike blown"), at race time t. */
@@ -552,7 +606,6 @@ export class RaceDirector {
     // A sprint's wait at the start line: in the queue (queue() says where).
     if (seg.si === SPRINT_QUEUE) return { id, dist: seg.d0, lane: 0, air: 0, elev: 0, flight: null, state: 'grid', speed: 0 };
     const sec = this.section(seg.si);
-    const dur = Math.max(1e-6, seg.t1 - seg.t0);
     const s = t - seg.t0;
 
     // Riding time, any time lost to a mistake, which happens part way through the section, and
@@ -561,9 +614,20 @@ export class RaceDirector {
     const at = this.mistakeAt(p, seg);
     let tau: number;
     let stopped = false;
+    // A slip (a small or big mistake) is ridden out slowly over a stretch of the section, not
+    // stood still for (Boss, 3 Nov 2026: no stopping and lining up round the track); a crash is
+    // down on the ground for its seconds. The slow stretch runs from the slip to 30% further on,
+    // or to the section's end when the slip is near it (on a jump's landing it is a stop).
+    const crashed = seg.mistake ? seg.mistake.outcome === 'minor_crash' || seg.mistake.outcome === 'serious_crash' : false;
+    const slipW = lost > 0 && !crashed ? Math.min(0.3, 1 - at) : 0;
+    let slowK = 1;
     if (s < at * ride) tau = s / ride;
-    else if (s < at * ride + lost) {
-      tau = at;
+    else if (s < at * ride + slipW * ride + lost) {
+      if (slipW > 0) {
+        // Through the slow stretch in its own time plus the time lost.
+        slowK = (slipW * ride) / (slipW * ride + lost);
+        tau = at + slipW * ((s - at * ride) / (slipW * ride + lost));
+      } else tau = at;
       stopped = true;
     } else tau = (s - lost) / ride;
     tau = clamp(tau, 0, 1);
@@ -584,19 +648,44 @@ export class RaceDirector {
     const shape = speedShape(v0 / V, v1 / V, c);
     let u = clamp(shape.at(tau), 0, 1);
     let dist = seg.d0 + u * (seg.d1 - seg.d0);
-    let speed = stopped ? 0 : Math.max(0, V * shape.speed(tau) * this.metres);
-    // Held up: at their own pace until they reach the wheel of the rider who blocked them, then
-    // behind it at that rider's speed, and on time at the section's end.
-    if (held > 0 && seg.blocked && depth < 6) {
+    let speed = stopped && slipW === 0 ? 0 : Math.max(0, slowK * V * shape.speed(tau) * this.metres);
+    // Behind after a section held up (below): the rest of the way to its mark is made up over the
+    // first seconds of this one, so the edge is crossed without a jump.
+    if (prev && prev.blocked && prev.si >= 0 && segRide(prev).held > 0) {
+      const lag = this.heldLag(id, list, lo, pulled);
+      if (lag > 0) {
+        const over = Math.min(CATCH_UP, seg.t1 - seg.t0);
+        const k = Math.min(1, s / over);
+        dist -= lag * (1 - k);
+        if (k < 1) speed += (lag / over) * this.metres;
+      }
+    }
+    // Held up (Boss, 3 Nov 2026): the section is ridden more slowly, at a speed that carries over
+    // its edges like any other, and the rider keeps off the wheel of the rider who blocked them:
+    // easing onto it over the last grid unit, then behind it at that rider's speed, even if that
+    // leaves them short of a mark for a moment (made up above). Not on the start straight or the
+    // first corner, where the field leaves the gate side by side.
+    if (held > 0 && seg.blocked && seg.si >= 0 && depth < 6) {
       const lead = this.segs.get(seg.blocked);
       const q = lead ? this.pose(seg.blocked, lead, t, true, depth + 1) : null;
-      // The furthest back they can be and still reach the section's end on time, driving at up to
-      // half as fast again as their own pace: so they stay behind a rider stopped by a mistake
-      // ahead of them (the simulation says they never got past) and close the last bit at the end.
-      const must = clamp(seg.d1 - (seg.t1 - t) * V * 1.5, seg.d0, seg.d1);
-      if (!q) { dist = Math.max(must, seg.d0 + clamp(s / dur, 0, 1) * (seg.d1 - seg.d0)); speed = ((seg.d1 - seg.d0) / dur) * this.metres; }
-      else if (dist > q.dist - HOLD_GAP / this.lapUnits) { dist = q.dist - HOLD_GAP / this.lapUnits; speed = q.speed; }
-      if (dist < must) { dist = must; speed = 1.5 * V * this.metres; }
+      if (q) {
+        // The gap they keep opens from whatever it was as they entered the section (alongside at
+        // the least) to the usual one, at a quarter of the pace of the rider ahead, so a rider at
+        // the mark on time behind a wheel only just past it eases back rather than stepping back.
+        let gap = HOLD_GAP;
+        const g0 = this.holdGap(id, list, lo, pulled);
+        if (g0.gap < HOLD_GAP) gap = Math.min(HOLD_GAP, g0.gap + 0.25 * Math.max(0, q.dist - g0.lead) * this.lapUnits);
+        const cap = q.dist - gap / this.lapUnits;
+        const qSpeed = q.speed * (gap < HOLD_GAP ? 0.75 : 1);
+        const w = 1 / this.lapUnits;
+        const y = (dist - cap) / w;
+        if (y >= 1) { dist = cap; speed = qSpeed; }
+        else if (y > -1) {
+          const b = (1 - y) / 2;
+          dist = cap - (w * (1 - y) * (1 - y)) / 4;
+          speed = speed * b + qSpeed * (1 - b);
+        }
+      }
       u = clamp((dist - seg.d0) / Math.max(1e-9, seg.d1 - seg.d0), 0, 1);
     }
 
@@ -629,7 +718,11 @@ export class RaceDirector {
     const flight = this.flight(p, seg, list, lo);
     // Holding a wheelie across the whoops or rollers: the back wheel works over them, the front held up.
     const whoopWheelie = (sec.type === 'whoops' || sec.type === 'rollers') && !stopped && this.way(p, seg)?.name === 'wheelie' ? whoopLift(p, seg, u) : 0;
-    let { air, elev } = this.height(p, sec.type, sec.height, u, dist - Math.floor(dist), flight, stopped);
+    // Still short of the section's start (behind a wheel): the ground is the last section's.
+    const behind = prev && dist < seg.d0 ? prev : null;
+    const hSec = behind ? this.section(behind.si) : sec;
+    const hU = behind ? clamp((dist - behind.d0) / Math.max(1e-9, behind.d1 - behind.d0), 0, 1) : u;
+    let { air, elev } = this.height(p, hSec.type, hSec.height, hU, dist - Math.floor(dist), flight, stopped && slipW === 0);
     if (whoopWheelie > 0) air = Math.min(air, 0.02);
     if (air > 0.05 && state === 'riding') state = 'air';
     const pose: RiderPose = { id, dist, lane: clamp(lane, -1, 1), air, elev, flight, state, speed };
@@ -874,6 +967,37 @@ export class RaceDirector {
    * end of a lap it is the last section's own, as the next lap may not have been run yet, and a
    * section never changes once ridden into.
    */
+  /** How far short of segment lo's start mark the rider was as they entered it (the last segment, held up, left them there), in laps. */
+  private heldLag(id: string, list: Seg[], lo: number, pulled: boolean): number {
+    const key = `${id}|${lo}`;
+    const known = this.lags.get(key);
+    if (known !== undefined) return known;
+    const seg = list[lo];
+    // Worked out from the top whatever chain of riders asked, so every frame gets the same answer.
+    const lag = lo > 0 ? Math.max(0, seg.d0 - this.pose(id, list, seg.t0 - 1e-6, pulled, 0).dist) : 0;
+    this.lags.set(key, lag);
+    return lag;
+  }
+
+  /** The gap, in grid units, between a held-up rider as they enter segment lo (where the last one left them) and the wheel that blocks them. */
+  private holdGap(id: string, list: Seg[], lo: number, pulled: boolean): { gap: number; lead: number } {
+    const key = `${id}|${lo}`;
+    const known = this.holdGaps.get(key);
+    if (known) return known;
+    const seg = list[lo];
+    const lead = this.segs.get(seg.blocked!);
+    // Worked out from the top whatever chain of riders asked, so every frame gets the same answer.
+    const leader = lead ? this.pose(seg.blocked!, lead, seg.t0, true, 1).dist : seg.d1;
+    const mine = lo > 0 ? this.pose(id, list, seg.t0 - 1e-6, pulled, 0).dist : seg.d0;
+    // One grid unit less than the gap itself: pose eases onto the wheel over that unit, so this
+    // puts the rider exactly where they were as the section starts. Below zero when the other
+    // rider is drawn behind them at that moment (short of their own mark, behind a wheel of their
+    // own): the rider then drops back behind them as the gap opens.
+    const out = { gap: Math.min((leader - mine) * this.lapUnits - 1, HOLD_GAP), lead: leader };
+    this.holdGaps.set(key, out);
+    return out;
+  }
+
   private edgeSpeed(list: Seg[], i: number): number {
     const a = list[i];
     const b = list[i + 1];
