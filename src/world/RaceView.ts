@@ -20,7 +20,7 @@ import { FIREWORK_LEAD, fireworkShow, fireworksDue, hasFireworks, ROCKET_RISE, t
 import { APPROACH, assignCrews, BOARD_PAST, boardOut, boardText, crewSpot, FLAGGER_ITEM, flagState, PIT_CREW_ITEM, SX_ARCH_KINDS, sxArch } from '../core/finishCrew';
 import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../core/marshal';
 import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
-import { ARCH_GAP, ARCH_MODELS, ARCH_PARTS, CHEER_RISE, cheerAtRest, cheerStep, type CheerState, droneAtHome, droneStep, type DroneState, supporterFavourites, FLASH_GAP, FLASH_RANGE, FLASH_TIME, livePart, LOCKED_ITEMS, partName, TRACK_RANGE, TRACK_TURN } from '../core/modModels';
+import { ARCH_GAP, ARCH_MODELS, ARCH_PARTS, CHEER_RISE, cheerAtRest, cheerStep, type CheerState, droneAtHome, droneStep, type DroneState, supporterFavourites, FLASH_GAP, FLASH_RANGE, FLASH_TIME, livePart, LOCKED_ITEMS, partName, trackAtRest, trackStep, type TrackState, TRACK_TURN } from '../core/modModels';
 import { bannerPath, PICTURE_ITEMS } from '../core/banners';
 import { SIDECAR_CLASS } from '../core/sidecar';
 import { withGameModels, sidecarCrew, BIKE_PAINT, bikeModel, bikeOnWheelsModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, standModel, bikeOnStandModel, STAND_PAINT, textFaces, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
@@ -356,8 +356,8 @@ export class RaceView {
   showFireworks = true;
   /** Scenery models' own animations, each playing on a loop (playLoops); they run in the track editor's view too. */
   private readonly loops: THREE.AnimationMixer[] = [];
-  /** Scenery models' Track parts, turning to follow the nearest rider (core LIVE_PARTS; Boss, 1 Nov 2026). */
-  private readonly trackers: { node: THREE.Object3D; rest: number }[] = [];
+  /** Scenery models' Track parts, turning to follow their rider for the lap (core LIVE_PARTS, trackStep; Boss, 1 and 3 Nov 2026). */
+  private readonly trackers: { node: THREE.Object3D; rest: number; state: TrackState; seed: number }[] = [];
   /** Scenery models' Flash parts, blinking as a rider goes by close. */
   private readonly flashes: { node: THREE.Object3D; until: number; next: number; seed: number }[] = [];
   /** Scenery models' Drone parts, flying off after a rider and back (core droneStep; Boss, 2 Nov 2026). */
@@ -2117,7 +2117,7 @@ export class RaceView {
     const favourites = { list: null as number[] | null, count: 0 };
     model.traverse((o) => {
       const kind = livePart(o.name);
-      if (kind === 'Track') this.trackers.push({ node: o, rest: o.rotation.y });
+      if (kind === 'Track') this.trackers.push({ node: o, rest: o.rotation.y, state: trackAtRest(), seed: index * 41 + this.trackers.length * 7 + 3 });
       else if (kind === 'Flash') {
         o.visible = false;
         this.flashes.push({ node: o, until: 0, next: 0, seed: index * 17 + this.flashes.length * 5 + 1 });
@@ -2137,8 +2137,8 @@ export class RaceView {
   }
 
   /**
-   * Turns each Track part about its vertical to face the nearest rider within TRACK_RANGE (back to
-   * rest with none), at most TRACK_TURN a second, and blinks each Flash part as a rider goes by
+   * Turns each Track part about its vertical to face its rider for the lap while within TRACK_RANGE
+   * (core trackStep; back to rest otherwise), at most TRACK_TURN a second, and blinks each Flash part as a rider goes by
    * within FLASH_RANGE, at most once every FLASH_GAP and a little at random, so a row of
    * photographers doesn't flash as one.
    */
@@ -2157,9 +2157,14 @@ export class RaceView {
     for (const t of this.trackers) {
       if (!t.node.parent) continue;
       t.node.getWorldPosition(at);
-      const n = nearest(at.x, at.z);
+      const next = trackStep(t.state, { x: at.x, z: at.z }, bikes, (count) => {
+        t.seed += 1;
+        return noise(t.seed * 4.7) * count;
+      });
+      t.state = next;
+      const n = next.aim >= 0 ? bikes[next.aim] : null;
       let want = t.rest;
-      if (n && n.d <= TRACK_RANGE) {
+      if (n) {
         // Where the rider is, in the frame the part turns in; the part's front is +Z.
         const p = t.node.parent.worldToLocal(new THREE.Vector3(n.x, at.y, n.z));
         want = Math.atan2(p.x - t.node.position.x, p.z - t.node.position.z);

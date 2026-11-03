@@ -117,8 +117,8 @@ export const STAND_MODELS: Readonly<Record<string, string>> = { pallet: 'stand_p
 export const ARCH_MODELS = { mx: 'finish_arch_mx', sx: 'finish_arch_sx' } as const;
 /**
  * Live parts any scenery model can have (Boss, 1 Nov 2026), found by name like a figure's parts:
- * a node named Track (Track.001 and so on) turns about its vertical to follow the nearest rider in
- * range (a TV camera's head, a camera operator), back to rest with none; a node named Flash is
+ * a node named Track (Track.001 and so on) turns about its vertical to follow its rider for the lap
+ * while in range (trackStep; a TV camera's head, a camera operator), back to rest otherwise; a node named Flash is
  * hidden and shows for a blink as a rider goes by close (a photographer's flash); a node named
  * Drone flies off after a rider and back (droneStep; Boss, 2 Nov 2026); a node named Cheer is a
  * seated section that stands up as its own rider goes by (cheerStep; Boss, 2 Nov 2026).
@@ -127,6 +127,45 @@ export const LIVE_PARTS = ['Track', 'Flash', 'Drone', 'Cheer', 'Supporter'] as c
 /** Grid units a Track part follows a rider from, and how fast it turns (radians a second). */
 export const TRACK_RANGE = 40;
 export const TRACK_TURN = 2.5;
+/**
+ * A Track part's rider (Boss, 3 Nov 2026: "Cams following riders should pick 1 rider per lap not
+ * every rider, as they bounce back and forth when there's a group of riders"): each lap it is given
+ * one rider at random and follows only them while they are within TRACK_RANGE, resting for the
+ * rest. Once that rider has come by and gone out of range it takes a new rider for the next lap.
+ */
+export interface TrackState {
+  /** The part's rider, as an index into the riders passed to trackStep; -1 for none yet. */
+  rider: number;
+  /** Whether the rider has come within range this lap. */
+  near: boolean;
+  /** Whether the rider has been out of range since being picked: one picked as the pack goes by waits for their next lap. */
+  away: boolean;
+}
+export const trackAtRest = (): TrackState => ({ rider: -1, near: false, away: true });
+/** One step of a Track part: its rider, and which rider it aims at now (-1 to rest). `choose` picks below the count given. */
+export function trackStep(s: TrackState, at: { x: number; z: number }, riders: readonly { x: number; z: number }[], choose: (count: number) => number): TrackState & { aim: number } {
+  if (!riders.length) return { ...trackAtRest(), aim: -1 };
+  const pick = () => Math.max(0, Math.min(riders.length - 1, Math.floor(choose(riders.length))));
+  const n = { ...s };
+  if (n.rider < 0 || n.rider >= riders.length) {
+    n.rider = pick();
+    n.near = false;
+  }
+  const r = riders[n.rider];
+  const inRange = Math.hypot(r.x - at.x, r.z - at.z) <= TRACK_RANGE;
+  if (inRange && n.away) {
+    n.near = true;
+    return { ...n, aim: n.rider };
+  }
+  if (!inRange) n.away = true;
+  if (n.near && !inRange) {
+    // Gone by: a new rider for the next lap, followed once they have come round again.
+    n.rider = pick();
+    n.near = false;
+    n.away = false;
+  }
+  return { ...n, aim: -1 };
+}
 /** Grid units a rider passes within for a Flash, how long it shows (seconds), and the least time between two. */
 export const FLASH_RANGE = 12;
 export const FLASH_TIME = 0.09;
