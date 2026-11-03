@@ -27,6 +27,14 @@ import type { SceneryDef } from './trackParts';
 export const MODEL_DIR = 'mods/models/';
 /** The folder's index: the dev server and the build write it (vite.config.ts), as for mod tracks. */
 export const MODEL_INDEX = `${MODEL_DIR}index.json`;
+/**
+ * The game's own models (Boss, 2 Nov 2026: "I want the models you made to become the built in
+ * models"): the same kind of .glb files, by the same names and rules, shipped with the game in
+ * public/assets/models/. They are how every item looks; a model of the same name in the models
+ * folder (MODEL_DIR) replaces one, and any other name there is a new item, as before.
+ */
+export const GAME_MODEL_DIR = 'assets/models/';
+export const GAME_MODEL_INDEX = `${GAME_MODEL_DIR}index.json`;
 
 /** The race bike for every class, unless race_bike_youth.glb gives the youth classes their own. */
 export const RACE_BIKE = 'race_bike';
@@ -271,8 +279,19 @@ export const PADDOCK_STAND = 'paddock_stand';
 export const PADDOCK_STAND_BIKE = 'Bike';
 /** How far a bike's wheels sit off the ground on a stand model with no Bike empty, in metres. */
 export const BIKE_ON_STAND_LIFT = 0.08;
-/** The bike on a stand designs that carry the youth bike model; the rest carry the adult one. */
-export const STAND_YOUTH_DESIGNS: ReadonlySet<string> = new Set(['youth', 'mini', 'pitbike']);
+/**
+ * The bike on a stand designs with a model of their own (Boss, 3 Nov 2026: "lock em in, make the
+ * defaults"): the 50cc mini, pit bike, enduro and vintage twin-shock, each built at its real size on
+ * Boss's race bikes. The adult and youth designs carry race_bike.glb and race_bike_youth.glb.
+ */
+export const STAND_BIKE_MODELS: Readonly<Record<string, string>> = {
+  mini: 'race_bike_mini',
+  pitbike: 'race_bike_pitbike',
+  enduro: 'race_bike_enduro',
+  twinshock: 'race_bike_twinshock',
+};
+/** A bike on a stand design's model (STAND_BIKE_MODELS), from a 50 at about 1.3 m to an enduro bike. */
+export const STAND_BIKE_LIMITS: ModelLimits = { tris: 6000, long: 2.6, tall: 1.6, minLength: 1.2, maxLength: 2.6 };
 /** A scenery model's material that shows the item's typed words (a banner's or sponsor board's face; world textFaces). */
 export const TEXT_SLOTS = ['text'] as const;
 /** A stand model's materials that take the item's colour, and a darker shade of it. */
@@ -448,7 +467,7 @@ export function modelName(id: string): string {
 
 /** What a model named `id` does, given the scenery the game has. */
 export function modelRole(id: string, scenery: { id: string }[]): ModelRole {
-  if (id === RACE_BIKE || id === RACE_BIKE_YOUTH || id === SIDECAR_MODEL) return 'bike';
+  if (id === RACE_BIKE || id === RACE_BIKE_YOUTH || id === SIDECAR_MODEL || Object.values(STAND_BIKE_MODELS).includes(id)) return 'bike';
   if (id === RACE_RIDER) return 'rider';
   if (id === SIDECAR_CREW) return 'crew';
   if (FIGURE_PARTS[id]) return 'figure';
@@ -481,7 +500,7 @@ export function checkModel(file: string, bytes: number, info: ModelInfo | null, 
   if (role === 'replace' && LOCKED_ITEMS.has(id)) out.push(`The ${id} item stretches to fit the track in the race, so it can't be swapped for a model.`);
   const parts = FIGURE_PARTS[id];
   if (parts && !(info.names ?? []).some((n) => partName(n, parts))) out.push(`A ${modelName(id).toLowerCase()} moves in the race, so its model needs its parts as objects named ${parts.join(', ')}, each with its origin at its joint. Export it from the models page to start from.`);
-  const lim = limitsFor(role);
+  const lim = Object.values(STAND_BIKE_MODELS).includes(id) ? STAND_BIKE_LIMITS : limitsFor(role);
   const { length, depth, height } = modelSize(info);
   const m = (v: number) => `${v.toFixed(2)} m`;
   if (!info.meshes || !info.tris) out.push('The file has no meshes in it.');

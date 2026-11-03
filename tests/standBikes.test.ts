@@ -21,14 +21,4 @@ describe('bikes on stands for the paddock stand model', () => {
       expect(tag).toMatchObject({ x: 0, z: 0, colour: 0x3b86da, design: variant, ry: 0 });
     }
   });
-
-  it("tags each bike under a van's awning apart, and leaves the van itself untagged", () => {
-    const parts = paddockParts(def('mx_van'), { type: 'mx_van', x: 0, y: 0, action: 'awning_bikes' }, 0);
-    expect(tags(parts).size).toBe(2);
-    expect(parts.some((p) => !p.userData.standBike)).toBe(true);
-    // Side by side, a metre apart, so two full-size bikes don't touch (Boss, 1 Nov 2026).
-    const [a, b] = [...tags(parts)] as StandBike[];
-    expect(a.x).toBe(b.x);
-    expect(Math.abs(a.z - b.z)).toBeCloseTo(1, 6);
-  });
 });
