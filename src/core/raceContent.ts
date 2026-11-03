@@ -64,7 +64,7 @@ export const RACING_SCHEMA: Schema = {
     weather: { type: 'record', values: { type: 'object', fields: { name: S, factor: { type: 'number', min: 0.5, max: 2 }, risk: { type: 'number', min: 0.5, max: 4 } } } },
     sim: {
       type: 'object',
-      optional: ['firstCorner', 'loopOut', 'pileup', 'fitness', 'sprint', 'knockout', 'supercross'],
+      optional: ['firstCorner', 'loopOut', 'pileup', 'afterCrash', 'fitness', 'sprint', 'knockout', 'supercross'],
       fields: {
         fitness: {
           type: 'object',
@@ -94,6 +94,7 @@ export const RACING_SCHEMA: Schema = {
           },
         },
         pileup: { type: 'object', fields: { chance: SHARE, window: N0, most: { type: 'number', integer: true, min: 1 } } },
+        afterCrash: { type: 'object', fields: { around: RANGE, slowPct: { type: 'number', min: 0, max: 50 }, fadeSections: { type: 'number', integer: true, min: 1 } } },
         spread: N0,
         noise: N0,
         consistencyNoiseCut: SHARE,

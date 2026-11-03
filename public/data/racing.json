@@ -29,6 +29,7 @@
     "firstCorner": { "chance": 0.3, "riders": [1, 3] },
     "loopOut": { "chance": 0.3 },
     "pileup": { "chance": 0.35, "window": 0.8, "most": 3 },
+    "afterCrash": { "around": [0.3, 0.9], "slowPct": 8, "fadeSections": 4 },
     "sprint": { "interval": 10, "returnSpeed": 0.5 },
     "knockout": { "seedInterval": 8, "heatSize": 4, "through": 2, "finalRuns": 3, "buff": 0.5, "noise": 0.2 },
     "supercross": { "field": 32, "heatLaps": 4, "lcqLaps": 3, "mainLaps": 8, "heatThrough": 6, "heatOut": 2, "lcqThrough": 4 }
