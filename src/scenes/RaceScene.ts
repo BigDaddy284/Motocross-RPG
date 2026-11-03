@@ -807,7 +807,8 @@ export class RaceScene extends Phaser.Scene {
     const detailSize = Math.max(10, Math.floor(14 * Math.min(1, colIn / detailW) * 2) / 2);
     const right = dw - 16 - sideW;
     const vw = right - 14 - 16;
-    this.skipX = 16 + vw - 14 - 110;
+    // Room at the view's bottom-right corner for the zoom button (Boss, 3 Nov 2026).
+    this.skipX = 16 + vw - 14 - 110 - 96;
     // Riders ride up to the start in the order they picked their gates.
     this.director = directorFor(sim, services.content.bikes, services.content.racing.messages, this.day?.pickOrder ?? this.sxRace?.riders);
     // The view keeps the 1280 × 720 layout's scale (900 wide), so a wider one shows more track, not bigger bikes.
@@ -903,6 +904,15 @@ export class RaceScene extends Phaser.Scene {
       // in any race, heat, qualifying or challenge.
       this.btn(right + sideW / 2, dh - 144 - testH + 4 + 18, 'TEST: Win now', () => this.testWinNow(), sideW, 36);
     }
+    // Zoom (Boss, 3 Nov 2026): a button in the view's bottom-right corner cycles the race camera
+    // through ×2, ×3 and ×5, then back to the usual view.
+    const zooms = [1, 2, 3, 5];
+    let zi = 0;
+    const zoomBtn = this.btn(16 + vw - 14 - 40, dh - 38 - 26, 'Zoom ×1', () => {
+      zi = (zi + 1) % zooms.length;
+      this.view!.zoom = zooms[zi];
+      zoomBtn.setLabel(`Zoom ×${zooms[zi]}`);
+    }, 80, 36);
     this.addLap(sim.nextLap());
     // A race opens with the start procedure: the line-up, then the board and the five-second
     // hold, all in negative race time up to the gate drop at 0 (riderAI lineUp, RaceView updateStart).
@@ -1142,16 +1152,12 @@ export class RaceScene extends Phaser.Scene {
     this.pen?.setLevel(sim.ink);
 
     const rank = order.findIndex((o) => o.id === PLAYER_ID);
-    const ahead = order[rank - 1];
-    const behind = order[rank + 1];
     const lines = [];
     if (me.out) lines.push(`You are out of this ${this.sx ? 'race' : 'moto'}.`);
     else {
       lines.push(`Position: ${ordinal(rank + 1)} of ${order.length}`);
       lines.push(`Your lap: ${myLap} of ${total}`);
-      const split = (a: (typeof pos)[0], b: (typeof pos)[0]) => this.behind(a, b).toFixed(1);
-      if (ahead) lines.push(`Ahead: ${this.names.get(ahead.id)} ${split(ahead, me)}s`);
-      if (behind && !behind.out) lines.push(`Behind: ${this.names.get(behind.id)} ${split(me, behind)}s`);
+      // No Ahead and Behind lines (Boss, 3 Nov 2026): the standings show the gaps.
       const broken = this.brokenParts();
       lines.push(broken.length ? `Broken: ${broken.join(', ')}` : 'Bike: nothing broken');
     }

@@ -355,6 +355,8 @@ export class RaceView {
   private board: { stand: THREE.Group; panel: THREE.Group; arms: THREE.Group[]; legs: THREE.Group[]; route: OfficialSpot[]; length: number } | null = null;
   /** False for practice, which has no start procedure: the start board stays down. */
   hasStart = true;
+  /** The race camera's zoom (Boss, 3 Nov 2026): 1 is the usual view; 2, 3 or 5 shows that much less track, that much bigger, still following the rider. */
+  zoom = 1;
   /** False where nobody races to the line first (qualifying, a No-Turn Takedown's seeding run): no finish fireworks. */
   showFireworks = true;
   /** Scenery models' own animations, each playing on a loop (playLoops); they run in the track editor's view too. */
@@ -3774,6 +3776,16 @@ export class RaceView {
     })();
     // A steady TV-style camera (Boss, 1 Nov 2026): it pans after the rider smoothly, and only slowly
     // follows their height, so jumps, whoops and bumps don't bounce the picture; hills still come through.
+    {
+      // The view's width at the zoom, kept up to date as the zoom button cycles.
+      const halfW = this.viewUnits / 2 / Math.max(1, this.zoom);
+      const halfH = (halfW * this.h) / this.w;
+      const c = this.camera;
+      if (c.right !== halfW || c.top !== halfH) {
+        Object.assign(c, { left: -halfW, right: halfW, top: halfH, bottom: -halfH });
+        c.updateProjectionMatrix();
+      }
+    }
     if (!this.cam || want.distanceTo(this.cam) > this.viewUnits) this.cam = want.clone();
     else {
       const pan = 1 - Math.exp(-dt * CAM_PAN);
