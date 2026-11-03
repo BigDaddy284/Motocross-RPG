@@ -15,6 +15,7 @@ import { VEHICLES_SCHEMA, checkVehicles, sheetFor, type VanSheet, type VehiclesD
 import { MOD_PLACE } from './modTracks';
 import { ERRANDS_SCHEMA, checkErrands, type ErrandsData } from './errands';
 import { TRAINING_SCHEMA, checkTraining, type TrainingData } from './training';
+import { usedFor } from './waymarks';
 import { CHALLENGES_SCHEMA, checkChallenges, type ChallengesData } from './challenge';
 import { WORLD_MAP_SCHEMA, checkWorldMap } from './worldMap';
 import { TOOLS_SCHEMA, checkTools, type ToolsData } from './tools';
@@ -535,7 +536,7 @@ function checkCareerContent(c: Content, maps: Map<string, BakedMap>): ContentErr
     if (s.on.use) {
       const onMaps = s.on.map ? [maps.get(s.on.map)] : [...maps.values()];
       if (s.on.map && !onMaps[0]) err(CONTENT_FILES.story, at('on.map'), `no map "${s.on.map}"`);
-      else if (!onMaps.some((m) => m?.objects.some((o) => o.props.action === s.on.use))) err(CONTENT_FILES.story, at('on.use'), `no object with action "${s.on.use}"`);
+      else if (!onMaps.some((m) => m?.objects.some((o) => usedFor(o, s.on.use!, c.training)))) err(CONTENT_FILES.story, at('on.use'), `no object with action "${s.on.use}", or training spot with that drill`);
     }
     lines(at('lines'), s.lines);
     lines(at('notReady'), s.notReady);
