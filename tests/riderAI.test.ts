@@ -128,8 +128,10 @@ describe('a rider held up behind one they could not pass (Boss, 3 Nov 2026)', ()
           const times = tr.times[e.rider];
           const leg = tr.secs.indexOf(e.section);
           if (leg < 0 || times.length <= leg + 1) continue;
-          // No mistake of their own in the section, so the only time to lose is behind the other rider.
+          // No mistake of their own in the section, so the only time to lose is behind the other rider,
+          // and that rider not held up in turn (in a chain, each closes on the next at their own pace).
           if (tr.events.some((m) => m.kind === 'mistake' && m.rider === e.rider && m.section === e.section)) continue;
+          if (tr.events.some((m) => m.kind === 'failedPass' && m.rider === e.other && m.section === e.section)) continue;
           const t0 = times[leg];
           const t1 = times[leg + 1];
           const dur = t1 - t0;

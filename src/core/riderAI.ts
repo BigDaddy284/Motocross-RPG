@@ -513,16 +513,19 @@ export class RaceDirector {
       p.lane = 0;
       back = frac(p.dist);
     });
-    // Riders rolling down the return lane (short of the start line) stop behind the back of the queue.
-    if (back === Infinity) return;
+    // Riders rolling down the return lane (short of the start line) stop behind the back of the
+    // queue, and keep a bike's gap behind each other on the way down it (two who finished the test
+    // within a breath of each other used to roll down the lane on top of one another).
     const rolling = poses.filter((p) => (p.state === 'riding' || p.state === 'waiting') && frac(p.dist) < line).sort((a, b) => frac(b.dist) - frac(a.dist));
+    let backSpeed = 0;
     for (const p of rolling) {
       const cap = back - gap;
       if (frac(p.dist) > cap) {
         p.dist = Math.floor(p.dist) + Math.max(0, cap);
-        p.speed = 0;
+        p.speed = backSpeed;
       }
       back = frac(p.dist);
+      backSpeed = p.speed;
     }
   }
 
@@ -587,11 +590,13 @@ export class RaceDirector {
     if (held > 0 && seg.blocked && depth < 6) {
       const lead = this.segs.get(seg.blocked);
       const q = lead ? this.pose(seg.blocked, lead, t, true, depth + 1) : null;
-      // The furthest back they can be and still reach the section's end on time at their own pace.
-      const must = clamp(seg.d1 - (seg.t1 - t) * V, seg.d0, seg.d1);
+      // The furthest back they can be and still reach the section's end on time, driving at up to
+      // half as fast again as their own pace: so they stay behind a rider stopped by a mistake
+      // ahead of them (the simulation says they never got past) and close the last bit at the end.
+      const must = clamp(seg.d1 - (seg.t1 - t) * V * 1.5, seg.d0, seg.d1);
       if (!q) { dist = Math.max(must, seg.d0 + clamp(s / dur, 0, 1) * (seg.d1 - seg.d0)); speed = ((seg.d1 - seg.d0) / dur) * this.metres; }
       else if (dist > q.dist - HOLD_GAP / this.lapUnits) { dist = q.dist - HOLD_GAP / this.lapUnits; speed = q.speed; }
-      if (dist < must) { dist = must; speed = V * this.metres; }
+      if (dist < must) { dist = must; speed = 1.5 * V * this.metres; }
       u = clamp((dist - seg.d0) / Math.max(1e-9, seg.d1 - seg.d0), 0, 1);
     }
 
