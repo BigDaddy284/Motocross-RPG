@@ -355,7 +355,7 @@ export class RaceView {
   private board: { stand: THREE.Group; panel: THREE.Group; arms: THREE.Group[]; legs: THREE.Group[]; route: OfficialSpot[]; length: number } | null = null;
   /** False for practice, which has no start procedure: the start board stays down. */
   hasStart = true;
-  /** The race camera's zoom (Boss, 3 Nov 2026): 1 is the usual view; 2, 3 or 5 shows that much less track, that much bigger, still following the rider. */
+  /** The race camera's zoom (Boss, 3 Nov 2026): 1 is the usual view; 2, 3, 4 or 5 shows that much less track, that much bigger, still following the rider. */
   zoom = 1;
   /** False where nobody races to the line first (qualifying, a No-Turn Takedown's seeding run): no finish fireworks. */
   showFireworks = true;
