@@ -166,7 +166,7 @@ export class WorldScene extends Phaser.Scene {
       const cam = this.cameras.main;
       // The van's top while driving, for a speech note over it.
       const b = (this.save.driving && this.van ? this.van.sprite : this.player.sprite).getBounds();
-      return { x: ((b.centerX - cam.worldView.x) * cam.zoom) / DPR, y: ((b.top - cam.worldView.y) * cam.zoom) / DPR };
+      return { x: ((b.centerX - cam.worldView.x) * cam.zoom) / DPR, y: ((b.top - cam.worldView.y) * cam.zoom) / DPR, feet: ((b.bottom - cam.worldView.y) * cam.zoom) / DPR };
     };
     this.cameras.main.setBackgroundColor('#14141e');
 

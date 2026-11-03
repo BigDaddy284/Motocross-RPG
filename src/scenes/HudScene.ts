@@ -309,7 +309,7 @@ export class HudScene extends Phaser.Scene {
   private shownMoney: number | null = null;
 
   /** Where the rider's head is on screen, set by the world scene; null when there is no rider to show. */
-  headAt: (() => { x: number; y: number } | null) | null = null;
+  headAt: (() => { x: number; y: number; feet?: number } | null) | null = null;
 
   private note: Phaser.GameObjects.Container | null = null;
 
@@ -486,13 +486,17 @@ export class HudScene extends Phaser.Scene {
     const w = label.width + 20 * k;
     const h = label.height + 12 * k;
     const head = this.headAt?.();
-    const y0 = head ? -h - 40 * k : 0;
+    // At the top of the map (a north road: Boss, 2 Nov 2026, the note was off the top of the screen)
+    // there's no room over the head, so the note sits under the rider's feet, its tail pointing up.
+    const below = !!head && head.feet !== undefined && head.y - h - 40 * k < 8 * k;
+    const y0 = !head ? 0 : below ? head.feet! - head.y + 10 * k : -h - 40 * k;
     label.setY(y0 + h / 2);
     const g = this.add.graphics();
     g.fillStyle(0x000000, 0.35).fillRect(-w / 2 + 1.5, y0 + 1.5, w, h);
     g.fillStyle(0xf3e3c3, 1).fillRect(-w / 2, y0, w, h);
     g.lineStyle(2, 0x6b7080, 1).strokeRect(-w / 2, y0, w, h);
-    if (head) g.fillStyle(0x6b7080, 1).fillTriangle(-5 * k, y0 + h, 5 * k, y0 + h, 0, y0 + h + 6 * k);
+    if (head && below) g.fillStyle(0x6b7080, 1).fillTriangle(-5 * k, y0, 5 * k, y0, 0, y0 - 6 * k);
+    else if (head) g.fillStyle(0x6b7080, 1).fillTriangle(-5 * k, y0 + h, 5 * k, y0 + h, 0, y0 + h + 6 * k);
     const { width } = view(this);
     const box = this.add.container(head?.x ?? width / 2, head?.y ?? 110, [g, label]).setDepth(9);
     this.speechBox = box;
