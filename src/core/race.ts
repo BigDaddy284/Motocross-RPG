@@ -338,7 +338,8 @@ export interface Entrant {
 /** Events name the section by index; -1 is the start straight. */
 export type RaceEvent =
   | { kind: 'pass'; t: number; rider: string; other: string; section: number }
-  | { kind: 'failedPass'; t: number; rider: string; other: string; section: number }
+  /** Held up behind a rider they couldn't pass: `held` seconds slower than their own pace through the section, `close` when they were on the rider's wheel (within passWindow), which is when the feed mentions it. */
+  | { kind: 'failedPass'; t: number; rider: string; other: string; section: number; held: number; close: boolean }
   | { kind: 'mistake'; t: number; rider: string; section: number; outcome: MistakeOutcome['id']; lost: number; damaged: string[]; /** The rider whose crash this one went down in, or 'first_corner' for a first-corner incident, or 'loop_out' for a loop-out out of the gate. */ with?: string }
   | { kind: 'breakdown'; t: number; rider: string; section: number; slot: string }
   | { kind: 'retire'; t: number; rider: string; reason: string };
@@ -693,6 +694,9 @@ export class MotoSim {
           trace.events.push({ kind: 'mistake', t: cur.get(r)! + t, rider: r.e.id, section: si, outcome: m.id, lost, damaged, ...(withWhom ? { with: withWhom } : {}) });
         }
         let arrival = cur.get(r)! + t;
+        const natural = arrival;
+        let blocker: RiderState | null = null;
+        let close = false;
         // Passing: anyone ahead who would now arrive later has to be passed (Spec 10.3).
         for (let i = done.length - 1; i >= 0; i--) {
           const q = done[i];
@@ -716,9 +720,13 @@ export class MotoSim {
           } else {
             const [lo, hi] = sim.failedPassCost;
             arrival = qa + (sec.passing > 0 ? lo + this.rng() * (hi - lo) : sim.blockedGap);
-            if (sec.passing > 0 && qa - (cur.get(r)! + t) < sim.passWindow) trace.events.push({ kind: 'failedPass', t: arrival, rider: r.e.id, other: q.e.id, section: si });
+            blocker = q;
+            close = sec.passing > 0 && qa - natural < sim.passWindow;
           }
         }
+        // One event for the section, naming the rider they ended up behind, so the rider AI rides
+        // at its own pace and sits on that wheel, rather than crawling the whole section (Boss, 3 Nov 2026).
+        if (blocker) trace.events.push({ kind: 'failedPass', t: arrival, rider: r.e.id, other: blocker.e.id, section: si, held: arrival - natural, close });
         cur.set(r, arrival);
         done.push(r);
         if (r.e.player) this.sectionXp(def, sec, !m);

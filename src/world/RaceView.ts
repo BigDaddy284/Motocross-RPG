@@ -23,6 +23,7 @@ import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
 import { ARCH_GAP, ARCH_MODELS, ARCH_PARTS, CHEER_RISE, cheerAtRest, cheerStep, type CheerState, droneAtHome, droneStep, type DroneState, supporterFavourites, FLASH_GAP, FLASH_RANGE, FLASH_TIME, livePart, LOCKED_ITEMS, partName, trackAtRest, trackStep, type TrackState, TRACK_TURN } from '../core/modModels';
 import { bannerPath, PICTURE_ITEMS } from '../core/banners';
 import { SIDECAR_CLASS } from '../core/sidecar';
+import { easePoses, JUMP_POSE_RATE, LAND_TIME, poseTargets, POSE_RATE, RIDER_POSES, TAKEOFF_REACH, type PoseInput, type PoseWeights } from '../core/riderPose';
 import { withGameModels, sidecarCrew, BIKE_PAINT, bikeModel, bikeOnWheelsModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, standModel, bikeOnStandModel, STAND_PAINT, textFaces, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
@@ -163,6 +164,8 @@ interface Bike {
   sidecar?: boolean;
   /** A sidecar's rider and passenger from sidecar_crew.glb, each on a pivot at its hips (crewPose), and how far through a hang-out and a tuck they are. */
   crew?: { pivots: Map<string, THREE.Group>; hang: number; tuck: number };
+  /** A solo rider model's poses as shape keys (core riderPose; Boss, 3 Nov 2026): its meshes with them, how far into each it is, and what the last frame saw. */
+  poses?: { meshes: THREE.Mesh[]; w: PoseWeights; speed: number; land: number; flying: boolean };
   /** The rider's kit colours, for their figure on foot. */
   kit: Kit;
   /** The rider on foot after a crash (crashRecovery.ts), made the first time they need it. */
@@ -835,6 +838,29 @@ export class RaceView {
     const a = t[j * tw + i] * (1 - fx) + t[j * tw + i + 1] * fx;
     const b = t[(j + 1) * tw + i] * (1 - fx) + t[(j + 1) * tw + i + 1] * fx;
     return a * (1 - fz) + b * fz - 0.01;
+  }
+
+  /**
+   * The height a scenery item stands at (Boss, 3 Nov 2026: "Is there a way to stop object sinking in
+   * the ground post earth transformation"): the highest ground under its footprint (`w` by `d` grid
+   * units, turned `rot` degrees), not just under its middle, so on a slope or raised ground no corner
+   * is buried. Sampled every grid unit or so across it.
+   */
+  footingAt(x: number, z: number, w: number, d: number, rot: number): number {
+    const a = (rot * Math.PI) / 180;
+    const ca = Math.cos(a);
+    const sa = Math.sin(a);
+    const nx = Math.max(2, Math.min(12, Math.ceil(w)));
+    const nz = Math.max(2, Math.min(12, Math.ceil(d)));
+    let top = this.terrainAt(x, z);
+    for (let i = 0; i <= nx; i++) {
+      for (let j = 0; j <= nz; j++) {
+        const u = (i / nx - 0.5) * w;
+        const v = (j / nz - 0.5) * d;
+        top = Math.max(top, this.terrainAt(x + u * ca - v * sa, z + u * sa + v * ca));
+      }
+    }
+    return top;
   }
 
   /** The ground as one mesh, shaped by the terrain and painted with the editor's ground tiles. */
@@ -2324,7 +2350,7 @@ export class RaceView {
     const color = hex(it.color ?? def?.color, 0x888888);
     const text = it.text ?? def?.text ?? '';
     const g = new THREE.Group();
-    g.position.set(it.x, this.terrainAt(it.x, it.y), it.y);
+    g.position.set(it.x, this.footingAt(it.x, it.y, w, d, it.rot ?? 0), it.y);
     g.rotation.y = -(((it.rot ?? 0) * Math.PI) / 180);
     const add = (o: THREE.Object3D) => g.add(o);
     // Your own model for this item (world/modModels.ts): its size in metres at the item's default
@@ -3084,7 +3110,58 @@ export class RaceView {
     this.scene3.add(root);
     const label = this.scene.add.text(0, 0, '', { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '13px', color: '#ffffff', fontStyle: 'bold', stroke: '#14141e', strokeThickness: 3, resolution: TEXT_RES }).setOrigin(0.5, 1);
     this.labels.add(label);
-    return { root, body, rider, seat, side: (this.bikes.size % 2) * 2 - 1, kit, label };
+    // A solo rider model's poses (core RIDER_POSES), on whichever of its meshes carry them.
+    const meshes: THREE.Mesh[] = [];
+    custom.rider?.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (m.isMesh && m.morphTargetDictionary && RIDER_POSES.some((n) => m.morphTargetDictionary![n] !== undefined)) meshes.push(m);
+    });
+    const poses = meshes.length ? { meshes, w: {}, speed: 0, land: 0, flying: false } : undefined;
+    return { root, body, rider, seat, side: (this.bikes.size % 2) * 2 - 1, kit, label, poses };
+  }
+
+  /**
+   * The solo rider's body for what they are doing (core poseTargets; Boss, 3 Nov 2026): stood up
+   * over bumps and fast, sat with the inside leg out through slow corners, leaning in on berms,
+   * back on the brakes, forward on the gas, compressed into a jump's face, neutral in the air and
+   * soaking up the landing, feet down at the gate and sat back in a wheelie. Eased, quicker for
+   * the jumps.
+   */
+  private riderPose(b: Bike, p: RiderPose, f: number, onStart: boolean, turn: number, flying: boolean, dc: number, dt: number): void {
+    const ps = b.poses!;
+    const accel = dc > 0 ? (p.speed - ps.speed) / dc : 0;
+    ps.speed = p.speed;
+    if (ps.flying && !flying) ps.land = LAND_TIME;
+    ps.flying = flying;
+    ps.land = Math.max(0, ps.land - dt);
+    let jump: PoseInput['jump'] = flying ? 'air' : ps.land > 0 ? 'land' : null;
+    if (!jump && !onStart && p.flight) {
+      const reach = TAKEOFF_REACH / this.lapMetres;
+      for (const [f0] of p.flight.hops) {
+        const ahead = f0 - f - Math.floor(f0 - f);
+        if (ahead > 0 && ahead < reach) jump = 'takeoff';
+      }
+    }
+    const s = this.surface;
+    const want = poseTargets({
+      turn,
+      speed: p.speed,
+      accel,
+      section: onStart ? null : s.track.sections[s.at(f).si]?.type ?? null,
+      jump,
+      gate: onStart && p.speed < 0.5,
+      wheelie: p.wheelie ?? 0,
+      off: !!p.down || p.state === 'crashed' || p.state === 'remount',
+    });
+    const quick = jump || ps.w.Air || ps.w.Land || ps.w.Takeoff;
+    ps.w = easePoses(ps.w, want, Math.min(0.1, dt), quick ? JUMP_POSE_RATE : POSE_RATE);
+    for (const m of ps.meshes) {
+      const keys = m.morphTargetDictionary!;
+      for (const n of RIDER_POSES) {
+        const i = keys[n];
+        if (i !== undefined) m.morphTargetInfluences![i] = ps.w[n] ?? 0;
+      }
+    }
   }
 
   /** A rider on foot in their kit, feet at the origin, facing +x, about as tall as the seated rider. */
@@ -3282,6 +3359,7 @@ export class RaceView {
         }
       }
       if (b.crew) this.crewPose(b, p.down || p.state === 'crashed' ? 0 : turn, !p.down && (p.air > 0.25 || !!flying), dt);
+      else if (b.poses) this.riderPose(b, p, f, onStart, turn, !p.down && (p.air > 0.25 || !!flying), dc, dt);
       if (!p.down) {
         if (b.runner) b.runner.group.visible = false;
         b.rider.visible = true;

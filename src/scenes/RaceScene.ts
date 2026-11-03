@@ -1338,7 +1338,7 @@ export class RaceScene extends Phaser.Scene {
         else if (e.other === PLAYER_ID) line = `${name(e.rider)} passed you at the ${section(e.section)}.`;
         break;
       case 'failedPass':
-        if (e.rider === PLAYER_ID) line = `You couldn't get past ${name(e.other)}.`;
+        if (e.rider === PLAYER_ID && e.close) line = `You couldn't get past ${name(e.other)}.`;
         break;
       case 'mistake': {
         const crash = e.outcome === 'minor_crash' || e.outcome === 'serious_crash';

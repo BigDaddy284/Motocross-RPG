@@ -180,7 +180,9 @@ describe('the queue on the race screen', () => {
     const last = new Map<string, number>();
     for (let t = -SPRINT_LEAD; t < 400; t += 0.5) {
       const poses = dir.poses(t);
-      const lane = poses.filter((p) => p.state !== 'finished' && p.state !== 'retired' && p.dist - Math.floor(p.dist) <= line + 1e-9).map((p) => p.dist - Math.floor(p.dist)).sort((a, b) => a - b);
+      // From a bike's length past the finish line: two who finished the test within the simulation's
+      // blocked gap of each other cross the line that close, and the lane spaces them out from there.
+      const lane = poses.filter((p) => p.state !== 'finished' && p.state !== 'retired' && p.dist - Math.floor(p.dist) <= line + 1e-9 && (p.dist - Math.floor(p.dist)) * units >= 1.5).map((p) => p.dist - Math.floor(p.dist)).sort((a, b) => a - b);
       for (let i = 1; i < lane.length; i++) expect((lane[i] - lane[i - 1]) * units, `t=${t}`).toBeGreaterThan(0.9);
       for (const p of poses) {
         const before = last.get(p.id);
