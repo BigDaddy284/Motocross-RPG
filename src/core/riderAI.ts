@@ -66,6 +66,8 @@ interface Seg {
   mistake?: { outcome: MistakeOutcome['id']; lost: number; loop?: boolean };
   pass?: string;
   blocked?: string;
+  /** Seconds slower than the rider's own pace through the section, spent on the blocking rider's wheel. */
+  held?: number;
 }
 
 const CORNERS = new Set(['first_corner', 'flat_corner', 'berm', 'rutted_corner', 'hairpin', 'fast_sweeper']);
@@ -158,13 +160,25 @@ function whoopLift(p: RiderProfile, seg: Seg, u: number): number {
   return size * ramp(u / 0.1) * (1 - ramp((u - 0.88) / 0.12));
 }
 
-/** A section's average riding speed in lap units a second (the time lost to a mistake left out); 0 in a sprint's queue. */
+/**
+ * The time a rider spends riding a section at their own pace: its duration less the time lost to
+ * a mistake and the time held up behind a rider they couldn't pass (Boss, 3 Nov 2026: a held-up
+ * rider closes on the one ahead at their own pace and sits on their wheel, rather than crawling
+ * the whole section). Returns the riding time and the two losses, each kept to a share of the section.
+ */
+function segRide(seg: Seg): { ride: number; lost: number; held: number } {
+  const dur = Math.max(1e-6, seg.t1 - seg.t0);
+  const lost = Math.min(seg.mistake?.lost ?? 0, dur * 0.95);
+  const held = seg.blocked ? Math.min(seg.held ?? 0, (dur - lost) * 0.9) : 0;
+  return { ride: Math.max(1e-6, dur - lost - held), lost, held };
+}
+/** A section's average riding speed in lap units a second (the time lost to a mistake or spent held up left out); 0 in a sprint's queue. */
 function segSpeed(seg: Seg): number {
   if (seg.si === SPRINT_QUEUE) return 0;
-  const dur = Math.max(1e-6, seg.t1 - seg.t0);
-  const ride = Math.max(1e-6, dur - Math.min(seg.mistake?.lost ?? 0, dur * 0.95));
-  return (seg.d1 - seg.d0) / ride;
+  return (seg.d1 - seg.d0) / segRide(seg).ride;
 }
+/** How close a held-up rider sits to the wheel of the rider blocking them, in grid units (a bike is 1.1). */
+const HOLD_GAP = 2;
 
 /**
  * Speed through a section as a share of its average, starting at e0 and ending at e1 (both shares
@@ -414,7 +428,7 @@ export class RaceDirector {
         const worse = seg.mistake && rank(seg.mistake.outcome) > rank(e.outcome) ? seg.mistake.outcome : e.outcome;
         seg.mistake = { outcome: worse, lost, ...(seg.mistake?.loop || e.with === 'loop_out' ? { loop: true } : {}) };
       } else if (e.kind === 'pass') seg.pass = e.other;
-      else if (e.kind === 'failedPass') seg.blocked = e.other;
+      else if (e.kind === 'failedPass') { seg.blocked = e.other; seg.held = e.held; }
     }
   }
 
@@ -512,7 +526,7 @@ export class RaceDirector {
     }
   }
 
-  private pose(id: string, list: Seg[], t: number, pulled = true): RiderPose {
+  private pose(id: string, list: Seg[], t: number, pulled = true, depth = 0): RiderPose {
     if (pulled) {
       const off = this.pulledOff(id, list, t);
       if (off) return off;
@@ -538,9 +552,9 @@ export class RaceDirector {
     const dur = Math.max(1e-6, seg.t1 - seg.t0);
     const s = t - seg.t0;
 
-    // Riding time and any time lost to a mistake, which happens part way through the section.
-    const lost = Math.min(seg.mistake?.lost ?? 0, dur * 0.95);
-    const ride = dur - lost;
+    // Riding time, any time lost to a mistake, which happens part way through the section, and
+    // any time held up behind a rider they couldn't pass, spent on that rider's wheel.
+    const { ride, lost, held } = segRide(seg);
     const at = this.mistakeAt(p, seg);
     let tau: number;
     let stopped = false;
@@ -565,9 +579,21 @@ export class RaceDirector {
     const climb = seg.si >= 0 ? Math.min(1, climbExtra(this.track.sections[seg.si]) / Math.max(1, this.track.sections[seg.si].length)) : 0;
     const c = lane0 ? 0 : 0.5 * this.warp(p, sec.type) - 0.4 * climb;
     const shape = speedShape(v0 / V, v1 / V, c);
-    const u = clamp(shape.at(tau), 0, 1);
-    const dist = seg.d0 + u * (seg.d1 - seg.d0);
-    const speed = stopped ? 0 : Math.max(0, V * shape.speed(tau) * this.metres);
+    let u = clamp(shape.at(tau), 0, 1);
+    let dist = seg.d0 + u * (seg.d1 - seg.d0);
+    let speed = stopped ? 0 : Math.max(0, V * shape.speed(tau) * this.metres);
+    // Held up: at their own pace until they reach the wheel of the rider who blocked them, then
+    // behind it at that rider's speed, and on time at the section's end.
+    if (held > 0 && seg.blocked && depth < 6) {
+      const lead = this.segs.get(seg.blocked);
+      const q = lead ? this.pose(seg.blocked, lead, t, true, depth + 1) : null;
+      // The furthest back they can be and still reach the section's end on time at their own pace.
+      const must = clamp(seg.d1 - (seg.t1 - t) * V, seg.d0, seg.d1);
+      if (!q) { dist = Math.max(must, seg.d0 + clamp(s / dur, 0, 1) * (seg.d1 - seg.d0)); speed = ((seg.d1 - seg.d0) / dur) * this.metres; }
+      else if (dist > q.dist - HOLD_GAP / this.lapUnits) { dist = q.dist - HOLD_GAP / this.lapUnits; speed = q.speed; }
+      if (dist < must) { dist = must; speed = V * this.metres; }
+      u = clamp((dist - seg.d0) / Math.max(1e-9, seg.d1 - seg.d0), 0, 1);
+    }
 
     // Line: from the last section's line into this one's, quicker for a nimble rider on a good bike.
     const from = prev ? this.target(id, p, prev) : (this.gateLane.get(id) ?? 0);

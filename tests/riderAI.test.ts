@@ -115,3 +115,47 @@ describe('rider AI (GDD 11.1)', () => {
     expect(crashes + wobbles).toBeGreaterThan(0);
   });
 });
+
+describe('a rider held up behind one they could not pass (Boss, 3 Nov 2026)', () => {
+  it('rides at their own pace to that wheel and sits on it, instead of crawling the whole section', () => {
+    let checked = 0;
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
+      const { dir, traces } = race('farmland', seed);
+      for (const tr of traces) {
+        for (const e of tr.events) {
+          // Lap sections only: on the start straight the riders are leaving the grid, gates apart.
+          if (e.kind !== 'failedPass' || e.held < 1.5 || e.section < 0) continue;
+          const times = tr.times[e.rider];
+          const leg = tr.secs.indexOf(e.section);
+          if (leg < 0 || times.length <= leg + 1) continue;
+          // No mistake of their own in the section, so the only time to lose is behind the other rider.
+          if (tr.events.some((m) => m.kind === 'mistake' && m.rider === e.rider && m.section === e.section)) continue;
+          const t0 = times[leg];
+          const t1 = times[leg + 1];
+          const dur = t1 - t0;
+          const d = (t: number) => dir.poses(t).find((p) => p.id === e.rider)!.dist;
+          const span = d(t1 - 1e-6) - d(t0);
+          if (span <= 0) continue;
+          // A quarter of the way through the time, further round than an even crawl would be:
+          // the held-up time is spent later, on the other rider's wheel.
+          const early = (d(t0 + dur / 4) - d(t0)) / span;
+          const quarter = dir.poses(t0 + dur / 4);
+          const metre = 1 / units(content.tracks.tracks.find((t) => t.id === 'farmland')!);
+          const onWheel = quarter.find((p) => p.id === e.other)!.dist - quarter.find((p) => p.id === e.rider)!.dist < 8 * metre;
+          if (!onWheel) expect(early).toBeGreaterThan(0.25);
+          // And never past the rider who blocked them while still in the section (at most alongside,
+          // a bike's length, where that rider was slow out of its end).
+          for (let t = t0; t < t1; t += dur / 8) {
+            const poses = dir.poses(t);
+            const me = poses.find((p) => p.id === e.rider)!;
+            const other = poses.find((p) => p.id === e.other)!;
+            // (Past a rider stopped by a mistake of their own is the simulation's call, not the AI's.)
+            if (me.dist < tr.marks[leg + 1] && (other.state === 'riding' || other.state === 'air')) expect(me.dist).toBeLessThanOrEqual(other.dist + 3 * metre);
+          }
+          checked++;
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(0);
+  });
+});

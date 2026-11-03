@@ -26,8 +26,12 @@ describe('smooth riding', () => {
     for (const tr of traces) {
       for (const [id, times] of Object.entries(tr.times)) {
         if (sim.riders.find((r) => r.e.id === id)?.retired) continue;
+        // Sections ridden behind a rider they couldn't pass (Boss, 3 Nov 2026): braking onto that
+        // wheel, or driving off from behind it, is a real change of speed, not the artefact.
+        const held = new Set(tr.events.flatMap((e) => (e.kind === 'failedPass' && e.rider === id ? [e.section] : [])));
         for (let i = 1; i < times.length - 1; i++) {
           const t = times[i];
+          if (held.has(tr.secs[i - 1]) || held.has(tr.secs[i])) continue;
           const before = dir.poses(t - 0.02).find((p) => p.id === id)!;
           const after = dir.poses(t + 0.02).find((p) => p.id === id)!;
           if (before.state !== 'riding' && before.state !== 'air') continue;
