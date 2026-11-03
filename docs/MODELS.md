@@ -1,6 +1,6 @@
 # Your own 3D models: rules for each type
 
-The race view draws every object from shapes in code. You can swap any of them, add new scenery, or replace the race bike and rider with your own models from Blender (Boss, 31 Oct 2026). The checks are in `src/core/modModels.ts`. A model that breaks a rule is skipped, and the game draws its own object instead: it never stops the game. The **Models** page lists each file in the folder with what it does or what is wrong with it.
+The game's own models are Boss's `.glb` files in `public/assets/models/` (Boss, 2 Nov 2026: "I want the models you made to become the built in models"), by the same names and rules as below; only the start gate, the sprint start, the skip, the bikes on stands and the figures' and stands' frames are still built in code. You can swap any of them, add new scenery, or replace the race bike and rider with your own models from Blender (Boss, 31 Oct 2026), in `public/mods/models/`: a file there replaces the game's own of the same name. The checks are in `src/core/modModels.ts`. A model that breaks a rule is skipped, and the game's own shows instead (a plain box if there is none): it never stops the game. The **Models** page lists each file in the folder with what it does or what is wrong with it.
 
 ## How it works
 

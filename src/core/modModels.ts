@@ -27,6 +27,14 @@ import type { SceneryDef } from './trackParts';
 export const MODEL_DIR = 'mods/models/';
 /** The folder's index: the dev server and the build write it (vite.config.ts), as for mod tracks. */
 export const MODEL_INDEX = `${MODEL_DIR}index.json`;
+/**
+ * The game's own models (Boss, 2 Nov 2026: "I want the models you made to become the built in
+ * models"): the same kind of .glb files, by the same names and rules, shipped with the game in
+ * public/assets/models/. They are how every item looks; a model of the same name in the models
+ * folder (MODEL_DIR) replaces one, and any other name there is a new item, as before.
+ */
+export const GAME_MODEL_DIR = 'assets/models/';
+export const GAME_MODEL_INDEX = `${GAME_MODEL_DIR}index.json`;
 
 /** The race bike for every class, unless race_bike_youth.glb gives the youth classes their own. */
 export const RACE_BIKE = 'race_bike';

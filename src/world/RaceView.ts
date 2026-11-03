@@ -23,7 +23,7 @@ import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
 import { ARCH_GAP, ARCH_MODELS, ARCH_PARTS, CHEER_RISE, cheerAtRest, cheerStep, type CheerState, droneAtHome, droneStep, type DroneState, supporterFavourites, FLASH_GAP, FLASH_RANGE, FLASH_TIME, livePart, LOCKED_ITEMS, partName, TRACK_RANGE, TRACK_TURN } from '../core/modModels';
 import { bannerPath, PICTURE_ITEMS } from '../core/banners';
 import { SIDECAR_CLASS } from '../core/sidecar';
-import { sidecarCrew, BIKE_PAINT, bikeModel, bikeOnWheelsModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, standModel, bikeOnStandModel, STAND_PAINT, textFaces, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
+import { withGameModels, sidecarCrew, BIKE_PAINT, bikeModel, bikeOnWheelsModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, standModel, bikeOnStandModel, STAND_PAINT, textFaces, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
 // isometric camera in the spirit of Super Off Road's overhead arcade view. The track is solid
@@ -53,7 +53,6 @@ const FOOT_BURY = 0.15;
 const TILE_PX = 32;
 const ART_DIR = 'assets/art/area-map/tiled/tiles';
 const SURFACES: Record<string, number> = { hard_pack: 0xb07a45, loam: 0x8a5a33, sand: 0xd8c07a, mud: 0x6b4a2b, concrete: 0x9c9c96 };
-const CROWD = [0xc0607a, 0xe0c060, 0x60a0e0, 0xf0f0f0, 0x80c080, 0xe08040, 0x9070c0];
 
 let counter = 0;
 const TRICK_PIVOT = new THREE.Vector3();
@@ -355,8 +354,6 @@ export class RaceView {
   hasStart = true;
   /** False where nobody races to the line first (qualifying, a No-Turn Takedown's seeding run): no finish fireworks. */
   showFireworks = true;
-  /** Draws items the game's own way, ignoring the models folder, while builtInItem builds one for the models page. */
-  private builtIn = false;
   /** Scenery models' own animations, each playing on a loop (playLoops); they run in the track editor's view too. */
   private readonly loops: THREE.AnimationMixer[] = [];
   /** Scenery models' Track parts, turning to follow the nearest rider (core LIVE_PARTS; Boss, 1 Nov 2026). */
@@ -964,7 +961,7 @@ export class RaceView {
         const p = s.spot(f, lane);
         return deck - Math.min(this.terrainAt(p.x, p.z), s.height(f, lane)) + 0.2;
       };
-      const model = this.builtIn ? null : this.archModel(sx, span - 1, def?.text || 'FINISH', color, drop, sx);
+      const model = this.archModel(sx, span - 1, def?.text || 'FINISH', color, drop, sx);
       if (model) {
         const g = model.group;
         g.position.set(c.x, deck, c.z);
@@ -2058,13 +2055,11 @@ export class RaceView {
   }
 
   /**
-   * One scenery item built the game's own way (never from the models folder), standing at the
-   * origin at its default size and unturned, in grid units: what the models page exports.
+   * One scenery item as the game itself draws it (its own model, never one from the models folder),
+   * standing at the origin at its default size and unturned, in grid units: what the models page exports.
    */
   builtInItem(type: string): THREE.Object3D | null {
-    const was = this.builtIn;
-    this.builtIn = true;
-    try {
+    return withGameModels(() => {
       const obj = type === OFFICIAL_ITEM ? this.officialFigure().stand : this.buildItem({ type, x: 0, y: 0, rot: 0 });
       obj?.position.set(0, 0, 0);
       obj?.rotation.set(0, 0, 0);
@@ -2075,9 +2070,7 @@ export class RaceView {
       });
       for (const o of own) o.removeFromParent();
       return obj;
-    } finally {
-      this.builtIn = was;
-    }
+    });
   }
 
   /**
@@ -2287,7 +2280,7 @@ export class RaceView {
    * board). False when the item has no figure model, and the game's own figure stays.
    */
   private fitFigure(type: string, root: THREE.Object3D, pivots: [string, THREE.Object3D][], opts: { scale?: THREE.Vector3; keep?: THREE.Object3D[] } = {}): boolean {
-    const parts = this.builtIn ? null : figureParts(type);
+    const parts = figureParts(type);
     if (!parts) return false;
     root.updateMatrixWorld(true);
     // The model's metres into the world: the item's place and turn, without any scale of its own.
@@ -2332,7 +2325,7 @@ export class RaceView {
     // Your own model for this item (world/modModels.ts): its size in metres at the item's default
     // size, stretched with the footprint when an item is placed longer or deeper (a long tyre wall
     // or line of tape), its height going with the smaller stretch.
-    const custom = this.builtIn || LOCKED_ITEMS.has(it.type) ? null : modModel(it.type);
+    const custom = LOCKED_ITEMS.has(it.type) ? null : modModel(it.type);
     if (custom) {
       const sx = def ? Math.max(0.1, w / def.w) : 1;
       const sz = def ? Math.max(0.1, d / def.h) : 1;
@@ -2369,10 +2362,15 @@ export class RaceView {
       return g;
     }
     if (def && isPaddock(def)) {
-      // A paddock vehicle or a trackside item (paddock.ts, trackside.ts): one vertex-coloured mesh
-      // each, so a full paddock costs a draw an item, plus a textured box for each label with words on.
+      // A bike on a stand or the sprint start (paddock.ts, trackside.ts): one vertex-coloured mesh
+      // each, plus a textured box for each label with words on. Any other paddock or trackside item
+      // is the game's own model, drawn above; without it, a plain box of its size and colour.
       const index = this.itemIndex(it);
       const built = tracksideParts(def, it, index) ?? { parts: paddockParts(def, it, index), labels: [] as Label[] };
+      if (!built.parts.length && !built.labels.length) {
+        add(this.boxMesh(w, 0.6, d, this.mat(color)));
+        return g;
+      }
       // A bike on a stand item can be all stand bike, with nothing left to merge.
       const rest = this.standBikes(built.parts, add);
       if (rest.length) add(this.mergeParts(rest));
@@ -2391,35 +2389,21 @@ export class RaceView {
       if (it.rot === undefined && FACES_TRACK.has(def.id) && this.awayFromTrack(it) === 1) g.rotation.y += Math.PI;
       return g;
     }
+    // Every other item is the game's own model (public/assets/models; Boss, 2 Nov 2026: "I want the
+    // models you made to become the built in models"), drawn above; these few are still built here,
+    // and an item whose model is missing shows as a plain box of its size and colour.
     switch (it.type) {
-      case 'banner':
-      case 'sponsor_board': {
-        const H = it.type === 'banner' ? 1 : 1.3;
-        const face = this.mat(0xffffff, { map: this.faceTexture(it, text, color, w / H) });
-        const side = this.mat(shade(color, 0.7));
-        add(this.boxMesh(w, H, 0.1, [side, side, side, side, face, face], 0, 0.35, 0));
-        for (const sx of [-0.45, 0.45]) add(this.boxMesh(0.08, 0.35, 0.08, this.mat(0x5a5a60), sx * w, 0, 0));
-        break;
-      }
       case 'finish_arch': {
         // Boss's arch model, the supercross gantry at supercross kinds of track (without its flag man's tower) or the motocross one (Boss, 1 Nov 2026).
-        const model = this.builtIn ? null : this.archModel(SX_ARCH_KINDS.has(this.track.kind ?? ''), w - 1, text || 'FINISH', color, () => 0, false, it.image);
-        if (model) {
-          add(model.group);
-          if ((this.track.scenery ?? []).includes(it) && this.ghostIndex < 0) {
-            g.updateMatrixWorld(true);
-            this.archTops.push([model.group.localToWorld(model.tops[0]), model.group.localToWorld(model.tops[1])]);
-          }
+        const model = this.archModel(SX_ARCH_KINDS.has(this.track.kind ?? ''), w - 1, text || 'FINISH', color, () => 0, false, it.image);
+        if (!model) {
+          add(this.boxMesh(w, 0.6, d, this.mat(color)));
           break;
         }
-        for (const sx of [-1, 1]) add(this.boxMesh(0.5, 4.2, 0.5, this.mat(0xd8d8d8), sx * (w / 2 - 0.25), 0, 0));
-        const face = this.mat(0xffffff, { map: this.withPicture(this.textTexture(text || 'FINISH', color), it.image) });
-        const side = this.mat(shade(color, 0.8));
-        add(this.boxMesh(w, 0.9, 0.35, [side, side, side, side, face, face], 0, 4.2, 0));
-        // Not for an editor ghost: only an arch on the track has fireworks.
+        add(model.group);
         if ((this.track.scenery ?? []).includes(it) && this.ghostIndex < 0) {
           g.updateMatrixWorld(true);
-          this.archTops.push([g.localToWorld(new THREE.Vector3(-(w / 2 - 0.25), 5.1, 0)), g.localToWorld(new THREE.Vector3(w / 2 - 0.25, 5.1, 0))]);
+          this.archTops.push([model.group.localToWorld(model.tops[0]), model.group.localToWorld(model.tops[1])]);
         }
         break;
       }
@@ -2430,146 +2414,9 @@ export class RaceView {
         add(this.boxMesh(w, 0.18, 0.18, this.mat(color), 0, 0.67, -d * 0.4));
         break;
       }
-      case 'tuff_block': {
-        // White blocks with red bands, the supercross track marker.
-        add(this.boxMesh(w, 0.5, d * 0.8, this.mat(color)));
-        for (let i = 0; i < 3; i++) add(this.boxMesh(w / 7, 0.52, d * 0.82, this.mat(0xd33a2c), -w / 2 + (w / 3) * (i + 0.5), -0.01, 0));
-        break;
-      }
-      case 'hay_bale': {
-        // A straw bale with its two strings round it and a lighter cut end.
-        add(this.boxMesh(w, 0.6, d, [this.mat(shade(color, 1.12)), this.mat(shade(color, 1.12)), this.mat(color), this.mat(color), this.mat(color), this.mat(color)]));
-        for (const fx of [-0.25, 0.25]) add(this.boxMesh(0.05, 0.62, d + 0.02, this.mat(shade(color, 0.7)), fx * w, -0.01, 0));
-        break;
-      }
-      case 'tyre_wall': {
-        const n = Math.max(1, Math.round(w / Math.max(0.5, d)));
-        const r = Math.min(w / n, d) / 2;
-        const geo = new THREE.CylinderGeometry(r, r, 0.3, 12);
-        for (let i = 0; i < n; i++) for (let k = 0; k < 2; k++) {
-          const t = new THREE.Mesh(geo, this.mat(color));
-          t.position.set(-w / 2 + (w / n) * (i + 0.5), 0.15 + k * 0.3, 0);
-          t.castShadow = true;
-          add(t);
-        }
-        break;
-      }
-      case 'tape': {
-        const posts = Math.max(1, Math.round(w / 2));
-        for (let i = 0; i <= posts; i++) add(this.boxMesh(0.06, 0.65, 0.06, this.mat(0x5a5a60), -w / 2 + (w * i) / posts, 0, 0));
-        add(this.boxMesh(w, 0.05, 0.02, this.mat(color), 0, 0.55, 0));
-        break;
-      }
-      case 'flag_post': {
-        add(this.boxMesh(0.08, 2.4, 0.08, this.mat(0xdddddd)));
-        const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.5), this.mat(color, { side: THREE.DoubleSide }));
-        flag.position.set(0.4, 2.15, 0);
-        flag.castShadow = true;
-        add(flag);
-        break;
-      }
-      case 'stand': {
-        // Seating steps rising away from the track, with a row of fans on each.
-        const away = this.awayFromTrack(it);
-        const tiers = 4;
-        for (let i = 0; i < tiers; i++) {
-          const z = (-d / 2 + (d / tiers) * (i + 0.5)) * away;
-          const hh = 0.7 + i * 0.75;
-          add(this.boxMesh(w, hh, d / tiers, this.mat(i % 2 ? shade(color, 1.12) : color), 0, 0, z));
-          this.fans(g, w * 0.96, d / tiers * 0.5, 0, hh, z, Math.round(w * 1.3), i);
-        }
-        add(this.boxMesh(w, 0.3, 0.2, this.mat(0x4a4a50), 0, 0.7 + tiers * 0.75, (d / 2) * away));
-        break;
-      }
-      case 'crowd':
-        this.fans(g, w, d, 0, 0, 0, Math.round(w * d * 1.4), 7);
-        break;
       case CHEER_ITEM:
         this.cheerFigure(g, it);
         break;
-      case 'pit_tent': {
-        for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) add(this.boxMesh(0.08, 1.9, 0.08, this.mat(0xcccccc), (sx * w) / 2.1, 0, (sz * d) / 2.1));
-        // Turned and stretched in the geometry so the corners sit on the legs (a mesh scales before it turns).
-        const roof = new THREE.Mesh(new THREE.ConeGeometry(Math.hypot(w, d) / 2, 0.9, 4).rotateY(Math.PI / 4).scale(w / Math.hypot(w, d) * Math.SQRT2, 1, d / Math.hypot(w, d) * Math.SQRT2), this.mat(color));
-        roof.position.set(0, 2.35, 0);
-        roof.castShadow = true;
-        add(roof);
-        add(this.boxMesh(w, 0.25, d, this.mat(shade(color, 0.9)), 0, 1.65, 0));
-        break;
-      }
-      case 'van': {
-        add(this.boxMesh(w * 0.72, 1.7, d * 0.9, this.mat(color), -w * 0.14, 0.3, 0));
-        add(this.boxMesh(w * 0.26, 1.2, d * 0.9, this.mat(shade(color, 0.95)), w * 0.36, 0.3, 0));
-        add(this.boxMesh(0.05, 0.5, d * 0.7, this.mat(0x223344), w * 0.495, 0.85, 0));
-        const wheel = new THREE.CylinderGeometry(0.32, 0.32, 0.2, 12);
-        for (const [sx, sz] of [[-0.3, -1], [-0.3, 1], [0.32, -1], [0.32, 1]]) {
-          const t = new THREE.Mesh(wheel, this.mat(0x1c1c22));
-          t.rotation.x = Math.PI / 2;
-          t.position.set(sx * w, 0.32, (sz * d * 0.9) / 2);
-          add(t);
-        }
-        break;
-      }
-      case 'light_tower': {
-        add(this.boxMesh(0.25, 7.5, 0.25, this.mat(0x6a6a70)));
-        add(this.boxMesh(w * 0.9, 0.7, 0.35, this.mat(0x3a3a40), 0, 7.5, 0));
-        add(this.boxMesh(w * 0.8, 0.5, 0.05, new THREE.MeshBasicMaterial({ color: 0xfff6c0 }), 0, 7.6, 0.2));
-        break;
-      }
-      case 'tree': {
-        add(this.boxMesh(0.35, 1.6, 0.35, this.mat(0x6a4a2a)));
-        const leaf = this.mat(color, { flatShading: true });
-        for (const [r, y, ox] of [[w * 0.42, 2.3, 0], [w * 0.32, 3.2, 0.2], [w * 0.28, 2.5, -0.5]]) {
-          const ball = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 0), leaf);
-          ball.position.set(ox, y, ox * 0.5);
-          ball.castShadow = true;
-          ball.receiveShadow = true;
-          add(ball);
-        }
-        break;
-      }
-      case 'bush': {
-        const ball = new THREE.Mesh(new THREE.IcosahedronGeometry(Math.min(w, d) * 0.45, 0), this.mat(color, { flatShading: true }));
-        // Sunk a little, so its lower faces meet the ground instead of a point hovering over it.
-        ball.position.y = Math.min(w, d) * 0.2;
-        ball.scale.y = 0.75;
-        ball.castShadow = true;
-        add(ball);
-        break;
-      }
-      case 'hedge': {
-        // A clipped hedge, lumpy along the top and sides.
-        const leaf = this.mat(color, { flatShading: true });
-        add(this.boxMesh(w, 1.0, d * 0.6, leaf));
-        const n = Math.max(2, Math.round(w / 0.6));
-        for (let k = 0; k < n; k++) {
-          const ball = new THREE.Mesh(new THREE.IcosahedronGeometry(d * 0.24, 0), this.mat(shade(color, k % 2 ? 1.08 : 0.94), { flatShading: true }));
-          ball.position.set(-w / 2 + (w / n) * (k + 0.5), 0.95 + (k % 3) * 0.04, (k % 2 ? 0.08 : -0.08) * d);
-          ball.castShadow = true;
-          add(ball);
-        }
-        break;
-      }
-      case 'fence':
-        for (const sx of [-0.45, 0, 0.45]) add(this.boxMesh(0.1, 0.9, 0.1, this.mat(color), sx * w, 0, 0));
-        for (const y of [0.35, 0.7]) add(this.boxMesh(w, 0.08, 0.06, this.mat(color), 0, y, 0));
-        break;
-      case 'barrels':
-      case 'tyre_stack': {
-        const geo = it.type === 'barrels' ? new THREE.CylinderGeometry(0.32, 0.32, 0.9, 12) : new THREE.TorusGeometry(0.3, 0.13, 8, 14);
-        const n = 3;
-        for (let i = 0; i < n; i++) {
-          const m = new THREE.Mesh(geo, this.mat(color));
-          if (it.type === 'barrels') m.position.set((i - 1) * 0.7 * (w / 2), 0.45, 0);
-          else {
-            m.rotation.x = Math.PI / 2;
-            m.position.set((i - 1) * 0.15, 0.13 + i * 0.26, 0);
-          }
-          m.castShadow = true;
-          add(m);
-        }
-        break;
-      }
       case 'skip': {
         // A UK builder's skip, drawn from the real thing (an 8-yard skip is about 3.7 m by 1.8 m,
         // 1.2 m tall): one solid hull sitting flat on the ground, its long sides vertical and its
@@ -2767,7 +2614,7 @@ export class RaceView {
    * in the item's colour, else the game's own. A figure model with its own Base keeps that instead (fitFigure).
    */
   private addStand(g: THREE.Group, type: string, built: { base: THREE.Mesh[]; variant: string; colour: number }): void {
-    const model = this.builtIn || figureHas(type, 'Base') ? null : standModel(built.variant, built.colour, shade(built.colour, 0.7));
+    const model = figureHas(type, 'Base') ? null : standModel(built.variant, built.colour, shade(built.colour, 0.7));
     if (model) g.add(Object.assign(model, { name: 'Base' }));
     else if (built.base.length) g.add(Object.assign(this.mergeParts(built.base), { name: 'Base' }));
   }
@@ -2778,7 +2625,7 @@ export class RaceView {
    * Boss, 1 Nov 2026), each added with `add`. Returns the item's other meshes, to merge.
    */
   private standBikes(parts: THREE.Mesh[], add: (o: THREE.Object3D) => void): THREE.Mesh[] {
-    if (this.builtIn || !parts.some((p) => p.userData.standBike)) return parts;
+    if (!parts.some((p) => p.userData.standBike)) return parts;
     const done = new Map<StandBike, THREE.Object3D | null>();
     for (const p of parts) {
       const tag = p.userData.standBike as StandBike | undefined;
@@ -3140,27 +2987,6 @@ export class RaceView {
     }
   }
 
-  private fans(g: THREE.Group, w: number, d: number, x: number, y: number, z: number, n: number, seed: number): void {
-    const body = new THREE.BoxGeometry(0.22, 0.42, 0.18);
-    const head = new THREE.BoxGeometry(0.16, 0.16, 0.16);
-    const bodies = new THREE.InstancedMesh(body, this.mat(0xffffff), n);
-    const heads = new THREE.InstancedMesh(head, this.mat(0xe8c0a0), n);
-    const m = new THREE.Matrix4();
-    const c = new THREE.Color();
-    for (let i = 0; i < n; i++) {
-      const px = x + (noise(i * 7 + seed * 13) - 0.5) * w;
-      const pz = z + (noise(i * 11 + seed * 17) - 0.5) * d;
-      m.makeTranslation(px, y + 0.21, pz);
-      bodies.setMatrixAt(i, m);
-      c.setHex(CROWD[Math.floor(noise(i * 3 + seed) * CROWD.length)]);
-      bodies.setColorAt(i, c);
-      m.makeTranslation(px, y + 0.5, pz);
-      heads.setMatrixAt(i, m);
-    }
-    bodies.castShadow = true;
-    g.add(bodies, heads);
-  }
-
   // ---- riders ----
 
   /**
@@ -3175,8 +3001,8 @@ export class RaceView {
     // Your own race bike and rider models (world/modModels.ts), painted in this rider's colours.
     const c0 = bikeColours(color, player, look);
     // A sidecar carries its rider and passenger from sidecar_crew.glb when there is one (Boss, 1 Nov 2026).
-    const crew = !this.builtIn && look?.cls === SIDECAR_CLASS ? sidecarCrew() : null;
-    const custom = this.builtIn ? { bike: null, rider: null } : { bike: bikeModel(look?.cls ?? ''), rider: crew?.root ?? riderModel() };
+    const crew = look?.cls === SIDECAR_CLASS ? sidecarCrew() : null;
+    const custom = { bike: bikeModel(look?.cls ?? ''), rider: crew?.root ?? riderModel() };
     if (custom.bike) paintModel(custom.bike, { plastics: c0.plastics, frame: c0.frame, plate: c0.plate }, BIKE_PAINT);
     // A youth class's smaller bike carries a rider of the same scale, a child of that size (Boss, 1 Nov 2026).
     const riderScale = custom.bike?.userData.riderScale as number | undefined;

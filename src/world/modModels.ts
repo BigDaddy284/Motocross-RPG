@@ -1,33 +1,63 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { ADULT_BIKE_METRES, BIKE_SLOTS, checkBikeSizes, raceBikeKind, YOUTH_BIKE_METRES, checkModel, FAN_SLOTS, PIT_CREW_SLOTS, FIGURE_PARTS, partName, glbInfo, MODEL_DIR, MODEL_INDEX, modelDef, modelId, modelRole, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, RIDER_SLOTS, SIDECAR_CREW, SIDECAR_MODEL, STAND_MODELS, STAND_SLOTS, TEXT_SLOTS, PADDOCK_STAND, PADDOCK_STAND_BIKE, BIKE_ON_STAND_LIFT, STAND_YOUTH_DESIGNS, materialSlot, type ModelEntry } from '../core/modModels';
+import { ADULT_BIKE_METRES, BIKE_SLOTS, checkBikeSizes, raceBikeKind, YOUTH_BIKE_METRES, checkModel, FAN_SLOTS, PIT_CREW_SLOTS, FIGURE_PARTS, partName, glbInfo, GAME_MODEL_DIR, GAME_MODEL_INDEX, MODEL_DIR, MODEL_INDEX, modelDef, modelId, modelRole, RACE_BIKE, RACE_BIKE_YOUTH, RACE_RIDER, RIDER_SLOTS, SIDECAR_CREW, SIDECAR_MODEL, STAND_MODELS, STAND_SLOTS, TEXT_SLOTS, PADDOCK_STAND, PADDOCK_STAND_BIKE, BIKE_ON_STAND_LIFT, STAND_YOUTH_DESIGNS, materialSlot, type ModelEntry } from '../core/modModels';
 import type { SceneryDef } from '../core/trackParts';
 import { SIDECAR_CLASS } from '../core/sidecar';
 import { U } from './paddock';
 import { brandFromColour, MODELS } from './raceBike';
 
-// The models in public/mods/models/ (core/modModels.ts has the rules), loaded once when the game
-// starts and handed to the race view as copies. A model that fails its checks is listed on the
-// models page with why, and the game draws the built-in look instead; it never stops the game.
+// The game's own models (public/assets/models/) and anyone's own in public/mods/models/
+// (core/modModels.ts has the rules), loaded once when the game starts and handed to the race view
+// as copies; a model in the models folder replaces the game's own of the same name. A model that
+// fails its checks is listed on the models page with why, and is left out (the game's own, or a
+// plain box, shows instead); it never stops the game.
 
 export interface LoadedModel extends ModelEntry {
   /** The model in metres, Y up, as Blender exported it; null when it can't be used. */
   object: THREE.Group | null;
   /** Its animations, which scenery plays on a loop (RaceView.playLoops). */
   clips: THREE.AnimationClip[];
+  /** One of the game's own models (public/assets/models/), not from the models folder. */
+  game?: true;
 }
 
-const models = new Map<string, LoadedModel>();
+/** The game's own models, and the models folder's. */
+const gameModels = new Map<string, LoadedModel>();
+const mine = new Map<string, LoadedModel>();
+/** While set, the models folder is ignored: the models page's look at the game's own items (RaceView.builtInItem). */
+let gameOnly = false;
 
-/** Every file in the models folder, used or not, for the models page. */
-export function modelList(): LoadedModel[] {
-  return [...models.values()];
+/** Runs `f` seeing only the game's own models, not the models folder's. */
+export function withGameModels<T>(f: () => T): T {
+  const was = gameOnly;
+  gameOnly = true;
+  try {
+    return f();
+  } finally {
+    gameOnly = was;
+  }
 }
 
-/** The model to draw for this id, in grid units (as the race view builds in), or null to draw the built-in one. */
+/** The model in use for an id: the models folder's if it has a usable one, else the game's own. */
+function modelFor(id: string): LoadedModel | undefined {
+  const own = gameOnly ? undefined : mine.get(id);
+  return own?.object ? own : gameModels.get(id) ?? own;
+}
+
+/** Every file in the models folder, used or not, for the models page; with `game`, the game's own. */
+export function modelList(game = false): LoadedModel[] {
+  return [...(game ? gameModels : mine).values()];
+}
+
+/** Whether the game has a model of its own for this id. */
+export function hasGameModel(id: string): boolean {
+  return !!gameModels.get(id)?.object;
+}
+
+/** The model to draw for this id, in grid units (as the race view builds in), or null if there is none. */
 export function modModel(id: string): THREE.Group | null {
-  const m = models.get(id);
+  const m = modelFor(id);
   if (!m?.object) return null;
   const g = new THREE.Group();
   // SkeletonUtils' copy keeps a skinned (boned) model's bones its own, so each copy animates apart.
@@ -65,7 +95,7 @@ export interface FigurePart {
  * draw the game's own figure. The race view puts each on its joint (RaceView.fitFigure).
  */
 export function figureParts(id: string): Map<string, FigurePart> | null {
-  const m = models.get(id);
+  const m = modelFor(id);
   const names = FIGURE_PARTS[id];
   if (!m?.object || !names) return null;
   const root = m.object;
@@ -96,7 +126,7 @@ export function figureParts(id: string): Map<string, FigurePart> | null {
 
 /** Whether a moving figure's model has a part, such as a marshal's own Base. */
 export function figureHas(id: string, part: string): boolean {
-  const m = models.get(id);
+  const m = modelFor(id);
   const names = FIGURE_PARTS[id];
   if (!m?.object || !names) return false;
   let found = false;
@@ -283,14 +313,31 @@ export function standModel(variant: string, colour: number, dark: number): THREE
 }
 
 /**
- * Loads the models folder's files: every one is read and checked, and the good ones parsed. The
- * new items they make are returned, to add to the scenery list before mod tracks are read.
+ * Loads the game's own models, then the models folder's: every file is read and checked, and the
+ * good ones parsed. The new items the models folder's make are returned, to add to the scenery list
+ * before mod tracks are read.
  */
 export async function loadModModels(base: string, scenery: SceneryDef[]): Promise<SceneryDef[]> {
-  models.clear();
+  gameModels.clear();
+  mine.clear();
+  await loadFolder(base, GAME_MODEL_DIR, GAME_MODEL_INDEX, scenery, gameModels, true);
+  const added = await loadFolder(base, MODEL_DIR, MODEL_INDEX, scenery, mine, false);
+  // The 125s ride the youth bike scaled up to the race bike: check the pair comes out the right size (Boss, 1 Nov 2026).
+  const usable = (id: string) => (modelFor(id)?.object ? modelFor(id)!.info : null);
+  const youthBike = modelFor(RACE_BIKE_YOUTH);
+  if (youthBike?.object) {
+    youthBike.warnings = checkBikeSizes(usable(RACE_BIKE_YOUTH), usable(RACE_BIKE));
+    for (const w of youthBike.warnings) console.warn(`${youthBike.game ? GAME_MODEL_DIR : MODEL_DIR}${youthBike.file}: ${w}`);
+  }
+  for (const m of [...gameModels.values(), ...mine.values()]) if (m.problems.length) console.warn(`${m.game ? GAME_MODEL_DIR : MODEL_DIR}${m.file}: ${m.problems.join(' ')}`);
+  return added.sort((a, b) => a.id.localeCompare(b.id));
+}
+
+/** Reads one folder's models into `into`; the new items they make (never for the game's own). */
+async function loadFolder(base: string, dir: string, index: string, scenery: SceneryDef[], into: Map<string, LoadedModel>, game: boolean): Promise<SceneryDef[]> {
   let entries: ModelEntry[] = [];
   try {
-    const res = await fetch(`${base}${MODEL_INDEX}`, { cache: 'no-cache' });
+    const res = await fetch(`${base}${index}`, { cache: 'no-cache' });
     const list = res.ok ? ((await res.json()) as unknown) : [];
     entries = Array.isArray(list) ? (list as ModelEntry[]).filter((e) => e && typeof e.file === 'string' && !e.file.includes('/')) : [];
   } catch {
@@ -304,7 +351,7 @@ export async function loadModModels(base: string, scenery: SceneryDef[]): Promis
       let bytes: Uint8Array | null = null;
       let error: string | undefined;
       try {
-        const r = await fetch(`${base}${MODEL_DIR}${encodeURIComponent(e.file)}`, { cache: 'no-cache' });
+        const r = await fetch(`${base}${dir}${encodeURIComponent(e.file)}`, { cache: 'no-cache' });
         if (r.ok) bytes = new Uint8Array(await r.arrayBuffer());
         else error = `The file couldn't be read (${r.status}).`;
       } catch {
@@ -331,17 +378,9 @@ export async function loadModModels(base: string, scenery: SceneryDef[]): Promis
         }
       }
       const role = modelRole(id, scenery);
-      models.set(id, { ...e, id, role, info, bytes: bytes?.length ?? 0, problems, object, clips });
-      if (object && info && role === 'new') added.push(modelDef(id, info, U));
+      into.set(id, { ...e, id, role, info, bytes: bytes?.length ?? 0, problems, object, clips, ...(game ? { game: true as const } : {}) });
+      if (object && info && role === 'new' && !game) added.push(modelDef(id, info, U));
     }),
   );
-  // The 125s ride the youth bike scaled up to the race bike: check the pair comes out the right size (Boss, 1 Nov 2026).
-  const usable = (id: string) => (models.get(id)?.object ? models.get(id)!.info : null);
-  const youthBike = models.get(RACE_BIKE_YOUTH);
-  if (youthBike?.object) {
-    youthBike.warnings = checkBikeSizes(usable(RACE_BIKE_YOUTH), usable(RACE_BIKE));
-    for (const w of youthBike.warnings) console.warn(`mods/models/${youthBike.file}: ${w}`);
-  }
-  for (const m of models.values()) if (m.problems.length) console.warn(`mods/models/${m.file}: ${m.problems.join(' ')}`);
-  return added.sort((a, b) => a.id.localeCompare(b.id));
+  return added;
 }

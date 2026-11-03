@@ -48,7 +48,7 @@ describe('banner pictures', () => {
     for (const d of scenery.filter((x) => PICTURE_ITEMS.has(x.id))) {
       for (const variant of d.variants?.map(([v]) => v) ?? [undefined]) {
         const built = tracksideParts(d, { type: d.id, x: 0, y: 0, variant }, 1);
-        if (!built) continue; // built by the race view itself (banner, sponsor board, finish arch)
+        if (!built) continue; // the game's own model (public/assets/models), its words on its Text faces
         expect(built.labels.some((l) => l.picture && l.text === (d.text ?? '')), `${d.id} ${variant ?? ''}`).toBe(true);
         expect(built.labels.filter((l) => l.picture).every((l) => l.text === (d.text ?? ''))).toBe(true);
       }
