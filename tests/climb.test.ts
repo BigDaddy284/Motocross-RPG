@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CLIMB_COST, climbExtra, climbFactor } from '../src/core/climb';
 import { DEFAULT_HEIGHTS } from '../src/core/jumps';
-import { content, race } from './raceHelpers';
+import { content, race, units } from './raceHelpers';
 
 // Raised jumps (Boss, 2 Nov 2026): "If i raise a tabletop like stupidly high for testing. The much
 // longer face of the jump don't affect the riders in any way... It should be calculated in to a
@@ -47,8 +47,12 @@ describe('raised jumps and hills', () => {
         expect(p.dist).toBeGreaterThanOrEqual((last.get(p.id) ?? -Infinity) - 1e-9);
         last.set(p.id, p.dist);
       }
+      // Near every timing point when the simulation says (the marks between sections may be crossed
+      // a little off: a short section borrows time from its neighbours, and a held-up rider sits
+      // behind a wheel; Boss, 3 Nov 2026).
+      const u = units(raised);
       for (const tr of traces) for (const [id, times] of Object.entries(tr.times)) {
-        for (let i = 1; i < times.length; i++) expect(dir.poses(times[i]).find((q) => q.id === id)!.dist).toBeCloseTo(tr.marks[i], 6);
+        for (let i = 1; i < times.length; i++) expect(Math.abs(dir.poses(times[i]).find((q) => q.id === id)!.dist - tr.marks[i]) * u).toBeLessThan(12);
       }
     } finally {
       content.tracks.tracks.pop();

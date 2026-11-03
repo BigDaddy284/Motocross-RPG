@@ -905,9 +905,9 @@ export class RaceScene extends Phaser.Scene {
       this.btn(right + sideW / 2, dh - 144 - testH + 4 + 18, 'TEST: Win now', () => this.testWinNow(), sideW, 36);
     }
     // Zoom (Boss, 3 Nov 2026): a small binoculars button in the view's bottom-right corner cycles
-    // the race camera through ×2, ×3, ×4 and ×5, then back to the usual view. It shows no zoom
-    // level (Boss, 3 Nov 2026: "i dont care about it showing what zoom it's currently at").
-    const zooms = [1, 2, 3, 4, 5];
+    // the race camera through ×2 and ×3, then back to the usual view (×4 and ×5 dropped the same
+    // day). It shows no zoom level (Boss: "i dont care about it showing what zoom it's currently at").
+    const zooms = [1, 2, 3];
     let zi = 0;
     const zoomBtn = this.btn(16 + vw - 14 - 20, dh - 38 - 22, '', () => {
       zi = (zi + 1) % zooms.length;
