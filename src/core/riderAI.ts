@@ -561,9 +561,20 @@ export class RaceDirector {
     const at = this.mistakeAt(p, seg);
     let tau: number;
     let stopped = false;
+    // A slip (a small or big mistake) is ridden out slowly over a stretch of the section, not
+    // stood still for (Boss, 3 Nov 2026: no stopping and lining up round the track); a crash is
+    // down on the ground for its seconds. The slow stretch runs from the slip to 30% further on,
+    // or to the section's end when the slip is near it (on a jump's landing it is a stop).
+    const crashed = seg.mistake ? seg.mistake.outcome === 'minor_crash' || seg.mistake.outcome === 'serious_crash' : false;
+    const slipW = lost > 0 && !crashed ? Math.min(0.3, 1 - at) : 0;
+    let slowK = 1;
     if (s < at * ride) tau = s / ride;
-    else if (s < at * ride + lost) {
-      tau = at;
+    else if (s < at * ride + slipW * ride + lost) {
+      if (slipW > 0) {
+        // Through the slow stretch in its own time plus the time lost.
+        slowK = (slipW * ride) / (slipW * ride + lost);
+        tau = at + slipW * ((s - at * ride) / (slipW * ride + lost));
+      } else tau = at;
       stopped = true;
     } else tau = (s - lost) / ride;
     tau = clamp(tau, 0, 1);
@@ -584,10 +595,11 @@ export class RaceDirector {
     const shape = speedShape(v0 / V, v1 / V, c);
     let u = clamp(shape.at(tau), 0, 1);
     let dist = seg.d0 + u * (seg.d1 - seg.d0);
-    let speed = stopped ? 0 : Math.max(0, V * shape.speed(tau) * this.metres);
+    let speed = stopped && slipW === 0 ? 0 : Math.max(0, slowK * V * shape.speed(tau) * this.metres);
     // Held up: at their own pace until they reach the wheel of the rider who blocked them, then
     // behind it at that rider's speed, and on time at the section's end.
-    if (held > 0 && seg.blocked && depth < 6) {
+    // Not on the start straight or the first corner, where the field leaves the gate side by side.
+    if (held > 0 && seg.blocked && seg.si >= 0 && depth < 6) {
       const lead = this.segs.get(seg.blocked);
       const q = lead ? this.pose(seg.blocked, lead, t, true, depth + 1) : null;
       // The furthest back they can be and still reach the section's end on time, driving at up to
@@ -629,7 +641,7 @@ export class RaceDirector {
     const flight = this.flight(p, seg, list, lo);
     // Holding a wheelie across the whoops or rollers: the back wheel works over them, the front held up.
     const whoopWheelie = (sec.type === 'whoops' || sec.type === 'rollers') && !stopped && this.way(p, seg)?.name === 'wheelie' ? whoopLift(p, seg, u) : 0;
-    let { air, elev } = this.height(p, sec.type, sec.height, u, dist - Math.floor(dist), flight, stopped);
+    let { air, elev } = this.height(p, sec.type, sec.height, u, dist - Math.floor(dist), flight, stopped && slipW === 0);
     if (whoopWheelie > 0) air = Math.min(air, 0.02);
     if (air > 0.05 && state === 'riding') state = 'air';
     const pose: RiderPose = { id, dist, lane: clamp(lane, -1, 1), air, elev, flight, state, speed };
