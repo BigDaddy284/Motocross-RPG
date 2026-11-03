@@ -837,6 +837,29 @@ export class RaceView {
     return a * (1 - fz) + b * fz - 0.01;
   }
 
+  /**
+   * The height a scenery item stands at (Boss, 3 Nov 2026: "Is there a way to stop object sinking in
+   * the ground post earth transformation"): the highest ground under its footprint (`w` by `d` grid
+   * units, turned `rot` degrees), not just under its middle, so on a slope or raised ground no corner
+   * is buried. Sampled every grid unit or so across it.
+   */
+  footingAt(x: number, z: number, w: number, d: number, rot: number): number {
+    const a = (rot * Math.PI) / 180;
+    const ca = Math.cos(a);
+    const sa = Math.sin(a);
+    const nx = Math.max(2, Math.min(12, Math.ceil(w)));
+    const nz = Math.max(2, Math.min(12, Math.ceil(d)));
+    let top = this.terrainAt(x, z);
+    for (let i = 0; i <= nx; i++) {
+      for (let j = 0; j <= nz; j++) {
+        const u = (i / nx - 0.5) * w;
+        const v = (j / nz - 0.5) * d;
+        top = Math.max(top, this.terrainAt(x + u * ca - v * sa, z + u * sa + v * ca));
+      }
+    }
+    return top;
+  }
+
   /** The ground as one mesh, shaped by the terrain and painted with the editor's ground tiles. */
   private terrainMesh(): THREE.Mesh {
     const tw = this.gw + 2 * MARGIN + 1;
@@ -2324,7 +2347,7 @@ export class RaceView {
     const color = hex(it.color ?? def?.color, 0x888888);
     const text = it.text ?? def?.text ?? '';
     const g = new THREE.Group();
-    g.position.set(it.x, this.terrainAt(it.x, it.y), it.y);
+    g.position.set(it.x, this.footingAt(it.x, it.y, w, d, it.rot ?? 0), it.y);
     g.rotation.y = -(((it.rot ?? 0) * Math.PI) / 180);
     const add = (o: THREE.Object3D) => g.add(o);
     // Your own model for this item (world/modModels.ts): its size in metres at the item's default
