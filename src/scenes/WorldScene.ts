@@ -2151,7 +2151,7 @@ export class WorldScene extends Phaser.Scene {
       const trainer = this.storyTrainer(drill);
       if (!this.runStory({ use: drill.id, map: this.map.id, object: `${this.map.id}:drill:${drill.id}` }, trainer, onClose)) onClose();
     };
-    this.hud.openDrill(drill, { player: this.look(), coach, level }, () => {
+    this.hud.openDrill(drill, { player: this.look(), coach, level, bike: { model: modelFor(this.save.career.bike.class), brand: this.save.career.bike.brand } }, () => {
       rounds += 1;
       const ups = finishRound(services.content.skills, this.save.career.skills, drill);
       this.hud.showCareer(this.save.career, this.save.flags);

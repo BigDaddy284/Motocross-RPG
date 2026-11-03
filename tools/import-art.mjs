@@ -359,6 +359,10 @@ function copyCharacters() {
       act: useImage(path.join(ART, 'characters/player', `${pid}.act.png`)),
       // The push-up frames for the Fitness drill (up, down), when the art has them.
       ...(fs.existsSync(path.join(ART, 'characters/player', `${pid}.fit.png`)) ? { fit: useImage(path.join(ART, 'characters/player', `${pid}.fit.png`)) } : {}),
+      // The Area 2 and 3 drill frames (characters/tools/make_exercises.py): the bench press, and
+      // on the bike seated, in the attack position and soaked up low (Boss, 3 Nov 2026).
+      ...(fs.existsSync(path.join(ART, 'characters/player', `${pid}.lift.png`)) ? { lift: useImage(path.join(ART, 'characters/player', `${pid}.lift.png`)) } : {}),
+      ...(fs.existsSync(path.join(ART, 'characters/player', `${pid}.ride.png`)) ? { ride: useImage(path.join(ART, 'characters/player', `${pid}.ride.png`)) } : {}),
     };
   }
   return out;

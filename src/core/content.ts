@@ -107,8 +107,10 @@ export interface Manifest {
     rows: Facing[];
     walk: { columns: number; fps: number };
     act: { columns: string[]; idle_fps: number };
-    /** fit: the player's push-up frames (arms straight, then bent), side on at 96 by 64. */
-    sheets: Record<string, { name: string; walk: string; act: string; fit?: string }>;
+    /** fit: the player's push-up frames (arms straight, then bent), side on at 96 by 64. lift: the bench
+     * press (bar down, half way, up) at 96 by 64. ride: on the bike facing right at 128 by 128 (seated,
+     * attack, low), the adult bike's row then the youth bike's, laid over the bike-on-stand east picture. */
+    sheets: Record<string, { name: string; walk: string; act: string; fit?: string; lift?: string; ride?: string }>;
   };
   /** Van sheets by design id (tools/import-art.mjs). */
   vehicles?: Record<string, VanSheet>;
