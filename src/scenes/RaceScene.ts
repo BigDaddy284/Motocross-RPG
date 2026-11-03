@@ -14,7 +14,7 @@ import { challengeRuns, challengeWins, venueDays, venueWins } from '../core/reco
 import type { SaveData } from '../core/saves';
 import { services } from '../services';
 import { COLORS, textStyle } from '../ui/theme';
-import { button, panel, penMeter, type Button, type PenMeter } from '../ui/widgets';
+import { binocularsIcon, button, panel, penMeter, type Button, type PenMeter } from '../ui/widgets';
 import { directorFor, ROW_SIZE, type RaceDirector } from '../core/riderAI';
 import { isSidecarGate } from '../core/sidecar';
 import { isNoTurn, NO_TURN_GATES, SPRINT_QUEUE, startGeom } from '../core/trackGeom';
@@ -808,7 +808,7 @@ export class RaceScene extends Phaser.Scene {
     const right = dw - 16 - sideW;
     const vw = right - 14 - 16;
     // Room at the view's bottom-right corner for the zoom button (Boss, 3 Nov 2026).
-    this.skipX = 16 + vw - 14 - 110 - 96;
+    this.skipX = 16 + vw - 14 - 110 - 52;
     // Riders ride up to the start in the order they picked their gates.
     this.director = directorFor(sim, services.content.bikes, services.content.racing.messages, this.day?.pickOrder ?? this.sxRace?.riders);
     // The view keeps the 1280 × 720 layout's scale (900 wide), so a wider one shows more track, not bigger bikes.
@@ -904,15 +904,16 @@ export class RaceScene extends Phaser.Scene {
       // in any race, heat, qualifying or challenge.
       this.btn(right + sideW / 2, dh - 144 - testH + 4 + 18, 'TEST: Win now', () => this.testWinNow(), sideW, 36);
     }
-    // Zoom (Boss, 3 Nov 2026): a button in the view's bottom-right corner cycles the race camera
-    // through ×2, ×3, ×4 and ×5, then back to the usual view.
+    // Zoom (Boss, 3 Nov 2026): a small binoculars button in the view's bottom-right corner cycles
+    // the race camera through ×2, ×3, ×4 and ×5, then back to the usual view. It shows no zoom
+    // level (Boss, 3 Nov 2026: "i dont care about it showing what zoom it's currently at").
     const zooms = [1, 2, 3, 4, 5];
     let zi = 0;
-    const zoomBtn = this.btn(16 + vw - 14 - 40, dh - 38 - 26, 'Zoom ×1', () => {
+    const zoomBtn = this.btn(16 + vw - 14 - 20, dh - 38 - 22, '', () => {
       zi = (zi + 1) % zooms.length;
       this.view!.zoom = zooms[zi];
-      zoomBtn.setLabel(`Zoom ×${zooms[zi]}`);
-    }, 80, 36);
+    }, 36, 28);
+    zoomBtn.add(binocularsIcon(this, 0, 0));
     this.addLap(sim.nextLap());
     // A race opens with the start procedure: the line-up, then the board and the five-second
     // hold, all in negative race time up to the gate drop at 0 (riderAI lineUp, RaceView updateStart).

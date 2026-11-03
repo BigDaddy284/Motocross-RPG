@@ -41,6 +41,27 @@ export function button(scene: Phaser.Scene, x: number, y: number, label: string,
 }
 
 /**
+ * Binoculars drawn with shapes, about `w` wide, centred on (x, y): the race screen's zoom button
+ * (Boss, 3 Nov 2026).
+ */
+export function binocularsIcon(scene: Phaser.Scene, x: number, y: number, w = 24): Phaser.GameObjects.Graphics {
+  const g = scene.add.graphics({ x, y });
+  const u = w / 24;
+  g.fillStyle(COLORS.cream, 1);
+  // Two barrels (wider at the front), a bridge between them and the eyepieces on top.
+  g.fillRoundedRect(-12 * u, -2 * u, 10 * u, 10 * u, 3 * u);
+  g.fillRoundedRect(2 * u, -2 * u, 10 * u, 10 * u, 3 * u);
+  g.fillRect(-3 * u, -1 * u, 6 * u, 4 * u);
+  g.fillRoundedRect(-9 * u, -8 * u, 6 * u, 7 * u, 2 * u);
+  g.fillRoundedRect(3 * u, -8 * u, 6 * u, 7 * u, 2 * u);
+  // Dark lens glass.
+  g.fillStyle(COLORS.inkLine, 1);
+  g.fillCircle(-7 * u, 3 * u, 3 * u);
+  g.fillCircle(7 * u, 3 * u, 3 * u);
+  return g;
+}
+
+/**
  * A small gold trophy drawn with shapes, about `size` tall, centred on (x, y): marks where a
  * championship's next round is on the road menu (Boss, 2 Nov 2026).
  */
