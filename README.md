@@ -261,6 +261,10 @@ Markers come from `story.json` and the maps' doors and exits, so a new step need
 
 Wheels and tyres can't be repaired or sold to any shop (`consumables` in `shops.json`). Ride them until they hit 0% and break, then buy a new set. Buying and fitting a new set in the shop **trades in** the set on the bike for money off: the old set's new price × its condition, the full amount one grade up and a third less for each grade beyond, nothing from 4 grades up, and never more than half the new price (`tradeIn` in `src/core/shops.ts`; table in `alpha-v1.1/tyres/tyre-trade-in.md` in the project files). A set bought as a spare and fitted later at the garage still puts the old set in your bag. The scrapyard owner's repair errand no longer lends tyres.
 
+### Parts wear halved (Boss, 4 Nov 2026)
+
+Parts now last twice as far: every distance lifespan in `wear.lifespanKm` (`racing.json`) was doubled, from 100 km to 200 km for a top end, for example. The faster wear was used in early builds so its effects showed up quickly in testing. Crash damage and the small chance of a random breakage are unchanged.
+
 ### Driving fixes, track editor, buildings and the world map
 
 The driving controls and feel are unchanged (no driving or physics code was touched), Home Town's map file is byte-for-byte the same (pinned by a hash test), and the race-day camera stays fixed.

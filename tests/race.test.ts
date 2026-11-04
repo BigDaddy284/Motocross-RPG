@@ -160,9 +160,9 @@ describe('race simulation (Spec 10)', () => {
     expect(total(p.xp) / total(r.xp)).toBeLessThan(0.13);
     const before = career.bike.parts.top_end.condition;
     expect(p.playerBike!.parts.top_end.condition).toBeLessThan(before);
-    // 5 laps of about 1 km at 50cc (youth ×0.8) take about 4% off a 100 km top end.
-    expect(before - p.playerBike!.parts.top_end.condition).toBeGreaterThan(0.03);
-    expect(before - p.playerBike!.parts.top_end.condition).toBeLessThan(0.06);
+    // 5 laps of about 1 km at 50cc (youth ×0.8) take about 2% off a 200 km top end (wear halved; Boss, 4 Nov 2026).
+    expect(before - p.playerBike!.parts.top_end.condition).toBeGreaterThan(0.015);
+    expect(before - p.playerBike!.parts.top_end.condition).toBeLessThan(0.03);
     expect(career.bike.parts.top_end.condition).toBe(before); // the career's bike only changes when the ride is applied
   });
 
