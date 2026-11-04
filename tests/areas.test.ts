@@ -262,18 +262,25 @@ describe('Areas 3 to 8 (Areas 2 to 8 plan; Boss, 31 Oct 2026: placeholder towns,
       expect(currentStep(story, career)?.id).toBe(`a${a.n}_news`);
       const chain = story.chains!.find((c) => c.id === `area${a.n}`)!;
       for (const step of chain.steps) {
-        expect(matchStory(story, career, { talk: step.on.talk! })?.kind, `${a.name} ${step.id}`).toBe('ready');
-        expect(advanceStory(story, career, flags, items)).toBe(true);
+        // A step done at equipment (Beach Town's Brake works pass and agility ladder round; Boss, 3 Nov 2026) or by talking.
+        const ev = step.on.talk ? { talk: step.on.talk } : { use: step.on.use!, map: step.on.map!, object: step.id };
+        expect(matchStory(story, career, ev)?.kind, `${a.name} ${step.id}`).toBe('ready');
+        expect(advanceStory(story, career, flags, items, step.on.use ? step.id : undefined)).toBe(true);
       }
       expect(chainDone(story, career, `area${a.n}`)).toBe(true);
       expect(flags[`area${a.n}.intro_done`]).toBe(true);
     }
-    // Big Pete, the Rider Trainer in Beach Town, teaches whips and scrubs on the way (core/tricks.ts TRICKS_FLAG).
+    // Big Pete, the Rider Trainer in Beach Town, teaches whips and scrubs at the end of his own chain,
+    // after the intro (core/tricks.ts TRICKS_FLAG; tests/bigPete.test.ts plays it step by step).
     const career = fresh();
     const flags: Record<string, boolean> = { [areaFlag(3)]: true };
     career.story.step = story.steps.length;
-    openChains(story, career, flags);
-    for (let i = 0; i < 5; i++) advanceStory(story, career, flags, items);
+    expect(openChains(story, career, flags).map((c) => c.id)).toEqual(['area3', 'bigpete']);
+    const steps = ['area3', 'bigpete'].flatMap((id) => story.chains!.find((c) => c.id === id)!.steps);
+    for (const s of steps) {
+      expect(flags.rider_trainer_tricks, s.id).toBeUndefined();
+      advanceStory(story, career, flags, items);
+    }
     expect(flags.rider_trainer_tricks).toBe(true);
     expect(championships.championships.find((c) => c.id === 'area8.main')!.opens).toBeUndefined();
   });

@@ -883,7 +883,7 @@ export class WorldScene extends Phaser.Scene {
         marks.push({ kind: 'npc', x, y });
         points.push({ x, y: y - TILE, label: what });
       } else {
-        const objs = goalObjects(this.map, goal.action, career.story.used).map((o) => objectTiles(o, ts));
+        const objs = goalObjects(this.map, goal.action, career.story.used, services.content.training).map((o) => objectTiles(o, ts));
         marks.push(...objs.map((tiles): Mark => ({ kind: 'object', tiles })));
         points.push(...objs.map((tiles) => ({ ...middle(tiles), label: what })));
       }
@@ -1089,11 +1089,25 @@ export class WorldScene extends Phaser.Scene {
         const kept = r.kept ? ` The boss hands you a G${r.kept.grade} ${slotName(services.content.bikes, r.kept.slot)} from the batch: it's in your bag.` : '';
         this.endShift(shift.job.batch === 1 ? `${shift.job.name}: done and paid.` : `Batch done: ${shift.made} ${shift.job.product}s made.${kept}`);
         this.milestoneSave();
+        this.passStory(shift.job);
         return;
       }
       this.milestoneSave();
+      this.passStory(shift.job);
     }
     this.showShift();
+  }
+
+  /**
+   * A pass through the stations can be a story step (Beach Town's first pass at the Brake works; Boss,
+   * 3 Nov 2026): the step's use is the start object's action, done when a pass is finished, not when the
+   * shift starts.
+   */
+  private passStory(job: JobDef): void {
+    const start = this.map.objects.find((o) => o.name === job.start && typeof o.props.action === 'string');
+    if (!start) return;
+    const boss = services.content.npcs.find((n) => n.map === this.map.id && n.id.endsWith('works_boss'));
+    this.runStory({ use: String(start.props.action), map: this.map.id, object: `${this.map.id}:${start.name}:${start.x},${start.y}` }, boss?.name ?? '', () => this.player.idle(), () => {});
   }
 
   private showShift(): void {
@@ -2129,12 +2143,33 @@ export class WorldScene extends Phaser.Scene {
     const skill = services.content.skills.leads.flatMap((l) => l.children).find((c) => c.id === drill.skill);
     const coach = drill.npc ? services.content.npcs.find((n) => n.id === drill.npc)?.sprite : undefined;
     const level = childLevel(services.content.skills, this.save.career.skills, drill.skill);
-    this.hud.openDrill(drill, { player: this.look(), coach, level }, () => {
+    // A round finished can be a story step (Big Pete's lessons, the agility ladder; Boss, 3 Nov 2026):
+    // it plays when the drill is closed, as the drill's use of the spot.
+    let rounds = 0;
+    const closed = () => {
+      if (!rounds) return onClose();
+      const trainer = this.storyTrainer(drill);
+      if (!this.runStory({ use: drill.id, map: this.map.id, object: `${this.map.id}:drill:${drill.id}` }, trainer, onClose)) onClose();
+    };
+    this.hud.openDrill(drill, { player: this.look(), coach, level, bike: { model: modelFor(this.save.career.bike.class), brand: this.save.career.bike.brand } }, () => {
+      rounds += 1;
       const ups = finishRound(services.content.skills, this.save.career.skills, drill);
       this.hud.showCareer(this.save.career, this.save.flags);
       this.milestoneSave();
       return [`+${drill.xp} ${skill?.name ?? drill.skill} XP`, ...ups.map((u) => `Level up! ${u.name} is now level ${u.level}.`)];
-    }, onClose);
+    }, closed);
+  }
+
+  /** Who speaks a drill's story lines: the drill's coach, or whoever stands nearest the training spot (Big Pete by his sand track). */
+  private storyTrainer(drill: DrillDef): string {
+    const byNpc = drill.npc && services.content.npcs.find((n) => n.id === drill.npc);
+    if (byNpc) return byNpc.name;
+    const me = this.player.tile;
+    const near = this.npcs
+      .map((c) => ({ name: c.placement.npc.name, d: Math.hypot(c.placement.x - me.x, c.placement.y - me.y) }))
+      .filter((c) => c.d <= 8)
+      .sort((a, b) => a.d - b.d)[0];
+    return near?.name ?? '';
   }
 
   /** Handles a door or exit under the player. Returns true when the player is leaving the map. */

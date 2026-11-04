@@ -9,7 +9,9 @@ import { loadManifest, loadMaps, rawContent } from './helpers';
 
 export const content = checkContent(rawContent(), loadManifest(), loadMaps()).content!;
 export const units = (track: { path: Parameters<typeof lapGeom>[0] }) => lapGeom(track.path).total;
-export const JUMPY = new Set(['tabletop', 'double', 'step_up', 'triple', 'quad', 'step_down', 'step_on', 'step_on_two', 'step_on_three', 'on_off', 'single_over_table', 'table_over_single', 'wall_jump', 'ski_jump', 'bomb_hole', 'rhythm', 'whoops', 'rollers', 'dragon_back', 'braking_bumps']);
+// The enduro going lifts the bike too: it bucks over rocks and roots and the front lifts over logs
+// (riderAI.ts height), on the Area 2 and 3 enduros since Bog End and Shoreline were built (Boss, 3 Nov 2026).
+export const JUMPY = new Set(['tabletop', 'double', 'step_up', 'triple', 'quad', 'step_down', 'step_on', 'step_on_two', 'step_on_three', 'on_off', 'single_over_table', 'table_over_single', 'wall_jump', 'ski_jump', 'bomb_hole', 'rhythm', 'whoops', 'rollers', 'dragon_back', 'braking_bumps', 'rocks', 'roots', 'tyre_bed', 'logs', 'log_step', 'pipe', 'tyre_wall', 'log_stack']);
 
 /**
  * The first 15 CPU riders (the original local field), plus one rider on a worn-out bike with a

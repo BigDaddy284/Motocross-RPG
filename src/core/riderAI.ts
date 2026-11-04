@@ -1140,7 +1140,8 @@ export class RaceDirector {
       else if (type === 'rollers') air = 0.3 * h * (1 - p.skim) * Math.abs(Math.sin(u * Math.PI * 4));
       else if (type === 'braking_bumps') air = 0.15 * (1 - p.skim) * Math.abs(Math.sin(u * Math.PI * 14));
       // The bike bucks over rocks and roots, and the front wheel lifts over each log.
-      else if (type === 'rocks' || type === 'roots' || type === 'tyre_bed') air = 0.12 * (1 - 0.6 * p.skim) * Math.abs(Math.sin(u * Math.PI * (type === 'rocks' ? 17 : type === 'tyre_bed' ? 12 : 11) + p.seed * 9));
+      // The bucking fades in and out at the section's ends, so a rider is never off the ground on the line between it and the next.
+      else if (type === 'rocks' || type === 'roots' || type === 'tyre_bed') air = 0.12 * (1 - 0.6 * p.skim) * Math.min(1, u * 20, (1 - u) * 20) * Math.abs(Math.sin(u * Math.PI * (type === 'rocks' ? 17 : type === 'tyre_bed' ? 12 : 11) + p.seed * 9));
       else if (type === 'logs' || type === 'log_step' || type === 'pipe' || type === 'tyre_wall' || type === 'log_stack') air = 0.2 * h * sectionShape(type, Math.min(1, u + 0.02));
     }
     if (HILLS.has(type)) elev = h * (type === 'hill_climb' ? sectionShape(type, u) : Math.sin(Math.PI * u));

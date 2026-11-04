@@ -4,6 +4,7 @@ import type { Content } from './content';
 import { routeFor, routePlaces, townRoad } from './guides';
 import type { BakedMap, MapObject } from './mapTypes';
 import type { Travel } from './travel';
+import { drillsAtVenue, type TrainingData } from './training';
 
 // Tutorial markers (Boss, 28 Oct 2026): every step of the opening chain shows the player where to
 // go next. The step's NPC gets a "!" bubble and its equipment a glowing outline; on any other map,
@@ -74,13 +75,22 @@ export function storyGoal(content: Content, maps: Map<string, BakedMap>, career:
     return map && npc ? { kind: 'npc', map, npc: npc.id, name: npc.name } : null;
   }
   const action = step.on.use!;
-  const map = step.on.map ?? [...maps.values()].find((m) => m.objects.some((o) => o.props.action === action))?.id;
+  const map = step.on.map ?? [...maps.values()].find((m) => m.objects.some((o) => usedFor(o, action, content.training)))?.id;
   return map ? { kind: 'object', map, action } : null;
 }
 
+/**
+ * Whether a story step's use is done at this object: the object's own action, or a drill run at this
+ * training spot (a venue object, like Big Pete's sand track; Boss, 3 Nov 2026: Big Pete's storyline).
+ */
+export function usedFor(o: MapObject, action: string, training?: TrainingData): boolean {
+  if (o.props.action === action) return true;
+  return !!training && o.type === 'venue' && drillsAtVenue(training, String(o.props.venue)).some((d) => d.id === action);
+}
+
 /** The equipment on this map for the step: the ones not used yet, for a step that needs a few. */
-export function goalObjects(map: BakedMap, action: string, used: string[]): MapObject[] {
-  return map.objects.filter((o) => o.props.action === action && !used.includes(`${map.id}:${o.name}:${o.x},${o.y}`));
+export function goalObjects(map: BakedMap, action: string, used: string[], training?: TrainingData): MapObject[] {
+  return map.objects.filter((o) => usedFor(o, action, training) && !used.includes(`${map.id}:${o.name}:${o.x},${o.y}`));
 }
 
 /** Where each open door and exit on a map leads: a route leads to every place along it. */

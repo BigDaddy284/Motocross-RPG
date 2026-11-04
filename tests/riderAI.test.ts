@@ -163,5 +163,6 @@ describe('a rider held up behind one they could not pass (Boss, 3 Nov 2026)', ()
       }
     }
     expect(checked).toBeGreaterThan(0);
-  });
+    // Eight races checked every 0.05 s: about 6 s here, past vitest's 5 s default.
+  }, 30000);
 });
