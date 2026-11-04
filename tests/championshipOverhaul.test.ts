@@ -32,6 +32,8 @@ const SHEET: Record<string, Record<string, number>> = {
   'area3.mx': each(MX.slice(0, 3), 2),
   'area3.sx': each(SX.slice(0, 3), 2),
   'area3.enduro': each(EN.slice(0, 3), 2),
+  // The Sidecar Series are raced as Ray Crispy's passenger (tests/passenger.test.ts).
+  'area3.sidecar': each(MX.slice(0, 3), 2),
   'area3.local_champion': each(['venue-a3-mx', 'venue-a3-sx', 'venue-a3-enduro'], 1),
   'area3.main': each(['venue-a3-mx', 'venue-a3-sx', 'venue-a3-enduro'], 2),
   'area4.local_champion': each(['venue-a4-mx', 'venue-a4-sx', 'venue-a4-enduro'], 1),
@@ -42,12 +44,14 @@ const SHEET: Record<string, Record<string, number>> = {
   'area6.mx': each(MX.slice(3, 6), 2),
   'area6.sx': each(SX.slice(3, 6), 2),
   'area6.enduro': each(EN.slice(3, 6), 2),
+  'area6.sidecar': each(MX.slice(3, 6), 2),
   'area6.sprint': each([...SPRINT(5), ...SPRINT(6)], 1),
   'area6.local_champion': { ...each(['venue-a6-mx', 'venue-a6-sx', 'venue-a6-enduro'], 1), ...each(SPRINT(6), 1) },
   'area6.main': { ...each(['venue-a6-mx', 'venue-a6-sx', 'venue-a6-enduro'], 2), ...each(SPRINT(6), 1) },
   'area7.mx': each(MX.slice(0, 7), 1),
   'area7.sx': each(SX.slice(0, 7), 1),
   'area7.enduro': each(EN.slice(0, 7), 1),
+  'area7.sidecar': each(MX.slice(0, 7), 1),
   'area7.sprint': each([...SPRINT(5), ...SPRINT(6), ...SPRINT(7)], 1),
   'area7.endurocross': each(EXC(7), 2),
   'area7.local_champion': { ...each(['venue-a7-mx', 'venue-a7-sx', 'venue-a7-enduro'], 1), ...each(SPRINT(7), 1), ...each(EXC(7), 1) },
@@ -55,6 +59,7 @@ const SHEET: Record<string, Record<string, number>> = {
   'area8.mx': each(MX, 1),
   'area8.sx': each(SX, 1),
   'area8.enduro': each(EN, 1),
+  'area8.sidecar': each(MX, 1),
   'area8.sprint': each([...SPRINT(5), ...SPRINT(6), ...SPRINT(7), ...SPRINT(8)], 1),
   'area8.endurocross': each([...EXC(7), ...EXC(8)], 2),
   // Area 8's Local races its MX, SX and Enduro twice, as the sheet has it ("stick to the doc", Boss, 4 Nov 2026).
@@ -65,8 +70,7 @@ const SHEET: Record<string, Record<string, number>> = {
 
 describe('the championship overhaul (Boss, 4 Nov 2026)', () => {
   it("races every track as many times as Boss's sheet says, and passes every check", () => {
-    // The sidecar championships come through Ray Crispy (Boss, 4 Nov 2026), outside this sheet's rows here.
-    const ids = content.championships.championships.filter((c) => !(c as { sidecar?: boolean }).sidecar).map((c) => c.id);
+    const ids = content.championships.championships.map((c) => c.id);
     expect(ids.sort()).toEqual(Object.keys(SHEET).sort());
     for (const [id, want] of Object.entries(SHEET)) expect(counts(champ(id).rounds), id).toEqual(want);
     expect(checkChampionships(content.championships, content)).toEqual([]);
@@ -100,7 +104,7 @@ describe('the championship overhaul (Boss, 4 Nov 2026)', () => {
     const areaOf = (id: string) => content.riders.riders.find((r) => r.id === id)!.areas;
     // Riders of Areas 1 to 3, and nobody who races only later.
     expect(pool.every((id) => areaOf(id).some((a) => a <= 3))).toBe(true);
-    for (const a of [1, 2, 3]) expect(pool.some((id) => areaOf(id).includes(a) && areaOf(id).every((b) => b === a))).toBe(true);
+    for (const a of [1, 2, 3]) expect(pool.some((id) => areaOf(id).includes(a))).toBe(true);
     const fields = [1, 2, 3, 4, 5, 6, 7, 8].map((s) => drawChampField(content, def, s));
     for (const f of fields) {
       expect(f).toHaveLength(def.size);

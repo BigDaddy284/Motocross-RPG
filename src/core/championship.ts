@@ -3,6 +3,8 @@ import { areaFlag, roadFlag } from './areas';
 import { pence, wholePounds, type CareerState } from './career';
 import { mixSeed, seededRng } from './race';
 import { PLAYER_ID, fieldRider, type CpuRiderDef, type RaceContent, type RaceDay, type VenueDef } from './raceDay';
+import { passengerTrack } from './passenger';
+import { SIDECAR_CLASS, SIDECAR_FIELD } from './sidecar';
 import type { ContentError, Schema } from './validate';
 
 // Championships (Spec 12.5, 18.6): a series of rounds at the area's venues, each entered
@@ -55,6 +57,13 @@ export interface ChampionshipDef {
   milestone?: string;
   /** The area a first win opens the road to (Spec 18.2): sets road.N.won, and Manny sets area.N.open later. */
   opens?: number;
+  /**
+   * A sidecar championship (Boss, 4 Nov 2026): the player rides it as Ray Crispy's passenger
+   * (core/passenger.ts), entered and raced through Ray, never at the race office. Its rounds are the
+   * area's Motocross and Endurance venues; it runs alongside a solo championship, since it isn't the
+   * rider's own bike.
+   */
+  sidecar?: boolean;
 }
 
 export interface ChampionshipsData {
@@ -92,7 +101,7 @@ export const CHAMPIONSHIPS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['drawFrom', 'regulars', 'without', 'main', 'buff', 'needs', 'won', 'milestone', 'opens'],
+        optional: ['drawFrom', 'regulars', 'without', 'main', 'buff', 'needs', 'won', 'milestone', 'opens', 'sidecar'],
         fields: {
           id: { type: 'string', pattern: /^[a-z0-9_.-]+$/ },
           name: { type: 'string', nonEmpty: true },
@@ -118,6 +127,7 @@ export const CHAMPIONSHIPS_SCHEMA: Schema = {
           won: { type: 'string', nonEmpty: true },
           milestone: { type: 'string', nonEmpty: true },
           opens: { type: 'number', integer: true, min: 2, max: 8 },
+          sidecar: { type: 'boolean' },
         },
       },
     },
@@ -163,8 +173,15 @@ export function checkChampionships(data: ChampionshipsData, rc: Pick<RaceContent
       const venue = rc.tracks.venues.find((x) => x.id === v);
       if (!venue) err(`rounds[${j}]`, `no venue "${v}"`);
       else if (!venue.track || venue.practiceOnly || venue.locked) err(`rounds[${j}]`, `${venue.name} has no race day to hold a round`);
-      else if (!classAtLeast(rc.bikes, c.class, venue.class ?? rc.bikes.classes[0].id)) err(`rounds[${j}]`, `${venue.name} races ${venue.class}, bigger than ${c.class}`);
+      else if (c.sidecar) {
+        if (!passengerTrack(rc.tracks.tracks.find((t) => t.id === venue.track) ?? {})) err(`rounds[${j}]`, `${venue.name} isn't a Motocross or Endurance track, so sidecars can't race there`);
+      } else if (!classAtLeast(rc.bikes, c.class, venue.class ?? rc.bikes.classes[0].id)) err(`rounds[${j}]`, `${venue.name} races ${venue.class}, bigger than ${c.class}`);
     });
+    if (c.sidecar) {
+      if (c.class !== SIDECAR_CLASS) err('class', `a sidecar championship races the ${SIDECAR_CLASS} class, not ${c.class}`);
+      if (c.size > SIDECAR_FIELD - 1) err('size', `${c.size} riders, but a sidecar start holds ${SIDECAR_FIELD} outfits with yours`);
+      if (c.milestone || c.opens) err(c.milestone ? 'milestone' : 'opens', 'a sidecar championship opens no class or area');
+    }
   });
   return errors;
 }
@@ -247,7 +264,8 @@ export function champProblem(rc: Pick<RaceContent, 'tracks' | 'bikes'>, def: Cha
  */
 export function otherActive(data: Pick<ChampionshipsData, 'championships'>, career: CareerState, def?: ChampionshipDef): ChampionshipDef | null {
   const active = career.champs?.active ?? {};
-  return data.championships.find((d) => d.id !== def?.id && active[d.id]) ?? null;
+  // A sidecar championship runs alongside a solo one (ChampionshipDef.sidecar): one of each at a time.
+  return data.championships.find((d) => d.id !== def?.id && active[d.id] && (!def || !!d.sidecar === !!def.sidecar)) ?? null;
 }
 
 /**

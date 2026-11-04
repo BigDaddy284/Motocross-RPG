@@ -1,5 +1,5 @@
 {
-  "note": "Championships (Spec 12.5, 18.6). Rounds are venues, raced in this order, each entered separately at its race office. size is the CPU riders drawn once when you enter, from the field's pool (its regulars and this championship's first), who race every round. entryTimes and purseTimes multiply the class entry and the prize money (Spec 14.2 tiers). There is no qualifying (Boss, 2 Nov 2026): moto 1 gate picks go in a random order, moto 2 in moto 1 finishing order. rewards are by final position: money in pounds, a flag to set, what it is called, and its picture (under public/assets). replay is the XP and purse share for a championship you have already won (Round 125). needs are the flags that open it. milestone is the class the championship is the milestone for (Spec 18.3): its first win sets the flag milestone.<class>, and the new bike is collected at the class dealer (shops.json). main is the rider to beat, raced as they are and the best in it on skill; every other CPU rider is buff better (0.1: 10% higher skills and bike condition) (Boss, 28 Oct 2026: Louis Jonez is the Local Champion, Dean Marsh the placeholder Area 1 champion). without are pool riders kept out, field regulars too. Reward money is provisional. drawFrom (Boss, 4 Nov 2026): the type championships that open with each area's story (MX, SX, Enduro, Sprint Enduro and EnduroCross Series) draw their riders at random from every area open by then, with no regulars and no champion to beat; they race at their own class or bigger (the rider's), and a round can be any track type and any smaller class's venue, on one points table. The Area Championships take bike-part names (Boss, 4 Nov 2026: \"Sprocket Cup to Sprocket Cup\"). Legends: every MX track in area order, then every SX track, after the Crankshaft Cup.",
+  "note": "Championships (Spec 12.5, 18.6). Rounds are venues, raced in this order, each entered separately at its race office. size is the CPU riders drawn once when you enter, from the field's pool (its regulars and this championship's first), who race every round. entryTimes and purseTimes multiply the class entry and the prize money (Spec 14.2 tiers). There is no qualifying (Boss, 2 Nov 2026): moto 1 gate picks go in a random order, moto 2 in moto 1 finishing order. rewards are by final position: money in pounds, a flag to set, what it is called, and its picture (under public/assets). replay is the XP and purse share for a championship you have already won (Round 125). needs are the flags that open it. milestone is the class the championship is the milestone for (Spec 18.3): its first win sets the flag milestone.<class>, and the new bike is collected at the class dealer (shops.json). main is the rider to beat, raced as they are and the best in it on skill; every other CPU rider is buff better (0.1: 10% higher skills and bike condition) (Boss, 28 Oct 2026: Louis Jonez is the Local Champion, Dean Marsh the placeholder Area 1 champion). without are pool riders kept out, field regulars too. Reward money is provisional. drawFrom (Boss, 4 Nov 2026): the type championships that open with each area's story (MX, SX, Enduro, Sprint Enduro and EnduroCross Series) draw their riders at random from every area open by then, with no regulars and no champion to beat; they race at their own class or bigger (the rider's), and a round can be any track type and any smaller class's venue, on one points table. The Area Championships take bike-part names (Boss, 4 Nov 2026: \"Sprocket Cup to Sprocket Cup\"). Legends: every MX track in area order, then every SX track, after the Crankshaft Cup. sidecar (Boss, 4 Nov 2026): raced as Ray Crispy's passenger and entered through him, never at the race office. The four Sidecar Series from Boss's sheet (Areas 1 to 3 MX twice from Area 3's story, Areas 4 to 6 twice from Area 6's, then every MX track to Area 7 and to Area 8) replace the one-an-area sidecar championships (Boss, 4 Nov 2026); their reward money is already the passenger's half.",
   "championships": [
     {
       "id": "area1.local_champion",
@@ -154,6 +154,28 @@
         { "money": 250 }
       ],
       "replay": 0.5
+    },
+    {
+      "id": "area3.sidecar",
+      "name": "Beach Town Sidecar Series",
+      "short": "Beach Town Sidecars",
+      "class": "sidecar",
+      "field": "area3.local",
+      "drawFrom": ["area1.local", "area2.local", "area3.local"],
+      "size": 7,
+      "buff": 0.05,
+      "rounds": ["venue-farmland", "venue-a2-mx", "venue-a3-mx", "venue-farmland", "venue-a2-mx", "venue-a3-mx"],
+      "entryTimes": 1.5,
+      "purseTimes": 1.8,
+      "needs": ["met.ray", "area3.intro_done"],
+      "rewards": [
+        { "money": 500, "flag": "trophy.area3.sidecar", "title": "the Beach Town Sidecar Series trophy" },
+        { "money": 250 },
+        { "money": 125 }
+      ],
+      "replay": 0.5,
+      "won": "You and Ray Crispy win the Beach Town Sidecar Series! Ray shares the prize with you, and his passenger seat has a winner in it at last.",
+      "sidecar": true
     },
     {
       "id": "area3.local_champion",
@@ -377,6 +399,28 @@
       "replay": 0.5
     },
     {
+      "id": "area6.sidecar",
+      "name": "Highlands Sidecar Series",
+      "short": "Highlands Sidecars",
+      "class": "sidecar",
+      "field": "area6.local",
+      "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local"],
+      "size": 7,
+      "buff": 0.05,
+      "rounds": ["venue-a4-mx", "venue-a5-mx", "venue-a6-mx", "venue-a4-mx", "venue-a5-mx", "venue-a6-mx"],
+      "entryTimes": 1.5,
+      "purseTimes": 1.8,
+      "needs": ["met.ray", "area6.intro_done"],
+      "rewards": [
+        { "money": 2000, "flag": "trophy.area6.sidecar", "title": "the Highlands Sidecar Series trophy" },
+        { "money": 1000 },
+        { "money": 500 }
+      ],
+      "replay": 0.5,
+      "won": "You and Ray Crispy win the Highlands Sidecar Series! Ray shares the prize with you, and his passenger seat has a winner in it at last.",
+      "sidecar": true
+    },
+    {
       "id": "area6.sprint",
       "name": "Highlands Sprint Enduro Series",
       "short": "Highlands Sprint Enduro",
@@ -502,6 +546,28 @@
         { "money": 1600 }
       ],
       "replay": 0.5
+    },
+    {
+      "id": "area7.sidecar",
+      "name": "The City Sidecar Series",
+      "short": "The City Sidecars",
+      "class": "sidecar",
+      "field": "area7.local",
+      "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local", "area7.local"],
+      "size": 7,
+      "buff": 0.05,
+      "rounds": ["venue-farmland", "venue-a2-mx", "venue-a3-mx", "venue-a4-mx", "venue-a5-mx", "venue-a6-mx", "venue-a7-mx"],
+      "entryTimes": 1.5,
+      "purseTimes": 1.8,
+      "needs": ["met.ray", "area7.intro_done"],
+      "rewards": [
+        { "money": 3200, "flag": "trophy.area7.sidecar", "title": "the The City Sidecar Series trophy" },
+        { "money": 1600 },
+        { "money": 800 }
+      ],
+      "replay": 0.5,
+      "won": "You and Ray Crispy win the The City Sidecar Series! Ray shares the prize with you, and his passenger seat has a winner in it at last.",
+      "sidecar": true
     },
     {
       "id": "area7.sprint",
@@ -649,6 +715,28 @@
         { "money": 2500 }
       ],
       "replay": 0.5
+    },
+    {
+      "id": "area8.sidecar",
+      "name": "Capital Sidecar Series",
+      "short": "Capital Sidecars",
+      "class": "sidecar",
+      "field": "area8.local",
+      "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local", "area7.local", "area8.local"],
+      "size": 7,
+      "buff": 0.05,
+      "rounds": ["venue-farmland", "venue-a2-mx", "venue-a3-mx", "venue-a4-mx", "venue-a5-mx", "venue-a6-mx", "venue-a7-mx", "venue-a8-mx"],
+      "entryTimes": 1.5,
+      "purseTimes": 1.8,
+      "needs": ["met.ray", "area8.intro_done"],
+      "rewards": [
+        { "money": 5000, "flag": "trophy.area8.sidecar", "title": "the Capital Sidecar Series trophy" },
+        { "money": 2500 },
+        { "money": 1250 }
+      ],
+      "replay": 0.5,
+      "won": "You and Ray Crispy win the Capital Sidecar Series! Ray shares the prize with you, and his passenger seat has a winner in it at last.",
+      "sidecar": true
     },
     {
       "id": "area8.sprint",
