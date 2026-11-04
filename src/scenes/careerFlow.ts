@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { newCareerState, pence } from '../core/career';
+import { applyDevMaxStart, DEV_MAX_START } from '../core/devBuild';
 import type { SaveData } from '../core/saves';
 import { spawnTile } from '../core/travel';
 import { CAREER_SLOT, services } from '../services';
@@ -58,6 +59,7 @@ export function newCareer(scene: Phaser.Scene, pick: { look: string; name: strin
     driving: false,
   };
   if (pick.name.toLowerCase() === TEST_MONEY_NAME) data.career.money = pence(TEST_MONEY); // TEST ONLY, REMOVE BEFORE RELEASE
+  if (DEV_MAX_START) applyDevMaxStart(services.content.skills, data.career); // DEV ONLY, v2.1DevOnly build
   const saved = services.saves.write(CAREER_SLOT, data);
   scene.scene.start('world', { save: saved, intro: true });
 }
