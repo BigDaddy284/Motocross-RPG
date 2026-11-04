@@ -42,6 +42,7 @@ export const REPS_WORDS: Partial<Record<DrillScene, { count: string; finish: (go
   pushups: { count: 'Good reps', finish: (g, t) => `${g} good reps out of ${t}.` },
   bench: { count: 'Clean lifts', finish: (g, t) => `${g} clean lifts out of ${t}.` },
   attack: { count: 'Bumps cleared', finish: (g, t) => `${g} bumps cleared in the attack position, out of ${t}.` },
+  yoga: { count: 'Poses held', finish: (g, t) => `${g} poses held on the breath, out of ${t}.` },
 };
 
 export interface ReactWords {
@@ -81,6 +82,24 @@ export const REACT_WORDS: Partial<Record<DrillScene, ReactWords>> = {
     pops: ['Sent it!', 'Cased', 'Overjumped'],
     finish: (g, n, j) => `${g} clean jumps out of ${n}${j ? `, ${j} cased` : ''}.`,
   },
+  roots: {
+    tally: 'Roots cleared',
+    good: 'Light front, over the root!',
+    jumped: 'Too early: deflected off it',
+    slow: 'Late: stalled in the rut',
+    asleep: 'Hit the root square',
+    pops: ['Over!', 'Deflected', 'Stalled'],
+    finish: (g, n, j) => `${g} roots cleared out of ${n}${j ? `, ${j} deflected` : ''}.`,
+  },
+  rocks: {
+    tally: 'Rocks cleared',
+    good: 'Front up, over the rock!',
+    jumped: 'Too early: stalled on the face',
+    slow: 'Late: bashed the bash plate',
+    asleep: 'Ploughed into the rock',
+    pops: ['Over!', 'Stalled', 'Bash!'],
+    finish: (g, n, j) => `${g} rocks cleared out of ${n}${j ? `, ${j} stalled` : ''}.`,
+  },
 };
 
 export const PACE_WORDS: Partial<Record<DrillScene, { unit: [string, string]; on: string; fast: string; slow: string }>> = {
@@ -88,6 +107,9 @@ export const PACE_WORDS: Partial<Record<DrillScene, { unit: [string, string]; on
   ladder: { unit: ['run', 'runs'], on: 'Quick feet', fast: 'Too fast, you will trip', slow: 'Too slow, quicken up' },
   cones: { unit: ['run', 'runs'], on: 'Braking right', fast: 'Too hot into the cone', slow: 'Too slow, carry speed' },
   whoops: { unit: ['section', 'sections'], on: 'Skimming', fast: 'Too fast, it is bucking', slow: 'Too slow, the wheel drops in' },
+  berm: { unit: ['corner pair', 'corner pairs'], on: 'Carrying speed', fast: 'Too hot, running wide', slow: 'Too slow, it bogs in the berm' },
+  rowing: { unit: ['split', 'splits'], on: 'Stroke rate on', fast: 'Too fast, you will fade', slow: 'Too slow, pull harder' },
+  shadow: { unit: ['pass', 'passes'], on: 'Right on the wheel', fast: 'Too close, back off', slow: 'Dropping back, close up' },
 };
 
 // ---- the rider on the bike, side on ----
@@ -168,6 +190,7 @@ const HILL = 0x6f9a52;
 export function repsPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who: DrillWho, kind: DrillScene): RepsPicture {
   if (kind === 'bench') return benchPicture(scene, vis, who);
   if (kind === 'attack') return attackPicture(scene, vis, who);
+  if (kind === 'yoga') return yogaPicture(scene, vis, who);
   return pushupPicture(scene, vis, who);
 }
 
@@ -309,11 +332,74 @@ function attackPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, w
   };
 }
 
+/** Forest Town's woods behind a picture: sky, a far line of pines and nearer trunks (Area 4). */
+function woods(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, ground: number): void {
+  vis.add(scene.add.rectangle(0, -10, 366, 216, 0xb7d3c6));
+  const g = scene.add.graphics();
+  // Far pines, then nearer and darker ones.
+  for (const [col, y0, step, tall] of [[0x5f8a6a, 30, 22, 70], [0x3f6b4a, 46, 30, 96]] as const) {
+    g.fillStyle(col);
+    for (let x = -183 + step * 0.7; x < 183 - step * 0.7; x += step) {
+      const h = tall * (0.75 + 0.25 * Math.sin(x * 1.7));
+      g.fillTriangle(x - step * 0.7, y0, x, y0 - h, x + step * 0.7, y0);
+    }
+    g.fillRect(-183, y0, 366, ground - y0 + 2);
+  }
+  // A few trunks in front.
+  for (const x of [-140, -90, 112, 142]) {
+    g.fillStyle(0x4a3524).fillRect(x - 5, -118, 10, ground + 118);
+    g.fillStyle(0x2f4d33).fillTriangle(x - 34, -40, x, -118, x + 34, -40).fillTriangle(x - 40, 0, x, -80, x + 40, 0);
+  }
+  vis.add(g);
+}
+
+/**
+ * Yoga on the deck by Forest Town's pond: the rider flows mountain, warrior, seated. A held pose
+ * steps to the next one and breathes; a miss wobbles and stays.
+ */
+function yogaPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who: DrillWho): RepsPicture {
+  woods(scene, vis, 40);
+  const g = scene.add.graphics();
+  // The pond behind, the deck's boards and a mat.
+  g.fillStyle(0x4f8fa8).fillEllipse(-10, 46, 346, 26);
+  g.fillStyle(0xb98b58).fillRect(-183, 52, 366, 46);
+  g.lineStyle(1, 0x8c6438);
+  for (let y = 58; y < 98; y += 8) g.lineBetween(-183, y, 183, y);
+  for (let x = -170; x < 183; x += 60) g.lineBetween(x, 52, x, 98);
+  g.fillStyle(0x6a3d8a).fillRoundedRect(-90, 66, 180, 10, 3);
+  vis.add(g);
+  coachBy(scene, vis, who, 140, 70, 'left');
+  const key = `chr:${who.player}:yoga`;
+  const X = -10;
+  const Y = 74;
+  const body = scene.textures.exists(key) ? scene.add.sprite(X, Y, key, 0).setOrigin(0.5, 1).setScale(2.3) : null;
+  if (body) vis.add(body);
+  let pose = 0;
+  return {
+    rep(ok) {
+      if (!body?.active) return;
+      scene.tweens.killTweensOf(body);
+      body.setRotation(0).setPosition(X, Y).setScale(2.3);
+      if (ok) {
+        // Into the next pose, and a slow breath in it.
+        pose = (pose + 1) % 3;
+        body.setFrame(pose);
+        scene.tweens.add({ targets: body, scaleY: 2.37, duration: 260, yoyo: true, ease: 'Sine.easeInOut' });
+      } else {
+        // Lost the balance: a wobble about the feet, and the pose stays.
+        scene.tweens.add({ targets: body, rotation: 0.09, duration: 70, yoyo: true, repeat: 3, ease: 'Sine.easeInOut' });
+      }
+    },
+  };
+}
+
 // ---- react ----
 
 export function reactPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who: DrillWho, kind: DrillScene): ReactPicture {
   if (kind === 'ruts') return rutPicture(scene, vis, who);
   if (kind === 'jump') return jumpPicture(scene, vis, who);
+  if (kind === 'roots') return obstaclePicture(scene, vis, who, 'roots');
+  if (kind === 'rocks') return obstaclePicture(scene, vis, who, 'rocks');
   return gatePicture(scene, vis);
 }
 
@@ -516,12 +602,142 @@ function jumpPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who
   };
 }
 
+/**
+ * A root across the trail in Forest Town's woods, or a rock in Western Works' quarry, coming in to
+ * the front wheel; the press lifts the front at the moment it meets it. Good, the front lifts and
+ * the bike rolls over; early, the front comes down onto it (deflects off the root, stalls on the
+ * rock's face); late, the root stops the bike in its rut, or the rock bashes the bash plate.
+ */
+function obstaclePicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who: DrillWho, kind: 'roots' | 'rocks'): ReactPicture {
+  const BASE = 70;
+  const rocky = kind === 'rocks';
+  if (rocky) quarry(scene, vis, BASE);
+  else woods(scene, vis, BASE);
+  const TALL = rocky ? 24 : 10;
+  const WIDE = rocky ? 34 : 18;
+  const back = scene.add.graphics();
+  vis.add(back);
+  coachBy(scene, vis, who, 160, BASE - 2, 'left');
+  const r = rideOn(scene, vis, who, RIDER_X, BASE);
+  const fx = scene.add.graphics();
+  vis.add(fx);
+  const wheelAt = RIDER_X + WHEEL_X * RIDE_SCALE;
+  let since = -99999;
+  let how: ReactOutcome | null = null;
+  let t = 0;
+  // Once something goes wrong the ground stops rolling under the bike for a moment.
+  let held = 0;
+  const at = () => wheelAt - since * ROLL + held;
+  const h = (x: number) => {
+    const u = (x - at()) / WIDE;
+    if (Math.abs(u) > 1) return 0;
+    return rocky ? TALL * Math.sqrt(1 - u * u) * (u < 0 ? 1 : 0.85) : TALL * Math.cos((u * Math.PI) / 2);
+  };
+  const draw = () => {
+    back.clear();
+    const a = at();
+    const ground = rocky ? 0x8d8a80 : 0x6b4f33;
+    const edge = rocky ? 0x5c5a54 : 0x3e2c1c;
+    back.fillStyle(ground).fillRect(-185, BASE, 370, 100 - BASE);
+    back.fillStyle(rocky ? 0x76736a : 0x553e28).fillRect(-185, BASE + 14, 370, 100 - BASE - 14);
+    back.lineStyle(3, edge).lineBetween(-185, BASE, 185, BASE);
+    if (rocky) {
+      // Gravel going by, and the rock itself with a lighter top.
+      back.fillStyle(0x6b685f);
+      for (let x = -185 - ((since * ROLL) % 23); x < 185; x += 23) back.fillRect(x, BASE + 6 + ((x * 7) % 5), 4, 3);
+      if (a > -200 && a < 200) {
+        const pts: Phaser.Types.Math.Vector2Like[] = [];
+        for (let x = a - WIDE; x <= a + WIDE; x += 2) pts.push({ x, y: BASE - h(x) });
+        pts.push({ x: a + WIDE, y: BASE + 4 }, { x: a - WIDE, y: BASE + 4 });
+        back.fillStyle(0x9e9a90).fillPoints(pts, true);
+        back.fillStyle(0xbdb9ae).fillEllipse(a - 4, BASE - TALL + 4, WIDE, 6);
+        back.lineStyle(2, 0x55524b).strokePoints(pts, true);
+      }
+    } else {
+      // Leaf litter and the trail's rut, and the root crossing it with a knot at either end.
+      back.fillStyle(0x8a6a2f);
+      for (let x = -185 - ((since * ROLL) % 17); x < 185; x += 17) back.fillRect(x, BASE + 4 + ((x * 5) % 7), 5, 2);
+      back.fillStyle(0x3e2a18).fillRect(-185, BASE - 4, 370, 5);
+      if (a > -200 && a < 200) {
+        back.fillStyle(0x7a5532).fillEllipse(a, BASE - TALL / 2, WIDE * 2, TALL + 4);
+        back.fillStyle(0x9c7448).fillEllipse(a - 3, BASE - TALL + 2, WIDE, 4);
+        back.fillStyle(0x5e3f22).fillCircle(a - WIDE - 4, BASE + 6, 4).fillCircle(a + WIDE + 3, BASE + 2, 3);
+      }
+    }
+  };
+  const level = () => {
+    const xf = r.c.x + WHEEL_X * RIDE_SCALE;
+    const xr = r.c.x - WHEEL_X * RIDE_SCALE;
+    return { y: BASE - Math.max(h(xf), h(xr)), rot: Math.atan2(h(xr) - h(xf), xf - xr) };
+  };
+  return {
+    reset(hold) {
+      since = -hold;
+      how = null;
+      t = 0;
+      held = 0;
+      r.c.setRotation(0).setY(BASE).setX(RIDER_X);
+      r.pose(0);
+      fx.clear();
+    },
+    tick(dt) {
+      since += dt;
+      t += dt;
+      fx.clear();
+      if (how === 'good') {
+        // Front light: a wheelie over it, and the back wheel rolls through.
+        const lift = Math.max(0, Math.sin(Math.min(1, t / 520) * Math.PI));
+        const l = level();
+        r.c.y = l.y - 4 * lift;
+        r.c.rotation = -0.3 * lift + l.rot * (1 - lift);
+        r.pose(1);
+      } else if (how === 'jumped') {
+        // Early: the front comes down onto it and kicks off sideways (root) or stops (rock).
+        const k = Math.max(0, 1 - t / 600);
+        if (rocky && t < 600) held += dt * ROLL;
+        const l = level();
+        r.c.y = l.y;
+        r.c.rotation = l.rot + (rocky ? 0.12 * k : 0.2 * k * Math.sin(t / 45));
+        r.c.x = RIDER_X + (rocky ? 0 : 6 * k * Math.sin(t / 70));
+        r.pose(2);
+      } else if (how === 'slow' || how === 'asleep') {
+        // Late: the bike stops dead at it, nose down, then bumps over.
+        const stop = t < 700;
+        if (stop) held += dt * ROLL;
+        const k = Math.max(0, 1 - t / 700);
+        const l = level();
+        r.c.y = l.y + (rocky ? 2 * k * Math.sin(t / 25) : 0);
+        r.c.rotation = l.rot + 0.1 * k;
+        r.pose(how === 'slow' ? 2 : 0);
+        if (rocky && t < 260) {
+          // Sparks off the bash plate.
+          fx.fillStyle(0xffd060);
+          for (let i = 0; i < 6; i++) fx.fillCircle(wheelAt - 18 - i * 5, BASE - 4 - ((i * 11) % 14) - (t / 20) * (i % 3), 2);
+        }
+      } else {
+        const l = level();
+        r.c.y = l.y;
+        r.c.rotation = l.rot;
+        r.pose(0);
+      }
+      draw();
+    },
+    press(o) {
+      how = o;
+      t = 0;
+    },
+  };
+}
+
 // ---- pace ----
 
 export function pacePicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who: DrillWho, kind: DrillScene): PacePicture {
   if (kind === 'ladder') return ladderPicture(scene, vis, who);
   if (kind === 'cones') return conesPicture(scene, vis, who);
   if (kind === 'whoops') return whoopsPicture(scene, vis, who);
+  if (kind === 'berm') return bermPicture(scene, vis, who);
+  if (kind === 'rowing') return rowingPicture(scene, vis, who);
+  if (kind === 'shadow') return shadowPicture(scene, vis, who);
   return trackPicture(scene, vis, who);
 }
 
@@ -703,6 +919,209 @@ function whoopsPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, w
         spray.fillStyle(0xf0dca0, 0.8);
         for (let i = 0; i < 5; i++) spray.fillCircle(xr - 10 - i * 8 - (s % 8), r.c.y - 4 - ((i * 7) % 14), 2 + (i % 3));
       }
+    },
+  };
+}
+
+
+/** Western Works' quarry behind a picture: sky, cut stone faces in steps, and the works' chimneys (Area 5). */
+function quarry(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, ground: number): void {
+  vis.add(scene.add.rectangle(0, -10, 366, 216, 0xbfc8cf));
+  const g = scene.add.graphics();
+  // Chimneys of the works far off.
+  g.fillStyle(0x8a7f78).fillRect(100, -90, 10, 70).fillRect(126, -76, 8, 56);
+  g.fillStyle(0xd8dcdf, 0.8).fillCircle(106, -98, 8).fillCircle(116, -108, 10).fillCircle(130, -84, 6);
+  // The quarry's stepped faces.
+  const steps: [number, number][] = [[-30, 0xa8a094], [4, 0x989083], [30, 0x8a8276]];
+  for (const [y, col] of steps) {
+    g.fillStyle(col).fillRect(-183, y, 366, ground - y + 2);
+    g.lineStyle(1, 0x6f685e);
+    for (let x = -183; x < 183; x += 38) g.lineBetween(x + ((y * 3) % 19), y + 2, x + ((y * 3) % 19) + 6, Math.min(ground, y + 28));
+    g.lineStyle(2, 0xc4bdb0).lineBetween(-183, y, 183, y);
+  }
+  vis.add(g);
+}
+
+/**
+ * Berm and flat corner, side on in Forest Town's yard: a banked berm and a flat turn marked by a
+ * flag come by in turn. On pace the rider rides up the berm's face stood up and roosts out of it,
+ * and brakes square for the flat one; too fast the bike runs wide over the top and slides; too slow
+ * it bogs low in the berm.
+ */
+function bermPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who: DrillWho): PacePicture {
+  woods(scene, vis, 52);
+  const BASE = 74;
+  const GAP = 220;
+  const ground = scene.add.graphics();
+  vis.add(ground);
+  const marks = scene.add.graphics();
+  vis.add(marks);
+  coachBy(scene, vis, who, 150, BASE - 2, 'left');
+  const r = rideOn(scene, vis, who, RIDER_X + 10, BASE);
+  const roost = scene.add.graphics();
+  vis.add(roost);
+  let climb = 0;
+  let lean = 0;
+  return {
+    move(run, speed, state) {
+      // One berm and one flat corner each corner pair.
+      const s = run * 2 * GAP;
+      const bermH = (x: number) => {
+        const u = ((((x + s) % (GAP * 2)) + GAP * 2) % (GAP * 2)) - GAP;
+        return Math.abs(u) < 70 ? 30 * Math.pow(Math.cos((u / 70) * (Math.PI / 2)), 2) : 0;
+      };
+      drawGround(ground, BASE, bermH, 0x6b4f33, 0x3e2c1c, 0x553e28);
+      // The flat corner's flag, half way between berms.
+      marks.clear();
+      for (let x = -(s % (GAP * 2)); x < 185; x += GAP * 2) {
+        if (x < -176) continue;
+        marks.fillStyle(0xdedad0).fillRect(x - 1, BASE - 40, 3, 40);
+        marks.fillStyle(0xe8c020).fillTriangle(x + 2, BASE - 40, x + 20, BASE - 34, x + 2, BASE - 28);
+      }
+      // How much of the berm's face the bike rides: on pace all of it, slow it stays low.
+      const want = state === 'slow' ? 0.4 : 1;
+      climb += (want - climb) * 0.08;
+      lean += ((state === 'fast' ? 1 : 0) - lean) * 0.06;
+      const xf = r.c.x + WHEEL_X * RIDE_SCALE;
+      const xr = r.c.x - WHEEL_X * RIDE_SCALE;
+      const hf = bermH(xf) * climb;
+      const hb = bermH(xr) * climb;
+      // Too fast it skips over the top and the back steps out.
+      const over = lean * Math.max(hf, hb) * 0.4;
+      r.c.y = BASE - Math.max(hf, hb) - over;
+      r.c.rotation = Math.atan2(hb - hf, xf - xr) + lean * 0.12 * Math.sin(s / 9);
+      r.pose(state === 'on' ? 1 : state === 'slow' ? 0 : 2);
+      roost.clear();
+      if (Math.max(hf, hb) > 6 && speed > 0.35) {
+        roost.fillStyle(0x6b4f33, state === 'slow' ? 0.4 : 0.85);
+        for (let i = 0; i < 7; i++) roost.fillCircle(xr - 12 - i * 9 - (s % 9), r.c.y - 6 - i * 3 - ((i * 5) % 7), 2 + (i % 3));
+      }
+    },
+  };
+}
+
+/**
+ * The rowing machine in Western Works' gym, the canal through the window: the rider rows catch,
+ * drive, finish and back, the flywheel spins and the monitor shows the stroke rate. On pace it
+ * reads in the green; too fast it reads high and the rider tires, too slow it drops.
+ */
+function rowingPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who: DrillWho): PacePicture {
+  const g = scene.add.graphics();
+  // Brick wall, a big works window onto the canal and a narrowboat, a rubber floor.
+  g.fillStyle(0x8e4a36).fillRect(-183, -118, 366, 190);
+  g.lineStyle(1, 0x6e3828);
+  for (let y = -114; y < 72; y += 10) {
+    g.lineBetween(-183, y, 183, y);
+    for (let x = -183 + ((y / 10) % 2 ? 0 : 11); x < 183; x += 22) g.lineBetween(x, y, x, y + 10);
+  }
+  g.fillStyle(0x3a3f45).fillRect(-150, -100, 300, 96);
+  g.fillStyle(0xbfd0d8).fillRect(-144, -94, 288, 50);
+  g.fillStyle(0x5a8a5a).fillRect(-144, -48, 288, 10);
+  g.fillStyle(0x4f7f8f).fillRect(-144, -38, 288, 28);
+  g.fillStyle(0x2f6b3a).fillRect(-60, -46, 110, 12).fillStyle(0xb5483a).fillRect(-60, -40, 110, 3).fillStyle(0x1c3a22).fillRect(-20, -54, 50, 8);
+  g.lineStyle(4, 0x3a3f45);
+  for (let x = -100; x < 150; x += 50) g.lineBetween(x, -94, x, -10);
+  g.lineBetween(-144, -52, 144, -52);
+  g.fillStyle(0x2b2f38).fillRect(-183, 72, 366, 26);
+  g.fillStyle(0x1c1f26).fillRect(-183, 70, 366, 3);
+  vis.add(g);
+  coachBy(scene, vis, who, -150, 74, 'right');
+  // The machine: the rail, the footplate and the flywheel housing at the front.
+  const S = 2.4;
+  const X0 = -110;
+  const Y0 = 76;
+  const m = scene.add.graphics();
+  m.fillStyle(0x2a2d33).fillRect(X0 + 10 * S, Y0 - 6 * S, 64 * S, 3 * S);
+  m.fillStyle(0x2a2d33).fillRect(X0 + 8 * S, Y0 - 4 * S, 3 * S, 4 * S).fillRect(X0 + 84 * S, Y0 - 5 * S, 4 * S, 5 * S);
+  m.fillStyle(0x3d4148).fillRoundedRect(X0 + 74 * S, Y0 - 24 * S, 20 * S, 20 * S, 6);
+  // The footplate, angled, and the seat under the hips (the frames keep the hips in one place).
+  m.fillStyle(0x1c1f26).fillTriangle(X0 + 66 * S, Y0 - 6 * S, X0 + 72 * S, Y0 - 16 * S, X0 + 74 * S, Y0 - 6 * S);
+  m.fillStyle(0x1c1f26).fillRoundedRect(X0 + 32 * S, Y0 - 10 * S, 16 * S, 4 * S, 3);
+  vis.add(m);
+  const wheel = scene.add.graphics().setPosition(X0 + 84 * S, Y0 - 14 * S);
+  wheel.lineStyle(3, 0x9aa0a8);
+  for (let i = 0; i < 3; i++) wheel.lineBetween(-Math.cos((i * Math.PI) / 3) * 18, -Math.sin((i * Math.PI) / 3) * 18, Math.cos((i * Math.PI) / 3) * 18, Math.sin((i * Math.PI) / 3) * 18);
+  wheel.strokeCircle(0, 0, 19);
+  vis.add(wheel);
+  const key = `chr:${who.player}:row`;
+  const body = scene.textures.exists(key) ? scene.add.sprite(X0, Y0 - 1 * S, key, 0).setOrigin(0, 1).setScale(S) : null;
+  const cord = scene.add.graphics();
+  vis.add(cord);
+  if (body) vis.add(body);
+  // The monitor on its arm, with the stroke rate.
+  const mon = scene.add.graphics();
+  mon.fillStyle(0x2a2d33).fillRect(X0 + 82 * S, Y0 - 40 * S, 3 * S, 18 * S);
+  mon.fillStyle(0x1c1f26).fillRoundedRect(X0 + 70 * S, Y0 - 56 * S, 30 * S, 18 * S, 4);
+  vis.add(mon);
+  const rate = scene.add.text(X0 + 85 * S, Y0 - 47 * S, '', { fontFamily: 'monospace', fontSize: '22px', color: '#7be07b' }).setOrigin(0.5);
+  vis.add(rate);
+  // Each frame's hands, where the cord meets the handle (frame pixels): catch, drive, finish.
+  const HANDS: [number, number][] = [[67, 46], [56, 44], [48, 40]];
+  const STROKES = 6;
+  let spin = 0;
+  let last = 0;
+  return {
+    move(run, speed, state) {
+      // Catch, drive, finish, then back along the rail to the catch.
+      const p = (run * STROKES) % 1;
+      const f = p < 0.18 ? 0 : p < 0.36 ? 1 : p < 0.6 ? 2 : p < 0.8 ? 1 : 0;
+      body?.active && body.setFrame(f);
+      spin += Math.max(0, run - last) * 60 * (0.6 + speed);
+      last = run;
+      wheel.setRotation(spin);
+      cord.clear().lineStyle(2, 0x1c1c1c);
+      const [hx, hy] = HANDS[f];
+      cord.lineBetween(X0 + hx * S, Y0 - 1 * S - (64 - hy) * S, wheel.x - 4, wheel.y);
+      rate.setText(String(Math.round(18 + speed * 16)));
+      rate.setColor(state === 'on' ? '#7be07b' : '#f0a060');
+    },
+  };
+}
+
+/**
+ * Shadow passing in Western Works' quarry, side on: a pro rider runs ahead and the player follows
+ * their line. On pace they sit right on the pro's back wheel and, at the end of each pass, draw
+ * alongside and by; too fast they tag the back wheel and shake; too slow the gap opens.
+ */
+function shadowPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who: DrillWho): PacePicture {
+  quarry(scene, vis, 70);
+  const BASE = 78;
+  const ground = scene.add.graphics();
+  vis.add(ground);
+  // The pro: in the champion's kit on a different bike from the player's, a shade back in the haze.
+  const brands = ['yamamoto', 'kwakmoto', 'sukimoto', 'hondmoto'];
+  const mine = who.bike?.brand ?? 'hondmoto';
+  const kit = ['player-m-champion-kit', 'player-f-champion-kit'].find((k) => k !== who.player && scene.textures.exists(`chr:${k}:ride`)) ?? who.player;
+  const pro = rideOn(scene, vis, { ...who, player: kit, bike: { model: 'adult', brand: brands.find((b) => b !== mine) ?? 'yamamoto' } }, 40, BASE - 6);
+  for (const o of pro.c.list) (o as Phaser.GameObjects.Image).setTint?.(0xc4c4cc);
+  const me = rideOn(scene, vis, who, -60, BASE);
+  const dust = scene.add.graphics();
+  vis.add(dust);
+  let gap = 90;
+  return {
+    move(run, speed, state) {
+      const s = run * 900;
+      ground.clear();
+      ground.fillStyle(0x8d8a80).fillRect(-185, BASE - 10, 370, 110 - BASE);
+      ground.lineStyle(3, 0x5c5a54).lineBetween(-185, BASE - 10, 185, BASE - 10);
+      ground.fillStyle(0x6b685f);
+      for (let x = -185 - (s % 23); x < 185; x += 23) ground.fillRect(x, BASE + 2 + (Math.abs(Math.round(x)) % 7), 5, 3);
+      // Through each pass: follow, then draw alongside and by over its last fifth.
+      const p = run % 1;
+      const want = state === 'fast' ? 52 : state === 'slow' ? 170 : p > 0.8 ? -40 - (p - 0.8) * 300 : 74;
+      gap += (want - gap) * 0.05;
+      const proX = 40 + Math.sin(s / 140) * 6;
+      pro.c.x = proX;
+      me.c.x = proX - gap;
+      const tag = state === 'fast' && gap < 60;
+      me.c.rotation = tag ? 0.06 * Math.sin(s / 4) : 0;
+      pro.c.y = BASE - 6 + Math.sin(s / 30);
+      me.c.y = BASE + Math.sin(s / 30 + 1);
+      pro.pose(1);
+      me.pose(state === 'on' ? 1 : state === 'fast' ? 2 : 0);
+      // The pro's dust in the player's face.
+      dust.clear().fillStyle(0xc8c2b4, 0.6);
+      for (let i = 0; i < 5; i++) dust.fillCircle(pro.c.x - 50 - i * 12 - (s % 12), BASE - 14 - ((i * 7) % 10), 3 + i * (0.4 + speed));
     },
   };
 }

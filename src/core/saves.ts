@@ -8,7 +8,7 @@ import { HEADINGS, type VanState } from './vehicles';
 // - a save from an older build loads through the migration steps below;
 // - a save that cannot be read is kept under a "corrupt" key and the newest good backup is offered.
 
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 export const BACKUP_COUNT = 5;
 
 export interface SaveData {
@@ -74,6 +74,8 @@ const MIGRATIONS: Record<number, Migration> = {
       },
     };
   },
+  // Area 5 is Western Works, not Northern Works (Boss, 4 Nov 2026): its town map's id changes with the name.
+  7: (old) => renameIds(old, RENAMED_V8) as Record<string, unknown>,
 };
 
 /** Old id to new id, wherever an id turns up in a save: positions, the van, championships, counters. */
@@ -83,6 +85,9 @@ const RENAMED_V5: [RegExp, string][] = [
   [/\b(npc\.(?:track_official|marshal))_quarry\b/g, '$1_riverside'],
   [/\b(npc\.(?:track_official|marshal))_woodland\b/g, '$1_longmoor'],
 ];
+
+/** Area 5's town map, renamed with the area (Boss, 4 Nov 2026). */
+const RENAMED_V8: [RegExp, string][] = [[/\barea5-northern-works\b/g, 'area5-western-works']];
 
 function renameIds(value: unknown, rules: [RegExp, string][]): unknown {
   const fix = (s: string) => rules.reduce((t, [re, to]) => t.replace(re, to), s);

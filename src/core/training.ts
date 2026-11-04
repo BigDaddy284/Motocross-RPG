@@ -27,6 +27,13 @@ export const DRILL_SCENES = {
   ladder: 'pace',
   cones: 'pace',
   whoops: 'pace',
+  // Areas 4 and 5 (Boss, 4 Nov 2026).
+  yoga: 'reps',
+  roots: 'react',
+  rocks: 'react',
+  berm: 'pace',
+  rowing: 'pace',
+  shadow: 'pace',
 } as const satisfies Record<string, DrillGame>;
 export type DrillScene = keyof typeof DRILL_SCENES;
 const DEFAULT_SCENE: Record<DrillGame, DrillScene> = { reps: 'pushups', react: 'gate', pace: 'track' };

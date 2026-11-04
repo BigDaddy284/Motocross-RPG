@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
  * towns leave at one level: the north corners' on the same rows.
  *
  *   Area 4 Forest Town      Area 3 Beach Town      Area 2 Mountain Town
- *   Area 5 Northern Works   Race Hub               Area 1 Home Town  - Industrial Zone
+ *   Area 5 Western Works   Race Hub               Area 1 Home Town  - Industrial Zone
  *   Area 6 Highlands        Area 7 The City        Area 8 Capital
  *
  * Only drawn maps are held to it (a map baked from its Tiled source, tools/art-maps.mjs AREA_MAPS);
@@ -55,8 +55,8 @@ const JOINS: [string, 'E' | 'S', string, 'W' | 'N'][] = [
   ['area4-forest-town', 'E', 'area3-beach-town', 'W'],
   ['area3-beach-town', 'E', 'area2-mountain-town', 'W'],
   ['area2-mountain-town', 'S', 'area1-home-town', 'N'],
-  ['area4-forest-town', 'S', 'area5-northern-works', 'N'],
-  ['area5-northern-works', 'S', 'area6-highlands', 'N'],
+  ['area4-forest-town', 'S', 'area5-western-works', 'N'],
+  ['area5-western-works', 'S', 'area6-highlands', 'N'],
   ['area1-home-town', 'S', 'area8-capital', 'N'],
   ['area6-highlands', 'E', 'area7-the-city', 'W'],
   ['area7-the-city', 'E', 'area8-capital', 'W'],
@@ -74,9 +74,9 @@ describe('the towns join up at their shared edges (Boss, 31 Oct 2026)', () => {
 
   it('no town of Areas 2 to 8 is one straight road through (Boss, 31 Oct 2026)', () => {
     // "make the town joins realistic not all in the same place": a road in from one neighbour does not
-    // run straight on to the neighbour opposite (e.g. Northern Works' road on to the Highlands leaves
+    // run straight on to the neighbour opposite (e.g. Western Works' road on to the Highlands leaves
     // well to one side of the Forest road coming in).
-    for (const id of ['area2-mountain-town', 'area3-beach-town', 'area4-forest-town', 'area5-northern-works', 'area6-highlands', 'area7-the-city', 'area8-capital']) {
+    for (const id of ['area2-mountain-town', 'area3-beach-town', 'area4-forest-town', 'area5-western-works', 'area6-highlands', 'area7-the-city', 'area8-capital']) {
       if (!drawn(id)) continue;
       for (const [p, q] of [['W', 'E'], ['N', 'S']] as const) {
         const near = (u: number[], v: number[]) => u.some((i) => v.some((j) => Math.abs(i - j) < 4));

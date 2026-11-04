@@ -6,7 +6,7 @@
   "offers": { "base": 2, "perRep": 250, "max": 5, "topShare": { "T3": 0.5, "T4": 0.8, "T5": 0.95 } },
   "tiers": [
     { "id": "T1", "name": "Local shop", "pay": [30, 60], "days": 6, "minGrade": 1, "cancel": 0.01, "topN": 10, "names": ["Phoenix MX", "Moto78", "Lee's T's & Wheels", "Nicholls Used Motors"] },
-    { "id": "T2", "name": "Regional dealer", "pay": [90, 180], "days": 10, "minGrade": 2, "cancel": 0.1, "topN": 6, "names": ["Valley Motorcycles", "Coast Road Bikes", "Forest Edge MX", "Northern Dirt"] },
+    { "id": "T2", "name": "Regional dealer", "pay": [90, 180], "days": 10, "minGrade": 2, "cancel": 0.1, "topN": 6, "names": ["Valley Motorcycles", "Coast Road Bikes", "Forest Edge MX", "Western Dirt"] },
     { "id": "T3", "name": "National brand", "pay": [400, 800], "days": 12, "minGrade": 4, "cancel": 0.25, "topN": 3, "names": ["Gripline Tyres", "Apex Suspension", "Torque Oils", "Clearview Goggles"] },
     { "id": "T4", "name": "Factory support", "pay": [1500, 3000], "days": 16, "minGrade": 6, "cancel": 0.5, "topN": 2, "names": ["Yamamoto Support", "Hondmoto Support", "Kwakmoto Support", "Sukimoto Support"] },
     { "id": "T5", "name": "Factory team", "pay": [7500, 15000], "days": 20, "minGrade": 7, "cancel": 0.75, "topN": 1, "names": ["Yamamoto Factory", "Hondmoto Factory", "Kwakmoto Factory", "Sukimoto Factory"] }
