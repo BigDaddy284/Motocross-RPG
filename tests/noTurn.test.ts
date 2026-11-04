@@ -181,6 +181,8 @@ describe('No-Turn Takedown knockouts', () => {
     }
   });
 
+  // This and the next test each play a whole knockout day: about 3 s here, past vitest's 5 s default on a
+  // busy CI runner (seen 4 Nov 2026), so they get the same 30 s as the held-up rider test.
   it('is late-game content: the pool\'s 31 best riders, buffed, on runs with less luck', () => {
     const k = knockout();
     const rc = checkContent(rawContent(), loadManifest(), loadMaps()).content!;
@@ -196,7 +198,7 @@ describe('No-Turn Takedown knockouts', () => {
     }
     const s = k.startSeeding('steady');
     expect(s.opts.noiseScale).toBe(rules.noise);
-  });
+  }, 30000);
 
   it('runs every other heat by itself, stopping at the player’s, and the same seed gives the same day', () => {
     const play = (seed: number) => {
@@ -210,5 +212,5 @@ describe('No-Turn Takedown knockouts', () => {
       return k.rounds[0].heats.map((x) => x.through.join(','));
     };
     expect(play(9)).toEqual(play(9));
-  });
+  }, 30000);
 });
