@@ -106,7 +106,7 @@
     ] },
     "tyre_specialist.hello": { "lines": [
       { "speaker": "npc", "text": "Lee Stocky. Tyres, rims, spokes and brakes. Hard pack round here, so you'll want a hard-pack rear." },
-      { "speaker": "npc", "text": "I was Area Champion a few seasons back, before the injury. I'm getting back on the bike this season, so you'll see me at the odd race." }
+      { "speaker": "npc", "text": "I won the Sprocket Cup a few seasons back, before the injury. I'm getting back on the bike this season, so you'll see me at the odd race." }
     ] },
     "tool_shop_owner.hello": { "lines": [
       { "speaker": "npc", "text": "Howzit. Jason Styles, J's Tools. Came over from South Africa chasing the dream, and I'm still chasing it: this is the season, I can feel it." },
@@ -330,17 +330,17 @@
     ] },
     "news.area2_dec2026": { "lines": [
       { "speaker": "npc", "text": "Manny Festo, at your service. I keep everyone up to date on what's coming next." },
-      { "speaker": "npc", "text": "Area 2 is under construction right now. It's due to be ready in December 2026." },
+      { "speaker": "npc", "text": "Mountain Town is under construction right now. It's due to be ready in December 2026." },
       { "speaker": "npc", "text": "Come back and see me again to check for more updates." }
     ] },
     "news.area2_soon": { "lines": [
       { "speaker": "npc", "text": "Manny Festo, at your service. I keep everyone up to date on what's coming next." },
-      { "speaker": "npc", "text": "The road to Area 2 is still being worked on. It should be open by the time you win the Sprocket Cup." },
+      { "speaker": "npc", "text": "The road to Mountain Town is still being worked on. It should be open by the time you win the Sprocket Cup." },
       { "speaker": "npc", "text": "Come back and see me again to check for more updates." }
     ] },
     "news.area3_feb2027": { "lines": [
       { "speaker": "npc", "text": "Manny Festo with the latest. Chain Cup champion, eh? Nice work." },
-      { "speaker": "npc", "text": "Beach Town, Area 3, is still being built. It's due to open in February 2027." },
+      { "speaker": "npc", "text": "Beach Town is still being built. It's due to open in February 2027." },
       { "speaker": "npc", "text": "Keep racing in the meantime, and come back and see me for more updates." }
     ] },
     "news.a2.welcome": { "lines": [

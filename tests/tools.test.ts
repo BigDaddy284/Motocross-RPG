@@ -42,7 +42,7 @@ describe("J's Tools and DIY repairs (Spec 8.5, 17.2a; Boss, 30 Oct 2026)", () =>
     // Pro bodywork tools come with Area 4.
     career.money = pence(5000);
     expect(nextVersion(career, flags, body)).toMatchObject({ version: { id: 'tools.bodywork.pro' }, open: false });
-    expect(buyTools(career, flags, body)).toMatchObject({ ok: false, message: expect.stringContaining('Area 4') });
+    expect(buyTools(career, flags, body, content.areas)).toMatchObject({ ok: false, message: expect.stringContaining('when Forest Town opens') });
     flags[areaFlag(2)] = flags[areaFlag(3)] = flags[areaFlag(4)] = true;
     expect(buyTools(career, flags, body).ok).toBe(true);
     expect(career.tools).toEqual({ 'tools.bodywork': 'tools.bodywork.pro' });
@@ -90,9 +90,9 @@ describe("J's Tools and DIY repairs (Spec 8.5, 17.2a; Boss, 30 Oct 2026)", () =>
     expect(bikeShop.sells?.stockOnly).toEqual(['frame']);
   });
 
-  it('Lee Stocky runs the tyre shop and races as the ex Area Champion', () => {
+  it('Lee Stocky runs the tyre shop and races as the ex Sprocket Cup Champion', () => {
     expect(content.npcs.find((n) => n.id === 'npc.tyre_specialist')).toMatchObject({ name: 'Lee Stocky', rider: 'cpu.r14' });
     expect(shops.shops.find((s) => s.id === 'shop.tyres')?.name).toBe("Lee's T's & Wheels");
-    expect(content.riders.riders.find((r) => r.id === 'cpu.r14')).toMatchObject({ level: 13, tag: 'Ex Area Champion' });
+    expect(content.riders.riders.find((r) => r.id === 'cpu.r14')).toMatchObject({ level: 13, tag: 'Ex Sprocket Cup Champion' });
   });
 });

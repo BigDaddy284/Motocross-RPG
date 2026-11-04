@@ -32,6 +32,7 @@ import { PACE_BAND, REP_ZONE, drillScene, gateHoldMs, gateStart, gateWindowMs, g
 import { PACE_WORDS, REACT_WORDS, REPS_WORDS, pacePicture, reactPicture, repsPicture, type DrillWho } from '../world/drillPictures';
 import { careerRecords, recordText } from '../core/records';
 import { services } from '../services';
+import { areaName } from '../core/areas';
 import { COLORS, hex, textStyle } from '../ui/theme';
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
 import { button, panel, slider, statBar, TASK_MARK, trophyIcon } from '../ui/widgets';
@@ -1620,13 +1621,13 @@ export class HudScene extends Phaser.Scene {
         line(left, y + 4 + head.displayHeight, `${set.slots.map((sl) => slotName(bikes, sl)).join(', ')}. ${owned ? `Yours: ${owned.name}, up to Grade ${owned.grade}.` : 'None yet.'}`, 13, COLORS.muted, 390);
         if (!next) return void line(left + 410, y + 10, 'The best there are.', 14, COLORS.muted, 300);
         const price = pence(next.version.price);
-        const b = button(this, left + 515, y + 20, next.open ? `${owned ? 'Upgrade' : 'Buy'} ${formatMoney(price)}` : `Area ${next.version.area}`, () => inner(() => {
-          this.confirm(`${next.version.name} for ${formatMoney(price)}?\nRepairs up to Grade ${next.version.grade}${owned ? `, replacing your ${owned.name.toLowerCase()}` : ''}. Yours for good.`, 'Buy', () => done(buyTools(career, this.flags, set), 'tools'), () => reopen('tools'));
+        const b = button(this, left + 515, y + 20, next.open ? `${owned ? 'Upgrade' : 'Buy'} ${formatMoney(price)}` : areaName(services.content.areas, next.version.area), () => inner(() => {
+          this.confirm(`${next.version.name} for ${formatMoney(price)}?\nRepairs up to Grade ${next.version.grade}${owned ? `, replacing your ${owned.name.toLowerCase()}` : ''}. Yours for good.`, 'Buy', () => done(buyTools(career, this.flags, set, services.content.areas), 'tools'), () => reopen('tools'));
         }), 230, 40);
         b.setEnabled(next.open && career.money >= price);
         c.add(b);
         // Beside the button, not under it, wrapping onto a second line when it needs to.
-        const what = text(left + 645, y + 20, next.open ? `${next.version.name}: Grade ${next.version.grade}` : `${next.version.name} come with Area ${next.version.area}`, 13, COLORS.muted, w / 2 - 28 - (left + 645));
+        const what = text(left + 645, y + 20, next.open ? `${next.version.name}: Grade ${next.version.grade}` : `${next.version.name} come in when ${areaName(services.content.areas, next.version.area)} opens`, 13, COLORS.muted, w / 2 - 28 - (left + 645));
         what.setY(y + 20 - Math.min(what.height, 60) / 2);
         if (what.height > 60) what.setScale(60 / what.height);
       });
