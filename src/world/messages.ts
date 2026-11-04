@@ -30,6 +30,8 @@ const ACTIONS: Record<string, string> = {
   'train.suspension_service': 'Suspension service training',
   'train.suspension_bleed': 'Suspension bleeding training',
   'train.frame_dressing': 'Frame dressing training',
+  'train.gearbox_test': 'Gearbox testing training',
+  'train.flow_test': 'Flow testing training',
   'train.engine_build': 'Engine building',
   'jobs.engine': 'Engine jobs',
   'story.modifier_machine': 'The modifier machine',
