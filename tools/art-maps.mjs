@@ -17,7 +17,7 @@ export const AREA_MAPS = [
   'area-map/tiled/maps/area2-mountain-town.tmj',
   'area-map/tiled/maps/area3-beach-town.tmj',
   'area-map/tiled/maps/area4-forest-town.tmj',
-  'area-map/tiled/maps/area5-northern-works.tmj',
+  'area-map/tiled/maps/area5-western-works.tmj',
   'area-map/tiled/maps/area6-highlands.tmj',
   'area-map/tiled/maps/area7-the-city.tmj',
   'area-map/tiled/maps/area8-capital.tmj',

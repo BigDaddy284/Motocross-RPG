@@ -271,17 +271,17 @@
     "track_official.area4_won": { "lines": [
       { "speaker": "npc", "text": "Area 4 champion! Well ridden, {rider}. That's one for the board in the office." },
       { "speaker": "npc", "text": "Before you head off: Bill at Moto78 in Home Town has your 125cc Youth waiting. Go and sort it out with him." },
-      { "speaker": "npc", "text": "And keep an ear out. There's talk of the road to Northern Works opening up." }
+      { "speaker": "npc", "text": "And keep an ear out. There's talk of the road to Western Works opening up." }
     ] },
     "bike_shop_owner.area4_won": { "lines": [
       { "speaker": "npc", "text": "There's the Area 4 champion! Joseph rang ahead. Your 125cc Youth is ready when you are." },
       { "speaker": "npc", "text": "Take the champion's sponsor's bike, or buy a stock one. Have a look." },
-      { "speaker": "npc", "text": "Oh, and Manny Festo was in asking after you. He's got news about the road to Northern Works. You'll find him up in Forest Town." }
+      { "speaker": "npc", "text": "Oh, and Manny Festo was in asking after you. He's got news about the road to Western Works. You'll find him up in Forest Town." }
     ] },
     "news.area5_road": { "lines": [
       { "speaker": "npc", "text": "Manny Festo with the news! Area 4 champion, {rider}. Congratulations!" },
-      { "speaker": "npc", "text": "And here's the big one: the road to Northern Works is open, as of right now. They're lifting the barrier as we speak." },
-      { "speaker": "npc", "text": "Pick Northern Works under Areas when you head out. I'll see you up there." }
+      { "speaker": "npc", "text": "And here's the big one: the road to Western Works is open, as of right now. They're lifting the barrier as we speak." },
+      { "speaker": "npc", "text": "Pick Western Works under Areas when you head out. I'll see you up there." }
     ] },
     "track_official.area5_won": { "lines": [
       { "speaker": "npc", "text": "Area 5 champion! Well ridden, {rider}. That's one for the board in the office." },
@@ -291,7 +291,7 @@
     "bike_shop_owner.area5_won": { "lines": [
       { "speaker": "npc", "text": "There's the Area 5 champion! Joseph rang ahead. Your 125cc is ready when you are." },
       { "speaker": "npc", "text": "Take the champion's sponsor's bike, or buy a stock one. Have a look." },
-      { "speaker": "npc", "text": "Oh, and Manny Festo was in asking after you. He's got news about the road to Highlands. You'll find him up in Northern Works." }
+      { "speaker": "npc", "text": "Oh, and Manny Festo was in asking after you. He's got news about the road to Highlands. You'll find him up in Western Works." }
     ] },
     "news.area6_road": { "lines": [
       { "speaker": "npc", "text": "Manny Festo with the news! Area 5 champion, {rider}. Congratulations!" },
@@ -510,7 +510,7 @@
     "local_champion.a4.hello": {"lines": [{"speaker": "npc", "text": "Rowan Ash, Local Champion. Enter the Local Champion Championship at any race office if you fancy your chances."}]},
     "local_champion.a4.after": {"lines": [{"speaker": "npc", "text": "The badge is yours, fair and square. Kate Borne's next: the Area 4 Championship, six rounds. Go on then."}]},
     "area_champion.a4.hello": {"lines": [{"speaker": "npc", "text": "Kate Borne. Area 4 Champion. The Area 4 Championship is six rounds and I win most of them."}]},
-    "area_champion.a4.after": {"lines": [{"speaker": "npc", "text": "You beat me. Properly. The road to Northern Works is open. Go and collect your 125cc Youth."}]},
+    "area_champion.a4.after": {"lines": [{"speaker": "npc", "text": "You beat me. Properly. The road to Western Works is open. Go and collect your 125cc Youth."}]},
     "gym_coach.a4.hello": {"lines": [{"speaker": "npc", "text": "Woodland yoga retreat. Yoga session for Wellbeing. Forty seconds a round and every round counts."}]},
     "yard_coach.a4.hello": {"lines": [{"speaker": "npc", "text": "Forest practice loop: berm and flat corner, ruts over roots. Pick a drill at the yard. Every round counts."}]},
     "challenger_isla.building": {"lines": [{"speaker": "npc", "text": "Isla Bennett. I've a race for you, but my shock is shot and I'm skint. Get it repaired for me and I'll race you for £160 on my own track."}]},
@@ -529,14 +529,14 @@
     "errand.rhys.offer": {"lines": [{"speaker": "npc", "text": "My chain and sprockets. Dead. Take them to Phoenix MX, get them repaired and bring them back. I'll pay the repair back plus £10, and then we race."}]},
     "errand.rhys.waiting": {"lines": [{"speaker": "npc", "text": "Chain and sprockets back yet? Phoenix MX, on the high street."}]},
     "errand.rhys.thanks": {"lines": [{"speaker": "npc", "text": "That's it! Here's the repair money and a tenner. Now we race, whenever you're ready."}]},
-    "news.a5.welcome": {"lines": [{"speaker": "npc", "text": "Manny Festo, still one town ahead of you. Welcome to Northern Works: quarry rock, old industry and dust."}, {"speaker": "npc", "text": "Louie Borne is the Area 5 Champion and Mick Granger the Local Champion. Mick Granger opens the tracks round here, so find them first."}, {"speaker": "npc", "text": "Paul, Bill, Lee and Jedrick have all set up again. The Frame works is hiring and the canal rowing club is open."}]},
-    "story.a5.news": {"lines": [{"speaker": "npc", "text": "You made it! Northern Works: quarry rock, old industry and dust. The 125cc Youth class races here, and the shops stock Grades 3 to 6."}, {"speaker": "npc", "text": "Go and see Paul at Phoenix MX first. He's got the lie of the land."}]},
+    "news.a5.welcome": {"lines": [{"speaker": "npc", "text": "Manny Festo, still one town ahead of you. Welcome to Western Works: quarry rock, old industry and dust."}, {"speaker": "npc", "text": "Louie Borne is the Area 5 Champion and Mick Granger the Local Champion. Mick Granger opens the tracks round here, so find them first."}, {"speaker": "npc", "text": "Paul, Bill, Lee and Jedrick have all set up again. The Frame works is hiring and the canal rowing club is open."}]},
+    "story.a5.news": {"lines": [{"speaker": "npc", "text": "You made it! Western Works: quarry rock, old industry and dust. The 125cc Youth class races here, and the shops stock Grades 3 to 6."}, {"speaker": "npc", "text": "Go and see Paul at Phoenix MX first. He's got the lie of the land."}]},
     "story.a5.shops": {"lines": [{"speaker": "npc", "text": "Good to see you. Same garage, new town: repairs, the bench and the job board, Grades 3 to 6 now."}, {"speaker": "npc", "text": "The Detached house by the road is for sale if you want a bed here. While you're in: take this parts order over to Lee, he's waiting on it."}]},
     "story.a5.errand": {"lines": [{"speaker": "npc", "text": "That's my order! Cheers. Paul said you'd be along."}, {"speaker": "npc", "text": "Wheels, tyres and brakes to Grade 6 here. I'm racing the 125cc Youths this season, so I'll see you at the gate."}]},
     "story.a5.works": {"lines": [{"speaker": "npc", "text": "You'll be the rider Paul mentioned. This is the Frame works: frames, 100 a batch at £2 each."}, {"speaker": "npc", "text": "Work a batch and the best frame of the lot is yours when it's done, with XP every pass. Start at the blue bench. Stop whenever you like: the batch waits."}]},
     "story.a5.training": {"lines": [{"speaker": "npc", "text": "The canal rowing club. Rowing session for Endurance."}, {"speaker": "npc", "text": "Forty seconds a round, every round counts whatever the score. Come back whenever you like."}]},
     "story.a5.champion": {"lines": [{"speaker": "npc", "text": "Mick Granger. Local Champion. You'll have heard about me."}, {"speaker": "npc", "text": "The tracks are open to you now: Quarry MX, Foundry Arena and Slag Heap Enduro. Sign on with Joseph at any race office."}, {"speaker": "npc", "text": "Win the Local Champion Championship here and the Area 5 badge is yours. Then it's Louie Borne for the Area 5 title."}]},
-    "garage_mechanic.a5.hello": {"lines": [{"speaker": "npc", "text": "Phoenix MX, Northern Works branch. Repairs, the bench and the job board, Grades 3 to 6."}]},
+    "garage_mechanic.a5.hello": {"lines": [{"speaker": "npc", "text": "Phoenix MX, Western Works branch. Repairs, the bench and the job board, Grades 3 to 6."}]},
     "van_seller.a5.hello": {"lines": [{"speaker": "npc", "text": "Jedrick Nicholls, still the man for motors. Here I've got the MX Sports Motorhome Medium: more room again, with yours in part exchange."}]},
     "bike_shop_owner.a5.hello": {"lines": [{"speaker": "npc", "text": "Moto78! Engine, suspension and bodywork, Grades 3 to 6, up to the 125cc Youths and beyond."}]},
     "tyre_specialist.a5.hello": {"lines": [{"speaker": "npc", "text": "Lee's T's & Wheels. Wheels, tyres and brakes to Grade 6. The right rubber for quarry rock."}]},
