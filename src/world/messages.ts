@@ -32,6 +32,7 @@ const ACTIONS: Record<string, string> = {
   'train.frame_dressing': 'Frame dressing training',
   'train.gearbox_test': 'Gearbox testing training',
   'train.flow_test': 'Flow testing training',
+  'train.dyno_test': 'Dyno testing training',
   'train.engine_build': 'Engine building',
   'jobs.engine': 'Engine jobs',
   'story.modifier_machine': 'The modifier machine',

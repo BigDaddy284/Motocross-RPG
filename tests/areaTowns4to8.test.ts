@@ -39,6 +39,9 @@ const TOWNS: Town[] = [
   // to Western Works and east to The City, The City on east to Capital.
   { n: 6, name: 'Highlands', map: 'area6-highlands', roads: [['North road', 'area5-western-works'], ['East road', 'area7-the-city']], hub: 'North-east road' },
   { n: 7, name: 'The City', map: 'area7-the-city', roads: [['West road', 'area6-highlands'], ['East road', 'area8-capital']], hub: 'North road' },
+  // Area 8 (Boss, 4 Nov 2026: "Can you now do the same for the last Area, Area 8"): Capital west to The
+  // City, and its north road home to Home Town once the Area 8 title is won.
+  { n: 8, name: 'Capital', map: 'area8-capital', roads: [['West road', 'area7-the-city'], ['North road', 'area1-home-town']], hub: 'North-west road' },
 ];
 
 function townWalk(T: Town): void {
