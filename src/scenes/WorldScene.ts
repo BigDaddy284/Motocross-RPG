@@ -369,7 +369,7 @@ export class WorldScene extends Phaser.Scene {
       this.checkTrigger();
       return;
     }
-    const path = findPathTowards(this.grid, this.player.tile, tile);
+    const path = this.planWalk([tile], () => findPathTowards(this.grid, this.player.tile, tile));
     this.markTarget(tile.x * TILE + TILE / 2, tile.y * TILE + TILE / 2);
     this.setPath(path, null);
   }
@@ -413,6 +413,22 @@ export class WorldScene extends Phaser.Scene {
     return null;
   }
 
+  /**
+   * Plans a walk that keeps off every door and way out except the ones aimed for (Boss, 4 Nov 2026:
+   * leaving Phoenix MX with the motor out front, a click on the next shop walked back in through the
+   * door). Falls back to any way when the only one is through a door.
+   */
+  private planWalk<T extends Tile[] | null>(goals: Tile[], plan: () => T): T {
+    const here = this.player.tile;
+    const isGoal = (t: Tile) => goals.some((g) => g.x === t.x && g.y === t.y) || (t.x === here.x && t.y === here.y);
+    const triggers = this.map.objects
+      .filter((o) => o.type === 'door' || o.type === 'exit')
+      .flatMap((o) => objectTiles(o, this.map.tileSize))
+      .filter((t) => !isGoal(t));
+    const kept = this.grid.avoiding(triggers, plan);
+    return kept && kept.length ? kept : plan();
+  }
+
   /** Smart pathing: walk to the nearest free tile beside the target, face it, then use it. */
   private approach(target: Target): void {
     const tiles = target.kind === 'npc' ? [{ x: target.placement.x, y: target.placement.y }] : target.tiles;
@@ -429,7 +445,8 @@ export class WorldScene extends Phaser.Scene {
     }
     const goals = standingTiles(this.grid, tiles);
     const walkable = tiles.filter((t) => this.grid.isFree(t.x, t.y));
-    const path = findPathToAny(this.grid, here, goals.length ? goals : walkable);
+    const ends = goals.length ? goals : walkable;
+    const path = this.planWalk([...ends, ...tiles], () => findPathToAny(this.grid, here, ends));
     if (!path) {
       this.hud.toast("You can't get there from here.");
       return;
@@ -2250,7 +2267,7 @@ export class WorldScene extends Phaser.Scene {
       if (!this.grid.canStep(this.player.tile, next)) {
         // Something moved into the way: re-plan to the same end tile.
         const end = this.path.at(-1) ?? next;
-        this.path = findPathTowards(this.grid, this.player.tile, end);
+        this.path = this.planWalk([end], () => findPathTowards(this.grid, this.player.tile, end));
         if (!this.path.length) break;
         continue;
       }

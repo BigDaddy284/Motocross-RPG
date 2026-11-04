@@ -347,6 +347,7 @@ To resume: `npm install`, `npm test`, `npm run dev`, then open `/tools/` (the to
 - **Joseph says where your next round is.** At the race office a championship round here carries its badge, as do Championships and Other tracks when a round is under way there. At a track with no round of yours, Joseph tells you where each championship you're in goes next, and whether it is under Other tracks or on the road menu.
 - **Roads out only when you pick them.** A drive you click only leaves town by the road you clicked. Turning round over another road out on the way somewhere else no longer opens the road menu (this happened at many town edges). Steering with the keys into a road out still takes it.
 - **Arriving by motor makes sense.** A motor arriving in a town or venue parks on the road it came in by, in its lane, pointing into the map and clear of the road sign, instead of sideways or backwards on top of the signpost (Home Town to the Industrial Zone and many others). A motor too long for a short side road parks on the main road by the junction.
+- **Walking past a door doesn't take you in.** A walk you click steps round every doorway and road out on the way, so heading from Phoenix MX to Moto78 past the parked motor no longer drops you back inside; you only go through the door you clicked or walked to (`planWalk` in `WorldScene.ts`, `Grid.avoiding`). If the only way there is through a doorway, the walk still goes.
 
 ## Before release
 
