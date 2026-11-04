@@ -35,6 +35,10 @@ interface Town { n: number; name: string; map: string; roads: [string, string][]
 const TOWNS: Town[] = [
   { n: 4, name: 'Forest Town', map: 'area4-forest-town', roads: [['East road', 'area3-beach-town'], ['South road', 'area5-western-works']], hub: 'South-east road' },
   { n: 5, name: 'Western Works', map: 'area5-western-works', roads: [['North road', 'area4-forest-town'], ['South road', 'area6-highlands']], hub: 'East road' },
+  // Areas 6 and 7 (Boss, 4 Nov 2026: "ok can you now do the same for are 6 and 7"): the Highlands north
+  // to Western Works and east to The City, The City on east to Capital.
+  { n: 6, name: 'Highlands', map: 'area6-highlands', roads: [['North road', 'area5-western-works'], ['East road', 'area7-the-city']], hub: 'North-east road' },
+  { n: 7, name: 'The City', map: 'area7-the-city', roads: [['West road', 'area6-highlands'], ['East road', 'area8-capital']], hub: 'North road' },
 ];
 
 function townWalk(T: Town): void {
