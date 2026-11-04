@@ -45,6 +45,13 @@ describe('championships (Spec 12.5, 18.6)', () => {
     expect(checkChampionships(content.championships, content)).toEqual([]);
   });
 
+  it('goes by the planner names (Boss, 4 Nov 2026): the Home Town Local Champion, then the Sprocket Cup', () => {
+    expect(local.name).toBe('Home Town Local Champion');
+    expect(main).toMatchObject({ name: 'Sprocket Cup', short: 'Sprocket Cup' });
+    expect(main.rewards[0].title).toBe('the Sprocket Cup trophy');
+    expect(local.won).toContain('The Sprocket Cup comes with Area 2');
+  });
+
   it('has a picture for the Area 1 badge, the knobbly tyre', () => {
     expect(local.rewards[0].image).toBe('art/ui/badge-area1.png');
     for (const c of content.championships.championships) for (const r of c.rewards) if (r.image) expect(publicFileExists(`assets/${r.image}`), r.image).toBe(true);

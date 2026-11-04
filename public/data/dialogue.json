@@ -128,11 +128,11 @@
       { "speaker": "npc", "text": "Race office. Sign on here for race days and practice." }
     ] },
     "local_champion.hello": { "lines": [
-      { "speaker": "npc", "text": "New face. Signing on for the 50s? I'm the current Area Champion, and I pretty much always win out there." },
+      { "speaker": "npc", "text": "New face. Signing on for the 50s? I'm the current Area Champion. Sprocket Cup holder, and I pretty much always win out there." },
       { "speaker": "npc", "text": "Don't worry, everyone gets lapped by me once." }
     ] },
     "local_champion.after": { "lines": [
-      { "speaker": "npc", "text": "Not bad out there. I'm still the Area Champion, mind. Keep coming back and you might give me a race one day." }
+      { "speaker": "npc", "text": "Not bad out there. I'm still the Area Champion, and the Sprocket Cup's still mine. Keep coming back and you might give me a race one day." }
     ] },
     "modifier_owner.hello": { "lines": [
       { "speaker": "npc", "text": "This old machine? Put a clean part in and see what comes out. Not today, though." }
