@@ -333,6 +333,11 @@
       { "speaker": "npc", "text": "Area 2 is under construction right now. It's due to be ready in December 2026." },
       { "speaker": "npc", "text": "Come back and see me again to check for more updates." }
     ] },
+    "news.area2_soon": { "lines": [
+      { "speaker": "npc", "text": "Manny Festo, at your service. I keep everyone up to date on what's coming next." },
+      { "speaker": "npc", "text": "The road to Area 2 is still being worked on. It should be open by the time you beat the Area 1 Champion." },
+      { "speaker": "npc", "text": "Come back and see me again to check for more updates." }
+    ] },
     "news.area3_feb2027": { "lines": [
       { "speaker": "npc", "text": "Manny Festo with the latest. Area 2 champion, eh? Nice work." },
       { "speaker": "npc", "text": "Beach Town, Area 3, is still being built. It's due to open in February 2027." },
