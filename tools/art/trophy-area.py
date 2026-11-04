@@ -1,4 +1,7 @@
-"""Draws the Area Championship trophies: a gold cup with two handles on a dark plinth, with
+"""Since Boss, 4 Nov 2026 the trophies are shaped like their cups' bike parts (tools/art/trophy-part.py);
+this cup is kept for reference.
+
+Draws the Area Championship trophies: a gold cup with two handles on a dark plinth, with
 "AREA n" on the cup and "CHAMPION" on the plinth's plaque.
 
 Placeholders for Areas 1 to 8, the same trophy with its own number, in the same style as the area

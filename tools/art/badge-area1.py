@@ -2,6 +2,9 @@
 
 Area 1's is the original; Areas 2 to 8 are placeholders, the same badge with their own number
 (Boss, 1 Nov 2026: "For now give them placeholders same as Area 1 but with updated number").
+Since Boss, 4 Nov 2026 ("All to have the number 1 on them. Replace wording Area with actual name
+e.g. Home Town"), every badge has a big 1 in the medallion and its town's name on a ribbon across
+the tyre.
 
 Drawn on a 64 x 64 grid and doubled, for the style guide's 2 px pixel clusters, with every colour
 snapped to the reference palette (art/palette/palette-ref-v1.hex). Writes the game's 128 px badge
@@ -32,12 +35,33 @@ def snap(pal, rgb):
     return min(pal, key=lambda p: sum((a - b) ** 2 for a, b in zip(p, rgb)))
 
 
-# 3 x 5 letters for the medallion.
+# 3 x 5 letters for the medallion and the ribbon.
 FONT = {
     'A': ['.#.', '#.#', '###', '#.#', '#.#'],
-    'R': ['##.', '#.#', '##.', '#.#', '#.#'],
+    'B': ['##.', '#.#', '##.', '#.#', '##.'],
+    'C': ['###', '#..', '#..', '#..', '###'],
+    'D': ['##.', '#.#', '#.#', '#.#', '##.'],
     'E': ['###', '#..', '##.', '#..', '###'],
+    'F': ['###', '#..', '##.', '#..', '#..'],
+    'G': ['###', '#..', '#.#', '#.#', '###'],
+    'H': ['#.#', '#.#', '###', '#.#', '#.#'],
+    'I': ['###', '.#.', '.#.', '.#.', '###'],
+    'K': ['#.#', '#.#', '##.', '#.#', '#.#'],
+    'L': ['#..', '#..', '#..', '#..', '###'],
+    'M': ['#.#', '###', '###', '#.#', '#.#'],
+    'N': ['#.#', '###', '###', '###', '#.#'],
+    'O': ['###', '#.#', '#.#', '#.#', '###'],
+    'P': ['##.', '#.#', '##.', '#..', '#..'],
+    'R': ['##.', '#.#', '##.', '#.#', '#.#'],
+    'S': ['###', '#..', '###', '..#', '###'],
+    'T': ['###', '.#.', '.#.', '.#.', '.#.'],
+    'U': ['#.#', '#.#', '#.#', '#.#', '###'],
+    'W': ['#.#', '#.#', '###', '###', '#.#'],
+    'Y': ['#.#', '#.#', '.#.', '.#.', '.#.'],
+    ' ': ['.', '.', '.', '.', '.'],
 }
+# Each area's town, on its badge's ribbon (areas.json).
+TOWNS = {1: 'HOME TOWN', 2: 'MOUNTAIN TOWN', 3: 'BEACH TOWN', 4: 'FOREST TOWN', 5: 'WESTERN WORKS', 6: 'HIGHLANDS', 7: 'THE CITY', 8: 'CAPITAL'}
 # The big 1, 7 x 13.
 ONE = [
     '..###..',
@@ -135,16 +159,38 @@ def draw(pal, area=1):
                 if ch == '#':
                     px[ox + i, oy + j] = c
 
-    # AREA over the 1, a checkered strip under it.
-    word = 'AREA'
-    x0 = int(C - (len(word) * 4 - 1) / 2) + 1
-    for n, ch in enumerate(word):
-        put(FONT[ch], x0 + n * 4, 18, cream, face_lo)
-    put(DIGITS[area], int(C) - 3, 24, white, outline)
+    # The big 1 in the medallion, with a checkered strip under it (every badge, Boss, 4 Nov 2026).
+    put(ONE, int(C) - 3, 18, white, outline)
     for i in range(14):
         for j in range(2):
-            x, y = int(C) - 6 + i, 40 + j
+            x, y = int(C) - 6 + i, 33 + j
             px[x, y] = black if (i // 2 + j) % 2 == 0 else white
+
+    # The town's name on a cream ribbon across the bottom of the tyre, its ends folded behind.
+    word = TOWNS.get(area, f'AREA {area}')
+    width = sum(len(FONT[ch][0]) + 1 for ch in word) - 1
+    x0 = int(C - width / 2 + 0.5)
+    y0 = 43
+    left, right = x0 - 3, x0 + width + 2
+    for x in (left - 3, left - 2, left - 1, right + 1, right + 2, right + 3):
+        for y in range(y0 + 1, y0 + 9):
+            if 0 <= x < N:
+                px[x, y] = face_lo
+    for x in range(left, right + 1):
+        for y in range(y0 - 1, y0 + 8):
+            px[x, y] = cream
+    for x in range(max(0, left - 4), min(N, right + 5)):
+        for y in (y0 - 2, y0 + 8, y0 + 9):
+            if px[x, y][3] and (y != y0 - 2 or left <= x <= right):
+                px[x, y] = outline
+    for y in range(y0 - 2, y0 + 10):
+        for x in (left - 4, left, right, right + 4):
+            if 0 <= x < N and (x in (left, right) and y <= y0 + 8 or y > y0):
+                px[x, y] = outline
+    x = x0
+    for ch in word:
+        put(FONT[ch], x, y0 + 1, black)
+        x += len(FONT[ch][0]) + 1
     return img
 
 
