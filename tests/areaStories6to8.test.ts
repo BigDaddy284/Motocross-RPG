@@ -4,8 +4,9 @@ import { goalObjects, storyGoal } from '../src/core/waymarks';
 import { checkContent } from '../src/core/content';
 import { loadManifest, loadMaps, rawContent } from './helpers';
 
-// The Highlands and The City intros and their coaches' storylines (Boss, 4 Nov 2026: "ok can you now do
-// the same for are 6 and 7", after Forest Town and Western Works). Each intro walks the rider round the
+// The Highlands, The City and Capital intros and their coaches' storylines (Boss, 4 Nov 2026: "ok can you
+// now do the same for are 6 and 7", after Forest Town and Western Works, then "Can you now do the same for
+// the last Area, Area 8"). Each intro walks the rider round the
 // town: Manny's news, Paul's parts order to Lee, the area's works and one pass there on the new machines,
 // a round of the area's fitness, the coach, then the Local Champion opens the tracks. Then the coach's own
 // chain: lessons at the practice track, their story, and a part from their racing days. The Hill practice
@@ -40,6 +41,11 @@ const AREAS = [
     gym: 'npc-28-sensei', job: 'job.a7.intake_exhaust', start: 'pipe_bender', fitness: ['train.dojo', 'City dojo'],
     yard: 'Indoor arena practice', chain: [['rc_rhythm', 'train.sx_rhythm'], ['rc_launch', 'train.drag_launch'], ['rc_story'], ['rc_gift']],
     gift: { slot: 'forks', grade: 7 }, done: 'remi.done', story: 'Harvey' },
+  // Area 8, Capital (Boss, 4 Nov 2026: "Can you now do the same for the last Area, Area 8").
+  { n: 8, town: 'area8-capital', intro: 'area8', coach: 'morgan', key: 'mh', coachName: 'Morgan Hale', sprite: 'npc-31-national-coach',
+    gym: 'npc-30-recovery-coach', job: 'job.a8.works', start: 'cnc_mill', fitness: ['train.ice_bath', 'Recovery centre'],
+    yard: 'National training ground', chain: [['mh_jumps', 'train.pro_jump_timing'], ['mh_gate', 'train.pro_gate'], ['mh_story'], ['mh_gift']],
+    gift: { slot: 'frame', grade: 8 }, done: 'morgan.done', story: 'Neal' },
 ] as const;
 
 for (const A of AREAS) {
