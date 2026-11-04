@@ -14,7 +14,7 @@ import { biggestBike, bikeImage, zoneFor } from '../core/worldMap';
 import { ROUTE, spawnTile, stepTriggerAt, type Arrival, type StepResult } from '../core/travel';
 import { areaFlag, areaOfMap, buyHouse, buyMotor, houseFlag, motorProblem, openAreas, openReleasedAreas, roadWaiting, soldTexture } from '../core/areas';
 import { defaultSetup, effectiveSetup, positionValue, positionsFor, setupReport, sliderUnlocked, type SliderDef } from '../core/setup';
-import { DriveMap, FACING_OF, ON_FOOT, needsMotor, bayFor, ensureVan, exitTile, footprint, haulerAt, inwardHeading, nearestFree, placeNear, planDrive, sheetFor, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
+import { DriveMap, FACING_OF, ON_FOOT, needsMotor, bayFor, ensureVan, exitTile, footprint, arrivalPose, haulerAt, nearestFree, placeNear, planDrive, sheetFor, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
 import { isNoTurn } from '../core/trackGeom';
 import { venueClassFor, entryFee, fieldCount, lapsFor, practiceFee, coachedFee, trackById, venueProblem, type VenueDef } from '../core/raceDay';
@@ -2044,8 +2044,8 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /**
-   * Takes the van to another map's arrival point: parked on the nearest free spot there, pointing
-   * into the map. Returns false (and stays) when the van has nowhere to fit.
+   * Takes the van to another map's arrival point: parked on the road in, in its lane, pointing into
+   * the map (core/vehicles.ts arrivalPose). Returns false (and stays) when the van has nowhere to fit.
    */
   private driveTo(to: Arrival): boolean {
     const van = this.van!;
@@ -2056,7 +2056,7 @@ export class WorldScene extends Phaser.Scene {
     const taken = new Set((hauler ? footprint(hauler.pose, hauler.design.length) : []).map((t) => `${t.x},${t.y}`));
     const pose = bay
       ? { x: bay.x, y: bay.y, heading: bay.heading }
-      : target && placeNear(this.driveMapFor(target, van.design.length), to.tile, van.design.length, inwardHeading(target, to.tile), 12, (t) => !!stepTriggerAt(target, t) || taken.has(`${t.x},${t.y}`));
+      : target && arrivalPose(this.driveMapFor(target, van.design.length), target, to.tile, van.design.length, (t) => !!stepTriggerAt(target, t) || taken.has(`${t.x},${t.y}`));
     if (!target || !pose) {
       this.hud.toast(`There's no room for the ${van.design.name} over there.`);
       return false;

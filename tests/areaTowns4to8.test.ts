@@ -5,8 +5,8 @@ import { applyMapState } from '../src/core/mapState';
 import { objectTile, objectTiles, type BakedMap, type MapObject, type Tile } from '../src/core/mapTypes';
 import { reachable } from '../src/core/pathfinding';
 import { routeArrival, routeFor, routePlaces } from '../src/core/guides';
-import { ROUTE, Travel, interiorMapId } from '../src/core/travel';
-import { DriveMap, footprint, inwardHeading, placeNear, planDrive } from '../src/core/vehicles';
+import { ROUTE, Travel, interiorMapId, stepTriggerAt } from '../src/core/travel';
+import { DriveMap, arrivalPose, footprint, planDrive } from '../src/core/vehicles';
 import { loadManifest, loadMaps, rawContent } from './helpers';
 
 // Areas 4 and 5, Forest Town and Western Works, end to end (Boss, 4 Nov 2026: "Make sure everything
@@ -195,7 +195,7 @@ describe(`${T.name} (Area ${T.n}): roads (Boss, 4 Nov 2026)`, () => {
         const exit = m.objects.find((o) => o.type === 'exit' && o.name === r.exit)!;
         const a = routeArrival(m, exit, world, maps, TOWN, FLAGS);
         if (typeof a === 'string') throw new Error(a);
-        const start = placeNear(d, a.tile, design.length, inwardHeading(town, a.tile));
+        const start = arrivalPose(d, town, a.tile, design.length, (t) => !!stepTriggerAt(town, t));
         expect(start, `${design.id} parks on arrival from ${r.map} at ${key(a.tile)}`).not.toBeNull();
         for (const n of names) {
           const goal = objectTiles(exitOf(n), town.tileSize);

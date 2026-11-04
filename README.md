@@ -334,6 +334,17 @@ To resume: `npm install`, `npm test`, `npm run dev`, then open `/tools/` (the to
 - **No more grey message box.** The old message box that showed faintly over menus and chats is gone. Instead: a "can't do that" in a menu (spares full, can't afford it, someone else's part) is a **red line on the menu's bottom edge**; a hint while walking about or driving (can't get there, sign on at the race office, no room to turn) is a **speech note over the rider's head**, or the van's; **level ups** are a green note in the middle of the screen; news (a new task, a championship entered or given up, a story step) **flashes the task line** for a few seconds, even with the task line switched off; shift steps flash the shift bar; the paddock line after a race is dropped, since the results screen said it; and a save that failed is a **red bar along the top** until tapped.
 - **Results screens keep their text inside the box.** The challenge result is laid out like a race day's (money and XP on the left, level ups and bike wear on the right), and every results box shrinks its text to fit when there is a lot to show.
 
+### Talk to people, not hidden spots (v2.0 test, Boss, 4 Nov 2026)
+
+"Get rid of the hidden hit boxes, use NPC and object throughout the game."
+
+- **Coaches run their training.** Every gym and practice yard coach in Areas 2 to 8 starts the drill when you talk to them, and a coach with several drills puts them on a menu. The invisible walk-in spots on the paths in front of the gyms and yards are gone, as are Area 1's placeholder ones at the practice tracks and the scrapyard, and the running track's (Tasha runs it). Clicking a gym or a practice kiosk walks you to whoever works there. Task markers for a drill lesson point at the coach.
+- **The practice coach is in the kiosk.** In Mountain Town, Beach Town (Big Pete, with Ray beside the kiosk), Forest Town and the Highlands the practice coach stands inside the kiosk and is seen through its window; talk to them from the front. Western Works' kiosk has a fence in front, so Vera stays in the yard.
+- **The Phoenix MX job board is on the wall** in every area's garage, a cork board you can see, and clicking its picture opens it.
+- **Ray Crispy** stands one tile right of Big Pete at the venues.
+- **Button labels always fit.** A long label is set smaller, then on two lines, so it never runs past its button (the job board's tickets ran out of theirs).
+- **Arriving by motor makes sense.** A motor arriving in a town or venue parks on the road it came in by, in its lane, pointing into the map and clear of the road sign, instead of sideways or backwards on top of the signpost (Home Town to the Industrial Zone and many others). A motor too long for a short side road parks on the main road by the junction.
+
 ## Before release
 
 Testing aids to take out before the final release:
