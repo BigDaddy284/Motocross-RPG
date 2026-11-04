@@ -214,3 +214,37 @@ describe('No-Turn Takedown knockouts', () => {
     expect(play(9)).toEqual(play(9));
   }, 30000);
 });
+
+describe("the game's own No-Turn Takedowns (Boss, 4 Nov 2026)", () => {
+  const strips = content.tracks.tracks.filter((t) => isNoTurn(t));
+  it('has one in each of Areas 6 to 8, raced at the No-Turn venue, with no championship', () => {
+    expect(strips.map((t) => t.id).sort()).toEqual(['a6-noturn', 'a7-noturn', 'a8-noturn']);
+    for (const t of strips) {
+      const venues = content.tracks.venues.filter((v) => v.track === t.id);
+      expect(venues.map((v) => v.map), t.id).toEqual(['venue-no-turn']);
+      expect(noTurnProblems(t), t.id).toEqual([]);
+      for (const c of content.championships.championships) for (const v of venues) expect(c.rounds, c.id).not.toContain(v.id);
+    }
+  });
+
+  for (const track of strips) {
+    it(`runs four riders off the platform on ${track.id}, straight to the line and pulled up in the run-off`, () => {
+      const four = field('50cc', 4);
+      four.forEach((e, i) => (e.gate = i));
+      const sim = new MotoSim(content.racing, content.bikes, track, '50cc', four, { laps: 1, motoIndex: 0, seed: 4 });
+      const dir = directorFor(sim, content.bikes, content.racing.messages);
+      for (const tr of sim.runToEnd()) dir.addLap(tr);
+      const s = new TrackSurface(track);
+      const end = Math.max(...sim.riders.map((r) => r.time)) + 4;
+      const last = new Map<string, number>();
+      for (let t = 0; t <= end; t += 0.25) {
+        for (const p of dir.poses(t)) {
+          expect(p.dist).toBeGreaterThanOrEqual((last.get(p.id) ?? -Infinity) - 1e-9);
+          last.set(p.id, p.dist);
+          expect(Math.abs(p.lane)).toBeLessThanOrEqual(1);
+        }
+      }
+      for (const p of dir.poses(end)) expect((p.dist - Math.floor(p.dist)) * s.g.total).toBeLessThanOrEqual(NO_TURN_RUNOFF + 0.01);
+    });
+  }
+});

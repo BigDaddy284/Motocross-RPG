@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { sectionBounds } from '../src/core/trackGeom';
+import { isNoTurn, isSprint, sectionBounds } from '../src/core/trackGeom';
 import { content, JUMPY, race, units } from './raceHelpers';
 import { tracksIn, type TrackGroup } from './trackGroups';
 
 /** The rider AI acts out the simulation's result on every track of the group (GDD 11.1). */
 export function riderAITrackTests(group: TrackGroup): void {
   describe(`rider AI (GDD 11.1) on the ${group.replace('-', ' ').replace('-', ' to ')} tracks`, () => {
-  for (const track of tracksIn(group, content.tracks.tracks)) {
+  // Enduro Sprints and No-Turn Takedowns ride differently (one at a time, or one run from a
+  // platform): sprint.test.ts and noTurn.test.ts test the game's own (Boss, 4 Nov 2026).
+  for (const track of tracksIn(group, content.tracks.tracks).filter((t) => !isSprint(t) && !isNoTurn(t))) {
     it(`acts out the simulation's result on ${track.id}`, () => {
       for (const seed of [3, 77]) {
         const { sim, dir, traces } = race(track.id, seed);

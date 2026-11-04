@@ -26,12 +26,12 @@ describe('the roads out', () => {
   });
 
   it('at each venue, the lane goes to the other places, never the venue itself', () => {
-    for (const id of ['venue-motocross', 'venue-supercross', 'venue-enduro']) {
+    for (const id of ['venue-motocross', 'venue-supercross', 'venue-enduro', 'venue-enduro-sprint', 'venue-endurocross', 'venue-no-turn']) {
       const ways = waysOut(map(id), world, maps, travel, {});
       expect(ways).toHaveLength(1);
       expect(ways[0].side).toBe('south');
       const names = ways[0].places.map((p) => p.map);
-      expect(names).toHaveLength(4);
+      expect(names).toHaveLength(7);
       expect(names).toContain('area1-home-town');
       expect(names).toContain('mod-tracks');
       expect(names).not.toContain(id);
@@ -42,7 +42,7 @@ describe('the roads out', () => {
     const w = structuredClone(world);
     w.places.push({ map: 'area1-nowhere', spawn: 'x', name: 'Nowhere', note: '' });
     w.routes[0].to.push('area1-nowhere');
-    expect(routePlaces(w, maps, w.routes[0]).map((p) => p.name)).toEqual(['Motocross Venue', 'Supercross Arena', 'Enduro Venue', 'Mod Track']);
+    expect(routePlaces(w, maps, w.routes[0]).map((p) => p.name)).toEqual(['Motocross Venue', 'Supercross Arena', 'Enduro Venue', 'Enduro Sprint Venue', 'EnduroCross Arena', 'No-Turn Takedown', 'Mod Track']);
   });
 });
 
@@ -65,7 +65,7 @@ describe('leaving by a route', () => {
       expect(typeof to).not.toBe('string');
       if (typeof to === 'string') continue;
       expect(to.map).toBe('venue-motocross');
-      expect(to.others.map((p) => p.map)).toEqual(['venue-supercross', 'venue-enduro', 'mod-tracks']);
+      expect(to.others.map((p) => p.map)).toEqual(['venue-supercross', 'venue-enduro', 'venue-enduro-sprint', 'venue-endurocross', 'venue-no-turn', 'mod-tracks']);
     }
   });
 
@@ -91,8 +91,8 @@ describe('route checks', () => {
   // Four full content checks, which take over 5 s now Areas 2 to 8 are in.
   it('refuse a route exit with no route, a route to a place that isn’t listed, or one back to itself', () => {
     expect(errorsWith((r) => { r.world.routes = r.world.routes.slice(1); })).toEqual([expect.stringMatching(/the exit "To the venue route" on area1-home-town leads to a choice of places, but no route lists them/)]);
-    expect(errorsWith((r) => { r.world.routes[0].to.push('area1-industrial-zone'); })).toEqual([expect.stringMatching(/routes\[0\]\.to\[6\]: "area1-industrial-zone" isn't one of the places/)]);
-    expect(errorsWith((r) => { r.world.routes[1].to.push('venue-motocross'); })).toEqual([expect.stringMatching(/routes\[1\]\.to\[11\]: leads back to venue-motocross/)]);
+    expect(errorsWith((r) => { r.world.routes[0].to.push('area1-industrial-zone'); })).toEqual([expect.stringMatching(/routes\[0\]\.to\[9\]: "area1-industrial-zone" isn't one of the places/)]);
+    expect(errorsWith((r) => { r.world.routes[1].to.push('venue-motocross'); })).toEqual([expect.stringMatching(/routes\[1\]\.to\[14\]: leads back to venue-motocross/)]);
     expect(errorsWith((r) => { r.world.routes[0].exit = 'To the Industrial Zone'; })).toEqual(expect.arrayContaining([expect.stringMatching(/goes straight to area1-industrial-zone, not to a choice of places/)]));
     // Four full content checks over 70-odd maps take about 5.5 s since the Area 2 to 8 towns were
     // stamped, past vitest's 5 s default: the checks are unchanged, only the time allowed.
@@ -146,9 +146,9 @@ describe('the road menu (Boss, 30 Oct 2026)', () => {
   const names = (ps: { name: string }[]) => ps.map((p) => p.name);
   const FOUND = { 'found.venue-farmland': true };
 
-  it('lists the track types in order, with Enduro Sprint, EnduroCross and No-Turn Takedown coming soon', () => {
+  it('lists the track types in order, every one open now Enduro Sprint, EnduroCross and No-Turn Takedown have tracks (Boss, 4 Nov 2026)', () => {
     expect(ROAD_TRACK_TYPES.map((t) => t.name)).toEqual(['Motocross', 'Supercross', 'Enduro Loop', 'Enduro Sprint', 'EnduroCross', 'No-Turn Takedown']);
-    expect(ROAD_TRACK_TYPES.filter((t) => t.comingSoon).map((t) => t.name)).toEqual(['Enduro Sprint', 'EnduroCross', 'No-Turn Takedown']);
+    expect(ROAD_TRACK_TYPES.filter((t) => t.comingSoon).map((t) => t.name)).toEqual([]);
   });
 
   it('puts each unlocked track under its type, and the places that are not tracks under Areas', () => {
@@ -190,10 +190,13 @@ describe('the road menu (Boss, 30 Oct 2026)', () => {
     expect(venueMapFor('backyard')).toBeUndefined();
   });
 
-  it('lists nothing under a coming soon type, even a venue of its kind', () => {
-    const venues = content.tracks.venues.map((v) => (v.id === 'venue-longmoor' ? { ...v, track: 'quarry' } : v));
-    const menu = roadMenu(routePlaces(world, maps, lane), venues, (id) => (id === 'quarry' ? 'enduro_sprint' : kindOf(id)), FOUND);
-    expect(menu.tracks.find((t) => t.name === 'Enduro Sprint')).toMatchObject({ comingSoon: true, places: [] });
-    expect(menu.tracks[2].places).toEqual([]);
+  it('lists the new race types\' tracks under their own types once their area is open (Boss, 4 Nov 2026)', () => {
+    const flags = { ...FOUND, 'area7.intro_done': true };
+    const menu = roadMenu(routePlaces(world, maps, lane), content.tracks.venues, kindOf, flags);
+    const of = (name: string) => names(menu.tracks.find((t) => t.name === name)!.places);
+    expect(of('Enduro Sprint')).toEqual(['Canal Towpath Sprint', 'Gasworks Sprint']);
+    expect(of('EnduroCross')).toEqual(['Warehouse EnduroCross', 'Railyard EnduroCross']);
+    expect(of('No-Turn Takedown')).toEqual(['City Takedown']);
+    expect(menu.tracks.every((t) => !t.comingSoon)).toBe(true);
   });
 });

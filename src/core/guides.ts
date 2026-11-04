@@ -150,14 +150,14 @@ export const ROAD_TRACK_TYPES: { id: string; name: string; kinds: string[]; comi
   { id: 'motocross', name: 'Motocross', kinds: ['outdoor'] },
   { id: 'supercross', name: 'Supercross', kinds: ['stadium'] },
   { id: 'enduro_loop', name: 'Enduro Loop', kinds: ['endurance'] },
-  { id: 'enduro_sprint', name: 'Enduro Sprint', kinds: ['enduro_sprint'], comingSoon: true },
-  { id: 'endurocross', name: 'EnduroCross', kinds: ['endurocross'], comingSoon: true },
-  { id: 'no_turn', name: 'No-Turn Takedown', kinds: ['no_turn'], comingSoon: true },
+  { id: 'enduro_sprint', name: 'Enduro Sprint', kinds: ['enduro_sprint'] },
+  { id: 'endurocross', name: 'EnduroCross', kinds: ['endurocross'] },
+  { id: 'no_turn', name: 'No-Turn Takedown', kinds: ['no_turn'] },
 ];
 
 /**
  * The venue map for each track type (one venue per track type, Boss, 30 Oct 2026): every track of
- * a type races at its type's venue. The last three are ready for later and not on any road yet.
+ * a type races at its type's venue. The last three opened with their tracks (Boss, 4 Nov 2026).
  */
 export const VENUE_MAPS: Record<string, string> = {
   motocross: 'venue-motocross',

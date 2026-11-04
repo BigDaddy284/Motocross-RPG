@@ -21,16 +21,16 @@ export const AREA_MAPS = [
   'area-map/tiled/maps/area6-highlands.tmj',
   'area-map/tiled/maps/area7-the-city.tmj',
   'area-map/tiled/maps/area8-capital.tmj',
+  // The Enduro Sprint, EnduroCross and No-Turn Takedown venues, opened with their tracks (Boss, 4 Nov 2026).
+  'area-map/tiled/maps/venue-enduro-sprint.tmj',
+  'area-map/tiled/maps/venue-endurocross.tmj',
+  'area-map/tiled/maps/venue-no-turn.tmj',
 ];
 /**
  * Venue maps kept for later, not on any road (one venue per race type; Boss, 30 Oct 2026): baked
  * into public/assets/maps/ but not listed in the manifest, so the game does not load them yet.
  */
-export const LATER_MAPS = [
-  'area-map/tiled/maps/venue-enduro-sprint.tmj',
-  'area-map/tiled/maps/venue-endurocross.tmj',
-  'area-map/tiled/maps/venue-no-turn.tmj',
-];
+export const LATER_MAPS = [];
 /** Every .tmj in this folder is baked as an inside. */
 export const INTERIOR_DIR = 'buildings/tiled/maps/interiors';
 export const TOWN_DIR = 'area-map/tiled/maps';
