@@ -85,6 +85,17 @@ describe('the championship overhaul (Boss, 4 Nov 2026)', () => {
     });
   });
 
+  it('calls each area champion by their cup in every line of dialogue, story hint and rider tag (Boss, 4 Nov 2026)', () => {
+    const lines = [
+      ...Object.values(content.dialogue).flatMap((d) => d.lines.map((l) => l.text)),
+      ...JSON.stringify(content.story).match(/"text":"[^"]*"/g)!,
+      ...content.riders.riders.map((r) => r.tag ?? ''),
+    ];
+    const old = lines.filter((t) => /Area \d+ (champion|title)|the (current )?Area Champion/i.test(t));
+    expect(old).toEqual([]);
+    expect(content.riders.riders.find((r) => r.id === 'cpu.local_champion')!.tag).toBe('Sprocket Cup Champion');
+  });
+
   it("opens each area's series with its story, and Legends after the Crankshaft Cup", () => {
     for (const a of [3, 6, 7, 8]) for (const k of ['mx', 'sx', 'enduro']) expect(champ(`area${a}.${k}`).needs).toEqual([`area${a}.intro_done`]);
     for (const a of [5, 6, 7, 8]) expect(champ(`area${a}.sprint`).needs).toEqual([`area${a}.intro_done`]);

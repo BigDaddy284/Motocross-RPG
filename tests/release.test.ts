@@ -52,11 +52,11 @@ describe('area release cap (Boss, 1 Nov 2026)', () => {
     expect(content.dialogue['news.area3_feb2027'].lines.map((l) => l.text).join(' ')).toContain('February 2027');
   });
 
-  it('has Manny in Home Town say the Area 2 road opens by the time you beat the Area 1 Champion, not December (Boss, 4 Nov 2026)', () => {
+  it('has Manny in Home Town say the Area 2 road opens by the time you win the Sprocket Cup, not December (Boss, 4 Nov 2026: championship names in all dialogue)', () => {
     const npc = content.npcs.find((n) => n.id === 'npc.news')!;
     expect(npc.dialogue).toBe('news.area2_soon');
     const text = content.dialogue['news.area2_soon'].lines.map((l) => l.text).join(' ');
-    expect(text).toContain('Area 1 Champion');
+    expect(text).toContain('the Sprocket Cup');
     expect(text).not.toMatch(/December/);
   });
 });

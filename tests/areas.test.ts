@@ -315,7 +315,7 @@ describe('Areas 3 to 8 (Areas 2 to 8 plan; Boss, 31 Oct 2026: placeholder towns,
       expect(fieldRider(content, a.field, 'cpu.r21')!.level).toBeGreaterThanOrEqual(level);
       expect(riders.fields['area1.local']).not.toContain(areaChamp.id);
     }
-    expect(riders.riders.find((r) => r.id === 'cpu.r16')!.tag).toBe('Area 8 Champion');
+    expect(riders.riders.find((r) => r.id === 'cpu.r16')!.tag).toBe('Crankshaft Cup Champion');
   });
 
   it('shops stock the plan’s grades and classes, and the house and motor prices climb', () => {
