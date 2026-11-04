@@ -7,7 +7,9 @@ const manifest = loadManifest();
 const maps = loadMaps();
 const raw = rawContent;
 
-describe('content files', () => {
+// Each test runs the full content checks over every track and map: 2 to 3 s here, over vitest's 5 s
+// default on a busy CI runner now that Areas 2 to 7 have their own tracks.
+describe('content files', { timeout: 30000 }, () => {
   it('pass every check', () => {
     const { errors } = checkContent(raw(), manifest, maps);
     expect(errors.map(formatError)).toEqual([]);

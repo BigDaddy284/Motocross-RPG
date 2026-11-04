@@ -366,6 +366,8 @@ function copyCharacters() {
       // The Area 4 and 5 drill frames: yoga poses, and the rowing machine (Boss, 4 Nov 2026).
       ...(fs.existsSync(path.join(ART, 'characters/player', `${pid}.yoga.png`)) ? { yoga: useImage(path.join(ART, 'characters/player', `${pid}.yoga.png`)) } : {}),
       ...(fs.existsSync(path.join(ART, 'characters/player', `${pid}.row.png`)) ? { row: useImage(path.join(ART, 'characters/player', `${pid}.row.png`)) } : {}),
+      // The Area 6 and 7 drill frames: the dojo's guard, punch and kick (Boss, 4 Nov 2026).
+      ...(fs.existsSync(path.join(ART, 'characters/player', `${pid}.dojo.png`)) ? { dojo: useImage(path.join(ART, 'characters/player', `${pid}.dojo.png`)) } : {}),
     };
   }
   return out;

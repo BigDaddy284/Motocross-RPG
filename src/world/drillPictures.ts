@@ -43,6 +43,9 @@ export const REPS_WORDS: Partial<Record<DrillScene, { count: string; finish: (go
   bench: { count: 'Clean lifts', finish: (g, t) => `${g} clean lifts out of ${t}.` },
   attack: { count: 'Bumps cleared', finish: (g, t) => `${g} bumps cleared in the attack position, out of ${t}.` },
   yoga: { count: 'Poses held', finish: (g, t) => `${g} poses held on the breath, out of ${t}.` },
+  laps: { count: 'Laps on the time', finish: (g, t) => `${g} laps on the time, out of ${t}.` },
+  dojo: { count: 'Clean strikes', finish: (g, t) => `${g} clean strikes out of ${t}.` },
+  rhythm: { count: 'Clean take-offs', finish: (g, t) => `${g} clean take-offs through the rhythm, out of ${t}.` },
 };
 
 export interface ReactWords {
@@ -100,6 +103,15 @@ export const REACT_WORDS: Partial<Record<DrillScene, ReactWords>> = {
     pops: ['Over!', 'Stalled', 'Bash!'],
     finish: (g, n, j) => `${g} rocks cleared out of ${n}${j ? `, ${j} stalled` : ''}.`,
   },
+  launch: {
+    tally: 'Good launches',
+    good: 'Good launch!',
+    jumped: 'Jumped the lights: red light',
+    slow: 'Slow off the line',
+    asleep: 'Missed the green',
+    pops: ['Gone!', 'Red light', 'Late'],
+    finish: (g, n, j) => `${g} good launches out of ${n}${j ? `, ${j} red lights` : ''}.`,
+  },
 };
 
 export const PACE_WORDS: Partial<Record<DrillScene, { unit: [string, string]; on: string; fast: string; slow: string }>> = {
@@ -110,6 +122,7 @@ export const PACE_WORDS: Partial<Record<DrillScene, { unit: [string, string]; on
   berm: { unit: ['corner pair', 'corner pairs'], on: 'Carrying speed', fast: 'Too hot, running wide', slow: 'Too slow, it bogs in the berm' },
   rowing: { unit: ['split', 'splits'], on: 'Stroke rate on', fast: 'Too fast, you will fade', slow: 'Too slow, pull harder' },
   shadow: { unit: ['pass', 'passes'], on: 'Right on the wheel', fast: 'Too close, back off', slow: 'Dropping back, close up' },
+  climb: { unit: ['climb', 'climbs'], on: 'Steady on the climb', fast: 'Too hard, you will blow up', slow: 'Too easy, push on' },
 };
 
 // ---- the rider on the bike, side on ----
@@ -197,6 +210,9 @@ export function repsPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Contain
   if (kind === 'bench') return benchPicture(scene, vis, who);
   if (kind === 'attack') return attackPicture(scene, vis, who);
   if (kind === 'yoga') return yogaPicture(scene, vis, who);
+  if (kind === 'laps') return lapsPicture(scene, vis, who);
+  if (kind === 'dojo') return dojoPicture(scene, vis, who);
+  if (kind === 'rhythm') return rhythmPicture(scene, vis, who);
   return pushupPicture(scene, vis, who);
 }
 
@@ -463,6 +479,7 @@ export function reactPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Contai
   if (kind === 'jump') return jumpPicture(scene, vis, who);
   if (kind === 'roots') return obstaclePicture(scene, vis, who, 'roots');
   if (kind === 'rocks') return obstaclePicture(scene, vis, who, 'rocks');
+  if (kind === 'launch') return launchPicture(scene, vis, who);
   return gatePicture(scene, vis);
 }
 
@@ -810,6 +827,7 @@ export function pacePicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Contain
   if (kind === 'berm') return bermPicture(scene, vis, who);
   if (kind === 'rowing') return rowingPicture(scene, vis, who);
   if (kind === 'shadow') return shadowPicture(scene, vis, who);
+  if (kind === 'climb') return climbPicture(scene, vis, who);
   return trackPicture(scene, vis, who);
 }
 
@@ -1186,6 +1204,459 @@ function shadowPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, w
       // The pro's dust in the player's face.
       dust.clear().fillStyle(0xc8a878, 0.45);
       for (let i = 0; i < 4; i++) dust.fillCircle(pro.c.x - 50 - i * 10 - (s % 10), BASE - 14 - ((i * 5) % 9), 3 + i * speed);
+    },
+  };
+}
+
+// ---- Areas 6 and 7 (Boss, 4 Nov 2026: drawn like the Area 2 and 3 pictures) ----
+
+/** A hill across the picture along the shared hill line, in its own colour. */
+function bankHill(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, bank: number): void {
+  vis.add(scene.add.rectangle(0, 64, 366, 68, bank));
+  const g = scene.add.graphics();
+  const pts: Phaser.Types.Math.Vector2Like[] = [{ x: -183, y: 40 }];
+  for (let x = -183; x < 183; x += 10) pts.push({ x, y: hillAt(x) });
+  pts.push({ x: 183, y: hillAt(183) }, { x: 183, y: 98 }, { x: -183, y: 98 });
+  g.fillStyle(bank).fillPoints(pts, true);
+  vis.add(g);
+}
+
+const HEATHER = 0x7d8a4e;
+
+/** The Highlands behind a picture (Area 6): the sky, far blue mountains with snow on the tops, and the heather hill. */
+function highlands(scene: Phaser.Scene, vis: Phaser.GameObjects.Container): void {
+  vis.add(scene.add.rectangle(0, -10, 366, 216, SKY));
+  const g = scene.add.graphics();
+  const peaks: [number, number, number][] = [[-120, -62, 90], [-20, -78, 110], [100, -56, 96], [170, -40, 50]];
+  for (const [x, top, half] of peaks) {
+    const l = Math.max(-183, x - half);
+    const r = Math.min(183, x + half);
+    g.fillStyle(0x8496ae).fillTriangle(l, 20, x, top, r, 20);
+    // Snow on the top third.
+    const k = 0.32;
+    g.fillStyle(0xf2f4f6).fillTriangle(x - half * k, top + (20 - top) * k, x, top, x + half * k, top + (20 - top) * k);
+  }
+  g.fillStyle(0x8496ae).fillRect(-183, 10, 366, 12);
+  vis.add(g);
+  bankHill(scene, vis, HEATHER);
+  // Patches of purple heather on the hill.
+  const h = scene.add.graphics();
+  h.fillStyle(0x8a5a86);
+  for (const [x, w] of [[-150, 40], [-70, 26], [20, 46], [120, 34]] as const) h.fillEllipse(x, hillAt(x) + 12, w, 8);
+  h.fillStyle(0xa070a0);
+  for (const [x, w] of [[-146, 18], [26, 20], [124, 14]] as const) h.fillEllipse(x, hillAt(x) + 10, w, 4);
+  vis.add(h);
+}
+
+/** The City behind a picture (Area 7): the sky and a skyline of towers with lit windows. */
+function city(scene: Phaser.Scene, vis: Phaser.GameObjects.Container): void {
+  vis.add(scene.add.rectangle(0, -10, 366, 216, SKY));
+  const g = scene.add.graphics();
+  const towers: [number, number, number, number][] = [
+    [-183, 30, -30, 0x6b7487], [-150, 26, -62, 0x5c6578], [-118, 34, -20, 0x737c8f], [-80, 22, -80, 0x535c6f],
+    [-52, 30, -44, 0x6b7487], [-16, 40, -10, 0x5c6578], [30, 24, -70, 0x535c6f], [60, 34, -36, 0x737c8f],
+    [100, 28, -90, 0x5c6578], [134, 30, -28, 0x6b7487], [160, 23, -54, 0x535c6f],
+  ];
+  for (const [x, w, top, col] of towers) {
+    const r = Math.min(183, x + w);
+    g.fillStyle(col).fillRect(x, top, r - x, 60 - top);
+    g.fillStyle(0xf0d890);
+    for (let y = top + 6; y < 50; y += 9) for (let wx = x + 4; wx < r - 4; wx += 7) if ((wx * 7 + y * 3) % 5 < 2) g.fillRect(wx, y, 3, 4);
+  }
+  vis.add(g);
+}
+
+/** The player on a pedal bike, facing right, drawn under their riding frames (the climb). */
+function pedalOn(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who: DrillWho, x: number, y: number) {
+  const model = who.bike?.model ?? 'adult';
+  const [fx, fy] = BIKE_FOOT[model];
+  const c = scene.add.container(x, y).setScale(RIDE_SCALE);
+  const g = scene.add.graphics();
+  c.add(g);
+  const rideKey = `chr:${who.player}:ride`;
+  const row = model === 'youth' ? 3 : 0;
+  const body = scene.textures.exists(rideKey) ? scene.add.sprite(-fx, -fy, rideKey, row).setOrigin(0, 0) : null;
+  if (body) c.add(body);
+  vis.add(c);
+  // Where the rider meets the bike, in the container (make_exercises.py BIKES, less the foot).
+  const at = model === 'youth' ? { grip: [6, -28], seat: [-10, -17], peg: [-4, -3] } : { grip: [9, -41], seat: [-11, -29], peg: [-3, -10] };
+  const r = model === 'youth' ? 9 : 12;
+  const draw = (turn: number) => {
+    g.clear();
+    const R = [-18, -r];
+    const F = [18, -r];
+    const B = [at.peg[0], at.peg[1] + 2];
+    const S = [at.seat[0] - 1, at.seat[1] + 4];
+    const H = [at.grip[0] - 2, at.grip[1] + 6];
+    const Hb = [at.grip[0] + 1, at.grip[1] + 13];
+    // Wheels: tyre, rim and spokes that turn.
+    for (const w of [R, F]) {
+      g.lineStyle(2.4, 0x1c1c22).strokeCircle(w[0], w[1], r - 1);
+      g.lineStyle(0.8, 0xb8bcc4).strokeCircle(w[0], w[1], r - 2.6);
+      for (let i = 0; i < 4; i++) {
+        const a = turn + (i * Math.PI) / 4;
+        g.lineBetween(w[0] - Math.cos(a) * (r - 3), w[1] - Math.sin(a) * (r - 3), w[0] + Math.cos(a) * (r - 3), w[1] + Math.sin(a) * (r - 3));
+      }
+    }
+    // The frame in the bike's brand colour.
+    const col = { hondmoto: 0xc8322a, yamamoto: 0x2a5fc8, kwakmoto: 0x5fb82a, sukimoto: 0xe0c020 }[who.bike?.brand ?? 'hondmoto'] ?? 0xc8322a;
+    g.lineStyle(2.6, col);
+    g.lineBetween(B[0], B[1], S[0], S[1]).lineBetween(S[0], S[1] + 1, H[0], H[1] + 1).lineBetween(Hb[0], Hb[1], B[0], B[1]);
+    g.lineBetween(B[0], B[1], R[0], R[1]).lineBetween(S[0], S[1] + 2, R[0], R[1]);
+    g.lineStyle(2.2, 0x3a3a42).lineBetween(H[0], H[1], Hb[0], Hb[1]).lineBetween(Hb[0], Hb[1], F[0], F[1]);
+    // Bars, saddle, and the crank going round.
+    g.lineStyle(1.6, 0x2a2a30).lineBetween(H[0], H[1], at.grip[0], at.grip[1] + 1).lineBetween(at.grip[0], at.grip[1] + 1, at.grip[0] + 3, at.grip[1] + 1);
+    g.fillStyle(0x1c1c22).fillEllipse(S[0], S[1] - 1, 8, 2.6);
+    g.lineStyle(1, 0x6a6e76).strokeCircle(B[0], B[1], 3);
+    const ca = turn * 0.7;
+    g.lineStyle(1.4, 0x9aa0a8).lineBetween(B[0], B[1], B[0] + Math.cos(ca) * 5, B[1] + Math.sin(ca) * 5);
+  };
+  draw(0);
+  return { c, draw, pose: (p: Pose) => body?.active && body.setFrame(row + p) };
+}
+
+/**
+ * The hill climb ride in the Highlands, side on: the road climbs to the right past the heather.
+ * On pace the rider sits and spins steadily; too hard they stand and the bike sways; too easy the
+ * pedals barely turn.
+ */
+function climbPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who: DrillWho): PacePicture {
+  highlands(scene, vis);
+  const BASE = 84;
+  const SLOPE = 0.12;
+  const rise = (x: number) => SLOPE * (x + 185);
+  const ground = scene.add.graphics();
+  vis.add(ground);
+  const X = -40;
+  const b = pedalOn(scene, vis, who, X, BASE - rise(X));
+  b.c.setRotation(-Math.atan(SLOPE));
+  let turn = 0;
+  let last = 0;
+  return {
+    move(run, speed, state) {
+      const s = run * 900;
+      // The road: tarmac with a verge, and its white middle line going by.
+      drawGround(ground, BASE, rise, 0x5c5e66, 0x7d8a4e, 0x4a4c54);
+      ground.lineStyle(2, 0xf2efe6);
+      for (let x = -183 - (s % 44); x < 170; x += 44) {
+        const x0 = Math.max(-183, x);
+        const x1 = Math.min(183, x + 18);
+        if (x1 > x0) ground.lineBetween(x0, BASE - rise(x0) + 8, x1, BASE - rise(x1) + 8);
+      }
+      turn += Math.max(0, run - last) * 90 * (0.4 + speed);
+      last = run;
+      b.draw(turn);
+      const sway = state === 'fast' ? 0.05 * Math.sin(s / 8) : 0;
+      b.c.setRotation(-Math.atan(SLOPE) + sway);
+      b.pose(state === 'fast' ? 1 : 0);
+    },
+  };
+}
+
+/**
+ * Repetition laps at the Highlands yard, side on: the rider comes past the timing beam each lap and
+ * the board shows the lap times. A press on the time is the same lap again, in green; a miss is a
+ * slower one in red, and the bike twitches off line.
+ */
+function lapsPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who: DrillWho): RepsPicture {
+  highlands(scene, vis);
+  const BASE = 72;
+  const ground = scene.add.graphics();
+  vis.add(ground);
+  // The timing beam either side of the track, and the lap board on its post.
+  const post = scene.add.graphics();
+  post.fillStyle(0xdedad0).fillRect(-6, BASE - 46, 4, 46);
+  post.fillStyle(0x2a2a30).fillRect(-9, BASE - 52, 10, 8);
+  post.fillStyle(0xd84a3a).fillCircle(-4, BASE - 48, 2);
+  post.fillStyle(0x8a8a90).fillRect(118, -30, 5, BASE + 30);
+  post.fillStyle(0x1c1f26).fillRoundedRect(58, -108, 122, 80, 5);
+  vis.add(post);
+  const title = scene.add.text(119, -102, 'LAP TIMES', { fontFamily: 'monospace', fontSize: '14px', color: '#c8c8c8' }).setOrigin(0.5, 0);
+  const lines = [0, 1, 2].map((i) => scene.add.text(68, -84 + i * 17, '', { fontFamily: 'monospace', fontSize: '15px', color: '#7be07b' }));
+  vis.add([title, ...lines]);
+  coachBy(scene, vis, who, 150, BASE + 22, 'left');
+  const r = rideOn(scene, vis, who, -70, BASE);
+  const beam = scene.add.graphics();
+  vis.add(beam);
+  const laps: { t: number; ok: boolean }[] = [];
+  const BEST = 62.4;
+  let s = 0;
+  let flash = 0;
+  let flashOk = true;
+  let wob = 0;
+  const show = () => {
+    const recent = laps.slice(-3);
+    lines.forEach((l, i) => {
+      const lap = recent[i];
+      if (!lap) return l.setText('');
+      const n = laps.length - recent.length + i + 1;
+      const m = Math.floor(lap.t / 60);
+      const sec = (lap.t - m * 60).toFixed(1).padStart(4, '0');
+      l.setText(`L${n}  ${m}:${sec}`).setColor(lap.ok ? '#7be07b' : '#f0a060');
+    });
+  };
+  show();
+  return {
+    tick(dt) {
+      s += dt * 0.12;
+      flash = Math.max(0, flash - dt);
+      wob = Math.max(0, wob - dt);
+      ground.clear();
+      drawGround(ground, BASE, () => 0, DIRT, DIRT_EDGE, DIRT_DEEP);
+      ground.lineStyle(2, DIRT_DEEP);
+      for (let x = -183 - (s % 40); x < 183; x += 40) ground.lineBetween(Math.max(-183, x), BASE + 12, Math.min(183, x + 18), BASE + 12);
+      // The bike rides on past the beam; the flash shows the lap going through it.
+      beam.clear();
+      if (flash > 0) {
+        beam.lineStyle(2, flashOk ? 0x7be07b : 0xf0a060, flash / 400);
+        beam.lineBetween(-4, BASE - 48, -4, BASE);
+      }
+      r.c.y = BASE + Math.sin(s / 9);
+      r.c.rotation = wob > 0 ? 0.08 * Math.sin(wob / 30) : 0;
+      r.pose(wob > 0 ? 2 : 1);
+    },
+    rep(ok) {
+      const t = ok ? BEST + (Math.random() - 0.5) * 0.2 : BEST + 0.8 + Math.random() * 1.4;
+      laps.push({ t, ok });
+      flash = 400;
+      flashOk = ok;
+      if (!ok) wob = 500;
+      show();
+    },
+  };
+}
+
+/**
+ * The dojo in The City, side on: a heavy bag on its chain, and the rider in their guard. A clean
+ * strike (punch, punch, kick, and round again) lands and swings the bag; a miss falls short and the
+ * bag hangs still.
+ */
+function dojoPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who: DrillWho): RepsPicture {
+  // Pale wood walls between dark posts, a scroll, and the tatami floor.
+  vis.add(scene.add.rectangle(0, -42, 366, 140, 0xe2cfa4));
+  const g = scene.add.graphics();
+  g.fillStyle(0x6a4a2e);
+  for (const x of [-150, -60, 90, 170]) g.fillRect(x - 4, -118, 8, 146);
+  g.fillRect(-183, -112, 366, 7);
+  g.fillStyle(0xf4efe2).fillRect(-122, -94, 40, 76);
+  g.fillStyle(0x6a4a2e).fillRect(-126, -98, 48, 5).fillRect(-126, -20, 48, 5);
+  g.fillStyle(0xc8322a).fillCircle(-102, -66, 10);
+  g.fillStyle(0x2a2a2e).fillTriangle(-118, -34, -104, -52, -90, -34).fillTriangle(-106, -34, -96, -46, -86, -34);
+  g.fillStyle(0xc8c48a).fillRect(-183, 28, 366, 70);
+  g.lineStyle(3, 0x3f5a3a);
+  g.lineBetween(-183, 28, 183, 28).lineBetween(-183, 62, 183, 62);
+  for (const x of [-120, 0, 120]) g.lineBetween(x, 28, x, 62);
+  for (const x of [-60, 60]) g.lineBetween(x, 62, x, 98);
+  vis.add(g);
+  coachBy(scene, vis, who, 140, 46, 'left');
+  // The bag hangs from the beam; it turns about the top of its chain.
+  const bag = scene.add.container(4, -105);
+  const bg = scene.add.graphics();
+  bg.lineStyle(2, 0x8a8e96).lineBetween(0, 0, 0, 36);
+  bg.fillStyle(0x2a2a30).fillRoundedRect(-20, 34, 40, 96, 10);
+  bg.fillStyle(0xb5322a).fillRoundedRect(-18, 36, 36, 92, 9);
+  bg.fillStyle(0xd85a4a).fillRoundedRect(-14, 40, 8, 84, 4);
+  bg.fillStyle(0x2a2a30).fillRect(-18, 56, 36, 4).fillRect(-18, 104, 36, 4);
+  bag.add(bg);
+  vis.add(bag);
+  const key = `chr:${who.player}:dojo`;
+  const X = -56;
+  const Y = 86;
+  const S = 2;
+  const body = scene.textures.exists(key) ? scene.add.sprite(X, Y, key, 0).setOrigin(0.5, 1).setScale(S) : null;
+  if (body) vis.add(body);
+  const fx = scene.add.graphics();
+  vis.add(fx);
+  let n = 0;
+  let swing = 0;
+  let vel = 0;
+  let hit = 0;
+  return {
+    tick(dt) {
+      // The bag swings back to rest on its chain.
+      vel += -swing * 0.00004 * dt - vel * 0.004 * dt;
+      swing += vel * dt;
+      bag.setRotation(swing);
+      hit = Math.max(0, hit - dt);
+      fx.clear();
+      if (hit > 0) {
+        fx.fillStyle(0xfff2a0, hit / 200);
+        // Where the fist or the boot meets the bag's near side.
+        const y = n % 3 === 0 ? 24 : 6;
+        const x = -16;
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2;
+          fx.fillTriangle(x + Math.cos(a) * 4, y + Math.sin(a) * 4, x + Math.cos(a + 0.3) * 14, y + Math.sin(a + 0.3) * 14, x + Math.cos(a - 0.3) * 14, y + Math.sin(a - 0.3) * 14);
+        }
+      }
+    },
+    rep(ok) {
+      if (!body?.active) return;
+      scene.tweens.killTweensOf(body);
+      n += 1;
+      const kick = n % 3 === 0;
+      body.setFrame(kick ? 2 : 1).setX(X);
+      // A kick steps in to reach the bag.
+      scene.tweens.add({ targets: body, x: X + (kick ? 18 : 6) - (ok ? 0 : 12), duration: 90, yoyo: true, hold: 140, onComplete: () => body.active && body.setFrame(0) });
+      if (ok) {
+        vel += kick ? 0.0011 : 0.0007;
+        hit = 200;
+      }
+    },
+  };
+}
+
+/**
+ * Supercross rhythm in The City's arena, side on: a run of jumps under the lights. A press on the
+ * take-off sends the bike clean over to the next landing; a miss cases the face with a jolt.
+ */
+function rhythmPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who: DrillWho): RepsPicture {
+  // The arena at night: dark stands with the crowd's lights, and the lights' beams.
+  vis.add(scene.add.rectangle(0, -10, 366, 216, 0x1c2232));
+  const g = scene.add.graphics();
+  g.fillStyle(0x2a3246).fillRect(-183, -40, 366, 80);
+  g.fillStyle(0x323c54).fillRect(-183, -40, 366, 6);
+  for (let y = -30; y < 36; y += 9) for (let x = -180; x < 180; x += 7) {
+    const k = (x * 13 + y * 7) & 7;
+    if (k < 3) g.fillStyle([0xf0d890, 0xd84a3a, 0x7ab0e0][k]).fillRect(x, y, 2, 2);
+  }
+  g.fillStyle(0xffffff, 0.07).fillTriangle(-140, -118, -170, 60, -90, 60).fillTriangle(60, -118, 20, 60, 110, 60);
+  g.fillStyle(0xf2f4f6).fillCircle(-140, -112, 5).fillCircle(60, -112, 5);
+  g.fillStyle(0x2a3246).fillRect(-183, 36, 366, 8);
+  g.fillStyle(0xdedad0).fillRect(-183, 38, 366, 2);
+  vis.add(g);
+  const BASE = 82;
+  const GAP = 120;
+  const TALL = 26;
+  const ground = scene.add.graphics();
+  vis.add(ground);
+  const r = rideOn(scene, vis, who, -50, BASE);
+  let s = 0;
+  const h = (x: number) => {
+    const u = ((((x + s) % GAP) + GAP) % GAP) - GAP / 2;
+    return Math.abs(u) < 40 ? TALL * Math.pow(Math.cos((u / 40) * (Math.PI / 2)), 1.4) : 0;
+  };
+  const under = () => Math.max(h(r.c.x + WHEEL_X * RIDE_SCALE), h(r.c.x - WHEEL_X * RIDE_SCALE));
+  let air = 0;
+  let airFor = 0;
+  let airTall = 0;
+  let fromY = 0;
+  let jolt = 0;
+  let cased = false;
+  return {
+    tick(dt) {
+      s += dt * 0.16;
+      drawGround(ground, BASE, h, DIRT, DIRT_EDGE, DIRT_DEEP);
+      const land = under();
+      if (air > 0) {
+        air = Math.max(0, air - dt);
+        const k = 1 - air / airFor;
+        r.c.y = BASE - (fromY + (land - fromY) * k) - airTall * 4 * k * (1 - k);
+        r.c.rotation = -0.2 * (1 - 2 * k);
+        r.pose(1);
+        if (air === 0 && cased) jolt = 300;
+        return;
+      }
+      jolt = Math.max(0, jolt - dt);
+      r.c.y = BASE - land + (jolt > 0 ? 3 * Math.sin(jolt / 25) : 0);
+      const xf = r.c.x + WHEEL_X * RIDE_SCALE;
+      const xr = r.c.x - WHEEL_X * RIDE_SCALE;
+      r.c.rotation = Math.atan2(h(xr) - h(xf), xf - xr);
+      r.pose(jolt > 0 ? 2 : 0);
+    },
+    rep(ok) {
+      fromY = under();
+      cased = !ok;
+      airFor = ok ? 720 : 420;
+      airTall = ok ? 34 : 12;
+      air = airFor;
+    },
+  };
+}
+
+/**
+ * The drag launch on The City's No-Turn strip, side on: the rider on the line, the lights on their
+ * post. The ambers come on through the hold and the green at the moment; a good launch lifts the
+ * front and goes, a jumped one lights the red and stops, a late one bogs off the line.
+ */
+function launchPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who: DrillWho): ReactPicture {
+  city(scene, vis);
+  const BASE = 74;
+  const ground = scene.add.graphics();
+  vis.add(ground);
+  const tree = scene.add.container(90, BASE);
+  const tg = scene.add.graphics();
+  tg.fillStyle(0x8a8e96).fillRect(-3, -60, 6, 60);
+  tg.fillStyle(0x1c1f26).fillRoundedRect(-13, -112, 26, 58, 4);
+  tree.add(tg);
+  const lamps = [-102, -88, -74, -60].map((y) => scene.add.circle(0, y, 5, 0x3a3a40));
+  tree.add(lamps);
+  vis.add(tree);
+  const r = rideOn(scene, vis, who, RIDER_X, BASE);
+  const smoke = scene.add.graphics();
+  vis.add(smoke);
+  const LINE = RIDER_X + WHEEL_X * RIDE_SCALE + 6;
+  let since = -99999;
+  let hold = 2000;
+  let how: ReactOutcome | null = null;
+  let t = 0;
+  let gone = 0;
+  const lights = () => {
+    // Amber, amber, green, and the red at the foot for a jumped start.
+    const on = [since > -hold * 0.66, since > -hold * 0.33, since >= 0 && how !== 'jumped', how === 'jumped'];
+    const cols = [0xf0a020, 0xf0a020, 0x40d050, 0xe03a2a];
+    lamps.forEach((l, i) => l.setFillStyle(on[i] ? cols[i] : 0x3a3a40));
+  };
+  const draw = () => {
+    ground.clear();
+    drawGround(ground, BASE, () => 0, 0x5c5e66, 0x3a3c44, 0x4a4c54);
+    // The start line, and the strip's marks going by once the bike is away.
+    const lx = LINE - gone;
+    if (lx > -183 && lx < 183) ground.fillStyle(0xf2efe6).fillRect(lx - 2, BASE, 4, 26);
+    ground.fillStyle(0x8a8c94);
+    for (let x = -183 - (gone % 50); x < 176; x += 50) if (x > -183) ground.fillRect(x, BASE + 14, 20, 2);
+    tree.setX(90 - gone);
+    tree.setVisible(tree.x > -170);
+  };
+  return {
+    reset(holdMs) {
+      since = -holdMs;
+      hold = holdMs;
+      how = null;
+      t = 0;
+      gone = 0;
+      r.c.setPosition(RIDER_X, BASE).setRotation(0);
+      r.pose(1);
+      smoke.clear();
+      lights();
+      draw();
+    },
+    tick(dt) {
+      since += dt;
+      t += dt;
+      lights();
+      smoke.clear();
+      if (how === 'good' || how === 'slow' || (how === 'asleep' && t > 300)) {
+        // Away: the strip goes by under the bike; a good launch lifts the front, a late one bogs.
+        const tt = how === 'asleep' ? t - 300 : t;
+        const a = how === 'good' ? 0.0011 : 0.0006;
+        gone = 0.5 * a * tt * tt;
+        r.c.x = RIDER_X + Math.min(40, gone * 0.25);
+        r.c.rotation = how === 'good' ? -0.16 * Math.min(1, tt / 200) * Math.max(0, 1 - tt / 900) : 0;
+        if (how === 'slow' && tt < 500) {
+          smoke.fillStyle(0xd8d8dc, 0.6 * (1 - tt / 500));
+          for (let i = 0; i < 4; i++) smoke.fillCircle(r.c.x - 46 - i * 9, BASE - 6 - i * 3, 5 + i * 2);
+        }
+      } else if (how === 'jumped') {
+        // A lurch over the line, and stopped.
+        r.c.x = RIDER_X + 10 * Math.min(1, t / 120);
+        r.c.rotation = t < 200 ? 0.05 : 0;
+      }
+      draw();
+    },
+    press(o) {
+      how = o;
+      t = 0;
     },
   };
 }

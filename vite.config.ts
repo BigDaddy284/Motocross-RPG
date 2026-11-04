@@ -169,5 +169,8 @@ export default defineConfig({
   },
   test: {
     include: ['tests/**/*.test.ts'],
+    // Whole-content checks run a few seconds each and grow with every area added,
+    // so the 5 s default kept timing out on CI runners (4 Nov 2026).
+    testTimeout: 30000,
   },
 });

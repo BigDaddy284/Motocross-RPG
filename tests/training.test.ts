@@ -123,6 +123,17 @@ describe('Each drill its own picture (Boss, 3 Nov 2026)', () => {
     for (const d of training.drills) expect(DRILL_SCENES[drillScene(d)]).toBe(d.game);
   });
 
+  it('gives the Area 6 and 7 drills their own pictures too (Boss, 4 Nov 2026)', () => {
+    const want: Record<string, string> = {
+      'train.cycling': 'climb',
+      'train.repetition_laps': 'laps',
+      'train.dojo': 'dojo',
+      'train.sx_rhythm': 'rhythm',
+      'train.drag_launch': 'launch',
+    };
+    for (const [id, scene] of Object.entries(want)) expect(drillScene(training.drills.find((d) => d.id === id)!)).toBe(scene);
+  });
+
   it('refuses a picture that goes with another game', () => {
     const bad = { ...training, drills: training.drills.map((d) => (d.id === 'train.weights' ? { ...d, scene: 'whoops' as const } : d)) };
     const errors = checkTraining('training.json', bad, { skills, npcs: content.npcs });
