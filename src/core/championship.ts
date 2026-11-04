@@ -1,4 +1,4 @@
-import { className, dayClass, milestoneFlag, nextClass } from './classes';
+import { classAtLeast, className, dayClass, milestoneFlag, nextClass } from './classes';
 import { areaFlag, roadFlag } from './areas';
 import { pence, wholePounds, type CareerState } from './career';
 import { mixSeed, seededRng } from './race';
@@ -17,8 +17,14 @@ export interface ChampionshipDef {
   /** For buttons and the race screen: "Local Champion". */
   short: string;
   class: string;
-  /** The riders.json field the CPU riders come from. */
+  /** The riders.json field the CPU riders come from, and race at the level of. */
   field: string;
+  /**
+   * More riders.json fields the CPU riders are drawn from, at random with no regulars: the type
+   * championships that open with each area's story draw from every area open by then ("random
+   * field of available names as per area unlocks", Boss, 4 Nov 2026).
+   */
+  drawFrom?: string[];
   /** CPU riders drawn once on entering, who race every round. */
   size: number;
   /** Riders from the pool always in it, on top of the field's own regulars. */
@@ -29,7 +35,10 @@ export interface ChampionshipDef {
   main?: string;
   /** How much better every other CPU rider races in it: 0.1 is 10% higher skills and bike condition (Boss, 28 Oct 2026). */
   buff?: number;
-  /** Venue ids, in round order. */
+  /**
+   * Venue ids, in round order. A round's venue races this class or a smaller one, and any track
+   * type: one points table for every round, whatever the race type (Boss, 4 Nov 2026).
+   */
   rounds: string[];
   /** Entry and prize money, times the class's (Spec 14.2 event tiers). */
   entryTimes: number;
@@ -83,13 +92,14 @@ export const CHAMPIONSHIPS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['regulars', 'without', 'main', 'buff', 'needs', 'won', 'milestone', 'opens'],
+        optional: ['drawFrom', 'regulars', 'without', 'main', 'buff', 'needs', 'won', 'milestone', 'opens'],
         fields: {
           id: { type: 'string', pattern: /^[a-z0-9_.-]+$/ },
           name: { type: 'string', nonEmpty: true },
           short: { type: 'string', nonEmpty: true },
           class: { type: 'string', nonEmpty: true },
           field: { type: 'string', nonEmpty: true },
+          drawFrom: { type: 'array', minItems: 1, items: { type: 'string', nonEmpty: true } },
           size: { type: 'number', integer: true, min: 1, max: 15 },
           regulars: { type: 'array', items: { type: 'string', nonEmpty: true } },
           without: { type: 'array', items: { type: 'string', nonEmpty: true } },
@@ -126,7 +136,8 @@ export function checkChampionships(data: ChampionshipsData, rc: Pick<RaceContent
     const err = (f: string, message: string) => errors.push({ file, field: `championships[${i}].${f}`, message });
     if (ids.has(c.id)) err('id', `"${c.id}" is used twice`);
     ids.add(c.id);
-    const pool = rc.riders.fields[c.field];
+    c.drawFrom?.forEach((f, j) => !rc.riders.fields[f] && err(`drawFrom[${j}]`, `no field "${f}" in data/riders.json`));
+    const pool = rc.riders.fields[c.field] && champPool(rc, c);
     if (!pool) err('field', `no field "${c.field}" in data/riders.json`);
     else if (pool.length < c.size) err('size', `${c.size} riders, but the ${c.field} pool has ${pool.length}`);
     c.regulars?.forEach((id, j) => pool && !pool.includes(id) && err(`regulars[${j}]`, `"${id}" isn't in the ${c.field} pool`));
@@ -152,7 +163,7 @@ export function checkChampionships(data: ChampionshipsData, rc: Pick<RaceContent
       const venue = rc.tracks.venues.find((x) => x.id === v);
       if (!venue) err(`rounds[${j}]`, `no venue "${v}"`);
       else if (!venue.track || venue.practiceOnly || venue.locked) err(`rounds[${j}]`, `${venue.name} has no race day to hold a round`);
-      else if (venue.class !== c.class) err(`rounds[${j}]`, `${venue.name} races ${venue.class}, not ${c.class}`);
+      else if (!classAtLeast(rc.bikes, c.class, venue.class ?? rc.bikes.classes[0].id)) err(`rounds[${j}]`, `${venue.name} races ${venue.class}, bigger than ${c.class}`);
     });
   });
   return errors;
@@ -167,11 +178,19 @@ export function champById(data: ChampionshipsData, id: string): ChampionshipDef 
   return data.championships.find((c) => c.id === id);
 }
 
-/** The championship's CPU riders: the field's and its own regulars, then drawn from the pool by the seed. */
+/** Every rider the championship's field can be drawn from: its field's pool and those it draws from too, each once. */
+export function champPool(rc: Pick<RaceContent, 'riders'>, def: ChampionshipDef): string[] {
+  return [...new Set([def.field, ...(def.drawFrom ?? [])].flatMap((f) => rc.riders.fields[f] ?? []))];
+}
+
+/**
+ * The championship's CPU riders: the field's and its own regulars, then drawn from the pool by the
+ * seed. One that draws from more fields has no field regulars: its field is all drawn at random.
+ */
 export function drawChampField(rc: Pick<RaceContent, 'riders'>, def: ChampionshipDef, seed: number): string[] {
-  const pool = rc.riders.fields[def.field] ?? [];
+  const pool = champPool(rc, def);
   const out = new Set(def.without ?? []);
-  const always = new Set([...(rc.riders.regulars?.[def.field] ?? []), ...(def.regulars ?? [])]);
+  const always = new Set([...(def.drawFrom ? [] : (rc.riders.regulars?.[def.field] ?? [])), ...(def.regulars ?? [])]);
   const regulars = pool.filter((id) => always.has(id) && !out.has(id));
   const rest = pool.filter((id) => !always.has(id) && !out.has(id));
   const rng = seededRng(mixSeed(seed, 0x63686d70));
@@ -294,7 +313,7 @@ export function roundEntry(rc: Pick<RaceContent, 'racing'>, def: ChampionshipDef
 export function roundOptions(rc: Pick<RaceContent, 'riders'>, def: ChampionshipDef, active: ActiveChampionship) {
   const share = active.replay ? def.replay : 1;
   const inIt = new Set([...active.field, ...(def.without ?? [])]);
-  const others = (rc.riders.fields[def.field] ?? [])
+  const others = champPool(rc, def)
     .filter((id) => !inIt.has(id))
     .map((id) => fieldRider(rc, def.field, id))
     .filter((r): r is CpuRiderDef => !!r)

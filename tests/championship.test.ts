@@ -224,7 +224,7 @@ describe('championships (Spec 12.5, 18.6)', () => {
     won(career, 1);
     const before = career.money;
     const fin = finishChampionship(career, flags, local, points);
-    expect(fin).toMatchObject({ position: 1, money: 15000, flag: 'badge.area1', firstWin: true, title: 'the Area 1 badge' });
+    expect(fin).toMatchObject({ position: 1, money: 15000, flag: 'badge.area1', firstWin: true, title: 'the Home Town badge' });
     expect(flags['badge.area1']).toBe(true);
     expect(career.money - before).toBe(15000);
     expect(career.champs!.active[local.id]).toBeUndefined();
