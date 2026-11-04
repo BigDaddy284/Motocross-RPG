@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { sectionBounds } from '../src/core/trackGeom';
-import { content, JUMPY, race } from './raceHelpers';
+import { content, JUMPY, race, units } from './raceHelpers';
 import { tracksIn, type TrackGroup } from './trackGroups';
 
 /** The rider AI acts out the simulation's result on every track of the group (GDD 11.1). */
@@ -11,15 +11,28 @@ export function riderAITrackTests(group: TrackGroup): void {
       for (const seed of [3, 77]) {
         const { sim, dir, traces } = race(track.id, seed);
         const bounds = sectionBounds(track);
-        // At every checkpoint the referee recorded, the rider is exactly at that point of the race.
+        // At every lap checkpoint the referee recorded, the rider is exactly at that point of the
+        // race, and near the ones between sections: the ride is planned a lap at a time to flow
+        // (ridePlan.ts, Boss, 4 Nov 2026), so a mark between sections is crossed a little off when
+        // the simulation's time through a section would take more acceleration than a bike has.
+        let off = 0;
+        let marks = 0;
         for (const tr of traces) {
           for (const [id, times] of Object.entries(tr.times)) {
             for (let i = 1; i < times.length; i++) {
-              const p = dir.poses(times[i]).find((q) => q.id === id)!;
-              expect(p.dist).toBeCloseTo(tr.marks[i], 6);
+              const p = dir.poses(times[i] - 1e-6).find((q) => q.id === id)!;
+              const lapEnd = i === tr.marks.length - 1;
+              if (lapEnd) expect(p.dist).toBeCloseTo(tr.marks[i], 5);
+              else {
+                const d = Math.abs(p.dist - tr.marks[i]) * units(track);
+                expect(d).toBeLessThan(30);
+                off += d;
+                marks++;
+              }
             }
           }
         }
+        expect(off / Math.max(1, marks)).toBeLessThan(4);
         // Over the race: nobody goes backwards, stays on the track, and only leaves the ground on jumps.
         const end = Math.max(...traces.flatMap((tr) => Object.values(tr.times).map((t) => t[t.length - 1]))) + 6;
         const last = new Map<string, number>();

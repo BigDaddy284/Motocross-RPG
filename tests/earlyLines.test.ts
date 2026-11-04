@@ -35,12 +35,19 @@ describe('area tutorial lines heard early (Boss, 1 Nov 2026)', () => {
     expect(talk(c, flags, 'npc.a3.local_champion')).toBe('early a3_champion'); // again, as often as you like
     expect(flags['area3.intro_done']).toBeUndefined(); // the tracks still wait for the chain
     for (const npc of ['npc.a3.news', 'npc.a3.garage_mechanic', 'npc.a3.tyre_specialist', 'npc.a3.works_boss']) talk(c, flags, npc);
+    // The Brake works pass and the agility ladder round are done at the equipment (Boss, 3 Nov 2026).
+    for (const id of ['a3_works_pass', 'a3_fitness']) {
+      expect(currentStep(story, c)!.id).toBe(id);
+      advanceStory(story, c, flags, content.items, id);
+    }
     expect(currentStep(story, c)!.id).toBe('a3_training');
     // Finishing the step before it plays the champion's step out: never sent back to them.
     expect(talk(c, flags, 'npc.a3.yard_coach')).toEqual(['a3_champion']);
-    expect(currentStep(story, c)).toBeNull();
+    // On to Big Pete's own chain (Boss, 3 Nov 2026): the tricks come at its end.
+    expect(currentStep(story, c)!.id).toBe('bp_timing');
     expect(flags['area3.intro_done']).toBe(true);
-    expect(flags.rider_trainer_tricks).toBe(true);
+    expect(flags['met.big_pete']).toBe(true);
+    expect(flags.rider_trainer_tricks).toBeUndefined();
   });
 
   it('keeps the parts order errand in its order: a step that gives or takes something never plays early', () => {

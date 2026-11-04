@@ -1,7 +1,9 @@
 Your own 3D models
 ==================
 
-Put .glb files here (Blender: File > Export > glTF 2.0, Format: glTF Binary) and reload the game.
+The game's own models are in public/assets/models/. Put your own .glb files here (Blender: File >
+Export > glTF 2.0, Format: glTF Binary) and reload the game: a file here with the same name as one
+of the game's own replaces it.
 
   <scenery id>.glb      replaces that scenery item, e.g. hay_bale.glb or tree.glb
   race_bike.glb         replaces the race bike (race_bike_youth.glb for 85cc and under)

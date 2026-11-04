@@ -66,7 +66,7 @@ describe('race-day bikes (Race day bike colours.png)', () => {
     expect(['50cc', '65cc', '85cc', '125cc', '250cc', 'open'].map(modelFor)).toEqual(['youth', 'youth', 'youth', 'adult', 'adult', 'adult']);
   });
 
-  it('the scenery models (mini, pit bike, enduro, twin-shock) build to their own wheelbase and never ride in a race', () => {
+  it('the scenery designs (mini, pit bike, enduro, twin-shock) build to their own wheelbase and never ride in a race', () => {
     expect(BIKE_MODELS.map(([id]) => id)).toEqual(['adult', 'youth', 'mini', 'pitbike', 'enduro', 'twinshock']);
     for (const [id] of BIKE_MODELS) {
       const wb = (MODELS[id].wb / 1.46) * BIKE_LENGTH;
@@ -79,7 +79,7 @@ describe('race-day bikes (Race day bike colours.png)', () => {
       }
     }
     expect(MODELS.mini.wb).toBeLessThan(MODELS.pitbike.wb);
-    expect(colours(raceBikeParts(look('hondmoto', '250cc'), BIKE_LENGTH, { rider: false, model: 'enduro' })).has(0xfff6c0)).toBe(true);
+    // Their own looks are Boss's models now (core STAND_BIKE_MODELS; Boss, 3 Nov 2026): without one, a plain bike that size.
     // Races only ever pick the youth or adult model from the class.
     expect(new Set(['50cc', '65cc', '85cc', '125cc', '250cc', 'open'].map(modelFor))).toEqual(new Set(['youth', 'adult']));
   });

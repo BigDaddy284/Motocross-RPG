@@ -28,8 +28,8 @@ import { awardOutfit, championsKit, type RiderLook } from '../core/house';
 import { className, collectBike, milestoneOf, milestoneStatus, sponsorBrand, stockBikePrice } from '../core/classes';
 import { buyTools, diyFitProblem, diyRepair, diyRepairQuote, nextVersion, ownedVersion, toolsFor } from '../core/tools';
 import { repairLent } from '../core/errands';
-import { PACE_BAND, REP_ZONE, gateHoldMs, gateStart, gateWindowMs, goodRep, onPace, type DrillDef } from '../core/training';
-import { ensureAnims } from '../world/Character';
+import { PACE_BAND, REP_ZONE, drillScene, gateHoldMs, gateStart, gateWindowMs, goodRep, onPace, type DrillDef } from '../core/training';
+import { PACE_WORDS, REACT_WORDS, REPS_WORDS, pacePicture, reactPicture, repsPicture, type DrillWho } from '../world/drillPictures';
 import { careerRecords, recordText } from '../core/records';
 import { services } from '../services';
 import { COLORS, hex, textStyle } from '../ui/theme';
@@ -791,7 +791,7 @@ export class HudScene extends Phaser.Scene {
    * it gave with Again and Done. A round can't be failed: `onFinish` runs for every finished round
    * and returns the lines to show (the XP and any level-ups). Esc or Done leaves.
    */
-  openDrill(drill: DrillDef, who: { player: string; coach?: string; level?: number }, onFinish: () => string[], onClose: () => void): void {
+  openDrill(drill: DrillDef, who: DrillWho, onFinish: () => string[], onClose: () => void): void {
     const { width, height, k } = this.page();
     const w = Math.min(860, width - 32);
     const h = 360;
@@ -848,24 +848,21 @@ export class HudScene extends Phaser.Scene {
       let down = false;
       let tick: (dt: number) => void = () => {};
       let finish: () => string = () => '';
+      // The picture on the left (world/drillPictures.ts): its drill's own scene (Boss, 3 Nov 2026).
+      const scene = drillScene(drill);
+      let picTick: (dt: number) => void = () => {};
       if (drill.game === 'reps') {
-        // A marker swings across the bar; a press while it's in the green zone is a good rep. The
-        // rider on the mat does a clean push-up for a good rep and a wobbly half one for a miss.
+        // A marker swings across the bar; a press while it's in the green zone is a good rep, shown
+        // by the picture: a clean push-up or lift, or the attack position over a bump.
+        const words = REPS_WORDS[scene] ?? REPS_WORDS.pushups!;
         const sb = 200;
         const bar = this.add.rectangle(rx - sb / 2, -10, sb, 26, COLORS.panelLight).setOrigin(0, 0.5);
         const zone = this.add.rectangle(rx - sb / 2 + sb * REP_ZONE[0], -10, sb * (REP_ZONE[1] - REP_ZONE[0]), 26, 0x4f9a3a).setOrigin(0, 0.5);
         const marker = this.add.rectangle(rx - sb / 2, -10, 8, 40, COLORS.accent);
         const streakText = this.add.text(rx, -60, '', textStyle(this.pts(16), 0x9fe07a)).setOrigin(0.5);
         body.add([bar, zone, marker, streakText]);
-        // The exercise mat in the bedroom, and the rider on it in their push-up frames.
-        vis.add(this.add.rectangle(0, 70, 320, 14, 0x3b6ea8).setStrokeStyle(2, 0x2a4f7a));
-        const fitKey = `chr:${who.player}:fit`;
-        const RIDER_X = 10;
-        const rider = this.textures.exists(fitKey) ? this.add.sprite(RIDER_X, 66, fitKey, 0).setOrigin(0.5, 1).setScale(3) : null;
-        if (rider) vis.add(rider);
-        const pose = { d: 0 };
-        const show = () => rider?.active && rider.setFrame(pose.d > 0.5 ? 1 : 0);
-        show();
+        const pic = repsPicture(this, vis, who, scene);
+        picTick = (dt) => pic.tick?.(dt);
         let good = 0;
         let tries = 0;
         let streak = 0;
@@ -880,21 +877,9 @@ export class HudScene extends Phaser.Scene {
           streak = ok ? streak + 1 : 0;
           zone.setFillStyle(ok ? 0x7fd65a : 0xc0392b);
           this.time.delayedCall(160, () => zone.active && zone.setFillStyle(0x4f9a3a));
-          this.tweens.killTweensOf(pose);
-          if (rider) {
-            rider.x = RIDER_X;
-            this.tweens.killTweensOf(rider);
-          }
-          if (ok) {
-            // A full rep: down to the floor and back up.
-            this.tweens.add({ targets: pose, d: 1, duration: 150, hold: 140, yoyo: true, ease: 'Sine.easeInOut', onUpdate: show, onComplete: show });
-            pop(vis, -40, -70, streak >= 3 ? `+1  x${streak}` : '+1', 0x9fe07a);
-          } else {
-            // A miss: the arms give, a shake, and back up.
-            this.tweens.add({ targets: pose, d: 0.45, duration: 160, yoyo: true, hold: 120, onUpdate: show, onComplete: show });
-            if (rider) this.tweens.add({ targets: rider, x: RIDER_X + 3, duration: 40, yoyo: true, repeat: 3 });
-            pop(vis, -40, -70, 'Miss', 0xe0705a);
-          }
+          pic.rep(ok);
+          if (ok) pop(vis, -40, -70, streak >= 3 ? `+1  x${streak}` : '+1', 0x9fe07a);
+          else pop(vis, -40, -70, 'Miss', 0xe0705a);
         };
         pad.on('pointerdown', rep);
         const key = () => rep();
@@ -904,25 +889,19 @@ export class HudScene extends Phaser.Scene {
           wait = Math.max(0, wait - dt);
           pos = 0.5 - 0.5 * Math.cos((t / 1500) * Math.PI);
           marker.setX(rx - sb / 2 + sb * pos);
-          label.setText(`Good reps: ${good}`);
+          label.setText(`${words.count}: ${good}`);
           streakText.setText(streak >= 2 ? `Streak x${streak}` : '');
         };
-        finish = () => `${good} good reps out of ${tries}.`;
+        finish = () => words.finish(good, tries);
       } else if (drill.game === 'react') {
-        // The gate drop (core/training.ts): the front wheel at the gate, close up. The gate holds for
-        // a random while, then falls; a press in the window after it is a good start.
+        // The moment comes after a random hold (core/training.ts): the gate drops, the rut or the
+        // lip reaches the front wheel. A press in the window after it is good.
+        const words = REACT_WORDS[scene] ?? REACT_WORDS.gate!;
         const level = who.level ?? 1;
         const window = gateWindowMs(level);
         const rng = () => Math.random();
-        // Dirt, the gate's frame, the gate bar and the wheel behind it.
-        vis.add(this.add.rectangle(0, 60, 370, 70, 0x7a5a3a));
-        vis.add(this.add.rectangle(0, 95, 370, 20, 0x5e4229));
-        const wheel = this.add.circle(40, 20, 44, 0x1c1c1c).setStrokeStyle(6, 0x3a3a3a);
-        const hub = this.add.circle(40, 20, 14, 0x9a9a9a);
-        const post = this.add.rectangle(-120, 10, 12, 110, 0x8c8c8c);
-        const gate = this.add.rectangle(-40, -25, 170, 14, 0xd9d9d9).setOrigin(0, 0.5);
-        const light = this.add.circle(-120, -60, 10, 0xc0392b);
-        vis.add([wheel, hub, post, gate, light]);
+        const pic = reactPicture(this, vis, who, scene);
+        picTick = (dt) => pic.tick?.(dt);
         const result = this.add.text(rx, -40, '', textStyle(this.pts(22), COLORS.cream, { align: 'center' })).setOrigin(0.5);
         body.add(result);
         label.setY(30);
@@ -937,10 +916,10 @@ export class HudScene extends Phaser.Scene {
           hold = gateHoldMs(rng);
           since = -hold;
           pressed = false;
-          gate.setAngle(0);
-          light.setFillStyle(0xc0392b);
+          pic.reset(hold);
           result.setText('');
         };
+        pic.reset(hold);
         const press = () => {
           if (pressed || settle > 0) return;
           pressed = true;
@@ -948,10 +927,12 @@ export class HudScene extends Phaser.Scene {
           drops += 1;
           if (how === 'good') good += 1;
           if (how === 'jumped') jumped += 1;
-          result.setText(how === 'good' ? `Good start!  ${Math.round(since)} ms` : how === 'jumped' ? 'Jumped it: wait for the drop' : `Slow: ${Math.round(since)} ms`);
+          pic.press(how);
+          result.setText(how === 'good' ? `${words.good}  ${Math.round(since)} ms` : how === 'jumped' ? words.jumped : `${words.slow}: ${Math.round(since)} ms`);
           result.setColor(how === 'good' ? '#9fe07a' : '#e0705a');
-          pop(vis, 40, -60, how === 'good' ? 'Go!' : how === 'jumped' ? 'Too early' : 'Late', how === 'good' ? 0x9fe07a : 0xe0705a);
-          settle = 1100;
+          pop(vis, 40, -60, how === 'good' ? words.pops[0] : how === 'jumped' ? words.pops[1] : words.pops[2], how === 'good' ? 0x9fe07a : 0xe0705a);
+          // Long enough for the picture to play the go out.
+          settle = scene === 'jump' ? 2200 : 1300;
         };
         pad.on('pointerdown', press);
         kb.on('keydown-SPACE', press);
@@ -963,24 +944,22 @@ export class HudScene extends Phaser.Scene {
             return;
           }
           since += dt;
-          if (since >= 0) {
-            // The gate falls flat over about a quarter of a second.
-            gate.setAngle(Math.min(90, (since / 250) * 90));
-            light.setFillStyle(0x27ae60);
-            if (!pressed && since > window * 3) {
-              // Missed it altogether: counts as a slow start.
-              drops += 1;
-              result.setText('Asleep at the gate');
-              result.setColor('#e0705a');
-              settle = 900;
-            }
+          if (since >= 0 && !pressed && since > window * 3) {
+            // Missed it altogether: counts as a slow one.
+            drops += 1;
+            pressed = true;
+            pic.press('asleep');
+            result.setText(words.asleep);
+            result.setColor('#e0705a');
+            settle = scene === 'jump' ? 1600 : 900;
           }
-          label.setText(`Good starts: ${good} of ${drops}`);
+          label.setText(`${words.tally}: ${good} of ${drops}`);
         };
-        finish = () => `${good} good starts out of ${drops}${jumped ? `, ${jumped} jumped` : ''}.`;
+        finish = () => words.finish(good, drops, jumped);
       } else {
         // Holding speeds up, letting go eases off. Inside the green band the rider keeps a steady
-        // full pace round the track; outside it they slow, so more green means more laps.
+        // full pace; outside it they slow, so more green means more laps (or runs, or sections).
+        const words = PACE_WORDS[scene] ?? PACE_WORDS.track!;
         const bh = 150;
         const bx = rx - 50;
         const bar = this.add.rectangle(bx, -10, 40, bh, COLORS.panelLight);
@@ -990,34 +969,14 @@ export class HudScene extends Phaser.Scene {
         body.add([bar, band, marker, info]);
         label.setY(92);
         tip.setY(126);
-        // The track: green infield, red lanes with white lines, the coach watching from the middle.
-        const RX = 150;
-        const RY = 66;
-        const TY = 16;
-        const g = this.add.graphics().setY(TY);
-        g.fillStyle(0x4f8a3a).fillEllipse(0, 0, (RX + 26) * 2, (RY + 26) * 2);
-        g.lineStyle(34, 0xb5483a).strokeEllipse(0, 0, RX * 2, RY * 2);
-        g.lineStyle(2, 0xf2efe6).strokeEllipse(0, 0, (RX - 17) * 2, (RY - 17) * 2).strokeEllipse(0, 0, (RX + 17) * 2, (RY + 17) * 2).strokeEllipse(0, 0, RX * 2, RY * 2);
-        g.fillStyle(0x6aa84f).fillEllipse(0, 0, (RX - 18) * 2, (RY - 18) * 2);
-        // The start and finish line at 6 o'clock, in front of the coach: a lap counts as the rider crosses it.
-        g.lineStyle(3, 0xf2efe6).lineBetween(0, RY - 17, 0, RY + 17);
-        vis.add(g);
-        const hasCoach = !!who.coach && this.textures.exists(`chr:${who.coach}:act`);
-        if (hasCoach) {
-          ensureAnims(this, who.coach!);
-          vis.add(this.add.sprite(0, TY + 16, `chr:${who.coach}:act`, 0).setOrigin(0.5, 1).play(`${who.coach}:idle-down`));
-        }
-        ensureAnims(this, who.player);
-        const runner = this.add.sprite(0, 0, `chr:${who.player}:walk`, 0).setOrigin(0.5, 0.95).setScale(0.85);
-        vis.add(runner);
+        const pic = pacePicture(this, vis, who, scene);
+        picTick = (dt) => pic.tick?.(dt);
         const lapMs = drill.ms / 4;
         let pace = 0.3;
         let onFor = 0;
         let drift = 0;
-        let ang = -Math.PI / 2;
         let run = 0;
         let speed = 0;
-        let dir = '';
         const press = () => (down = true);
         const release = () => (down = false);
         pad.on('pointerdown', press).on('pointerup', release).on('pointerout', release);
@@ -1027,7 +986,10 @@ export class HudScene extends Phaser.Scene {
           kb.off('keydown-SPACE', press);
           kb.off('keyup-SPACE', release);
         };
-        const laps = () => Math.floor(run / (Math.PI * 2));
+        const laps = () => Math.floor(run);
+        const unit = (n: number) => words.unit[n === 1 ? 0 : 1];
+        const Unit = (n: number) => unit(n).charAt(0).toUpperCase() + unit(n).slice(1);
+        pic.move(0, 0, 'slow');
         tick = (dt) => {
           const s = dt / 1000;
           drift += (Math.random() - 0.5) * s * 0.6;
@@ -1039,30 +1001,13 @@ export class HudScene extends Phaser.Scene {
           // Full speed in the band; too slow jogs, too fast soon blows up and slows to a stagger.
           const want = on ? 1 : pace < PACE_BAND[0] ? 0.35 + 0.4 * (pace / PACE_BAND[0]) : 0.55;
           speed += (want - speed) * Math.min(1, s * 3);
-          const step = ((Math.PI * 2) / lapMs) * dt * speed;
-          ang += step;
-          run += step;
-          // Anticlockwise, the way a running track is run.
-          const x = RX * Math.cos(ang);
-          const y = RY * Math.sin(-ang);
-          const dx = -Math.sin(ang) * RX;
-          const dy = -Math.cos(ang) * RY;
-          const d = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
-          runner.setPosition(x, TY + y);
-          // The far side of the track draws behind the coach, the near side in front.
-          vis.bringToTop(runner);
-          if (y < 0 && hasCoach) vis.moveDown(runner);
-          if (d !== dir) {
-            dir = d;
-            runner.play(`${who.player}:walk-${d}`);
-          }
-          runner.anims.timeScale = 0.6 + speed * 1.2;
-          runner.setTint(on ? 0xffffff : 0xffc8b8);
+          run += (dt / lapMs) * speed;
+          pic.move(run, speed, on ? 'on' : pace > PACE_BAND[1] ? 'fast' : 'slow');
           const pct = t > 0 ? Math.round((onFor / t) * 100) : 0;
-          info.setText(`Laps: ${laps()}\nOn pace: ${pct}%`);
-          label.setText(on ? 'On pace' : pace > PACE_BAND[1] ? 'Too fast, ease off' : 'Too slow, push on');
+          info.setText(`${Unit(2)}: ${laps()}\nOn pace: ${pct}%`);
+          label.setText(on ? words.on : pace > PACE_BAND[1] ? words.fast : words.slow);
         };
-        finish = () => `${laps()} ${laps() === 1 ? 'lap' : 'laps'}, on pace ${Math.round((onFor / Math.max(1, t)) * 100)}% of the time.`;
+        finish = () => `${laps()} ${unit(laps())}, on pace ${Math.round((onFor / Math.max(1, t)) * 100)}% of the time.`;
       }
       let over = false;
       const ev = this.time.addEvent({
@@ -1073,6 +1018,7 @@ export class HudScene extends Phaser.Scene {
           if (over) return;
           const dt = 16;
           t += dt;
+          picTick(dt);
           tick(dt);
           timeFill.width = bw * Math.max(0, 1 - t / drill.ms);
           if (t >= drill.ms) {

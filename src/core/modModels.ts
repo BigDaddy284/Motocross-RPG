@@ -27,6 +27,14 @@ import type { SceneryDef } from './trackParts';
 export const MODEL_DIR = 'mods/models/';
 /** The folder's index: the dev server and the build write it (vite.config.ts), as for mod tracks. */
 export const MODEL_INDEX = `${MODEL_DIR}index.json`;
+/**
+ * The game's own models (Boss, 2 Nov 2026: "I want the models you made to become the built in
+ * models"): the same kind of .glb files, by the same names and rules, shipped with the game in
+ * public/assets/models/. They are how every item looks; a model of the same name in the models
+ * folder (MODEL_DIR) replaces one, and any other name there is a new item, as before.
+ */
+export const GAME_MODEL_DIR = 'assets/models/';
+export const GAME_MODEL_INDEX = `${GAME_MODEL_DIR}index.json`;
 
 /** The race bike for every class, unless race_bike_youth.glb gives the youth classes their own. */
 export const RACE_BIKE = 'race_bike';
@@ -109,8 +117,8 @@ export const STAND_MODELS: Readonly<Record<string, string>> = { pallet: 'stand_p
 export const ARCH_MODELS = { mx: 'finish_arch_mx', sx: 'finish_arch_sx' } as const;
 /**
  * Live parts any scenery model can have (Boss, 1 Nov 2026), found by name like a figure's parts:
- * a node named Track (Track.001 and so on) turns about its vertical to follow the nearest rider in
- * range (a TV camera's head, a camera operator), back to rest with none; a node named Flash is
+ * a node named Track (Track.001 and so on) turns about its vertical to follow its rider for the lap
+ * while in range (trackStep; a TV camera's head, a camera operator), back to rest otherwise; a node named Flash is
  * hidden and shows for a blink as a rider goes by close (a photographer's flash); a node named
  * Drone flies off after a rider and back (droneStep; Boss, 2 Nov 2026); a node named Cheer is a
  * seated section that stands up as its own rider goes by (cheerStep; Boss, 2 Nov 2026).
@@ -119,6 +127,45 @@ export const LIVE_PARTS = ['Track', 'Flash', 'Drone', 'Cheer', 'Supporter'] as c
 /** Grid units a Track part follows a rider from, and how fast it turns (radians a second). */
 export const TRACK_RANGE = 40;
 export const TRACK_TURN = 2.5;
+/**
+ * A Track part's rider (Boss, 3 Nov 2026: "Cams following riders should pick 1 rider per lap not
+ * every rider, as they bounce back and forth when there's a group of riders"): each lap it is given
+ * one rider at random and follows only them while they are within TRACK_RANGE, resting for the
+ * rest. Once that rider has come by and gone out of range it takes a new rider for the next lap.
+ */
+export interface TrackState {
+  /** The part's rider, as an index into the riders passed to trackStep; -1 for none yet. */
+  rider: number;
+  /** Whether the rider has come within range this lap. */
+  near: boolean;
+  /** Whether the rider has been out of range since being picked: one picked as the pack goes by waits for their next lap. */
+  away: boolean;
+}
+export const trackAtRest = (): TrackState => ({ rider: -1, near: false, away: true });
+/** One step of a Track part: its rider, and which rider it aims at now (-1 to rest). `choose` picks below the count given. */
+export function trackStep(s: TrackState, at: { x: number; z: number }, riders: readonly { x: number; z: number }[], choose: (count: number) => number): TrackState & { aim: number } {
+  if (!riders.length) return { ...trackAtRest(), aim: -1 };
+  const pick = () => Math.max(0, Math.min(riders.length - 1, Math.floor(choose(riders.length))));
+  const n = { ...s };
+  if (n.rider < 0 || n.rider >= riders.length) {
+    n.rider = pick();
+    n.near = false;
+  }
+  const r = riders[n.rider];
+  const inRange = Math.hypot(r.x - at.x, r.z - at.z) <= TRACK_RANGE;
+  if (inRange && n.away) {
+    n.near = true;
+    return { ...n, aim: n.rider };
+  }
+  if (!inRange) n.away = true;
+  if (n.near && !inRange) {
+    // Gone by: a new rider for the next lap, followed once they have come round again.
+    n.rider = pick();
+    n.near = false;
+    n.away = false;
+  }
+  return { ...n, aim: -1 };
+}
 /** Grid units a rider passes within for a Flash, how long it shows (seconds), and the least time between two. */
 export const FLASH_RANGE = 12;
 export const FLASH_TIME = 0.09;
@@ -271,8 +318,19 @@ export const PADDOCK_STAND = 'paddock_stand';
 export const PADDOCK_STAND_BIKE = 'Bike';
 /** How far a bike's wheels sit off the ground on a stand model with no Bike empty, in metres. */
 export const BIKE_ON_STAND_LIFT = 0.08;
-/** The bike on a stand designs that carry the youth bike model; the rest carry the adult one. */
-export const STAND_YOUTH_DESIGNS: ReadonlySet<string> = new Set(['youth', 'mini', 'pitbike']);
+/**
+ * The bike on a stand designs with a model of their own (Boss, 3 Nov 2026: "lock em in, make the
+ * defaults"): the 50cc mini, pit bike, enduro and vintage twin-shock, each built at its real size on
+ * Boss's race bikes. The adult and youth designs carry race_bike.glb and race_bike_youth.glb.
+ */
+export const STAND_BIKE_MODELS: Readonly<Record<string, string>> = {
+  mini: 'race_bike_mini',
+  pitbike: 'race_bike_pitbike',
+  enduro: 'race_bike_enduro',
+  twinshock: 'race_bike_twinshock',
+};
+/** A bike on a stand design's model (STAND_BIKE_MODELS), from a 50 at about 1.3 m to an enduro bike. */
+export const STAND_BIKE_LIMITS: ModelLimits = { tris: 6000, long: 2.6, tall: 1.6, minLength: 1.2, maxLength: 2.6 };
 /** A scenery model's material that shows the item's typed words (a banner's or sponsor board's face; world textFaces). */
 export const TEXT_SLOTS = ['text'] as const;
 /** A stand model's materials that take the item's colour, and a darker shade of it. */
@@ -448,7 +506,7 @@ export function modelName(id: string): string {
 
 /** What a model named `id` does, given the scenery the game has. */
 export function modelRole(id: string, scenery: { id: string }[]): ModelRole {
-  if (id === RACE_BIKE || id === RACE_BIKE_YOUTH || id === SIDECAR_MODEL) return 'bike';
+  if (id === RACE_BIKE || id === RACE_BIKE_YOUTH || id === SIDECAR_MODEL || Object.values(STAND_BIKE_MODELS).includes(id)) return 'bike';
   if (id === RACE_RIDER) return 'rider';
   if (id === SIDECAR_CREW) return 'crew';
   if (FIGURE_PARTS[id]) return 'figure';
@@ -481,7 +539,7 @@ export function checkModel(file: string, bytes: number, info: ModelInfo | null, 
   if (role === 'replace' && LOCKED_ITEMS.has(id)) out.push(`The ${id} item stretches to fit the track in the race, so it can't be swapped for a model.`);
   const parts = FIGURE_PARTS[id];
   if (parts && !(info.names ?? []).some((n) => partName(n, parts))) out.push(`A ${modelName(id).toLowerCase()} moves in the race, so its model needs its parts as objects named ${parts.join(', ')}, each with its origin at its joint. Export it from the models page to start from.`);
-  const lim = limitsFor(role);
+  const lim = Object.values(STAND_BIKE_MODELS).includes(id) ? STAND_BIKE_LIMITS : limitsFor(role);
   const { length, depth, height } = modelSize(info);
   const m = (v: number) => `${v.toFixed(2)} m`;
   if (!info.meshes || !info.tris) out.push('The file has no meshes in it.');

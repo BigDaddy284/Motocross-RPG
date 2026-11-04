@@ -144,7 +144,7 @@ Area 1 is agreed (Grades 1 to 3, 50cc and 65cc). The grades apply to Phoenix MX,
 
 ## Area by area
 
-Area names are locked in by Boss (30 Oct 2026): 2 Mountain Town, 3 Beach Town, 4 Forest Town, 5 Northern Works, 6 Highlands, 7 The City, 8 Capital. The City and Northern Works swap places from Spec 18.1, so their themes, venues and jobs swap too, while the story beats stay with the area number. Track and NPC names are placeholders unless Boss gave them.
+Area names are locked in by Boss (30 Oct 2026): 2 Mountain Town, 3 Beach Town, 4 Forest Town, 5 Western Works, 6 Highlands, 7 The City, 8 Capital. The City and Western Works swap places from Spec 18.1, so their themes, venues and jobs swap too, while the story beats stay with the area number. Track and NPC names are placeholders unless Boss gave them. Area 5 was called Northern Works until Boss renamed it Western Works everywhere (Boss, 4 Nov 2026).
 
 Every area has the same base set, so the columns below list only what's **new**:
 
@@ -177,7 +177,7 @@ The area's own story beat (the house, Big Pete, Maggie's quest and so on) starts
 | 2 Mountain Town | Cal Mercer | A mud specialist who knows every line on the mountain tracks | Phoenix MX's new clothing rack (locked until the house is bought) | Wheel works | Weight training at the gym, then body position drills |
 | 3 Beach Town | Sandy Tate | A sand rider who grew up on the dunes, and an old pupil of Big Pete | Lee's T's & Wheels: sand tyres | Brake works | Agility ladder on the beach, then gate drop |
 | 4 Forest Town | Rowan Ash | Quiet, rides the woods every day, hates being passed | Moto78: the 125cc Youth class arrives | Suspension shop | Yoga |
-| 5 Northern Works | Dex Hollis | A former works mechanic who rides like one | Phoenix MX: engine parts at Grade 6 | Frame works | Rowing on the canal, then rock garden |
+| 5 Western Works | Dex Hollis | A former works mechanic who rides like one | Phoenix MX: engine parts at Grade 6 | Frame works | Rowing on the canal, then rock garden |
 | 6 Highlands | Fergus Bain | A hill climber who loves long races | Nicholls Used Motors: Motor 6 | Gearbox works | Cycling, then repetition laps |
 | 7 The City | Nina Vance | A supercross star who rarely rides outdoors | Moto78: the 450cc F and Vets classes | Exhaust and intake works | Martial arts dojo, then supercross rhythm |
 | 8 Capital | Marcus Stone | A former national champion and the toughest Local Champion | All four travelling shops at their top grades | Race department (shown, opens at Mechanical Engineer 70) | Recovery centre ice bath |
@@ -219,7 +219,7 @@ The area's own story beat (the house, Big Pete, Maggie's quest and so on) starts
 - **Energy drinks:** see [Energy drinks](#energy-drinks-areas-4-to-8).
 - **Motor:** Motor 4, MX Van Medium.
 
-### Area 5: Northern Works (quarry, old industry, rock and dust)
+### Area 5: Western Works (quarry, old industry, rock and dust)
 
 - **Story:** **the Modifying Machine** quest starts here (below), and **Sponsored Rides**. Sponsor offers open after the Local Champion championship (Spec 16), and the first sponsor brings a branded frame and an outfit. Area Champion Louie Borne.
 - **Batch job:** **Frame works** (frames). Minigame: welding (Welding). This is the only way to get a better frame without a sponsor. Pay about £2 a part, batch 100, double the usual, since frames are worth about 10 times a top end (Boss, 30 Oct 2026).
@@ -236,7 +236,7 @@ The machine stays in the Industrial Zone unit in Area 1, where it's already buil
 
 **How other characters talk about her** (Boss, 30 Oct 2026): "Mad Maggie" is her name on screen, but other characters call her Maggie the scientist, the scientist Maggie and so on, along the lines of "Go and see Maggie the scientist. She's a bit eccentric, if you know what I mean." Mix the wording up between characters where we can. She's never the butt of the joke.
 
-1. **The start.** When Area 5 opens, Manny Festo's news mentions **Mad Maggie**, the modifier machine owner (Boss, 30 Oct 2026: a brilliant, eccentric mad-scientist tinkerer, keeping her current look of lab coat, goggles pushed up and messy grey hair), whose machine in the Industrial Zone has been broken for years. In Northern Works the player meets someone who knows her and sends the player to help.
+1. **The start.** When Area 5 opens, Manny Festo's news mentions **Mad Maggie**, the modifier machine owner (Boss, 30 Oct 2026: a brilliant, eccentric mad-scientist tinkerer, keeping her current look of lab coat, goggles pushed up and messy grey hair), whose machine in the Industrial Zone has been broken for years. In Western Works the player meets someone who knows her and sends the player to help.
 2. **Back through the past areas.** The tasks take the player back through Areas 1 to 4, tracking down what the machine needs. Along the way the player gets **two parts** for the machine's first test. Each is either a worn part they have to repair on the way, or the kept part from a batch they complete.
 3. **Fixing the machine.** The quest ends in the Industrial Zone unit with the player fixing the machine themselves. This step needs **Mechanical Engineer 30** (Boss, 30 Oct 2026).
 4. **The first test, still part of the quest:**

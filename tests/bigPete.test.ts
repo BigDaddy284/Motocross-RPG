@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { newCareerState } from '../src/core/career';
+import { advanceStory, chainDone, currentStep, matchStory, newCareerState, openChains } from '../src/core/career';
+import { goalObjects, storyGoal } from '../src/core/waymarks';
 import { checkContent, npcsOnMap } from '../src/core/content';
 import { coachedFee, playerEntrant, practiceFee, practiceSim, venueClassFor } from '../src/core/raceDay';
 import { loadManifest, loadMaps, rawContent } from './helpers';
@@ -58,5 +59,75 @@ describe('Big Pete, trainer at every venue (Boss, 1 Nov 2026)', () => {
     const coached = run(1.25);
     expect(coached.laps).toEqual(solo.laps);
     expect(coached.xp).toBeCloseTo(solo.xp * 1.25, 6);
+  });
+});
+
+// Big Pete's storyline and the Beach Town intro (Boss, 3 Nov 2026: "setup Big Petes story line and the
+// players storyline that introduces them to the new area the facilities"): the intro walks the rider
+// round the shops, a Brake works pass, a round on the agility ladder, Big Pete and the Local Champion;
+// then Pete's own chain, two lessons on his sand track, his story, and watching at the Motocross Venue,
+// where he teaches whips and scrubs.
+describe("Big Pete's storyline (Boss, 3 Nov 2026)", () => {
+  const story = content.story;
+  const items = content.items;
+  const town = maps.get('area3-beach-town')!;
+  const start = () => {
+    const c = career();
+    c.story.step = story.steps.length;
+    const flags: Record<string, boolean> = { 'area.3.open': true, tutorial_done: true };
+    openChains(story, c, flags);
+    return { c, flags };
+  };
+  /** Does the current step the way the game does: talk to its NPC, or use its equipment once. */
+  const play = (c: ReturnType<typeof career>, flags: Record<string, boolean>, expectId: string) => {
+    const step = currentStep(story, c)!;
+    expect(step?.id).toBe(expectId);
+    const ev = step.on.talk ? { talk: step.on.talk } : { use: step.on.use!, map: step.on.map!, object: `${step.on.map}:drill:${step.on.use}` };
+    expect(matchStory(story, c, ev)?.kind, expectId).toBe('ready');
+    expect(advanceStory(story, c, flags, items, 'use' in ev ? ev.object : undefined)).toBe(true);
+    return step;
+  };
+
+  it('the intro shows the town and its facilities, then Big Pete takes over once the tracks are open', () => {
+    const { c, flags } = start();
+    for (const id of ['a3_news', 'a3_shops', 'a3_errand', 'a3_works']) play(c, flags, id);
+    // The Brake works pass is the shift's start object: done when a pass is finished, at the disc lathe.
+    const pass = play(c, flags, 'a3_works_pass');
+    expect(pass.on).toEqual({ use: 'job.shift', map: 'int-a3-tool-shop' });
+    expect(content.world.jobs.find((j) => j.id === 'job.a3.brakes')!.start).toBe('disc_lathe');
+    // A round on the agility ladder: the drill's training spot on the beach.
+    const ladder = play(c, flags, 'a3_fitness');
+    expect(goalObjects(town, ladder.on.use!, [], content.training).map((o) => o.name)).toEqual(['Beach agility ladder']);
+    expect(flags['met.big_pete']).toBeUndefined();
+    play(c, flags, 'a3_training');
+    expect(flags['met.big_pete']).toBe(true);
+    play(c, flags, 'a3_champion');
+    expect(flags['area3.intro_done']).toBe(true);
+    expect(flags.rider_trainer_tricks).toBeUndefined();
+    expect(currentStep(story, c)!.id).toBe('bp_timing');
+  });
+
+  it("Pete's two lessons are rounds on his sand track, the markers point there, then his story and the venue", () => {
+    const { c, flags } = start();
+    for (const s of story.chains!.find((x) => x.id === 'area3')!.steps) play(c, flags, s.id);
+    for (const id of ['bp_timing', 'bp_whoops']) {
+      const step = currentStep(story, c)!;
+      expect(storyGoal(content, maps, c)).toEqual({ kind: 'object', map: 'area3-beach-town', action: step.on.use });
+      expect(goalObjects(town, step.on.use!, [], content.training).map((o) => o.name)).toEqual(["Big Pete's sand track"]);
+      // Another drill, or the agility ladder, is not the lesson.
+      expect(matchStory(story, c, { use: 'train.agility_ladder', map: 'area3-beach-town', object: 'x' })).toBeNull();
+      play(c, flags, id);
+    }
+    play(c, flags, 'bp_story');
+    expect(content.dialogue['story.bp.story'].lines.map((l) => l.text).join(' ')).toContain('Aidan Borne');
+    // The last step is Big Pete at the Motocross Venue, shown there now he has been met.
+    const watch = currentStep(story, c)!;
+    expect(watch.id).toBe('bp_watch');
+    expect(storyGoal(content, maps, c)).toMatchObject({ kind: 'npc', map: 'venue-motocross', name: 'Big Pete' });
+    expect(npcsOnMap(content, maps.get('venue-motocross')!, flags).some((p) => p.npc.id === watch.on.talk)).toBe(true);
+    play(c, flags, 'bp_watch');
+    expect(flags.rider_trainer_tricks).toBe(true);
+    expect(chainDone(story, c, 'bigpete')).toBe(true);
+    expect(currentStep(story, c)).toBeNull();
   });
 });

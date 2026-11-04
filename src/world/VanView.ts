@@ -84,6 +84,9 @@ function loadedBike(scene: Phaser.Scene, model: string, brand: string, h: Headin
   return { key, shape };
 }
 
+/** The bike's picture with its stand taken off, for the drill screen's side-on rider (Boss, 3 Nov 2026). */
+export const standlessBike = (scene: Phaser.Scene, model: string, brand: string, h: Heading): string | null => loadedBike(scene, model, brand, h)?.key ?? null;
+
 /** Adds the sheets' named frames (east:closed, east:open, ... and t0 to t31) once. */
 function ensureFrames(scene: Phaser.Scene, id: string, sheet: VanSheet): void {
   const tex = scene.textures.get(vanTexture(id));

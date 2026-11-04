@@ -15,6 +15,7 @@ import { VEHICLES_SCHEMA, checkVehicles, sheetFor, type VanSheet, type VehiclesD
 import { MOD_PLACE } from './modTracks';
 import { ERRANDS_SCHEMA, checkErrands, type ErrandsData } from './errands';
 import { TRAINING_SCHEMA, checkTraining, type TrainingData } from './training';
+import { usedFor } from './waymarks';
 import { CHALLENGES_SCHEMA, checkChallenges, type ChallengesData } from './challenge';
 import { WORLD_MAP_SCHEMA, checkWorldMap } from './worldMap';
 import { TOOLS_SCHEMA, checkTools, type ToolsData } from './tools';
@@ -106,8 +107,12 @@ export interface Manifest {
     rows: Facing[];
     walk: { columns: number; fps: number };
     act: { columns: string[]; idle_fps: number };
-    /** fit: the player's push-up frames (arms straight, then bent), side on at 96 by 64. */
-    sheets: Record<string, { name: string; walk: string; act: string; fit?: string }>;
+    /** fit: the player's push-up frames (arms straight, then bent), side on at 96 by 64. lift: the bench
+     * press (bar down, half way, up) at 96 by 64. ride: on the bike facing right at 128 by 128 (seated,
+     * attack, low), the adult bike's row then the youth bike's, laid over the bike-on-stand east picture.
+     * yoga: warrior, tree and seated, facing the front at 96 by 80. row: the rowing machine's catch,
+     * drive and finish at 96 by 64. dojo: guard, punch and front kick, side on at 96 by 72. */
+    sheets: Record<string, { name: string; walk: string; act: string; fit?: string; lift?: string; ride?: string; yoga?: string; row?: string; dojo?: string }>;
   };
   /** Van sheets by design id (tools/import-art.mjs). */
   vehicles?: Record<string, VanSheet>;
@@ -535,7 +540,7 @@ function checkCareerContent(c: Content, maps: Map<string, BakedMap>): ContentErr
     if (s.on.use) {
       const onMaps = s.on.map ? [maps.get(s.on.map)] : [...maps.values()];
       if (s.on.map && !onMaps[0]) err(CONTENT_FILES.story, at('on.map'), `no map "${s.on.map}"`);
-      else if (!onMaps.some((m) => m?.objects.some((o) => o.props.action === s.on.use))) err(CONTENT_FILES.story, at('on.use'), `no object with action "${s.on.use}"`);
+      else if (!onMaps.some((m) => m?.objects.some((o) => usedFor(o, s.on.use!, c.training)))) err(CONTENT_FILES.story, at('on.use'), `no object with action "${s.on.use}", or training spot with that drill`);
     }
     lines(at('lines'), s.lines);
     lines(at('notReady'), s.notReady);

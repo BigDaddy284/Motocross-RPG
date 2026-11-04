@@ -359,6 +359,15 @@ function copyCharacters() {
       act: useImage(path.join(ART, 'characters/player', `${pid}.act.png`)),
       // The push-up frames for the Fitness drill (up, down), when the art has them.
       ...(fs.existsSync(path.join(ART, 'characters/player', `${pid}.fit.png`)) ? { fit: useImage(path.join(ART, 'characters/player', `${pid}.fit.png`)) } : {}),
+      // The Area 2 and 3 drill frames (characters/tools/make_exercises.py): the bench press, and
+      // on the bike seated, in the attack position and soaked up low (Boss, 3 Nov 2026).
+      ...(fs.existsSync(path.join(ART, 'characters/player', `${pid}.lift.png`)) ? { lift: useImage(path.join(ART, 'characters/player', `${pid}.lift.png`)) } : {}),
+      ...(fs.existsSync(path.join(ART, 'characters/player', `${pid}.ride.png`)) ? { ride: useImage(path.join(ART, 'characters/player', `${pid}.ride.png`)) } : {}),
+      // The Area 4 and 5 drill frames: yoga poses, and the rowing machine (Boss, 4 Nov 2026).
+      ...(fs.existsSync(path.join(ART, 'characters/player', `${pid}.yoga.png`)) ? { yoga: useImage(path.join(ART, 'characters/player', `${pid}.yoga.png`)) } : {}),
+      ...(fs.existsSync(path.join(ART, 'characters/player', `${pid}.row.png`)) ? { row: useImage(path.join(ART, 'characters/player', `${pid}.row.png`)) } : {}),
+      // The Area 6 and 7 drill frames: the dojo's guard, punch and kick (Boss, 4 Nov 2026).
+      ...(fs.existsSync(path.join(ART, 'characters/player', `${pid}.dojo.png`)) ? { dojo: useImage(path.join(ART, 'characters/player', `${pid}.dojo.png`)) } : {}),
     };
   }
   return out;

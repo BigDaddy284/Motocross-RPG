@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { checkContent } from '../src/core/content';
 import { newSkillState, childLevel } from '../src/core/skills';
-import { GATE_EASE_LEVEL, GATE_WINDOW_MS, drillForAction, drillForNpc, drillsAtVenue, finishRound, gateHoldMs, gateStart, gateWindowMs, goodRep, onPace, walked } from '../src/core/training';
+import { DRILL_SCENES, checkTraining, drillScene, GATE_EASE_LEVEL, GATE_WINDOW_MS, drillForAction, drillForNpc, drillsAtVenue, finishRound, gateHoldMs, gateStart, gateWindowMs, goodRep, onPace, walked } from '../src/core/training';
 import { MotoSim, type Entrant } from '../src/core/race';
 import { cpuEntrant } from '../src/core/raceDay';
 import { loadManifest, loadMaps, rawContent } from './helpers';
@@ -100,5 +100,51 @@ describe('Gate drop drill (Areas 2 to 8 plan gap 2; Boss, 30 Oct 2026)', () => {
   it('holds the gate a random 1.5 to 4.5 seconds so the drop cannot be timed', () => {
     expect(gateHoldMs(() => 0)).toBe(1500);
     expect(gateHoldMs(() => 0.999)).toBeLessThan(4500);
+  });
+});
+
+describe('Each drill its own picture (Boss, 3 Nov 2026)', () => {
+  it('gives every Area 2 and 3 drill a picture of its own, not the push-ups', () => {
+    const want: Record<string, string> = {
+      'train.weights': 'bench',
+      'train.body_position': 'attack',
+      'train.cone_braking': 'cones',
+      'train.rut_riding': 'ruts',
+      'train.agility_ladder': 'ladder',
+      'train.jump_timing': 'jump',
+      'train.whoops_sand': 'whoops',
+    };
+    for (const [id, scene] of Object.entries(want)) expect(drillScene(training.drills.find((d) => d.id === id)!)).toBe(scene);
+    // Area 1 keeps its pictures: push-ups on the mat, the gate, the running track.
+    expect(drillScene(drillForAction(training, 'train.bodyweight')!)).toBe('pushups');
+    expect(drillScene(drillForNpc(training, 'npc.running_coach')!)).toBe('track');
+    expect(drillScene(training.drills.find((d) => d.id === 'train.gate_drop')!)).toBe('gate');
+    // Every picture goes with its drill's game.
+    for (const d of training.drills) expect(DRILL_SCENES[drillScene(d)]).toBe(d.game);
+  });
+
+  it('gives the Area 6 and 7 drills their own pictures too (Boss, 4 Nov 2026)', () => {
+    const want: Record<string, string> = {
+      'train.cycling': 'climb',
+      'train.repetition_laps': 'laps',
+      'train.dojo': 'dojo',
+      'train.sx_rhythm': 'rhythm',
+      'train.drag_launch': 'launch',
+    };
+    for (const [id, scene] of Object.entries(want)) expect(drillScene(training.drills.find((d) => d.id === id)!)).toBe(scene);
+  });
+
+  it('refuses a picture that goes with another game', () => {
+    const bad = { ...training, drills: training.drills.map((d) => (d.id === 'train.weights' ? { ...d, scene: 'whoops' as const } : d)) };
+    const errors = checkTraining('training.json', bad, { skills, npcs: content.npcs });
+    expect(errors.some((e) => e.field.endsWith('.scene'))).toBe(true);
+  });
+
+  it('has the bench press and riding frames for every player look that has push-ups', () => {
+    for (const [id, sheet] of Object.entries(loadManifest().characters.sheets)) {
+      if (!sheet.fit) continue;
+      expect(sheet.lift, id).toBeTruthy();
+      expect(sheet.ride, id).toBeTruthy();
+    }
   });
 });

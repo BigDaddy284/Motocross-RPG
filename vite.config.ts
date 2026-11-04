@@ -11,18 +11,20 @@ const MOD_DIR = 'public/mods/tracks';
 const modIndex = () => JSON.stringify(existsSync(MOD_DIR) ? readdirSync(MOD_DIR).filter((f) => /\.json$/i.test(f) && f !== 'index.json').sort() : []);
 
 // Mod models (src/core/modModels.ts): the same for public/mods/models/, with each model's size,
-// weight and problems read here, so the game and the track editor see the same list.
+// weight and problems read here, so the game and the track editor see the same list; and for the
+// game's own models in public/assets/models/ (Boss, 2 Nov 2026).
 const MODEL_DIR = 'public/mods/models';
-function modelIndex(): string {
-  if (!existsSync(MODEL_DIR)) return '[]';
+const GAME_MODEL_DIR = 'public/assets/models';
+function modelIndex(dir = MODEL_DIR): string {
+  if (!existsSync(dir)) return '[]';
   let scenery: { id: string }[] = [];
   try {
     scenery = (JSON.parse(readFileSync('public/data/trackParts.json', 'utf8')) as { scenery: { id: string }[] }).scenery;
   } catch {
     /* no parts: every model is a new item */
   }
-  const files = readdirSync(MODEL_DIR).filter((f) => /\.glb$/i.test(f)).sort();
-  return JSON.stringify(files.map((f) => modelEntry(f, new Uint8Array(readFileSync(`${MODEL_DIR}/${f}`)), scenery)));
+  const files = readdirSync(dir).filter((f) => /\.glb$/i.test(f)).sort();
+  return JSON.stringify(files.map((f) => modelEntry(f, new Uint8Array(readFileSync(`${dir}/${f}`)), scenery)));
 }
 
 // Banner pictures (src/core/banners.ts): the PNGs in public/mods/banners/, listed the same way.
@@ -61,6 +63,10 @@ export default defineConfig({
           if (url.endsWith('/mods/models/index.json')) {
             res.setHeader('Content-Type', 'application/json');
             return res.end(modelIndex());
+          }
+          if (url.endsWith('/assets/models/index.json')) {
+            res.setHeader('Content-Type', 'application/json');
+            return res.end(modelIndex(GAME_MODEL_DIR));
           }
           next();
         });
@@ -138,6 +144,8 @@ export default defineConfig({
         writeFileSync('dist/mods/tracks/index.json', `${modIndex()}\n`);
         mkdirSync('dist/mods/models', { recursive: true });
         writeFileSync('dist/mods/models/index.json', `${modelIndex()}\n`);
+        mkdirSync('dist/assets/models', { recursive: true });
+        writeFileSync('dist/assets/models/index.json', `${modelIndex(GAME_MODEL_DIR)}\n`);
         mkdirSync('dist/mods/banners', { recursive: true });
         writeFileSync('dist/mods/banners/index.json', `${bannerIndex()}\n`);
       },
@@ -161,5 +169,8 @@ export default defineConfig({
   },
   test: {
     include: ['tests/**/*.test.ts'],
+    // Whole-content checks run a few seconds each and grow with every area added,
+    // so the 5 s default kept timing out on CI runners (4 Nov 2026).
+    testTimeout: 30000,
   },
 });

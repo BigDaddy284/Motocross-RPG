@@ -138,6 +138,14 @@ export interface RacingData {
     /** A crash collecting riders close behind: each rider arriving within `window` seconds has this chance of going down too, up to `most` of them. */
     pileup?: { chance: number; window: number; most: number };
     /**
+     * What a crash costs beyond the time on the ground (Boss, 3 Nov 2026). A rider who comes upon
+     * a fallen rider goes round them, `around` seconds slower (a range), instead of waiting for
+     * them to remount; so the riders held up by a crash come out ahead of it, not behind it. The
+     * rider who crashed is shaken for the rest of that lap: `slowPct` slower in the next section,
+     * fading to nothing over `fadeSections` sections.
+     */
+    afterCrash?: { around: [number, number]; slowPct: number; fadeSections: number };
+    /**
      * Fitness in the lap time (Spec 3.4, Boss 29 Oct 2026), each at level 99: Strength is roughPct
      * faster through rough sections and strengthLatePct late in the moto, Endurance enduranceLatePct
      * late in the moto (fading less). Late ramps in over the second half. All of it is capped at capPct.
@@ -330,7 +338,8 @@ export interface Entrant {
 /** Events name the section by index; -1 is the start straight. */
 export type RaceEvent =
   | { kind: 'pass'; t: number; rider: string; other: string; section: number }
-  | { kind: 'failedPass'; t: number; rider: string; other: string; section: number }
+  /** Held up behind a rider they couldn't pass: `held` seconds slower than their own pace through the section, `close` when they were on the rider's wheel (within passWindow), which is when the feed mentions it. */
+  | { kind: 'failedPass'; t: number; rider: string; other: string; section: number; held: number; close: boolean }
   | { kind: 'mistake'; t: number; rider: string; section: number; outcome: MistakeOutcome['id']; lost: number; damaged: string[]; /** The rider whose crash this one went down in, or 'first_corner' for a first-corner incident, or 'loop_out' for a loop-out out of the gate. */ with?: string }
   | { kind: 'breakdown'; t: number; rider: string; section: number; slot: string }
   | { kind: 'retire'; t: number; rider: string; reason: string };
@@ -596,6 +605,8 @@ export class MotoSim {
     const startTimes = new Map(active.map((r) => [r, r.time]));
     const cur = new Map(active.map((r) => [r, r.time]));
     const out = new Set<RiderState>();
+    // Riders shaken by a crash this lap: the leg their slowing has faded by.
+    const shakenUntil = new Map<RiderState, number>();
     // A first-corner incident on lap 1: the lap's own draw picks whether, how many and who.
     const lapRng = seededRng(mixSeed(this.opts.seed, lap * 256 + 255));
     const incident = new Set<RiderState>();
@@ -649,6 +660,13 @@ export class MotoSim {
         this.rng = draws.get(r)!;
         // A start one at a time (a No-Turn Takedown's seeding run) has no gate to gain or lose on.
         let t = this.sectionTime(r, sec, def, isStart && !this.opts.interval ? r.e.gate : -1) * (air.get(r) ?? 1) * (si >= 0 ? this.grades[si] * (r.e.tuning?.[si] ?? 1) : 1);
+        // Shaken from a crash earlier this lap: slower, fading section by section (Boss, 3 Nov 2026).
+        const shaken = shakenUntil.get(r);
+        if (shaken !== undefined && sim.afterCrash) {
+          const left = shaken - leg;
+          if (left > 0) t *= 1 + (sim.afterCrash.slowPct / 100) * (left / sim.afterCrash.fadeSections);
+          else shakenUntil.delete(r);
+        }
         let m = this.mistake(r, def, share);
         let withWhom: string | undefined;
         if (leg === startLeg && r === looper) {
@@ -672,14 +690,27 @@ export class MotoSim {
           t += lost;
           const damaged = m.crash ? this.crashDamage(r, def, !!m.serious) : [];
           if (m.crash) crashes.push({ r, at, took: 0 });
+          if (m.crash && sim.afterCrash) shakenUntil.set(r, leg + 1 + sim.afterCrash.fadeSections);
           trace.events.push({ kind: 'mistake', t: cur.get(r)! + t, rider: r.e.id, section: si, outcome: m.id, lost, damaged, ...(withWhom ? { with: withWhom } : {}) });
         }
         let arrival = cur.get(r)! + t;
+        const natural = arrival;
+        let blocker: RiderState | null = null;
+        let close = false;
         // Passing: anyone ahead who would now arrive later has to be passed (Spec 10.3).
         for (let i = done.length - 1; i >= 0; i--) {
           const q = done[i];
           const qa = cur.get(q)!;
           if (qa <= arrival) continue;
+          // A rider on the ground is gone round, not waited for (Boss, 3 Nov 2026): the riders
+          // held up by a crash come out ahead of the rider who crashed. Reaching the spot before
+          // the crash costs nothing; coming upon the fallen rider costs a moment going round.
+          const fallen = sim.afterCrash && crashes.find((c) => c.r === q);
+          if (fallen) {
+            if (arrival > fallen.at) { const [lo, hi] = sim.afterCrash!.around; arrival += lo + this.rng() * (hi - lo); }
+            trace.events.push({ kind: 'pass', t: arrival, rider: r.e.id, other: q.e.id, section: si });
+            continue;
+          }
           if (sec.passing > 0 && this.rng() < this.passChance(r, q, def, sec.passing)) {
             trace.events.push({ kind: 'pass', t: arrival, rider: r.e.id, other: q.e.id, section: si });
             if (r.e.player) {
@@ -689,9 +720,13 @@ export class MotoSim {
           } else {
             const [lo, hi] = sim.failedPassCost;
             arrival = qa + (sec.passing > 0 ? lo + this.rng() * (hi - lo) : sim.blockedGap);
-            if (sec.passing > 0 && qa - (cur.get(r)! + t) < sim.passWindow) trace.events.push({ kind: 'failedPass', t: arrival, rider: r.e.id, other: q.e.id, section: si });
+            blocker = q;
+            close = sec.passing > 0 && qa - natural < sim.passWindow;
           }
         }
+        // One event for the section, naming the rider they ended up behind, so the rider AI rides
+        // at its own pace and sits on that wheel, rather than crawling the whole section (Boss, 3 Nov 2026).
+        if (blocker) trace.events.push({ kind: 'failedPass', t: arrival, rider: r.e.id, other: blocker.e.id, section: si, held: arrival - natural, close });
         cur.set(r, arrival);
         done.push(r);
         if (r.e.player) this.sectionXp(def, sec, !m);

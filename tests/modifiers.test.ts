@@ -144,10 +144,12 @@ describe('the Modifying Machine (Spec 6.4; Boss, 30 Oct 2026: one machine, fixed
     const career = fresh();
     const flags: Record<string, boolean> = { 'area.5.open': true };
     career.story.step = story.steps.length;
-    // Area 5's own intro plays first, then Maggie's chain.
-    expect(openChains(story, career, flags).map((c) => c.id).sort()).toEqual(['area5', 'maggie']);
-    const a5 = story.chains!.find((c) => c.id === 'area5')!;
-    for (let i = 0; i < a5.steps.length; i++) expect(advanceStory(story, career, flags, items)).toBe(true);
+    // Area 5's own intro plays first, then Vera Flint's lessons (Boss, 4 Nov 2026), then Maggie's chain.
+    expect(openChains(story, career, flags).map((c) => c.id).sort()).toEqual(['area5', 'maggie', 'vera']);
+    for (const id of ['area5', 'vera']) {
+      const before = story.chains!.find((c) => c.id === id)!;
+      for (let i = 0; i < before.steps.length; i++) expect(advanceStory(story, career, flags, items)).toBe(true);
+    }
     const chain = story.chains!.find((c) => c.id === 'maggie')!;
     expect(currentStep(story, career)?.id).toBe('mg_news');
     for (const step of chain.steps.slice(0, 5)) {

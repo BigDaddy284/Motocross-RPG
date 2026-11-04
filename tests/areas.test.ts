@@ -191,23 +191,23 @@ describe('Areas 3 to 8 (Areas 2 to 8 plan; Boss, 31 Oct 2026: placeholder towns,
   // The world map's roads (tools/art/world-map.py): a4–a3, a3–a2, a4–a5, a5–a6, a6–a7, a7–a8, home–a8, and the Race Hub to every area.
   const roads: Record<number, { W: string; E: string }> = {
     3: { W: 'area4-forest-town', E: 'area2-mountain-town' },
-    4: { W: 'area5-northern-works', E: 'area3-beach-town' },
+    4: { W: 'area5-western-works', E: 'area3-beach-town' },
     5: { W: 'area4-forest-town', E: 'area6-highlands' },
-    6: { W: 'area5-northern-works', E: 'area7-the-city' },
+    6: { W: 'area5-western-works', E: 'area7-the-city' },
     7: { W: 'area6-highlands', E: 'area8-capital' },
     8: { W: 'area7-the-city', E: 'area1-home-town' },
   };
   // A drawn town adds its own road to the Hub (the world map's spoke; Areas 2 to 8 maps, Boss 31 Oct 2026).
   const hubRoad: Record<number, string> = { 3: 'South road', 4: 'South-east road', 5: 'East road', 6: 'North-east road', 7: 'North road', 8: 'North-west road' };
   // The roads to the next area (W) and the one before (E), named by the side of the drawn map they
-  // leave from (Forest Town's road to Northern Works leaves south, Northern Works' to the Highlands
+  // leave from (Forest Town's road to Western Works leaves south, Western Works' to the Highlands
   // south; Boss, 31 Oct 2026).
   const exitTo = (n: number) => ({ W: 'West road', E: 'East road', ...({ 4: { W: 'South road' }, 5: { W: 'North road', E: 'South road' }, 6: { W: 'North road' }, 8: { E: 'North road' } } as Record<number, { W?: string; E?: string }>)[n] });
   const badgeClass: Record<number, string> = { 3: '85cc-small', 4: '85cc-big', 5: '125cc-youth', 6: '125cc', 7: '250f', 8: '450f' };
 
   it('are all there, in order, each with a stamped town, its insides, three tracks at the hub venues and a locked house', () => {
     expect(later.map((a) => a.n)).toEqual([3, 4, 5, 6, 7, 8]);
-    expect(later.map((a) => a.name)).toEqual(['Beach Town', 'Forest Town', 'Northern Works', 'Highlands', 'The City', 'Capital']);
+    expect(later.map((a) => a.name)).toEqual(['Beach Town', 'Forest Town', 'Western Works', 'Highlands', 'The City', 'Capital']);
     for (const a of later) {
       const m = maps.get(a.map)!;
       expect(m, a.map).toBeDefined();
@@ -262,18 +262,25 @@ describe('Areas 3 to 8 (Areas 2 to 8 plan; Boss, 31 Oct 2026: placeholder towns,
       expect(currentStep(story, career)?.id).toBe(`a${a.n}_news`);
       const chain = story.chains!.find((c) => c.id === `area${a.n}`)!;
       for (const step of chain.steps) {
-        expect(matchStory(story, career, { talk: step.on.talk! })?.kind, `${a.name} ${step.id}`).toBe('ready');
-        expect(advanceStory(story, career, flags, items)).toBe(true);
+        // A step done at equipment (Beach Town's Brake works pass and agility ladder round; Boss, 3 Nov 2026) or by talking.
+        const ev = step.on.talk ? { talk: step.on.talk } : { use: step.on.use!, map: step.on.map!, object: step.id };
+        expect(matchStory(story, career, ev)?.kind, `${a.name} ${step.id}`).toBe('ready');
+        expect(advanceStory(story, career, flags, items, step.on.use ? step.id : undefined)).toBe(true);
       }
       expect(chainDone(story, career, `area${a.n}`)).toBe(true);
       expect(flags[`area${a.n}.intro_done`]).toBe(true);
     }
-    // Big Pete, the Rider Trainer in Beach Town, teaches whips and scrubs on the way (core/tricks.ts TRICKS_FLAG).
+    // Big Pete, the Rider Trainer in Beach Town, teaches whips and scrubs at the end of his own chain,
+    // after the intro (core/tricks.ts TRICKS_FLAG; tests/bigPete.test.ts plays it step by step).
     const career = fresh();
     const flags: Record<string, boolean> = { [areaFlag(3)]: true };
     career.story.step = story.steps.length;
-    openChains(story, career, flags);
-    for (let i = 0; i < 5; i++) advanceStory(story, career, flags, items);
+    expect(openChains(story, career, flags).map((c) => c.id)).toEqual(['area3', 'bigpete']);
+    const steps = ['area3', 'bigpete'].flatMap((id) => story.chains!.find((c) => c.id === id)!.steps);
+    for (const s of steps) {
+      expect(flags.rider_trainer_tricks, s.id).toBeUndefined();
+      advanceStory(story, career, flags, items);
+    }
     expect(flags.rider_trainer_tricks).toBe(true);
     expect(championships.championships.find((c) => c.id === 'area8.main')!.opens).toBeUndefined();
   });
@@ -349,7 +356,7 @@ describe('roadblocks (Boss, 1 Nov 2026)', () => {
   // "Blue marks for roadblocks to the central hub and access to that area's 3 new tracks. the Red marks are
   // roadblocks to the next area. Like with Area 1 the Hub will be unlock via a story line and the access to the
   // next area unlock once you've won the area championship."
-  const towns = ['area1-home-town', 'area2-mountain-town', 'area3-beach-town', 'area4-forest-town', 'area5-northern-works', 'area6-highlands', 'area7-the-city', 'area8-capital'];
+  const towns = ['area1-home-town', 'area2-mountain-town', 'area3-beach-town', 'area4-forest-town', 'area5-western-works', 'area6-highlands', 'area7-the-city', 'area8-capital'];
   const hub: Record<number, string> = { 1: 'To the venue route', 2: 'South-west road', 3: 'South road', 4: 'South-east road', 5: 'East road', 6: 'North-east road', 7: 'North road', 8: 'North-west road' };
   const next: Record<number, string> = { 1: 'North road', 2: 'West road', 3: 'West road', 4: 'South road', 5: 'South road', 6: 'East road', 7: 'East road', 8: 'North road' };
   const shutBy = (m: BakedMap, exit: string) => {

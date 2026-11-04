@@ -46,6 +46,14 @@ export class BootScene extends Phaser.Scene {
       this.load.spritesheet(`chr:${id}:act`, `assets/${sheet.act}`, { frameWidth: fw, frameHeight: fh });
       // The push-up frames are side on, so wider than a walk frame: up, then down.
       if (sheet.fit) this.load.spritesheet(`chr:${id}:fit`, `assets/${sheet.fit}`, { frameWidth: 96, frameHeight: 64 });
+      // The bench press (bar on the chest, half way, locked out) and the rider on the bike, side on
+      // (seated, attack position, soaked up low; adult bike row then youth), for the Area 2 and 3 drills.
+      if (sheet.lift) this.load.spritesheet(`chr:${id}:lift`, `assets/${sheet.lift}`, { frameWidth: 96, frameHeight: 64 });
+      if (sheet.ride) this.load.spritesheet(`chr:${id}:ride`, `assets/${sheet.ride}`, { frameWidth: 128, frameHeight: 128 });
+      // Yoga (mountain, warrior, seated) and the rowing machine (catch, drive, finish), for the Area 4 and 5 drills.
+      if (sheet.yoga) this.load.spritesheet(`chr:${id}:yoga`, `assets/${sheet.yoga}`, { frameWidth: 96, frameHeight: 80 });
+      if (sheet.row) this.load.spritesheet(`chr:${id}:row`, `assets/${sheet.row}`, { frameWidth: 96, frameHeight: 64 });
+      if (sheet.dojo) this.load.spritesheet(`chr:${id}:dojo`, `assets/${sheet.dojo}`, { frameWidth: 96, frameHeight: 72 });
     }
     for (const [id, sheet] of Object.entries(manifest.vehicles ?? {})) {
       this.load.image(vanTexture(id), `assets/${sheet.image}`);

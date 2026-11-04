@@ -115,3 +115,47 @@ describe('rider AI (GDD 11.1)', () => {
     expect(crashes + wobbles).toBeGreaterThan(0);
   });
 });
+
+describe('a rider held up behind one they could not pass (Boss, 3 and 4 Nov 2026)', () => {
+  it('keeps riding (never stands still), and is behind that rider at the end of the section as the referee said', () => {
+    let checked = 0;
+    const metre = 1 / units(content.tracks.tracks.find((t) => t.id === 'farmland')!);
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
+      const { dir, traces } = race('farmland', seed);
+      for (const tr of traces) {
+        for (const e of tr.events) {
+          // Lap sections only: on the start straight the riders are leaving the grid, gates apart.
+          if (e.kind !== 'failedPass' || e.held < 1.5 || e.section < 0) continue;
+          const times = tr.times[e.rider];
+          const leg = tr.secs.indexOf(e.section);
+          if (leg < 0 || times.length <= leg + 1) continue;
+          // No mistake of their own in the section, so the only time to lose is behind the other rider.
+          if (tr.events.some((m) => m.kind === 'mistake' && m.rider === e.rider && m.section === e.section)) continue;
+          const t0 = times[leg];
+          const t1 = times[leg + 1];
+          let last = -1;
+          for (let t = t0 + 0.05; t < t1; t += 0.05) {
+            const me = dir.poses(t).find((p) => p.id === e.rider)!;
+            // Always moving: the held-up time is ridden more slowly, never stood for (Boss, 4 Nov 2026).
+            if (me.state === 'riding' || me.state === 'air') {
+              expect(me.speed).toBeGreaterThan(1);
+              if (last >= 0) expect(me.dist).toBeGreaterThan(last + 0.02 * metre);
+            }
+            last = me.dist;
+          }
+          // At the section's end the other rider is still ahead, or near enough: each ride is
+          // planned for flow (Boss, 4 Nov 2026: fluid racing comes first), so a rider can be
+          // drawn a little off the referee's marks, and the held-up rider may be alongside or
+          // just past the blocker at the mark, never clear of them (within 20 grid units).
+          const poses = dir.poses(t1);
+          const me = poses.find((p) => p.id === e.rider)!;
+          const other = poses.find((p) => p.id === e.other)!;
+          if (other.state === 'riding' || other.state === 'air') expect(me.dist).toBeLessThanOrEqual(other.dist + 20 * metre);
+          checked++;
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(0);
+    // Eight races checked every 0.05 s: about 6 s here, past vitest's 5 s default.
+  }, 30000);
+});

@@ -6,6 +6,7 @@ import { isNoTurn, isSprint, lapGeom, lapMetres, NO_TURN_LANES, NO_TURN_RUNOFF, 
 import { DEFAULT_HEIGHTS, HOP_JUMPS, landingOf, pickWay, tapsAfter, type Way } from './jumps';
 import { WHOOP_WHEELIE, wheelieAt } from './wheelie';
 import { HILLS, sectionShape, TrackSurface, type Flight } from './trackSurface';
+import { alongPiece, planLap, type Piece, type PlanSection } from './ridePlan';
 import { showmanOf, trickFor, type Trick } from './tricks';
 import { SIDECAR_LEFT, SIDECAR_ROOM, SIDECAR_SETTLE, isSidecarGate } from './sidecar';
 import { downPhase } from './crashRecovery';
@@ -66,6 +67,8 @@ interface Seg {
   mistake?: { outcome: MistakeOutcome['id']; lost: number; loop?: boolean };
   pass?: string;
   blocked?: string;
+  /** Seconds slower than the rider's own pace through the section, spent on the blocking rider's wheel. */
+  held?: number;
 }
 
 const CORNERS = new Set(['first_corner', 'flat_corner', 'berm', 'rutted_corner', 'hairpin', 'fast_sweeper']);
@@ -158,28 +161,6 @@ function whoopLift(p: RiderProfile, seg: Seg, u: number): number {
   return size * ramp(u / 0.1) * (1 - ramp((u - 0.88) / 0.12));
 }
 
-/** A section's average riding speed in lap units a second (the time lost to a mistake left out); 0 in a sprint's queue. */
-function segSpeed(seg: Seg): number {
-  if (seg.si === SPRINT_QUEUE) return 0;
-  const dur = Math.max(1e-6, seg.t1 - seg.t0);
-  const ride = Math.max(1e-6, dur - Math.min(seg.mistake?.lost ?? 0, dur * 0.95));
-  return (seg.d1 - seg.d0) / ride;
-}
-
-/**
- * Speed through a section as a share of its average, starting at e0 and ending at e1 (both shares
- * of the average), with a style term c that is 0 at both ends and adds nothing overall: positive is
- * fastest in the middle, negative slowest. `at` is the share of the section ridden at time share
- * tau, so at(1) is 1 whatever the ends: the rider always reaches the end on time.
- */
-export function speedShape(e0: number, e1: number, c: number): { speed: (tau: number) => number; at: (tau: number) => number } {
-  // Linear from e0 to e1, plus a bump 6τ(1 − τ) sized so the average is 1, plus the style term.
-  const k = 1 - (e0 + e1) / 2;
-  return {
-    speed: (x) => e0 * (1 - x) + e1 * x + 6 * k * x * (1 - x) + c * (1 - Math.cos(2 * Math.PI * x) - 6 * x * (1 - x)),
-    at: (x) => e0 * (x - (x * x) / 2) + (e1 * x * x) / 2 + k * (3 * x * x - 2 * x * x * x) + c * (x - Math.sin(2 * Math.PI * x) / (2 * Math.PI) - 3 * x * x + 2 * x * x * x),
-  };
-}
 /** The ids in a seeded random order (its own draws, so the line-up's other draws stay as they were). */
 const shuffled = (ids: string[], seed: number) => {
   const rnd = seededRng(mixSeed(seed, 1));
@@ -222,6 +203,12 @@ export class RaceDirector {
   private readonly ways = new Map<string, Way | null>();
   /** Each rider's tricks over the hops of their way through each jump on each lap (id|lap|section). */
   private readonly tricks = new Map<string, (Trick | null)[]>();
+  /** Each rider's planned ride (ridePlan.ts), lap after lap: where they are and how fast at any time. */
+  private readonly plans = new Map<string, Piece[]>();
+  /** Each rider's speed at the end of each lap planned so far, carried into the next (and taken back with dropLap). */
+  private readonly vEnds = new Map<string, number[]>();
+  /** How much each lap's planned times had to be stretched to end when the simulation says, by lap, for the tests. */
+  readonly warps: number[] = [];
   /** The field's showman: the best jumper who isn't the player, who whips and scrubs the big hops (tricks.ts). */
   readonly showman: string | null;
   private finishCache: { key: string; plan: Map<string, Finish> } | null = null;
@@ -414,13 +401,73 @@ export class RaceDirector {
         const worse = seg.mistake && rank(seg.mistake.outcome) > rank(e.outcome) ? seg.mistake.outcome : e.outcome;
         seg.mistake = { outcome: worse, lost, ...(seg.mistake?.loop || e.with === 'loop_out' ? { loop: true } : {}) };
       } else if (e.kind === 'pass') seg.pass = e.other;
-      else if (e.kind === 'failedPass') seg.blocked = e.other;
+      else if (e.kind === 'failedPass') { seg.blocked = e.other; seg.held = e.held; }
     }
+    let warp = 1;
+    for (const [id, list] of this.segs) {
+      if (!trace.times[id]) continue;
+      warp = Math.max(warp, this.planRider(id, list, trace.lap));
+    }
+    this.warps.push(warp);
+  }
+
+
+  /** Plans a rider's ride through the lap just added (ridePlan.ts) and adds it to their plan. */
+  private planRider(id: string, list: Seg[], lap: number): number {
+    const p = this.profiles.get(id)!;
+    const from = list.findIndex((g) => g.lap === lap);
+    if (from < 0) return 1;
+    // A lap planned again (addLap): the first plan's pieces go.
+    const pieces = this.plans.get(id) ?? [];
+    while (pieces.length && pieces[pieces.length - 1].sec >= from) pieces.pop();
+    const ends = this.vEnds.get(id) ?? [];
+    while (ends.length > list.slice(0, from).filter((g, i, arr) => i === 0 || g.lap !== arr[i - 1].lap).length) ends.pop();
+    const secs: PlanSection[] = [];
+    for (let i = from; i < list.length; i++) {
+      const seg = list[i];
+      const sec = this.section(seg.si);
+      const climb = seg.si >= 0 ? Math.min(1, climbExtra(this.track.sections[seg.si]) / Math.max(1, this.track.sections[seg.si].length)) : 0;
+      const lane0 = sec.type === RETURN_LANE;
+      const out: PlanSection = {
+        s0: seg.d0 * this.metres,
+        s1: seg.d1 * this.metres,
+        t0: seg.t0,
+        t1: seg.t1,
+        style: lane0 ? 0 : 0.5 * this.warp(p, sec.type) - 0.4 * climb,
+        hops: seg.si === SPRINT_QUEUE ? [] : (this.way(p, seg)?.hops ?? []),
+      };
+      if (seg.si === SPRINT_QUEUE) out.queue = true;
+      if (lane0) out.even = true;
+      if (seg.mistake && seg.mistake.lost > 0) {
+        const crash = seg.mistake.outcome === 'minor_crash' || seg.mistake.outcome === 'serious_crash' || !!seg.mistake.loop;
+        out.mistake = { at: this.mistakeAt(p, seg), lost: Math.min(seg.mistake.lost, (seg.t1 - seg.t0) * 0.95), crash };
+      }
+      secs.push(out);
+    }
+    const vStart = ends.length ? ends[ends.length - 1] : 0;
+    // The next lap is not known yet: aim to end at the pace the track's first section was ridden
+    // at this lap, as the next lap starts into it (on lap 1 the start straight comes first).
+    const k = list.findIndex((g, i) => i >= from && g.si === 0);
+    const first = (k >= 0 ? secs[k - from] : null) ?? secs.find((g) => !g.queue) ?? secs[0];
+    const vEndAim = Math.max(1, (first.s1 - first.s0) / Math.max(0.05, first.t1 - first.t0));
+    const plan = planLap(secs, vStart, vEndAim);
+    ends.push(plan.vEnd);
+    this.vEnds.set(id, ends);
+    for (const piece of plan.pieces) pieces.push({ ...piece, sec: piece.sec + from });
+    this.plans.set(id, pieces);
+    return plan.warp;
   }
 
   /** Takes back the latest lap, to be replaced by the same lap run again (MotoSim.redoLap). */
   dropLap(trace: LapTrace): void {
-    for (const list of this.segs.values()) while (list.length && list[list.length - 1].lap === trace.lap) list.pop();
+    for (const [id, list] of this.segs) {
+      const before = list.length;
+      while (list.length && list[list.length - 1].lap === trace.lap) list.pop();
+      if (list.length === before) continue;
+      const pieces = this.plans.get(id);
+      if (pieces) while (pieces.length && pieces[pieces.length - 1].sec >= list.length) pieces.pop();
+      this.vEnds.get(id)?.pop();
+    }
     for (const e of trace.events) if (e.kind === 'retire' && this.out.get(e.rider) === e.t) this.out.delete(e.rider);
     // Its ways and tricks are picked again, as its mistakes may fall differently.
     for (const m of [this.ways, this.tricks]) for (const k of [...m.keys()]) if (k.split('|')[1] === String(trace.lap)) m.delete(k);
@@ -499,16 +546,19 @@ export class RaceDirector {
       p.lane = 0;
       back = frac(p.dist);
     });
-    // Riders rolling down the return lane (short of the start line) stop behind the back of the queue.
-    if (back === Infinity) return;
+    // Riders rolling down the return lane (short of the start line) stop behind the back of the
+    // queue, and keep a bike's gap behind each other on the way down it (two who finished the test
+    // within a breath of each other used to roll down the lane on top of one another).
     const rolling = poses.filter((p) => (p.state === 'riding' || p.state === 'waiting') && frac(p.dist) < line).sort((a, b) => frac(b.dist) - frac(a.dist));
+    let backSpeed = 0;
     for (const p of rolling) {
       const cap = back - gap;
       if (frac(p.dist) > cap) {
         p.dist = Math.floor(p.dist) + Math.max(0, cap);
-        p.speed = 0;
+        p.speed = backSpeed;
       }
       back = frac(p.dist);
+      backSpeed = p.speed;
     }
   }
 
@@ -521,53 +571,37 @@ export class RaceDirector {
     if (this.interval > 0 && (!list.length || t <= list[0].t0)) return this.waitingTurn(id, list, t);
     if (this.sprint && (!list.length || t <= list[0].t0)) return { id, dist: this.start.from, lane: 0, air: 0, elev: 0, flight: null, state: 'grid', speed: 0 };
     if (!list.length || t <= list[0].t0) return this.lineUp(id, t);
-    // The section the rider is in now: the first one that ends after t.
+    // The piece of the rider's planned ride (ridePlan.ts) they are on now: the first that ends after t.
+    const pieces = this.plans.get(id) ?? [];
     let lo = 0;
-    let hi = list.length;
+    let hi = pieces.length;
     while (lo < hi) {
       const mid = (lo + hi) >> 1;
-      if (list[mid].t1 <= t) lo = mid + 1;
+      if (pieces[mid].t1 <= t) lo = mid + 1;
       else hi = mid;
     }
-    if (lo >= list.length) return this.afterLast(id, p, list, t);
-    const seg = list[lo];
-    const prev = lo > 0 ? list[lo - 1] : null;
+    if (lo >= pieces.length) return this.afterLast(id, p, list, t);
+    const piece = pieces[lo];
+    const seg = list[piece.sec];
+    const prev = piece.sec > 0 ? list[piece.sec - 1] : null;
     // A sprint's wait at the start line: in the queue (queue() says where).
-    if (seg.si === SPRINT_QUEUE) return { id, dist: seg.d0, lane: 0, air: 0, elev: 0, flight: null, state: 'grid', speed: 0 };
+    if (piece.kind === 'queue') return { id, dist: seg.d0, lane: 0, air: 0, elev: 0, flight: null, state: 'grid', speed: 0 };
     const sec = this.section(seg.si);
-    const dur = Math.max(1e-6, seg.t1 - seg.t0);
-    const s = t - seg.t0;
-
-    // Riding time and any time lost to a mistake, which happens part way through the section.
-    const lost = Math.min(seg.mistake?.lost ?? 0, dur * 0.95);
-    const ride = dur - lost;
-    const at = this.mistakeAt(p, seg);
-    let tau: number;
-    let stopped = false;
-    if (s < at * ride) tau = s / ride;
-    else if (s < at * ride + lost) {
-      tau = at;
-      stopped = true;
-    } else tau = (s - lost) / ride;
-    tau = clamp(tau, 0, 1);
-
-    // Speed through the section (Boss, 2 Nov 2026: no slowing then a burst of speed). The rider
-    // carries their speed from one section into the next: each section starts at the speed the last
-    // one ended on and ends on a speed between its own and the next one's, so speed never jumps at a
-    // section's edge, and the rider still reaches its end exactly when the simulation says.
-    const V = segSpeed(seg);
-    // A sprint's return lane is ridden single file at an even speed, so the riders keep their spacing.
-    const lane0 = sec.type === RETURN_LANE;
-    const v0 = lane0 ? V : !prev ? 0 : Math.min(this.edgeSpeed(list, lo - 1), 3 * V);
-    const v1 = lane0 ? V : this.edgeSpeed(list, lo);
-    // The rider's style on top: braking in and driving out of a corner, flat out down a straight.
-    // A raised jump or hill (climb.ts) slows the rider up its face, slowest near the top.
-    const climb = seg.si >= 0 ? Math.min(1, climbExtra(this.track.sections[seg.si]) / Math.max(1, this.track.sections[seg.si].length)) : 0;
-    const c = lane0 ? 0 : 0.5 * this.warp(p, sec.type) - 0.4 * climb;
-    const shape = speedShape(v0 / V, v1 / V, c);
-    const u = clamp(shape.at(tau), 0, 1);
-    const dist = seg.d0 + u * (seg.d1 - seg.d0);
-    const speed = stopped ? 0 : Math.max(0, V * shape.speed(tau) * this.metres);
+    const along = alongPiece(piece, t);
+    const dist = clamp(along.s / this.metres, seg.d0, seg.d1);
+    const speed = along.v;
+    const u = clamp((dist - seg.d0) / Math.max(1e-9, seg.d1 - seg.d0), 0, 1);
+    // Down after a crash (the plan stops the rider there for the mistake's time) or wobbling
+    // through the slow stretch after a slip.
+    const stopped = piece.kind === 'stop';
+    const lost = seg.mistake?.lost ?? 0;
+    // When the crash in this section begins, for the loop-out's wheelie before it and the slide after.
+    let stopAt = Infinity;
+    if (seg.mistake) {
+      for (let k = Math.max(0, lo - 60); k < Math.min(pieces.length, lo + 60); k++) {
+        if (pieces[k].kind === 'stop' && pieces[k].sec === piece.sec) { stopAt = pieces[k].t0; break; }
+      }
+    }
 
     // Line: from the last section's line into this one's, quicker for a nimble rider on a good bike.
     const from = prev ? this.target(id, p, prev) : (this.gateLane.get(id) ?? 0);
@@ -580,20 +614,17 @@ export class RaceDirector {
     const loop = this.loopsOut(p, seg);
     let stunt: RiderPose['stunt'];
     let down: RiderPose['down'];
-    if (loop) {
-      const since = s - at * ride;
+    if (loop && stopAt < Infinity) {
+      const since = t - stopAt;
       if (since > -LOOP_RISE && since < lost) stunt = { kind: 'loop', t: since };
     }
-    if (stopped && seg.mistake) {
-      const crash = seg.mistake.outcome === 'minor_crash' || seg.mistake.outcome === 'serious_crash';
-      if (crash) {
-        // Down until they are getting back on (crashRecovery.ts), then remounting.
-        down = { t: s - at * ride, lost };
-        state = downPhase(down.t, lost).phase === 'mount' ? 'remount' : 'crashed';
-        // A crashed bike slides towards the outside of the track; a loop-out stays where it went over.
-        if (!loop) lane += (this.turn(seg.si) ? -this.turn(seg.si) : 1) * 0.25 * smooth((s - at * ride) / 0.6);
-      } else state = 'wobble';
-    }
+    if (stopped) {
+      // Down until they are getting back on (crashRecovery.ts), then remounting.
+      down = { t: t - piece.t0, lost };
+      state = downPhase(down.t, lost).phase === 'mount' ? 'remount' : 'crashed';
+      // A crashed bike slides towards the outside of the track; a loop-out stays where it went over.
+      if (!loop) lane += (this.turn(seg.si) ? -this.turn(seg.si) : 1) * 0.25 * smooth((t - piece.t0) / 0.6);
+    } else if (piece.kind === 'slip') state = 'wobble';
 
     const flight = this.flight(p, seg, list, lo);
     // Holding a wheelie across the whoops or rollers: the back wheel works over them, the front held up.
@@ -843,15 +874,6 @@ export class RaceDirector {
    * end of a lap it is the last section's own, as the next lap may not have been run yet, and a
    * section never changes once ridden into.
    */
-  private edgeSpeed(list: Seg[], i: number): number {
-    const a = list[i];
-    const b = list[i + 1];
-    const va = segSpeed(a);
-    if (!b || b.lap !== a.lap || this.section(b.si).type === RETURN_LANE) return va;
-    const vb = segSpeed(b);
-    return va > 0 && vb > 0 ? Math.min((va + vb) / 2, 2.2 * Math.min(va, vb)) : 0;
-  }
-
   /**
    * How speed changes through a section, from -0.6 (slow in the middle: braking in, driving out of
    * a corner) to 0.6 (fastest in the middle: a straight).
@@ -985,7 +1007,8 @@ export class RaceDirector {
       else if (type === 'rollers') air = 0.3 * h * (1 - p.skim) * Math.abs(Math.sin(u * Math.PI * 4));
       else if (type === 'braking_bumps') air = 0.15 * (1 - p.skim) * Math.abs(Math.sin(u * Math.PI * 14));
       // The bike bucks over rocks and roots, and the front wheel lifts over each log.
-      else if (type === 'rocks' || type === 'roots' || type === 'tyre_bed') air = 0.12 * (1 - 0.6 * p.skim) * Math.abs(Math.sin(u * Math.PI * (type === 'rocks' ? 17 : type === 'tyre_bed' ? 12 : 11) + p.seed * 9));
+      // The bucking fades in and out at the section's ends, so a rider is never off the ground on the line between it and the next.
+      else if (type === 'rocks' || type === 'roots' || type === 'tyre_bed') air = 0.12 * (1 - 0.6 * p.skim) * Math.min(1, u * 20, (1 - u) * 20) * Math.abs(Math.sin(u * Math.PI * (type === 'rocks' ? 17 : type === 'tyre_bed' ? 12 : 11) + p.seed * 9));
       else if (type === 'logs' || type === 'log_step' || type === 'pipe' || type === 'tyre_wall' || type === 'log_stack') air = 0.2 * h * sectionShape(type, Math.min(1, u + 0.02));
     }
     if (HILLS.has(type)) elev = h * (type === 'hill_climb' ? sectionShape(type, u) : Math.sin(Math.PI * u));

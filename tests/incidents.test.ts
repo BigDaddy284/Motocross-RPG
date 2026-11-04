@@ -113,3 +113,62 @@ describe('pile-ups', () => {
     }
   });
 });
+
+describe('after a crash (Boss, 3 Nov 2026)', () => {
+  type Mistake = Extract<ReturnType<MotoSim['nextLap']>['events'][number], { kind: 'mistake' }>;
+  const crashesIn = (events: ReturnType<MotoSim['nextLap']>['events']) =>
+    events.filter((e): e is Mistake => e.kind === 'mistake' && (e.outcome === 'minor_crash' || e.outcome === 'serious_crash'));
+
+  it('lets the riders behind go round a fallen rider instead of waiting for them to remount', () => {
+    let passedFallen = 0;
+    for (let seed = 1; seed <= 80; seed++) {
+      const { traces } = race(seed, 3);
+      for (const tr of traces) {
+        const ms = tr.events.filter((e): e is Mistake => e.kind === 'mistake');
+        for (const c of crashesIn(tr.events)) {
+          const leg = tr.secs.indexOf(c.section);
+          if (leg < 0) continue;
+          const tc = tr.times[c.rider];
+          for (const [id, times] of Object.entries(tr.times)) {
+            if (id === c.rider || times.length <= leg + 1) continue;
+            // A rider entering the section just behind, who makes no mistake of their own there,
+            // leaves it ahead of the rider on the ground.
+            if (times[leg] <= tc[leg] || times[leg] - tc[leg] > 1 || ms.some((m) => m.rider === id && m.section === c.section)) continue;
+            expect(times[leg + 1]).toBeLessThan(tc[leg + 1]);
+            expect(tr.events.some((e) => e.kind === 'pass' && e.rider === id && e.other === c.rider && e.section === c.section)).toBe(true);
+            passedFallen++;
+          }
+        }
+      }
+    }
+    expect(passedFallen).toBeGreaterThan(10);
+  });
+
+  it('leaves the rider who crashed slower for the sections after it, fading out', () => {
+    const run = (seed: number, slowPct: number) => {
+      const racing = structuredClone(content.racing);
+      racing.sim.afterCrash = { ...racing.sim.afterCrash!, slowPct };
+      const field: Entrant[] = content.riders.riders.slice(0, 12).map((d, i) => cpuEntrant(content, d, '50cc', i));
+      const sim = new MotoSim(racing, content.bikes, farm, '50cc', field, { laps: 2, motoIndex: 0, seed });
+      return sim.runToEnd();
+    };
+    let compared = 0;
+    for (let seed = 1; seed <= 40 && compared < 8; seed++) {
+      const slow = run(seed, 30);
+      const same = run(seed, 0);
+      for (let l = 0; l < slow.length; l++) {
+        for (const c of crashesIn(slow[l].events)) {
+          const leg = slow[l].secs.indexOf(c.section);
+          const a = slow[l].times[c.rider];
+          const b = same[l].times[c.rider];
+          if (leg < 0 || a.length <= leg + 2 || b.length <= leg + 2) continue;
+          // The same crash in both runs, then the next section ridden slower when shaken.
+          if (!crashesIn(same[l].events).some((x) => x.rider === c.rider && x.section === c.section)) continue;
+          expect(a[leg + 2] - a[leg + 1]).toBeGreaterThan(b[leg + 2] - b[leg + 1]);
+          compared++;
+        }
+      }
+    }
+    expect(compared).toBeGreaterThan(0);
+  });
+});
