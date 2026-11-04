@@ -17,7 +17,10 @@
     "spots": [
       { "map": "venue-motocross", "x": 26, "y": 14, "heading": "east" },
       { "map": "venue-enduro", "x": 27, "y": 16, "heading": "east" },
-      { "map": "venue-supercross", "x": 26, "y": 16, "heading": "east" }
+      { "map": "venue-supercross", "x": 26, "y": 16, "heading": "east" },
+      { "map": "venue-enduro-sprint", "x": 28, "y": 19, "heading": "east" },
+      { "map": "venue-endurocross", "x": 22, "y": 17, "heading": "east" },
+      { "map": "venue-no-turn", "x": 26, "y": 18, "heading": "east" }
     ]
   },
   "starter": { "design": "motor-1", "map": "area1-home-town", "x": 30, "y": 20, "heading": "north" },

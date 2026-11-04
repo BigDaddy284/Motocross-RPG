@@ -155,7 +155,7 @@ describe('Mountain Town (drawn, Boss, 31 Oct 2026)', () => {
     // The roads match the world map: Home Town to the south, the Race Hub to the south-west. Its tracks race at the
     // hub's venues, one per track type (Boss, 30 Oct 2026), reached from every road; no venue maps of its own.
     expect(routes.find((r) => r.exit === 'South road')!.to).toContain('area1-home-town');
-    for (const r of routes) for (const v of ['venue-motocross', 'venue-supercross', 'venue-enduro']) expect(r.to).toContain(v);
+    for (const r of routes) for (const v of ['venue-motocross', 'venue-supercross', 'venue-enduro', 'venue-enduro-sprint', 'venue-endurocross', 'venue-no-turn']) expect(r.to).toContain(v);
     expect(content.world.places.some((p) => /^venue-a2-/.test(p.map))).toBe(false);
     expect([...maps.keys()].filter((id) => /^venue-a\d+-/.test(id))).toEqual([]);
   });
@@ -239,9 +239,9 @@ describe('Areas 3 to 8 (Areas 2 to 8 plan; Boss, 31 Oct 2026: placeholder towns,
       // every road on the menu is an exit on the town's map
       const exits = maps.get(a.map)!.objects.filter((o) => o.type === 'exit').map((o) => o.name);
       for (const r of routes) expect(exits, `${a.map} ${r.exit}`).toContain(r.exit);
-      // The Race Hub reaches every area, and every town road reaches the hub's three venues, where its tracks race.
+      // The Race Hub reaches every area, and every town road reaches the hub's six venues, where its tracks race.
       expect(content.world.routes.find((r) => r.map === 'venue-motocross')!.to).toContain(a.map);
-      for (const r of routes) for (const v of ['venue-motocross', 'venue-supercross', 'venue-enduro']) expect(r.to).toContain(v);
+      for (const r of routes) for (const v of ['venue-motocross', 'venue-supercross', 'venue-enduro', 'venue-enduro-sprint', 'venue-endurocross', 'venue-no-turn']) expect(r.to).toContain(v);
       expect(content.npcs.find((n) => n.id === `npc.a${a.n}.area_champion`)!.map).toBe(a.map);
       expect(roadMenu(places, tracks.venues, () => 'outdoor', {}).areas.map((p) => p.name)).not.toContain(a.name);
       expect(roadMenu(places, tracks.venues, () => 'outdoor', { [areaFlag(a.n)]: true }).areas.map((p) => p.name)).toContain(a.name);
