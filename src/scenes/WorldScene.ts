@@ -90,6 +90,8 @@ export class WorldScene extends Phaser.Scene {
   private onArrive: (() => void) | null = null;
   /** Tiles walked since the last Agility XP (core/training.ts walked). */
   private walkCarry = 0;
+  /** The way out a clicked drive is heading for (null: somewhere else), or 'any' when steering by key. */
+  private driveGoal: MapObject | null | 'any' = 'any';
   private walking = false;
   private busy = false;
   /** The zoom the player had outside, while a building has raised it to INTERIOR_ZOOM. */
@@ -1945,6 +1947,8 @@ export class WorldScene extends Phaser.Scene {
       const len = van.design.length;
       let m = this.moves.shift() ?? null;
       if (!m) {
+        // Steered by key: any road out the van is driven into is taken.
+        this.driveGoal = 'any';
         const dir = this.heldDirection();
         if (!dir || this.outWhenStopped) return null;
         const want = HEADING_OF[['down', 'left', 'right', 'up'][STEPS.indexOf(dir)] as Facing];
@@ -2016,6 +2020,7 @@ export class WorldScene extends Phaser.Scene {
     }
     this.markTarget(tile.x * TILE + TILE / 2, tile.y * TILE + TILE / 2);
     this.moves = plan;
+    this.driveGoal = via?.type === 'exit' ? via : null;
     this.startDrive();
   }
 
@@ -2026,6 +2031,9 @@ export class WorldScene extends Phaser.Scene {
     for (const t of fresh) {
       const via = stepTriggerAt(this.map, t);
       if (!via || via.type !== 'exit') continue;
+      // A clicked drive only leaves by the way out that was clicked: turning round over another one on
+      // the way somewhere else doesn't open the road menu (Boss, 4 Nov 2026).
+      if (this.driveGoal !== 'any' && this.driveGoal !== via && !(this.driveGoal && this.driveGoal.name === via.name)) continue;
       const r = services.travel.resolve(this.map, via, this.save.flags);
       if (!r) continue;
       this.moves = [];
