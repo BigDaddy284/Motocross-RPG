@@ -146,8 +146,12 @@ describe('Mountain Town (drawn, Boss, 31 Oct 2026)', () => {
     expect(m.objects.filter((o) => o.type === 'exit').map((o) => o.name).sort()).toEqual(['South road', 'South-west road', 'West road']);
     // Its roads to the hub and to Beach Town are shut until they open (Boss, 1 Nov 2026; see the roadblocks test).
     expect(m.objects.filter((o) => o.type === 'blocker').map((o) => o.props.cleared_by).sort()).toEqual(['area.3.open', 'area2.intro_done']);
-    expect(m.objects.some((o) => o.type === 'venue' && o.props.venue === 'yard-a2')).toBe(true);
-    expect(m.objects.some((o) => o.type === 'venue' && o.props.venue === 'fitness-a2')).toBe(true);
+    // The gym and the drill yard are run by their coaches, with no hidden walk-in spots (Boss, 4 Nov 2026).
+    expect(m.objects.some((o) => o.type === 'venue')).toBe(false);
+    expect(content.training.drills.some((d) => d.npc === 'npc.a2.yard_coach')).toBe(true);
+    expect(content.training.drills.some((d) => d.npc === 'npc.a2.gym_coach')).toBe(true);
+    // The practice coach is in the kiosk, talked to through its window.
+    expect(content.npcs.find((n) => n.id === 'npc.a2.yard_coach')!.booth).toBeDefined();
     // Its insides are its own, so the way back out lands in Mountain Town, not Home Town.
     for (const id of ['int-a2-local-garage', 'int-a2-bike-shop', 'int-a2-tyre-shop', 'int-a2-van-office', 'int-a2-rented-room', 'int-a2-tool-shop']) expect(maps.has(id)).toBe(true);
     const routes = content.world.routes.filter((r) => r.map === m.id);
@@ -343,8 +347,8 @@ describe('Areas 3 to 8 (Areas 2 to 8 plan; Boss, 31 Oct 2026: placeholder towns,
       } else expect(a.n).toBeGreaterThanOrEqual(7);
       expect(content.jobboard.boards.some((b) => b.map === `int-a${a.n}-local-garage`)).toBe(true);
       expect(content.world.jobs.some((j) => j.map === `int-a${a.n}-tool-shop`)).toBe(true);
-      expect(content.training.drills.some((d) => d.venue === `fitness-a${a.n}`)).toBe(true);
-      expect(content.training.drills.some((d) => d.venue === `yard-a${a.n}`)).toBe(true);
+      expect(content.training.drills.some((d) => d.npc === `npc.a${a.n}.gym_coach`)).toBe(true);
+      expect(content.training.drills.some((d) => d.npc === `npc.a${a.n}.yard_coach`)).toBe(true);
       expect(content.challenges.challenges.filter((c) => c.map === a.map)).toHaveLength(2);
       expect(content.errands.errands.filter((e) => e.needs === `area${a.n}.intro_done`)).toHaveLength(2);
       expect(content.world.worldMap!.zones.some((z) => z.maps.includes(a.map))).toBe(true);

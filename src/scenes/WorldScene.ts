@@ -25,7 +25,7 @@ import { dayObjectives, dropPenalty, dropSponsor, objectiveText, offerProblem, r
 import { buyOutfit, outfitProblem, outfitSheet, ownsOutfit, rackOpen, shownLook, storageLimit, storeSpare, stored, takeSpare, wearOutfit, wornOutfit } from '../core/house';
 import { errandStage, finishErrand, takeErrand, type ErrandDef } from '../core/errands';
 import { challengeReady, challengeVenue, lossHint, type ChallengeDef } from '../core/challenge';
-import { drillForAction, drillForNpc, drillsAtVenue, finishRound, walked, type DrillDef } from '../core/training';
+import { drillForAction, drillsForNpc, drillsAtVenue, finishRound, walked, type DrillDef } from '../core/training';
 import { finishBatch, finishPass, openJobAt, passXp, startJob } from '../core/jobs';
 import { className } from '../core/classes';
 import { ticketJob, ticketProblem, ticketsOffered, type BoardDef, type Ticket } from '../core/jobBoard';
@@ -188,6 +188,7 @@ export class WorldScene extends Phaser.Scene {
       // Standing on the paving, not the kerb or road below it.
       character.placeAt(p, standLift(map, p.x, p.y));
       character.showName(p.npc.name);
+      if (p.npc.booth) character.inBooth(...p.npc.booth);
       this.npcs.push({ placement: p, character });
     }
     this.drive = new DriveMap(map, this.grid, services.content.vehicles);
@@ -388,7 +389,14 @@ export class WorldScene extends Phaser.Scene {
     for (const o of this.map.objects) {
       if (!actionMessage(o)) continue;
       const tiles = objectTiles(o, this.map.tileSize);
-      if (tiles.some((t) => t.x === tile.x && t.y === tile.y)) return { kind: 'object', object: o, tiles };
+      // A wall-hung thing (job board, standings poster) is drawn on the wall above the tile you use it
+      // from, so a click on its picture counts too, not only on the floor in front of it (Boss, 4 Nov 2026).
+      const onPicture = o.props.on_wall === true && tiles.some((t) => t.x === tile.x && t.y - 1 === tile.y);
+      if (onPicture || tiles.some((t) => t.x === tile.x && t.y === tile.y)) {
+        // A building someone works in (the gym, a practice kiosk) is a way to them (Boss, 4 Nov 2026).
+        const n = o.type === 'click' ? this.buildingNpc(o) : undefined;
+        return n ? { kind: 'npc', placement: n.placement, character: n.character } : { kind: 'object', object: o, tiles };
+      }
     }
     // Ride-on spots with no map object of their own, such as the backyard loop.
     for (const v of services.content.tracks.venues) {
@@ -479,27 +487,11 @@ export class WorldScene extends Phaser.Scene {
     if (board) return this.openBoard(board);
     const drill = action ? drillForAction(services.content.training, action) : undefined;
     if (drill) return this.runDrill(drill);
-    // The running track itself: the coach's session (Boss, 29 Oct 2026).
-    const coachDrill = o.type === 'venue' && o.props.venue === 'running_track' ? services.content.training.drills.find((d) => d.npc) : undefined;
-    if (coachDrill) {
-      const coach = services.content.npcs.find((n) => n.id === coachDrill.npc);
-      if (coach?.quietUntil && !this.save.flags[coach.quietUntil]) this.hud.toast(`${o.name}: the club's closed to you for now.`);
-      else this.hud.toast(`${o.name}: talk to ${coach?.name ?? 'the coach'} by the pavilion to run a session.`);
-      return;
-    }
     const named = o.type === 'venue' ? services.content.tracks.venues.find((v) => v.id === o.props.venue) : undefined;
     // A race venue's gate is for whichever track the rider came here for (one venue map per track type).
     const venue = named && !named.practiceOnly ? this.venueHere() : named;
     const drills = o.type === 'venue' && !venue ? drillsAtVenue(services.content.training, String(o.props.venue)) : [];
-    if (drills.length) {
-      // A training spot with no track (the gym, the drill yard): its drills, nothing to ride.
-      const skillName = (id: string) => services.content.skills.leads.flatMap((l) => l.children).find((c) => c.id === id)?.name ?? id;
-      this.hud.choose(o.name, 'Pick a drill. Every round counts, whatever the score.', [
-        ...drills.map((d) => ({ label: d.name, note: `${skillName(d.skill)} XP every round.`, onPick: () => this.runDrill(d) })),
-        { label: 'Not now', onPick: () => this.player.idle() },
-      ], () => this.player.idle());
-      return;
-    }
+    if (drills.length) return this.chooseDrill(o.name, drills);
     if (venue) {
       if (venue.office && !venue.locked) {
         const official = services.content.npcs.find((n) => n.id === venue.office);
@@ -518,6 +510,22 @@ export class WorldScene extends Phaser.Scene {
     }
     const msg = actionMessage(o, this.save.flags);
     if (msg) this.hud.toast(msg);
+  }
+
+  /** A menu of drills: pick one to run. Every round counts, whatever the score. */
+  private chooseDrill(title: string, drills: DrillDef[], onClose: () => void = () => this.player.idle()): void {
+    const skillName = (id: string) => services.content.skills.leads.flatMap((l) => l.children).find((c) => c.id === id)?.name ?? id;
+    this.hud.choose(title, 'Pick a drill. Every round counts, whatever the score.', [
+      ...drills.map((d) => ({ label: d.name, note: `${skillName(d.skill)} XP every round.`, onPick: () => this.runDrill(d, onClose) })),
+      { label: 'Not now', onPick: onClose },
+    ], onClose);
+  }
+
+  /** Who works in a building with no way in, by its blueprint's npc (the gym coach, the practice coach in the kiosk), if they're here. */
+  private buildingNpc(o: MapObject): { placement: NpcPlacement; character: Character } | undefined {
+    const building = this.map.objects.find((b) => b.type === 'building' && b.props.blueprint === o.props.building);
+    const who = typeof building?.props.npc === 'string' ? building.props.npc : null;
+    return who ? this.npcs.find((c) => c.placement.npc.name === who) : undefined;
   }
 
   private talkTo(placement: NpcPlacement, character: Character): void {
@@ -572,8 +580,11 @@ export class WorldScene extends Phaser.Scene {
     if (challenge && !rule) return this.challengeTalk(npc, challenge, back);
     const errand = errands.errands.find((d) => d.npc === npc.id && (!d.needs || this.save.flags[d.needs]));
     if (errand && !rule) return this.errandTalk(npc, errand, back);
-    const drill = drillForNpc(services.content.training, npc.id);
-    if (drill && !rule) return this.say(npc.name, npc.dialogue, () => this.runDrill(drill, back));
+    // A coach runs their drills (Tasha's running, every gym and practice yard coach; Boss, 4 Nov 2026:
+    // "the gym coach should start the mini game, not some weird hit box"): one is run straight away,
+    // several are offered on a menu.
+    const drills = drillsForNpc(services.content.training, npc.id);
+    if (drills.length && !rule) return this.say(npc.name, npc.dialogue, () => (drills.length === 1 ? this.runDrill(drills[0], back) : this.chooseDrill(npc.name, drills, back)));
     if (!rule && this.offerMotor(npc, back)) return;
     const shop = services.content.shops.shops.find((s) => s.npc === npc.id);
     if (shop && !rule && services.content.house.rack.shops.includes(shop.id) && (!shop.needs || this.save.flags[shop.needs])) return this.offerRack(npc, shop, back);

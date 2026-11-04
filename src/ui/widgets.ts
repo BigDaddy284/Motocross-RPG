@@ -13,6 +13,17 @@ export interface Button extends Phaser.GameObjects.Container {
 export function button(scene: Phaser.Scene, x: number, y: number, label: string, onClick: () => void, width = 260, height = 44, fontSize = 20): Button {
   const bg = scene.add.rectangle(0, 0, width, height, COLORS.panel).setStrokeStyle(2, COLORS.inkLine);
   const text = scene.add.text(0, 0, label, textStyle(fontSize)).setOrigin(0.5);
+  // Every label fits its button (Boss, 4 Nov 2026: "Old Tom: G3 intake and exhaust" ran out of the
+  // job board's): a long one is set smaller, then on two lines, never past the button's edges.
+  const fit = () => {
+    const room = width - 16;
+    let size = fontSize;
+    text.setWordWrapWidth(null).setFontSize(size);
+    while (text.width > room && size > Math.min(fontSize, 15)) text.setFontSize(--size);
+    if (text.width > room) text.setWordWrapWidth(room, true).setAlign('center');
+    while ((text.height > height - 4 || text.width > room) && size > 10) text.setFontSize(--size);
+  };
+  fit();
   const c = scene.add.container(x, y, [bg, text]) as Button;
   let enabled = true;
   let selected = false;
@@ -35,6 +46,7 @@ export function button(scene: Phaser.Scene, x: number, y: number, label: string,
   };
   c.setLabel = (t: string) => {
     text.setText(t);
+    fit();
     return c;
   };
   return c;

@@ -406,7 +406,7 @@
       { "speaker": "npc", "text": "Town gym. Weights for Strength. Forty seconds a round, press on the beat, and every round counts." }
     ] },
     "yard_coach.a2.hello": { "lines": [
-      { "speaker": "npc", "text": "The practice yard's yours: body position, cone braking and rut riding. Pick a drill at the yard. Every round counts." }
+      { "speaker": "npc", "text": "The practice yard's yours: body position, cone braking and rut riding. Pick a drill. Every round counts." }
     ] },
     "challenger_kyle.building": { "lines": [
       { "speaker": "npc", "text": "Kyle Brooks. I've a race for you, but my forks are shot and I'm skint. Get them repaired for me and I'll race you for \u00a380 on my own track." }
@@ -483,7 +483,7 @@
     "area_champion.a3.hello": {"lines": [{"speaker": "npc", "text": "Aidan Borne. Area 3 Champion. The Spark Plug Cup is six rounds and I win most of them."}]},
     "area_champion.a3.after": {"lines": [{"speaker": "npc", "text": "You beat me. Properly. The road to Forest Town is open. Go and collect your 85cc big wheel."}]},
     "gym_coach.a3.hello": {"lines": [{"speaker": "npc", "text": "Beach agility ladder. Agility ladder for Agility. Forty seconds a round and every round counts."}]},
-    "yard_coach.a3.hello": {"lines": [{"speaker": "npc", "text": "Big Pete's sand track: jump timing, whoops and sand. Pick a drill at the yard. Every round counts, and I'm watching."}]},
+    "yard_coach.a3.hello": {"lines": [{"speaker": "npc", "text": "Big Pete's sand track: jump timing, whoops and sand. Pick a drill. Every round counts, and I'm watching."}]},
     "ray.story": {"lines": [{"speaker": "npc", "text": "You're the one Pete keeps going on about. Ray Crispy. Sidecars. Don't laugh: I've won more sidecar championships than Pete's won arguments."}, {"speaker": "player", "text": "Sidecars? A bike with a chair on the side?"}, {"speaker": "npc", "text": "A bike with a chair on the side and somebody brave in it. The passenger does half the work: hanging out over the chair in the lefts, climbing across the back of the seat in the rights, holding the front down over every jump."}, {"speaker": "npc", "text": "Trouble is, the last few seasons my passengers keep getting hurt. A shoulder, then a wrist, then a knee. Nobody wants the chair now. They say I'm unlucky. I say they weren't fit enough."}, {"speaker": "npc", "text": "You, though. You've got the legs for it. Come and ride in my chair. You'll find me next to Pete at every Motocross and Enduro track."}, {"speaker": "npc", "text": "It's my outfit, so there's no wear on your bike. Entries aren't cheap and we split the winnings down the middle, but you'll come out of it fitter than any gym could make you."}]},
     "ray.beach": {"lines": [{"speaker": "npc", "text": "Pete's sand's good for the legs. My chair's better. Find me at the Motocross and Enduro tracks, next to Pete."}]},
     "ray.venue": {"lines": [{"speaker": "npc", "text": "{rider}! Ready to hang off the chair? Hold on tight and lean when I tell you."}]},
@@ -526,7 +526,7 @@
     "area_champion.a4.hello": {"lines": [{"speaker": "npc", "text": "Kate Borne. Area 4 Champion. The Clutch Cup is six rounds and I win most of them."}]},
     "area_champion.a4.after": {"lines": [{"speaker": "npc", "text": "You beat me. Properly. The road to Western Works is open. Go and collect your 125cc Youth."}]},
     "gym_coach.a4.hello": {"lines": [{"speaker": "npc", "text": "Woodland yoga retreat, down by the pond. Yoga session for Wellbeing. Forty seconds a round and every round counts."}]},
-    "yard_coach.a4.hello": {"lines": [{"speaker": "npc", "text": "Gus Fernley, Forest practice loop. Berm and flat corner, ruts over roots. Pick a drill at the loop. Every round counts."}]},
+    "yard_coach.a4.hello": {"lines": [{"speaker": "npc", "text": "Gus Fernley, Forest practice loop. Berm and flat corner, ruts over roots. Pick a drill. Every round counts."}]},
     "challenger_isla.building": {"lines": [{"speaker": "npc", "text": "Isla Bennett. I've a race for you, but my shock is shot and I'm skint. Get it repaired for me and I'll race you for £160 on my own track."}]},
     "challenger_isla.offer": {"lines": [{"speaker": "npc", "text": "Shock sorted? Then let's race. £160 says you can't live with me round s woodland loop."}]},
     "challenger_isla.short": {"lines": [{"speaker": "npc", "text": "Come back with £160. I don't race for nothing."}]},
@@ -566,7 +566,7 @@
     "area_champion.a5.hello": {"lines": [{"speaker": "npc", "text": "Louie Borne. Area 5 Champion. The Gearbox Cup is eight rounds and I win most of them."}]},
     "area_champion.a5.after": {"lines": [{"speaker": "npc", "text": "You beat me. Properly. The road to Highlands is open. Go and collect your 125cc."}]},
     "gym_coach.a5.hello": {"lines": [{"speaker": "npc", "text": "Canal rowing club. Rowing session for Endurance. Forty seconds a round and every round counts."}]},
-    "yard_coach.a5.hello": {"lines": [{"speaker": "npc", "text": "Vera Flint, Quarry practice ground. Rock garden, shadow passing. Pick a drill at the yard. Every round counts."}]},
+    "yard_coach.a5.hello": {"lines": [{"speaker": "npc", "text": "Vera Flint, Quarry practice ground. Rock garden, shadow passing. Pick a drill. Every round counts."}]},
     "challenger_tilly.building": {"lines": [{"speaker": "npc", "text": "Tilly Hughes. I've a race for you, but my bottom end is shot and I'm skint. Get it repaired for me and I'll race you for £200 on my own track."}]},
     "challenger_tilly.offer": {"lines": [{"speaker": "npc", "text": "Bottom end sorted? Then let's race. £200 says you can't live with me round s quarry floor."}]},
     "challenger_tilly.short": {"lines": [{"speaker": "npc", "text": "Come back with £200. I don't race for nothing."}]},
@@ -606,7 +606,7 @@
     "area_champion.a6.hello": {"lines": [{"speaker": "npc", "text": "James Nestor. Area 6 Champion. The Handlebar Cup is eight rounds and I win most of them."}]},
     "area_champion.a6.after": {"lines": [{"speaker": "npc", "text": "You beat me. Properly. The road to The City is open. Go and collect your 250cc F."}]},
     "gym_coach.a6.hello": {"lines": [{"speaker": "npc", "text": "Hill cycling club. Hill climb ride for Endurance. Forty seconds a round and every round counts."}]},
-    "yard_coach.a6.hello": {"lines": [{"speaker": "npc", "text": "Fraser Dunn, Hill practice track. Repetition laps up the glen. Pick a drill at the track. Every round counts."}]},
+    "yard_coach.a6.hello": {"lines": [{"speaker": "npc", "text": "Fraser Dunn, Hill practice track. Repetition laps up the glen. Pick a drill. Every round counts."}]},
     "challenger_poppy.building": {"lines": [{"speaker": "npc", "text": "Poppy Dawson. I've a race for you, but my exhaust is shot and I'm skint. Get it repaired for me and I'll race you for £250 on my own track."}]},
     "challenger_poppy.offer": {"lines": [{"speaker": "npc", "text": "Exhaust sorted? Then let's race. £250 says you can't live with me round s hill climb."}]},
     "challenger_poppy.short": {"lines": [{"speaker": "npc", "text": "Come back with £250. I don't race for nothing."}]},
@@ -646,7 +646,7 @@
     "area_champion.a7.hello": {"lines": [{"speaker": "npc", "text": "Harvey Borne. Area 7 Champion. The Exhaust Cup is ten rounds and I win most of them."}]},
     "area_champion.a7.after": {"lines": [{"speaker": "npc", "text": "You beat me. Properly. The road to Capital is open. Go and collect your 450cc F."}]},
     "gym_coach.a7.hello": {"lines": [{"speaker": "npc", "text": "City dojo. Dojo session for Martial Arts. Forty seconds a round and every round counts."}]},
-    "yard_coach.a7.hello": {"lines": [{"speaker": "npc", "text": "Remi Castell, indoor arena practice. Supercross rhythm, drag launch. Pick a drill at the arena. Every round counts."}]},
+    "yard_coach.a7.hello": {"lines": [{"speaker": "npc", "text": "Remi Castell, indoor arena practice. Supercross rhythm, drag launch. Pick a drill. Every round counts."}]},
     "challenger_niamh.building": {"lines": [{"speaker": "npc", "text": "Niamh Kelly. I've a race for you, but my frame is shot and I'm skint. Get it repaired for me and I'll race you for £300 on my own track."}]},
     "challenger_niamh.offer": {"lines": [{"speaker": "npc", "text": "Frame sorted? Then let's race. £300 says you can't live with me round s car park sprint."}]},
     "challenger_niamh.short": {"lines": [{"speaker": "npc", "text": "Come back with £300. I don't race for nothing."}]},
@@ -686,7 +686,7 @@
     "area_champion.a8.hello": {"lines": [{"speaker": "npc", "text": "Neal Borne. Area 8 Champion. The Crankshaft Cup is twelve rounds and I win most of them. I'll give you this: you've come a long way from the backyard."}]},
     "area_champion.a8.after": {"lines": [{"speaker": "npc", "text": "You beat me. Properly. There is nobody left to beat. The Super Event is next, when it comes. Go and collect your 40+ Vets."}]},
     "gym_coach.a8.hello": {"lines": [{"speaker": "npc", "text": "Recovery centre. Ice bath recovery for Wellbeing. Forty seconds a round and every round counts."}]},
-    "yard_coach.a8.hello": {"lines": [{"speaker": "npc", "text": "Morgan Hale, National training ground. Pro jump timing, pro gate drop. Pick a drill at the ground. Every round counts."}]},
+    "yard_coach.a8.hello": {"lines": [{"speaker": "npc", "text": "Morgan Hale, National training ground. Pro jump timing, pro gate drop. Pick a drill. Every round counts."}]},
     "challenger_lola.building": {"lines": [{"speaker": "npc", "text": "Lola Grant. I've a race for you, but my shock is shot and I'm skint. Get it repaired for me and I'll race you for £400 on my own track."}]},
     "challenger_lola.offer": {"lines": [{"speaker": "npc", "text": "Shock sorted? Then let's race. £400 says you can't live with me round s national paddock."}]},
     "challenger_lola.short": {"lines": [{"speaker": "npc", "text": "Come back with £400. I don't race for nothing."}]},
