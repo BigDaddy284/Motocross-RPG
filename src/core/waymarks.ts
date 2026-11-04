@@ -75,6 +75,13 @@ export function storyGoal(content: Content, maps: Map<string, BakedMap>, career:
     return map && npc ? { kind: 'npc', map, npc: npc.id, name: npc.name } : null;
   }
   const action = step.on.use!;
+  // A drill a coach runs (Big Pete's lessons and the other yard coaches, Boss, 4 Nov 2026): the coach.
+  const coach = content.training.drills.find((d) => d.id === action)?.npc;
+  if (coach) {
+    const map = npcMap(content, maps, coach);
+    const npc = content.npcs.find((n) => n.id === coach);
+    if (map && npc) return { kind: 'npc', map, npc: npc.id, name: npc.name };
+  }
   const map = step.on.map ?? [...maps.values()].find((m) => m.objects.some((o) => usedFor(o, action, content.training)))?.id;
   return map ? { kind: 'object', map, action } : null;
 }

@@ -64,6 +64,13 @@ export interface NpcDef {
    * core/passenger.ts): practice, a race day and the sidecar championships, from talking to them.
    */
   sidecar?: PassengerTerms;
+  /**
+   * The NPC works inside a kiosk and is seen through its window (the practice coaches, Boss, 4 Nov 2026:
+   * "put the coach in the practice booth and have players talk to him through the opening"): the window
+   * as [x, y, w, h] in map pixels. Their tile is the kiosk's front row, so it may be blocked; you talk
+   * to them from the tile in front.
+   */
+  booth?: [number, number, number, number];
 }
 
 /** A person's name ("Tasha Reid") rather than a job ("Track official"): every word starts with a capital. */
@@ -136,7 +143,7 @@ export const NPCS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['map', 'tile', 'facing', 'talk', 'quietUntil', 'rider', 'news', 'showIf', 'trainer', 'sidecar'],
+        optional: ['map', 'tile', 'facing', 'talk', 'quietUntil', 'rider', 'news', 'showIf', 'trainer', 'sidecar', 'booth'],
         fields: {
           id: { type: 'string', pattern: ID },
           name: { type: 'string', nonEmpty: true },
@@ -155,6 +162,7 @@ export const NPCS_SCHEMA: Schema = {
           showIf: { type: 'string', pattern: ID },
           trainer: { type: 'object', fields: { feeTimes: { type: 'number', min: 1 }, xpTimes: { type: 'number', min: 1 } } },
           sidecar: PASSENGER_SCHEMA,
+          booth: { type: 'array', items: { type: 'number', integer: true, min: 0 }, minItems: 4, maxItems: 4 },
         },
       },
     },
@@ -454,7 +462,13 @@ export function checkContent(raw: RawContent, manifest: Manifest, maps: Map<stri
     if (n.map !== undefined && n.tile) {
       const m = maps.get(n.map);
       if (!m) errors.push({ file, field: at('map'), message: `no map "${n.map}"` });
-      else if (Grid.fromMap(m).isBlocked(n.tile[0], n.tile[1])) errors.push({ file, field: at('tile'), message: `tile ${n.tile.join(',')} is blocked on ${n.map}` });
+      else if (n.booth) {
+        // In a kiosk: talked to from the open tile in front, and standing behind the window.
+        const [bx, by, bw, bh] = n.booth;
+        const ts = m.tileSize;
+        if (Grid.fromMap(m).isBlocked(n.tile[0], n.tile[1] + 1)) errors.push({ file, field: at('tile'), message: `nowhere to talk to ${n.name} from: the tile in front of the kiosk (${n.tile[0]},${n.tile[1] + 1}) is blocked on ${n.map}` });
+        if (bx + bw <= n.tile[0] * ts || bx >= (n.tile[0] + 1) * ts || by >= (n.tile[1] + 1) * ts || by + bh <= n.tile[1] * ts - ts) errors.push({ file, field: at('booth'), message: `the window [${n.booth.join(', ')}] is not over tile ${n.tile.join(',')}` });
+      } else if (Grid.fromMap(m).isBlocked(n.tile[0], n.tile[1])) errors.push({ file, field: at('tile'), message: `tile ${n.tile.join(',')} is blocked on ${n.map}` });
     }
   });
   errors.push(...checkCareerContent(content, maps));
@@ -547,7 +561,12 @@ function checkCareerContent(c: Content, maps: Map<string, BakedMap>): ContentErr
     if (s.on.use) {
       const onMaps = s.on.map ? [maps.get(s.on.map)] : [...maps.values()];
       if (s.on.map && !onMaps[0]) err(CONTENT_FILES.story, at('on.map'), `no map "${s.on.map}"`);
-      else if (!onMaps.some((m) => m?.objects.some((o) => usedFor(o, s.on.use!, c.training)))) err(CONTENT_FILES.story, at('on.use'), `no object with action "${s.on.use}", or training spot with that drill`);
+      else {
+        // Or a drill a coach on that map runs (the yard coaches, Boss, 4 Nov 2026).
+        const coach = c.training.drills.find((d) => d.id === s.on.use)?.npc;
+        const coached = !!coach && onMaps.some((m) => !!m && c.npcs.some((n) => n.id === coach && n.map === m.id));
+        if (!coached && !onMaps.some((m) => m?.objects.some((o) => usedFor(o, s.on.use!, c.training)))) err(CONTENT_FILES.story, at('on.use'), `no object with action "${s.on.use}", training spot with that drill, or coach who runs it`);
+      }
     }
     lines(at('lines'), s.lines);
     lines(at('notReady'), s.notReady);

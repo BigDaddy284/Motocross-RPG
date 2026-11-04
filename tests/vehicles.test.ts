@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { npcsOnMap, checkContent, type Content } from '../src/core/content';
 import { Grid } from '../src/core/grid';
 import { applyMapState } from '../src/core/mapState';
-import type { BakedMap } from '../src/core/mapTypes';
+import { objectTiles, type BakedMap } from '../src/core/mapTypes';
 import { SAVE_VERSION, parseSave } from '../src/core/saves';
 import { Travel, spawnTile, stepTriggerAt } from '../src/core/travel';
 import {
-  DriveMap, HEADINGS, bayFor, OPPOSITE, centre, ensureVan, exitTile, footprint, forward, inwardHeading, overhang, placeNear, planDrive, sheetFor, reverse, steer, turn,
+  DriveMap, HEADINGS, arrivalPose, bayFor, OPPOSITE, centre, ensureVan, exitTile, footprint, forward, overhang, placeNear, planDrive, sheetFor, reverse, steer, turn,
   type Heading, type Move, type VanPose, type VehiclesData,
 } from '../src/core/vehicles';
 import { loadManifest, loadMaps, publicFileExists, rawContent } from './helpers';
@@ -261,7 +261,7 @@ describe('map changes with the van', () => {
     for (const a of arrivals) {
       const dm = driveMap(a.map.id, ALL_FLAGS);
       for (const d of data.designs) {
-        const pose = placeNear(dm, a.tile, d.length, inwardHeading(a.map, a.tile), 12, (t) => !!stepTriggerAt(a.map, t));
+        const pose = arrivalPose(dm, a.map, a.tile, d.length, (t) => !!stepTriggerAt(a.map, t));
         expect(pose, `${d.id}: ${a.from}`).not.toBeNull();
         expect(dm.fits(pose!, d.length)).toBe(true);
         expect(footprint(pose!, d.length).some((t) => stepTriggerAt(a.map, t))).toBe(false);
@@ -269,11 +269,25 @@ describe('map changes with the van', () => {
     }
   });
 
+  it('a van arriving in the Industrial Zone from Home Town is on the road in, pointing in, clear of the sign (Boss, 4 Nov 2026)', () => {
+    const map = maps.get('area1-industrial-zone')!;
+    const home = maps.get(HOME)!;
+    const r = travel.resolve(home, home.objects.find((o) => o.type === 'exit' && o.name === 'To the Industrial Zone')!, ALL_FLAGS);
+    if (r?.kind !== 'travel') throw new Error('no way to the Industrial Zone');
+    const dm = driveMap(map.id, ALL_FLAGS);
+    const signs = map.objects.filter((o) => o.type === 'travel').flatMap((o) => objectTiles(o, map.tileSize));
+    for (const d of data.designs) {
+      const pose = arrivalPose(dm, map, r.to.tile, d.length, (t) => !!stepTriggerAt(map, t))!;
+      expect(pose.heading, d.id).toBe('east');
+      expect(footprint(pose, d.length).some((t) => signs.some((s) => s.x === t.x && s.y === t.y)), d.id).toBe(false);
+    }
+  });
+
   it('a van arriving from the industrial zone points into Home Town and can drive away', () => {
     const map = maps.get(HOME)!;
     const spawn = spawnTile(map, 'from_industrial_zone')!;
     const dm = driveMap(HOME);
-    const pose = placeNear(dm, spawn, 2, inwardHeading(map, spawn), 12, (t) => !!stepTriggerAt(map, t))!;
+    const pose = arrivalPose(dm, map, spawn, 2, (t) => !!stepTriggerAt(map, t))!;
     expect(pose.heading).toBe('west');
     expect(forward(dm, pose, 2)).not.toBeNull();
   });

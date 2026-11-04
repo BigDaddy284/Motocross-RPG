@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { advanceStory, chainDone, currentStep, matchStory, newCareerState, openChains } from '../src/core/career';
-import { goalObjects, storyGoal } from '../src/core/waymarks';
+import { storyGoal } from '../src/core/waymarks';
 import { checkContent } from '../src/core/content';
 import { loadManifest, loadMaps, rawContent } from './helpers';
 
@@ -50,7 +50,6 @@ const AREAS = [
 
 for (const A of AREAS) {
   describe(`Area ${A.n} intro and ${A.coachName}'s storyline (Boss, 4 Nov 2026)`, () => {
-    const town = maps.get(A.town)!;
     const start = () => {
       const c = career();
       const flags: Record<string, boolean> = { [`area.${A.n}.open`]: true, tutorial_done: true };
@@ -74,9 +73,10 @@ for (const A of AREAS) {
       const inside = maps.get(`int-a${A.n}-tool-shop`)!;
       for (const s of job.stations) expect(inside.objects.some((o) => o.type === 'interact' && o.name === s.object), s.object).toBe(true);
       expect(inside.objects.find((o) => o.name === A.start)?.props.action).toBe('job.shift');
+      // The gym coach runs it, so the marker is on them, not a hidden spot by the door (Boss, 4 Nov 2026).
+      expect(storyGoal(content, maps, c)).toMatchObject({ kind: 'npc', map: A.town, npc: `npc.a${A.n}.gym_coach` });
       const fit = play(c, flags, `a${A.n}_fitness`);
       expect(fit.on.use).toBe(A.fitness[0]);
-      expect(goalObjects(town, fit.on.use!, [], content.training).map((o) => o.name)).toEqual([A.fitness[1]]);
       play(c, flags, `a${A.n}_training`);
       play(c, flags, `a${A.n}_champion`);
       expect(flags[`area${A.n}.intro_done`]).toBe(true);
@@ -91,8 +91,8 @@ for (const A of AREAS) {
         const step = currentStep(story, c)!;
         if (use) {
           expect(step.on.use).toBe(use);
-          expect(storyGoal(content, maps, c)).toEqual({ kind: 'object', map: A.town, action: use });
-          expect(goalObjects(town, use, [], content.training).map((o) => o.name)).toEqual([A.yard]);
+          // The coach runs the lesson, so the marker is on them (Boss, 4 Nov 2026).
+          expect(storyGoal(content, maps, c)).toMatchObject({ kind: 'npc', map: A.town, npc: `npc.a${A.n}.yard_coach` });
           // The area's fitness is not the lesson.
           expect(matchStory(story, c, { use: A.fitness[0], map: A.town, object: 'x' })).toBeNull();
         } else {

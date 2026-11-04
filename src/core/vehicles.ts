@@ -694,6 +694,52 @@ function placeWhere(dm: DriveMap, spawn: Tile, length: number, prefer: Heading, 
   return null;
 }
 
+/**
+ * Where a van arriving at `spawn` parks (Boss, 4 Nov 2026: "when driving from Home Town to the
+ * Industrial Zone the car loads in like this, make them all make sense"): as if it had just driven in
+ * by the road at the nearest map edge, so on that road, in its lane, pointing into the map, clear of
+ * the road's signs and exits. Only when no such spot fits is it parked near the spawn as before,
+ * still pointing in if it can.
+ */
+export function arrivalPose(dm: DriveMap, map: BakedMap, spawn: Tile, length: number, avoid: (t: Tile) => boolean = () => false): VanPose | null {
+  const ts = map.tileSize;
+  const signs = new Set(map.objects.filter((o) => o.type === 'travel').flatMap((o) => objectTiles(o, ts)).map((t) => key(t.x, t.y)));
+  const clear = (p: VanPose) => footprint(p, length).every((t) => dm.isFree(t.x, t.y) && !avoid(t) && !signs.has(key(t.x, t.y)));
+  // The road in: the map-edge exit nearest the spawn.
+  const exits = map.objects
+    .filter((o) => o.type === 'exit')
+    .map((o) => ({ o, tiles: objectTiles(o, ts) }))
+    .filter((e) => e.tiles.some((t) => t.x === 0 || t.y === 0 || t.x === map.width - 1 || t.y === map.height - 1))
+    .map((e) => ({ ...e, d: Math.min(...e.tiles.map((t) => Math.hypot(t.x - spawn.x, t.y - spawn.y))) }))
+    .filter((e) => e.d <= 10)
+    .sort((a, b) => a.d - b.d);
+  const road = exits[0];
+  if (road) {
+    const xs = road.tiles.map((t) => t.x);
+    const ys = road.tiles.map((t) => t.y);
+    const box = { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+    const heading: Heading = box.x0 === 0 ? 'east' : box.x1 === map.width - 1 ? 'west' : box.y0 === 0 ? 'south' : 'north';
+    const d = STEP[heading];
+    // Across the road: the exit's width and a little either side, nearest its middle first.
+    const across = heading === 'east' || heading === 'west' ? [box.y0, box.y1] : [box.x0, box.x1];
+    const mid = (across[0] + across[1]) / 2;
+    const lanes: number[] = [];
+    for (let v = across[0] - 2; v <= across[1] + 2; v++) lanes.push(v);
+    lanes.sort((a, b) => Math.abs(a - mid) - Math.abs(b - mid));
+    // The back of the van just inside the edge, then further in.
+    const edge = heading === 'east' ? box.x1 : heading === 'west' ? box.x0 : heading === 'south' ? box.y1 : box.y0;
+    for (let inBy = 1; inBy <= 14; inBy++) {
+      for (const lane of lanes) {
+        const rear = heading === 'east' || heading === 'west' ? { x: edge + d.x * inBy, y: lane } : { x: lane, y: edge + d.y * inBy };
+        const pose = { x: rear.x + d.x * (length - 1), y: rear.y + d.y * (length - 1), heading };
+        if (dm.fits(pose, length) && clear(pose)) return pose;
+      }
+    }
+  }
+  const inward = inwardHeading(map, spawn);
+  return placeWhere(dm, spawn, length, inward, 12, (p) => p.heading === inward && clear(p)) ?? placeNear(dm, spawn, length, inward, 12, (t) => avoid(t) || signs.has(key(t.x, t.y)));
+}
+
 /** The heading that points into the map from the nearest edge, for vans arriving at a spawn. */
 export function inwardHeading(map: BakedMap, t: Tile): Heading {
   const d = { west: t.x, east: map.width - 1 - t.x, north: t.y, south: map.height - 1 - t.y };

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { checkContent } from '../src/core/content';
 import { newSkillState, childLevel } from '../src/core/skills';
-import { DRILL_SCENES, checkTraining, drillScene, GATE_EASE_LEVEL, GATE_WINDOW_MS, drillForAction, drillForNpc, drillsAtVenue, finishRound, gateHoldMs, gateStart, gateWindowMs, goodRep, onPace, walked } from '../src/core/training';
+import { DRILL_SCENES, checkTraining, drillScene, GATE_EASE_LEVEL, GATE_WINDOW_MS, drillForAction, drillsForNpc, drillsAtVenue, finishRound, gateHoldMs, gateStart, gateWindowMs, goodRep, onPace, walked } from '../src/core/training';
 import { MotoSim, type Entrant } from '../src/core/race';
 import { cpuEntrant } from '../src/core/raceDay';
 import { loadManifest, loadMaps, rawContent } from './helpers';
@@ -14,7 +14,7 @@ describe('Fitness training (Boss, 29 Oct 2026)', () => {
     const mat = drillForAction(training, 'train.bodyweight')!;
     expect(mat.skill).toBe('strength');
     expect(mat.game).toBe('reps');
-    const run = drillForNpc(training, 'npc.running_coach')!;
+    const run = drillsForNpc(training, 'npc.running_coach')[0];
     expect(run.skill).toBe('endurance');
     expect(run.game).toBe('pace');
     // The coach stands by the running track in Home Town, and the mat is in the rented room.
@@ -117,7 +117,7 @@ describe('Each drill its own picture (Boss, 3 Nov 2026)', () => {
     for (const [id, scene] of Object.entries(want)) expect(drillScene(training.drills.find((d) => d.id === id)!)).toBe(scene);
     // Area 1 keeps its pictures: push-ups on the mat, the gate, the running track.
     expect(drillScene(drillForAction(training, 'train.bodyweight')!)).toBe('pushups');
-    expect(drillScene(drillForNpc(training, 'npc.running_coach')!)).toBe('track');
+    expect(drillScene(drillsForNpc(training, 'npc.running_coach')[0])).toBe('track');
     expect(drillScene(training.drills.find((d) => d.id === 'train.gate_drop')!)).toBe('gate');
     // Every picture goes with its drill's game.
     for (const d of training.drills) expect(DRILL_SCENES[drillScene(d)]).toBe(d.game);
