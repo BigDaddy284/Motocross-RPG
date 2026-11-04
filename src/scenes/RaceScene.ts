@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 import { lastReleasedArea } from '../core/areas';
 import { bikeStats, formatMoney, raceStopper, type Bike } from '../core/career';
 import { formatTime, gateBonus, setTestAlwaysWin, setTestNoWear, type LapTrace, type MotoSim, type RaceEvent, type RiderResult, type TrackDef } from '../core/race';
-import { PLAYER_ID, RaceDay, applyRide, playerEntrant, practiceSim, sumXp, trackById, type MotoRecord, type VenueDef } from '../core/raceDay';
+import { PLAYER_ID, RaceDay, applyRide, playerEntrant, practiceSim, scaleXp, sumXp, trackById, type DayResult, type MotoRecord, type VenueDef } from '../core/raceDay';
+import { passengerEntrant, passengerEntry, passengerXp, passengerXpScale, type PassengerTerms } from '../core/passenger';
 import { Knockout, type KnockoutHeat, roundName } from '../core/knockout';
 import { isSupercross, MAIN_COUNTS, SupercrossNight, type NightRace } from '../core/supercross';
 import { diyRepair, diyRepairQuote } from '../core/tools';
@@ -60,6 +61,12 @@ export interface RaceSceneData {
   sidecarTest?: boolean;
   /** Coached practice (Big Pete, Boss, 1 Nov 2026): the trainer's name and the practice XP multiplier. */
   coach?: { name: string; xpTimes: number };
+  /**
+   * Riding as passenger in a sidecar rider's chair (Ray Crispy, Boss, 4 Nov 2026; core/passenger.ts):
+   * his outfit and terms. The player's own bike is never touched, the prizes are split with him and
+   * only fitness XP is earned.
+   */
+  passenger?: { rider: string; terms: PassengerTerms };
   onDone: (save: SaveData, message: string) => void;
 }
 
@@ -219,14 +226,20 @@ export class RaceScene extends Phaser.Scene {
         this.showKoSeedingStart();
         return;
       }
-      if (!this.args.sidecarTest && this.args.venue.track && isSupercross(trackById(services.content, this.args.venue.track))) {
+      if (!this.args.sidecarTest && !this.args.passenger && this.args.venue.track && isSupercross(trackById(services.content, this.args.venue.track))) {
         // A Supercross night: heats, the LCQ and the Main (Boss, 1 Nov 2026), championship rounds too.
         this.sx = new SupercrossNight(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name, 0, this.save.flags), seed, this.args.fee, round, alone);
         this.setupField();
         this.showSxStart();
         return;
       }
-      this.day = new RaceDay(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name, 0, this.save.flags), seed, this.args.fee, round, undefined, alone, this.args.sidecarTest ? { test: true } : undefined);
+      const passenger = this.args.passenger;
+      if (passenger) {
+        // In Ray's chair (core/passenger.ts): his outfit, his riding and your fitness.
+        const { terms } = passenger;
+        const rc = services.content;
+        this.day = new RaceDay(rc, this.args.venue, passengerEntrant(rc, this.args.venue, career, this.save.rider.name, terms), seed, this.args.fee, round, undefined, alone, { passenger: { entry: passengerEntry(rc, this.args.venue, terms), prizeShare: terms.prizeShare, fitnessXpTimes: terms.fitnessXpTimes } });
+      } else this.day = new RaceDay(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name, 0, this.save.flags), seed, this.args.fee, round, undefined, alone, this.args.sidecarTest ? { test: true } : undefined);
       this.setupField();
       if (this.day.qualifyingDue) this.showQualifyingStart();
       else this.showGatePick();
@@ -266,7 +279,7 @@ export class RaceScene extends Phaser.Scene {
     }
     const day = this.day!;
     if (this.args.challenge) return `${this.args.challenge.name} · ${day.laps} laps`;
-    if (day.sidecar) return `${this.args.venue.name} · Sidecar race day${day.sidecar.test ? ' (TEST)' : ''}`;
+    if (day.sidecar) return `${this.args.venue.name} · Sidecar race day${day.sidecar.test ? ' (TEST)' : day.sidecar.passenger && this.args.passenger ? ` in ${this.args.passenger.rider}'s chair` : ''}`;
     const c = this.champ;
     return `${this.args.venue.name} · ${day.cls} ${c ? `${c.def.short} round ${c.round} of ${c.def.rounds.length}` : 'race day'}`;
   }
@@ -704,7 +717,7 @@ export class RaceScene extends Phaser.Scene {
     const career = this.save.career;
     const bike = this.ko?.player.bike ?? this.sx?.player.bike ?? this.day?.player.bike ?? career.bike;
     const c = this.openModal(this.sx ? 780 : 620, 520);
-    c.add(this.add.text(0, -230, 'Your bike', textStyle(24, COLORS.accent)).setOrigin(0.5));
+    c.add(this.add.text(0, -230, this.args.passenger ? `${this.args.passenger.rider}'s outfit` : 'Your bike', textStyle(24, COLORS.accent)).setOrigin(0.5));
     services.content.bikes.slots.forEach((s, i) => {
       const p = bike.parts[s.id];
       const cond = p ? Math.round(p.condition * 100) : 0;
@@ -1329,7 +1342,7 @@ export class RaceScene extends Phaser.Scene {
     const bike = this.sim?.playerBike;
     if (!bike) return [];
     const parts = services.content.bikes.slots.map((s) => ({ name: s.name, c: bike.parts[s.id]?.condition ?? 0 })).sort((a, b) => a.c - b.c).slice(0, 4);
-    return ['Most worn parts', ...parts.map((p) => `${p.name}: ${p.c <= 0 ? 'Broken' : `${Math.round(p.c * 100)}%`}`)];
+    return [this.args.passenger ? `${this.args.passenger.rider}'s outfit, most worn` : 'Most worn parts', ...parts.map((p) => `${p.name}: ${p.c <= 0 ? 'Broken' : `${Math.round(p.c * 100)}%`}`)];
   }
 
   /** Turns a race event into a line for the feed, if it involves the rider or is a crash. */
@@ -1530,7 +1543,7 @@ export class RaceScene extends Phaser.Scene {
       `Points: ${rec.points}`,
       `Prize money: ${formatMoney(rec.prize)}`,
       `Passes: ${rec.passes}`,
-      `Rider XP: ${xp.toFixed(0)}`,
+      `${this.day?.sidecar?.passenger ? 'Fitness XP' : 'Rider XP'}: ${xp.toFixed(0)}`,
     ].join('\n'), 20, COLORS.cream, { lineSpacing: 10 });
     // The best-placed champion racing (the Area 1 and Local Champions can both be there).
     const champ = rec.results.find((r) => r.tag?.endsWith('Champion') && !r.player);
@@ -1574,6 +1587,7 @@ export class RaceScene extends Phaser.Scene {
     const prizes = day.motos.reduce((a, m) => a + m.prize, 0);
     const money = prizes + res.podiumBonus - this.args.fee;
     const xp = sumXp(...day.motos.map((m) => m.xp), day.qualifying?.xp ?? {});
+    if (day.sidecar?.passenger) return this.showPassengerResults(res, prizes, money, xp);
     const payout = applyRide(services.content, career, day.player.bike, money, xp);
     const c = career.counters;
     const myRows = day.motos.map((m) => m.results.find((r) => r.player)!);
@@ -1623,6 +1637,39 @@ export class RaceScene extends Phaser.Scene {
     this.btn(W / 2 + 300, 670, 'Back to the paddock', () => this.done(`Race day done: ${ordinal(me.position)} overall.`), 300, 50);
   }
 
+  /**
+   * A day in Ray's chair (core/passenger.ts; Boss, 4 Nov 2026): your share of the prizes and your
+   * fitness XP go on the career; his outfit takes the wear, so your own bike is as you left it. It
+   * doesn't count towards your own race records, sponsors or first race.
+   */
+  private showPassengerResults(res: DayResult, prizes: number, money: number, xp: Record<string, number>): void {
+    const career = this.save.career;
+    const payout = applyRide(services.content, career, null, money, xp);
+    const me = res.overall.find((r) => r.player)!;
+    const rider = this.args.passenger?.rider ?? 'the rider';
+    noteActivity(services.content.shops, career, 'activity');
+    this.box(580, 110, 680, 530);
+    this.text(604, 124, `${ordinal(me.position)} overall`, 26, COLORS.accent);
+    const lines = [
+      `Entry: −${formatMoney(this.args.fee)}`,
+      `Your half of the moto prizes: ${formatMoney(prizes)}`,
+      `Your half of the podium bonus: ${formatMoney(res.podiumBonus)}`,
+      `Net: ${money >= 0 ? '+' : ''}${formatMoney(money)}`,
+      `Money now: ${formatMoney(career.money)}`,
+      '',
+      'Passenger XP (fitness, +50% in the chair)',
+      ...this.xpLines(payout.xp),
+    ];
+    this.resultColumns(lines, this.upLines(payout.levelUps), [`${rider}'s outfit took the wear.`, 'Your own bike is just as you left it.'], 'Bike wear today');
+    const champ = this.champ;
+    if (champ) {
+      recordRound(champ.active, this.args.venue, this.day!);
+      this.btn(W / 2 + 300, 670, 'Championship standings', () => this.showStandings(champ.def, champ.active), 300, 50);
+      return;
+    }
+    this.btn(W / 2 + 300, 670, 'Back to the paddock', () => this.done(`Sidecar race day with ${rider}: ${ordinal(me.position)} overall.`), 300, 50);
+  }
+
   /** The championship table after a round, and the final result after the last one (Spec 12.5). */
   private showStandings(def: ChampionshipDef, active: ActiveChampionship): void {
     const { points } = services.content.racing;
@@ -1650,7 +1697,7 @@ export class RaceScene extends Phaser.Scene {
       this.text(764, 126, `You're ${ordinal(me.position)}`, 26, COLORS.accent);
       this.text(764, 176, [
         me.position === 1 ? `You lead by ${me.points - (table[1]?.points ?? 0)} points.` : `${leader.points - me.points} points behind ${name(leader.id)}.`,
-        `Next: round ${done + 1} at ${venue?.name ?? 'the next track'}. Sign on there at the race office.`,
+        `Next: round ${done + 1} at ${venue?.name ?? 'the next track'}. ${def.sidecar ? 'Find Ray Crispy there, next to Big Pete.' : 'Sign on there at the race office.'}`,
         '',
         possible ? 'The title is still possible.' : "The title is out of reach now. Finish it for a top-three place, or start it again from any race office.",
       ].join('\n'), 19, COLORS.cream, { lineSpacing: 6, wordWrap: { width: 450 } });
@@ -1670,7 +1717,7 @@ export class RaceScene extends Phaser.Scene {
     else lines.push(`${name(leader.id)} won it with ${leader.points} points.`);
     if (fin.title) lines.push('', `You earned ${fin.title}.`);
     if (fin.money) lines.push(`Championship prize: ${formatMoney(fin.money)}`);
-    if (fin.position > 3) lines.push('', 'The top three win a prize. Enter again from any race office.');
+    if (fin.position > 3) lines.push('', def.sidecar ? 'The top three win a prize. Enter again through Ray Crispy.' : 'The top three win a prize. Enter again from any race office.');
     if (offers.length) lines.push('', `${offers.length} sponsor offer${offers.length === 1 ? '' : 's'} waiting: see Sponsors at any race office.`);
     lines.push('', `Money now: ${formatMoney(career.money)}`);
     const image = fin.title ? def.rewards[fin.position - 1]?.image : undefined;
@@ -1762,7 +1809,9 @@ export class RaceScene extends Phaser.Scene {
 
   private startPractice(): void {
     const career = this.save.career;
-    this.sim = practiceSim(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name, 0, this.save.flags), (Math.random() * 2 ** 32) >>> 0, services.settings.get().gameplay.testRideAlone, this.args.coach?.xpTimes ?? 1);
+    const passenger = this.args.passenger;
+    const me = passenger ? passengerEntrant(services.content, this.args.venue, career, this.save.rider.name, passenger.terms) : playerEntrant(services.content, career, this.save.rider.name, 0, this.save.flags);
+    this.sim = practiceSim(services.content, this.args.venue, me, (Math.random() * 2 ** 32) >>> 0, services.settings.get().gameplay.testRideAlone, this.args.coach?.xpTimes ?? 1, !!passenger);
     // You, and any riders already out on track (practiceRiders on the venue).
     this.sim.riders.forEach(({ e }, i) => {
       this.names.set(e.id, e.player ? 'You' : e.name);
@@ -1799,13 +1848,19 @@ export class RaceScene extends Phaser.Scene {
     const laps = forced ? sim.player!.lapTimes : this.practiceLaps();
     // Stopped before a lap was done (practice picked by accident): no practice fee (Boss, 1 Nov 2026).
     const fee = laps.length ? this.args.fee : 0;
-    const payout = applyRide(services.content, career, now ? { ...sim.playerBike!, parts: now.parts } : sim.playerBike, -fee, now?.xp ?? sim.xp);
+    // In Ray's chair the outfit is his: no wear on your bike, and only fitness XP (core/passenger.ts).
+    const passenger = this.args.passenger;
+    const payout = passenger
+      ? applyRide(services.content, career, null, -fee, passengerXp(services.content.skills, scaleXp(now?.xp ?? sim.xp, passengerXpScale(services.content, this.args.venue)), passenger.terms))
+      : applyRide(services.content, career, now ? { ...sim.playerBike!, parts: now.parts } : sim.playerBike, -fee, now?.xp ?? sim.xp);
     const p = { lapTimes: laps };
     if (p.lapTimes.length) noteActivity(services.content.shops, career, 'activity');
     const c = this.openModal(760, 520);
     c.add(this.add.text(0, -220, forced ? 'Practice over: your bike is broken' : 'Practice done', textStyle(26, COLORS.accent)).setOrigin(0.5));
     const best = p.lapTimes.length ? formatTime(Math.min(...p.lapTimes)) : '—';
-    const lines = [`Laps: ${p.lapTimes.length}   Best lap: ${best}${fee ? `   Practice fee: ${formatMoney(fee)}` : this.args.fee ? '   No practice fee taken' : ''}`, '', this.args.coach ? `Practice XP, coached by ${this.args.coach.name} (+${Math.round((this.args.coach.xpTimes - 1) * 100)}%)` : 'Practice XP (about a tenth of race XP)', ...this.xpLines(payout.xp), '', ...this.wearLines(before, career.bike.parts).slice(0, 4)];
+    const xpHead = passenger ? `Passenger XP (fitness, +${Math.round((passenger.terms.fitnessXpTimes - 1) * 100)}% in ${passenger.rider}'s chair)` : this.args.coach ? `Practice XP, coached by ${this.args.coach.name} (+${Math.round((this.args.coach.xpTimes - 1) * 100)}%)` : 'Practice XP (about a tenth of race XP)';
+    const wear = passenger ? [`${passenger.rider}'s outfit took the wear: your own bike is as you left it.`] : this.wearLines(before, career.bike.parts).slice(0, 4);
+    const lines = [`Laps: ${p.lapTimes.length}   Best lap: ${best}${fee ? `   Practice fee: ${formatMoney(fee)}` : this.args.fee ? '   No practice fee taken' : ''}`, '', xpHead, ...this.xpLines(payout.xp), '', ...wear];
     c.add(this.add.text(-330, -180, lines.join('\n'), textStyle(17, COLORS.cream, { lineSpacing: 4 })));
     if (payout.levelUps.length) c.add(this.add.text(-330, 150, payout.levelUps.map((u) => `Level up! ${u.name} is now level ${u.level}.`).join('\n'), textStyle(17, 0x9fe07a)));
     c.add(button(this, 0, 215, 'Done', () => this.done(p.lapTimes.length ? `Practice: ${p.lapTimes.length} laps, best ${best}.` : 'Practice: no laps done, so no fee taken.'), 220, 46));

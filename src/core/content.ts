@@ -1,3 +1,4 @@
+import { PASSENGER_SCHEMA, type PassengerTerms } from './passenger';
 import { BUILDINGS_SCHEMA, checkBuildings, type BuildingsData } from './buildings';
 import type { BikesData, ItemDef, StoryData, WorldData } from './career';
 import { Grid } from './grid';
@@ -58,6 +59,11 @@ export interface NpcDef {
    * this venue, costing feeTimes the venue's practice fee and giving xpTimes the practice XP.
    */
   trainer?: { feeTimes: number; xpTimes: number };
+  /**
+   * A sidecar rider at the track who takes the player as passenger (Ray Crispy, Boss, 4 Nov 2026;
+   * core/passenger.ts): practice, a race day and the sidecar championships, from talking to them.
+   */
+  sidecar?: PassengerTerms;
 }
 
 /** A person's name ("Tasha Reid") rather than a job ("Track official"): every word starts with a capital. */
@@ -130,7 +136,7 @@ export const NPCS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['map', 'tile', 'facing', 'talk', 'quietUntil', 'rider', 'news', 'showIf', 'trainer'],
+        optional: ['map', 'tile', 'facing', 'talk', 'quietUntil', 'rider', 'news', 'showIf', 'trainer', 'sidecar'],
         fields: {
           id: { type: 'string', pattern: ID },
           name: { type: 'string', nonEmpty: true },
@@ -148,6 +154,7 @@ export const NPCS_SCHEMA: Schema = {
           news: { type: 'boolean' },
           showIf: { type: 'string', pattern: ID },
           trainer: { type: 'object', fields: { feeTimes: { type: 'number', min: 1 }, xpTimes: { type: 'number', min: 1 } } },
+          sidecar: PASSENGER_SCHEMA,
         },
       },
     },
