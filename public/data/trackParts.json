@@ -42,6 +42,8 @@
     {"id": "loch_water", "name": "Loch water", "color": "#2f5468"},
     {"id": "brick_paving", "name": "Brick paving (The City)", "color": "#8a4f3c"},
     {"id": "dock_water", "name": "Dock water", "color": "#2c4a5a"},
+    {"id": "lawn_stripes", "name": "Striped lawn (Capital, Boss 4 Nov 2026)", "color": "#5f9a3e"},
+    {"id": "parade_gravel", "name": "Parade gravel", "color": "#c9b48a"},
     {"id": "edge_mud_08", "name": "Mud: top-left corner", "art": "terrain-common/grass-dirt-08", "color": "#9a6a3c", "group": "Grass and mud edges"},
     {"id": "edge_mud_04", "name": "Mud: top-right corner", "art": "terrain-common/grass-dirt-04", "color": "#9a6a3c", "group": "Grass and mud edges"},
     {"id": "edge_mud_02", "name": "Mud: bottom-left corner", "art": "terrain-common/grass-dirt-02", "color": "#9a6a3c", "group": "Grass and mud edges"},
