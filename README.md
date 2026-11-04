@@ -166,7 +166,7 @@ Built from `docs/AREAS_2_TO_8_PLAN.md` on a chain of branches, each starting fro
 
 ## Sidecar racing (test v1.5, Boss, 1 Nov 2026)
 
-Sidecars are coming as a class of their own, brought in late in the game: no new venues, they race only on Motocross tracks once unlocked, and they will open championships across the land for their class. **Players can't race them yet** (Boss, 1 Nov 2026: "Must remove the ability to test race the Sidecars, they will be enabled later"): the Farmland race office's test tick box is gone. The racing itself is built and tested:
+Sidecars are coming as a class of their own, brought in late in the game: no new venues, they race only on Motocross tracks once unlocked, and they will open championships across the land for their class. **Players can't race them yet** (Boss, 1 Nov 2026: "Must remove the ability to test race the Sidecars, they will be enabled later"): the Farmland race office's test tick box is gone. They can ride in one, though: as **Ray Crispy's passenger** (below, Boss 4 Nov 2026). The racing itself is built and tested:
 
 - Under `npm run dev` only, `?testtrack=farmland&sidecar` jumps straight into a TEST sidecar race: you on a sidecar against 7 others, two motos of the laps a 50cc races there. It is free and counts for nothing: no prize money or XP, no wear, no records (you borrow a stock outfit for the day).
 - The start: 8 outfits, 4 on the front row and 4 on the back, each taking two gates. An outfit sits on an even gate (2, 4, 6, 8 in front, 10 to 16 behind) with its chair over the odd gate beside it, so only the even gates can be picked; the odd ones show "chair".
@@ -175,6 +175,17 @@ Sidecars are coming as a class of their own, brought in late in the game: no new
 - The crew: `sidecar_crew.glb` holds the rider and passenger together, two objects named **Rider** and **Passenger**, each with its origin at its hips, at most 8,000 triangles, in the team's gear (Helmet, Visor, Jersey, Pants, Boots, Gloves). In a left-hander the passenger hangs out over the chair, low and leaning out; in a right-hander they climb across over the back of the bike; the rider leans a little into each turn; and both tuck down and forward over the jumps (`crewPose` in `RaceView.ts`). A figure can carry its own poses as shape keys named **Left**, **Right** and **Jump** (the passenger hanging out over the chair, across on the back of the seat, crouched holding the grab rail; Boss's video and photos, 1 Nov 2026): the game blends them in instead of moving the whole figure. Without the file, sidecars carry the race rider and no passenger.
 
 The rules are in `src/core/sidecar.ts` (gates, MX-only, the borrowed outfit), the `sidecar` class in `bikes.json` (`"sidecar": true`, after the solo ladder; no solo class moves up to it, and its unlock of 99 holds its place until Boss sets one) and `racing.json`, the `sidecar` option on `RaceDay` and `MotoSim`, and the director's sidecar mode in `riderAI.ts`. Tests: `tests/sidecar.test.ts`.
+
+### Ray Crispy: riding in the chair (Boss, 4 Nov 2026)
+
+**Ray Crispy** (old, bald on top with white hair at the sides, round glasses, a blue and yellow MX kit and no helmet) has won more sidecar championships than anyone, but the last few seasons his passengers keep getting hurt. Once Beach Town's intro is done he's by Big Pete's sand track; talk to him and he tells his story (`met.ray`). From then on he stands next to Big Pete at every **Motocross and Enduro venue** (never Supercross), and **you ride as his passenger**:
+
+- **Sidecar race day** and **sidecar practice**: his outfit against 7 others (on Motocross and Endurance tracks, at the laps the venue's own class runs there). Ray rides, so the outfit's pace is his riding (the field's level plus 4) with your fitness.
+- **No wear on your bike**: it's his outfit. **Entry and practice cost three times** the venue's solo fee, and **you keep half the prize money**.
+- **Fitness XP instead of riding XP**: being a passenger is hard work, so the ride's XP goes into Strength, Endurance, Agility and Wellbeing, half as much again a skill as a solo ride gives a riding skill.
+- **Sidecar championships**: one an area (Areas 1 to 8), three rounds at its Motocross, Enduro and Motocross venues, entered and raced through Ray, never at the race office. One can run alongside a solo championship. The winners take the area's Sidecar trophy and your half of the prize.
+
+The rules are in `src/core/passenger.ts` (Ray's terms on his NPC entries in `npcs.json`, `sidecar`), the `passenger` option on `SidecarDay` in `raceDay.ts` and `sidecar: true` championships in `championships.json`. Tests: `tests/passenger.test.ts`.
 
 ## What's new in Alpha v1.1
 

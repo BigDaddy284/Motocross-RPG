@@ -9,6 +9,7 @@ import { tuningFactors, type SetupData } from './setup';
 import { modifierFactors, type ModifiersData } from './modifiers';
 import type { RiderStyle } from './riderProfile';
 import { SIDECAR_CLASS, SIDECAR_FIELD, SIDECAR_GATE_COUNT, SIDECAR_GATES, isSidecarGate, sidecarTrack, testSidecar } from './sidecar';
+import { passengerTrack, passengerXp, passengerXpScale } from './passenger';
 
 // Race days, practice and venues (Spec 12.2a, 14): who is in the field, gate picks, prize money,
 // points, and putting the XP and wear back on the career. Pure rules with no graphics.
@@ -310,6 +311,14 @@ export interface SidecarDay {
    * money, no XP, and their own bike is never touched.
    */
   test?: boolean;
+  /**
+   * The player rides as passenger in Ray Crispy's chair (core/passenger.ts; Boss, 4 Nov 2026): his
+   * outfit, built by passengerEntrant; prize money is the passenger's share of what the outfit wins,
+   * worked out from `entry` (the solo entry times the rider's fee, in pence) rather than the sidecar
+   * class's, and only fitness XP is earned. Raced on Motocross and Endurance tracks, at the laps the
+   * venue's own class runs there.
+   */
+  passenger?: { entry: number; prizeShare: number; fitnessXpTimes: number };
 }
 
 export class RaceDay {
@@ -352,9 +361,9 @@ export class RaceDay {
   ) {
     this.track = trackById(rc, venue.track!);
     this.sidecar = sidecar ?? null;
-    if (sidecar && !sidecarTrack(this.track)) throw new Error(`Sidecars race on Motocross tracks only, not ${this.track.name}`);
+    if (sidecar && !(sidecar.passenger ? passengerTrack(this.track) : sidecarTrack(this.track))) throw new Error(`Sidecars race on Motocross${sidecar.passenger ? ' and Endurance' : ''} tracks only, not ${this.track.name}`);
     // The rider's own class when it's the venue's or bigger: every CPU rider races a bike of it too.
-    const solo = dayClass(rc.bikes, venue.class, player.bike.class) ?? venue.class ?? '50cc';
+    const solo = sidecar?.passenger ? (venue.class ?? '50cc') : (dayClass(rc.bikes, venue.class, player.bike.class) ?? venue.class ?? '50cc');
     if (sidecar?.test) {
       // The player borrows a stock outfit for the day, with no setup or tricks of their own (sidecar.ts).
       player.bike = testSidecar(rc.bikes, player.bike.brand);
@@ -365,7 +374,7 @@ export class RaceDay {
     this.cls = sidecar ? SIDECAR_CLASS : solo;
     this.sprint = isSprint(this.track);
     // A test sidecar race runs the laps the rider's own class would here, so it is quick to try.
-    this.laps = custom?.laps ?? lapsFor(rc, this.track, sidecar?.test ? solo : this.cls, !!round);
+    this.laps = custom?.laps ?? lapsFor(rc, this.track, sidecar?.test || sidecar?.passenger ? solo : this.cls, !!round);
     this.motoCount = custom?.motos ?? 2;
     this.rng = seededRng(seed);
     this.weather = rollWeather(rc.areas ? areaOfMap(rc.areas, venue.town ?? '') : undefined, this.rng);
@@ -528,9 +537,13 @@ export class RaceDay {
     let xp: Record<string, number> = { ...sim.xp };
     for (const [k, v] of Object.entries(bonus)) xp[k] = (xp[k] ?? 0) + v;
     if (this.round) xp = scaleXp(xp, this.round.xpTimes);
+    // A passenger learns only fitness, and more of it (SidecarDay.passenger).
+    const passenger = this.sidecar?.passenger;
+    if (passenger) xp = passengerXp(this.rc.skills, scaleXp(xp, passengerXpScale(this.rc, this.venue)), passenger);
     // A TEST sidecar race counts for nothing: no prize money and no XP (SidecarDay.test).
     const test = !!this.sidecar?.test;
-    const rec: MotoRecord = { results, points, prize: me.retired || test ? 0 : motoPrize(this.rc.racing, this.entryForPrize, me.position), xp: test ? {} : xp, passes: sim.passes };
+    const prize = me.retired || test ? 0 : this.share(motoPrize(this.rc.racing, this.entryForPrize, me.position));
+    const rec: MotoRecord = { results, points, prize, xp: test ? {} : xp, passes: sim.passes };
     this.motos.push(rec);
     // The player's bike comes off the track as it finished.
     if (sim.playerBike) this.player.bike = sim.playerBike;
@@ -548,7 +561,15 @@ export class RaceDay {
 
   /** The entry the prize maths works from: the class entry, times a championship's purse. */
   private get entryForPrize(): number {
+    const passenger = this.sidecar?.passenger;
+    if (passenger) return wholePounds(passenger.entry * (this.round?.purseTimes ?? 1));
     return pence(this.rc.racing.classes[this.cls].entry * (this.round?.purseTimes ?? 1));
+  }
+
+  /** The player's part of a prize: all of it, or a passenger's share (SidecarDay.passenger). */
+  private share(prize: number): number {
+    const passenger = this.sidecar?.passenger;
+    return passenger ? wholePounds(prize * passenger.prizeShare) : prize;
   }
 
   /** Day overall by lowest combined positions, ties to the last moto (Spec 12.4), plus the podium bonus. */
@@ -571,7 +592,7 @@ export class RaceDay {
     const me = rows.find((r) => r.player)!;
     const share = this.rc.racing.prize.podium[me.position - 1] ?? 0;
     const finishedAll = me.positions.every((p) => p !== null);
-    return { overall: rows, podiumBonus: finishedAll && !this.sidecar?.test ? wholePounds(this.entryForPrize * share) : 0 };
+    return { overall: rows, podiumBonus: finishedAll && !this.sidecar?.test ? this.share(wholePounds(this.entryForPrize * share)) : 0 };
   }
 }
 
@@ -657,17 +678,18 @@ function shuffle<T>(a: T[], rng: () => number): T[] {
  * the lap: each set off from the gate a share of a lap before the session starts, so the nearest is
  * well clear of the gate when you set off.
  */
-export function practiceSim(rc: RaceContent, venue: VenueDef, player: Entrant, seed: number, alone = false, xpTimes = 1): MotoSim {
+export function practiceSim(rc: RaceContent, venue: VenueDef, player: Entrant, seed: number, alone = false, xpTimes = 1, sidecar = false): MotoSim {
   const track = trackById(rc, venue.track!);
-  const cls = dayClass(rc.bikes, venue.class, player.bike.class) ?? venue.class ?? '50cc';
+  // A passenger practice (core/passenger.ts): every outfit out is a sidecar, on its own even gate.
+  const cls = sidecar ? SIDECAR_CLASS : (dayClass(rc.bikes, venue.class, player.bike.class) ?? venue.class ?? '50cc');
   const pool = (rc.riders.fields[venue.field ?? ''] ?? []).map((id) => fieldRider(rc, venue.field, id)).filter((r): r is CpuRiderDef => !!r);
   // TEST ONLY, REMOVE BEFORE RELEASE (Boss, 30 Oct 2026): `alone` sends nobody else out.
-  const n = alone ? 0 : Math.min(venue.practiceRiders ?? 0, pool.length);
+  const n = alone ? 0 : Math.min(venue.practiceRiders ?? 0, pool.length, sidecar ? SIDECAR_FIELD - 1 : Infinity);
   const drawn = shuffle(pool, seededRng(mixSeed(seed, 0x70726163))).slice(0, n);
   // A rough lap time: the lap's length at the class's reference speed.
-  const lapSeconds = lapMetres(track) / rc.racing.classes[cls].refSpeed;
-  const others = drawn.map((d, i) => ({ ...cpuEntrant(rc, d, cls, i + 1), startAt: -((i + 1) * lapSeconds) / (n + 1) }));
+  const lapSeconds = lapMetres(track) / rc.racing.classes[sidecar ? (venue.class ?? '50cc') : cls].refSpeed;
+  const others = drawn.map((d, i) => ({ ...cpuEntrant(rc, d, cls, sidecar ? SIDECAR_GATES[i + 1] : i + 1), startAt: -((i + 1) * lapSeconds) / (n + 1) }));
   const tuned = { ...player, tuning: rc.setup && player.setup ? tuningFactors(rc.setup, player.setup, player.bike, track, false) : player.tuning };
   const tuning = rc.modifiers ? withModifiers(rc.modifiers, tuned, track, 'dry') : tuned.tuning;
-  return new MotoSim(rc.racing, rc.bikes, track, cls, [{ ...player, gate: 0, startAt: 0, tuning }, ...others], { laps: null, motoIndex: 0, seed, practice: true, xpTimes });
+  return new MotoSim(rc.racing, rc.bikes, track, cls, [{ ...player, gate: sidecar ? SIDECAR_GATES[0] : 0, startAt: 0, tuning }, ...others], { laps: null, motoIndex: 0, seed, practice: true, xpTimes, ...(sidecar ? { sidecar: true } : {}) });
 }

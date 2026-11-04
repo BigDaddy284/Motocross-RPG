@@ -1,5 +1,6 @@
+import { passengerEntry, passengerPracticeFee, passengerTrack, type PassengerTerms } from '../core/passenger';
 import Phaser from 'phaser';
-import { advanceStory, bikeProblem, catchUp, currentStep, earlyStep, hearEarly, fillText, formatMoney, batchPay, jobPay, matchStory, openChains, pence, type JobDef, type PlaceDef, type StoryEvent, type StoryStep } from '../core/career';
+import { advanceStory, bikeProblem, catchUp, currentStep, earlyStep, hearEarly, fillText, formatMoney, batchPay, jobPay, matchStory, openChains, pence, wholePounds, type JobDef, type PlaceDef, type StoryEvent, type StoryStep } from '../core/career';
 import { newsRead, npcsOnMap, properName, type DialogueLine, type NpcDef, type NpcPlacement } from '../core/content';
 import { Grid, STEPS } from '../core/grid';
 import { objectTiles, type BakedMap, type Facing, type MapObject, type Tile } from '../core/mapTypes';
@@ -563,6 +564,7 @@ export class WorldScene extends Phaser.Scene {
     }
     const back = () => this.faceBack(placement, character);
     if (npc.trainer) return this.trainerTalk(npc, npc.trainer, back);
+    if (npc.sidecar) return this.sidecarTalk(npc, npc.sidecar, back);
     const rule = this.talkRule(npc);
     const { challenges, errands } = services.content;
     const challenge = challenges.challenges.find((d) => d.npc === npc.id && (!d.needs || this.save.flags[d.needs]));
@@ -606,6 +608,100 @@ export class WorldScene extends Phaser.Scene {
         { label: 'Not now', onPick: back },
       ], back);
     });
+  }
+
+  /**
+   * A sidecar rider at the track (Ray Crispy, Boss, 4 Nov 2026; core/passenger.ts): ride in his chair
+   * for practice or a race day, or enter and race the area's sidecar championship. It's his outfit,
+   * so the rider's own bike doesn't matter; entries cost feeTimes a solo one and he keeps his share
+   * of the prizes.
+   */
+  private sidecarTalk(npc: NpcDef, terms: PassengerTerms, back: () => void): void {
+    this.say(npc.name, this.talkRule(npc)?.dialogue ?? npc.dialogue, () => this.sidecarMenu(npc, terms, back));
+  }
+
+  private sidecarMenu(npc: NpcDef, terms: PassengerTerms, back: () => void): void {
+    const rc = services.content;
+    const career = this.save.career;
+    const venue = this.venueHere();
+    const track = venue?.track ? trackById(rc, venue.track) : undefined;
+    if (!venue || !track || venue.practiceOnly || venue.locked || !passengerTrack(track) || (venue.needs && !this.save.flags[venue.needs])) {
+      this.hud.toast(`${npc.name} only races here once the track is open to you.`);
+      return back();
+    }
+    const passenger = { rider: npc.name, terms };
+    const raceFee = passengerEntry(rc, venue, terms);
+    const practice = passengerPracticeFee(rc, venue, terms);
+    const short = (f: number) => career.money < f;
+    const afford = (f: number) => (short(f) ? " You can't afford it." : '');
+    const def = rc.championships.championships.find((d) => d.sidecar && d.rounds.includes(venue.id));
+    const active = def && career.champs?.active[def.id];
+    const roundHere = !!def && !!active && nextRoundVenue(def, active) === venue.id;
+    const roundFee = def ? wholePounds(raceFee * def.entryTimes) : 0;
+    const share = `${Math.round(terms.prizeShare * 100)}% of the prize money`;
+    const laps = lapsFor(rc, track, venue.class ?? '50cc', false);
+    this.hud.choose(npc.name, `You ride in my chair at ${venue.name}: my outfit, so no wear on your bike, and you work harder than on your own bike, so you learn more fitness (+${Math.round((terms.fitnessXpTimes - 1) * 100)}% fitness XP). You get ${share}.`, [
+      ...(roundHere ? [{ label: `${def!.short} round ${active!.rounds.length + 1}`, note: `Entry: ${formatMoney(roundFee)}.${afford(roundFee)} 2 motos against the championship's ${def!.size + 1} outfits.`, enabled: !short(roundFee), onPick: () => this.ride('raceday', venue, roundFee, back, def, undefined, undefined, passenger) }] : []),
+      roundHere
+        ? { label: 'Sidecar race day', note: 'Not today: our championship round is on here.', enabled: false, onPick: back }
+        : { label: 'Sidecar race day', note: `Entry: ${formatMoney(raceFee)}.${afford(raceFee)} 8 outfits, 2 motos of ${laps} laps.`, enabled: !short(raceFee), onPick: () => this.ride('raceday', venue, raceFee, back, undefined, undefined, undefined, passenger) },
+      { label: 'Sidecar practice', note: `${formatMoney(practice)}: ride laps in the chair until you stop.${afford(practice)}`, enabled: !short(practice), onPick: () => this.ride('practice', venue, practice, back, undefined, undefined, undefined, passenger) },
+      ...(def ? [{ label: 'Sidecar championship', note: active ? `${def.short}: round ${active.rounds.length + 1} of ${def.rounds.length} next.` : `Enter the ${def.short}, or see what it pays.`, onPick: () => this.sidecarChampionship(npc, terms, def, back) }] : []),
+      { label: 'Not now', onPick: back },
+    ], back);
+  }
+
+  /** The area's sidecar championship, through Ray: enter it, or see the standings and give it up. */
+  private sidecarChampionship(npc: NpcDef, terms: PassengerTerms, def: ChampionshipDef, back: () => void): void {
+    const rc = services.content;
+    const career = this.save.career;
+    const active = career.champs?.active[def.id];
+    const menu = () => this.sidecarMenu(npc, terms, back);
+    const venues = def.rounds.map((v) => rc.tracks.venues.find((x) => x.id === v));
+    const rounds = venues.map((v, i) => `${i + 1}. ${v?.name ?? def.rounds[i]}`).join('   ');
+    if (!active) {
+      const other = otherActive(rc.championships, career, def);
+      const problem = other ? `You're in the ${other.name} with me: finish it or give it up first.` : champProblem(rc, def, this.save.flags);
+      const reward = def.rewards[0];
+      const fee = venues[0] ? wholePounds(passengerEntry(rc, venues[0], terms) * def.entryTimes) : 0;
+      const record = career.champs?.done[def.id];
+      this.hud.choose(def.name, [
+        `${def.rounds.length} rounds: ${rounds}`,
+        `${def.size + 1} outfits, the same at every round, points for every moto. About ${formatMoney(fee)} a round in entry, and you keep ${Math.round(terms.prizeShare * 100)}% of the prizes.${record?.wins ? ' Won before: half prize money and XP.' : ''}`,
+        `The winners take ${reward.title ?? 'the title'}${reward.money ? `, and your share of the prize is £${reward.money}` : ''}; 2nd and 3rd win a smaller prize.`,
+      ].join('\n\n'), [
+        problem
+          ? { label: 'Enter', note: problem, enabled: false, onPick: menu }
+          : { label: 'Enter', note: 'Free to enter: you pay each round\'s entry when you ride it.', onPick: () => {
+            enter(career, rc, def, (Math.random() * 2 ** 32) >>> 0);
+            this.milestoneSave();
+            this.hud.news(`Entered the ${def.name} with ${npc.name}. Round 1 is at ${venues[0]?.name}.`);
+            menu();
+          } },
+        { label: 'Back', onPick: menu },
+      ], menu);
+      return;
+    }
+    const table = standings(rc.racing.points, active);
+    const name = (id: string) => (id === 'player' ? `You and ${npc.name}` : rc.riders.riders.find((r) => r.id === id)?.name ?? id);
+    const me = table.find((r) => r.player)!;
+    const top = table.slice(0, 5).map((r) => `${r.position}. ${name(r.id)}  ${r.points}`);
+    if (me.position > 5) top.push(`${me.position}. ${name('player')}  ${me.points}`);
+    const next = rc.tracks.venues.find((v) => v.id === nextRoundVenue(def, active));
+    const giveUp = () => this.hud.confirm(`Give up the ${def.name}?\nYour points so far are lost. You can enter again later.`, 'Give it up', () => {
+      withdraw(career, def);
+      this.milestoneSave();
+      this.hud.news(`You gave up the ${def.name}.`);
+      menu();
+    }, () => this.sidecarChampionship(npc, terms, def, back));
+    this.hud.choose(def.name, [
+      `Rounds: ${rounds}`,
+      active.rounds.length ? `After round ${active.rounds.length}:\n${top.join('\n')}` : 'No rounds ridden yet.',
+      `Next: round ${active.rounds.length + 1} at ${next?.name}. Find me there, next to Big Pete.`,
+    ].join('\n\n'), [
+      { label: 'Give it up', note: 'Leave the championship. You can enter again later, from round 1.', onPick: giveUp },
+      { label: 'Back', onPick: menu },
+    ], menu);
   }
 
   /**
@@ -1186,13 +1282,14 @@ export class WorldScene extends Phaser.Scene {
     const short = (p: number) => career.money < p;
     const champs = services.content.championships;
     // A championship's next round here takes the place of a local race day (Spec 18.6, 6C).
-    const rounds = mod ? [] : roundsHere(champs, career, venue);
+    // Sidecar championships are raced through Ray Crispy, not the race office (ChampionshipDef.sidecar).
+    const rounds = mod ? [] : roundsHere(champs, career, venue).filter((d) => !d.sidecar);
     const roundOptions = rounds.map((def) => {
       const f = roundEntry(rc, def, dayCls);
       const n = career.champs!.active[def.id].rounds.length + 1;
       return { label: `${def.short} round ${n}`, note: `Entry: ${formatMoney(f)}${short(f) ? " — you can't afford it" : ''}. 2 motos against the championship's ${def.size + 1} riders.`, enabled: !short(f), onPick: () => this.ride('raceday', venue, f, onClose, def) };
     });
-    const hasChamps = !mod && champs.championships.some((d) => d.rounds.includes(venue.id));
+    const hasChamps = !mod && champs.championships.some((d) => !d.sidecar && d.rounds.includes(venue.id));
     const others = mod ? [] : rc.tracks.venues.filter((v) => v.map === venue.map && v.id !== venue.id && !v.practiceOnly && !v.locked && (!v.needs || this.save.flags[v.needs]));
     this.hud.choose(venue.name, text, [
       ...roundOptions,
@@ -1445,7 +1542,7 @@ export class WorldScene extends Phaser.Scene {
     const rc = services.content;
     const career = this.save.career;
     const back = () => this.openVenue(venue, onClose);
-    const list = rc.championships.championships.filter((d) => d.rounds.includes(venue.id));
+    const list = rc.championships.championships.filter((d) => !d.sidecar && d.rounds.includes(venue.id));
     const venueName = (id: string | null) => rc.tracks.venues.find((v) => v.id === id)?.name ?? 'the next track';
     const options = list.map((def) => {
       const active = career.champs?.active[def.id];
@@ -1600,7 +1697,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /** Hands over to the race screen; the world sleeps until it is done. */
-  private ride(mode: RaceSceneData['mode'], venue: VenueDef, fee: number, onClose: () => void, champ?: ChampionshipDef, challenge?: ChallengeDef, coach?: RaceSceneData['coach']): void {
+  private ride(mode: RaceSceneData['mode'], venue: VenueDef, fee: number, onClose: () => void, champ?: ChampionshipDef, challenge?: ChallengeDef, coach?: RaceSceneData['coach'], passenger?: RaceSceneData['passenger']): void {
     this.busy = true;
     this.path = [];
     this.player.stopWalking();
@@ -1611,6 +1708,7 @@ export class WorldScene extends Phaser.Scene {
       champ,
       challenge,
       coach,
+      passenger,
       save: this.snapshot(),
       onDone: (save) => {
         this.scene.wake('hud');
@@ -2054,7 +2152,7 @@ export class WorldScene extends Phaser.Scene {
     const career = this.save.career;
     return rc.championships.championships.flatMap((def) => {
       const active = career.champs?.active[def.id];
-      if (!active && champProblem(rc, def, this.save.flags, career.bike.class)) return [];
+      if (!active && champProblem(rc, def, this.save.flags, def.sidecar ? undefined : career.bike.class)) return [];
       const venue = rc.tracks.venues.find((v) => v.id === (active ? nextRoundVenue(def, active) : def.rounds[0]));
       const place = venue && rc.world.places.find((p) => p.map === venue.map && p.spawn && services.maps.get(p.map) && spawnTile(services.maps.get(p.map)!, p.spawn));
       if (!venue || !place) return [];
@@ -2062,7 +2160,7 @@ export class WorldScene extends Phaser.Scene {
       const note = `${active ? 'Entered' : 'Not entered'}. Round ${n} of ${def.rounds.length} is at ${venue.name}.`;
       const image = def.rewards[0]?.image;
       const mark = active ? (image ? rewardTexture(image) : true) : undefined;
-      if (venue.id === this.venueHere()?.id) return [{ label: def.short, note: `${note} You're here: see the race office.`, enabled: false, mark, onPick: () => {} }];
+      if (venue.id === this.venueHere()?.id) return [{ label: def.short, note: `${note} You're here: see ${def.sidecar ? 'Ray Crispy, next to Big Pete' : 'the race office'}.`, enabled: false, mark, onPick: () => {} }];
       return [{ label: def.short, note, mark, onPick: () => arrive({ ...place, venue: venue.id }) }];
     });
   }
