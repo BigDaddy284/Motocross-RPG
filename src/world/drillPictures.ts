@@ -187,7 +187,6 @@ const HILL = 0x6f9a52;
 // Forest Town's darker woods and Western Works' quarry stone, for the Area 4 and 5 pictures.
 const FOREST = 0x4f7f3e;
 const FOREST_DARK = 0x3c6a30;
-const STONE = 0xa39c8e;
 const GRIT = 0x8d8576;
 const GRIT_EDGE = 0x5f584c;
 const GRIT_DEEP = 0x77705f;
@@ -235,16 +234,7 @@ function pushupPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, w
  * lowers the bar to the chest and presses it back up; a miss stalls half way and shakes.
  */
 function benchPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who: DrillWho): RepsPicture {
-  // Rubber floor, a plate tree and dumbbell rack along the wall.
-  vis.add(scene.add.rectangle(0, -42, 366, 140, 0x4a5262));
-  vis.add(scene.add.rectangle(0, 74, 366, 48, 0x2b2f38));
-  vis.add(scene.add.rectangle(0, 50, 366, 4, 0x1c1f26));
-  const wall = scene.add.graphics();
-  wall.fillStyle(0x30343e).fillRect(-170, -2, 90, 8).fillRect(-166, 6, 6, 44).fillRect(-90, 6, 6, 44);
-  for (let i = 0; i < 5; i++) wall.fillStyle(0x1d2027).fillRoundedRect(-166 + i * 17, -14, 14, 12, 3);
-  wall.fillStyle(0x30343e).fillRect(130, -40, 6, 90);
-  for (const [y, r] of [[-30, 16], [-2, 13], [22, 10]] as const) wall.fillStyle(0x1d2027).fillCircle(133, y, r).fillStyle(0x5a6070).fillCircle(133, y, 3);
-  vis.add(wall);
+  gym(scene, vis);
   // The bench and its rack upright with the J-hooks, at the head end.
   const g = scene.add.graphics();
   // The upright stands behind the lifter, under the bar at lock-out, its J-hooks either side of the bar.
@@ -288,6 +278,19 @@ function benchPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, wh
       }
     },
   };
+}
+
+/** The gym: rubber floor, a plate tree and dumbbell rack along the wall (the bench press and the rowing machine). */
+function gym(scene: Phaser.Scene, vis: Phaser.GameObjects.Container): void {
+  vis.add(scene.add.rectangle(0, -42, 366, 140, 0x4a5262));
+  vis.add(scene.add.rectangle(0, 74, 366, 48, 0x2b2f38));
+  vis.add(scene.add.rectangle(0, 50, 366, 4, 0x1c1f26));
+  const wall = scene.add.graphics();
+  wall.fillStyle(0x30343e).fillRect(-170, -2, 90, 8).fillRect(-166, 6, 6, 44).fillRect(-90, 6, 6, 44);
+  for (let i = 0; i < 5; i++) wall.fillStyle(0x1d2027).fillRoundedRect(-166 + i * 17, -14, 14, 12, 3);
+  wall.fillStyle(0x30343e).fillRect(130, -40, 6, 90);
+  for (const [y, r] of [[-30, 16], [-2, 13], [22, 10]] as const) wall.fillStyle(0x1d2027).fillCircle(133, y, r).fillStyle(0x5a6070).fillCircle(133, y, 3);
+  vis.add(wall);
 }
 
 /**
@@ -339,65 +342,115 @@ function attackPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, w
   };
 }
 
+/** The hill line every riding backdrop shares (see `backdrop`). */
+const hillAt = (x: number) => 10 - 14 * Math.sin(x / 47) - 8 * Math.sin(x / 19 + 1);
+/** A shape kept inside the picture's box: its points pulled in to the box's sides. */
+function boxPoly(g: Phaser.GameObjects.Graphics, pts: Phaser.Types.Math.Vector2Like[]): void {
+  g.fillPoints(pts.map((p) => ({ x: Math.max(-183, Math.min(183, p.x!)), y: p.y })), true);
+}
+/** An ellipse kept inside the picture's box. */
+function boxOval(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number): void {
+  const pts: Phaser.Types.Math.Vector2Like[] = [];
+  for (let i = 0; i < 20; i++) pts.push({ x: x + (w / 2) * Math.cos((i / 20) * Math.PI * 2), y: y + (h / 2) * Math.sin((i / 20) * Math.PI * 2) });
+  boxPoly(g, pts);
+}
+/** A circle kept inside the picture's box: shrunk at the sides, left out if it would not show. */
+function boxCircle(g: Phaser.GameObjects.Graphics, x: number, y: number, r: number): void {
+  const rr = Math.min(r, x + 183, 183 - x);
+  if (rr > 2) g.fillCircle(x, y, rr);
+}
+
 /**
- * Forest Town's woods behind a riding picture (Area 4), in the Area 2 and 3 pictures' style: the
- * same sky, a darker green hill, and a few round trees along it (Boss, 4 Nov 2026: "the same style
- * you have done the others").
+ * Forest Town's woods behind a riding picture (Area 4), in the Area 2 and 3 pictures' style
+ * (Boss, 4 Nov 2026: "your art work from area 2 is prefered"): the same sky, the hill in a deeper
+ * green, a soft line of round treetops along its crest and two nearer trees at the sides.
  */
 function woods(scene: Phaser.Scene, vis: Phaser.GameObjects.Container): void {
   backdrop(scene, vis, SKY, FOREST);
   const g = scene.add.graphics();
-  const hill = (x: number) => 10 - 14 * Math.sin(x / 47) - 8 * Math.sin(x / 19 + 1);
-  for (const [x, r] of [[-150, 15], [-118, 11], [-40, 13], [70, 16], [100, 11], [150, 14]] as const) {
-    const y = hill(x) + 4;
-    g.fillStyle(0x5e4229).fillRect(x - 2, y - r, 4, r);
-    g.fillStyle(FOREST_DARK).fillCircle(x, y - r - r * 0.6, r);
+  // The treeline: overlapping round tops along the crest, a lighter top on each.
+  // The treeline, the hill's own edge filled in under it first so no sky shows between the tops.
+  for (let x = -178; x < 183; x += 13) {
+    const r = 11 + 5 * Math.abs(Math.sin(x * 0.37));
+    g.fillStyle(FOREST_DARK);
+    boxCircle(g, x, hillAt(x) + 2 - r * 0.4, r);
+  }
+  for (let x = -178; x < 183; x += 13) {
+    const r = 11 + 5 * Math.abs(Math.sin(x * 0.37));
+    g.fillStyle(0x5f9148);
+    boxCircle(g, x - r * 0.3, hillAt(x) + 2 - r * 0.75, r * 0.45);
+  }
+  g.fillStyle(FOREST).fillRect(-183, 30, 366, 68);
+  // Two nearer trees, one at each side, trunk and round crown.
+  for (const [x, r] of [[-150, 22], [154, 20]] as const) {
+    g.fillStyle(0x5e4229).fillRect(x - 4, 10, 8, 56);
+    g.fillStyle(FOREST_DARK);
+    boxCircle(g, x, 2, r);
+    boxCircle(g, x - r * 0.6, 12, r * 0.7);
+    boxCircle(g, x + r * 0.6, 12, r * 0.7);
+    g.fillStyle(0x5f9148);
+    boxCircle(g, x - r * 0.35, -r * 0.3, r * 0.45);
   }
   vis.add(g);
 }
 
 /**
- * Yoga on the deck by Forest Town's pond: the rider flows mountain, warrior, seated. A held pose
- * steps to the next one and breathes; a miss wobbles and stays.
+ * Yoga in Forest Town's studio, drawn like the Area 2 and 3 gym pictures: a warm wall, a big window
+ * onto the woods, the sprung wooden floor of the ladder gym and a mat. The rider faces the front
+ * and flows warrior, tree, seated; a held pose steps to the next one and breathes, a miss wobbles
+ * and stays.
  */
 function yogaPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who: DrillWho): RepsPicture {
-  // The studio by the pond, like the gym pictures: a pale wall, a window onto the woods, a sprung
-  // wooden floor and the mat.
-  vis.add(scene.add.rectangle(0, -42, 366, 140, 0xc9d6c0));
+  vis.add(scene.add.rectangle(0, -42, 366, 140, 0xe4d8c0));
   const g = scene.add.graphics();
-  g.fillStyle(0x8a6a45).fillRect(-150, -96, 110, 66);
-  g.fillStyle(0x9cc7e4).fillRect(-146, -92, 102, 40);
-  g.fillStyle(FOREST).fillRect(-146, -52, 102, 18);
-  g.fillStyle(FOREST_DARK).fillCircle(-124, -56, 9).fillCircle(-96, -60, 11).fillCircle(-66, -55, 8);
-  g.fillStyle(0x8a6a45).fillRect(-97, -92, 4, 58);
-  g.fillStyle(0xc89a5e).fillRect(-183, 28, 366, 70);
+  // The window: the riding pictures' sky, hill and treetops in a wooden frame.
+  const W = { x: -150, y: -100, w: 150, h: 84 };
+  g.fillStyle(SKY).fillRect(W.x, W.y, W.w, W.h);
+  g.fillStyle(FOREST);
+  const pts: Phaser.Types.Math.Vector2Like[] = [{ x: W.x, y: W.y + W.h }];
+  for (let x = W.x; x <= W.x + W.w; x += 6) pts.push({ x, y: W.y + 50 + 6 * Math.sin(x / 19) });
+  pts.push({ x: W.x + W.w, y: W.y + W.h });
+  g.fillPoints(pts, true);
+  for (let x = W.x + 6; x < W.x + W.w; x += 14) {
+    g.fillStyle(FOREST_DARK).fillCircle(x, W.y + 48 + 6 * Math.sin(x / 19), 8 + 3 * Math.abs(Math.sin(x)));
+  }
+  g.lineStyle(6, 0x8a6a45).strokeRect(W.x, W.y, W.w, W.h);
+  g.lineStyle(4, 0x8a6a45).lineBetween(W.x + W.w / 2, W.y, W.x + W.w / 2, W.y + W.h);
+  g.fillStyle(0x8a6a45).fillRect(W.x - 6, W.y + W.h, W.w + 12, 6);
+  // A plant in its pot and a rolled mat against the wall.
+  g.fillStyle(0xa0522d).fillRect(96, -2, 22, 22);
+  g.fillStyle(0x7a3e22).fillRect(94, -4, 26, 5);
+  g.fillStyle(0x4f8a3a).fillEllipse(100, -10, 26, 10).fillEllipse(116, -12, 26, 10).fillEllipse(108, -20, 14, 20);
+  g.fillStyle(0x3a8a8a).fillRoundedRect(36, -14, 14, 36, 6);
+  // The floor, and the mat the rider stands on.
+  g.fillStyle(0xc89a5e).fillRect(-183, 22, 366, 76);
+  g.fillStyle(0xa87a44).fillRect(-183, 20, 366, 4);
   g.lineStyle(1, 0xb08450);
-  for (let y = 38; y < 98; y += 12) g.lineBetween(-183, y, 183, y);
-  g.fillStyle(0x7a5aa8).fillRoundedRect(-80, 66, 160, 8, 3);
-  // A fern in its pot by the wall.
-  g.fillStyle(0xa0522d).fillRect(98, 14, 18, 16);
-  g.fillStyle(0x4f8a3a).fillEllipse(100, 8, 22, 10).fillEllipse(114, 6, 22, 10).fillEllipse(107, 0, 14, 14);
+  for (let y = 34; y < 98; y += 12) g.lineBetween(-183, y, 183, y);
+  g.fillStyle(0x5b3f8a).fillRoundedRect(-112, 70, 184, 12, 4);
+  g.fillStyle(0x7a5aa8).fillRoundedRect(-110, 70, 180, 8, 3);
   vis.add(g);
-  coachBy(scene, vis, who, 150, 72, 'left');
+  coachBy(scene, vis, who, 140, 78, 'left');
   const key = `chr:${who.player}:yoga`;
-  const X = -10;
-  const Y = 74;
-  const body = scene.textures.exists(key) ? scene.add.sprite(X, Y, key, 0).setOrigin(0.5, 1).setScale(2.2) : null;
+  const X = -20;
+  const Y = 78;
+  const S = 1.9;
+  const body = scene.textures.exists(key) ? scene.add.sprite(X, Y, key, 0).setOrigin(0.5, 1).setScale(S) : null;
   if (body) vis.add(body);
   let pose = 0;
   return {
     rep(ok) {
       if (!body?.active) return;
       scene.tweens.killTweensOf(body);
-      body.setRotation(0).setPosition(X, Y).setScale(2.2);
+      body.setRotation(0).setPosition(X, Y).setScale(S);
       if (ok) {
         // Into the next pose, and a slow breath in it.
         pose = (pose + 1) % 3;
         body.setFrame(pose);
-        scene.tweens.add({ targets: body, scaleY: 2.27, duration: 260, yoyo: true, ease: 'Sine.easeInOut' });
+        scene.tweens.add({ targets: body, scaleY: S * 1.03, duration: 260, yoyo: true, ease: 'Sine.easeInOut' });
       } else {
         // Lost the balance: a wobble about the feet, and the pose stays.
-        scene.tweens.add({ targets: body, rotation: 0.09, duration: 70, yoyo: true, repeat: 3, ease: 'Sine.easeInOut' });
+        scene.tweens.add({ targets: body, rotation: 0.07, duration: 70, yoyo: true, repeat: 3, ease: 'Sine.easeInOut' });
       }
     },
   };
@@ -648,19 +701,40 @@ function obstaclePicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container,
     const a = at();
     if (rocky) drawGround(back, BASE, () => 0, GRIT, GRIT_EDGE, GRIT_DEEP);
     else drawGround(back, BASE, () => 0, DIRT, DIRT_EDGE, DIRT_DEEP);
+    // Gravel or fallen leaves going by under the wheels, so the ground moves as it does in the ruts.
+    const roll = since * ROLL - held;
+    for (let x = -176 - (((roll % 29) + 29) % 29); x < 176; x += 29) {
+      if (x < -176) continue;
+      const k = Math.abs(Math.round(x + roll)) % 3;
+      if (rocky) back.fillStyle(0x6f685c).fillRect(x, BASE + 6 + k * 5, 5, 3);
+      else back.fillStyle(k === 1 ? 0xb5782e : 0x9a6a34).fillEllipse(x, BASE + 7 + k * 5, 7, 3);
+    }
     if (a < -220 || a > 220) return;
     if (rocky) {
       const pts: Phaser.Types.Math.Vector2Like[] = [];
       for (let x = a - WIDE; x <= a + WIDE; x += 2) pts.push({ x, y: BASE - h(x) });
       pts.push({ x: a + WIDE, y: BASE + 2 });
       pts.push({ x: a - WIDE, y: BASE + 2 });
-      back.fillStyle(0xb3ac9e).fillPoints(pts, true);
-      back.fillStyle(0xcfc9bc).fillEllipse(a - 6, BASE - TALL + 6, WIDE * 0.9, 6);
-      back.lineStyle(3, GRIT_EDGE).strokePoints(pts, false);
+      // The rock: grey stone, lit from the top left, a dark side and a crack.
+      const inBox = pts.map((p) => ({ x: Math.max(-183, Math.min(183, p.x!)), y: p.y }));
+      boxPoly(back.fillStyle(0x9d968a), pts);
+      boxPoly(back.fillStyle(0x857e72), [{ x: a + 4, y: BASE + 2 }, { x: a + WIDE, y: BASE + 2 }, { x: a + WIDE * 0.55, y: BASE - TALL * 0.7 }]);
+      boxOval(back.fillStyle(0xc4bdb0), a - 8, BASE - TALL + 7, WIDE * 0.8, 7);
+      if (a > -176 && a < 176) back.lineStyle(2, 0x5f584c).lineBetween(a - 2, BASE - TALL + 5, a + 5, BASE - TALL * 0.4);
+      back.lineStyle(3, GRIT_EDGE).strokePoints(inBox.slice(0, -2), false);
+      // A couple of small stones beside it.
+      back.fillStyle(0x9d968a);
+      if (a - WIDE - 16 > -183) back.fillEllipse(a - WIDE - 10, BASE, 12, 7);
+      if (a + WIDE + 17 < 183) back.fillEllipse(a + WIDE + 12, BASE + 1, 9, 5);
     } else {
-      // The root across the trail, a hump of bark with a lighter top.
-      back.fillStyle(0x5e3f22).fillEllipse(a, BASE - TALL / 2 + 1, WIDE * 2, TALL + 2);
-      back.fillStyle(0x8a6040).fillEllipse(a - 3, BASE - TALL + 3, WIDE * 1.1, 4);
+      // The root: a twisting bar of bark across the trail, its ends going into the ground.
+      boxOval(back.fillStyle(0x4e3420), a, BASE - TALL / 2 + 1, WIDE * 2 + 4, TALL + 4);
+      boxOval(back.fillStyle(0x7a5232), a, BASE - TALL / 2, WIDE * 2, TALL);
+      boxOval(back.fillStyle(0x9c7048), a - 4, BASE - TALL + 3, WIDE * 1.2, 3);
+      if (a > -170 && a < 170) back.lineStyle(1, 0x4e3420).lineBetween(a - 8, BASE - TALL + 2, a - 3, BASE - 1).lineBetween(a + 6, BASE - TALL + 2, a + 10, BASE - 1);
+      back.fillStyle(0x4e3420);
+      if (a - WIDE - 13 > -183) back.fillEllipse(a - WIDE - 6, BASE + 4, 14, 6);
+      if (a + WIDE + 12 < 183) back.fillEllipse(a + WIDE + 6, BASE + 3, 12, 5);
     }
   };
   const level = () => {
@@ -922,13 +996,33 @@ function whoopsPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, w
 }
 
 
-/** Western Works' quarry behind a riding picture (Area 5), in the earlier pictures' style: the same sky, a stone bank and the works' two chimneys far off. */
+/**
+ * Western Works behind a riding picture (Area 5), in the same style: the sky, the hill in a dry
+ * olive green, and the works on the crest, a brick shed with a saw-tooth roof and two chimneys
+ * smoking.
+ */
 function quarry(scene: Phaser.Scene, vis: Phaser.GameObjects.Container): void {
-  backdrop(scene, vis, SKY, STONE);
+  vis.add(scene.add.rectangle(0, -10, 366, 216, SKY));
   const g = scene.add.graphics();
-  g.fillStyle(0x8a7f78).fillRect(110, -62, 8, 50).fillRect(130, -52, 7, 40);
-  g.fillStyle(0xe4e8ea).fillCircle(114, -68, 6).fillCircle(121, -76, 8).fillCircle(133, -58, 5);
+  // The works first, so the hill covers its foot.
+  g.fillStyle(0x8e4a36).fillRect(52, -22, 92, 30);
+  g.fillStyle(0x6e3828);
+  for (let x = 52; x < 144; x += 23) g.fillTriangle(x, -22, x + 23, -22, x + 23, -36);
+  g.fillStyle(0xbfd0d8);
+  for (let x = 60; x < 140; x += 16) g.fillRect(x, -14, 8, 7);
+  g.fillStyle(0x7a3c2c).fillRect(100, -78, 9, 58).fillRect(124, -64, 8, 44);
+  g.fillStyle(0x5a2c20).fillRect(98, -80, 13, 4).fillRect(122, -66, 12, 4);
+  g.fillStyle(0xe8ecee).fillCircle(106, -88, 6).fillCircle(113, -98, 8).fillCircle(124, -108, 10);
+  g.fillStyle(0xe8ecee).fillCircle(129, -73, 5).fillCircle(135, -82, 7);
   vis.add(g);
+  const bank = 0x8a9a5a;
+  vis.add(scene.add.rectangle(0, 64, 366, 68, bank));
+  const h = scene.add.graphics();
+  const pts: Phaser.Types.Math.Vector2Like[] = [{ x: -183, y: 40 }];
+  for (let x = -183; x < 183; x += 10) pts.push({ x, y: hillAt(x) });
+  pts.push({ x: 183, y: hillAt(183) }, { x: 183, y: 98 }, { x: -183, y: 98 });
+  h.fillStyle(bank).fillPoints(pts, true);
+  vis.add(h);
 }
 
 /**
@@ -990,28 +1084,17 @@ function bermPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who
 }
 
 /**
- * The rowing machine in Western Works' gym, the canal through the window: the rider rows catch,
+ * The rowing machine in Western Works' gym, the same gym as the bench press: the rider rows catch,
  * drive, finish and back, the flywheel spins and the monitor shows the stroke rate. On pace it
  * reads in the green; too fast it reads high and the rider tires, too slow it drops.
  */
 function rowingPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who: DrillWho): PacePicture {
-  // The works gym, drawn like Mountain Town's: a plain wall with the works' red stripe, a framed
-  // print of the canal and a rubber floor.
-  vis.add(scene.add.rectangle(0, -42, 366, 140, 0x4a5262));
-  vis.add(scene.add.rectangle(0, 74, 366, 48, 0x2b2f38));
-  vis.add(scene.add.rectangle(0, 50, 366, 4, 0x1c1f26));
-  const g = scene.add.graphics();
-  g.fillStyle(0x8e4a36).fillRect(-183, -20, 366, 8);
-  g.fillStyle(0x30343e).fillRect(-40, -96, 96, 60);
-  g.fillStyle(0x9cc7e4).fillRect(-36, -92, 88, 30);
-  g.fillStyle(0x6f9a52).fillRect(-36, -62, 88, 8);
-  g.fillStyle(0x4f7f8f).fillRect(-36, -54, 88, 14);
-  g.fillStyle(0x2f6b3a).fillRect(-10, -58, 40, 6);
-  vis.add(g);
-  coachBy(scene, vis, who, -150, 74, 'right');
+  // The same gym as the bench press (Boss, 4 Nov 2026: in the Area 2 and 3 style).
+  gym(scene, vis);
+  coachBy(scene, vis, who, 162, 74, 'left');
   // The machine: the rail, the footplate and the flywheel housing at the front.
   const S = 2.4;
-  const X0 = -110;
+  const X0 = -150;
   const Y0 = 76;
   const m = scene.add.graphics();
   m.fillStyle(0x9aa0a8).fillRect(X0 + 10 * S, Y0 - 6 * S, 64 * S, 3 * S);
@@ -1071,12 +1154,11 @@ function shadowPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, w
   const BASE = 78;
   const ground = scene.add.graphics();
   vis.add(ground);
-  // The pro: in the champion's kit on a different bike from the player's, a shade back in the haze.
+  // The pro: in the champion's kit on a different bike from the player's, on the far side of the line.
   const brands = ['yamamoto', 'kwakmoto', 'sukimoto', 'hondmoto'];
   const mine = who.bike?.brand ?? 'hondmoto';
   const kit = ['player-m-champion-kit', 'player-f-champion-kit'].find((k) => k !== who.player && scene.textures.exists(`chr:${k}:ride`)) ?? who.player;
   const pro = rideOn(scene, vis, { ...who, player: kit, bike: { model: 'adult', brand: brands.find((b) => b !== mine) ?? 'yamamoto' } }, 40, BASE - 6);
-  for (const o of pro.c.list) (o as Phaser.GameObjects.Image).setTint?.(0xc4c4cc);
   const me = rideOn(scene, vis, who, -60, BASE);
   const dust = scene.add.graphics();
   vis.add(dust);
@@ -1084,7 +1166,10 @@ function shadowPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, w
   return {
     move(run, speed, state) {
       const s = run * 900;
-      drawGround(ground, BASE - 10, () => 0, GRIT, GRIT_EDGE, GRIT_DEEP);
+      drawGround(ground, BASE - 10, () => 0, DIRT, DIRT_EDGE, DIRT_DEEP);
+      // Tyre marks going by, as in the cone braking picture.
+      ground.lineStyle(2, DIRT_DEEP);
+      for (let x = -185 - (s % 40); x < 185; x += 40) ground.lineBetween(Math.max(-183, x), BASE + 10, Math.min(183, x + 18), BASE + 10);
       // Through each pass: follow, then draw alongside and by over its last fifth.
       const p = run % 1;
       const want = state === 'fast' ? 52 : state === 'slow' ? 170 : p > 0.8 ? -40 - (p - 0.8) * 300 : 74;

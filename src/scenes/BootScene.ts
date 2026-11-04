@@ -51,7 +51,7 @@ export class BootScene extends Phaser.Scene {
       if (sheet.lift) this.load.spritesheet(`chr:${id}:lift`, `assets/${sheet.lift}`, { frameWidth: 96, frameHeight: 64 });
       if (sheet.ride) this.load.spritesheet(`chr:${id}:ride`, `assets/${sheet.ride}`, { frameWidth: 128, frameHeight: 128 });
       // Yoga (mountain, warrior, seated) and the rowing machine (catch, drive, finish), for the Area 4 and 5 drills.
-      if (sheet.yoga) this.load.spritesheet(`chr:${id}:yoga`, `assets/${sheet.yoga}`, { frameWidth: 64, frameHeight: 64 });
+      if (sheet.yoga) this.load.spritesheet(`chr:${id}:yoga`, `assets/${sheet.yoga}`, { frameWidth: 96, frameHeight: 80 });
       if (sheet.row) this.load.spritesheet(`chr:${id}:row`, `assets/${sheet.row}`, { frameWidth: 96, frameHeight: 64 });
     }
     for (const [id, sheet] of Object.entries(manifest.vehicles ?? {})) {
