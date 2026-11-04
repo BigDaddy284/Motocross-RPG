@@ -20,6 +20,7 @@ npm run import-art -- --maps area2-mountain-town   # bake only these maps, keep 
 node tools/gen-area.mjs [--plan]          # re-stamp the placeholder towns (skips drawn maps)
 node tools/export-tmj.mjs [--maps id,id]  # write the game's maps back to the art folder as Tiled maps
 npx vite-node tools/sim/balance.ts [days] [riderLevel]   # race balance simulation
+npx vite-node tools/sim/fluidity.ts [seeds] [track ids…]  # on-screen riding flow check over every track (0 faults expected)
 ```
 
 There is no linter. CI (`.github/workflows/ci.yml`) runs `npm ci`, `npm test` and `npm run build` on every push and PR, and publishes `main` to GitHub Pages, with one preview branch (`PREVIEW_BRANCH`) built into a subfolder whose saves are kept apart by `VITE_STORE_NAMESPACE`.

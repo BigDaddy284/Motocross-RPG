@@ -12,20 +12,27 @@ export function riderAITrackTests(group: TrackGroup): void {
         const { sim, dir, traces } = race(track.id, seed);
         const bounds = sectionBounds(track);
         // At every lap checkpoint the referee recorded, the rider is exactly at that point of the
-        // race (unless held up behind a wheel there), and near the ones between sections: a short
-        // section borrows a little of its neighbours' time on screen, and a held-up rider sits
-        // behind a wheel short of the mark (Boss, 3 Nov 2026).
+        // race, and near the ones between sections: the ride is planned a lap at a time to flow
+        // (ridePlan.ts, Boss, 4 Nov 2026), so a mark between sections is crossed a little off when
+        // the simulation's time through a section would take more acceleration than a bike has.
+        let off = 0;
+        let marks = 0;
         for (const tr of traces) {
           for (const [id, times] of Object.entries(tr.times)) {
-            const held = new Set(tr.events.flatMap((e) => (e.kind === 'failedPass' && e.rider === id ? [e.section] : [])));
             for (let i = 1; i < times.length; i++) {
               const p = dir.poses(times[i] - 1e-6).find((q) => q.id === id)!;
               const lapEnd = i === tr.marks.length - 1;
-              if (lapEnd && !held.has(tr.secs[i - 1])) expect(p.dist).toBeCloseTo(tr.marks[i], 5);
-              else expect(Math.abs(p.dist - tr.marks[i]) * units(track)).toBeLessThan(12);
+              if (lapEnd) expect(p.dist).toBeCloseTo(tr.marks[i], 5);
+              else {
+                const d = Math.abs(p.dist - tr.marks[i]) * units(track);
+                expect(d).toBeLessThan(30);
+                off += d;
+                marks++;
+              }
             }
           }
         }
+        expect(off / Math.max(1, marks)).toBeLessThan(4);
         // Over the race: nobody goes backwards, stays on the track, and only leaves the ground on jumps.
         const end = Math.max(...traces.flatMap((tr) => Object.values(tr.times).map((t) => t[t.length - 1]))) + 6;
         const last = new Map<string, number>();

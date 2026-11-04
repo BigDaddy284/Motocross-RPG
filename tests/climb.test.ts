@@ -47,13 +47,20 @@ describe('raised jumps and hills', () => {
         expect(p.dist).toBeGreaterThanOrEqual((last.get(p.id) ?? -Infinity) - 1e-9);
         last.set(p.id, p.dist);
       }
-      // Near every timing point when the simulation says (the marks between sections may be crossed
-      // a little off: a short section borrows time from its neighbours, and a held-up rider sits
-      // behind a wheel; Boss, 3 Nov 2026).
+      // Near every timing point when the simulation says: the ride is planned for flow (Boss,
+      // 4 Nov 2026), so a mark between sections may be crossed a little off (as in
+      // riderAITrack.ts: within 30 grid units, and on average much closer), the lap's own
+      // marks exactly.
       const u = units(raised);
+      let sum = 0, n = 0;
       for (const tr of traces) for (const [id, times] of Object.entries(tr.times)) {
-        for (let i = 1; i < times.length; i++) expect(Math.abs(dir.poses(times[i]).find((q) => q.id === id)!.dist - tr.marks[i]) * u).toBeLessThan(12);
+        for (let i = 1; i < times.length; i++) {
+          const off = Math.abs(dir.poses(times[i]).find((q) => q.id === id)!.dist - tr.marks[i]) * u;
+          expect(off).toBeLessThan(30);
+          sum += off; n++;
+        }
       }
+      expect(sum / n).toBeLessThan(4);
     } finally {
       content.tracks.tracks.pop();
     }
