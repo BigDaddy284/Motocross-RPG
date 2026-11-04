@@ -184,6 +184,13 @@ const DIRT_EDGE = 0x5e4229;
 const DIRT_DEEP = 0x6e5236;
 const SKY = 0x9cc7e4;
 const HILL = 0x6f9a52;
+// Forest Town's darker woods and Western Works' quarry stone, for the Area 4 and 5 pictures.
+const FOREST = 0x4f7f3e;
+const FOREST_DARK = 0x3c6a30;
+const STONE = 0xa39c8e;
+const GRIT = 0x8d8576;
+const GRIT_EDGE = 0x5f584c;
+const GRIT_DEEP = 0x77705f;
 
 // ---- reps ----
 
@@ -332,23 +339,19 @@ function attackPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, w
   };
 }
 
-/** Forest Town's woods behind a picture: sky, a far line of pines and nearer trunks (Area 4). */
-function woods(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, ground: number): void {
-  vis.add(scene.add.rectangle(0, -10, 366, 216, 0xb7d3c6));
+/**
+ * Forest Town's woods behind a riding picture (Area 4), in the Area 2 and 3 pictures' style: the
+ * same sky, a darker green hill, and a few round trees along it (Boss, 4 Nov 2026: "the same style
+ * you have done the others").
+ */
+function woods(scene: Phaser.Scene, vis: Phaser.GameObjects.Container): void {
+  backdrop(scene, vis, SKY, FOREST);
   const g = scene.add.graphics();
-  // Far pines, then nearer and darker ones.
-  for (const [col, y0, step, tall] of [[0x5f8a6a, 30, 22, 70], [0x3f6b4a, 46, 30, 96]] as const) {
-    g.fillStyle(col);
-    for (let x = -183 + step * 0.7; x < 183 - step * 0.7; x += step) {
-      const h = tall * (0.75 + 0.25 * Math.sin(x * 1.7));
-      g.fillTriangle(x - step * 0.7, y0, x, y0 - h, x + step * 0.7, y0);
-    }
-    g.fillRect(-183, y0, 366, ground - y0 + 2);
-  }
-  // A few trunks in front.
-  for (const x of [-140, -90, 112, 142]) {
-    g.fillStyle(0x4a3524).fillRect(x - 5, -118, 10, ground + 118);
-    g.fillStyle(0x2f4d33).fillTriangle(x - 34, -40, x, -118, x + 34, -40).fillTriangle(x - 40, 0, x, -80, x + 40, 0);
+  const hill = (x: number) => 10 - 14 * Math.sin(x / 47) - 8 * Math.sin(x / 19 + 1);
+  for (const [x, r] of [[-150, 15], [-118, 11], [-40, 13], [70, 16], [100, 11], [150, 14]] as const) {
+    const y = hill(x) + 4;
+    g.fillStyle(0x5e4229).fillRect(x - 2, y - r, 4, r);
+    g.fillStyle(FOREST_DARK).fillCircle(x, y - r - r * 0.6, r);
   }
   vis.add(g);
 }
@@ -358,33 +361,40 @@ function woods(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, ground: n
  * steps to the next one and breathes; a miss wobbles and stays.
  */
 function yogaPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who: DrillWho): RepsPicture {
-  woods(scene, vis, 40);
+  // The studio by the pond, like the gym pictures: a pale wall, a window onto the woods, a sprung
+  // wooden floor and the mat.
+  vis.add(scene.add.rectangle(0, -42, 366, 140, 0xc9d6c0));
   const g = scene.add.graphics();
-  // The pond behind, the deck's boards and a mat.
-  g.fillStyle(0x4f8fa8).fillEllipse(-10, 46, 346, 26);
-  g.fillStyle(0xb98b58).fillRect(-183, 52, 366, 46);
-  g.lineStyle(1, 0x8c6438);
-  for (let y = 58; y < 98; y += 8) g.lineBetween(-183, y, 183, y);
-  for (let x = -170; x < 183; x += 60) g.lineBetween(x, 52, x, 98);
-  g.fillStyle(0x6a3d8a).fillRoundedRect(-90, 66, 180, 10, 3);
+  g.fillStyle(0x8a6a45).fillRect(-150, -96, 110, 66);
+  g.fillStyle(0x9cc7e4).fillRect(-146, -92, 102, 40);
+  g.fillStyle(FOREST).fillRect(-146, -52, 102, 18);
+  g.fillStyle(FOREST_DARK).fillCircle(-124, -56, 9).fillCircle(-96, -60, 11).fillCircle(-66, -55, 8);
+  g.fillStyle(0x8a6a45).fillRect(-97, -92, 4, 58);
+  g.fillStyle(0xc89a5e).fillRect(-183, 28, 366, 70);
+  g.lineStyle(1, 0xb08450);
+  for (let y = 38; y < 98; y += 12) g.lineBetween(-183, y, 183, y);
+  g.fillStyle(0x7a5aa8).fillRoundedRect(-80, 66, 160, 8, 3);
+  // A fern in its pot by the wall.
+  g.fillStyle(0xa0522d).fillRect(98, 14, 18, 16);
+  g.fillStyle(0x4f8a3a).fillEllipse(100, 8, 22, 10).fillEllipse(114, 6, 22, 10).fillEllipse(107, 0, 14, 14);
   vis.add(g);
-  coachBy(scene, vis, who, 140, 70, 'left');
+  coachBy(scene, vis, who, 150, 72, 'left');
   const key = `chr:${who.player}:yoga`;
   const X = -10;
   const Y = 74;
-  const body = scene.textures.exists(key) ? scene.add.sprite(X, Y, key, 0).setOrigin(0.5, 1).setScale(2.3) : null;
+  const body = scene.textures.exists(key) ? scene.add.sprite(X, Y, key, 0).setOrigin(0.5, 1).setScale(2.2) : null;
   if (body) vis.add(body);
   let pose = 0;
   return {
     rep(ok) {
       if (!body?.active) return;
       scene.tweens.killTweensOf(body);
-      body.setRotation(0).setPosition(X, Y).setScale(2.3);
+      body.setRotation(0).setPosition(X, Y).setScale(2.2);
       if (ok) {
         // Into the next pose, and a slow breath in it.
         pose = (pose + 1) % 3;
         body.setFrame(pose);
-        scene.tweens.add({ targets: body, scaleY: 2.37, duration: 260, yoyo: true, ease: 'Sine.easeInOut' });
+        scene.tweens.add({ targets: body, scaleY: 2.27, duration: 260, yoyo: true, ease: 'Sine.easeInOut' });
       } else {
         // Lost the balance: a wobble about the feet, and the pose stays.
         scene.tweens.add({ targets: body, rotation: 0.09, duration: 70, yoyo: true, repeat: 3, ease: 'Sine.easeInOut' });
@@ -611,8 +621,8 @@ function jumpPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who
 function obstaclePicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who: DrillWho, kind: 'roots' | 'rocks'): ReactPicture {
   const BASE = 70;
   const rocky = kind === 'rocks';
-  if (rocky) quarry(scene, vis, BASE);
-  else woods(scene, vis, BASE);
+  if (rocky) quarry(scene, vis);
+  else woods(scene, vis);
   const TALL = rocky ? 24 : 10;
   const WIDE = rocky ? 34 : 18;
   const back = scene.add.graphics();
@@ -634,35 +644,23 @@ function obstaclePicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container,
     return rocky ? TALL * Math.sqrt(1 - u * u) * (u < 0 ? 1 : 0.85) : TALL * Math.cos((u * Math.PI) / 2);
   };
   const draw = () => {
-    back.clear();
+    // The ground like the other riding pictures, with the root or rock in it.
     const a = at();
-    const ground = rocky ? 0x8d8a80 : 0x6b4f33;
-    const edge = rocky ? 0x5c5a54 : 0x3e2c1c;
-    back.fillStyle(ground).fillRect(-185, BASE, 370, 100 - BASE);
-    back.fillStyle(rocky ? 0x76736a : 0x553e28).fillRect(-185, BASE + 14, 370, 100 - BASE - 14);
-    back.lineStyle(3, edge).lineBetween(-185, BASE, 185, BASE);
+    if (rocky) drawGround(back, BASE, () => 0, GRIT, GRIT_EDGE, GRIT_DEEP);
+    else drawGround(back, BASE, () => 0, DIRT, DIRT_EDGE, DIRT_DEEP);
+    if (a < -220 || a > 220) return;
     if (rocky) {
-      // Gravel going by, and the rock itself with a lighter top.
-      back.fillStyle(0x6b685f);
-      for (let x = -185 - ((since * ROLL) % 23); x < 185; x += 23) back.fillRect(x, BASE + 6 + ((x * 7) % 5), 4, 3);
-      if (a > -200 && a < 200) {
-        const pts: Phaser.Types.Math.Vector2Like[] = [];
-        for (let x = a - WIDE; x <= a + WIDE; x += 2) pts.push({ x, y: BASE - h(x) });
-        pts.push({ x: a + WIDE, y: BASE + 4 }, { x: a - WIDE, y: BASE + 4 });
-        back.fillStyle(0x9e9a90).fillPoints(pts, true);
-        back.fillStyle(0xbdb9ae).fillEllipse(a - 4, BASE - TALL + 4, WIDE, 6);
-        back.lineStyle(2, 0x55524b).strokePoints(pts, true);
-      }
+      const pts: Phaser.Types.Math.Vector2Like[] = [];
+      for (let x = a - WIDE; x <= a + WIDE; x += 2) pts.push({ x, y: BASE - h(x) });
+      pts.push({ x: a + WIDE, y: BASE + 2 });
+      pts.push({ x: a - WIDE, y: BASE + 2 });
+      back.fillStyle(0xb3ac9e).fillPoints(pts, true);
+      back.fillStyle(0xcfc9bc).fillEllipse(a - 6, BASE - TALL + 6, WIDE * 0.9, 6);
+      back.lineStyle(3, GRIT_EDGE).strokePoints(pts, false);
     } else {
-      // Leaf litter and the trail's rut, and the root crossing it with a knot at either end.
-      back.fillStyle(0x8a6a2f);
-      for (let x = -185 - ((since * ROLL) % 17); x < 185; x += 17) back.fillRect(x, BASE + 4 + ((x * 5) % 7), 5, 2);
-      back.fillStyle(0x3e2a18).fillRect(-185, BASE - 4, 370, 5);
-      if (a > -200 && a < 200) {
-        back.fillStyle(0x7a5532).fillEllipse(a, BASE - TALL / 2, WIDE * 2, TALL + 4);
-        back.fillStyle(0x9c7448).fillEllipse(a - 3, BASE - TALL + 2, WIDE, 4);
-        back.fillStyle(0x5e3f22).fillCircle(a - WIDE - 4, BASE + 6, 4).fillCircle(a + WIDE + 3, BASE + 2, 3);
-      }
+      // The root across the trail, a hump of bark with a lighter top.
+      back.fillStyle(0x5e3f22).fillEllipse(a, BASE - TALL / 2 + 1, WIDE * 2, TALL + 2);
+      back.fillStyle(0x8a6040).fillEllipse(a - 3, BASE - TALL + 3, WIDE * 1.1, 4);
     }
   };
   const level = () => {
@@ -924,21 +922,12 @@ function whoopsPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, w
 }
 
 
-/** Western Works' quarry behind a picture: sky, cut stone faces in steps, and the works' chimneys (Area 5). */
-function quarry(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, ground: number): void {
-  vis.add(scene.add.rectangle(0, -10, 366, 216, 0xbfc8cf));
+/** Western Works' quarry behind a riding picture (Area 5), in the earlier pictures' style: the same sky, a stone bank and the works' two chimneys far off. */
+function quarry(scene: Phaser.Scene, vis: Phaser.GameObjects.Container): void {
+  backdrop(scene, vis, SKY, STONE);
   const g = scene.add.graphics();
-  // Chimneys of the works far off.
-  g.fillStyle(0x8a7f78).fillRect(100, -90, 10, 70).fillRect(126, -76, 8, 56);
-  g.fillStyle(0xd8dcdf, 0.8).fillCircle(106, -98, 8).fillCircle(116, -108, 10).fillCircle(130, -84, 6);
-  // The quarry's stepped faces.
-  const steps: [number, number][] = [[-30, 0xa8a094], [4, 0x989083], [30, 0x8a8276]];
-  for (const [y, col] of steps) {
-    g.fillStyle(col).fillRect(-183, y, 366, ground - y + 2);
-    g.lineStyle(1, 0x6f685e);
-    for (let x = -183; x < 183; x += 38) g.lineBetween(x + ((y * 3) % 19), y + 2, x + ((y * 3) % 19) + 6, Math.min(ground, y + 28));
-    g.lineStyle(2, 0xc4bdb0).lineBetween(-183, y, 183, y);
-  }
+  g.fillStyle(0x8a7f78).fillRect(110, -62, 8, 50).fillRect(130, -52, 7, 40);
+  g.fillStyle(0xe4e8ea).fillCircle(114, -68, 6).fillCircle(121, -76, 8).fillCircle(133, -58, 5);
   vis.add(g);
 }
 
@@ -949,7 +938,7 @@ function quarry(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, ground: 
  * it bogs low in the berm.
  */
 function bermPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who: DrillWho): PacePicture {
-  woods(scene, vis, 52);
+  woods(scene, vis);
   const BASE = 74;
   const GAP = 220;
   const ground = scene.add.graphics();
@@ -970,7 +959,7 @@ function bermPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who
         const u = ((((x + s) % (GAP * 2)) + GAP * 2) % (GAP * 2)) - GAP;
         return Math.abs(u) < 70 ? 30 * Math.pow(Math.cos((u / 70) * (Math.PI / 2)), 2) : 0;
       };
-      drawGround(ground, BASE, bermH, 0x6b4f33, 0x3e2c1c, 0x553e28);
+      drawGround(ground, BASE, bermH, DIRT, DIRT_EDGE, DIRT_DEEP);
       // The flat corner's flag, half way between berms.
       marks.clear();
       for (let x = -(s % (GAP * 2)); x < 185; x += GAP * 2) {
@@ -993,7 +982,7 @@ function bermPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who
       r.pose(state === 'on' ? 1 : state === 'slow' ? 0 : 2);
       roost.clear();
       if (Math.max(hf, hb) > 6 && speed > 0.35) {
-        roost.fillStyle(0x6b4f33, state === 'slow' ? 0.4 : 0.85);
+        roost.fillStyle(0xc8a878, state === 'slow' ? 0.4 : 0.85);
         for (let i = 0; i < 7; i++) roost.fillCircle(xr - 12 - i * 9 - (s % 9), r.c.y - 6 - i * 3 - ((i * 5) % 7), 2 + (i % 3));
       }
     },
@@ -1006,24 +995,18 @@ function bermPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who
  * reads in the green; too fast it reads high and the rider tires, too slow it drops.
  */
 function rowingPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who: DrillWho): PacePicture {
+  // The works gym, drawn like Mountain Town's: a plain wall with the works' red stripe, a framed
+  // print of the canal and a rubber floor.
+  vis.add(scene.add.rectangle(0, -42, 366, 140, 0x4a5262));
+  vis.add(scene.add.rectangle(0, 74, 366, 48, 0x2b2f38));
+  vis.add(scene.add.rectangle(0, 50, 366, 4, 0x1c1f26));
   const g = scene.add.graphics();
-  // Brick wall, a big works window onto the canal and a narrowboat, a rubber floor.
-  g.fillStyle(0x8e4a36).fillRect(-183, -118, 366, 190);
-  g.lineStyle(1, 0x6e3828);
-  for (let y = -114; y < 72; y += 10) {
-    g.lineBetween(-183, y, 183, y);
-    for (let x = -183 + ((y / 10) % 2 ? 0 : 11); x < 183; x += 22) g.lineBetween(x, y, x, y + 10);
-  }
-  g.fillStyle(0x3a3f45).fillRect(-150, -100, 300, 96);
-  g.fillStyle(0xbfd0d8).fillRect(-144, -94, 288, 50);
-  g.fillStyle(0x5a8a5a).fillRect(-144, -48, 288, 10);
-  g.fillStyle(0x4f7f8f).fillRect(-144, -38, 288, 28);
-  g.fillStyle(0x2f6b3a).fillRect(-60, -46, 110, 12).fillStyle(0xb5483a).fillRect(-60, -40, 110, 3).fillStyle(0x1c3a22).fillRect(-20, -54, 50, 8);
-  g.lineStyle(4, 0x3a3f45);
-  for (let x = -100; x < 150; x += 50) g.lineBetween(x, -94, x, -10);
-  g.lineBetween(-144, -52, 144, -52);
-  g.fillStyle(0x2b2f38).fillRect(-183, 72, 366, 26);
-  g.fillStyle(0x1c1f26).fillRect(-183, 70, 366, 3);
+  g.fillStyle(0x8e4a36).fillRect(-183, -20, 366, 8);
+  g.fillStyle(0x30343e).fillRect(-40, -96, 96, 60);
+  g.fillStyle(0x9cc7e4).fillRect(-36, -92, 88, 30);
+  g.fillStyle(0x6f9a52).fillRect(-36, -62, 88, 8);
+  g.fillStyle(0x4f7f8f).fillRect(-36, -54, 88, 14);
+  g.fillStyle(0x2f6b3a).fillRect(-10, -58, 40, 6);
   vis.add(g);
   coachBy(scene, vis, who, -150, 74, 'right');
   // The machine: the rail, the footplate and the flywheel housing at the front.
@@ -1031,15 +1014,15 @@ function rowingPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, w
   const X0 = -110;
   const Y0 = 76;
   const m = scene.add.graphics();
-  m.fillStyle(0x2a2d33).fillRect(X0 + 10 * S, Y0 - 6 * S, 64 * S, 3 * S);
-  m.fillStyle(0x2a2d33).fillRect(X0 + 8 * S, Y0 - 4 * S, 3 * S, 4 * S).fillRect(X0 + 84 * S, Y0 - 5 * S, 4 * S, 5 * S);
-  m.fillStyle(0x3d4148).fillRoundedRect(X0 + 74 * S, Y0 - 24 * S, 20 * S, 20 * S, 6);
+  m.fillStyle(0x9aa0a8).fillRect(X0 + 10 * S, Y0 - 6 * S, 64 * S, 3 * S);
+  m.fillStyle(0x7a808a).fillRect(X0 + 8 * S, Y0 - 4 * S, 3 * S, 4 * S).fillRect(X0 + 84 * S, Y0 - 5 * S, 4 * S, 5 * S);
+  m.fillStyle(0x6a707a).fillRoundedRect(X0 + 74 * S, Y0 - 24 * S, 20 * S, 20 * S, 6);
   // The footplate, angled, and the seat under the hips (the frames keep the hips in one place).
-  m.fillStyle(0x1c1f26).fillTriangle(X0 + 66 * S, Y0 - 6 * S, X0 + 72 * S, Y0 - 16 * S, X0 + 74 * S, Y0 - 6 * S);
-  m.fillStyle(0x1c1f26).fillRoundedRect(X0 + 32 * S, Y0 - 10 * S, 16 * S, 4 * S, 3);
+  m.fillStyle(0x8a9098).fillTriangle(X0 + 66 * S, Y0 - 6 * S, X0 + 72 * S, Y0 - 16 * S, X0 + 74 * S, Y0 - 6 * S);
+  m.fillStyle(0xb5483a).fillRoundedRect(X0 + 32 * S, Y0 - 10 * S, 16 * S, 4 * S, 3);
   vis.add(m);
   const wheel = scene.add.graphics().setPosition(X0 + 84 * S, Y0 - 14 * S);
-  wheel.lineStyle(3, 0x9aa0a8);
+  wheel.lineStyle(3, 0xd0d4d8);
   for (let i = 0; i < 3; i++) wheel.lineBetween(-Math.cos((i * Math.PI) / 3) * 18, -Math.sin((i * Math.PI) / 3) * 18, Math.cos((i * Math.PI) / 3) * 18, Math.sin((i * Math.PI) / 3) * 18);
   wheel.strokeCircle(0, 0, 19);
   vis.add(wheel);
@@ -1050,7 +1033,7 @@ function rowingPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, w
   if (body) vis.add(body);
   // The monitor on its arm, with the stroke rate.
   const mon = scene.add.graphics();
-  mon.fillStyle(0x2a2d33).fillRect(X0 + 82 * S, Y0 - 40 * S, 3 * S, 18 * S);
+  mon.fillStyle(0x7a808a).fillRect(X0 + 82 * S, Y0 - 40 * S, 3 * S, 18 * S);
   mon.fillStyle(0x1c1f26).fillRoundedRect(X0 + 70 * S, Y0 - 56 * S, 30 * S, 18 * S, 4);
   vis.add(mon);
   const rate = scene.add.text(X0 + 85 * S, Y0 - 47 * S, '', { fontFamily: 'monospace', fontSize: '22px', color: '#7be07b' }).setOrigin(0.5);
@@ -1084,7 +1067,7 @@ function rowingPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, w
  * alongside and by; too fast they tag the back wheel and shake; too slow the gap opens.
  */
 function shadowPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, who: DrillWho): PacePicture {
-  quarry(scene, vis, 70);
+  quarry(scene, vis);
   const BASE = 78;
   const ground = scene.add.graphics();
   vis.add(ground);
@@ -1101,11 +1084,7 @@ function shadowPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, w
   return {
     move(run, speed, state) {
       const s = run * 900;
-      ground.clear();
-      ground.fillStyle(0x8d8a80).fillRect(-185, BASE - 10, 370, 110 - BASE);
-      ground.lineStyle(3, 0x5c5a54).lineBetween(-185, BASE - 10, 185, BASE - 10);
-      ground.fillStyle(0x6b685f);
-      for (let x = -185 - (s % 23); x < 185; x += 23) ground.fillRect(x, BASE + 2 + (Math.abs(Math.round(x)) % 7), 5, 3);
+      drawGround(ground, BASE - 10, () => 0, GRIT, GRIT_EDGE, GRIT_DEEP);
       // Through each pass: follow, then draw alongside and by over its last fifth.
       const p = run % 1;
       const want = state === 'fast' ? 52 : state === 'slow' ? 170 : p > 0.8 ? -40 - (p - 0.8) * 300 : 74;
@@ -1120,8 +1099,8 @@ function shadowPicture(scene: Phaser.Scene, vis: Phaser.GameObjects.Container, w
       pro.pose(1);
       me.pose(state === 'on' ? 1 : state === 'fast' ? 2 : 0);
       // The pro's dust in the player's face.
-      dust.clear().fillStyle(0xc8c2b4, 0.6);
-      for (let i = 0; i < 5; i++) dust.fillCircle(pro.c.x - 50 - i * 12 - (s % 12), BASE - 14 - ((i * 7) % 10), 3 + i * (0.4 + speed));
+      dust.clear().fillStyle(0xc8a878, 0.45);
+      for (let i = 0; i < 4; i++) dust.fillCircle(pro.c.x - 50 - i * 10 - (s % 10), BASE - 14 - ((i * 5) % 9), 3 + i * speed);
     },
   };
 }
