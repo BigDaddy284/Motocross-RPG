@@ -27,6 +27,8 @@ const ACTIONS: Record<string, string> = {
   'jobs.fabrication': 'Fabrication jobs',
   'train.machining': 'Machining training',
   'train.brake_bleeding': 'Brake bleeding training',
+  'train.suspension_service': 'Suspension service training',
+  'train.suspension_bleed': 'Suspension bleeding training',
   'train.engine_build': 'Engine building',
   'jobs.engine': 'Engine jobs',
   'story.modifier_machine': 'The modifier machine',
