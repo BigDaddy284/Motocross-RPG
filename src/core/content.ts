@@ -109,8 +109,10 @@ export interface Manifest {
     act: { columns: string[]; idle_fps: number };
     /** fit: the player's push-up frames (arms straight, then bent), side on at 96 by 64. lift: the bench
      * press (bar down, half way, up) at 96 by 64. ride: on the bike facing right at 128 by 128 (seated,
-     * attack, low), the adult bike's row then the youth bike's, laid over the bike-on-stand east picture. */
-    sheets: Record<string, { name: string; walk: string; act: string; fit?: string; lift?: string; ride?: string; yoga?: string; row?: string }>;
+     * attack, low), the adult bike's row then the youth bike's, laid over the bike-on-stand east picture.
+     * yoga: warrior, tree and seated, facing the front at 96 by 80. row: the rowing machine's catch,
+     * drive and finish at 96 by 64. dojo: guard, punch and front kick, side on at 96 by 72. */
+    sheets: Record<string, { name: string; walk: string; act: string; fit?: string; lift?: string; ride?: string; yoga?: string; row?: string; dojo?: string }>;
   };
   /** Van sheets by design id (tools/import-art.mjs). */
   vehicles?: Record<string, VanSheet>;
