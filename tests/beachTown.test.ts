@@ -134,11 +134,11 @@ describe('Beach Town (Area 3): roads (Boss, 3 Nov 2026)', () => {
     }
   });
 
-  it('the South road and every venue lane lead to the three venues and back into town', () => {
+  it('the South road and every venue lane lead to the six venues and back into town', () => {
     const r = routeArrival(town, exitOf('South road'), world, maps, null, FLAGS);
     if (typeof r === 'string') throw new Error(r);
-    expect([r.place, ...r.others].map((p) => p.map).sort()).toEqual(['mod-tracks', 'venue-enduro', 'venue-motocross', 'venue-supercross'].sort());
-    for (const v of ['venue-motocross', 'venue-supercross', 'venue-enduro']) {
+    expect([r.place, ...r.others].map((p) => p.map).sort()).toEqual(['mod-tracks', 'venue-motocross', 'venue-supercross', 'venue-enduro', 'venue-enduro-sprint', 'venue-endurocross', 'venue-no-turn'].sort());
+    for (const v of ['venue-motocross', 'venue-supercross', 'venue-enduro', 'venue-enduro-sprint', 'venue-endurocross', 'venue-no-turn']) {
       const venue = maps.get(v)!;
       const lane = world.routes.find((x) => x.map === v && x.to.includes(TOWN))!;
       expect(lane, `${v} lists Beach Town`).toBeDefined();

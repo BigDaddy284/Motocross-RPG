@@ -233,3 +233,45 @@ describe('a sprint race day (mod tracks)', () => {
     void TRACK_FILE;
   });
 });
+
+describe("the game's own Enduro Sprints (Boss, 4 Nov 2026)", () => {
+  const sprints = [...content.tracks.tracks.filter((t) => isSprint(t)), sprintTrack().track];
+  it('has two in each of Areas 5 to 8, each raced at the Enduro Sprint venue', () => {
+    expect(sprints.filter((t) => !t.id.startsWith('mod.')).map((t) => t.id).sort()).toEqual(['a5-sprint-1', 'a5-sprint-2', 'a6-sprint-1', 'a6-sprint-2', 'a7-sprint-1', 'a7-sprint-2', 'a8-sprint-1', 'a8-sprint-2']);
+    for (const t of sprints.filter((x) => !x.id.startsWith('mod.'))) {
+      const venues = content.tracks.venues.filter((v) => v.track === t.id);
+      expect(venues.map((v) => v.map), t.id).toEqual(['venue-enduro-sprint']);
+      expect(layoutProblems(t, content.racing.sections), t.id).toEqual([]);
+      expect(t.scenery?.some((i) => i.type === SPRINT_START_ITEM), t.id).toBe(true);
+    }
+  });
+
+  for (const track of sprints) {
+    it(`rides ${track.id} one at a time: nobody moves backwards, the queue never doubles up, and everyone finishes`, () => {
+      const entrants = field('50cc', 16);
+      entrants.forEach((e, i) => (e.gate = i));
+      const sim = new MotoSim(content.racing, content.bikes, track, '50cc', entrants, { laps: 2, motoIndex: 0, seed: 11 });
+      const dir = directorFor(sim, content.bikes, content.racing.messages);
+      for (const tr of sim.runToEnd()) dir.addLap(tr);
+      const units = lapGeom(track.path).total;
+      const line = sprintStart(track);
+      const last = new Map<string, number>();
+      const end = Math.max(...sim.riders.map((r) => r.time)) + 6;
+      // Sampled between departures: at the very moment a rider leaves the line, the next one is
+      // already on it.
+      for (let t = -SPRINT_LEAD + 0.25; t < end; t += 0.5) {
+        const poses = dir.poses(t);
+        const lane = poses.filter((p) => p.state !== 'finished' && p.state !== 'retired' && p.dist - Math.floor(p.dist) <= line + 1e-9 && (p.dist - Math.floor(p.dist)) * units >= 1.5).map((p) => p.dist - Math.floor(p.dist)).sort((a, b) => a - b);
+        for (let i = 1; i < lane.length; i++) expect((lane[i] - lane[i - 1]) * units, `t=${t}`).toBeGreaterThan(0.9);
+        for (const p of poses) {
+          const before = last.get(p.id);
+          // A queued rider can settle a fraction back onto their spot as the line moves up: under a grid unit (about a bike length).
+          if (before !== undefined && p.state !== 'finished') expect(p.dist, `${p.id} at ${t}`).toBeGreaterThanOrEqual(before - 1 / units);
+          last.set(p.id, p.dist);
+        }
+      }
+      const finals = dir.poses(end);
+      for (const r of sim.results().filter((x) => !x.retired)) expect(finals.find((p) => p.id === r.id)!.state).toBe('finished');
+    }, 30000);
+  }
+});

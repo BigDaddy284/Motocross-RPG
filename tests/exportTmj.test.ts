@@ -8,8 +8,8 @@ import { describe, expect, it } from 'vitest';
 // "Can you do it so the latest art work is where it needs to be"), and baking them again gives the
 // game's maps exactly, so a full import never undoes an edit made in the game.
 const manifest = JSON.parse(fs.readFileSync('public/assets/manifest.json', 'utf8'));
-const LATER = ['venue-enduro-sprint', 'venue-endurocross', 'venue-no-turn'];
-const ids = [...manifest.maps.map((m: { id: string }) => m.id), ...LATER].filter((id: string) => !/^(area[2-8]-|int-a[2-8]-)/.test(id));
+// The Enduro Sprint, EnduroCross and No-Turn Takedown venues are in the manifest since their tracks came (Boss, 4 Nov 2026).
+const ids = [...manifest.maps.map((m: { id: string }) => m.id)].filter((id: string) => !/^(area[2-8]-|int-a[2-8]-)/.test(id));
 
 describe('the map export round trip (tools/export-tmj.mjs, tools/import-art.mjs)', () => {
   it('bakes every exported map back to the game map it came from', () => {
@@ -31,8 +31,7 @@ describe('the map export round trip (tools/export-tmj.mjs, tools/import-art.mjs)
       const baked = fs.readFileSync(path.join(out, 'maps', `${id}.json`), 'utf8').trim();
       expect(baked, id).toBe(game);
     }
-    // The later venue maps are baked but not listed, so the game does not load them yet.
     const listed = JSON.parse(fs.readFileSync(path.join(out, 'manifest.json'), 'utf8')).maps.map((m: { id: string }) => m.id);
-    for (const id of LATER) expect(listed).not.toContain(id);
+    for (const id of ['venue-enduro-sprint', 'venue-endurocross', 'venue-no-turn']) expect(listed).toContain(id);
   }, 120_000);
 });

@@ -3,7 +3,7 @@ import { checkContent } from '../src/core/content';
 import { MotoSim, type Entrant, type TrackDef } from '../src/core/race';
 import { cpuEntrant } from '../src/core/raceDay';
 import { layoutProblems, startProblems } from '../src/core/trackCheck';
-import { drawnShape, lapGeom, lapMetres, lapPlan, sectionShapes, startGeom } from '../src/core/trackGeom';
+import { drawnShape, isNoTurn, isSprint, lapGeom, lapMetres, lapPlan, sectionShapes, startGeom } from '../src/core/trackGeom';
 import { loadManifest, loadMaps, rawContent } from './helpers';
 
 // Section types against the drawn lap, and the start straight: its own stretch from the gate that
@@ -71,7 +71,8 @@ describe('layout check', () => {
 });
 
 describe('start straight and lap counting', () => {
-  for (const t of content.tracks.tracks) {
+  // Enduro Sprints (no start straight) and No-Turn Takedowns (one run, no laps) have their own tests.
+  for (const t of content.tracks.tracks.filter((x) => !isSprint(x) && !isNoTurn(x))) {
     it(`lap 1 is the start straight, then the lap from where it joins to the line, on ${t.id}`, () => {
       const s = startGeom(t);
       expect(s.metres).toBeGreaterThan(0);

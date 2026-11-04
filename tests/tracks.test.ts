@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { checkContent } from '../src/core/content';
 import { checkTrackParts, trackKind } from '../src/core/trackParts';
 import { sceneryIssues, SurfaceIndex, surfacePoints } from '../src/core/trackClearance';
-import { lapGeom, lapMetres, pointAt, sectionTurns } from '../src/core/trackGeom';
+import { gridOf, isNoTurn, lapGeom, lapMetres, pointAt, sectionTurns } from '../src/core/trackGeom';
 import { TrackSurface } from '../src/core/trackSurface';
 import { TRACK_GROUPS } from './trackGroups';
 import { loadManifest, loadMaps, rawContent } from './helpers';
@@ -40,17 +40,21 @@ describe('track parts and track layouts', () => {
 
   it('has one track of each kind, all inside the grid', () => {
     const kinds = new Set(content.tracks.tracks.map((t) => trackKind(content.trackParts, t).id));
-    for (const k of ['stadium', 'outdoor', 'endurance']) expect(kinds.has(k)).toBe(true);
+    for (const k of ['stadium', 'outdoor', 'endurance', 'enduro_sprint', 'endurocross', 'no_turn']) expect(kinds.has(k)).toBe(true);
     for (const t of content.tracks.tracks) {
       const g = lapGeom(t.path);
       expect(g.total).toBeGreaterThan(0);
       expect(lapMetres(t)).toBeGreaterThan(0);
       expect(sectionTurns(t, g)).toHaveLength(t.sections.length);
-      for (const [x, y] of t.path) {
+      // A No-Turn Takedown's hidden way back runs off its 200 × 30 grid by design: only the run, the
+      // run-off and the start line are drawn (Boss, 30 Oct 2026).
+      const grid = gridOf(t);
+      const drawn = isNoTurn(t) ? [t.path[0], t.path[1], t.path[t.path.length - 1]] : t.path;
+      for (const [x, y] of drawn) {
         expect(x).toBeGreaterThanOrEqual(0);
-        expect(x).toBeLessThanOrEqual(100);
+        expect(x).toBeLessThanOrEqual(grid.w);
         expect(y).toBeGreaterThanOrEqual(0);
-        expect(y).toBeLessThanOrEqual(60);
+        expect(y).toBeLessThanOrEqual(grid.h);
       }
     }
   });
