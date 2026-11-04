@@ -144,7 +144,7 @@ Area 1 is agreed (Grades 1 to 3, 50cc and 65cc). The grades apply to Phoenix MX,
 
 ## Area by area
 
-Area names are locked in by Boss (30 Oct 2026): 2 Mountain Town, 3 Beach Town, 4 Forest Town, 5 Western Works, 6 Highlands, 7 The City, 8 Capital. The City and Western Works swap places from Spec 18.1, so their themes, venues and jobs swap too, while the story beats stay with the area number. Track and NPC names are placeholders unless Boss gave them.
+Area names are locked in by Boss (30 Oct 2026): 2 Mountain Town, 3 Beach Town, 4 Forest Town, 5 Western Works, 6 Highlands, 7 The City, 8 Capital. The City and Western Works swap places from Spec 18.1, so their themes, venues and jobs swap too, while the story beats stay with the area number. Track and NPC names are placeholders unless Boss gave them. Area 5 was called Northern Works until Boss renamed it Western Works everywhere (Boss, 4 Nov 2026).
 
 Every area has the same base set, so the columns below list only what's **new**:
 
