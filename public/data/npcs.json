@@ -104,8 +104,8 @@
     {"id": "npc.a8.works_boss", "name": "Race department chief", "sprite": "npc-05-fabrication-boss", "map": "int-a8-tool-shop", "tile": [10, 3], "facing": "down", "dialogue": "works_boss.a8.hello"},
     {"id": "npc.a8.local_champion", "name": "Max Sterling", "rider": "cpu.a8.local", "sprite": "npc-07-local-racer", "dialogue": "local_champion.a8.hello", "talk": [{"if": "badge.area8", "dialogue": "local_champion.a8.after"}]},
     {"id": "npc.a8.area_champion", "name": "Neal Borne", "rider": "cpu.r16", "sprite": "npc-16-pro-racer", "map": "area8-capital", "tile": [36, 13], "facing": "left", "dialogue": "area_champion.a8.hello", "talk": [{"if": "trophy.area8.main", "dialogue": "area_champion.a8.after"}]},
-    {"id": "npc.a8.gym_coach", "name": "Recovery coach", "sprite": "npc-09-running-coach", "map": "area8-capital", "tile": [24, 28], "facing": "down", "dialogue": "gym_coach.a8.hello"},
-    {"id": "npc.a8.yard_coach", "name": "National coach", "sprite": "npc-10-practice-track-owner", "map": "area8-capital", "tile": [34, 9], "facing": "down", "dialogue": "yard_coach.a8.hello"},
+    {"id": "npc.a8.gym_coach", "name": "Recovery coach", "sprite": "npc-30-recovery-coach", "map": "area8-capital", "tile": [24, 28], "facing": "down", "dialogue": "gym_coach.a8.hello"},
+    {"id": "npc.a8.yard_coach", "name": "Morgan Hale", "sprite": "npc-31-national-coach", "map": "area8-capital", "tile": [34, 9], "facing": "down", "dialogue": "yard_coach.a8.hello"},
     {"id": "npc.a8.challenger_lola", "name": "Lola Grant", "rider": "cpu.r41", "sprite": "npc-14-home-challenger", "map": "area8-capital", "tile": [45, 24], "facing": "left", "dialogue": "challenger_lola.building"},
     {"id": "npc.a8.challenger_archie", "name": "Archie Holt", "rider": "cpu.r42", "sprite": "npc-15-iz-challenger", "map": "area8-capital", "tile": [16, 27], "facing": "up", "dialogue": "challenger_archie.building"}
   ]
