@@ -238,7 +238,9 @@ export class RaceScene extends Phaser.Scene {
         // In Ray's chair (core/passenger.ts): his outfit, his riding and your fitness.
         const { terms } = passenger;
         const rc = services.content;
-        this.day = new RaceDay(rc, this.args.venue, passengerEntrant(rc, this.args.venue, career, this.save.rider.name, terms), seed, this.args.fee, round, undefined, alone, { passenger: { entry: passengerEntry(rc, this.args.venue, terms), prizeShare: terms.prizeShare, fitnessXpTimes: terms.fitnessXpTimes } });
+        // A Sidecar Series round races its own field's level wherever it is, Ray too (Boss, 4 Nov 2026).
+        const at = champ ? { ...this.args.venue, field: champ.def.field } : this.args.venue;
+        this.day = new RaceDay(rc, this.args.venue, passengerEntrant(rc, at, career, this.save.rider.name, terms), seed, this.args.fee, round, undefined, alone, { passenger: { entry: passengerEntry(rc, this.args.venue, terms), prizeShare: terms.prizeShare, fitnessXpTimes: terms.fitnessXpTimes } });
       } else this.day = new RaceDay(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name, 0, this.save.flags), seed, this.args.fee, round, undefined, alone, this.args.sidecarTest ? { test: true } : undefined);
       this.setupField();
       if (this.day.qualifyingDue) this.showQualifyingStart();

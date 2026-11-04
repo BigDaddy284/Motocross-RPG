@@ -635,7 +635,10 @@ export class WorldScene extends Phaser.Scene {
     const practice = passengerPracticeFee(rc, venue, terms);
     const short = (f: number) => career.money < f;
     const afford = (f: number) => (short(f) ? " You can't afford it." : '');
-    const def = rc.championships.championships.find((d) => d.sidecar && d.rounds.includes(venue.id));
+    // The Sidecar Series raced here (Boss's sheet, 4 Nov 2026: one track can be in several). The one
+    // you're in comes first, so its round here is the one offered.
+    const defs = rc.championships.championships.filter((d) => d.sidecar && d.rounds.includes(venue.id)).sort((x, y) => +!!career.champs?.active[y.id] - +!!career.champs?.active[x.id]);
+    const def = defs[0];
     const active = def && career.champs?.active[def.id];
     const roundHere = !!def && !!active && nextRoundVenue(def, active) === venue.id;
     const roundFee = def ? wholePounds(raceFee * def.entryTimes) : 0;
@@ -647,7 +650,17 @@ export class WorldScene extends Phaser.Scene {
         ? { label: 'Sidecar race day', note: 'Not today: our championship round is on here.', enabled: false, onPick: back }
         : { label: 'Sidecar race day', note: `Entry: ${formatMoney(raceFee)}.${afford(raceFee)} 8 outfits, 2 motos of ${laps} laps.`, enabled: !short(raceFee), onPick: () => this.ride('raceday', venue, raceFee, back, undefined, undefined, undefined, passenger) },
       { label: 'Sidecar practice', note: `${formatMoney(practice)}: ride laps in the chair until you stop.${afford(practice)}`, enabled: !short(practice), onPick: () => this.ride('practice', venue, practice, back, undefined, undefined, undefined, passenger) },
-      ...(def ? [{ label: 'Sidecar championship', note: active ? `${def.short}: round ${active.rounds.length + 1} of ${def.rounds.length} next.` : `Enter the ${def.short}, or see what it pays.`, onPick: () => this.sidecarChampionship(npc, terms, def, back) }] : []),
+      ...(defs.length === 1
+        ? [{ label: 'Sidecar championship', note: active ? `${def.short}: round ${active.rounds.length + 1} of ${def.rounds.length} next.` : `Enter the ${def.short}, or see what it pays.`, onPick: () => this.sidecarChampionship(npc, terms, def, back) }]
+        : defs.length
+          ? [{ label: 'Sidecar championships', note: active ? `${def.short}: round ${active.rounds.length + 1} of ${def.rounds.length} next.` : `${defs.length} race here: enter one, or see what they pay.`, onPick: () => this.hud.choose('Sidecar championships', 'Which one?', [
+            ...defs.map((d) => {
+              const a = career.champs?.active[d.id];
+              return { label: d.short, note: a ? `Round ${a.rounds.length + 1} of ${d.rounds.length} next.` : `${d.rounds.length} rounds.${champProblem(rc, d, this.save.flags) ? ' Not open to you yet.' : ''}`, onPick: () => this.sidecarChampionship(npc, terms, d, back) };
+            }),
+            { label: 'Back', onPick: () => this.sidecarMenu(npc, terms, back) },
+          ], () => this.sidecarMenu(npc, terms, back)) }]
+          : []),
       { label: 'Not now', onPick: back },
     ], back);
   }

@@ -158,43 +158,46 @@ describe('riding in his chair (Boss, 4 Nov 2026)', () => {
 describe('the sidecar championships (Boss, 4 Nov 2026)', () => {
   const champs = rc.championships.championships.filter((d) => d.sidecar);
 
-  it('one an area at its Motocross and Enduro venues, open once you have met Ray', () => {
-    expect(champs.map((d) => d.id)).toEqual([1, 2, 3, 4, 5, 6, 7, 8].map((n) => `area${n}.sidecar`));
+  it("are the four Sidecar Series from Boss's sheet, at Motocross venues, open once you have met Ray (Boss, 4 Nov 2026)", () => {
+    // They replace the one-an-area sidecar championships: Boss's sheet has four, each opened by an area's story.
+    expect(champs.map((d) => d.id)).toEqual(['area3.sidecar', 'area6.sidecar', 'area7.sidecar', 'area8.sidecar']);
     for (const d of champs) {
       expect(d.class).toBe(SIDECAR_CLASS);
       expect(d.size).toBe(SIDECAR_FIELD - 1);
       expect(d.needs).toContain('met.ray');
-      for (const id of d.rounds) expect(['venue-motocross', 'venue-enduro']).toContain(venue(id).map);
-      expect(d.rewards[0].flag).toMatch(/^trophy\.sidecar\.area\d$/);
+      for (const id of d.rounds) expect(venue(id).map).toBe('venue-motocross');
+      expect(d.rewards[0].flag).toMatch(/^trophy\.area\d\.sidecar$/);
       expect(d.milestone).toBeUndefined();
       expect(d.opens).toBeUndefined();
     }
-    expect(champProblem(rc, champs[2], { 'area3.intro_done': true })).not.toBeNull();
-    expect(champProblem(rc, champs[2], { 'area3.intro_done': true, 'met.ray': true })).toBeNull();
+    const open = { 'found.venue-farmland': true, 'area2.intro_done': true, 'area3.intro_done': true };
+    expect(champProblem(rc, champs[0], open)).not.toBeNull();
+    expect(champProblem(rc, champs[0], { ...open, 'met.ray': true })).toBeNull();
+    expect(champProblem(rc, champs[1], { ...open, 'met.ray': true })).not.toBeNull();
   });
 
   it('runs alongside a solo championship, but only one sidecar championship at a time', () => {
     const c = career();
     const solo = rc.championships.championships.find((d) => d.id === 'area3.main')!;
     enter(c, rc, solo, 1);
-    expect(otherActive(rc.championships, c, champs[2])).toBeNull();
-    enter(c, rc, champs[2], 2);
-    expect(otherActive(rc.championships, c, champs[3])?.id).toBe(champs[2].id);
+    expect(otherActive(rc.championships, c, champs[0])).toBeNull();
+    enter(c, rc, champs[0], 2);
+    expect(otherActive(rc.championships, c, champs[1])?.id).toBe(champs[0].id);
     expect(otherActive(rc.championships, c, rc.championships.championships.find((d) => d.id === 'area4.main'))?.id).toBe(solo.id);
   });
 
   it('refuses a sidecar championship at a Supercross track (content checks)', () => {
-    const bad = { championships: [{ ...champs[2], rounds: ['venue-a3-sx'] }] };
+    const bad = { championships: [{ ...champs[0], rounds: ['venue-a3-sx'] }] };
     expect(checkChampionships(bad, rc).map((e) => e.field)).toEqual(['championships[0].rounds[0]']);
   });
 
   it('a round races the championship field in the chair', () => {
     const v = venue('venue-a3-mx');
     const c = career();
-    const active = enter(c, rc, champs[2], 3);
+    const active = enter(c, rc, champs[0], 3);
     const entry = passengerEntry(rc, v, terms);
     const cpus = active.field.map((id) => rc.riders.riders.find((r) => r.id === id)!);
-    const day = new RaceDay(rc, v, passengerEntrant(rc, v, c, 'Me', terms), 5, entry, { cpus, purseTimes: champs[2].purseTimes, xpTimes: 1 }, undefined, false, { passenger: { entry, prizeShare: terms.prizeShare, fitnessXpTimes: terms.fitnessXpTimes } });
+    const day = new RaceDay(rc, v, passengerEntrant(rc, v, c, 'Me', terms), 5, entry, { cpus, purseTimes: champs[0].purseTimes, xpTimes: 1 }, undefined, false, { passenger: { entry, prizeShare: terms.prizeShare, fitnessXpTimes: terms.fitnessXpTimes } });
     expect(day.field.map((e) => e.id)).toEqual([PLAYER_ID, ...active.field]);
     expect(day.laps).toBe(lapsFor(rc, day.track, v.class!, true));
   });
