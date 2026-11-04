@@ -1300,19 +1300,30 @@ export class WorldScene extends Phaser.Scene {
     const first = fee === 0 && venue.firstRaceFree;
     const area = venue.town ? areaOfMap(rc.areas, venue.town) : undefined;
     const forecast = area?.weather ? ` Weather here: ${Object.keys(area.weather).map((k) => rc.racing.weather?.[k]?.name.toLowerCase() ?? k).join(', ')}; you find out at the gate.` : '';
-    const text = [
-      (mod ? mod.intro : first ? "First time here? Your first race day is on us." : 'Race office. What can I do for you?') + forecast,
-      `${className(rc.bikes, dayCls)} race day: ${field} riders including the Local Champion, 2 motos of ${laps} laps. Prize money to 10th in each moto.`,
-    ].join('\n\n');
     const short = (p: number) => career.money < p;
     const champs = services.content.championships;
     // A championship's next round here takes the place of a local race day (Spec 18.6, 6C).
     // Sidecar championships are raced through Ray Crispy, not the race office (ChampionshipDef.sidecar).
     const rounds = mod ? [] : roundsHere(champs, career, venue).filter((d) => !d.sidecar);
+    // Where every championship under way goes next, marked with its badge or a trophy as on the road
+    // menu (Boss, 4 Nov 2026: "no real indicator as to where to go next after each champ race").
+    const next = mod ? new Map<string, ChampionshipDef>() : new Map([...nextRoundVenues(champs, career)].filter(([, d]) => !d.sidecar));
+    const markFor = (def: ChampionshipDef | undefined): string | true | undefined => (def ? (def.rewards[0]?.image ? rewardTexture(def.rewards[0].image) : true) : undefined);
+    const elsewhere = [...next].filter(([v]) => v !== venue.id).map(([v, def]) => {
+      const at = rc.tracks.venues.find((x) => x.id === v);
+      const place = at && rc.world.places.find((p) => p.map === at.map && !p.mods);
+      const n = career.champs!.active[def.id].rounds.length + 1;
+      return `${def.short} round ${n}: ${at?.name ?? v}${place && at!.map !== venue.map ? ` (${place.name}, on the road menu)` : at?.map === venue.map ? ' (Other tracks, here)' : ''}.`;
+    });
+    const text = [
+      (mod ? mod.intro : first ? "First time here? Your first race day is on us." : 'Race office. What can I do for you?') + forecast,
+      `${className(rc.bikes, dayCls)} race day: ${field} riders including the Local Champion, 2 motos of ${laps} laps. Prize money to 10th in each moto.`,
+      ...(elsewhere.length ? [`Your next ${elsewhere.length === 1 ? 'round is' : 'rounds are'} elsewhere. ${elsewhere.join(' ')}`] : []),
+    ].join('\n\n');
     const roundOptions = rounds.map((def) => {
       const f = roundEntry(rc, def, dayCls);
       const n = career.champs!.active[def.id].rounds.length + 1;
-      return { label: `${def.short} round ${n}`, note: `Entry: ${formatMoney(f)}${short(f) ? " — you can't afford it" : ''}. 2 motos against the championship's ${def.size + 1} riders.`, enabled: !short(f), onPick: () => this.ride('raceday', venue, f, onClose, def) };
+      return { label: `${def.short} round ${n}`, mark: markFor(def), note: `Entry: ${formatMoney(f)}${short(f) ? " — you can't afford it" : ''}. 2 motos against the championship's ${def.size + 1} riders.`, enabled: !short(f), onPick: () => this.ride('raceday', venue, f, onClose, def) };
     });
     const hasChamps = !mod && champs.championships.some((d) => !d.sidecar && d.rounds.includes(venue.id));
     const others = mod ? [] : rc.tracks.venues.filter((v) => v.map === venue.map && v.id !== venue.id && !v.practiceOnly && !v.locked && (!v.needs || this.save.flags[v.needs]));
@@ -1326,14 +1337,14 @@ export class WorldScene extends Phaser.Scene {
         : isNoTurn(trackById(rc, venue.track!))
           ? [] // A No-Turn Takedown is one short run from the platform: race days only, like a mod track (Boss, 4 Nov 2026).
           : [{ label: 'Free practice', note: `${formatMoney(pFee)}: ride laps until you stop${venue.practiceRiders ? `, with ${venue.practiceRiders} other riders out on track` : ' on your own'}.${short(pFee) ? " You can't afford it." : ''}`, enabled: !short(pFee), onPick: () => this.ride('practice', venue, pFee, onClose) }]),
-      ...(hasChamps ? [{ label: 'Championships', note: 'Enter one, see the standings, or give one up.', onPick: () => this.openChampionships(venue, onClose) }] : []),
+      ...(hasChamps ? [{ label: 'Championships', mark: champs.championships.filter((d) => !d.sidecar && d.rounds.includes(venue.id)).map((d) => (career.champs?.active[d.id] ? markFor(d) : undefined)).find((m) => m !== undefined), note: 'Enter one, see the standings, or give one up.', onPick: () => this.openChampionships(venue, onClose) }] : []),
       // Sponsored Rides (core/sponsors.ts, Spec 16; Boss, 31 Oct 2026: from Area 5).
       ...(!mod && sponsorsOpen(rc.sponsors, this.save.flags) ? [{ label: 'Sponsors', note: career.sponsor ? `Riding for ${career.sponsor.name}: today's objectives, or leave them.` : career.sponsorOffers?.length ? `${career.sponsorOffers.length} offer${career.sponsorOffers.length === 1 ? '' : 's'} waiting.` : 'No offers yet: finish a championship to open a window.', onPick: () => this.openSponsors(venue, () => this.openVenue(venue, onClose, mod)) }] : []),
       // Bike setup (Spec 8; Boss, 31 Oct 2026): the Basic view from Area 2, the Advanced view from Area 5.
       ...(!mod && this.save.flags[areaFlag(rc.setup.basicArea)] ? [{ label: 'Bike setup', note: 'Set the bike up for this track: a ready-made setup, or your own sliders.', onPick: () => this.openSetup(venue, () => this.openVenue(venue, onClose, mod)) }] : []),
       // One venue map per track type (Boss, 30 Oct 2026): the other tracks of this type race here too.
-      ...(!mod && others.length ? [{ label: 'Other tracks', note: `${others.length} more ${others.length === 1 ? 'track races' : 'tracks race'} here: ${others.map((v) => v.name).join(', ')}.`, onPick: () => this.hud.choose('Other tracks', 'Which track today?', [
-        ...others.map((v) => ({ label: v.name, note: `${className(rc.bikes, venueClassFor(rc, v, career))} race days.`, onPick: () => { career.venue = v.id; this.openVenue(v, onClose); } })),
+      ...(!mod && others.length ? [{ label: 'Other tracks', mark: others.map((v) => markFor(next.get(v.id))).find((m) => m !== undefined), note: `${others.length} more ${others.length === 1 ? 'track races' : 'tracks race'} here: ${others.map((v) => v.name).join(', ')}.`, onPick: () => this.hud.choose('Other tracks', 'Which track today?', [
+        ...others.map((v) => ({ label: v.name, mark: markFor(next.get(v.id)), note: `${next.has(v.id) ? `${next.get(v.id)!.short}'s next round. ` : ''}${className(rc.bikes, venueClassFor(rc, v, career))} race days.`, onPick: () => { career.venue = v.id; this.openVenue(v, onClose); } })),
         { label: 'Back', onPick: () => this.openVenue(venue, onClose, mod) },
       ], () => this.openVenue(venue, onClose, mod)) }] : []),
       { label: 'Not now', onPick: onClose },
@@ -1585,7 +1596,9 @@ export class WorldScene extends Phaser.Scene {
       else note = `${def.rounds.length} rounds, ${formatMoney(roundEntry(rc, def, career.bike.class))} a round.${record?.wins ? ' Won before: half prize money and XP.' : record ? ` Best so far: ${ordinal(record.best)}.` : ''}`;
       // A locked one can still be picked, to say why it's locked (Boss, 28 Oct 2026).
       const onPick = problem ? () => { this.hud.toast(problem); this.openChampionships(venue, onClose); } : () => this.openChampionship(def, venue, onClose);
-      return { label: problem ? `${def.short} (locked)` : def.short, note, onPick };
+      // The one you're in carries its badge, or a trophy (Boss, 4 Nov 2026).
+      const mark: string | true | undefined = active ? (def.rewards[0]?.image ? rewardTexture(def.rewards[0].image) : true) : undefined;
+      return { label: problem ? `${def.short} (locked)` : def.short, mark, note, onPick };
     });
     this.hud.choose('Championships', 'Each round is entered separately at its track\'s race office, with the same field of riders every round. There is no calendar: a championship waits for you.', [...options, { label: 'Back', onPick: back }], back);
   }

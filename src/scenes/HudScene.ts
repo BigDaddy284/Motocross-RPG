@@ -753,7 +753,7 @@ export class HudScene extends Phaser.Scene {
         if (o.mark === TASK_MARK) c.add(taskIcon(this, mx, y, 22));
         else if (o.mark !== true && this.textures.exists(o.mark)) c.add(this.add.image(mx, y, o.mark).setDisplaySize(44, 44));
         else c.add(trophyIcon(this, mx, y, 32));
-        (b.list[1] as Phaser.GameObjects.Text).setX(-20);
+        b.makeRoom(0, 48);
       }
       if (o.note) c.add(this.add.text(-w / 2 + 290, y, o.note, textStyle(this.pts(15), COLORS.muted, { wordWrap: { width: w - 310 } })).setOrigin(0, 0.5));
     });

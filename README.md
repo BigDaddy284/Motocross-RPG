@@ -344,6 +344,7 @@ To resume: `npm install`, `npm test`, `npm run dev`, then open `/tools/` (the to
 - **Ray Crispy** stands one tile right of Big Pete at the venues.
 - **Button labels always fit.** A long label is set smaller, then on two lines, so it never runs past its button (the job board's tickets ran out of theirs).
 - **Reading the gates.** The gate screen shows the start bonus on some gates: none at Starts 1, half of them at Starts 50 and every gate at Starts 99. Which ones you can read is random each moto, and a gate you can read may already be taken. The bonuses are still dealt to the gates at random every moto.
+- **Joseph says where your next round is.** At the race office a championship round here carries its badge, as do Championships and Other tracks when a round is under way there. At a track with no round of yours, Joseph tells you where each championship you're in goes next, and whether it is under Other tracks or on the road menu.
 - **Arriving by motor makes sense.** A motor arriving in a town or venue parks on the road it came in by, in its lane, pointing into the map and clear of the road sign, instead of sideways or backwards on top of the signpost (Home Town to the Industrial Zone and many others). A motor too long for a short side road parks on the main road by the junction.
 
 ## Before release

@@ -6,6 +6,8 @@ import { COLORS, FONT, hex, textStyle } from './theme';
 export interface Button extends Phaser.GameObjects.Container {
   setEnabled(on: boolean): Button;
   setLabel(text: string): Button;
+  /** Keeps the label clear of `left` px at the button's left and `right` px at its right (a badge at one end), still fitting it. */
+  makeRoom(left: number, right: number): Button;
   /** Marks one button of a group as the current choice. */
   setSelected(on: boolean): Button;
 }
@@ -15,13 +17,15 @@ export function button(scene: Phaser.Scene, x: number, y: number, label: string,
   const text = scene.add.text(0, 0, label, textStyle(fontSize)).setOrigin(0.5);
   // Every label fits its button (Boss, 4 Nov 2026: "Old Tom: G3 intake and exhaust" ran out of the
   // job board's): a long one is set smaller, then on two lines, never past the button's edges.
+  let pad = { left: 0, right: 0 };
   const fit = () => {
-    const room = width - 16;
+    const room = width - 16 - pad.left - pad.right;
     let size = fontSize;
     text.setWordWrapWidth(null).setFontSize(size);
     while (text.width > room && size > Math.min(fontSize, 15)) text.setFontSize(--size);
     if (text.width > room) text.setWordWrapWidth(room, true).setAlign('center');
     while ((text.height > height - 4 || text.width > room) && size > 10) text.setFontSize(--size);
+    text.setX((pad.left - pad.right) / 2);
   };
   fit();
   const c = scene.add.container(x, y, [bg, text]) as Button;
@@ -42,6 +46,11 @@ export function button(scene: Phaser.Scene, x: number, y: number, label: string,
     selected = on;
     bg.setStrokeStyle(2, on ? COLORS.accent : COLORS.inkLine);
     rest();
+    return c;
+  };
+  c.makeRoom = (left: number, right: number) => {
+    pad = { left, right };
+    fit();
     return c;
   };
   c.setLabel = (t: string) => {
