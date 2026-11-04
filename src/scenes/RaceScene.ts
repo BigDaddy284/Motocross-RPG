@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { lastReleasedArea } from '../core/areas';
 import { bikeStats, formatMoney, raceStopper, type Bike } from '../core/career';
-import { formatTime, gateBonus, setTestAlwaysWin, setTestNoWear, type LapTrace, type MotoSim, type RaceEvent, type RiderResult, type TrackDef } from '../core/race';
+import { formatTime, gateBonus, seenGates, setTestAlwaysWin, setTestNoWear, type LapTrace, type MotoSim, type RaceEvent, type RiderResult, type TrackDef } from '../core/race';
+import { childLevel } from '../core/skills';
 import { PLAYER_ID, RaceDay, applyRide, playerEntrant, practiceSim, scaleXp, sumXp, trackById, type DayResult, type MotoRecord, type VenueDef } from '../core/raceDay';
 import { passengerEntrant, passengerEntry, passengerXp, passengerXpScale, type PassengerTerms } from '../core/passenger';
 import { Knockout, type KnockoutHeat, roundName } from '../core/knockout';
@@ -24,7 +25,6 @@ import { view } from '../ui/view';
 import { gearColour, kitFor, type RaceLook } from '../world/raceBike';
 
 /** Whether the gate screen shows each gate's start bonus: hidden until start gate training (v1.5) shows it (Boss, 1 Nov 2026). */
-const SHOW_GATE_BONUS = false;
 
 // Race day and practice: gate pick, the live race screen with its pit board, auto-complete,
 // moto and day results, and practice laps. The simulation does the racing; this screen only
@@ -450,6 +450,11 @@ export class RaceScene extends Phaser.Scene {
     this.text(W / 2, 108, `${how} You pick ${ordinal(myTurn)}. ${tip}`, sidecar ? 19 : 22).setOrigin(0.5, 0);
 
     let chosen = free[0];
+    // The gates whose bonus you can read: more as Starts levels up, random ones, taken or not (Boss, 4 Nov 2026).
+    const { skills } = services.content;
+    const startsLevel = childLevel(skills, this.save.career.skills, 'starts');
+    const slots = [...Array(count).keys()].filter((g) => !sidecar || isSidecarGate(g));
+    const seen = seenGates(track, slots, startsLevel, skills.maxLevel);
     // One gate per rider, laid out as the start is: gates 1 to 8 are the front row and 9 to 16 the
     // second row, each straight behind the gate 8 before it.
     const perRow = Math.min(count, ROW_SIZE);
@@ -476,9 +481,9 @@ export class RaceScene extends Phaser.Scene {
         this.screen.add(r);
         this.text(x, y + 4, gateBadges(this.names).get(who) ?? '', 18, COLORS.muted).setOrigin(0.5);
       } else {
-        // The start bonus stays hidden (Boss, 1 Nov 2026): the bonuses are dealt to the gates at random
-        // each moto (dealGates), and start gate training in v1.5 will show them as the rider levels up.
-        const b = this.btn(x, y, SHOW_GATE_BONUS ? (bonus > 0 ? `+${bonus}%` : bonus < 0 ? `${bonus}%` : '0%') : 'Pick', () => {
+        // The bonuses are dealt to the gates at random each moto (dealGates; Boss, 1 Nov 2026) and stay
+        // hidden except on the gates your Starts level lets you read (seenGates; Boss, 4 Nov 2026).
+        const b = this.btn(x, y, seen.has(g) ? (bonus > 0 ? `+${bonus}%` : bonus < 0 ? `${bonus}%` : '0%') : 'Pick', () => {
           chosen = g;
           gateButtons.forEach((o) => o.setSelected(o === b));
         }, gw - 8, gh);
@@ -489,7 +494,8 @@ export class RaceScene extends Phaser.Scene {
       this.text(x - gw / 2 + 7, y - gh / 2 + 1, `${g + 1}`, 14, COLORS.muted).setOrigin(0, 0);
     }
     for (let row = 0; row < rows; row++) this.text(gx - gw / 2 - 12, y0 + row * rowH, ['Front row', 'Second row'][row], 18, COLORS.muted).setOrigin(1, 0.5);
-    this.text(W / 2, 266, 'Taken gates show who has them.', 18, COLORS.muted).setOrigin(0.5, 0);
+    const read = seen.size ? `Starts ${startsLevel}: you can read ${seen.size} of the ${slots.length} gates' start bonuses.` : 'Train your Starts to read the gates\' start bonuses.';
+    this.text(W / 2, 266, `Taken gates show who has them. ${read}`, 18, COLORS.muted).setOrigin(0.5, 0);
 
     // How to race it.
     const { racing } = services.content;

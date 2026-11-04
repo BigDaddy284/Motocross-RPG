@@ -1057,6 +1057,27 @@ export function dealGates<T extends Pick<TrackDef, 'gates'>>(track: T, seed: num
   return { ...track, gates };
 }
 
+/**
+ * The gates whose start bonus the rider can see on the gate screen (Boss, 4 Nov 2026: "more gates
+ * become visible as you level up, no specific gates, it's random and if the gate is already taken,
+ * unlucky. So the higher level you are the more beneficial it is"). Starts level 1 sees none and
+ * level maxLevel sees every gate, in proportion between. Which gates is random, taken ones included,
+ * drawn from the moto's dealt bonuses (dealGates) so the same moto always shows the same gates.
+ */
+export function seenGates(track: Pick<TrackDef, 'gates'>, slots: number[], startsLevel: number, maxLevel: number): Set<number> {
+  const n = Math.max(0, Math.min(slots.length, Math.floor((slots.length * (startsLevel - 1)) / Math.max(1, maxLevel - 1))));
+  let seed = 0x5eed;
+  for (const g of track.gates ?? []) seed = mixSeed(seed, Math.round(g * 100) + 1);
+  seed = mixSeed(seed, slots.length);
+  const rng = seededRng(seed);
+  const order = [...slots];
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return new Set(order.slice(0, n));
+}
+
 /** A time as m:ss.s, or with more decimals (qualifying times to the thousandth). */
 export function formatTime(s: number, digits = 1): string {
   const m = Math.floor(s / 60);
