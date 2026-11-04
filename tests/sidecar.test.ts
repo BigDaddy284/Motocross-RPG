@@ -65,6 +65,8 @@ describe('the sidecar class (Boss, 1 Nov 2026)', () => {
     expect(classAtLeast(bikes, SIDECAR_CLASS, SIDECAR_CLASS)).toBe(true);
   });
 
+  // This runs the full content checks; on the CI runner that passed 5 s once Areas 6 and 7 got
+  // their own tracks (about 3 s locally), so it gets the 30 s the slow whole-day tests have (4 Nov 2026).
   it('keeps the sidecar classes last and off the starter bike (content checks)', () => {
     const raw = rawContent();
     const list = (raw.bikes as { classes: { id: string; name: string; sidecar?: boolean }[] }).classes;
@@ -75,7 +77,7 @@ describe('the sidecar class (Boss, 1 Nov 2026)', () => {
     const raw2 = rawContent();
     (raw2.bikes as { starter: { class: string } }).starter.class = SIDECAR_CLASS;
     expect(checkContent(raw2, loadManifest(), loadMaps()).errors.map((e) => e.message).join('\n')).toMatch(/starts on a solo bike/);
-  });
+  }, 30000);
 });
 
 describe('where sidecars race: Motocross tracks only (Boss, 1 Nov 2026)', () => {

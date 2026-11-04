@@ -40,6 +40,8 @@ describe('content files', () => {
     expect(errors.map((e) => e.field)).toEqual(['npcs[0].sprite', 'npcs[0].tile']);
   });
 
+  // This runs the full content checks; on the CI runner that passed 5 s once Areas 6 and 7 got
+  // their own tracks (about 3 s locally), so it gets the 30 s the slow whole-day tests have (4 Nov 2026).
   it('leaves unfinished tracks out, and stops a venue using one', () => {
     const r = raw() as ReturnType<typeof raw> & { tracks: { tracks: Record<string, unknown>[]; venues: Record<string, unknown>[] } };
     // An unfinished track from the track editor: empty, so it would fail every track check.
@@ -50,7 +52,7 @@ describe('content files', () => {
     r.tracks.venues[0].track = 'new-track';
     const { errors } = checkContent(r, manifest, maps);
     expect(errors.map(formatError)).toContain('data/tracks.json: venues[0].track: "new-track" (New track) is unfinished; mark it Ready to race in the track editor first');
-  });
+  }, 30000);
 
   it('keeps every race venue on its track type\'s venue map (one venue per track type, Boss, 30 Oct 2026)', () => {
     const r = raw() as ReturnType<typeof raw> & { tracks: { venues: Record<string, unknown>[] } };
