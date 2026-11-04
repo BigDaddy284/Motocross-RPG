@@ -240,13 +240,13 @@
     ] },
     "track_official.area2_won": { "lines": [
       { "speaker": "npc", "text": "Chain Cup champion! Well ridden, {rider}. That's one for the board in the office." },
-      { "speaker": "npc", "text": "Before you head off: Bill at Moto78 in Home Town has your 85cc Small Wheel waiting. Go and sort it out with him." },
+      { "speaker": "npc", "text": "Before you head off: Bill at Moto78 in Mountain Town has your 85cc Small Wheel waiting. Go and sort it out with him." },
       { "speaker": "npc", "text": "And keep an ear out. There's talk of the road to Beach Town opening up." }
     ] },
     "bike_shop_owner.area2_won": { "lines": [
       { "speaker": "npc", "text": "There's the Chain Cup champion! Joseph rang ahead. Your 85cc Small Wheel is ready when you are." },
       { "speaker": "npc", "text": "Take the champion's sponsor's bike, or buy a stock one. Have a look." },
-      { "speaker": "npc", "text": "Oh, and Manny Festo was in asking after you. He's got news about the road to Beach Town. You'll find him up in Mountain Town." }
+      { "speaker": "npc", "text": "Oh, and Manny Festo was in asking after you. He's got news about the road to Beach Town. You'll find him here in Mountain Town." }
     ] },
     "news.area3_road": { "lines": [
       { "speaker": "npc", "text": "Manny Festo with the news! Chain Cup champion, {rider}. Congratulations!" },
@@ -255,13 +255,13 @@
     ] },
     "track_official.area3_won": { "lines": [
       { "speaker": "npc", "text": "Spark Plug Cup champion! Well ridden, {rider}. That's one for the board in the office." },
-      { "speaker": "npc", "text": "Before you head off: Bill at Moto78 in Home Town has your 85cc Big Wheel waiting. Go and sort it out with him." },
+      { "speaker": "npc", "text": "Before you head off: Bill at Moto78 in Beach Town has your 85cc Big Wheel waiting. Go and sort it out with him." },
       { "speaker": "npc", "text": "And keep an ear out. There's talk of the road to Forest Town opening up." }
     ] },
     "bike_shop_owner.area3_won": { "lines": [
       { "speaker": "npc", "text": "There's the Spark Plug Cup champion! Joseph rang ahead. Your 85cc Big Wheel is ready when you are." },
       { "speaker": "npc", "text": "Take the champion's sponsor's bike, or buy a stock one. Have a look." },
-      { "speaker": "npc", "text": "Oh, and Manny Festo was in asking after you. He's got news about the road to Forest Town. You'll find him up in Beach Town." }
+      { "speaker": "npc", "text": "Oh, and Manny Festo was in asking after you. He's got news about the road to Forest Town. You'll find him here in Beach Town." }
     ] },
     "news.area4_road": { "lines": [
       { "speaker": "npc", "text": "Manny Festo with the news! Spark Plug Cup champion, {rider}. Congratulations!" },
@@ -270,13 +270,13 @@
     ] },
     "track_official.area4_won": { "lines": [
       { "speaker": "npc", "text": "Clutch Cup champion! Well ridden, {rider}. That's one for the board in the office." },
-      { "speaker": "npc", "text": "Before you head off: Bill at Moto78 in Home Town has your 125cc Youth waiting. Go and sort it out with him." },
+      { "speaker": "npc", "text": "Before you head off: Bill at Moto78 in Forest Town has your 125cc Youth waiting. Go and sort it out with him." },
       { "speaker": "npc", "text": "And keep an ear out. There's talk of the road to Western Works opening up." }
     ] },
     "bike_shop_owner.area4_won": { "lines": [
       { "speaker": "npc", "text": "There's the Clutch Cup champion! Joseph rang ahead. Your 125cc Youth is ready when you are." },
       { "speaker": "npc", "text": "Take the champion's sponsor's bike, or buy a stock one. Have a look." },
-      { "speaker": "npc", "text": "Oh, and Manny Festo was in asking after you. He's got news about the road to Western Works. You'll find him up in Forest Town." }
+      { "speaker": "npc", "text": "Oh, and Manny Festo was in asking after you. He's got news about the road to Western Works. You'll find him here in Forest Town." }
     ] },
     "news.area5_road": { "lines": [
       { "speaker": "npc", "text": "Manny Festo with the news! Clutch Cup champion, {rider}. Congratulations!" },
@@ -285,13 +285,13 @@
     ] },
     "track_official.area5_won": { "lines": [
       { "speaker": "npc", "text": "Gearbox Cup champion! Well ridden, {rider}. That's one for the board in the office." },
-      { "speaker": "npc", "text": "Before you head off: Bill at Moto78 in Home Town has your 125cc waiting. Go and sort it out with him." },
+      { "speaker": "npc", "text": "Before you head off: Bill at Moto78 in Western Works has your 125cc waiting. Go and sort it out with him." },
       { "speaker": "npc", "text": "And keep an ear out. There's talk of the road to Highlands opening up." }
     ] },
     "bike_shop_owner.area5_won": { "lines": [
       { "speaker": "npc", "text": "There's the Gearbox Cup champion! Joseph rang ahead. Your 125cc is ready when you are." },
       { "speaker": "npc", "text": "Take the champion's sponsor's bike, or buy a stock one. Have a look." },
-      { "speaker": "npc", "text": "Oh, and Manny Festo was in asking after you. He's got news about the road to Highlands. You'll find him up in Western Works." }
+      { "speaker": "npc", "text": "Oh, and Manny Festo was in asking after you. He's got news about the road to Highlands. You'll find him here in Western Works." }
     ] },
     "news.area6_road": { "lines": [
       { "speaker": "npc", "text": "Manny Festo with the news! Gearbox Cup champion, {rider}. Congratulations!" },
@@ -300,13 +300,13 @@
     ] },
     "track_official.area6_won": { "lines": [
       { "speaker": "npc", "text": "Handlebar Cup champion! Well ridden, {rider}. That's one for the board in the office." },
-      { "speaker": "npc", "text": "Before you head off: Bill at Moto78 in Home Town has your 250cc F waiting. Go and sort it out with him." },
+      { "speaker": "npc", "text": "Before you head off: Bill at Moto78 in Highlands has your 250cc F waiting. Go and sort it out with him." },
       { "speaker": "npc", "text": "And keep an ear out. There's talk of the road to The City opening up." }
     ] },
     "bike_shop_owner.area6_won": { "lines": [
       { "speaker": "npc", "text": "There's the Handlebar Cup champion! Joseph rang ahead. Your 250cc F is ready when you are." },
       { "speaker": "npc", "text": "Take the champion's sponsor's bike, or buy a stock one. Have a look." },
-      { "speaker": "npc", "text": "Oh, and Manny Festo was in asking after you. He's got news about the road to The City. You'll find him up in Highlands." }
+      { "speaker": "npc", "text": "Oh, and Manny Festo was in asking after you. He's got news about the road to The City. You'll find him here in Highlands." }
     ] },
     "news.area7_road": { "lines": [
       { "speaker": "npc", "text": "Manny Festo with the news! Handlebar Cup champion, {rider}. Congratulations!" },
@@ -315,13 +315,13 @@
     ] },
     "track_official.area7_won": { "lines": [
       { "speaker": "npc", "text": "Exhaust Cup champion! Well ridden, {rider}. That's one for the board in the office." },
-      { "speaker": "npc", "text": "Before you head off: Bill at Moto78 in Home Town has your 450cc F waiting. Go and sort it out with him." },
+      { "speaker": "npc", "text": "Before you head off: Bill at Moto78 in The City has your 450cc F waiting. Go and sort it out with him." },
       { "speaker": "npc", "text": "And keep an ear out. There's talk of the road to Capital opening up." }
     ] },
     "bike_shop_owner.area7_won": { "lines": [
       { "speaker": "npc", "text": "There's the Exhaust Cup champion! Joseph rang ahead. Your 450cc F is ready when you are." },
       { "speaker": "npc", "text": "Take the champion's sponsor's bike, or buy a stock one. Have a look." },
-      { "speaker": "npc", "text": "Oh, and Manny Festo was in asking after you. He's got news about the road to Capital. You'll find him up in The City." }
+      { "speaker": "npc", "text": "Oh, and Manny Festo was in asking after you. He's got news about the road to Capital. You'll find him here in The City." }
     ] },
     "news.area8_road": { "lines": [
       { "speaker": "npc", "text": "Manny Festo with the news! Exhaust Cup champion, {rider}. Congratulations!" },

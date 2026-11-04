@@ -134,6 +134,8 @@ export class WorldScene extends Phaser.Scene {
   private goalMaps: string[] = [];
   /** The news NPCs' bubbles (Manny Festo), kept apart from the story markers. */
   private newsMarks!: Waymarks;
+  /** NPCs here that the story marker is over: their news bubble stays off so they don't wear two "!" (Boss, 4 Nov 2026). */
+  private storyNpcs = new Set<string>();
   /** The tutorial marker the screen-edge arrow points to while it is off screen, in world pixels. */
   private markPoint: { x: number; y: number; label: string; sub?: string } | null = null;
   private markEarning = false;
@@ -981,7 +983,7 @@ export class WorldScene extends Phaser.Scene {
   private refreshNews(): void {
     const marks: Mark[] = this.npcs
       // Like their talk, the bubble waits until the opening chain is done (GDD 4.2).
-      .filter((n) => n.placement.npc.news && (!n.placement.npc.quietUntil || this.save.flags[n.placement.npc.quietUntil]))
+      .filter((n) => n.placement.npc.news && !this.storyNpcs.has(n.placement.npc.id) && (!n.placement.npc.quietUntil || this.save.flags[n.placement.npc.quietUntil]))
       .map((n) => ({ kind: 'news', x: n.character.sprite.x, y: n.character.sprite.y, fresh: !this.save.flags[newsRead(this.talkRule(n.placement.npc)?.dialogue ?? n.placement.npc.dialogue)] }));
     this.newsMarks.show(marks);
   }
@@ -999,6 +1001,8 @@ export class WorldScene extends Phaser.Scene {
     this.markEarning = earning(services.content, career);
     const goals = storyGoals(services.content, services.maps, career, this.save.flags, this.save.van ?? null, this.map.id);
     this.goalMaps = goals.map((g) => g.map);
+    this.storyNpcs = new Set(goals.flatMap((g) => (g.map === this.map.id && g.kind === 'npc' ? [g.npc] : [])));
+    if (this.newsMarks) this.refreshNews();
     if (!goals.length) return;
     const ts = this.map.tileSize;
     const nearest = <P extends { x: number; y: number }>(points: P[]) => {

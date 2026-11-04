@@ -32,9 +32,12 @@ describe('the road to the next area: Joseph, Bill, then Manny (Boss, 2 Nov 2026)
       expect(afterTask(content.story, f)?.talk).toBe('npc.track_official');
       f[roadFlag(n + 1, 'told')] = true;
       expect(roadWaiting(f)).toBeNull();
-      // Bill about the bike.
-      expect(rule('npc.bike_shop_owner', f)?.sets).toBe(roadFlag(n + 1, 'bill'));
-      expect(afterTask(content.story, f)?.talk).toBe('npc.bike_shop_owner');
+      // Bill about the bike, at Moto78 in the town just won (Boss, 4 Nov 2026: "It should be the area 2 bill").
+      const bill = n === 1 ? 'npc.bike_shop_owner' : `npc.a${n}.bike_shop_owner`;
+      for (const other of content.npcs.filter((x) => x.name === 'Bill Rothon' && x.id !== bill)) expect(rule(other.id, f)?.sets, other.id).toBeUndefined();
+      expect(rule(bill, f)?.sets).toBe(roadFlag(n + 1, 'bill'));
+      expect(afterTask(content.story, f)?.talk).toBe(bill);
+      expect(content.dialogue[rule('npc.track_official', { ...f, [roadFlag(n + 1, 'told')]: false })!.dialogue!].lines.map((l) => l.text).join(' ')).toContain(`Moto78 in ${towns[n - 1].name}`);
       f[roadFlag(n + 1, 'bill')] = true;
       // Manny in the town just won opens the road.
       const manny = content.npcs.find((x) => x.name === 'Manny Festo' && x.map === towns[n - 1].map)!;
@@ -42,7 +45,7 @@ describe('the road to the next area: Joseph, Bill, then Manny (Boss, 2 Nov 2026)
       expect(afterTask(content.story, f)?.talk).toBe(manny.id);
       f[areaFlag(n + 1)] = true;
       expect(rule(manny.id, f)?.sets).toBeUndefined();
-      expect(rule('npc.bike_shop_owner', f)?.sets).toBeUndefined();
+      expect(rule(bill, f)?.sets).toBeUndefined();
     });
   }
 
@@ -53,5 +56,25 @@ describe('the road to the next area: Joseph, Bill, then Manny (Boss, 2 Nov 2026)
     expect(storyGoals(content, maps, c, f, null, 'venue-supercross')).toMatchObject([{ kind: 'npc', map: 'venue-supercross', npc: 'npc.track_official_riverside' }]);
     expect(storyGoals(content, maps, c, f, null, 'venue-enduro')).toMatchObject([{ map: 'venue-enduro' }]);
     expect(storyGoals(content, maps, c, f)).toMatchObject([{ map: 'venue-motocross' }]);
+  });
+});
+
+describe('Manny moves on with the road (Boss, 4 Nov 2026)', () => {
+  const towns = content.areas.areas;
+  it('leaves each town once he has opened the road out, and waits by the next roadblock in the next town', () => {
+    for (const a of towns) {
+      const manny = content.npcs.find((x) => x.name === 'Manny Festo' && x.map === a.map)!;
+      const out = a.n < 8 ? areaFlag(a.n + 1) : 'trophy.area8.main';
+      if (a.n < 8) expect(manny.hideIf, manny.id).toBe(out);
+      if (a.n === 1) continue;
+      const map = maps.get(a.map)!;
+      const ts = map.tileSize;
+      const block = map.objects.find((o) => o.type === 'blocker' && o.props.cleared_by === out)!;
+      expect(block, a.map).toBeDefined();
+      const [x, y] = manny.tile!;
+      const dx = Math.max(block.x / ts - x, 0, x - (block.x + block.w) / ts + 1);
+      const dy = Math.max(block.y / ts - y, 0, y - (block.y + block.h) / ts + 1);
+      expect(dx + dy, a.map).toBeLessThanOrEqual(5);
+    }
   });
 });

@@ -64,7 +64,7 @@ describe('bike classes (GDD 6.4, Spec 12.1, 14.2)', () => {
     const flags: Record<string, boolean> = {};
     const main = championships.championships.find((c) => c.id === 'area1.main')!;
     expect(main.milestone).toBe('65cc');
-    expect(shops.classDealer).toBe('shop.bike');
+    expect(shops.classDealers).toContain('shop.bike');
     enter(career, rc, main, 7);
     const win = finishChampionship(career, flags, main, [25, 25, 25, 25, 25, 25]);
     expect(win.position).toBe(1);

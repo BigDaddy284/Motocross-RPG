@@ -44,8 +44,9 @@ describe('area release cap (Boss, 1 Nov 2026)', () => {
     expect(openReleasedAreas({ ...content.areas, release: { lastArea: 3 } }, content.championships, career, flags)).toEqual([]);
   });
 
-  it("has Manny tell you Area 3 is coming in February 2027 once Area 2 is won, in Home Town and Mountain Town", () => {
-    for (const id of ['npc.news', 'npc.a2.news']) {
+  it("has Manny tell you Area 3 is coming in February 2027 once Area 2 is won, in Mountain Town (he has left Home Town by then: Boss, 4 Nov 2026)", () => {
+    expect(content.npcs.find((n) => n.id === 'npc.news')!.hideIf).toBe('area.2.open');
+    for (const id of ['npc.a2.news']) {
       const npc = content.npcs.find((n) => n.id === id)!;
       expect(npc.talk?.find((t) => t.if === 'trophy.area2.main')?.dialogue, id).toBe('news.area3_feb2027');
     }

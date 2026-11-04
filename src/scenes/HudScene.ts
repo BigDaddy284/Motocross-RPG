@@ -1303,7 +1303,7 @@ export class HudScene extends Phaser.Scene {
     if (shop.fitFee !== undefined) tabs.push(['fit', 'Fit a spare']);
     if (shop.tools) tabs.push(['tools', 'Tool sets']);
     // The class dealer (Bill at Moto78): a new class's bike, once its milestone championship is won.
-    const milestone = shops.classDealer === shop.id ? milestoneStatus(bikes, services.content.skills, career, this.flags) : { kind: 'none' as const };
+    const milestone = shops.classDealers?.includes(shop.id) ? milestoneStatus(bikes, services.content.skills, career, this.flags) : { kind: 'none' as const };
     if (milestone.kind !== 'none') {
       tabs.push(['newbike', 'New bike']);
       if (tab === 'buy' && milestone.kind === 'ready' && page === 0) tab = 'newbike';

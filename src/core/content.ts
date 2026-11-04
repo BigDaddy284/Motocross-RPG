@@ -54,6 +54,8 @@ export interface NpcDef {
   news?: boolean;
   /** The NPC is only there once this flag is set (Big Pete at the tracks once you've met him in Beach Town: Boss, 1 Nov 2026). */
   showIf?: string;
+  /** Off the map once this flag is set: Manny leaves a town once he has opened the road out of it (Boss, 4 Nov 2026). */
+  hideIf?: string;
   /**
    * A trainer at the track (Big Pete, Boss, 1 Nov 2026): talking to them offers a coached practice at
    * this venue, costing feeTimes the venue's practice fee and giving xpTimes the practice XP.
@@ -143,7 +145,7 @@ export const NPCS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['map', 'tile', 'facing', 'talk', 'quietUntil', 'rider', 'news', 'showIf', 'trainer', 'sidecar', 'booth'],
+        optional: ['map', 'tile', 'facing', 'talk', 'quietUntil', 'rider', 'news', 'showIf', 'hideIf', 'trainer', 'sidecar', 'booth'],
         fields: {
           id: { type: 'string', pattern: ID },
           name: { type: 'string', nonEmpty: true },
@@ -160,6 +162,7 @@ export const NPCS_SCHEMA: Schema = {
           rider: { type: 'string', pattern: ID },
           news: { type: 'boolean' },
           showIf: { type: 'string', pattern: ID },
+          hideIf: { type: 'string', pattern: ID },
           trainer: { type: 'object', fields: { feeTimes: { type: 'number', min: 1 }, xpTimes: { type: 'number', min: 1 } } },
           sidecar: PASSENGER_SCHEMA,
           booth: { type: 'array', items: { type: 'number', integer: true, min: 0 }, minItems: 4, maxItems: 4 },
@@ -634,8 +637,8 @@ export interface NpcPlacement {
 export function npcsOnMap(content: Content, map: BakedMap, flags?: Record<string, boolean>): NpcPlacement[] {
   const byId = new Map(content.npcs.map((n) => [n.id, n]));
   const out: NpcPlacement[] = [];
-  // With the save's flags, an NPC with showIf is left off until its flag is set; without them, every NPC (the content checks).
-  const here = (n: NpcDef) => !flags || !n.showIf || !!flags[n.showIf];
+  // With the save's flags, an NPC with showIf is left off until its flag is set, and one with hideIf once its flag is set; without them, every NPC (the content checks).
+  const here = (n: NpcDef) => !flags || ((!n.showIf || !!flags[n.showIf]) && (!n.hideIf || !flags[n.hideIf]));
   for (const n of content.npcs) if (n.map === map.id && n.tile && here(n)) out.push({ npc: n, x: n.tile[0], y: n.tile[1], facing: n.facing ?? 'down' });
   for (const o of map.objects) {
     if (o.type !== 'npc') continue;
