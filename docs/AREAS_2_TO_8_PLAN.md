@@ -252,7 +252,7 @@ The machine stays in the Industrial Zone unit in Area 1, where it's already buil
 - **Rider training:** repetition laps on the hill track (Consistency).
 - **New at the Area 1 tool shop:** Pro engine and Pro suspension tools.
 - **Venues:** hill MX, large endurance course, a supercross venue, Enduro Sprint *(placeholders)*.
-- **House:** Farmhouse with land (£400,000, needs three badges), with its own private practice track.
+- **House:** Farmhouse with land (£400,000), with its own private practice track. No badge condition (Boss, 5 Nov 2026: "drop the badge requirement").
 - **Motor:** Motor 6, MX Sports Motorhome Long.
 
 ### Area 7: The City (stadium and indoor arena)
