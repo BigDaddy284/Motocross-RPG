@@ -328,20 +328,10 @@
       { "speaker": "npc", "text": "And here's the big one: the road to Capital is open, as of right now. They're lifting the barrier as we speak." },
       { "speaker": "npc", "text": "Pick Capital under Areas when you head out. I'll see you up there." }
     ] },
-    "news.area2_dec2026": { "lines": [
-      { "speaker": "npc", "text": "Manny Festo, at your service. I keep everyone up to date on what's coming next." },
-      { "speaker": "npc", "text": "Mountain Town is under construction right now. It's due to be ready in December 2026." },
-      { "speaker": "npc", "text": "Come back and see me again to check for more updates." }
-    ] },
     "news.area2_soon": { "lines": [
       { "speaker": "npc", "text": "Manny Festo, at your service. I keep everyone up to date on what's coming next." },
-      { "speaker": "npc", "text": "The road to Mountain Town is still being worked on. It should be open by the time you win the Sprocket Cup." },
-      { "speaker": "npc", "text": "Come back and see me again to check for more updates." }
-    ] },
-    "news.area3_feb2027": { "lines": [
-      { "speaker": "npc", "text": "Manny Festo with the latest. Chain Cup champion, eh? Nice work." },
-      { "speaker": "npc", "text": "Beach Town is still being built. It's due to open in February 2027." },
-      { "speaker": "npc", "text": "Keep racing in the meantime, and come back and see me for more updates." }
+      { "speaker": "npc", "text": "The road to Mountain Town stays shut until you win the Sprocket Cup. Win it and the barrier comes up." },
+      { "speaker": "npc", "text": "Come back and see me when you've won it." }
     ] },
     "news.a2.welcome": { "lines": [
       { "speaker": "npc", "text": "Manny Festo! Told you I'd see you here. Welcome to Mountain Town: clay, rain and more rain." },
