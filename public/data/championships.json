@@ -3,8 +3,8 @@
   "championships": [
     {
       "id": "area1.local_champion",
-      "name": "Local Champion Championship",
-      "short": "Local Champion",
+      "name": "Home Town Local Champion",
+      "short": "Home Town Local",
       "class": "50cc",
       "field": "area1.local",
       "size": 15,
@@ -50,7 +50,7 @@
     },
     {
       "id": "area2.local_champion",
-      "name": "Mountain Town Local Champion Championship",
+      "name": "Mountain Town Local Champion",
       "short": "Mountain Town Local",
       "class": "65cc",
       "field": "area2.local",
@@ -97,8 +97,8 @@
     },
     {
       "id": "area3.mx",
-      "name": "Beach Town MX Series",
-      "short": "Beach Town MX",
+      "name": "Sandstorm MX Championship",
+      "short": "Sandstorm MX",
       "class": "85cc-small",
       "field": "area3.local",
       "drawFrom": ["area1.local", "area2.local", "area3.local"],
@@ -109,7 +109,7 @@
       "purseTimes": 2.6,
       "needs": ["area3.intro_done"],
       "rewards": [
-        { "money": 1000, "flag": "trophy.area3.mx", "title": "the Beach Town MX Series trophy" },
+        { "money": 1000, "flag": "trophy.area3.mx", "title": "the Sandstorm MX Championship trophy" },
         { "money": 500 },
         { "money": 250 }
       ],
@@ -117,8 +117,8 @@
     },
     {
       "id": "area3.sx",
-      "name": "Beach Town SX Series",
-      "short": "Beach Town SX",
+      "name": "Seafront SX Series",
+      "short": "Seafront SX",
       "class": "85cc-small",
       "field": "area3.local",
       "drawFrom": ["area1.local", "area2.local", "area3.local"],
@@ -129,7 +129,7 @@
       "purseTimes": 2.6,
       "needs": ["area3.intro_done"],
       "rewards": [
-        { "money": 1000, "flag": "trophy.area3.sx", "title": "the Beach Town SX Series trophy" },
+        { "money": 1000, "flag": "trophy.area3.sx", "title": "the Seafront SX Series trophy" },
         { "money": 500 },
         { "money": 250 }
       ],
@@ -137,8 +137,8 @@
     },
     {
       "id": "area3.enduro",
-      "name": "Beach Town Enduro Series",
-      "short": "Beach Town Enduro",
+      "name": "Driftwood EN Championship",
+      "short": "Driftwood EN",
       "class": "85cc-small",
       "field": "area3.local",
       "drawFrom": ["area1.local", "area2.local", "area3.local"],
@@ -149,7 +149,7 @@
       "purseTimes": 2.6,
       "needs": ["area3.intro_done"],
       "rewards": [
-        { "money": 1000, "flag": "trophy.area3.enduro", "title": "the Beach Town Enduro Series trophy" },
+        { "money": 1000, "flag": "trophy.area3.enduro", "title": "the Driftwood EN Championship trophy" },
         { "money": 500 },
         { "money": 250 }
       ],
@@ -157,8 +157,8 @@
     },
     {
       "id": "area3.sidecar",
-      "name": "Beach Town Sidecar Series",
-      "short": "Beach Town Sidecars",
+      "name": "Dune Run SCMX Championship",
+      "short": "Dune Run SCMX",
       "class": "sidecar",
       "field": "area3.local",
       "drawFrom": ["area1.local", "area2.local", "area3.local"],
@@ -169,17 +169,17 @@
       "purseTimes": 1.8,
       "needs": ["met.ray", "area3.intro_done"],
       "rewards": [
-        { "money": 500, "flag": "trophy.area3.sidecar", "title": "the Beach Town Sidecar Series trophy" },
+        { "money": 500, "flag": "trophy.area3.sidecar", "title": "the Dune Run SCMX Championship trophy" },
         { "money": 250 },
         { "money": 125 }
       ],
       "replay": 0.5,
-      "won": "You and Ray Crispy win the Beach Town Sidecar Series! Ray shares the prize with you, and his passenger seat has a winner in it at last.",
+      "won": "You and Ray Crispy win the Dune Run SCMX Championship! Ray shares the prize with you, and his passenger seat has a winner in it at last.",
       "sidecar": true
     },
     {
       "id": "area3.local_champion",
-      "name": "Beach Town Local Champion Championship",
+      "name": "Beach Town Local Champion",
       "short": "Beach Town Local",
       "class": "85cc-small",
       "field": "area3.local",
@@ -226,7 +226,7 @@
     },
     {
       "id": "area4.local_champion",
-      "name": "Forest Town Local Champion Championship",
+      "name": "Forest Town Local Champion",
       "short": "Forest Town Local",
       "class": "85cc-big",
       "field": "area4.local",
@@ -273,8 +273,8 @@
     },
     {
       "id": "area5.sprint",
-      "name": "Western Works Sprint Enduro Series",
-      "short": "Western Works Sprint Enduro",
+      "name": "Ironworks SE Championship",
+      "short": "Ironworks SE",
       "class": "125cc-youth",
       "field": "area5.local",
       "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local"],
@@ -285,7 +285,7 @@
       "purseTimes": 2.6,
       "needs": ["area5.intro_done"],
       "rewards": [
-        { "money": 2600, "flag": "trophy.area5.sprint", "title": "the Western Works Sprint Enduro Series trophy" },
+        { "money": 2600, "flag": "trophy.area5.sprint", "title": "the Ironworks SE Championship trophy" },
         { "money": 1300 },
         { "money": 650 }
       ],
@@ -293,7 +293,7 @@
     },
     {
       "id": "area5.local_champion",
-      "name": "Western Works Local Champion Championship",
+      "name": "Western Works Local Champion",
       "short": "Western Works Local",
       "class": "125cc-youth",
       "field": "area5.local",
@@ -340,8 +340,8 @@
     },
     {
       "id": "area6.mx",
-      "name": "Highlands MX Series",
-      "short": "Highlands MX",
+      "name": "Highland Clash MX Championship",
+      "short": "Highland Clash MX",
       "class": "125cc",
       "field": "area6.local",
       "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local"],
@@ -352,7 +352,7 @@
       "purseTimes": 2.6,
       "needs": ["area6.intro_done"],
       "rewards": [
-        { "money": 4000, "flag": "trophy.area6.mx", "title": "the Highlands MX Series trophy" },
+        { "money": 4000, "flag": "trophy.area6.mx", "title": "the Highland Clash MX Championship trophy" },
         { "money": 2000 },
         { "money": 1000 }
       ],
@@ -360,8 +360,8 @@
     },
     {
       "id": "area6.sx",
-      "name": "Highlands SX Series",
-      "short": "Highlands SX",
+      "name": "Thunder Glen SX Series",
+      "short": "Thunder Glen SX",
       "class": "125cc",
       "field": "area6.local",
       "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local"],
@@ -372,7 +372,7 @@
       "purseTimes": 2.6,
       "needs": ["area6.intro_done"],
       "rewards": [
-        { "money": 4000, "flag": "trophy.area6.sx", "title": "the Highlands SX Series trophy" },
+        { "money": 4000, "flag": "trophy.area6.sx", "title": "the Thunder Glen SX Series trophy" },
         { "money": 2000 },
         { "money": 1000 }
       ],
@@ -380,8 +380,8 @@
     },
     {
       "id": "area6.enduro",
-      "name": "Highlands Enduro Series",
-      "short": "Highlands Enduro",
+      "name": "Moorland EN Championship",
+      "short": "Moorland EN",
       "class": "125cc",
       "field": "area6.local",
       "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local"],
@@ -392,7 +392,7 @@
       "purseTimes": 2.6,
       "needs": ["area6.intro_done"],
       "rewards": [
-        { "money": 4000, "flag": "trophy.area6.enduro", "title": "the Highlands Enduro Series trophy" },
+        { "money": 4000, "flag": "trophy.area6.enduro", "title": "the Moorland EN Championship trophy" },
         { "money": 2000 },
         { "money": 1000 }
       ],
@@ -400,8 +400,8 @@
     },
     {
       "id": "area6.sidecar",
-      "name": "Highlands Sidecar Series",
-      "short": "Highlands Sidecars",
+      "name": "Ben Mor SCMX Championship",
+      "short": "Ben Mor SCMX",
       "class": "sidecar",
       "field": "area6.local",
       "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local"],
@@ -412,18 +412,18 @@
       "purseTimes": 1.8,
       "needs": ["met.ray", "area6.intro_done"],
       "rewards": [
-        { "money": 2000, "flag": "trophy.area6.sidecar", "title": "the Highlands Sidecar Series trophy" },
+        { "money": 2000, "flag": "trophy.area6.sidecar", "title": "the Ben Mor SCMX Championship trophy" },
         { "money": 1000 },
         { "money": 500 }
       ],
       "replay": 0.5,
-      "won": "You and Ray Crispy win the Highlands Sidecar Series! Ray shares the prize with you, and his passenger seat has a winner in it at last.",
+      "won": "You and Ray Crispy win the Ben Mor SCMX Championship! Ray shares the prize with you, and his passenger seat has a winner in it at last.",
       "sidecar": true
     },
     {
       "id": "area6.sprint",
-      "name": "Highlands Sprint Enduro Series",
-      "short": "Highlands Sprint Enduro",
+      "name": "Glen Sprint SE Championship",
+      "short": "Glen Sprint SE",
       "class": "125cc",
       "field": "area6.local",
       "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local"],
@@ -434,7 +434,7 @@
       "purseTimes": 2.6,
       "needs": ["area6.intro_done"],
       "rewards": [
-        { "money": 4000, "flag": "trophy.area6.sprint", "title": "the Highlands Sprint Enduro Series trophy" },
+        { "money": 4000, "flag": "trophy.area6.sprint", "title": "the Glen Sprint SE Championship trophy" },
         { "money": 2000 },
         { "money": 1000 }
       ],
@@ -442,7 +442,7 @@
     },
     {
       "id": "area6.local_champion",
-      "name": "Highlands Local Champion Championship",
+      "name": "Highlands Local Champion",
       "short": "Highlands Local",
       "class": "125cc",
       "field": "area6.local",
@@ -489,8 +489,8 @@
     },
     {
       "id": "area7.mx",
-      "name": "The City MX Series",
-      "short": "The City MX",
+      "name": "Seven Towns MX Championship",
+      "short": "Seven Towns MX",
       "class": "250f",
       "field": "area7.local",
       "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local", "area7.local"],
@@ -501,7 +501,7 @@
       "purseTimes": 2.6,
       "needs": ["area7.intro_done"],
       "rewards": [
-        { "money": 6400, "flag": "trophy.area7.mx", "title": "the The City MX Series trophy" },
+        { "money": 6400, "flag": "trophy.area7.mx", "title": "the Seven Towns MX Championship trophy" },
         { "money": 3200 },
         { "money": 1600 }
       ],
@@ -509,8 +509,8 @@
     },
     {
       "id": "area7.sx",
-      "name": "The City SX Series",
-      "short": "The City SX",
+      "name": "Neon Nights SX Series",
+      "short": "Neon Nights SX",
       "class": "250f",
       "field": "area7.local",
       "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local", "area7.local"],
@@ -521,7 +521,7 @@
       "purseTimes": 2.6,
       "needs": ["area7.intro_done"],
       "rewards": [
-        { "money": 6400, "flag": "trophy.area7.sx", "title": "the The City SX Series trophy" },
+        { "money": 6400, "flag": "trophy.area7.sx", "title": "the Neon Nights SX Series trophy" },
         { "money": 3200 },
         { "money": 1600 }
       ],
@@ -529,8 +529,8 @@
     },
     {
       "id": "area7.enduro",
-      "name": "The City Enduro Series",
-      "short": "The City Enduro",
+      "name": "Long Road EN Championship",
+      "short": "Long Road EN",
       "class": "250f",
       "field": "area7.local",
       "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local", "area7.local"],
@@ -541,7 +541,7 @@
       "purseTimes": 2.6,
       "needs": ["area7.intro_done"],
       "rewards": [
-        { "money": 6400, "flag": "trophy.area7.enduro", "title": "the The City Enduro Series trophy" },
+        { "money": 6400, "flag": "trophy.area7.enduro", "title": "the Long Road EN Championship trophy" },
         { "money": 3200 },
         { "money": 1600 }
       ],
@@ -549,8 +549,8 @@
     },
     {
       "id": "area7.sidecar",
-      "name": "The City Sidecar Series",
-      "short": "The City Sidecars",
+      "name": "Metro Derby SCMX Championship",
+      "short": "Metro Derby SCMX",
       "class": "sidecar",
       "field": "area7.local",
       "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local", "area7.local"],
@@ -561,18 +561,18 @@
       "purseTimes": 1.8,
       "needs": ["met.ray", "area7.intro_done"],
       "rewards": [
-        { "money": 3200, "flag": "trophy.area7.sidecar", "title": "the The City Sidecar Series trophy" },
+        { "money": 3200, "flag": "trophy.area7.sidecar", "title": "the Metro Derby SCMX Championship trophy" },
         { "money": 1600 },
         { "money": 800 }
       ],
       "replay": 0.5,
-      "won": "You and Ray Crispy win the The City Sidecar Series! Ray shares the prize with you, and his passenger seat has a winner in it at last.",
+      "won": "You and Ray Crispy win the Metro Derby SCMX Championship! Ray shares the prize with you, and his passenger seat has a winner in it at last.",
       "sidecar": true
     },
     {
       "id": "area7.sprint",
-      "name": "The City Sprint Enduro Series",
-      "short": "The City Sprint Enduro",
+      "name": "City Limits SE Championship",
+      "short": "City Limits SE",
       "class": "250f",
       "field": "area7.local",
       "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local", "area7.local"],
@@ -583,7 +583,7 @@
       "purseTimes": 2.6,
       "needs": ["area7.intro_done"],
       "rewards": [
-        { "money": 6400, "flag": "trophy.area7.sprint", "title": "the The City Sprint Enduro Series trophy" },
+        { "money": 6400, "flag": "trophy.area7.sprint", "title": "the City Limits SE Championship trophy" },
         { "money": 3200 },
         { "money": 1600 }
       ],
@@ -591,8 +591,8 @@
     },
     {
       "id": "area7.endurocross",
-      "name": "The City EnduroCross Series",
-      "short": "The City EnduroCross",
+      "name": "Warehouse Wars EX Series",
+      "short": "Warehouse Wars EX",
       "class": "250f",
       "field": "area7.local",
       "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local", "area7.local"],
@@ -603,7 +603,7 @@
       "purseTimes": 2.6,
       "needs": ["area7.intro_done"],
       "rewards": [
-        { "money": 6400, "flag": "trophy.area7.endurocross", "title": "the The City EnduroCross Series trophy" },
+        { "money": 6400, "flag": "trophy.area7.endurocross", "title": "the Warehouse Wars EX Series trophy" },
         { "money": 3200 },
         { "money": 1600 }
       ],
@@ -611,7 +611,7 @@
     },
     {
       "id": "area7.local_champion",
-      "name": "The City Local Champion Championship",
+      "name": "The City Local Champion",
       "short": "The City Local",
       "class": "250f",
       "field": "area7.local",
@@ -658,8 +658,8 @@
     },
     {
       "id": "area8.mx",
-      "name": "Capital MX Series",
-      "short": "Capital MX",
+      "name": "National Crown MX Championship",
+      "short": "National Crown MX",
       "class": "450f",
       "field": "area8.local",
       "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local", "area7.local", "area8.local"],
@@ -670,7 +670,7 @@
       "purseTimes": 2.6,
       "needs": ["area8.intro_done"],
       "rewards": [
-        { "money": 10000, "flag": "trophy.area8.mx", "title": "the Capital MX Series trophy" },
+        { "money": 10000, "flag": "trophy.area8.mx", "title": "the National Crown MX Championship trophy" },
         { "money": 5000 },
         { "money": 2500 }
       ],
@@ -678,8 +678,8 @@
     },
     {
       "id": "area8.sx",
-      "name": "Capital SX Series",
-      "short": "Capital SX",
+      "name": "Supernova SX Series",
+      "short": "Supernova SX",
       "class": "450f",
       "field": "area8.local",
       "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local", "area7.local", "area8.local"],
@@ -690,7 +690,7 @@
       "purseTimes": 2.6,
       "needs": ["area8.intro_done"],
       "rewards": [
-        { "money": 10000, "flag": "trophy.area8.sx", "title": "the Capital SX Series trophy" },
+        { "money": 10000, "flag": "trophy.area8.sx", "title": "the Supernova SX Series trophy" },
         { "money": 5000 },
         { "money": 2500 }
       ],
@@ -698,8 +698,8 @@
     },
     {
       "id": "area8.enduro",
-      "name": "Capital Enduro Series",
-      "short": "Capital Enduro",
+      "name": "Kingdom Trail EN Championship",
+      "short": "Kingdom Trail EN",
       "class": "450f",
       "field": "area8.local",
       "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local", "area7.local", "area8.local"],
@@ -710,7 +710,7 @@
       "purseTimes": 2.6,
       "needs": ["area8.intro_done"],
       "rewards": [
-        { "money": 10000, "flag": "trophy.area8.enduro", "title": "the Capital Enduro Series trophy" },
+        { "money": 10000, "flag": "trophy.area8.enduro", "title": "the Kingdom Trail EN Championship trophy" },
         { "money": 5000 },
         { "money": 2500 }
       ],
@@ -718,8 +718,8 @@
     },
     {
       "id": "area8.sidecar",
-      "name": "Capital Sidecar Series",
-      "short": "Capital Sidecars",
+      "name": "Royal Classic SCMX Championship",
+      "short": "Royal Classic SCMX",
       "class": "sidecar",
       "field": "area8.local",
       "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local", "area7.local", "area8.local"],
@@ -730,18 +730,18 @@
       "purseTimes": 1.8,
       "needs": ["met.ray", "area8.intro_done"],
       "rewards": [
-        { "money": 5000, "flag": "trophy.area8.sidecar", "title": "the Capital Sidecar Series trophy" },
+        { "money": 5000, "flag": "trophy.area8.sidecar", "title": "the Royal Classic SCMX Championship trophy" },
         { "money": 2500 },
         { "money": 1250 }
       ],
       "replay": 0.5,
-      "won": "You and Ray Crispy win the Capital Sidecar Series! Ray shares the prize with you, and his passenger seat has a winner in it at last.",
+      "won": "You and Ray Crispy win the Royal Classic SCMX Championship! Ray shares the prize with you, and his passenger seat has a winner in it at last.",
       "sidecar": true
     },
     {
       "id": "area8.sprint",
-      "name": "Capital Sprint Enduro Series",
-      "short": "Capital Sprint Enduro",
+      "name": "Royal Park SE Championship",
+      "short": "Royal Park SE",
       "class": "450f",
       "field": "area8.local",
       "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local", "area7.local", "area8.local"],
@@ -752,7 +752,7 @@
       "purseTimes": 2.6,
       "needs": ["area8.intro_done"],
       "rewards": [
-        { "money": 10000, "flag": "trophy.area8.sprint", "title": "the Capital Sprint Enduro Series trophy" },
+        { "money": 10000, "flag": "trophy.area8.sprint", "title": "the Royal Park SE Championship trophy" },
         { "money": 5000 },
         { "money": 2500 }
       ],
@@ -760,8 +760,8 @@
     },
     {
       "id": "area8.endurocross",
-      "name": "Capital EnduroCross Series",
-      "short": "Capital EnduroCross",
+      "name": "Dome Gauntlet EX Series",
+      "short": "Dome Gauntlet EX",
       "class": "450f",
       "field": "area8.local",
       "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local", "area7.local", "area8.local"],
@@ -772,7 +772,7 @@
       "purseTimes": 2.6,
       "needs": ["area8.intro_done"],
       "rewards": [
-        { "money": 10000, "flag": "trophy.area8.endurocross", "title": "the Capital EnduroCross Series trophy" },
+        { "money": 10000, "flag": "trophy.area8.endurocross", "title": "the Dome Gauntlet EX Series trophy" },
         { "money": 5000 },
         { "money": 2500 }
       ],
@@ -780,7 +780,7 @@
     },
     {
       "id": "area8.local_champion",
-      "name": "Capital Local Champion Championship",
+      "name": "Capital Local Champion",
       "short": "Capital Local",
       "class": "450f",
       "field": "area8.local",
@@ -844,6 +844,93 @@
       ],
       "replay": 0.5,
       "won": "Legend! You have won every MX and SX track in the land in one championship."
+    },
+    {
+      "id": "vets.40",
+      "name": "Old Guard SX Series",
+      "short": "Old Guard SX",
+      "class": "vets-40",
+      "field": "area8.local",
+      "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local", "area7.local", "area8.local"],
+      "size": 15,
+      "buff": 0.05,
+      "rounds": ["venue-riverside", "venue-a2-sx", "venue-a3-sx", "venue-a4-sx", "venue-a5-sx", "venue-a6-sx", "venue-a7-sx", "venue-a8-sx", "venue-riverside", "venue-a4-sx", "venue-a6-sx", "venue-a8-sx"],
+      "entryTimes": 2.5,
+      "purseTimes": 3.2,
+      "needs": ["class.vets-40"],
+      "milestone": "vets-50",
+      "rewards": [
+        { "money": 12000, "flag": "trophy.vets40", "title": "the Old Guard SX Series trophy" },
+        { "money": 6000 },
+        { "money": 3000 }
+      ],
+      "replay": 0.5,
+      "won": "Old Guard SX Series champion! Collect your 50+ Vets from Bill at Moto78 in Home Town once you reach Rider Ability 90."
+    },
+    {
+      "id": "vets.50",
+      "name": "Silver Trail EN Championship",
+      "short": "Silver Trail EN",
+      "class": "vets-50",
+      "field": "area8.local",
+      "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local", "area7.local", "area8.local"],
+      "size": 15,
+      "buff": 0.05,
+      "rounds": ["venue-longmoor", "venue-a2-enduro", "venue-a3-enduro", "venue-a4-enduro", "venue-a5-enduro", "venue-a6-enduro", "venue-a7-enduro", "venue-a8-enduro", "venue-a2-enduro", "venue-a5-enduro", "venue-a6-enduro", "venue-a8-enduro"],
+      "entryTimes": 2.5,
+      "purseTimes": 3.2,
+      "needs": ["class.vets-50"],
+      "milestone": "vets-60",
+      "rewards": [
+        { "money": 12000, "flag": "trophy.vets50", "title": "the Silver Trail EN Championship trophy" },
+        { "money": 6000 },
+        { "money": 3000 }
+      ],
+      "replay": 0.5,
+      "won": "Silver Trail EN Championship winner! Collect your 60+ Vets from Bill at Moto78 in Home Town once you reach Rider Ability 95."
+    },
+    {
+      "id": "vets.60",
+      "name": "Evergreen MX Championship",
+      "short": "Evergreen MX",
+      "class": "vets-60",
+      "field": "area8.local",
+      "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local", "area7.local", "area8.local"],
+      "size": 15,
+      "buff": 0.05,
+      "rounds": ["venue-farmland", "venue-a2-mx", "venue-a3-mx", "venue-a4-mx", "venue-a5-mx", "venue-a6-mx", "venue-a7-mx", "venue-a8-mx", "venue-farmland", "venue-a3-mx", "venue-a6-mx", "venue-a8-mx"],
+      "entryTimes": 2.5,
+      "purseTimes": 3.2,
+      "needs": ["class.vets-60"],
+      "rewards": [
+        { "money": 12000, "flag": "trophy.vets60", "title": "the Evergreen MX Championship trophy" },
+        { "money": 6000 },
+        { "money": 3000 }
+      ],
+      "replay": 0.5,
+      "won": "Evergreen MX Championship winner! Reach Rider Ability 99 and the Road to Legend Ultimate Event is yours to ride."
+    },
+    {
+      "id": "ultimate",
+      "name": "Road to Legend Ultimate Event",
+      "short": "Ultimate Event",
+      "class": "450f",
+      "field": "area8.local",
+      "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local", "area7.local", "area8.local"],
+      "size": 15,
+      "buff": 0.05,
+      "rounds": ["venue-farmland", "venue-riverside", "venue-longmoor", "venue-a2-mx", "venue-a2-sx", "venue-a2-enduro", "venue-a3-mx", "venue-a3-sx", "venue-a3-enduro", "venue-a4-mx", "venue-a4-sx", "venue-a4-enduro", "venue-a5-mx", "venue-a5-sx", "venue-a5-enduro", "venue-a5-sprint-1", "venue-a5-sprint-2", "venue-a6-mx", "venue-a6-sx", "venue-a6-enduro", "venue-a6-sprint-1", "venue-a6-sprint-2", "venue-a7-mx", "venue-a7-sx", "venue-a7-enduro", "venue-a7-sprint-1", "venue-a7-sprint-2", "venue-a7-exc-1", "venue-a7-exc-2", "venue-a8-mx", "venue-a8-sx", "venue-a8-enduro", "venue-a8-sprint-1", "venue-a8-sprint-2", "venue-a8-exc-1", "venue-a8-exc-2"],
+      "entryTimes": 2.5,
+      "purseTimes": 3.2,
+      "needs": ["trophy.area8.main"],
+      "level": 99,
+      "rewards": [
+        { "money": 50000, "flag": "trophy.ultimate", "title": "the Road to Legend Ultimate Event trophy" },
+        { "money": 25000 },
+        { "money": 12500 }
+      ],
+      "replay": 0.5,
+      "won": "Road to Legend Ultimate Event champion! One round at every championship track in the land, and you won the lot."
     }
   ]
 }

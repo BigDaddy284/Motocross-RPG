@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { advanceStory, chainDone, currentStep, matchStory, newCareerState, openChains } from '../src/core/career';
-import { goalObjects, storyGoal } from '../src/core/waymarks';
+import { storyGoal } from '../src/core/waymarks';
 import { checkContent, npcsOnMap } from '../src/core/content';
 import { coachedFee, playerEntrant, practiceFee, practiceSim, venueClassFor } from '../src/core/raceDay';
 import { loadManifest, loadMaps, rawContent } from './helpers';
@@ -70,7 +70,6 @@ describe('Big Pete, trainer at every venue (Boss, 1 Nov 2026)', () => {
 describe("Big Pete's storyline (Boss, 3 Nov 2026)", () => {
   const story = content.story;
   const items = content.items;
-  const town = maps.get('area3-beach-town')!;
   const start = () => {
     const c = career();
     c.story.step = story.steps.length;
@@ -96,8 +95,9 @@ describe("Big Pete's storyline (Boss, 3 Nov 2026)", () => {
     expect(pass.on).toEqual({ use: 'job.shift', map: 'int-a3-tool-shop' });
     expect(content.world.jobs.find((j) => j.id === 'job.a3.brakes')!.start).toBe('disc_lathe');
     // A round on the agility ladder: the drill's training spot on the beach.
-    const ladder = play(c, flags, 'a3_fitness');
-    expect(goalObjects(town, ladder.on.use!, [], content.training).map((o) => o.name)).toEqual(['Beach agility ladder']);
+    // The agility coach runs it, so the marker is on them (Boss, 4 Nov 2026).
+    expect(storyGoal(content, maps, c)).toMatchObject({ kind: 'npc', map: 'area3-beach-town', npc: 'npc.a3.gym_coach' });
+    play(c, flags, 'a3_fitness');
     expect(flags['met.big_pete']).toBeUndefined();
     play(c, flags, 'a3_training');
     expect(flags['met.big_pete']).toBe(true);
@@ -111,9 +111,9 @@ describe("Big Pete's storyline (Boss, 3 Nov 2026)", () => {
     const { c, flags } = start();
     for (const s of story.chains!.find((x) => x.id === 'area3')!.steps) play(c, flags, s.id);
     for (const id of ['bp_timing', 'bp_whoops']) {
-      const step = currentStep(story, c)!;
-      expect(storyGoal(content, maps, c)).toEqual({ kind: 'object', map: 'area3-beach-town', action: step.on.use });
-      expect(goalObjects(town, step.on.use!, [], content.training).map((o) => o.name)).toEqual(["Big Pete's sand track"]);
+      expect(currentStep(story, c)!.on.use).toMatch(/^train\./);
+      // Pete runs his lessons from the kiosk, so the marker is on him (Boss, 4 Nov 2026).
+      expect(storyGoal(content, maps, c)).toMatchObject({ kind: 'npc', map: 'area3-beach-town', npc: 'npc.a3.yard_coach' });
       // Another drill, or the agility ladder, is not the lesson.
       expect(matchStory(story, c, { use: 'train.agility_ladder', map: 'area3-beach-town', object: 'x' })).toBeNull();
       play(c, flags, id);

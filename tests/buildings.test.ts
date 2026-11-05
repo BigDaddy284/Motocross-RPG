@@ -13,7 +13,8 @@ const T = 64;
 // Updated for the Used Motors building and its seller (Boss, 28 Oct 2026), the garage renamed Phoenix MX and Used Motors renamed Nicholls Used Motors and the bike shop renamed Moto78 (29 Oct 2026).
 // The closed south road's edge row narrowed to the Capital's road width under the roadworks gravel (Boss, 31 Oct 2026: "slim it down to normal road width").
 // The north and south roads' roadworks became roadblocks with their exits, opened by Area 2 and by winning the Area 8 Championship (Boss, 1 Nov 2026).
-const HOME_TOWN_SHA256 = '41c26235c872bb57e092e6551038d50dd10671e363e01ac138e025fcb52036a7';
+// The hidden walk-in spots for the practice track and the running track removed: Tasha runs the running (Boss, 4 Nov 2026).
+const HOME_TOWN_SHA256 = '3c6331cf19c65a0e0e89977c967c676260bdd33b7ebae0e7fe44de44f15f9087';
 
 function pngSize(rel: string): [number, number] {
   const b = fs.readFileSync(`public/assets/${rel}`);

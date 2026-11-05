@@ -74,7 +74,8 @@ export interface TrainingData {
 }
 
 export const drillForAction = (data: TrainingData, action: string): DrillDef | undefined => data.drills.find((d) => d.id === action && !d.npc && !d.venue);
-export const drillForNpc = (data: TrainingData, npc: string): DrillDef | undefined => data.drills.find((d) => d.npc === npc);
+/** The drills a coach runs when you talk to them (Tasha's running; the gym and yard coaches, Boss, 4 Nov 2026). */
+export const drillsForNpc = (data: TrainingData, npc: string): DrillDef[] => data.drills.filter((d) => d.npc === npc);
 export const drillsAtVenue = (data: TrainingData, venue: string): DrillDef[] => data.drills.filter((d) => d.venue === venue);
 
 /** Gives a finished round's XP. The score is only for the round's own screen: it never changes the XP. */
