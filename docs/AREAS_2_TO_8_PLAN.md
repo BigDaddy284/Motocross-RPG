@@ -247,7 +247,7 @@ The machine stays in the Industrial Zone unit in Area 1, where it's already buil
 ### Area 6: Highlands (hills, moorland, wind, long climbs)
 
 - **Story:** shop tasks and the new champions. Area Champion James Nestor.
-- **Batch jobs:** **Gearbox works** (bottom end and drivetrain). Minigames: machining and engine build (Machining, Engine Assembly, Engine Components). Pay £1.25 a part, batch 100. Plus **Plastics moulding** (bodywork and controls). Minigame: bodywork fitting (Bodywork). Pay £1 a part, batch 50.
+- **Batch jobs:** **Gearbox works** (bottom end and drivetrain). Minigames: machining and engine build (Machining, Engine Assembly, Engine Components). Pay £1.25 a part, batch 100. No Plastics moulding job (Boss, 5 Nov 2026: dropped; bodywork comes from the Fabrication shift and the Race department).
 - **Fitness:** **Cycling** hill climbs (Endurance).
 - **Rider training:** repetition laps on the hill track (Consistency).
 - **New at the Area 1 tool shop:** Pro engine and Pro suspension tools.
