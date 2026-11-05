@@ -20,7 +20,7 @@ import { isNoTurn } from '../core/trackGeom';
 import { venueClassFor, entryFee, fieldCount, lapsFor, practiceFee, coachedFee, trackById, venueProblem, type VenueDef } from '../core/raceDay';
 import { champProblem, otherActive, enter, nextRoundVenue, nextRoundVenues, rewardTexture, roundEntry, roundsHere, standings, titlePossible, withdraw, type ChampionshipDef } from '../core/championship';
 import { noteActivity, shopForAction, slotName, type ShopDef } from '../core/shops';
-import { machineFee, machineProblem, modsLabel, runMachine } from '../core/modifiers';
+import { machineFee, machineProblem, modsLabel, rollBatchMods, runMachine } from '../core/modifiers';
 import { dayObjectives, dropPenalty, dropSponsor, objectiveText, offerProblem, reputationHint, signOffer, sponsorsOpen } from '../core/sponsors';
 import { buyOutfit, outfitProblem, outfitSheet, ownsOutfit, rackOpen, shownLook, storageLimit, storeSpare, stored, takeSpare, wearOutfit, wornOutfit } from '../core/house';
 import { errandStage, finishErrand, takeErrand, type ErrandDef } from '../core/errands';
@@ -1230,7 +1230,11 @@ export class WorldScene extends Phaser.Scene {
         const engine = new Set(services.content.bikes.slots.filter((sl) => sl.engine).map((sl) => sl.id));
         const r = finishBatch(services.content.skills, career, shift.job, engine);
         noteActivity(services.content.shops, career, 'activity');
-        const kept = r.kept ? ` The boss hands you a G${r.kept.grade} ${slotName(services.content.bikes, r.kept.slot)} from the batch: it's in your bag.` : '';
+        // Later game: once Maggie's machine is fixed, a kept part can come out with modifiers (Boss, 5 Nov 2026).
+        const rolled = r.kept ? rollBatchMods(services.content.modifiers, r.kept.slot, this.save.flags, leadLevel(services.content.skills, career.skills, services.content.skills.leads.find((l) => l.id === 'mech')!)) : null;
+        if (r.kept && rolled) r.kept.mods = rolled.mods;
+        const extra = rolled ? (rolled.masterwork ? ' A Masterwork, every modifier good: ' : ' It came off the line with ') + modsLabel(services.content.modifiers, rolled.mods) + '.' : '';
+        const kept = r.kept ? ` The boss hands you a G${r.kept.grade} ${slotName(services.content.bikes, r.kept.slot)} from the batch: it's in your bag.${extra}` : '';
         this.endShift(shift.job.batch === 1 ? `${shift.job.name}: done and paid.` : `Batch done: ${shift.made} ${shift.job.product}s made.${kept}`);
         this.milestoneSave();
         this.passStory(shift.job);

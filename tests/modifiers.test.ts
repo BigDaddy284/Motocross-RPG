@@ -5,7 +5,7 @@ import { checkContent } from '../src/core/content';
 import { MotoSim } from '../src/core/race';
 import { RaceDay, playerEntrant, practiceSim } from '../src/core/raceDay';
 import { SAVE_VERSION, parseSave } from '../src/core/saves';
-import { checkModifiers, machineFee, machineProblem, modifierEffect, modifierFactors, modifierTotals, rollMods, rollValue, runMachine } from '../src/core/modifiers';
+import { checkModifiers, machineFee, machineProblem, modifierEffect, modifierFactors, modifierTotals, rollBatchMods, rollMods, rollValue, runMachine } from '../src/core/modifiers';
 import { SPARE, fitSpare, repairPart } from '../src/core/shops';
 import { loadManifest, loadMaps, rawContent } from './helpers';
 
@@ -186,5 +186,39 @@ describe('the Modifying Machine (Spec 6.4; Boss, 30 Oct 2026: one machine, fixed
     bad.conditions.wet.weather.push('snow');
     bad.pools.wings = ['corners', 'corners', 'corners'];
     expect(checkModifiers('m', bad, { slots, sections, weather, maps }).map((e) => e.field)).toEqual(['sections.corners[8]', 'conditions.wet.weather[2]', 'types.ice', 'pools.wings', 'pools.wings']);
+  });
+});
+
+describe('modifiers on parts kept from a batch (Spec 15.4; Boss, 5 Nov 2026: later game only)', () => {
+  const data = content.modifiers;
+  const seq = (...v: number[]) => { let i = 0; return () => v[i++ % v.length]; };
+  it('never before the machine is fixed, or below Mechanical Engineer 60', () => {
+    expect(rollBatchMods(data, 'brakes', {}, 99, () => 0)).toBeNull();
+  });
+  it('once it is fixed, on a share of kept parts, 1 to 3 from the slot pool', () => {
+    const flags = { [data.machine.fixedFlag]: true };
+    expect(rollBatchMods(data, 'brakes', flags, 60, () => 0.99)).toBeNull();
+    expect(data.batch.minMech).toBe(60);
+    expect(rollBatchMods(data, 'brakes', flags, 59, () => 0)).toBeNull();
+    let got = 0;
+    let rng = 1;
+    const r = () => ((rng = (rng * 16807) % 2147483647) / 2147483647);
+    for (let i = 0; i < 2000; i++) {
+      const m = rollBatchMods(data, 'brakes', flags, 60, r);
+      if (!m) continue;
+      got++;
+      expect(m.mods.length).toBeGreaterThanOrEqual(1);
+      expect(m.mods.length).toBeLessThanOrEqual(data.batch.maxCount);
+      for (const x of m.mods) expect(data.pools.brakes).toContain(x.type);
+      if (m.masterwork) expect(m.mods.every((x) => x.value > 0)).toBe(true);
+    }
+    expect(got / 2000).toBeGreaterThan(data.batch.chance - 0.05);
+    expect(got / 2000).toBeLessThan(data.batch.chance + 0.05);
+  });
+  it('a Masterwork has maxCount modifiers, all good', () => {
+    const m = rollBatchMods(data, 'brakes', { [data.machine.fixedFlag]: true }, 60, seq(0, 0, 0.5, 0.9))!;
+    expect(m.masterwork).toBe(true);
+    expect(m.mods).toHaveLength(data.batch.maxCount);
+    expect(m.mods.every((x) => x.value > 0)).toBe(true);
   });
 });

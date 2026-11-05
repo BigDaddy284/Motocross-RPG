@@ -34,6 +34,32 @@ export interface ModifiersData {
     map: string;
     action: string;
   };
+  /**
+   * Modifiers on the part kept from a finished batch (Spec 15.4; Boss, 5 Nov 2026: "Build it", later
+   * game, not from level 1): only once the machine is fixed and at Mechanical Engineer minMech (60:
+   * Boss, 5 Nov 2026, "Ok to use machine at 30. But actually making them from a batch should level 60"). chance the kept part has any; it then
+   * rolls 1 to maxCount from its slot's pool at the machine's values and odds, and masterwork is the
+   * chance that it rolls maxCount, all of them good.
+   */
+  batch: { chance: number; maxCount: number; masterwork: number; minMech: number };
+}
+
+export type BatchMods = { mods: PartMod[]; masterwork: boolean } | null;
+
+/** The kept part's modifiers, or null: none before the machine is fixed, or when the roll misses. */
+export function rollBatchMods(data: ModifiersData, slot: string, flags: Record<string, boolean>, mechLevel: number, rng: () => number = Math.random): BatchMods {
+  if (!flags[data.machine.fixedFlag] || mechLevel < data.batch.minMech || !data.pools[slot]?.length) return null;
+  if (rng() >= data.batch.chance) return null;
+  const pool = [...data.pools[slot]];
+  const masterwork = rng() < data.batch.masterwork;
+  const count = masterwork ? data.batch.maxCount : 1 + Math.floor(rng() * data.batch.maxCount);
+  const mods: PartMod[] = [];
+  for (let i = 0; i < count && pool.length; i++) {
+    const [type] = pool.splice(Math.floor(rng() * pool.length), 1);
+    const value = rollValue(data, rng);
+    mods.push({ type, value: masterwork || rng() < data.machine.positive ? value : -value });
+  }
+  return { mods, masterwork };
 }
 
 /** Spec 6.3: the percent effect of raw points of one type, with diminishing returns. */
@@ -160,6 +186,7 @@ export const MODIFIERS_SCHEMA: Schema = {
         action: { type: 'string', pattern: ID },
       },
     },
+    batch: { type: 'object', fields: { chance: { type: 'number', min: 0, max: 1 }, maxCount: { type: 'number', integer: true, min: 1, max: 5 }, masterwork: { type: 'number', min: 0, max: 1 }, minMech: { type: 'number', integer: true, min: 1, max: 99 } } },
   },
 };
 
