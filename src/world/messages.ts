@@ -61,7 +61,8 @@ export function actionMessage(o: MapObject, flags: Record<string, boolean> = {})
       const action = String(o.props.action ?? '');
       if (NOW[action]) return NOW[action](flags);
       const what = ACTIONS[action] ?? pretty(action || o.name);
-      return `${pretty(o.name)}: ${what} comes in a later build.`;
+      // No "later build" talk in v2.0 (Boss, 5 Nov 2026: nothing is release locked).
+      return `${pretty(o.name)}: ${what}. Nothing to do here right now.`;
     }
     case 'click':
       return `${o.name}: nobody's in right now.`;

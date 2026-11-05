@@ -8,7 +8,7 @@ import { HEADINGS, type VanState } from './vehicles';
 // - a save from an older build loads through the migration steps below;
 // - a save that cannot be read is kept under a "corrupt" key and the newest good backup is offered.
 
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 export const BACKUP_COUNT = 5;
 
 export interface SaveData {
@@ -76,6 +76,20 @@ const MIGRATIONS: Record<number, Migration> = {
   },
   // Area 5 is Western Works, not Northern Works (Boss, 4 Nov 2026): its town map's id changes with the name.
   7: (old) => renameIds(old, RENAMED_V8) as Record<string, unknown>,
+  // The Vets are championships on the 450cc F, not bike classes (Boss, 5 Nov 2026): a Vets bike becomes
+  // a 450cc F, and a Crankshaft Cup won before the change still has its prize 450cc F waiting.
+  8: (old) => {
+    const toFour = (b: unknown) => {
+      const bike = b as { class?: unknown } | undefined;
+      return bike && typeof bike.class === 'string' && /^vets-\d+$/.test(bike.class) ? { ...bike, class: '450f' } : b;
+    };
+    const career = old.career as Record<string, unknown> | undefined;
+    const flags = { ...((old.flags as Record<string, boolean> | undefined) ?? {}) };
+    if (flags['trophy.area8.main'] && !flags['class.vets-40']) flags['prize.area8.main'] = true;
+    if (!career) return { ...old, flags };
+    const retired = Array.isArray(career.retired) ? (career.retired as Record<string, unknown>[]).map((r) => ({ ...r, bike: toFour(r.bike) })) : career.retired;
+    return { ...old, flags, career: { ...career, bike: toFour(career.bike), ...(retired ? { retired } : {}) } };
+  },
 };
 
 /** Old id to new id, wherever an id turns up in a save: positions, the van, championships, counters. */

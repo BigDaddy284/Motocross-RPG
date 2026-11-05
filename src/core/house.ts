@@ -24,6 +24,11 @@ export interface HouseData {
   kit?: { outfit: string; lastArea: number; note?: string };
   rack: { needs: string; shops: string[] };
   storage: { base: number; perExtraHouse: number };
+  /**
+   * Outfits picked from a set of five (GDD: "Player chooses from several designs when signing"; Boss,
+   * 5 Nov 2026): sponsor, on signing a sponsor; legends, once, after the after flag (the Legends trophy).
+   */
+  picks?: { note?: string; sponsor: string[]; legends: { after: string; done: string; outfits: string[] } };
 }
 
 /** What the save keeps about the rider's clothes: the look on now, the one they started with, and the outfits owned. */
@@ -71,6 +76,14 @@ export function awardOutfit(outfit: OutfitDef, rider: RiderLook): { ok: boolean;
   (rider.outfits ??= []).push(outfit.id);
   return { ok: true, message: `${outfit.name}: yours, hanging in the wardrobe.` };
 }
+
+/** The outfits of a pick the rider can still choose: awards in their size they don't own yet. */
+export function pickOptions(data: HouseData, ids: string[], rider: RiderLook): OutfitDef[] {
+  return ids.map((id) => data.outfits.find((o) => o.id === id)).filter((o): o is OutfitDef => !!o && !ownsOutfit(rider, o.id) && !!outfitSheet(o, rider));
+}
+
+/** Whether the Legends kit pick is waiting: the trophy won and the pick not made yet. */
+export const legendsPickDue = (data: HouseData, flags: Record<string, boolean>): boolean => !!data.picks && !!flags[data.picks.legends.after] && !flags[data.picks.legends.done];
 
 /** Whether the rack is open to this rider: it needs the wardrobe (the Area 2 house). */
 export const rackOpen = (data: HouseData, flags: Record<string, boolean>): boolean => !!flags[data.rack.needs];
@@ -146,11 +159,20 @@ const ID = /^[a-z0-9_.-]+$/;
 
 export const HOUSE_SCHEMA: Schema = {
   type: 'object',
-  optional: ['note', 'kit'],
+  optional: ['note', 'kit', 'picks'],
   fields: {
     note: { type: 'string' },
     outfits: { type: 'array', minItems: 1, items: { type: 'object', optional: ['desc', 'award'], fields: { id: { type: 'string', pattern: ID }, name: { type: 'string', nonEmpty: true }, price: { type: 'number', min: 0 }, sheets: { type: 'record', values: { type: 'string', pattern: ID } }, desc: { type: 'string' }, award: { type: 'boolean' } } } },
     kit: { type: 'object', optional: ['note'], fields: { outfit: { type: 'string', pattern: ID }, lastArea: { type: 'number', integer: true, min: 1 }, note: { type: 'string' } } },
+    picks: {
+      type: 'object',
+      optional: ['note'],
+      fields: {
+        note: { type: 'string' },
+        sponsor: { type: 'array', minItems: 1, items: { type: 'string', pattern: ID } },
+        legends: { type: 'object', fields: { after: { type: 'string', pattern: ID }, done: { type: 'string', pattern: ID }, outfits: { type: 'array', minItems: 1, items: { type: 'string', pattern: ID } } } },
+      },
+    },
     rack: { type: 'object', fields: { needs: { type: 'string', pattern: ID }, shops: { type: 'array', items: { type: 'string', pattern: ID } } } },
     storage: { type: 'object', fields: { base: { type: 'number', integer: true, min: 1 }, perExtraHouse: { type: 'number', integer: true, min: 0 } } },
   },
@@ -173,6 +195,15 @@ export function checkHouse(file: string, data: HouseData, c: { sheets: string[];
     const kit = data.outfits.find((o) => o.id === data.kit!.outfit);
     if (!kit) err('kit.outfit', `no outfit "${data.kit.outfit}"`);
     else if (!kit.award) err('kit.outfit', `"${data.kit.outfit}" should be an award (never on the rack)`);
+  }
+  if (data.picks) {
+    for (const [field, ids] of [['picks.sponsor', data.picks.sponsor], ['picks.legends.outfits', data.picks.legends.outfits]] as const) {
+      for (const id of ids) {
+        const o = data.outfits.find((x) => x.id === id);
+        if (!o) err(field, `no outfit "${id}"`);
+        else if (!o.award) err(field, `"${id}" should be an award (never on the rack)`);
+      }
+    }
   }
   return errors;
 }
