@@ -634,11 +634,12 @@ export interface NpcPlacement {
 }
 
 /** NPCs standing on one map: those placed by tile in npcs.json, plus the map's own npc spots. */
-export function npcsOnMap(content: Content, map: BakedMap, flags?: Record<string, boolean>): NpcPlacement[] {
+export function npcsOnMap(content: Content, map: BakedMap, flags?: Record<string, boolean>, needed?: string): NpcPlacement[] {
   const byId = new Map(content.npcs.map((n) => [n.id, n]));
   const out: NpcPlacement[] = [];
   // With the save's flags, an NPC with showIf is left off until its flag is set, and one with hideIf once its flag is set; without them, every NPC (the content checks).
-  const here = (n: NpcDef) => !flags || ((!n.showIf || !!flags[n.showIf]) && (!n.hideIf || !flags[n.hideIf]));
+  // needed: the NPC the current story step talks to stays, hideIf or not (Mad Maggie's news from Western Works' Manny after the road to Highlands opened).
+  const here = (n: NpcDef) => !flags || ((!n.showIf || !!flags[n.showIf]) && (!n.hideIf || !flags[n.hideIf] || n.id === needed));
   for (const n of content.npcs) if (n.map === map.id && n.tile && here(n)) out.push({ npc: n, x: n.tile[0], y: n.tile[1], facing: n.facing ?? 'down' });
   for (const o of map.objects) {
     if (o.type !== 'npc') continue;

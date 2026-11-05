@@ -186,7 +186,7 @@ export class WorldScene extends Phaser.Scene {
 
     this.grid = Grid.fromMap(map);
     applyMapState(map, this.grid, this.save.flags);
-    for (const p of npcsOnMap(services.content, map, this.save.flags)) {
+    for (const p of npcsOnMap(services.content, map, this.save.flags, currentStep(services.content.story, this.save.career)?.on.talk)) {
       // NPCs don't block the way: walking past (not clicking them) goes straight through.
       const character = new Character(this, p.npc.sprite, p, p.facing);
       // Standing on the paving, not the kerb or road below it.
@@ -2114,7 +2114,7 @@ export class WorldScene extends Phaser.Scene {
     applyMapState(map, grid, this.save.flags);
     const dm = new DriveMap(map, grid, services.content.vehicles);
     dm.setVanLength(length);
-    dm.setNpcTiles(npcsOnMap(services.content, map, this.save.flags).map((p) => ({ x: p.x, y: p.y })));
+    dm.setNpcTiles(npcsOnMap(services.content, map, this.save.flags, currentStep(services.content.story, this.save.career)?.on.talk).map((p) => ({ x: p.x, y: p.y })));
     return dm;
   }
 

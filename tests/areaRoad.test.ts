@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { areaFlag, roadFlag, roadWaiting } from '../src/core/areas';
 import { afterTask } from '../src/core/career';
-import { checkContent } from '../src/core/content';
+import { checkContent, npcsOnMap } from '../src/core/content';
 import { storyGoals } from '../src/core/waymarks';
 import { newCareerState } from '../src/core/career';
 import { loadManifest, loadMaps, rawContent } from './helpers';
@@ -76,5 +76,14 @@ describe('Manny moves on with the road (Boss, 4 Nov 2026)', () => {
       const dy = Math.max(block.y / ts - y, 0, y - (block.y + block.h) / ts + 1);
       expect(dx + dy, a.map).toBeLessThanOrEqual(5);
     }
+  });
+
+  it("stays for a story step that still needs him: Mad Maggie's news after the road to Highlands has opened", () => {
+    const ww = maps.get('area5-western-works')!;
+    const flags = { 'area.5.open': true, 'area.6.open': true };
+    const ids = (needed?: string) => npcsOnMap(content, ww, flags, needed).map((p) => p.npc.id);
+    expect(ids()).not.toContain('npc.a5.news');
+    expect(content.story.chains!.find((c) => c.id === 'maggie')!.steps[0].on.talk).toBe('npc.a5.news');
+    expect(ids('npc.a5.news')).toContain('npc.a5.news');
   });
 });
