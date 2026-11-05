@@ -538,7 +538,7 @@
       "id": "bld.a3.agility_hut", "name": "Beach agility ladder hut", "zone": "Beach Town",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a3.png", "crop": [0,960,320,256], "at": [0,0]}],
       "footprint": [
-        "####",
+        "....",
         "####",
         "####",
         "####"
@@ -550,7 +550,7 @@
       "id": "bld.a3.pete_kiosk", "name": "Big Pete's sand track kiosk", "zone": "Beach Town",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a3.png", "crop": [320,960,256,256], "at": [0,0]}],
       "footprint": [
-        "###",
+        "...",
         "###",
         "###",
         "###"
@@ -675,7 +675,7 @@
       "id": "bld.a4.loop_kiosk", "name": "Forest practice loop hut", "zone": "Forest Town",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a4.png", "crop": [1280,640,256,256], "at": [0,0]}],
       "footprint": [
-        "###",
+        "...",
         "###",
         "###",
         "###"
@@ -687,7 +687,7 @@
       "id": "bld.a5.detached", "name": "Detached house (house, Western Works)", "zone": "Western Works",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a5.png", "crop": [0,0,512,320], "at": [0,0]}],
       "footprint": [
-        "#######",
+        ".......",
         "#######",
         "#######",
         "#######",
@@ -700,7 +700,7 @@
       "id": "bld.a5.town_house", "name": "Town house (Western Works)", "zone": "Western Works",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a5.png", "crop": [512,0,448,320], "at": [0,0]}],
       "footprint": [
-        "######",
+        "......",
         "######",
         "######",
         "######",
@@ -713,7 +713,7 @@
       "id": "bld.a5.terrace", "name": "Mill cottages (no entry, Western Works)", "zone": "Western Works",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a5.png", "crop": [960,0,384,320], "at": [0,0]}],
       "footprint": [
-        "#####",
+        ".....",
         "#####",
         "#####",
         "#####",
@@ -738,7 +738,7 @@
       "id": "bld.a5.moto78", "name": "Moto78 (Western Works)", "zone": "Western Works", "npc": "Bill Rothon",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a5.png", "crop": [512,320,448,320], "at": [0,0]}],
       "footprint": [
-        "######",
+        "......",
         "######",
         "######",
         "######",
@@ -763,7 +763,7 @@
       "id": "bld.a5.frame_works", "name": "Frame works", "zone": "Western Works",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a5.png", "crop": [0,640,512,320], "at": [0,0]}],
       "footprint": [
-        "#######",
+        ".......",
         "#######",
         "#######",
         "#######",
@@ -776,7 +776,7 @@
       "id": "bld.a5.nicholls", "name": "Nicholls Used Motors (Western Works)", "zone": "Western Works", "npc": "Jedrick Nicholls",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a5.png", "crop": [512,640,384,256], "at": [0,0]}],
       "footprint": [
-        "#####",
+        ".....",
         "#####",
         "#####",
         "#.###"
@@ -800,7 +800,7 @@
       "id": "bld.a5.quarry_kiosk", "name": "Quarry practice ground hut", "zone": "Western Works",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a5.png", "crop": [0,960,256,256], "at": [0,0]}],
       "footprint": [
-        "###",
+        "...",
         "###",
         "###",
         "###"
@@ -812,7 +812,7 @@
       "id": "bld.a6.farmhouse", "name": "Farmhouse with land (house, Highlands)", "zone": "Highlands",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [0,0,512,320], "at": [0,0]}],
       "footprint": [
-        "#######",
+        ".......",
         "#######",
         "#######",
         "#######",
@@ -825,7 +825,7 @@
       "id": "bld.a6.town_house", "name": "Town house (Highlands)", "zone": "Highlands",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [512,0,448,320], "at": [0,0]}],
       "footprint": [
-        "######",
+        "......",
         "######",
         "######",
         "######",
@@ -850,7 +850,7 @@
       "id": "bld.a6.moto78", "name": "Moto78 (Highlands)", "zone": "Highlands", "npc": "Bill Rothon",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [0,320,448,320], "at": [0,0]}],
       "footprint": [
-        "######",
+        "......",
         "######",
         "######",
         "######",
@@ -875,7 +875,7 @@
       "id": "bld.a6.gearbox_works", "name": "Gearbox works", "zone": "Highlands",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [896,320,512,320], "at": [0,0]}],
       "footprint": [
-        "#######",
+        ".......",
         "#######",
         "#######",
         "#######",
@@ -888,7 +888,7 @@
       "id": "bld.a6.nicholls", "name": "Nicholls Used Motors (Highlands)", "zone": "Highlands", "npc": "Jedrick Nicholls",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [0,640,384,256], "at": [0,0]}],
       "footprint": [
-        "#####",
+        ".....",
         "#####",
         "#####",
         "#.###"
@@ -912,7 +912,7 @@
       "id": "bld.a6.bothy", "name": "Hill practice track bothy", "zone": "Highlands",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a6.png", "crop": [832,640,256,256], "at": [0,0]}],
       "footprint": [
-        "###",
+        "...",
         "###",
         "###",
         "###"
@@ -965,7 +965,7 @@
       "id": "bld.a7.phoenix_mx", "name": "Phoenix MX (The City)", "zone": "The City", "npc": "Paul Phoenix",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a7.png", "crop": [0,448,512,256], "at": [0,0]}],
       "footprint": [
-        "#######",
+        ".......",
         "#######",
         "#######",
         "#....##"
@@ -977,7 +977,7 @@
       "id": "bld.a7.moto78", "name": "Moto78 (The City)", "zone": "The City", "npc": "Bill Rothon",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a7.png", "crop": [512,448,448,320], "at": [0,0]}],
       "footprint": [
-        "######",
+        "......",
         "######",
         "######",
         "######",
@@ -990,7 +990,7 @@
       "id": "bld.a7.tyre_shop", "name": "Lee's T's & Wheels (The City)", "zone": "The City", "npc": "Lee Stocky",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a7.png", "crop": [960,448,448,256], "at": [0,0]}],
       "footprint": [
-        "######",
+        "......",
         "######",
         "######",
         "####.#"
@@ -1002,7 +1002,7 @@
       "id": "bld.a7.exhaust_works", "name": "Exhaust works", "zone": "The City",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a7.png", "crop": [0,768,512,320], "at": [0,0]}],
       "footprint": [
-        "#######",
+        ".......",
         "#######",
         "#######",
         "#######",
@@ -1015,7 +1015,7 @@
       "id": "bld.a7.nicholls", "name": "Nicholls Used Motors (The City)", "zone": "The City", "npc": "Jedrick Nicholls",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a7.png", "crop": [512,768,384,256], "at": [0,0]}],
       "footprint": [
-        "#####",
+        ".....",
         "#####",
         "#####",
         "#.###"
@@ -1091,7 +1091,7 @@
       "id": "bld.a8.phoenix_mx", "name": "Phoenix MX (Capital)", "zone": "Capital", "npc": "Paul Phoenix",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a8.png", "crop": [0,320,512,256], "at": [0,0]}],
       "footprint": [
-        "#######",
+        ".......",
         "#######",
         "#######",
         "#....##"
@@ -1116,7 +1116,7 @@
       "id": "bld.a8.tyre_shop", "name": "Lee's T's & Wheels (Capital)", "zone": "Capital", "npc": "Lee Stocky",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a8.png", "crop": [960,320,448,256], "at": [0,0]}],
       "footprint": [
-        "######",
+        "......",
         "######",
         "######",
         "####.#"
@@ -1141,7 +1141,7 @@
       "id": "bld.a8.nicholls", "name": "Nicholls Used Motors (Capital)", "zone": "Capital", "npc": "Jedrick Nicholls",
       "parts": [{"sheet": "art/buildings/sheets/buildings-exterior-a8.png", "crop": [576,640,384,256], "at": [0,0]}],
       "footprint": [
-        "#####",
+        ".....",
         "#####",
         "#####",
         "#.###"

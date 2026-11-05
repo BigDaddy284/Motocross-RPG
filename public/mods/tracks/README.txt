@@ -20,3 +20,8 @@ In the published game you can also import a .track.json from your device with
 "Import track file" in the mod track list. Imported tracks are kept in that browser only.
 
 first-try-mx.track.json is First Try MX, a small example track to copy and change.
+
+Every other file here is a copy of one of the game's own tracks, named by its track id
+(a5-sprint-1.track.json is Western Works' first sprint, and so on), for testing and for
+opening and editing each track in the track editor (Boss, 5 Nov 2026). Changing a copy does
+not change the game's track. The Backyard isn't copied: it is practice only, with no race start.
