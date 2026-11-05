@@ -816,7 +816,6 @@
       "purseTimes": 2.6,
       "needs": ["badge.area8"],
       "milestone": "vets-40",
-      "alsoMilestones": ["vets-50", "vets-60"],
       "rewards": [
         { "money": 10000, "flag": "trophy.area8.main", "title": "the Crankshaft Cup", "image": "art/ui/trophy-area8.png" },
         { "money": 5000 },
