@@ -22,7 +22,7 @@ import { champProblem, otherActive, enter, nextRoundVenue, nextRoundVenues, rewa
 import { noteActivity, shopForAction, slotName, type ShopDef } from '../core/shops';
 import { machineFee, machineProblem, modsLabel, rollBatchMods, runMachine } from '../core/modifiers';
 import { dayObjectives, dropPenalty, dropSponsor, objectiveText, offerProblem, reputationHint, signOffer, sponsorsOpen } from '../core/sponsors';
-import { buyOutfit, outfitProblem, outfitSheet, ownsOutfit, rackOpen, shownLook, storageLimit, storeSpare, stored, takeSpare, wearOutfit, wornOutfit } from '../core/house';
+import { awardOutfit, buyOutfit, legendsPickDue, pickOptions, type OutfitDef, outfitProblem, outfitSheet, ownsOutfit, rackOpen, shownLook, storageLimit, storeSpare, stored, takeSpare, wearOutfit, wornOutfit } from '../core/house';
 import { errandStage, finishErrand, takeErrand, type ErrandDef } from '../core/errands';
 import { challengeReady, challengeVenue, lossHint, type ChallengeDef } from '../core/challenge';
 import { drillForAction, drillsForNpc, drillsAtVenue, finishRound, walked, type DrillDef } from '../core/training';
@@ -237,6 +237,14 @@ export class WorldScene extends Phaser.Scene {
     this.refreshWaymarks();
     this.newsMarks = new Waymarks(this, services.settings.get().accessibility.reducedEffects);
     this.refreshNews();
+    // Back from winning the Legends Championship: pick a legend kit, once (Boss, 5 Nov 2026).
+    const house = services.content.house;
+    if (house.picks && legendsPickDue(house, this.save.flags)) {
+      const kits = pickOptions(house, house.picks.legends.outfits, this.save.rider);
+      this.save.flags[house.picks.legends.done] = true;
+      this.milestoneSave();
+      if (kits.length) this.time.delayedCall(400, () => this.pickOutfit('Legends champion', 'The Legends trophy is yours, and so is a legend kit. Pick the design you want.', kits, () => {}));
+    }
     this.events.once('shutdown', () => this.hud.showWayArrow(null));
 
     this.setupInput();
@@ -312,6 +320,17 @@ export class WorldScene extends Phaser.Scene {
       const w = this.cameras.main.getWorldPoint(p.x, p.y);
       this.clickAt(w.x, w.y);
     });
+  }
+
+  /** A pick of one outfit from a set (sponsor kits, legend kits): it hangs in the wardrobe. */
+  private pickOutfit(title: string, text: string, outfits: OutfitDef[], then: () => void): void {
+    const pick = (o: OutfitDef) => {
+      const r = awardOutfit(o, this.save.rider);
+      this.hud.toast(r.ok ? `${o.name}: yours. Put it on at the wardrobe.` : r.message);
+      this.milestoneSave();
+      then();
+    };
+    this.hud.choose(title, text, outfits.map((o) => ({ label: o.name, note: o.desc, onPick: () => pick(o) })), () => pick(outfits[0]));
   }
 
   /** The walking keys: the arrows, and the four picked in Settings > Controls. */
@@ -1416,7 +1435,10 @@ export class WorldScene extends Phaser.Scene {
           const r = signOffer(data, o, career, this.save.flags);
           this.hud.toast(r.message);
           this.milestoneSave();
-          again();
+          // Signing brings the sponsor's kit: pick one of the five you don't have yet (Boss, 5 Nov 2026).
+          const kits = r.ok && services.content.house.picks ? pickOptions(services.content.house, services.content.house.picks.sponsor, this.save.rider) : [];
+          if (kits.length) this.pickOutfit(`${o.name}'s kit`, 'Your new sponsor sends a kit. Pick the design you want.', kits, again);
+          else again();
         }, again) };
       }),
       ...(c ? [{ label: `Leave ${c.name}`, note: `Costs ${formatMoney(dropPenalty(data, c))} of what they've paid you, and your name among sponsors.`, onPick: () => this.hud.confirm(`Leave ${c.name} now for ${formatMoney(dropPenalty(data, c))}?`, 'Leave', () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { newCareerState } from '../src/core/career';
 import { checkContent } from '../src/core/content';
-import { START_OUTFIT, awardOutfit, buyOutfit, championsKit, checkHouse, housesOwned, outfitProblem, outfitSheet, ownsOutfit, rackOpen, riderGender, storageLimit, storeSpare, stored, takeSpare, wearOutfit, wornOutfit, type RiderLook } from '../src/core/house';
+import { START_OUTFIT, awardOutfit, buyOutfit, championsKit, checkHouse, housesOwned, legendsPickDue, pickOptions, outfitProblem, outfitSheet, ownsOutfit, rackOpen, riderGender, storageLimit, storeSpare, stored, takeSpare, wearOutfit, wornOutfit, type RiderLook } from '../src/core/house';
 import { SAVE_VERSION, parseSave } from '../src/core/saves';
 import { SPARE } from '../src/core/shops';
 import { loadManifest, loadMaps, rawContent } from './helpers';
@@ -136,5 +136,27 @@ describe('the house storage chest (Spec 17; every house reaches the one shared c
     bad.outfits[0].sheets.m = 'player-m-ghost';
     bad.rack.shops.push('shop.moon');
     expect(checkHouse('h', bad, { sheets, shops: shopIds }).map((e) => e.field)).toEqual(['outfits', 'outfits[0].sheets.m', 'rack.shops[7]']);
+  });
+});
+
+describe('sponsor and legend kit picks (Boss, 5 Nov 2026: "lock em in")', () => {
+  const house = content.house;
+  it('has five sponsor kits and five legend kits, each an award with a men\'s and women\'s sheet', () => {
+    expect(house.picks!.sponsor).toHaveLength(5);
+    expect(house.picks!.legends.outfits).toHaveLength(5);
+    for (const id of [...house.picks!.sponsor, ...house.picks!.legends.outfits]) {
+      const o = house.outfits.find((x) => x.id === id)!;
+      expect(o.award, id).toBe(true);
+      for (const sex of ['m', 'f']) expect(loadManifest().characters.sheets[o.sheets[sex]], `${id} ${sex}`).toBeDefined();
+    }
+  });
+  it('offers only the kits not owned yet, and the legends pick once after the trophy', () => {
+    const rider = { look: 'player-f-start-a' } as RiderLook;
+    expect(pickOptions(house, house.picks!.sponsor, rider)).toHaveLength(5);
+    awardOutfit(house.outfits.find((o) => o.id === house.picks!.sponsor[1])!, rider);
+    expect(pickOptions(house, house.picks!.sponsor, rider).map((o) => o.id)).not.toContain(house.picks!.sponsor[1]);
+    expect(legendsPickDue(house, {})).toBe(false);
+    expect(legendsPickDue(house, { 'trophy.legends': true })).toBe(true);
+    expect(legendsPickDue(house, { 'trophy.legends': true, [house.picks!.legends.done]: true })).toBe(false);
   });
 });
