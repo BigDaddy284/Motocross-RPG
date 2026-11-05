@@ -59,7 +59,7 @@ export interface ChampionshipDef {
   won?: string;
   /** The class this championship is the milestone for (Spec 18.3): its first win sets milestone.<class>. */
   milestone?: string;
-  /** The Rider Ability level needed to enter it (GDD 6.4: the Ultimate Event opens at 99). */
+  /** The Rider Ability level needed to enter it (the Vets open at 80, 90 and 95, Boss 5 Nov 2026). */
   level?: number;
   /** The area a first win opens the road to (Spec 18.2): sets road.N.won, and Manny sets area.N.open later. */
   opens?: number;

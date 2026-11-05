@@ -920,7 +920,6 @@
       "entryTimes": 2.5,
       "purseTimes": 3.2,
       "needs": ["trophy.legends"],
-      "level": 99,
       "rewards": [
         { "money": 50000, "flag": "trophy.ultimate", "title": "the Road to Legend Ultimate Event trophy", "bike": "450f" },
         { "money": 25000 },

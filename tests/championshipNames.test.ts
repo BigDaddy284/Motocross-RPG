@@ -47,13 +47,13 @@ describe('championship names and the vets (Boss, 4 Nov 2026)', () => {
     expect(champ('ultimate').needs).toEqual(['trophy.legends']);
   });
 
-  it('opens the Ultimate Event at Rider Ability 99 (GDD 6.4)', () => {
+  it('opens the Ultimate Event by winning Legends, with no Rider Ability level (Boss, 5 Nov 2026)', () => {
     const u = champ('ultimate');
     expect(u.name).toBe('Road to Legend Ultimate Event');
-    const flags = { 'trophy.legends': true, ...Object.fromEntries(content.tracks.venues.filter((v) => v.needs).map((v) => [v.needs!, true])) };
-    expect(champProblem(content, u, flags, '450f', 98)).toBe("Needs Rider Ability 99: you're level 98.");
-    expect(champProblem(content, u, flags, '450f', 99)).toBeNull();
-    // Only the Vets and the Ultimate Event have a level to reach.
-    expect(content.championships.championships.filter((c) => c.level).map((c) => c.id)).toEqual(['vets.40', 'vets.50', 'vets.60', 'ultimate']);
+    const venues = Object.fromEntries(content.tracks.venues.filter((v) => v.needs).map((v) => [v.needs!, true]));
+    expect(champProblem(content, u, venues, '450f', 70)).toBe('Not open to you yet.');
+    expect(champProblem(content, u, { ...venues, 'trophy.legends': true }, '450f', 70)).toBeNull();
+    // Only the Vets have a level to reach.
+    expect(content.championships.championships.filter((c) => c.level).map((c) => c.id)).toEqual(['vets.40', 'vets.50', 'vets.60']);
   });
 });
