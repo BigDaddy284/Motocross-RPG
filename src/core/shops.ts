@@ -60,8 +60,8 @@ export interface ShopsData {
   rotation: { raceDays: number; activities: number };
   /** Spare parts the rider can carry (the van holds twenty parts). */
   spareLimit: number;
-  /** The shop where a new class's bike is collected (core/classes.ts). */
-  classDealer?: string;
+  /** The shops where a new class's bike is collected (core/classes.ts): Moto78 in every town, so Bill hands it over in the town whose cup was won (Boss, 4 Nov 2026). */
+  classDealers?: string[];
   shops: ShopDef[];
 }
 
@@ -137,17 +137,20 @@ function roll(s: ShopState, key: string): number {
 export const sellsFor = (shop: ShopDef, cls: string) => !!shop.sells?.classes.includes(cls);
 
 /** What is on the shelves for a class right now: the lowest grade always, higher grades as rotation brings them in. */
-export function shopStock(data: ShopsData, shop: ShopDef, career: CareerState, cls: string): StockItem[] {
+/** stockGrade: the grade of the stock-only slots for this class (its frame grade, core/classes.ts frameGradeOf). */
+export function shopStock(data: ShopsData, shop: ShopDef, career: CareerState, cls: string, stockGrade = 1): StockItem[] {
   const sells = shop.sells;
   if (!sells || !sellsFor(shop, cls)) return [];
   const s = shopState(career);
   const out: StockItem[] = [];
   const [lo, hi] = sells.grades;
   for (const slot of sells.slots) {
-    const top = sells.stockOnly?.includes(slot) ? lo : hi;
-    for (let g = lo; g <= top; g++) {
+    // A stock-only slot (Moto78's frame) is just the class's frame grade, always in (Boss, 5 Nov 2026).
+    const only = sells.stockOnly?.includes(slot);
+    const [from, top] = only ? [stockGrade, stockGrade] : [lo, hi];
+    for (let g = from; g <= top; g++) {
       const key = `${shop.id}:${cls}:${slot}:${g}`;
-      const always = g === lo;
+      const always = g === from;
       if (!always && roll(s, key) >= (sells.extraChance[String(g)] ?? 0)) continue;
       out.push({ key, slot, grade: g, price: partPrice(data, slot, g, cls), always, soldOut: !always && s.sold.includes(key) });
     }
@@ -349,7 +352,7 @@ const GRADE = { type: 'number', integer: true, min: 1, max: 10 } as const;
 
 export const SHOPS_SCHEMA: Schema = {
   type: 'object',
-  optional: ['note', 'consumables', 'classDealer'],
+  optional: ['note', 'consumables', 'classDealers'],
   fields: {
     note: { type: 'string' },
     slotBase: { type: 'record', values: N0 },
@@ -363,7 +366,7 @@ export const SHOPS_SCHEMA: Schema = {
     },
     rotation: { type: 'object', fields: { raceDays: { type: 'number', integer: true, min: 1 }, activities: { type: 'number', integer: true, min: 1 } } },
     spareLimit: { type: 'number', integer: true, min: 1 },
-    classDealer: { type: 'string', pattern: /^[a-z0-9_.-]+$/ },
+    classDealers: { type: 'array', items: { type: 'string', pattern: /^[a-z0-9_.-]+$/ } },
     shops: {
       type: 'array',
       minItems: 1,
@@ -408,7 +411,7 @@ export function checkShopContent(file: string, data: ShopsData, bikes: BikesData
   for (const k of Object.keys(data.slotBase)) if (!slotIds.has(k)) err(`slotBase.${k}`, `no slot "${k}"`);
   for (const c of bikes.classes) if (data.classPriceFactor[c.id] === undefined) err('classPriceFactor', `no factor for class "${c.id}"`);
   if (data.resale.demand[0] > data.resale.demand[1]) err('resale.demand', 'the lowest demand is above the highest');
-  if (data.classDealer && !data.shops.some((s) => s.id === data.classDealer)) err('classDealer', `no shop "${data.classDealer}"`);
+  for (const d of data.classDealers ?? []) if (!data.shops.some((s) => s.id === d)) err('classDealers', `no shop "${d}"`);
   const seen = new Set<string>();
   data.shops.forEach((s, i) => {
     const at = (f: string) => `shops[${i}].${f}`;

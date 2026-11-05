@@ -1,4 +1,4 @@
-import { classAtLeast, className, dayClass, milestoneFlag, nextClass } from './classes';
+import { classAtLeast, className, dayClass, milestoneFlag, nextClass, prizeFlag } from './classes';
 import { areaFlag, roadFlag } from './areas';
 import { pence, wholePounds, type CareerState } from './career';
 import { mixSeed, seededRng } from './race';
@@ -47,15 +47,19 @@ export interface ChampionshipDef {
   purseTimes: number;
   /** Flags that open it. */
   needs?: string[];
-  /** By final position: prize money in pounds, a flag to set and what it is called. */
-  rewards: { money: number; flag?: string; title?: string; image?: string }[];
+  /**
+   * By final position: prize money in pounds, a flag to set and what it is called. bike: a new bike of
+   * that class for the first win, collected at any class dealer (core/classes.ts prizeBike; the endgame
+   * championships each give a new 450cc F, Boss 5 Nov 2026).
+   */
+  rewards: { money: number; flag?: string; title?: string; image?: string; bike?: string }[];
   /** XP and purse share once it has been won before (Round 125). */
   replay: number;
   /** Said when it is won for the first time. */
   won?: string;
   /** The class this championship is the milestone for (Spec 18.3): its first win sets milestone.<class>. */
   milestone?: string;
-  /** The Rider Ability level needed to enter it (GDD 6.4: the Ultimate Event opens at 99). */
+  /** The Rider Ability level needed to enter it (the Vets open at 80, 90 and 95, Boss 5 Nov 2026). */
   level?: number;
   /** The area a first win opens the road to (Spec 18.2): sets road.N.won, and Manny sets area.N.open later. */
   opens?: number;
@@ -123,7 +127,7 @@ export const CHAMPIONSHIPS_SCHEMA: Schema = {
           rewards: {
             type: 'array',
             minItems: 1,
-            items: { type: 'object', optional: ['flag', 'title', 'image'], fields: { money: { type: 'number', min: 0 }, flag: { type: 'string', nonEmpty: true }, title: { type: 'string', nonEmpty: true }, image: { type: 'string', pattern: /^art\/[\w./-]+\.png$/ } } },
+            items: { type: 'object', optional: ['flag', 'title', 'image', 'bike'], fields: { money: { type: 'number', min: 0 }, flag: { type: 'string', nonEmpty: true }, title: { type: 'string', nonEmpty: true }, image: { type: 'string', pattern: /^art\/[\w./-]+\.png$/ }, bike: { type: 'string', nonEmpty: true } } },
           },
           replay: { type: 'number', min: 0, max: 1 },
           won: { type: 'string', nonEmpty: true },
@@ -166,6 +170,10 @@ export function checkChampionships(data: ChampionshipsData, rc: Pick<RaceContent
       if (main && best.some((l) => l >= main.level)) err('main', `${main.name} (level ${main.level}) isn't the best rider in it once the others are buffed (up to level ${Math.max(...best)})`);
     }
     if (!rc.racing.classes[c.class]) err('class', `no class "${c.class}" in data/racing.json`);
+    c.rewards.forEach((r, j) => {
+      if (r.bike && !rc.bikes.classes.some((k) => k.id === r.bike)) err(`rewards[${j}].bike`, `no class "${r.bike}" in data/bikes.json`);
+      if (r.bike && j > 0) err(`rewards[${j}].bike`, 'only the winner gets a prize bike');
+    });
     if (c.milestone) {
       const next = nextClass(rc.bikes, c.class);
       if (!next) err('milestone', `${c.class} is the top class`);
@@ -432,6 +440,8 @@ export function finishChampionship(career: CareerState, flags: Record<string, bo
   career.money += money;
   if (reward?.flag) flags[reward.flag] = true;
   if (me.position === 1 && def.milestone) flags[milestoneFlag(def.milestone)] = true;
+  // A prize bike waits at the class dealer for the first win (classes.ts prizeBike, Boss 5 Nov 2026).
+  if (firstWin && reward?.bike) flags[prizeFlag(def.id)] = true;
   // The road opens through Joseph, Bill and Manny (areas.ts roadFlag, Boss, 2 Nov 2026), not straight away.
   if (me.position === 1 && def.opens && def.opens <= lastArea && !flags[areaFlag(def.opens)]) flags[roadFlag(def.opens, 'won')] = true;
   return { position: me.position, money, flag: reward?.flag, title: me.position === 1 && !firstWin ? undefined : reward?.title, firstWin };
