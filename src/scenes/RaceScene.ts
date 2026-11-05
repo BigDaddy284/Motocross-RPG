@@ -1,3 +1,4 @@
+import { className } from '../core/classes';
 import Phaser from 'phaser';
 import { lastReleasedArea } from '../core/areas';
 import { bikeStats, formatMoney, raceStopper, type Bike } from '../core/career';
@@ -277,13 +278,13 @@ export class RaceScene extends Phaser.Scene {
     if (this.ko) return `${this.args.venue.name} · ${this.ko.cls} No-Turn Takedown`;
     if (this.sx) {
       const c = this.champ;
-      return `${this.args.venue.name} · ${this.sx.cls} ${c ? `${c.def.short} round ${c.round} of ${c.def.rounds.length}` : 'Supercross night'}`;
+      return `${this.args.venue.name} · ${className(services.content.bikes, this.sx.cls)} ${c ? `${c.def.short} round ${c.round} of ${c.def.rounds.length}` : 'Supercross night'}`;
     }
     const day = this.day!;
     if (this.args.challenge) return `${this.args.challenge.name} · ${day.laps} laps`;
     if (day.sidecar) return `${this.args.venue.name} · Sidecar race day${day.sidecar.test ? ' (TEST)' : day.sidecar.passenger && this.args.passenger ? ` in ${this.args.passenger.rider}'s chair` : ''}`;
     const c = this.champ;
-    return `${this.args.venue.name} · ${day.cls} ${c ? `${c.def.short} round ${c.round} of ${c.def.rounds.length}` : 'race day'}`;
+    return `${this.args.venue.name} · ${className(services.content.bikes, day.cls)} ${c ? `${c.def.short} round ${c.round} of ${c.def.rounds.length}` : 'race day'}`;
   }
 
   /** Sizes the design to the window's shape: at least 1280 × 720, as wide or tall as the window allows. */
@@ -1684,7 +1685,7 @@ export class RaceScene extends Phaser.Scene {
     this.clear();
     const done = active.rounds.length;
     const last = nextRoundVenue(def, active) === null;
-    this.header(`${def.name} · ${last ? 'final standings' : `after round ${done} of ${def.rounds.length}`}`, `${def.class} · points for every moto, the same ${active.field.length + 1} riders every round`);
+    this.header(`${def.name} · ${last ? 'final standings' : `after round ${done} of ${def.rounds.length}`}`, `${className(services.content.bikes, def.class)} · points for every moto, the same ${active.field.length + 1} riders every round`);
     const table = standings(points, active);
     const name = (id: string) => (id === PLAYER_ID ? `${this.save.rider.name} (you)` : services.content.riders.riders.find((r) => r.id === id)?.name ?? id);
     const rows = table.map((r) => `${String(r.position).padStart(2)}  ${name(r.id).padEnd(22).slice(0, 22)}${def.rounds.map((_, i) => String(r.byRound[i] ?? '').padStart(5)).join('')}${String(r.points).padStart(6)}`);
