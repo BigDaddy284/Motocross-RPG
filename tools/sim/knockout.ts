@@ -17,7 +17,7 @@ const content = checkContent(rawContent(), loadManifest(), loadMaps()).content!;
 const rc: RaceContent = content;
 
 const FILE = 'takedown-strip.track.json';
-const [mod] = loadModTracks(rc, [{ file: FILE, text: readFileSync(`public/mods/tracks/${FILE}`, 'utf8') }], new MemoryStore());
+const [mod] = loadModTracks(rc, [{ file: FILE, text: readFileSync(`tests/fixtures/${FILE}`, 'utf8') }], new MemoryStore());
 const kv = modVenue(mod, 'area1-home-town');
 const farm = content.tracks.venues.find((v) => v.id === 'venue-farmland')!;
 function rider(level: number, cond: number) {

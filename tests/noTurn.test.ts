@@ -18,15 +18,16 @@ import { content, field } from './raceHelpers';
 // time off a raised start platform, a timed seeding run, knockout heats of four with the first two
 // through, and a best-of-three final scored 1 to 4 a run, lowest total winning.
 
+// The example strip, kept as a test track since the mods folder holds copies of the game's tracks (Boss, 5 Nov 2026).
 const FILE = 'takedown-strip.track.json';
 function strip() {
-  const m = readModTrack(content, FILE, readFileSync(`public/mods/tracks/${FILE}`, 'utf8'), 'folder');
+  const m = readModTrack(content, FILE, readFileSync(`tests/fixtures/${FILE}`, 'utf8'), 'folder');
   return { ...m, track: m.track! };
 }
 
 function knockout(seed = 5) {
   const rc = checkContent(rawContent(), loadManifest(), loadMaps()).content!;
-  const [mod] = loadModTracks(rc, [{ file: FILE, text: readFileSync(`public/mods/tracks/${FILE}`, 'utf8') }], new MemoryStore());
+  const [mod] = loadModTracks(rc, [{ file: FILE, text: readFileSync(`tests/fixtures/${FILE}`, 'utf8') }], new MemoryStore());
   const venue = modVenue(mod, 'area1-home-town');
   const career = newCareerState(rc.bikes, rc.story, rc.bikes.brands[0].id);
   return new Knockout(rc, venue, playerEntrant(rc, career, 'Test'), seed, entryFee(rc, venue, {}));

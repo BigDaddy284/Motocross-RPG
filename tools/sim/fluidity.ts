@@ -11,8 +11,8 @@ import { content, race } from '../../tests/raceHelpers';
 const args = process.argv.slice(2);
 const seeds = Number(args[0] ?? 5);
 const only = args.slice(1);
-for (const file of ['first-try-mx', 'quarry-sprint', 'takedown-strip']) {
-  const mod = readModTrack(content as never, `${file}.track.json`, readFileSync(`public/mods/tracks/${file}.track.json`, 'utf8'), 'folder');
+for (const path of ['public/mods/tracks/first-try-mx.track.json', 'tests/fixtures/quarry-sprint.track.json', 'tests/fixtures/takedown-strip.track.json']) {
+  const mod = readModTrack(content as never, path.split('/').pop()!, readFileSync(path, 'utf8'), 'folder');
   if (mod.track) registerModTracks(content, [...content.tracks.tracks.filter((t) => t.id.startsWith('mod.')).map((t) => ({ file: t.id, source: 'folder' as const, name: t.name, track: t, problems: [] })), mod]);
 }
 // Enduro sprints are a different race (riders queue at the line and roll down a return lane), checked by tests/sprint.test.ts.
