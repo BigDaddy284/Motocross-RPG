@@ -51,7 +51,10 @@ It runs in a browser on desktop or on a phone held sideways, and saves automatic
 | Bike, bag and current task | Tab, I or B | Bike button |
 | Skills | K, or the Skills tab in the Bike panel | Bike button, then Skills |
 | A skill's XP and the XP for its next level | Hover over the skill on the Skills tab | Tap the skill; tap empty space to hide it |
+| World map | M | Map button |
 | Pause menu (save, settings) | Esc | ☰ button |
+
+**Rebinding keys** (Boss, 5 Nov 2026): Settings > Controls lists each action (walk up, left, down and right, talk / use, bike and bag, skills, world map, pause menu) with its key. Click one, press the new key, and it saves with the settings straight away; a key another action had swaps over, and Restore defaults puts them all back. The arrow keys, Space, Enter, Tab, I, the + and - keys and Esc always keep their jobs too, so a rebind never leaves you stuck (`src/core/keybinds.ts`).
 
 ### Playing on a phone
 

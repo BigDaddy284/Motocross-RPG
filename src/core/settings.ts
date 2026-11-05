@@ -1,3 +1,4 @@
+import { cleanControls } from './keybinds';
 import type { KeyValueStore } from './storage';
 
 // Settings apply immediately, save automatically and have Restore Defaults (GDD 20.1).
@@ -19,7 +20,8 @@ export interface Settings {
    * testNoWear: TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 2 Nov 2026): the bike takes no wear or crash damage in races and practice.
    */
   gameplay: { tutorialPrompts: boolean; contextHints: boolean; reminders: boolean; showTask: boolean; testRideAlone: boolean; testAlwaysWin: boolean; testNoWear: boolean };
-  controls: { up: string; down: string; left: string; right: string; interact: string; menu: string };
+  /** One key per action, Phaser KeyCodes names, rebindable in Settings > Controls (core/keybinds.ts; Boss, 5 Nov 2026). */
+  controls: { up: string; down: string; left: string; right: string; interact: string; bag: string; skills: string; map: string; menu: string };
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -27,7 +29,7 @@ export const DEFAULT_SETTINGS: Settings = {
   display: { zoom: 100, fullscreen: false, zoomControl: 'slider' },
   accessibility: { textScale: 130, reducedEffects: false, highContrast: false },
   gameplay: { tutorialPrompts: true, contextHints: true, reminders: true, showTask: true, testRideAlone: false, testAlwaysWin: false, testNoWear: false },
-  controls: { up: 'W', down: 'S', left: 'A', right: 'D', interact: 'E', menu: 'ESC' },
+  controls: { up: 'W', down: 'S', left: 'A', right: 'D', interact: 'E', bag: 'B', skills: 'K', map: 'M', menu: 'ESC' },
 };
 
 /** Zoom range from the style guide: 50% to 200%. */
@@ -98,6 +100,7 @@ function load(store: KeyValueStore): Settings {
     }
   }
   if (!ZOOM_CONTROLS.includes(out.display.zoomControl)) out.display.zoomControl = DEFAULT_SETTINGS.display.zoomControl;
+  out.controls = cleanControls(out.controls, DEFAULT_SETTINGS.controls);
   out.display.zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, out.display.zoom));
   out.accessibility.textScale = Math.min(TEXT_MAX, Math.max(TEXT_MIN, out.accessibility.textScale));
   return out;

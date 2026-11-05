@@ -33,6 +33,7 @@ import { PACE_WORDS, REACT_WORDS, REPS_WORDS, pacePicture, reactPicture, repsPic
 import { careerRecords, recordText } from '../core/records';
 import { services } from '../services';
 import { areaName } from '../core/areas';
+import { actionFor, keyName } from '../core/keybinds';
 import { COLORS, hex, textStyle } from '../ui/theme';
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
 import { button, panel, slider, statBar, TASK_MARK, trophyIcon } from '../ui/widgets';
@@ -174,25 +175,30 @@ export class HudScene extends Phaser.Scene {
       if (this.dialogue) this.advance?.();
       else this.world.interactFacing();
     };
-    kb.on('keydown-E', use);
-    kb.on('keydown-SPACE', use);
-    kb.on('keydown-ENTER', () => this.dialogue && this.advance?.());
-    kb.on('keydown-ESC', () => {
+    const pauseKey = () => {
       if (this.pause) this.closePause();
       else if (this.modal) this.closeModal();
       else if (!this.dialogue) this.world.openPause();
-    });
+    };
     const togglePanel = (e?: KeyboardEvent) => {
       e?.preventDefault();
       if (this.modal && this.panelOpen) this.closeModal();
       else if (!this.modal && !this.pause && !this.dialogue) this.openPanel('bike');
     };
     kb.addCapture('TAB');
-    kb.on('keydown-TAB', togglePanel);
-    kb.on('keydown-I', togglePanel);
-    kb.on('keydown-B', togglePanel);
-    kb.on('keydown-M', () => !this.modal && !this.pause && !this.dialogue && this.world.openWorldMap());
-    kb.on('keydown-K', () => !this.modal && !this.pause && !this.dialogue && this.openPanel('skills'));
+    // The keys come from Settings > Controls, read at each press so a rebind works at once (core/keybinds.ts).
+    kb.on('keydown', (e: KeyboardEvent) => {
+      const key = keyName(e.code);
+      if (!key || this.scene.isActive('settings')) return;
+      // Esc always opens and closes the pause menu, whatever the menu key is.
+      const action = key === 'ESC' ? 'menu' : actionFor(services.settings.get().controls, key);
+      if (action === 'interact') use();
+      else if (action === 'advance') this.dialogue && this.advance?.();
+      else if (action === 'menu') pauseKey();
+      else if (action === 'bag') togglePanel(e);
+      else if (action === 'map') !this.modal && !this.pause && !this.dialogue && this.world.openWorldMap();
+      else if (action === 'skills') !this.modal && !this.pause && !this.dialogue && this.openPanel('skills');
+    });
   }
 
   private panelOpen = false;

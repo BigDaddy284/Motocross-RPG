@@ -295,8 +295,10 @@ export class WorldScene extends Phaser.Scene {
 
   private setupInput(): void {
     const kb = this.input.keyboard!;
-    const K = Phaser.Input.Keyboard.KeyCodes;
-    this.keys = kb.addKeys({ up: K.UP, down: K.DOWN, left: K.LEFT, right: K.RIGHT, w: K.W, a: K.A, s: K.S, d: K.D }) as typeof this.keys;
+    this.bindMoveKeys();
+    // A rebind in Settings > Controls takes effect at once (Boss, 5 Nov 2026).
+    const unbind = services.settings.onChange(() => this.bindMoveKeys());
+    this.events.once('shutdown', unbind);
     // E, Space and Esc are handled by the HUD, which knows whether a dialogue or menu is open.
     kb.on('keydown-PLUS', () => this.zoomBy(ZOOM_STEP));
     kb.on('keydown-NUMPAD_ADD', () => this.zoomBy(ZOOM_STEP));
@@ -310,6 +312,15 @@ export class WorldScene extends Phaser.Scene {
       const w = this.cameras.main.getWorldPoint(p.x, p.y);
       this.clickAt(w.x, w.y);
     });
+  }
+
+  /** The walking keys: the arrows, and the four picked in Settings > Controls. */
+  private bindMoveKeys(): void {
+    const kb = this.input.keyboard!;
+    const K = Phaser.Input.Keyboard.KeyCodes as unknown as Record<string, number>;
+    const c = services.settings.get().controls;
+    if (this.keys) for (const k of Object.values(this.keys)) kb.removeKey(k, true, true);
+    this.keys = kb.addKeys({ up: K.UP, down: K.DOWN, left: K.LEFT, right: K.RIGHT, w: K[c.up], a: K[c.left], s: K[c.down], d: K[c.right] }) as typeof this.keys;
   }
 
   private heldDirection(): Tile | null {
