@@ -13,9 +13,9 @@ Names marked *(placeholder)* are mine, to be replaced by Boss. Anything marked *
 - **Joseph Halden at every track venue.** This is already in on `test/v1.5` (he runs the race office at every track), so each new venue just places him.
 - **Dan Smyth** stays an Area 1 NPC (the Industrial Zone challenger).
 - **Every area from 2 to 8** gets parts making (batch jobs) and at least one new fitness activity.
-- **Energy drinks from Area 4 to 8.** Where they're sold isn't decided.
+- **Energy drinks:** dropped (Boss, 5 Nov 2026: "drop the drinks").
 - **Area 5** has a storyline that unlocks and introduces the Modifying Machine.
-- **Story beats from the table:** Area 3 is Big Pete, the Rider Trainer who trained all the top riders (he also unlocks whips and scrubs, per PR 46). Area 4 is Energy Drinks. Area 5 is Sponsored Rides. Every area has shop tasks and new Local and Area Champions.
+- **Story beats from the table:** Area 3 is Big Pete, the Rider Trainer who trained all the top riders (he also unlocks whips and scrubs, per PR 46). Area 4's Energy Drinks beat is dropped (Boss, 5 Nov 2026). Area 5 is Sponsored Rides. Every area has shop tasks and new Local and Area Champions.
 - **Track types:** Enduro Sprint opens in Area 5, No-Turn Takedown in Area 7 and EnduroCross in Area 8.
 - **Area Champions:** Area 2 Taylor Heart, Area 3 Aidan Borne, Area 4 Kate Borne, Area 5 Louie Borne, Area 6 James Nestor, Area 7 Harvey Borne, Area 8 Neal Borne.
 - **Vehicles:** Area 2 Old Rusty Van, then Motor 3 to Motor 6 in Areas 3 to 6. The Factory Hauler (Motor 7) is never driven by the player (Boss, 31 Oct 2026): see [Motors](#motors).
@@ -209,14 +209,13 @@ The area's own story beat (the house, Big Pete, Maggie's quest and so on) starts
 
 ### Area 4: Forest Town (roots, loam, wet woods)
 
-- **Story:** **Energy drinks** arrive. A short task introduces them (for example, a drinks rep needs help at the race office), then they're on sale for Areas 4 to 8. Area Champion Kate Borne.
+- **Story:** shop tasks and the new champions (energy drinks dropped, Boss, 5 Nov 2026). Area Champion Kate Borne.
 - **Batch job:** **Suspension shop** (forks and shock). Minigame: suspension service (Suspension). Pay £1.50 a part, batch 100.
 - **Fitness:** **Yoga** at a woodland retreat (Wellbeing). Wellbeing has nothing to train on today.
 - **Rider training:** berm and flat corner (Cornering and Braking), rut riding over roots (Balance).
 - **Venues:** woodland MX, forest enduro loop, a supercross venue *(placeholders)*.
 - **New at the Area 1 tool shop:** suspension tools (£1,500) and Pro bodywork tools.
 - **House:** a reskin of the Area 3 Semi with garage (Boss, 30 Oct 2026). House prices still go up every area, so it costs more than Area 3's: £30,000 (Boss, 30 Oct 2026). It's for convenience, a home in town that reaches the shared storage.
-- **Energy drinks:** see [Energy drinks](#energy-drinks-areas-4-to-8).
 - **Motor:** Motor 4, MX Van Medium.
 
 ### Area 5: Western Works (quarry, old industry, rock and dust)
@@ -294,7 +293,7 @@ Prices and space (bikes / parts / tool slots), proposed by Claude and agreed by 
 
 ## Energy drinks (Areas 4 to 8)
 
-**Parked** (Boss, 30 Oct 2026): we'll dig deeper into energy drinks closer to Area 4. The notes below are a starting point only.
+**Dropped** (Boss, 5 Nov 2026: "drop the drinks"). Kept below only as a record of what was planned.
 
 The rules are already agreed in Spec 4: drinks boost XP for one race day, never race speed. The number of active drinks is limited by Fitness level (1, then 2 at 50, then 3 at 80). Each skill has its own drink.
 
