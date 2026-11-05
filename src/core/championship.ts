@@ -55,6 +55,8 @@ export interface ChampionshipDef {
   won?: string;
   /** The class this championship is the milestone for (Spec 18.3): its first win sets milestone.<class>. */
   milestone?: string;
+  /** The Rider Ability level needed to enter it (GDD 6.4: the Ultimate Event opens at 99). */
+  level?: number;
   /** The area a first win opens the road to (Spec 18.2): sets road.N.won, and Manny sets area.N.open later. */
   opens?: number;
   /**
@@ -101,7 +103,7 @@ export const CHAMPIONSHIPS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['drawFrom', 'regulars', 'without', 'main', 'buff', 'needs', 'won', 'milestone', 'opens', 'sidecar'],
+        optional: ['drawFrom', 'regulars', 'without', 'main', 'buff', 'needs', 'won', 'milestone', 'opens', 'sidecar', 'level'],
         fields: {
           id: { type: 'string', pattern: /^[a-z0-9_.-]+$/ },
           name: { type: 'string', nonEmpty: true },
@@ -126,6 +128,7 @@ export const CHAMPIONSHIPS_SCHEMA: Schema = {
           replay: { type: 'number', min: 0, max: 1 },
           won: { type: 'string', nonEmpty: true },
           milestone: { type: 'string', nonEmpty: true },
+          level: { type: 'number', integer: true, min: 1, max: 99 },
           opens: { type: 'number', integer: true, min: 2, max: 8 },
           sidecar: { type: 'boolean' },
         },
@@ -245,11 +248,12 @@ export function champRiders(rc: Pick<RaceContent, 'riders'>, def: ChampionshipDe
 }
 
 /** Why the rider can't enter, or null. */
-export function champProblem(rc: Pick<RaceContent, 'tracks' | 'bikes'>, def: ChampionshipDef, flags: Record<string, boolean>, bikeClass?: string): string | null {
+export function champProblem(rc: Pick<RaceContent, 'tracks' | 'bikes'>, def: ChampionshipDef, flags: Record<string, boolean>, bikeClass?: string, riderLevel?: number): string | null {
   if (bikeClass !== undefined && !dayClass(rc.bikes, def.class, bikeClass)) return `A ${className(rc.bikes, def.class)} championship: your ${className(rc.bikes, bikeClass)} is too small.`;
+  if (def.level && (riderLevel ?? 0) < def.level) return `Needs Rider Ability ${def.level}${riderLevel !== undefined ? `: you're level ${riderLevel}` : ''}.`;
   const missing = (def.needs ?? []).find((f) => !flags[f]);
   if (missing === 'first_race_done') return 'Locked: finish one normal race day first, at any track. Then the championship opens.';
-  if (missing?.startsWith('badge.')) return 'Needs the badge from this area’s Local Champion Championship.';
+  if (missing?.startsWith('badge.')) return 'Needs this area’s badge: win its Local Champion first.';
   if (missing) return 'Not open to you yet.';
   for (const v of def.rounds) {
     const venue = rc.tracks.venues.find((x) => x.id === v);
