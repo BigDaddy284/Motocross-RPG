@@ -1,7 +1,9 @@
+import { className } from '../core/classes';
 import Phaser from 'phaser';
 import { lastReleasedArea } from '../core/areas';
 import { bikeStats, formatMoney, raceStopper, type Bike } from '../core/career';
-import { formatTime, gateBonus, setTestAlwaysWin, setTestNoWear, type LapTrace, type MotoSim, type RaceEvent, type RiderResult, type TrackDef } from '../core/race';
+import { formatTime, gateBonus, seenGates, setTestAlwaysWin, setTestNoWear, type LapTrace, type MotoSim, type RaceEvent, type RiderResult, type TrackDef } from '../core/race';
+import { childLevel } from '../core/skills';
 import { PLAYER_ID, RaceDay, applyRide, playerEntrant, practiceSim, scaleXp, sumXp, trackById, type DayResult, type MotoRecord, type VenueDef } from '../core/raceDay';
 import { passengerEntrant, passengerEntry, passengerXp, passengerXpScale, type PassengerTerms } from '../core/passenger';
 import { Knockout, type KnockoutHeat, roundName } from '../core/knockout';
@@ -14,6 +16,7 @@ import { challengePrize, rigChallenge, type ChallengeDef } from '../core/challen
 import { challengeRuns, challengeWins, venueDays, venueWins } from '../core/records';
 import type { SaveData } from '../core/saves';
 import { services } from '../services';
+import { completeRaceDay, completeSxNight } from '../core/devBuild';
 import { COLORS, textStyle } from '../ui/theme';
 import { binocularsIcon, button, panel, penMeter, type Button, type PenMeter } from '../ui/widgets';
 import { directorFor, ROW_SIZE, type RaceDirector } from '../core/riderAI';
@@ -24,7 +27,6 @@ import { view } from '../ui/view';
 import { gearColour, kitFor, type RaceLook } from '../world/raceBike';
 
 /** Whether the gate screen shows each gate's start bonus: hidden until start gate training (v1.5) shows it (Boss, 1 Nov 2026). */
-const SHOW_GATE_BONUS = false;
 
 // Race day and practice: gate pick, the live race screen with its pit board, auto-complete,
 // moto and day results, and practice laps. The simulation does the racing; this screen only
@@ -277,13 +279,13 @@ export class RaceScene extends Phaser.Scene {
     if (this.ko) return `${this.args.venue.name} · ${this.ko.cls} No-Turn Takedown`;
     if (this.sx) {
       const c = this.champ;
-      return `${this.args.venue.name} · ${this.sx.cls} ${c ? `${c.def.short} round ${c.round} of ${c.def.rounds.length}` : 'Supercross night'}`;
+      return `${this.args.venue.name} · ${className(services.content.bikes, this.sx.cls)} ${c ? `${c.def.short} round ${c.round} of ${c.def.rounds.length}` : 'Supercross night'}`;
     }
     const day = this.day!;
     if (this.args.challenge) return `${this.args.challenge.name} · ${day.laps} laps`;
     if (day.sidecar) return `${this.args.venue.name} · Sidecar race day${day.sidecar.test ? ' (TEST)' : day.sidecar.passenger && this.args.passenger ? ` in ${this.args.passenger.rider}'s chair` : ''}`;
     const c = this.champ;
-    return `${this.args.venue.name} · ${day.cls} ${c ? `${c.def.short} round ${c.round} of ${c.def.rounds.length}` : 'race day'}`;
+    return `${this.args.venue.name} · ${className(services.content.bikes, day.cls)} ${c ? `${c.def.short} round ${c.round} of ${c.def.rounds.length}` : 'race day'}`;
   }
 
   /** Sizes the design to the window's shape: at least 1280 × 720, as wide or tall as the window allows. */
@@ -439,6 +441,35 @@ export class RaceScene extends Phaser.Scene {
     this.gatePick(`Moto ${n} of ${day.motoCount} · ${day.laps} laps · ${day.field.length} riders${this.weatherNote()}`, how, day.pickOrder, day.gatesForPlayer(), day.gateCount, day.motoTrack(), !!day.sidecar);
   }
 
+  /**
+   * DEV ONLY, v2.1DevOnly test build (Boss, 5 Nov 2026): "Complete Race Day" on the first race's gate
+   * pick runs the whole day off screen with the player first in every race, then shows the overall.
+   * Not on a challenge, and only before the player's first race of the day.
+   */
+  private completeDay(): ((message: string) => void) | undefined {
+    const always = services.settings.get().gameplay.testAlwaysWin;
+    if (this.sx) {
+      const sx = this.sx;
+      if (sx.xp.length) return undefined;
+      return (message) => {
+        completeSxNight(sx, message, always);
+        this.showSxNightResults();
+      };
+    }
+    const day = this.day!;
+    if (this.args.challenge || day.motos.length) return undefined;
+    return (message) => {
+      completeRaceDay(day, message, always);
+      this.showDayResults();
+    };
+  }
+
+  /** DEV ONLY (see completeDay): the "Complete Race Day" button, bottom left of a gate pick. */
+  private completeDayButton(message: () => string): void {
+    const complete = this.completeDay();
+    if (complete) this.btn(W / 2 - 300, 682, 'Complete Race Day', () => complete(message()), 260, 44);
+  }
+
   /** The gate pick and how-to-race screen, for a race day's moto or a Supercross night's race. `track` deals this race's gate bonuses. */
   private gatePick(sub: string, how: string, pickOrder: string[], gates: { taken: Map<number, string>; free: number[] }, count: number, track: TrackDef, sidecar = false): void {
     this.clear();
@@ -450,6 +481,11 @@ export class RaceScene extends Phaser.Scene {
     this.text(W / 2, 108, `${how} You pick ${ordinal(myTurn)}. ${tip}`, sidecar ? 19 : 22).setOrigin(0.5, 0);
 
     let chosen = free[0];
+    // The gates whose bonus you can read: more as Starts levels up, random ones, taken or not (Boss, 4 Nov 2026).
+    const { skills } = services.content;
+    const startsLevel = childLevel(skills, this.save.career.skills, 'starts');
+    const slots = [...Array(count).keys()].filter((g) => !sidecar || isSidecarGate(g));
+    const seen = seenGates(track, slots, startsLevel, skills.maxLevel);
     // One gate per rider, laid out as the start is: gates 1 to 8 are the front row and 9 to 16 the
     // second row, each straight behind the gate 8 before it.
     const perRow = Math.min(count, ROW_SIZE);
@@ -476,9 +512,9 @@ export class RaceScene extends Phaser.Scene {
         this.screen.add(r);
         this.text(x, y + 4, gateBadges(this.names).get(who) ?? '', 18, COLORS.muted).setOrigin(0.5);
       } else {
-        // The start bonus stays hidden (Boss, 1 Nov 2026): the bonuses are dealt to the gates at random
-        // each moto (dealGates), and start gate training in v1.5 will show them as the rider levels up.
-        const b = this.btn(x, y, SHOW_GATE_BONUS ? (bonus > 0 ? `+${bonus}%` : bonus < 0 ? `${bonus}%` : '0%') : 'Pick', () => {
+        // The bonuses are dealt to the gates at random each moto (dealGates; Boss, 1 Nov 2026) and stay
+        // hidden except on the gates your Starts level lets you read (seenGates; Boss, 4 Nov 2026).
+        const b = this.btn(x, y, seen.has(g) ? (bonus > 0 ? `+${bonus}%` : bonus < 0 ? `${bonus}%` : '0%') : 'Pick', () => {
           chosen = g;
           gateButtons.forEach((o) => o.setSelected(o === b));
         }, gw - 8, gh);
@@ -489,7 +525,8 @@ export class RaceScene extends Phaser.Scene {
       this.text(x - gw / 2 + 7, y - gh / 2 + 1, `${g + 1}`, 14, COLORS.muted).setOrigin(0, 0);
     }
     for (let row = 0; row < rows; row++) this.text(gx - gw / 2 - 12, y0 + row * rowH, ['Front row', 'Second row'][row], 18, COLORS.muted).setOrigin(1, 0.5);
-    this.text(W / 2, 266, 'Taken gates show who has them.', 18, COLORS.muted).setOrigin(0.5, 0);
+    const read = seen.size ? `Starts ${startsLevel}: you can read ${seen.size} of the ${slots.length} gates' start bonuses.` : 'Train your Starts to read the gates\' start bonuses.';
+    this.text(W / 2, 266, `Taken gates show who has them. ${read}`, 18, COLORS.muted).setOrigin(0.5, 0);
 
     // How to race it.
     const { racing } = services.content;
@@ -501,6 +538,7 @@ export class RaceScene extends Phaser.Scene {
     this.btn(W / 2 + 300, 600, 'Bike check', () => this.showBike(), 260, 52);
     if (this.canLeave()) this.btn(W / 2, 682, 'Leave early', () => this.confirmLeave(), 200, 44);
     else this.pullOutButton();
+    this.completeDayButton(message);
   }
 
   /**
@@ -531,6 +569,7 @@ export class RaceScene extends Phaser.Scene {
     this.btn(W / 2 + 300, 600, 'Bike check', () => this.showBike(), 260, 52);
     if (this.canLeave()) this.btn(W / 2, 682, 'Leave early', () => this.confirmLeave(), 200, 44);
     else this.pullOutButton();
+    this.completeDayButton(message);
   }
 
   /**
@@ -1678,7 +1717,7 @@ export class RaceScene extends Phaser.Scene {
     this.clear();
     const done = active.rounds.length;
     const last = nextRoundVenue(def, active) === null;
-    this.header(`${def.name} · ${last ? 'final standings' : `after round ${done} of ${def.rounds.length}`}`, `${def.class} · points for every moto, the same ${active.field.length + 1} riders every round`);
+    this.header(`${def.name} · ${last ? 'final standings' : `after round ${done} of ${def.rounds.length}`}`, `${className(services.content.bikes, def.class)} · points for every moto, the same ${active.field.length + 1} riders every round`);
     const table = standings(points, active);
     const name = (id: string) => (id === PLAYER_ID ? `${this.save.rider.name} (you)` : services.content.riders.riders.find((r) => r.id === id)?.name ?? id);
     const rows = table.map((r) => `${String(r.position).padStart(2)}  ${name(r.id).padEnd(22).slice(0, 22)}${def.rounds.map((_, i) => String(r.byRound[i] ?? '').padStart(5)).join('')}${String(r.points).padStart(6)}`);
