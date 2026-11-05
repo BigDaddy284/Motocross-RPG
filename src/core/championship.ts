@@ -55,6 +55,11 @@ export interface ChampionshipDef {
   won?: string;
   /** The class this championship is the milestone for (Spec 18.3): its first win sets milestone.<class>. */
   milestone?: string;
+  /**
+   * Later classes the same win unlocks too, each still collected in turn at its Rider Ability level
+   * (Boss, 5 Nov 2026: the Crankshaft Cup's 40+ Vets, "once won the 50+ and 60+ are unlock").
+   */
+  alsoMilestones?: string[];
   /** The area a first win opens the road to (Spec 18.2): sets road.N.won, and Manny sets area.N.open later. */
   opens?: number;
   /**
@@ -101,7 +106,7 @@ export const CHAMPIONSHIPS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['drawFrom', 'regulars', 'without', 'main', 'buff', 'needs', 'won', 'milestone', 'opens', 'sidecar'],
+        optional: ['drawFrom', 'regulars', 'without', 'main', 'buff', 'needs', 'won', 'milestone', 'alsoMilestones', 'opens', 'sidecar'],
         fields: {
           id: { type: 'string', pattern: /^[a-z0-9_.-]+$/ },
           name: { type: 'string', nonEmpty: true },
@@ -126,6 +131,7 @@ export const CHAMPIONSHIPS_SCHEMA: Schema = {
           replay: { type: 'number', min: 0, max: 1 },
           won: { type: 'string', nonEmpty: true },
           milestone: { type: 'string', nonEmpty: true },
+          alsoMilestones: { type: 'array', minItems: 1, items: { type: 'string', nonEmpty: true } },
           opens: { type: 'number', integer: true, min: 2, max: 8 },
           sidecar: { type: 'boolean' },
         },
@@ -168,7 +174,15 @@ export function checkChampionships(data: ChampionshipsData, rc: Pick<RaceContent
       if (!next) err('milestone', `${c.class} is the top class`);
       else if (next.id !== c.milestone) err('milestone', `the class after ${c.class} is ${next.id}, not "${c.milestone}"`);
       if (data.championships.some((o) => o !== c && o.milestone === c.milestone)) err('milestone', `"${c.milestone}" has more than one milestone championship`);
-    }
+      // alsoMilestones: the classes straight after the milestone, in order.
+      let prev = c.milestone;
+      for (const m of c.alsoMilestones ?? []) {
+        const n = nextClass(rc.bikes, prev);
+        if (n?.id !== m) err('alsoMilestones', `the class after ${prev} is ${n?.id ?? 'none'}, not "${m}"`);
+        if (data.championships.some((o) => o.milestone === m)) err('alsoMilestones', `"${m}" is another championship's milestone`);
+        prev = m;
+      }
+    } else if (c.alsoMilestones) err('alsoMilestones', 'needs a milestone first');
     c.rounds.forEach((v, j) => {
       const venue = rc.tracks.venues.find((x) => x.id === v);
       if (!venue) err(`rounds[${j}]`, `no venue "${v}"`);
@@ -427,7 +441,7 @@ export function finishChampionship(career: CareerState, flags: Record<string, bo
   const money = reward ? wholePounds(pence(reward.money) * share) : 0;
   career.money += money;
   if (reward?.flag) flags[reward.flag] = true;
-  if (me.position === 1 && def.milestone) flags[milestoneFlag(def.milestone)] = true;
+  if (me.position === 1 && def.milestone) for (const m of [def.milestone, ...(def.alsoMilestones ?? [])]) flags[milestoneFlag(m)] = true;
   // The road opens through Joseph, Bill and Manny (areas.ts roadFlag, Boss, 2 Nov 2026), not straight away.
   if (me.position === 1 && def.opens && def.opens <= lastArea && !flags[areaFlag(def.opens)]) flags[roadFlag(def.opens, 'won')] = true;
   return { position: me.position, money, flag: reward?.flag, title: me.position === 1 && !firstWin ? undefined : reward?.title, firstWin };

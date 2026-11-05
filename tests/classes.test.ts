@@ -59,6 +59,25 @@ describe('bike classes (GDD 6.4, Spec 12.1, 14.2)', () => {
     expect(champProblem(rc, { ...main, class: '65cc', needs: [] }, flags, '50cc')).toMatch(/too small/);
   });
 
+  it('the Crankshaft Cup is the 40+ Vets milestone and opens the 50+ and 60+ Vets too, each at its Rider Ability (Boss, 5 Nov 2026)', () => {
+    const career = fresh();
+    const flags: Record<string, boolean> = {};
+    const cup = championships.championships.find((c) => c.id === 'area8.main')!;
+    career.bike = { ...career.bike, class: '450f' };
+    enter(career, rc, cup, 7);
+    expect(finishChampionship(career, flags, cup, cup.rounds.map(() => 25)).position).toBe(1);
+    for (const c of ['vets-40', 'vets-50', 'vets-60']) expect(flags[milestoneFlag(c)], c).toBe(true);
+    expect(flags[milestoneFlag('sidecar')]).toBeUndefined();
+    riderTo(career, 80);
+    expect(milestoneStatus(bikes, skills, career, flags)).toMatchObject({ kind: 'ready', cls: { id: 'vets-40' } });
+    career.money = pence(1000000);
+    expect(collectBike(bikes, championships, career, flags, 'yamamoto', 0).ok).toBe(true);
+    expect(milestoneStatus(bikes, skills, career, flags)).toMatchObject({ kind: 'needLevel', cls: { id: 'vets-50' }, level: 90 });
+    riderTo(career, 90);
+    expect(collectBike(bikes, championships, career, flags, 'yamamoto', 0).ok).toBe(true);
+    expect(milestoneStatus(bikes, skills, career, flags)).toMatchObject({ kind: 'needLevel', cls: { id: 'vets-60' }, level: 95 });
+  });
+
   it('winning the Area 1 Championship is the 65cc milestone, collected at Moto78 once Rider Ability is 10 (Spec 18.3)', () => {
     const career = fresh();
     const flags: Record<string, boolean> = {};
