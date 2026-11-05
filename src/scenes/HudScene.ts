@@ -25,7 +25,7 @@ import {
 } from '../core/shops';
 import type { DialogueLine } from '../core/content';
 import { awardOutfit, championsKit, type RiderLook } from '../core/house';
-import { className, collectBike, milestoneOf, milestoneStatus, sponsorBrand, stockBikePrice } from '../core/classes';
+import { className, collectBike, frameGradeOf, milestoneOf, milestoneStatus, sponsorBrand, stockBikePrice } from '../core/classes';
 import { buyTools, diyFitProblem, diyRepair, diyRepairQuote, nextVersion, ownedVersion, toolsFor } from '../core/tools';
 import { repairLent } from '../core/errands';
 import { PACE_BAND, REP_ZONE, drillScene, gateHoldMs, gateStart, gateWindowMs, goodRep, onPace, type DrillDef } from '../core/training';
@@ -1352,7 +1352,7 @@ export class HudScene extends Phaser.Scene {
       const won = `${champ?.name ?? 'The championship'} is yours, so you've earned a ${next.name}.`;
       const more = milestone.kind === 'needLevel'
         ? `You'll need Rider Ability ${milestone.level} to ride it; you're level ${milestone.have}. Race on and come back.`
-        : `The champion's sponsor rides ${sponsorName}: a new stock ${next.name}, Grade 1 all round, for nothing and no strings. Or buy a stock bike of any brand.`;
+        : `The champion's sponsor rides ${sponsorName}: a new stock ${next.name}, Grade 1 parts on a Grade ${frameGradeOf(bikes, next.id)} frame, for nothing and no strings. Or buy a stock bike of any brand.`;
       return { next, champ, sponsor, sponsorName, won, more };
     })() : null;
     const rowsH =
@@ -1427,7 +1427,7 @@ export class HudScene extends Phaser.Scene {
 
     if (tab === 'buy') {
       if (!sellsFor(shop, cls)) text(left, y0, `Nothing here for a ${cls}.`, 17, COLORS.muted);
-      const stock = shopStock(shops, shop, career, cls);
+      const stock = shopStock(shops, shop, career, cls, frameGradeOf(bikes, cls));
       const [lo, hi] = shop.sells!.grades;
       // The grade buttons share the room from left + 325 to the panel's right edge: three at 150 wide,
       // narrower for shops that sell four grades or more (Areas 2 and up).

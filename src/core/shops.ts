@@ -137,17 +137,20 @@ function roll(s: ShopState, key: string): number {
 export const sellsFor = (shop: ShopDef, cls: string) => !!shop.sells?.classes.includes(cls);
 
 /** What is on the shelves for a class right now: the lowest grade always, higher grades as rotation brings them in. */
-export function shopStock(data: ShopsData, shop: ShopDef, career: CareerState, cls: string): StockItem[] {
+/** stockGrade: the grade of the stock-only slots for this class (its frame grade, core/classes.ts frameGradeOf). */
+export function shopStock(data: ShopsData, shop: ShopDef, career: CareerState, cls: string, stockGrade = 1): StockItem[] {
   const sells = shop.sells;
   if (!sells || !sellsFor(shop, cls)) return [];
   const s = shopState(career);
   const out: StockItem[] = [];
   const [lo, hi] = sells.grades;
   for (const slot of sells.slots) {
-    const top = sells.stockOnly?.includes(slot) ? lo : hi;
-    for (let g = lo; g <= top; g++) {
+    // A stock-only slot (Moto78's frame) is just the class's frame grade, always in (Boss, 5 Nov 2026).
+    const only = sells.stockOnly?.includes(slot);
+    const [from, top] = only ? [stockGrade, stockGrade] : [lo, hi];
+    for (let g = from; g <= top; g++) {
       const key = `${shop.id}:${cls}:${slot}:${g}`;
-      const always = g === lo;
+      const always = g === from;
       if (!always && roll(s, key) >= (sells.extraChance[String(g)] ?? 0)) continue;
       out.push({ key, slot, grade: g, price: partPrice(data, slot, g, cls), always, soldOut: !always && s.sold.includes(key) });
     }

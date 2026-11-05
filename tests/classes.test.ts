@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { newCareerState, pence } from '../src/core/career';
 import { finishChampionship, enter, champProblem } from '../src/core/championship';
-import { classAtLeast, classFlag, collectBike, dayClass, milestoneFlag, milestoneStatus, nextClass, sponsorBrand, stockBikePrice } from '../src/core/classes';
+import { classAtLeast, classFlag, collectBike, dayClass, milestoneFlag, milestoneStatus, nextClass, sponsorBrand, stockBike, stockBikePrice, frameGradeOf } from '../src/core/classes';
 import { checkContent } from '../src/core/content';
 import { RaceDay, entryFee, lapsFor, playerEntrant, trackById, venueProblem } from '../src/core/raceDay';
+import { shopStock } from '../src/core/shops';
 import { SAVE_VERSION, parseSave } from '../src/core/saves';
 import { xpForLevel } from '../src/core/skills';
 import { loadManifest, loadMaps, rawContent } from './helpers';
@@ -72,23 +73,41 @@ describe('bike classes (GDD 6.4, Spec 12.1, 14.2)', () => {
     expect(milestoneStatus(bikes, skills, career, flags)).toMatchObject({ kind: 'needLevel', level: 10, have: 1 });
     riderTo(career, 10);
     expect(milestoneStatus(bikes, skills, career, flags)).toMatchObject({ kind: 'ready', cls: { id: '65cc' } });
-    // The sponsor's brand is fixed for the career; the stock bike's price is its Grade 1 parts.
+    // The sponsor's brand is fixed for the career; the stock bike's price is its Grade 1 parts on a Grade 2 frame.
     expect(sponsorBrand(bikes, career, '65cc')).toBe(sponsorBrand(bikes, career, '65cc'));
     expect(bikes.brands.map((b) => b.id)).toContain(sponsorBrand(bikes, career, '65cc'));
     const price = stockBikePrice(shops, bikes, '65cc');
-    expect(price).toBe(pence(Object.values(shops.slotBase).reduce((a, b) => a + b, 0) * 1.2));
+    const { frame, ...rest } = shops.slotBase;
+    expect(price).toBe(pence((Object.values(rest).reduce((a, b) => a + b, 0) + frame * shops.gradeFactor) * 1.2));
     const old = career.bike;
     career.money = price - 1;
     expect(collectBike(bikes, championships, career, flags, 'sukimoto', price).ok).toBe(false);
     const r = collectBike(bikes, championships, career, flags, 'sukimoto', 0);
     expect(r.ok).toBe(true);
     expect(career.bike).toMatchObject({ brand: 'sukimoto', class: '65cc' });
-    expect(Object.values(career.bike.parts).every((p) => p.grade === 1 && p.condition === 1)).toBe(true);
+    expect(Object.entries(career.bike.parts).every(([slot, p]) => p.grade === (slot === 'frame' ? 2 : 1) && p.condition === 1)).toBe(true);
     expect(career.retired).toEqual([{ bike: old, milestone: 'area1.main' }]);
     expect(flags[classFlag('65cc')]).toBe(true);
     expect(milestoneStatus(bikes, skills, career, flags).kind).toBe('none');
     // The retired bike rides along in the save.
     const save = { version: SAVE_VERSION, savedAt: 'now', rider: { name: 'R', look: 'player-m-start-a' }, position: { map: 'area1-home-town', x: 1, y: 1, facing: 'down' }, flags, stats: { playSeconds: 0 }, career, van: null, driving: false };
     expect(parseSave(JSON.stringify(save))?.career.retired).toHaveLength(1);
+  });
+
+  it("each class's frame matches its town's grade, and the stock bike and Moto78's stock frame use it (Boss, 5 Nov 2026)", () => {
+    const want: Record<string, number> = { '50cc': 1, '65cc': 2, '85cc-small': 3, '85cc-big': 4, '125cc-youth': 5, '125cc': 6, '250f': 7, '450f': 8, 'vets-40': 8, 'vets-50': 8, 'vets-60': 8 };
+    for (const [cls, g] of Object.entries(want)) {
+      expect(frameGradeOf(bikes, cls)).toBe(g);
+      expect(stockBike(bikes, 'sukimoto', cls).parts.frame.grade).toBe(g);
+      expect(stockBike(bikes, 'sukimoto', cls).parts.top_end.grade).toBe(1);
+    }
+    const career = fresh();
+    for (const shop of shops.shops.filter((s) => s.sells?.stockOnly?.includes('frame'))) {
+      for (const cls of shop.sells!.classes) {
+        const frames = shopStock(shops, shop, career, cls, frameGradeOf(bikes, cls)).filter((s) => s.slot === 'frame');
+        expect(frames.map((f) => f.grade)).toEqual([frameGradeOf(bikes, cls)]);
+        expect(frames[0].always).toBe(true);
+      }
+    }
   });
 });

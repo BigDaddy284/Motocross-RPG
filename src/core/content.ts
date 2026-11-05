@@ -215,8 +215,8 @@ export const BIKES_SCHEMA: Schema = {
       minItems: 1,
       items: {
         type: 'object',
-        optional: ['unlock', 'youth', 'mapImage', 'sidecar'],
-        fields: { id: { type: 'string', pattern: ID }, name: { type: 'string', nonEmpty: true }, ceiling: { type: 'number', min: 1 }, unlock: { type: 'number', integer: true, min: 1, max: 99 }, youth: { type: 'boolean' }, mapImage: { type: 'string', pattern: ID }, sidecar: { type: 'boolean' } },
+        optional: ['unlock', 'youth', 'mapImage', 'sidecar', 'frameGrade'],
+        fields: { id: { type: 'string', pattern: ID }, name: { type: 'string', nonEmpty: true }, ceiling: { type: 'number', min: 1 }, unlock: { type: 'number', integer: true, min: 1, max: 99 }, youth: { type: 'boolean' }, mapImage: { type: 'string', pattern: ID }, sidecar: { type: 'boolean' }, frameGrade: { type: 'number', integer: true, min: 1, max: 9 } },
       },
     },
     starter: {

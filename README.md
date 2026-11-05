@@ -54,6 +54,8 @@ It runs in a browser on desktop or on a phone held sideways, and saves automatic
 | World map | M | Map button |
 | Pause menu (save, settings) | Esc | ☰ button |
 
+**Frames match the town** (Boss, 5 Nov 2026): each class's bike comes with a frame of its town's grade, Grade 2 for the 65cc, Grade 3 for the 85cc Small Wheel and so on up to Grade 8 for the 450cc F and the Vets. The new class bike (the sponsor's free one or a bought one) has that frame with Grade 1 parts, and Moto78's stock frame for a class is that grade too (`frameGrade` in `bikes.json`).
+
 **Rebinding keys** (Boss, 5 Nov 2026): Settings > Controls lists each action (walk up, left, down and right, talk / use, bike and bag, skills, world map, pause menu) with its key. Click one, press the new key, and it saves with the settings straight away; a key another action had swaps over, and Restore defaults puts them all back. The arrow keys, Space, Enter, Tab, I, the + and - keys and Esc always keep their jobs too, so a rebind never leaves you stuck (`src/core/keybinds.ts`).
 
 ### Playing on a phone

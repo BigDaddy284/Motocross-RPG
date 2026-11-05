@@ -81,7 +81,7 @@ describe("J's Tools and DIY repairs (Spec 8.5, 17.2a; Boss, 30 Oct 2026)", () =>
     expect(career.bike.parts.bodywork).toEqual({ grade: 2, condition: 0.9 });
   });
 
-  it('Moto78 sells a stock Grade 1 frame of your brand, never a higher grade (Boss, 30 Oct 2026)', () => {
+  it('Moto78 sells a stock Grade 1 frame of your brand for a 50cc, never a higher grade (Boss, 30 Oct 2026)', () => {
     const career = fresh();
     const bikeShop = shops.shops.find((s) => s.id === 'shop.bike')!;
     const frames = shopStock(shops, bikeShop, career, '50cc').filter((s) => s.slot === 'frame');
