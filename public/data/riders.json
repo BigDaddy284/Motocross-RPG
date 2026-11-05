@@ -53,7 +53,7 @@
     { "id": "cpu.r43", "name": "Erin Fox", "areas": [1, 2, 3, 4, 5, 6, 7, 8], "level": 4, "bike": { "brand": "yamamoto", "grade": 1, "condition": 0.75 }, "tactic": { "message": "push" } },
     { "id": "cpu.r44", "name": "Toby Marsh", "areas": [1, 2, 3, 4, 5, 6, 7, 8], "level": 4, "skills": { "cornering": 7 }, "bike": { "brand": "hondmoto", "grade": 1, "condition": 0.75 }, "tactic": { "message": "save_bike" } }
   ],
-  "fields": { "area1.local": { "area": 1 }, "area2.local": { "area": 2, "level": 24 }, "area3.local": { "area": 3, "level": 32 }, "area4.local": { "area": 4, "level": 40 }, "area5.local": { "area": 5, "level": 48 }, "area6.local": { "area": 6, "level": 56 }, "area7.local": { "area": 7, "level": 64 }, "area8.local": { "area": 8, "level": 72 } },
+  "fields": { "area1.local": { "area": 1 }, "area2.local": { "area": 2, "level": 24 }, "area3.local": { "area": 3, "level": 32 }, "area4.local": { "area": 4, "level": 40 }, "area5.local": { "area": 5, "level": 48 }, "area6.local": { "area": 6, "level": 56 }, "area7.local": { "area": 7, "level": 64 }, "area8.local": { "area": 8, "level": 72 }, "vets.40": {"area": 8, "level": 80}, "vets.50": {"area": 8, "level": 90}, "vets.60": {"area": 8, "level": 95} },
   "fieldSize": { "area1.local": 15, "area2.local": 15, "area3.local": 15, "area4.local": 15, "area5.local": 15, "area6.local": 15, "area7.local": 15, "area8.local": 15 },
   "regulars": { "area1.local": ["cpu.local_champion"], "area2.local": ["cpu.r21"], "area3.local": ["cpu.r20"], "area4.local": ["cpu.r19"], "area5.local": ["cpu.r18"], "area6.local": ["cpu.r24"], "area7.local": ["cpu.r17"], "area8.local": ["cpu.r16"] }
 }

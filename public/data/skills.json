@@ -23,9 +23,9 @@
         { "level": 50, "text": "125cc class" },
         { "level": 60, "text": "250cc F class" },
         { "level": 70, "text": "450cc F class" },
-        { "level": 80, "text": "40+ Vets class" },
-        { "level": 90, "text": "50+ Vets class" },
-        { "level": 95, "text": "60+ Vets class" },
+        { "level": 80, "text": "40+ Vets championship, on the 450cc F" },
+        { "level": 90, "text": "50+ Vets championship, on the 450cc F" },
+        { "level": 95, "text": "60+ Vets championship, on the 450cc F" },
         { "level": 99, "text": "The Ultimate Event" }
       ]
     },

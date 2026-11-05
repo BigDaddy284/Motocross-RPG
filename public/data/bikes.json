@@ -29,9 +29,6 @@
     { "id": "125cc", "name": "125cc", "ceiling": 1220, "frameGrade": 6, "unlock": 50, "mapImage": "85cc-big" },
     { "id": "250f", "name": "250cc F", "ceiling": 1525, "frameGrade": 7, "unlock": 60, "mapImage": "85cc-big" },
     { "id": "450f", "name": "450cc F", "ceiling": 1900, "frameGrade": 8, "unlock": 70, "mapImage": "85cc-big" },
-    { "id": "vets-40", "name": "40+ Vets", "ceiling": 1900, "frameGrade": 8, "unlock": 80, "mapImage": "85cc-big" },
-    { "id": "vets-50", "name": "50+ Vets", "ceiling": 1900, "frameGrade": 8, "unlock": 90, "mapImage": "85cc-big" },
-    { "id": "vets-60", "name": "60+ Vets", "ceiling": 1900, "frameGrade": 8, "unlock": 95, "mapImage": "85cc-big" },
     { "id": "sidecar", "name": "Sidecar", "ceiling": 1900, "unlock": 99, "mapImage": "85cc-big", "sidecar": true }
   ],
   "starter": { "class": "50cc", "grade": 1, "condition": [0.5, 0.8], "brokenSlot": "top_end" },

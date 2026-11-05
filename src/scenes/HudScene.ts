@@ -25,7 +25,7 @@ import {
 } from '../core/shops';
 import type { DialogueLine } from '../core/content';
 import { awardOutfit, championsKit, type RiderLook } from '../core/house';
-import { className, collectBike, frameGradeOf, milestoneOf, milestoneStatus, sponsorBrand, stockBikePrice } from '../core/classes';
+import { className, collectBike, collectPrize, declinePrize, frameGradeOf, milestoneOf, milestoneStatus, prizeBike, sponsorBrand, stockBikePrice } from '../core/classes';
 import { buyTools, diyFitProblem, diyRepair, diyRepairQuote, nextVersion, ownedVersion, toolsFor } from '../core/tools';
 import { repairLent } from '../core/errands';
 import { PACE_BAND, REP_ZONE, drillScene, gateHoldMs, gateStart, gateWindowMs, goodRep, onPace, type DrillDef } from '../core/training';
@@ -1310,9 +1310,11 @@ export class HudScene extends Phaser.Scene {
     if (shop.tools) tabs.push(['tools', 'Tool sets']);
     // The class dealer (Bill at Moto78): a new class's bike, once its milestone championship is won.
     const milestone = shops.classDealers?.includes(shop.id) ? milestoneStatus(bikes, services.content.skills, career, this.flags) : { kind: 'none' as const };
-    if (milestone.kind !== 'none') {
+    // Or a prize bike from an endgame championship, free in any brand (classes.ts prizeBike, Boss 5 Nov 2026).
+    const prize = shops.classDealers?.includes(shop.id) && milestone.kind === 'none' ? prizeBike(bikes, services.content.championships, this.flags) : null;
+    if (milestone.kind !== 'none' || prize) {
       tabs.push(['newbike', 'New bike']);
-      if (tab === 'buy' && milestone.kind === 'ready' && page === 0) tab = 'newbike';
+      if (tab === 'buy' && (milestone.kind === 'ready' || prize) && page === 0) tab = 'newbike';
     }
     if (!tabs.some(([t]) => t === tab)) tab = tabs[0][0];
     if (tab !== 'sell') this.sellPicks.clear();
@@ -1355,11 +1357,16 @@ export class HudScene extends Phaser.Scene {
         : `The champion's sponsor rides ${sponsorName}: a new stock ${next.name}, Grade 1 parts on a Grade ${frameGradeOf(bikes, next.id)} frame, for nothing and no strings. Or buy a stock bike of any brand.`;
       return { next, champ, sponsor, sponsorName, won, more };
     })() : null;
+    const prizeWords = tab === 'newbike' && prize ? {
+      won: `The ${prize.champ.name} is yours, and so is a new ${prize.cls.name}.`,
+      more: `Grade 1 parts on a Grade ${frameGradeOf(bikes, prize.cls.id)} frame, brand new, in any brand you like. Your ${className(bikes, career.bike.class)} would go on display as it is. Or keep the bike you have.`,
+    } : null;
     const rowsH =
       tab === 'buy' ? (sellsFor(shop, cls) ? shop.sells!.slots.length * buyRowH : 40)
       : tab === 'repair' ? (bikes.slots.length + (lentRows ? lentRows + 0.5 : 0)) * repairRowH
       : tab === 'tools' ? services.content.tools.sets.length * toolRowH
       : newBike ? measure(newBike.won, 17) + 8 + measure(newBike.more, 15) + (milestone.kind === 'ready' ? 16 + 42 + 38 + bikes.brands.length * 46 : 0)
+      : prizeWords ? measure(prizeWords.won, 17) + 8 + measure(prizeWords.more, 15) + 16 + (bikes.brands.length + 1) * 46
       : 0;
     // Title and tabs (118) and the greeting above the rows, the rows, then the note and a margin.
     const h = Math.max(600, Math.ceil(118 + measure(shop.greeting, 15) + 34 + rowsH + (noteH ? noteH + 18 : 0) + 24));
@@ -1617,6 +1624,32 @@ export class HudScene extends Phaser.Scene {
           line(left + 340, by, b.character, 13, COLORS.muted, w / 2 - 40 - (left + 340)).setOrigin(0, 0.5);
         });
       }
+    } else if (tab === 'newbike' && prize && prizeWords) {
+      const won = text(left, y0, prizeWords.won, 17, COLORS.cream);
+      const offer = text(left, won.y + won.height + 8, prizeWords.more, 15, COLORS.muted);
+      const firstY = offer.y + offer.height + 16 + 20;
+      bikes.brands.forEach((b, i) => {
+        const by = firstY + i * 46;
+        c.add(button(this, left + 160, by, `${b.name} ${prize.cls.name}: free`, () => inner(() => {
+          this.confirm(
+            `Take the ${b.name} ${prize.cls.name}?\nYour ${className(bikes, career.bike.class)} retires to the display as it is, parts and all. Spares for it stay in your bag to sell.`,
+            'Take it',
+            () => {
+              const r = collectPrize(bikes, services.content.championships, career, this.flags, prize.champ.id, b.id);
+              if (r.ok) this.news(r.message);
+              done(r, 'buy');
+            },
+            () => reopen(),
+          );
+        }), 320, 40));
+        line(left + 340, by, b.character, 13, COLORS.muted, w / 2 - 40 - (left + 340)).setOrigin(0, 0.5);
+      });
+      c.add(button(this, left + 160, firstY + bikes.brands.length * 46, 'Keep my bike', () => inner(() => {
+        this.confirm(`Turn the prize ${prize.cls.name} down and keep your bike? It won't be offered again.`, 'Keep mine', () => {
+          declinePrize(this.flags, prize.champ.id);
+          done({ ok: true, message: 'You keep your bike.' }, 'buy');
+        }, () => reopen());
+      }), 320, 40));
     } else if (tab === 'tools') {
       const data = services.content.tools;
       data.sets.forEach((set, i) => {

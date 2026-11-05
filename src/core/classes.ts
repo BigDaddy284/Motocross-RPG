@@ -6,7 +6,7 @@
 // A stock bike has Grade 1 parts on the class's frame grade (ClassDef.frameGrade, Boss 5 Nov 2026).
 
 import type { Bike, BikesData, CareerState } from './career';
-import type { ChampionshipsData } from './championship';
+import type { ChampionshipDef, ChampionshipsData } from './championship';
 import { partPrice, type ShopsData } from './shops';
 import { leadLevel, type SkillsData } from './skills';
 
@@ -136,4 +136,41 @@ export function collectBike(bikes: BikesData, champs: ChampionshipsData, career:
   flags[classFlag(next.id)] = true;
   const brandName = bikes.brands.find((b) => b.id === brand)?.name ?? brand;
   return { ok: true, message: `Your ${brandName} ${next.name} is ready: Grade 1 parts on a Grade ${frameGradeOf(bikes, next.id)} frame, brand new. The old bike goes on display, as it was.` };
+}
+
+/**
+ * Prize bikes (Boss, 5 Nov 2026): the Crankshaft Cup, the Legends Championship, the three Vets
+ * championships and the Road to Legend Ultimate Event each give a new 450cc F for the first win. It
+ * waits at any class dealer (Bill at Moto78) until the rider takes it or turns it down; taking it
+ * retires the bike they ride now, as moving up a class does.
+ */
+export const prizeFlag = (champ: string) => `prize.${champ}`;
+/** Set once a prize bike is taken or turned down. */
+export const prizeDoneFlag = (champ: string) => `prize.${champ}.done`;
+
+/** The first prize bike waiting to be collected: its championship and class. */
+export function prizeBike(bikes: BikesData, champs: ChampionshipsData, flags: Record<string, boolean>): { champ: ChampionshipDef; cls: ClassDef } | null {
+  for (const champ of champs.championships) {
+    const cls = champ.rewards[0]?.bike && classDef(bikes, champ.rewards[0].bike);
+    if (cls && flags[prizeFlag(champ.id)] && !flags[prizeDoneFlag(champ.id)]) return { champ, cls };
+  }
+  return null;
+}
+
+/** Takes a prize bike of this brand: free, the bike ridden now retires as it is (GDD 8.1). */
+export function collectPrize(bikes: BikesData, champs: ChampionshipsData, career: CareerState, flags: Record<string, boolean>, champId: string, brand: string): CollectResult {
+  const prize = prizeBike(bikes, champs, flags);
+  if (!prize || prize.champ.id !== champId) return { ok: false, message: 'No prize bike waiting.' };
+  if (!bikes.brands.some((b) => b.id === brand)) return { ok: false, message: `No brand "${brand}".` };
+  career.retired ??= [];
+  career.retired.push({ bike: career.bike, milestone: champId });
+  career.bike = stockBike(bikes, brand, prize.cls.id);
+  flags[prizeDoneFlag(champId)] = true;
+  const brandName = bikes.brands.find((b) => b.id === brand)?.name ?? brand;
+  return { ok: true, message: `Your prize ${brandName} ${prize.cls.name} is ready: Grade 1 parts on a Grade ${frameGradeOf(bikes, prize.cls.id)} frame, brand new. The old bike goes on display, as it was.` };
+}
+
+/** Turns a prize bike down: the rider keeps the bike they have. */
+export function declinePrize(flags: Record<string, boolean>, champId: string): void {
+  flags[prizeDoneFlag(champId)] = true;
 }

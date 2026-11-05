@@ -799,7 +799,7 @@
         { "money": 1250 }
       ],
       "replay": 0.5,
-      "won": "You beat Max Sterling to the Capital badge. The Crankshaft Cup is open: win it for your 40+ Vets."
+      "won": "You beat Max Sterling to the Capital badge. The Crankshaft Cup is open: win it for a new 450cc F and the Legends Championship."
     },
     {
       "id": "area8.main",
@@ -815,14 +815,13 @@
       "entryTimes": 2.0,
       "purseTimes": 2.6,
       "needs": ["badge.area8"],
-      "milestone": "vets-40",
       "rewards": [
-        { "money": 10000, "flag": "trophy.area8.main", "title": "the Crankshaft Cup", "image": "art/ui/trophy-area8.png" },
+        { "money": 10000, "flag": "trophy.area8.main", "title": "the Crankshaft Cup", "image": "art/ui/trophy-area8.png", "bike": "450f" },
         { "money": 5000 },
         { "money": 2500 }
       ],
       "replay": 0.5,
-      "won": "Crankshaft Cup champion! Collect your 40+ Vets from Bill at Moto78 in Home Town: the champion's sponsor has a bike for you, or buy a stock one."
+      "won": "Crankshaft Cup champion! A new 450cc F is yours: collect it from Bill at any Moto78. The Legends Championship is open."
     },
     {
       "id": "legends",
@@ -838,77 +837,75 @@
       "purseTimes": 3.2,
       "needs": ["trophy.area8.main"],
       "rewards": [
-        { "money": 20000, "flag": "trophy.legends", "title": "the Legends trophy" },
+        { "money": 20000, "flag": "trophy.legends", "title": "the Legends trophy", "bike": "450f" },
         { "money": 10000 },
         { "money": 5000 }
       ],
       "replay": 0.5,
-      "won": "Legend! You have won every MX and SX track in the land in one championship."
+      "won": "Legend! You have won every MX and SX track in the land in one championship. A new 450cc F is yours from Bill at any Moto78, and the Road to Legend Ultimate Event is open."
     },
     {
       "id": "vets.40",
       "name": "Old Guard SX Series",
       "short": "Old Guard SX",
-      "class": "vets-40",
-      "field": "area8.local",
+      "class": "450f",
+      "field": "vets.40",
       "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local", "area7.local", "area8.local"],
       "size": 15,
-      "buff": 0.05,
+      "buff": 0,
       "rounds": ["venue-riverside", "venue-a2-sx", "venue-a3-sx", "venue-a4-sx", "venue-a5-sx", "venue-a6-sx", "venue-a7-sx", "venue-a8-sx", "venue-riverside", "venue-a4-sx", "venue-a6-sx", "venue-a8-sx"],
       "entryTimes": 2.5,
       "purseTimes": 3.2,
-      "needs": ["class.vets-40"],
-      "milestone": "vets-50",
+      "level": 80,
       "rewards": [
-        { "money": 12000, "flag": "trophy.vets40", "title": "the Old Guard SX Series trophy" },
+        { "money": 12000, "flag": "trophy.vets40", "title": "the Old Guard SX Series trophy", "bike": "450f" },
         { "money": 6000 },
         { "money": 3000 }
       ],
       "replay": 0.5,
-      "won": "Old Guard SX Series champion! Collect your 50+ Vets from Bill at Moto78 in Home Town once you reach Rider Ability 90."
+      "won": "Old Guard SX Series champion! A new 450cc F is yours from Bill at any Moto78."
     },
     {
       "id": "vets.50",
       "name": "Silver Trail EN Championship",
       "short": "Silver Trail EN",
-      "class": "vets-50",
-      "field": "area8.local",
+      "class": "450f",
+      "field": "vets.50",
       "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local", "area7.local", "area8.local"],
       "size": 15,
-      "buff": 0.05,
+      "buff": 0,
       "rounds": ["venue-longmoor", "venue-a2-enduro", "venue-a3-enduro", "venue-a4-enduro", "venue-a5-enduro", "venue-a6-enduro", "venue-a7-enduro", "venue-a8-enduro", "venue-a2-enduro", "venue-a5-enduro", "venue-a6-enduro", "venue-a8-enduro"],
       "entryTimes": 2.5,
       "purseTimes": 3.2,
-      "needs": ["class.vets-50"],
-      "milestone": "vets-60",
+      "level": 90,
       "rewards": [
-        { "money": 12000, "flag": "trophy.vets50", "title": "the Silver Trail EN Championship trophy" },
+        { "money": 12000, "flag": "trophy.vets50", "title": "the Silver Trail EN Championship trophy", "bike": "450f" },
         { "money": 6000 },
         { "money": 3000 }
       ],
       "replay": 0.5,
-      "won": "Silver Trail EN Championship winner! Collect your 60+ Vets from Bill at Moto78 in Home Town once you reach Rider Ability 95."
+      "won": "Silver Trail EN Championship winner! A new 450cc F is yours from Bill at any Moto78."
     },
     {
       "id": "vets.60",
       "name": "Evergreen MX Championship",
       "short": "Evergreen MX",
-      "class": "vets-60",
-      "field": "area8.local",
+      "class": "450f",
+      "field": "vets.60",
       "drawFrom": ["area1.local", "area2.local", "area3.local", "area4.local", "area5.local", "area6.local", "area7.local", "area8.local"],
       "size": 15,
-      "buff": 0.05,
+      "buff": 0,
       "rounds": ["venue-farmland", "venue-a2-mx", "venue-a3-mx", "venue-a4-mx", "venue-a5-mx", "venue-a6-mx", "venue-a7-mx", "venue-a8-mx", "venue-farmland", "venue-a3-mx", "venue-a6-mx", "venue-a8-mx"],
       "entryTimes": 2.5,
       "purseTimes": 3.2,
-      "needs": ["class.vets-60"],
+      "level": 95,
       "rewards": [
-        { "money": 12000, "flag": "trophy.vets60", "title": "the Evergreen MX Championship trophy" },
+        { "money": 12000, "flag": "trophy.vets60", "title": "the Evergreen MX Championship trophy", "bike": "450f" },
         { "money": 6000 },
         { "money": 3000 }
       ],
       "replay": 0.5,
-      "won": "Evergreen MX Championship winner! Reach Rider Ability 99 and the Road to Legend Ultimate Event is yours to ride."
+      "won": "Evergreen MX Championship winner! A new 450cc F is yours from Bill at any Moto78."
     },
     {
       "id": "ultimate",
@@ -922,15 +919,15 @@
       "rounds": ["venue-farmland", "venue-riverside", "venue-longmoor", "venue-a2-mx", "venue-a2-sx", "venue-a2-enduro", "venue-a3-mx", "venue-a3-sx", "venue-a3-enduro", "venue-a4-mx", "venue-a4-sx", "venue-a4-enduro", "venue-a5-mx", "venue-a5-sx", "venue-a5-enduro", "venue-a5-sprint-1", "venue-a5-sprint-2", "venue-a6-mx", "venue-a6-sx", "venue-a6-enduro", "venue-a6-sprint-1", "venue-a6-sprint-2", "venue-a7-mx", "venue-a7-sx", "venue-a7-enduro", "venue-a7-sprint-1", "venue-a7-sprint-2", "venue-a7-exc-1", "venue-a7-exc-2", "venue-a8-mx", "venue-a8-sx", "venue-a8-enduro", "venue-a8-sprint-1", "venue-a8-sprint-2", "venue-a8-exc-1", "venue-a8-exc-2"],
       "entryTimes": 2.5,
       "purseTimes": 3.2,
-      "needs": ["trophy.area8.main"],
+      "needs": ["trophy.legends"],
       "level": 99,
       "rewards": [
-        { "money": 50000, "flag": "trophy.ultimate", "title": "the Road to Legend Ultimate Event trophy" },
+        { "money": 50000, "flag": "trophy.ultimate", "title": "the Road to Legend Ultimate Event trophy", "bike": "450f" },
         { "money": 25000 },
         { "money": 12500 }
       ],
       "replay": 0.5,
-      "won": "Road to Legend Ultimate Event champion! One round at every championship track in the land, and you won the lot."
+      "won": "Road to Legend Ultimate Event champion! One round at every championship track in the land, and you won the lot. A new 450cc F is yours from Bill at any Moto78."
     }
   ]
 }

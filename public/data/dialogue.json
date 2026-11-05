@@ -674,7 +674,7 @@
     "local_champion.a8.hello": {"lines": [{"speaker": "npc", "text": "Max Sterling, Local Champion. Enter the Capital Local Champion at any race office if you fancy your chances."}]},
     "local_champion.a8.after": {"lines": [{"speaker": "npc", "text": "The badge is yours, fair and square. Neal Borne's next: the Crankshaft Cup, twelve rounds. Go on then."}]},
     "area_champion.a8.hello": {"lines": [{"speaker": "npc", "text": "Neal Borne, Crankshaft Cup Champion. It's twelve rounds and I win most of them. I'll give you this: you've come a long way from the backyard."}]},
-    "area_champion.a8.after": {"lines": [{"speaker": "npc", "text": "You beat me. Properly. There is nobody left to beat. The Super Event is next, when it comes. Go and collect your 40+ Vets."}]},
+    "area_champion.a8.after": {"lines": [{"speaker": "npc", "text": "You beat me. Properly. Nobody in the Capital is left to beat. The Legends Championship is next: every MX and SX track in the land. Go and collect your new 450cc F from Bill first."}]},
     "gym_coach.a8.hello": {"lines": [{"speaker": "npc", "text": "Recovery centre. Ice bath recovery for Wellbeing. Forty seconds a round and every round counts."}]},
     "yard_coach.a8.hello": {"lines": [{"speaker": "npc", "text": "Morgan Hale, National training ground. Pro jump timing, pro gate drop. Pick a drill. Every round counts."}]},
     "challenger_lola.building": {"lines": [{"speaker": "npc", "text": "Lola Grant. I've a race for you, but my shock is shot and I'm skint. Get it repaired for me and I'll race you for £400 on my own track."}]},
