@@ -16,6 +16,7 @@ import { challengePrize, rigChallenge, type ChallengeDef } from '../core/challen
 import { challengeRuns, challengeWins, venueDays, venueWins } from '../core/records';
 import type { SaveData } from '../core/saves';
 import { services } from '../services';
+import { completeRaceDay, completeSxNight } from '../core/devBuild';
 import { COLORS, textStyle } from '../ui/theme';
 import { binocularsIcon, button, panel, penMeter, type Button, type PenMeter } from '../ui/widgets';
 import { directorFor, ROW_SIZE, type RaceDirector } from '../core/riderAI';
@@ -440,6 +441,35 @@ export class RaceScene extends Phaser.Scene {
     this.gatePick(`Moto ${n} of ${day.motoCount} · ${day.laps} laps · ${day.field.length} riders${this.weatherNote()}`, how, day.pickOrder, day.gatesForPlayer(), day.gateCount, day.motoTrack(), !!day.sidecar);
   }
 
+  /**
+   * DEV ONLY, v2.1DevOnly test build (Boss, 5 Nov 2026): "Complete Race Day" on the first race's gate
+   * pick runs the whole day off screen with the player first in every race, then shows the overall.
+   * Not on a challenge, and only before the player's first race of the day.
+   */
+  private completeDay(): ((message: string) => void) | undefined {
+    const always = services.settings.get().gameplay.testAlwaysWin;
+    if (this.sx) {
+      const sx = this.sx;
+      if (sx.xp.length) return undefined;
+      return (message) => {
+        completeSxNight(sx, message, always);
+        this.showSxNightResults();
+      };
+    }
+    const day = this.day!;
+    if (this.args.challenge || day.motos.length) return undefined;
+    return (message) => {
+      completeRaceDay(day, message, always);
+      this.showDayResults();
+    };
+  }
+
+  /** DEV ONLY (see completeDay): the "Complete Race Day" button, bottom left of a gate pick. */
+  private completeDayButton(message: () => string): void {
+    const complete = this.completeDay();
+    if (complete) this.btn(W / 2 - 300, 682, 'Complete Race Day', () => complete(message()), 260, 44);
+  }
+
   /** The gate pick and how-to-race screen, for a race day's moto or a Supercross night's race. `track` deals this race's gate bonuses. */
   private gatePick(sub: string, how: string, pickOrder: string[], gates: { taken: Map<number, string>; free: number[] }, count: number, track: TrackDef, sidecar = false): void {
     this.clear();
@@ -508,6 +538,7 @@ export class RaceScene extends Phaser.Scene {
     this.btn(W / 2 + 300, 600, 'Bike check', () => this.showBike(), 260, 52);
     if (this.canLeave()) this.btn(W / 2, 682, 'Leave early', () => this.confirmLeave(), 200, 44);
     else this.pullOutButton();
+    this.completeDayButton(message);
   }
 
   /**
@@ -538,6 +569,7 @@ export class RaceScene extends Phaser.Scene {
     this.btn(W / 2 + 300, 600, 'Bike check', () => this.showBike(), 260, 52);
     if (this.canLeave()) this.btn(W / 2, 682, 'Leave early', () => this.confirmLeave(), 200, 44);
     else this.pullOutButton();
+    this.completeDayButton(message);
   }
 
   /**
