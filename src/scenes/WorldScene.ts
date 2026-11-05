@@ -1563,6 +1563,12 @@ export class WorldScene extends Phaser.Scene {
 
   // ---- bike setup (core/setup.ts, Spec 8.0 to 8.3) ----
 
+  /** Rider Ability level: some championships need it (ChampionshipDef.level). */
+  private riderLevel(): number {
+    const rc = services.content;
+    return leadLevel(rc.skills, this.save.career.skills, rc.skills.leads.find((l) => l.id === 'rider')!);
+  }
+
   /** Mechanical Engineer level: it sets how many positions a slider has and what the office can tell you. */
   private mechLevel(): number {
     const rc = services.content;
@@ -1647,7 +1653,7 @@ export class WorldScene extends Phaser.Scene {
       const record = career.champs?.done[def.id];
       // One championship at a time: finish or give up the one you're in first (Boss, 31 Oct 2026).
       const other = active ? null : otherActive(rc.championships, career, def);
-      const problem = active ? null : other ? `You're in the ${other.name}: finish it or give it up first.` : champProblem(rc, def, this.save.flags, career.bike.class);
+      const problem = active ? null : other ? `You're in the ${other.name}: finish it or give it up first.` : champProblem(rc, def, this.save.flags, career.bike.class, this.riderLevel());
       let note: string;
       if (active) {
         const me = standings(rc.racing.points, active).find((r) => r.player)!;
@@ -1672,7 +1678,7 @@ export class WorldScene extends Phaser.Scene {
     if (!active) {
       const reward = def.rewards[0];
       const text = [
-        `${def.class}. ${def.rounds.length} rounds: ${rounds}`,
+        `${className(rc.bikes, def.class)}. ${def.rounds.length} rounds: ${rounds}`,
         `${def.size + 1} riders, the same at every round. Moto 1 gate picks are drawn at random, moto 2 goes in moto 1 order; points for every moto (25 for a win). Entry ${formatMoney(roundEntry(rc, def, career.bike.class))} a round, with bigger prize money than a race day.`,
         `The winner takes ${reward.title ?? 'the title'}${reward.money ? ` and £${reward.money}` : ''}; 2nd and 3rd win a smaller prize.`,
       ].join('\n\n');
@@ -2258,7 +2264,7 @@ export class WorldScene extends Phaser.Scene {
     const career = this.save.career;
     return rc.championships.championships.flatMap((def) => {
       const active = career.champs?.active[def.id];
-      if (!active && champProblem(rc, def, this.save.flags, def.sidecar ? undefined : career.bike.class)) return [];
+      if (!active && champProblem(rc, def, this.save.flags, def.sidecar ? undefined : career.bike.class, this.riderLevel())) return [];
       const venue = rc.tracks.venues.find((v) => v.id === (active ? nextRoundVenue(def, active) : def.rounds[0]));
       const place = venue && rc.world.places.find((p) => p.map === venue.map && p.spawn && services.maps.get(p.map) && spawnTile(services.maps.get(p.map)!, p.spawn));
       if (!venue || !place) return [];

@@ -66,6 +66,11 @@ const SHEET: Record<string, Record<string, number>> = {
   'area8.local_champion': { ...each(['venue-a8-mx', 'venue-a8-sx', 'venue-a8-enduro'], 2), ...each(SPRINT(8), 1), ...each(EXC(8), 1) },
   'area8.main': { ...each(['venue-a8-mx', 'venue-a8-sx', 'venue-a8-enduro'], 2), ...each(SPRINT(8), 1), ...each(EXC(8), 2) },
   legends: { ...each(MX, 1), ...each(SX, 1) },
+  // The vets and the Ultimate Event (Boss, 4 Nov 2026): a mix of 1 and 2 rounds at each track of their type, then 1 at every championship track.
+  'vets.40': Object.fromEntries(SX.map((v, i) => [v, [2, 1, 1, 2, 1, 2, 1, 2][i]])),
+  'vets.50': Object.fromEntries(EN.map((v, i) => [v, [1, 2, 1, 1, 2, 2, 1, 2][i]])),
+  'vets.60': Object.fromEntries(MX.map((v, i) => [v, [2, 1, 2, 1, 1, 2, 1, 2][i]])),
+  ultimate: { ...each([...MX, ...SX, ...EN, ...SPRINT(5), ...SPRINT(6), ...SPRINT(7), ...SPRINT(8), ...EXC(7), ...EXC(8)], 1) },
 };
 
 describe('the championship overhaul (Boss, 4 Nov 2026)', () => {
