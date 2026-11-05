@@ -55,9 +55,9 @@ describe('the sidecar class (Boss, 1 Nov 2026)', () => {
     expect(rc.racing.classes[SIDECAR_CLASS]).toBeDefined();
     expect(rc.shops.classPriceFactor[SIDECAR_CLASS]).toBeGreaterThan(0);
     // Not the next class up from the top of the solo ladder, and neither bigger nor smaller than a solo class.
-    expect(nextClass(bikes, 'vets-60')).toBeNull();
+    expect(nextClass(bikes, '450f')).toBeNull();
     expect(nextClass(bikes, SIDECAR_CLASS)).toBeNull();
-    for (const solo of ['50cc', '450f', 'vets-60']) {
+    for (const solo of ['50cc', '250f', '450f']) {
       expect(classAtLeast(bikes, SIDECAR_CLASS, solo)).toBe(false);
       expect(classAtLeast(bikes, solo, SIDECAR_CLASS)).toBe(false);
       expect(dayClass(bikes, solo, SIDECAR_CLASS)).toBeNull();
@@ -70,8 +70,9 @@ describe('the sidecar class (Boss, 1 Nov 2026)', () => {
   it('keeps the sidecar classes last and off the starter bike (content checks)', () => {
     const raw = rawContent();
     const list = (raw.bikes as { classes: { id: string; name: string; sidecar?: boolean }[] }).classes;
-    list.push({ ...list.find((c) => c.id === 'vets-60')!, id: 'vets-70', name: '70+ Vets' });
-    (raw.racing as { classes: Record<string, unknown> }).classes['vets-70'] = (raw.racing as { classes: Record<string, unknown> }).classes['vets-60'];
+    list.push({ ...list.find((c) => c.id === '450f')!, id: '650cc', name: '650cc' });
+    (raw.racing as { classes: Record<string, unknown> }).classes['650cc'] = (raw.racing as { classes: Record<string, unknown> }).classes['450f'];
+    (raw.shops as { classPriceFactor: Record<string, number> }).classPriceFactor['650cc'] = 3.5;
     const errors = checkContent(raw, loadManifest(), loadMaps()).errors.map((e) => e.message).join('\n');
     expect(errors).toMatch(/sidecar classes go last/);
     const raw2 = rawContent();

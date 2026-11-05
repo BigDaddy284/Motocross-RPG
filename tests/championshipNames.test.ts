@@ -24,20 +24,36 @@ describe('championship names and the vets (Boss, 4 Nov 2026)', () => {
     }
   });
 
-  it('runs the vets in class order: each opens with its class, and the 40+ and 50+ win the next class', () => {
-    expect(champ('vets.40')).toMatchObject({ name: 'Old Guard SX Series', class: 'vets-40', needs: ['class.vets-40'], milestone: 'vets-50' });
-    expect(champ('vets.50')).toMatchObject({ name: 'Silver Trail EN Championship', class: 'vets-50', needs: ['class.vets-50'], milestone: 'vets-60' });
-    expect(champ('vets.60')).toMatchObject({ name: 'Evergreen MX Championship', class: 'vets-60', needs: ['class.vets-60'] });
-    for (const id of ['vets.40', 'vets.50', 'vets.60']) expect(champ(id).rounds).toHaveLength(12);
+  it('runs the vets on the 450cc F, opening at Rider Ability 80, 90 and 95 against riders of that level (Boss, 5 Nov 2026)', () => {
+    expect(champ('vets.40')).toMatchObject({ name: 'Old Guard SX Series', class: '450f', level: 80, field: 'vets.40', buff: 0 });
+    expect(champ('vets.50')).toMatchObject({ name: 'Silver Trail EN Championship', class: '450f', level: 90, field: 'vets.50', buff: 0 });
+    expect(champ('vets.60')).toMatchObject({ name: 'Evergreen MX Championship', class: '450f', level: 95, field: 'vets.60', buff: 0 });
+    for (const [id, level] of [['vets.40', 80], ['vets.50', 90], ['vets.60', 95]] as const) {
+      const def = champ(id);
+      expect(def.rounds).toHaveLength(12);
+      expect(def.needs).toBeUndefined();
+      expect(def.milestone).toBeUndefined();
+      expect(content.riders.fieldLevel?.[def.field]).toBe(level);
+      const open = Object.fromEntries(content.tracks.venues.filter((v) => v.needs).map((v) => [v.needs!, true]));
+      expect(champProblem(content, def, open, '450f', level - 1)).toBe(`Needs Rider Ability ${level}: you're level ${level - 1}.`);
+      expect(champProblem(content, def, open, '450f', level)).toBeNull();
+    }
+    expect(content.bikes.classes.some((c) => c.id.startsWith('vets'))).toBe(false);
   });
 
-  it('opens the Ultimate Event at Rider Ability 99 (GDD 6.4)', () => {
+  it('opens Legends with the Crankshaft Cup and the Ultimate Event with Legends (Boss, 5 Nov 2026)', () => {
+    expect(champ('area8.main').milestone).toBeUndefined();
+    expect(champ('legends').needs).toEqual(['trophy.area8.main']);
+    expect(champ('ultimate').needs).toEqual(['trophy.legends']);
+  });
+
+  it('opens the Ultimate Event by winning Legends, with no Rider Ability level (Boss, 5 Nov 2026)', () => {
     const u = champ('ultimate');
     expect(u.name).toBe('Road to Legend Ultimate Event');
-    const flags = { 'trophy.area8.main': true, ...Object.fromEntries(content.tracks.venues.filter((v) => v.needs).map((v) => [v.needs!, true])) };
-    expect(champProblem(content, u, flags, 'vets-60', 98)).toBe("Needs Rider Ability 99: you're level 98.");
-    expect(champProblem(content, u, flags, 'vets-60', 99)).toBeNull();
-    // Every other championship has no level to reach.
-    expect(content.championships.championships.filter((c) => c.level).map((c) => c.id)).toEqual(['ultimate']);
+    const venues = Object.fromEntries(content.tracks.venues.filter((v) => v.needs).map((v) => [v.needs!, true]));
+    expect(champProblem(content, u, venues, '450f', 70)).toBe('Not open to you yet.');
+    expect(champProblem(content, u, { ...venues, 'trophy.legends': true }, '450f', 70)).toBeNull();
+    // Only the Vets have a level to reach.
+    expect(content.championships.championships.filter((c) => c.level).map((c) => c.id)).toEqual(['vets.40', 'vets.50', 'vets.60']);
   });
 });

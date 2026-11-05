@@ -59,6 +59,20 @@ export class Grid {
     if (this.inBounds(x, y)) this.blocked[y * this.width + x] = false;
   }
 
+  /**
+   * Runs `fn` with these tiles treated as occupied, then puts them back as they were (only the ones
+   * that weren't occupied already are freed again).
+   */
+  avoiding<T>(tiles: Tile[], fn: () => T): T {
+    const added = tiles.map((t) => key(t.x, t.y)).filter((k) => !this.occupants.has(k));
+    for (const k of added) this.occupants.add(k);
+    try {
+      return fn();
+    } finally {
+      for (const k of added) this.occupants.delete(k);
+    }
+  }
+
   setOccupied(t: Tile, occupied: boolean): void {
     if (occupied) this.occupants.add(key(t.x, t.y));
     else this.occupants.delete(key(t.x, t.y));

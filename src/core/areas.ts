@@ -122,6 +122,8 @@ export function openReleasedAreas(
 export const areaDef = (data: AreasData, n: number): AreaDef | undefined => data.areas.find((a) => a.n === n);
 
 /** The area a town map belongs to, or undefined (a venue or interior is placed by its venue or door). */
+/** An area's town name for the player, never "Area N" (Boss, 4 Nov 2026: "anything saying Area 3 should be refing the Beach Town"). */
+export const areaName = (data: AreasData | undefined, n: number): string => (data && areaDef(data, n)?.name) ?? `Area ${n}`;
 export const areaOfMap = (data: AreasData, mapId: string): AreaDef | undefined => data.areas.find((a) => a.map === mapId);
 
 /** The flag for a house owned. */

@@ -12,7 +12,7 @@ import { placeArrival, roadMenu, routeArrival, routeFor, sideOf, venueHere, type
 import { earning, goalObjects, hopsTo, nextHop, storyGoals } from '../core/waymarks';
 import { biggestBike, bikeImage, zoneFor } from '../core/worldMap';
 import { ROUTE, spawnTile, stepTriggerAt, type Arrival, type StepResult } from '../core/travel';
-import { areaFlag, areaOfMap, buyHouse, buyMotor, houseFlag, motorProblem, openAreas, openReleasedAreas, roadWaiting, soldTexture } from '../core/areas';
+import { areaFlag, areaName, areaOfMap, buyHouse, buyMotor, houseFlag, motorProblem, openAreas, openReleasedAreas, roadWaiting, soldTexture } from '../core/areas';
 import { defaultSetup, effectiveSetup, positionValue, positionsFor, setupReport, sliderUnlocked, type SliderDef } from '../core/setup';
 import { DriveMap, FACING_OF, ON_FOOT, needsMotor, bayFor, ensureVan, exitTile, footprint, arrivalPose, haulerAt, nearestFree, placeNear, planDrive, sheetFor, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
@@ -20,9 +20,9 @@ import { isNoTurn } from '../core/trackGeom';
 import { venueClassFor, entryFee, fieldCount, lapsFor, practiceFee, coachedFee, trackById, venueProblem, type VenueDef } from '../core/raceDay';
 import { champProblem, otherActive, enter, nextRoundVenue, nextRoundVenues, rewardTexture, roundEntry, roundsHere, standings, titlePossible, withdraw, type ChampionshipDef } from '../core/championship';
 import { noteActivity, shopForAction, slotName, type ShopDef } from '../core/shops';
-import { machineFee, machineProblem, modsLabel, runMachine } from '../core/modifiers';
+import { machineFee, machineProblem, modsLabel, rollBatchMods, runMachine } from '../core/modifiers';
 import { dayObjectives, dropPenalty, dropSponsor, objectiveText, offerProblem, reputationHint, signOffer, sponsorsOpen } from '../core/sponsors';
-import { buyOutfit, outfitProblem, outfitSheet, ownsOutfit, rackOpen, shownLook, storageLimit, storeSpare, stored, takeSpare, wearOutfit, wornOutfit } from '../core/house';
+import { awardOutfit, buyOutfit, legendsPickDue, pickOptions, type OutfitDef, outfitProblem, outfitSheet, ownsOutfit, rackOpen, shownLook, storageLimit, storeSpare, stored, takeSpare, wearOutfit, wornOutfit } from '../core/house';
 import { errandStage, finishErrand, takeErrand, type ErrandDef } from '../core/errands';
 import { challengeReady, challengeVenue, lossHint, type ChallengeDef } from '../core/challenge';
 import { drillForAction, drillsForNpc, drillsAtVenue, finishRound, walked, type DrillDef } from '../core/training';
@@ -90,6 +90,8 @@ export class WorldScene extends Phaser.Scene {
   private onArrive: (() => void) | null = null;
   /** Tiles walked since the last Agility XP (core/training.ts walked). */
   private walkCarry = 0;
+  /** The way out a clicked drive is heading for (null: somewhere else), or 'any' when steering by key. */
+  private driveGoal: MapObject | null | 'any' = 'any';
   private walking = false;
   private busy = false;
   /** The zoom the player had outside, while a building has raised it to INTERIOR_ZOOM. */
@@ -132,6 +134,8 @@ export class WorldScene extends Phaser.Scene {
   private goalMaps: string[] = [];
   /** The news NPCs' bubbles (Manny Festo), kept apart from the story markers. */
   private newsMarks!: Waymarks;
+  /** NPCs here that the story marker is over: their news bubble stays off so they don't wear two "!" (Boss, 4 Nov 2026). */
+  private storyNpcs = new Set<string>();
   /** The tutorial marker the screen-edge arrow points to while it is off screen, in world pixels. */
   private markPoint: { x: number; y: number; label: string; sub?: string } | null = null;
   private markEarning = false;
@@ -182,7 +186,7 @@ export class WorldScene extends Phaser.Scene {
 
     this.grid = Grid.fromMap(map);
     applyMapState(map, this.grid, this.save.flags);
-    for (const p of npcsOnMap(services.content, map, this.save.flags)) {
+    for (const p of npcsOnMap(services.content, map, this.save.flags, currentStep(services.content.story, this.save.career)?.on.talk)) {
       // NPCs don't block the way: walking past (not clicking them) goes straight through.
       const character = new Character(this, p.npc.sprite, p, p.facing);
       // Standing on the paving, not the kerb or road below it.
@@ -233,6 +237,14 @@ export class WorldScene extends Phaser.Scene {
     this.refreshWaymarks();
     this.newsMarks = new Waymarks(this, services.settings.get().accessibility.reducedEffects);
     this.refreshNews();
+    // Back from winning the Legends Championship: pick a legend kit, once (Boss, 5 Nov 2026).
+    const house = services.content.house;
+    if (house.picks && legendsPickDue(house, this.save.flags)) {
+      const kits = pickOptions(house, house.picks.legends.outfits, this.save.rider);
+      this.save.flags[house.picks.legends.done] = true;
+      this.milestoneSave();
+      if (kits.length) this.time.delayedCall(400, () => this.pickOutfit('Legends champion', 'The Legends trophy is yours, and so is a legend kit. Pick the design you want.', kits, () => {}));
+    }
     this.events.once('shutdown', () => this.hud.showWayArrow(null));
 
     this.setupInput();
@@ -291,8 +303,10 @@ export class WorldScene extends Phaser.Scene {
 
   private setupInput(): void {
     const kb = this.input.keyboard!;
-    const K = Phaser.Input.Keyboard.KeyCodes;
-    this.keys = kb.addKeys({ up: K.UP, down: K.DOWN, left: K.LEFT, right: K.RIGHT, w: K.W, a: K.A, s: K.S, d: K.D }) as typeof this.keys;
+    this.bindMoveKeys();
+    // A rebind in Settings > Controls takes effect at once (Boss, 5 Nov 2026).
+    const unbind = services.settings.onChange(() => this.bindMoveKeys());
+    this.events.once('shutdown', unbind);
     // E, Space and Esc are handled by the HUD, which knows whether a dialogue or menu is open.
     kb.on('keydown-PLUS', () => this.zoomBy(ZOOM_STEP));
     kb.on('keydown-NUMPAD_ADD', () => this.zoomBy(ZOOM_STEP));
@@ -306,6 +320,26 @@ export class WorldScene extends Phaser.Scene {
       const w = this.cameras.main.getWorldPoint(p.x, p.y);
       this.clickAt(w.x, w.y);
     });
+  }
+
+  /** A pick of one outfit from a set (sponsor kits, legend kits): it hangs in the wardrobe. */
+  private pickOutfit(title: string, text: string, outfits: OutfitDef[], then: () => void): void {
+    const pick = (o: OutfitDef) => {
+      const r = awardOutfit(o, this.save.rider);
+      this.hud.toast(r.ok ? `${o.name}: yours. Put it on at the wardrobe.` : r.message);
+      this.milestoneSave();
+      then();
+    };
+    this.hud.choose(title, text, outfits.map((o) => ({ label: o.name, note: o.desc, onPick: () => pick(o) })), () => pick(outfits[0]));
+  }
+
+  /** The walking keys: the arrows, and the four picked in Settings > Controls. */
+  private bindMoveKeys(): void {
+    const kb = this.input.keyboard!;
+    const K = Phaser.Input.Keyboard.KeyCodes as unknown as Record<string, number>;
+    const c = services.settings.get().controls;
+    if (this.keys) for (const k of Object.values(this.keys)) kb.removeKey(k, true, true);
+    this.keys = kb.addKeys({ up: K.UP, down: K.DOWN, left: K.LEFT, right: K.RIGHT, w: K[c.up], a: K[c.left], s: K[c.down], d: K[c.right] }) as typeof this.keys;
   }
 
   private heldDirection(): Tile | null {
@@ -367,7 +401,7 @@ export class WorldScene extends Phaser.Scene {
       this.checkTrigger();
       return;
     }
-    const path = findPathTowards(this.grid, this.player.tile, tile);
+    const path = this.planWalk([tile], () => findPathTowards(this.grid, this.player.tile, tile));
     this.markTarget(tile.x * TILE + TILE / 2, tile.y * TILE + TILE / 2);
     this.setPath(path, null);
   }
@@ -411,6 +445,22 @@ export class WorldScene extends Phaser.Scene {
     return null;
   }
 
+  /**
+   * Plans a walk that keeps off every door and way out except the ones aimed for (Boss, 4 Nov 2026:
+   * leaving Phoenix MX with the motor out front, a click on the next shop walked back in through the
+   * door). Falls back to any way when the only one is through a door.
+   */
+  private planWalk<T extends Tile[] | null>(goals: Tile[], plan: () => T): T {
+    const here = this.player.tile;
+    const isGoal = (t: Tile) => goals.some((g) => g.x === t.x && g.y === t.y) || (t.x === here.x && t.y === here.y);
+    const triggers = this.map.objects
+      .filter((o) => o.type === 'door' || o.type === 'exit')
+      .flatMap((o) => objectTiles(o, this.map.tileSize))
+      .filter((t) => !isGoal(t));
+    const kept = this.grid.avoiding(triggers, plan);
+    return kept && kept.length ? kept : plan();
+  }
+
   /** Smart pathing: walk to the nearest free tile beside the target, face it, then use it. */
   private approach(target: Target): void {
     const tiles = target.kind === 'npc' ? [{ x: target.placement.x, y: target.placement.y }] : target.tiles;
@@ -427,7 +477,8 @@ export class WorldScene extends Phaser.Scene {
     }
     const goals = standingTiles(this.grid, tiles);
     const walkable = tiles.filter((t) => this.grid.isFree(t.x, t.y));
-    const path = findPathToAny(this.grid, here, goals.length ? goals : walkable);
+    const ends = goals.length ? goals : walkable;
+    const path = this.planWalk([...ends, ...tiles], () => findPathToAny(this.grid, here, ends));
     if (!path) {
       this.hud.toast("You can't get there from here.");
       return;
@@ -962,7 +1013,7 @@ export class WorldScene extends Phaser.Scene {
   private refreshNews(): void {
     const marks: Mark[] = this.npcs
       // Like their talk, the bubble waits until the opening chain is done (GDD 4.2).
-      .filter((n) => n.placement.npc.news && (!n.placement.npc.quietUntil || this.save.flags[n.placement.npc.quietUntil]))
+      .filter((n) => n.placement.npc.news && !this.storyNpcs.has(n.placement.npc.id) && (!n.placement.npc.quietUntil || this.save.flags[n.placement.npc.quietUntil]))
       .map((n) => ({ kind: 'news', x: n.character.sprite.x, y: n.character.sprite.y, fresh: !this.save.flags[newsRead(this.talkRule(n.placement.npc)?.dialogue ?? n.placement.npc.dialogue)] }));
     this.newsMarks.show(marks);
   }
@@ -980,6 +1031,8 @@ export class WorldScene extends Phaser.Scene {
     this.markEarning = earning(services.content, career);
     const goals = storyGoals(services.content, services.maps, career, this.save.flags, this.save.van ?? null, this.map.id);
     this.goalMaps = goals.map((g) => g.map);
+    this.storyNpcs = new Set(goals.flatMap((g) => (g.map === this.map.id && g.kind === 'npc' ? [g.npc] : [])));
+    if (this.newsMarks) this.refreshNews();
     if (!goals.length) return;
     const ts = this.map.tileSize;
     const nearest = <P extends { x: number; y: number }>(points: P[]) => {
@@ -1207,7 +1260,11 @@ export class WorldScene extends Phaser.Scene {
         const engine = new Set(services.content.bikes.slots.filter((sl) => sl.engine).map((sl) => sl.id));
         const r = finishBatch(services.content.skills, career, shift.job, engine);
         noteActivity(services.content.shops, career, 'activity');
-        const kept = r.kept ? ` The boss hands you a G${r.kept.grade} ${slotName(services.content.bikes, r.kept.slot)} from the batch: it's in your bag.` : '';
+        // Later game: once Maggie's machine is fixed, a kept part can come out with modifiers (Boss, 5 Nov 2026).
+        const rolled = r.kept ? rollBatchMods(services.content.modifiers, r.kept.slot, this.save.flags, leadLevel(services.content.skills, career.skills, services.content.skills.leads.find((l) => l.id === 'mech')!)) : null;
+        if (r.kept && rolled) r.kept.mods = rolled.mods;
+        const extra = rolled ? (rolled.masterwork ? ' A Masterwork, every modifier good: ' : ' It came off the line with ') + modsLabel(services.content.modifiers, rolled.mods) + '.' : '';
+        const kept = r.kept ? ` The boss hands you a G${r.kept.grade} ${slotName(services.content.bikes, r.kept.slot)} from the batch: it's in your bag.${extra}` : '';
         this.endShift(shift.job.batch === 1 ? `${shift.job.name}: done and paid.` : `Batch done: ${shift.made} ${shift.job.product}s made.${kept}`);
         this.milestoneSave();
         this.passStory(shift.job);
@@ -1378,7 +1435,10 @@ export class WorldScene extends Phaser.Scene {
           const r = signOffer(data, o, career, this.save.flags);
           this.hud.toast(r.message);
           this.milestoneSave();
-          again();
+          // Signing brings the sponsor's kit: pick one of the five you don't have yet (Boss, 5 Nov 2026).
+          const kits = r.ok && services.content.house.picks ? pickOptions(services.content.house, services.content.house.picks.sponsor, this.save.rider) : [];
+          if (kits.length) this.pickOutfit(`${o.name}'s kit`, 'Your new sponsor sends a kit. Pick the design you want.', kits, again);
+          else again();
         }, again) };
       }),
       ...(c ? [{ label: `Leave ${c.name}`, note: `Costs ${formatMoney(dropPenalty(data, c))} of what they've paid you, and your name among sponsors.`, onPick: () => this.hud.confirm(`Leave ${c.name} now for ${formatMoney(dropPenalty(data, c))}?`, 'Leave', () => {
@@ -1545,7 +1605,7 @@ export class WorldScene extends Phaser.Scene {
       { label: 'Default setup', note: 'Everything back to the middle.', onPick: () => { setup.preset = null; setup.sliders = {}; again(); } },
       ...(advanced
         ? [{ label: 'Advanced: set each slider', note: `${positionsFor(data, me)} positions per slider at Mechanical Engineer ${me}.`, onPick: () => this.openSliders(venue, again) }]
-        : [{ label: 'Advanced: set each slider', note: openAreas(this.save.flags) < data.advancedArea ? `Opens in Area ${data.advancedArea}.` : `Needs Mechanical Engineer ${data.advancedLevel}.`, enabled: false, onPick: () => {} }]),
+        : [{ label: 'Advanced: set each slider', note: openAreas(this.save.flags) < data.advancedArea ? `Opens in ${areaName(services.content.areas, data.advancedArea)}.` : `Needs Mechanical Engineer ${data.advancedLevel}.`, enabled: false, onPick: () => {} }]),
       { label: 'Back', onPick: back },
     ], back);
   }
@@ -1951,6 +2011,8 @@ export class WorldScene extends Phaser.Scene {
       const len = van.design.length;
       let m = this.moves.shift() ?? null;
       if (!m) {
+        // Steered by key: any road out the van is driven into is taken.
+        this.driveGoal = 'any';
         const dir = this.heldDirection();
         if (!dir || this.outWhenStopped) return null;
         const want = HEADING_OF[['down', 'left', 'right', 'up'][STEPS.indexOf(dir)] as Facing];
@@ -2022,6 +2084,7 @@ export class WorldScene extends Phaser.Scene {
     }
     this.markTarget(tile.x * TILE + TILE / 2, tile.y * TILE + TILE / 2);
     this.moves = plan;
+    this.driveGoal = via?.type === 'exit' ? via : null;
     this.startDrive();
   }
 
@@ -2032,6 +2095,9 @@ export class WorldScene extends Phaser.Scene {
     for (const t of fresh) {
       const via = stepTriggerAt(this.map, t);
       if (!via || via.type !== 'exit') continue;
+      // A clicked drive only leaves by the way out that was clicked: turning round over another one on
+      // the way somewhere else doesn't open the road menu (Boss, 4 Nov 2026).
+      if (this.driveGoal !== 'any' && this.driveGoal !== via && !(this.driveGoal && this.driveGoal.name === via.name)) continue;
       const r = services.travel.resolve(this.map, via, this.save.flags);
       if (!r) continue;
       this.moves = [];
@@ -2091,7 +2157,7 @@ export class WorldScene extends Phaser.Scene {
     applyMapState(map, grid, this.save.flags);
     const dm = new DriveMap(map, grid, services.content.vehicles);
     dm.setVanLength(length);
-    dm.setNpcTiles(npcsOnMap(services.content, map, this.save.flags).map((p) => ({ x: p.x, y: p.y })));
+    dm.setNpcTiles(npcsOnMap(services.content, map, this.save.flags, currentStep(services.content.story, this.save.career)?.on.talk).map((p) => ({ x: p.x, y: p.y })));
     return dm;
   }
 
@@ -2248,7 +2314,7 @@ export class WorldScene extends Phaser.Scene {
       if (!this.grid.canStep(this.player.tile, next)) {
         // Something moved into the way: re-plan to the same end tile.
         const end = this.path.at(-1) ?? next;
-        this.path = findPathTowards(this.grid, this.player.tile, end);
+        this.path = this.planWalk([end], () => findPathTowards(this.grid, this.player.tile, end));
         if (!this.path.length) break;
         continue;
       }

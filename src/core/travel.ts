@@ -87,7 +87,7 @@ export class Travel {
     if (via.type === 'exit' && typeof p.to === 'string') {
       const target = this.maps.get(p.to);
       const tile = target && spawnTile(target, typeof p.spawn === 'string' ? p.spawn : undefined);
-      if (!target || !tile) return { kind: 'blocked', message: `The way to ${p.to.replace(/_/g, ' ')} opens in a later build.`, via };
+      if (!target || !tile) return { kind: 'blocked', message: `The way to ${p.to.replace(/_/g, ' ')} is closed.`, via };
       return { kind: 'travel', to: { map: target.id, tile }, via };
     }
     return null;
