@@ -837,7 +837,7 @@ export class RaceScene extends Phaser.Scene {
     // The track takes the whole height, its bottom level with the Retire and Details buttons, and the
     // race line, your position, lap, gaps and bike float over its top-left corner as outlined text
     // (Boss, 28 Oct 2026; no header bar, 31 Oct 2026).
-    this.view = new RaceView(this, this.screen, sim.track, services.content.trackParts, 16, 16, vw, dh - 54, undefined, { scaleWidth: 900 });
+    this.view = new RaceView(this, this.screen, sim.track, services.content.trackParts, 16, 16, vw, dh - 54, undefined, { scaleWidth: 900, weather: this.day?.weather ?? this.sx?.weather });
     this.view.hasStart = !practice;
     // Fireworks at the finish only where riders race to the line together, not in qualifying or a knockout's seeding run.
     this.view.showFireworks = !practice && !this.qualifying && !(this.ko && !this.koHeat) && !(this.sx && this.sxRace?.kind !== 'main');

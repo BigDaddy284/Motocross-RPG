@@ -23,6 +23,7 @@ import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
 import { ARCH_GAP, ARCH_MODELS, ARCH_PARTS, CHEER_RISE, cheerAtRest, cheerStep, type CheerState, droneAtHome, droneStep, type DroneState, supporterFavourites, FLASH_GAP, FLASH_RANGE, FLASH_TIME, livePart, LOCKED_ITEMS, partName, trackAtRest, trackStep, type TrackState, TRACK_TURN } from '../core/modModels';
 import { bannerPath, PICTURE_ITEMS } from '../core/banners';
 import { SIDECAR_CLASS } from '../core/sidecar';
+import { weatherLook, wetShade, type WeatherLook } from '../core/weatherLook';
 import { easePoses, JUMP_POSE_RATE, LAND_TIME, poseTargets, POSE_RATE, RIDER_POSES, TAKEOFF_REACH, type PoseInput, type PoseWeights } from '../core/riderPose';
 import { withGameModels, sidecarCrew, BIKE_PAINT, bikeModel, bikeOnWheelsModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, standModel, bikeOnStandModel, STAND_PAINT, textFaces, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
 
@@ -198,6 +199,10 @@ interface Puff {
 }
 /** Dust puffs alive at once. */
 const DUST = 200;
+/** The rain's box: how high the streaks start, each streak's length and its slant in the wind (grid units). */
+const RAIN_TOP = 24;
+const RAIN_STREAK = 0.9;
+const RAIN_SLANT = 0.25;
 /** Sparks in the finish fireworks' pool (updateFireworks). */
 const SPARKS = 2400;
 /** How big a firework spark looks, in grid units. */
@@ -306,6 +311,10 @@ export class RaceView {
   private readonly viewUnits: number;
   private readonly dir: THREE.Vector3;
   private readonly bg: number;
+  /** How the day's weather looks (core/weatherLook.ts; Boss, 5 Nov 2026). */
+  private readonly look: WeatherLook;
+  /** The falling rain: streaks in a box that follows the camera, and their heights (updateRain). */
+  private rain: { lines: THREE.LineSegments; pos: Float32Array; speed: number } | null = null;
   private cam: THREE.Vector3 | null = null;
   /** The ground, the track and the start straight: what a click in the track editor's race view lands on. */
   private readonly ground: THREE.Mesh[] = [];
@@ -390,7 +399,7 @@ export class RaceView {
     /** The track editor's race view passes the last view's renderer on, so a rebuild reuses its WebGL context and compiled shaders. */
     renderer?: THREE.WebGLRenderer,
     /** The track editor's race view, for an unfinished track: see gapFrom, and gaps between its pieces (fractions of the drawing). */
-    opts: { gapFrom?: number; gaps?: [number, number][]; scaleWidth?: number; /** A scenery item (by index) not built: the one the track editor is dragging, which it draws itself (ghostItem). */ skipItem?: number } = {},
+    opts: { gapFrom?: number; gaps?: [number, number][]; scaleWidth?: number; /** A scenery item (by index) not built: the one the track editor is dragging, which it draws itself (ghostItem). */ skipItem?: number; /** The day's weather (racing.json weather id): the light, rain and wet ground (core/weatherLook.ts). */ weather?: string } = {},
   ) {
     this.gapFrom = opts.gapFrom ?? 1;
     this.surface = new TrackSurface(track);
@@ -405,7 +414,8 @@ export class RaceView {
     const lap = this.surface.mpu * this.surface.g.total;
     this.patchSpans = (track.patches ?? []).map((p) => ({ from: p.at / lap, to: (p.at + p.length) / lap, color: hex(parts.surfaces.find((s) => s.id === p.surface)?.color, 0x888888) }));
     const ground = track.ground ?? { base: parts.ground[0]?.id ?? 'grass', cell: 2, paint: {} };
-    this.bg = hex(parts.ground.find((g) => g.id === ground.base)?.color, 0x5f8f3c);
+    this.look = weatherLook(opts.weather);
+    this.bg = wetShade(hex(parts.ground.find((g) => g.id === ground.base)?.color, 0x5f8f3c), this.look.wet);
 
     // Draw at the screen's real resolution, so the picture stays sharp when the window is big.
     const k = Math.min(scene.scale.width / 1280, scene.scale.height / 720);
@@ -426,8 +436,9 @@ export class RaceView {
 
     this.scene3 = new THREE.Scene();
     this.scene3.background = new THREE.Color(this.bg);
-    this.scene3.add(new THREE.HemisphereLight(0xe8f0ff, 0x6a5a40, 1.1));
-    this.sun = new THREE.DirectionalLight(0xfff1dc, 2.2);
+    // The light is the day's weather: greyer and dimmer under cloud, the sun and its shadows fading in the rain.
+    this.scene3.add(new THREE.HemisphereLight(this.look.skyColour, 0x6a5a40, this.look.sky));
+    this.sun = new THREE.DirectionalLight(0xfff1dc, this.look.sun);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
     this.sun.shadow.bias = -0.0006;
@@ -463,6 +474,8 @@ export class RaceView {
     this.scene3.add(...this.ground);
     if (this.archExtras.length) this.scene3.add(...this.archExtras);
     this.scene3.add(this.overlay);
+    if (this.look.puddles > 0) this.scene3.add(this.buildPuddles());
+    if (this.look.drops > 0) this.buildRain();
     if (this.surface.start.total > 0 && this.surface.raised) {
       // A No-Turn Takedown's start platform: four gates, two each side of the starter's box, and no start board.
       this.scene3.add(this.noTurnGate());
@@ -607,6 +620,11 @@ export class RaceView {
           ctx.fillRect(sx, sy, cell * px, cell * px);
         }
       }
+    }
+    // Wet ground is darker and a little bluer.
+    if (this.look.wet > 0) {
+      ctx.fillStyle = `rgba(10, 22, 40, ${0.3 * this.look.wet})`;
+      ctx.fillRect(0, 0, this.groundCanvas.width, this.groundCanvas.height);
     }
   }
 
@@ -933,7 +951,7 @@ export class RaceView {
         else if (Math.abs(lane) <= LIP_AT + 1e-6) color = shade(patch ?? base, 0.82 * grain);
         else if (wall) color = foot ? 0x7a7a78 : 0x9a9a98;
         else color = wall ? 0x24324e : shade(base, foot ? 0.62 : 0.72);
-        c.setHex(color);
+        c.setHex(wetShade(color, this.look.wet));
         col.push(c.r, c.g, c.b);
       });
     }
@@ -1201,7 +1219,7 @@ export class RaceView {
         if (Math.abs(lane) <= 1) color = pad ? shade(0xa8a49a, 0.95 + 0.06 * noise(i * 7 + j)) : shade(base, grain * (0.97 + 0.06 * noise(i * 31 + j)));
         else if (Math.abs(lane) <= LIP_AT + 1e-6) color = shade(base, 0.82 * grain);
         else color = shade(base, foot ? 0.62 : 0.72);
-        c.setHex(color);
+        c.setHex(wetShade(color, this.look.wet));
         col.push(c.r, c.g, c.b);
       });
     }
@@ -3379,7 +3397,7 @@ export class RaceView {
       if (dc > 0 && p.speed > 6 && p.air < 0.15 && p.state === 'riding' && Math.abs(p.lane) <= 1) {
         const n = Math.min(2, dc * p.speed * 0.12);
         const water = !onStart && (this.patchAt(f) === 0x4a86c0 || this.waterSpans.some(([a, b]) => f >= a && f <= b));
-        for (let k = 0; k < n || (k === 0 && noise(clock * 977 + mx) < n); k++) this.puff(back.x, back.y + 0.1, back.z, water ? 0xdff0ff : 0xcaa478);
+        for (let k = 0; k < n || (k === 0 && noise(clock * 977 + mx) < n); k++) this.puff(back.x, back.y + 0.1, back.z, water ? 0xdff0ff : this.look.spray);
       }
     }
     this.agePuffs(Math.min(1, dc * 1.4 + dt * 0.3));
@@ -3397,6 +3415,7 @@ export class RaceView {
     if (!riders.some((r) => r.player && r.pose.state !== 'retired')) this.marker.visible = false;
     else this.marker.visible = true;
     this.moveCamera(target, dt);
+    this.updateRain(dt);
     this.fadeBlockers(riders);
     const r0 = performance.now();
     this.renderer.render(this.scene3, this.camera);
@@ -3607,6 +3626,72 @@ export class RaceView {
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 32, 32);
     return new THREE.CanvasTexture(cv);
+  }
+
+  // ---- the weather (core/weatherLook.ts; Boss, 5 Nov 2026) ----
+
+  /** Puddles on the racing surface in the rain: flat, dark, shiny pools across the lap, off the jumps. */
+  private buildPuddles(): THREE.Group {
+    const s = this.surface;
+    const group = new THREE.Group();
+    const mat = new THREE.MeshPhongMaterial({ color: 0x2e3a46, specular: 0xc8d8e8, shininess: 80, transparent: true, opacity: 0.8, depthWrite: false });
+    const geo = new THREE.CircleGeometry(1, 20);
+    const count = Math.round((this.look.puddles * s.g.total) / 100);
+    for (let i = 0; i < count * 3 && group.children.length < count; i++) {
+      const f = noise(i * 53 + 7);
+      if (!this.drawn(f) || s.tunnelAt(f)) continue;
+      const lane = (noise(i * 17 + 3) - 0.5) * 1.2;
+      const d = 0.6 / s.g.total;
+      const h = s.height(f, lane);
+      // Water lies only where the track is level: never on a jump's face or a bank.
+      if (Math.abs(s.height(f + d, lane) - h) > 0.04 || Math.abs(s.height(f - d, lane) - h) > 0.04 || Math.abs(s.height(f, lane + 0.3) - h) > 0.04) continue;
+      const p = s.spot(f, lane);
+      const q = s.spot(f + d, lane);
+      const m = new THREE.Mesh(geo, mat);
+      // Laid flat, its long side along the track.
+      m.rotation.order = 'YXZ';
+      m.rotation.set(-Math.PI / 2, -Math.atan2(q.z - p.z, q.x - p.x), 0);
+      const len = 0.5 + noise(i * 29) * 0.7;
+      m.scale.set(len, len * (0.45 + 0.3 * noise(i * 41)), 1);
+      m.position.set(p.x, h + 0.025, p.z);
+      m.renderOrder = 2;
+      group.add(m);
+    }
+    return group;
+  }
+
+  /** The falling rain: thin pale streaks in a box round the camera's spot, slanting a little in the wind. */
+  private buildRain(): void {
+    const n = this.look.drops;
+    const pos = new Float32Array(n * 6);
+    const R = this.viewUnits * 0.75;
+    for (let i = 0; i < n; i++) {
+      const x = (noise(i * 13 + 1) - 0.5) * 2 * R;
+      const z = (noise(i * 7 + 5) - 0.5) * 2 * R;
+      const y = noise(i * 3 + 11) * RAIN_TOP;
+      pos.set([x, y, z, x + RAIN_SLANT, y - RAIN_STREAK, z + RAIN_SLANT * 0.4], i * 6);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const lines = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0xdce6f0, transparent: true, opacity: 0.35 + 0.25 * this.look.wet, depthWrite: false }));
+    lines.frustumCulled = false;
+    lines.renderOrder = 5;
+    this.scene3.add(lines);
+    this.rain = { lines, pos, speed: 26 + 10 * this.look.wet };
+  }
+
+  private updateRain(dt: number): void {
+    const r = this.rain;
+    if (!r) return;
+    if (this.cam) r.lines.position.set(this.cam.x, this.cam.y, this.cam.z);
+    const fall = r.speed * Math.min(0.1, dt);
+    for (let i = 0; i < r.pos.length; i += 6) {
+      let y = r.pos[i + 1] - fall;
+      if (y < 0) y += RAIN_TOP;
+      r.pos[i + 1] = y;
+      r.pos[i + 4] = y - RAIN_STREAK;
+    }
+    (r.lines.geometry.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true;
   }
 
   /** A puff of dust (or spray): one of a pool of camera-facing quads drawn in a single batch. */

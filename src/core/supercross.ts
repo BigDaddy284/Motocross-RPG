@@ -108,7 +108,8 @@ export class SupercrossNight {
     this.cls = dayClass(rc.bikes, venue.class, player.bike.class) ?? venue.class ?? '50cc';
     this.rules = supercrossRules(rc);
     const rng = seededRng(seed);
-    this.weather = rollWeather(rc.areas ? areaOfMap(rc.areas, venue.town ?? '') : undefined, rng);
+    const rolled = rollWeather(rc.areas ? areaOfMap(rc.areas, venue.town ?? '') : undefined, rng);
+    this.weather = venue.weather && rc.racing.weather?.[venue.weather] ? venue.weather : rolled;
     tunePlayer(rc, player, this.track, this.weather);
     const need = this.rules.field - 1;
     let cpus: CpuRiderDef[];
