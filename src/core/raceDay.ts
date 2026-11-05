@@ -70,6 +70,8 @@ export interface VenueDef {
   map: string;
   /** The town map of the area the venue belongs to (areas.json): its weather. */
   town?: string;
+  /** The day's weather, set rather than rolled: only the test ride's ?weather= sets it, never content (Boss, 5 Nov 2026). */
+  weather?: string;
   track?: string;
   class?: string;
   field?: string;
@@ -377,7 +379,8 @@ export class RaceDay {
     this.laps = custom?.laps ?? lapsFor(rc, this.track, sidecar?.test || sidecar?.passenger ? solo : this.cls, !!round);
     this.motoCount = custom?.motos ?? 2;
     this.rng = seededRng(seed);
-    this.weather = rollWeather(rc.areas ? areaOfMap(rc.areas, venue.town ?? '') : undefined, this.rng);
+    const rolled = rollWeather(rc.areas ? areaOfMap(rc.areas, venue.town ?? '') : undefined, this.rng);
+    this.weather = venue.weather && rc.racing.weather?.[venue.weather] ? venue.weather : rolled;
     tunePlayer(rc, player, this.track, this.weather);
     // A sidecar race has 7 other outfits, drawn from the field's whole pool.
     const cpus = alone ? [] : (custom?.cpus ?? round?.cpus ?? (sidecar ? drawPool(rc, venue, seed, SIDECAR_FIELD - 1) : drawField(rc, venue, seed)));

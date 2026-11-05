@@ -136,7 +136,9 @@ export class BootScene extends Phaser.Scene {
     const career = newCareerState(bikes, story, bikes.brands[0].id);
     for (const part of Object.values(career.bike.parts)) part.condition = 1;
     const save: SaveData = { version: SAVE_VERSION, savedAt: new Date().toISOString(), rider: { name: 'Tester', look: '' }, position: { map: START_MAP, x: 0, y: 0, facing: 'down' }, flags: { first_race_done: true }, stats: { playSeconds: 0 }, career, van: null, driving: false };
-    const venue: VenueDef = { id: `test-${trackId}`, name: track.name, map: START_MAP, track: trackId, class: '50cc', field: 'area1.local' };
+    // &weather=<racing.json weather id> sets the day's weather, to see it on the race screen (Boss, 5 Nov 2026).
+    const weather = new URLSearchParams(window.location.search).get('weather') ?? undefined;
+    const venue: VenueDef = { id: `test-${trackId}`, name: track.name, map: START_MAP, track: trackId, class: '50cc', field: 'area1.local', weather };
     const data: RaceSceneData = { mode: track.practiceOnly ? 'practice' : 'raceday', venue, save, fee: 0, ...(sidecar && sidecarTrack(track) ? { sidecarTest: true } : {}), onDone: () => this.scene.start('menu') };
     this.scene.start('race', data);
   }
