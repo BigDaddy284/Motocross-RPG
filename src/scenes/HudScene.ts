@@ -1207,7 +1207,7 @@ export class HudScene extends Phaser.Scene {
       const { skills } = services.content;
       const colW = (w - 56) / skills.leads.length;
       // The note goes at the foot first, so the rows can share out the room above it.
-      const foot = body(left, 0, 'Racing and practice train Rider Ability. Training minigames for every skill come in later builds.', 14, COLORS.muted);
+      const foot = body(left, 0, 'Racing, practice and the coaches train Rider Ability; shifts train Mechanical Engineer, and the town gyms Fitness.', 14, COLORS.muted);
       foot.setY(h / 2 - 14 - foot.height);
       // Hover a skill with the mouse, or tap it on a phone, to see its XP and the XP the next level
       // starts at (Boss, 31 Oct 2026). One box at a time; tapping the panel's empty space hides it.
