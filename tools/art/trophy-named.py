@@ -86,14 +86,13 @@ def sandstorm(x, y):
 
 
 def seafront(x, y):
-    # A seafront lighthouse: a tapering striped tower, its lamp room and cap, on the harbour wall.
+    # A seafront lighthouse: a tapering striped tower, its lamp room and cap, on the harbour wall (no beams, Boss 6 Nov 2026).
     t = (y - 12) / 20
     tower = 12 <= y <= 31 and abs(x - CX) <= 5 + 4 * t and not (y % 7 == 3 and abs(x - CX) <= 3 + 4 * t)
     lamp = box(x, y, 26, 6, 37, 11) and not box(x, y, 29, 7, 34, 10)
     cap = poly(x, y, [(24, 6), (CX, 0.5), (39, 6)])
-    beams = poly(x, y, [(25, 8), (6, 3), (6, 13)]) or poly(x, y, [(38, 8), (57, 3), (57, 13)])
     wall = box(x, y, 10, 31, 53, 35)
-    return tower or lamp or cap or beams or wall
+    return tower or lamp or cap or wall
 
 
 def driftwood(x, y):
@@ -166,9 +165,9 @@ def seven_towns(x, y):
 
 
 def neon_nights(x, y):
-    # A crescent moon and a star.
+    # A crescent moon (its star taken off, Boss 6 Nov 2026).
     moon = circ(x, y, 26, 19, 14) and not circ(x, y, 33, 15, 11.5)
-    return moon or star(x, y, 44, 22, 2.8, 7, 5)
+    return moon
 
 
 def long_road(x, y):
@@ -208,11 +207,10 @@ def warehouse_wars(x, y):
 
 
 def national_crown(x, y):
-    # A crown with five points, jewels on the points and a band.
+    # A crown with five points and a band (the balls on its points taken off, Boss 6 Nov 2026).
     body = poly(x, y, [(10, 32), (10, 12), (19, 22), (25, 8), (CX, 19), (38, 8), (44, 22), (53, 12), (53, 32)])
-    balls = any(circ(x, y, bx, by, 2.4) for bx, by in ((10, 10), (25, 6), (38, 6), (53, 10)))
     band_gap = y == 27 and 12 <= x <= 51
-    return (body and not band_gap) or balls
+    return body and not band_gap
 
 
 def supernova(x, y):
@@ -291,7 +289,7 @@ def evergreen(x, y):
 
 
 def ultimate(x, y):
-    # The big one: a tall cup with feathered wings and a star over it.
+    # The big one: a tall cup with feathered wings (the star over it taken off, Boss 6 Nov 2026).
     t = (y - 9) / 22
     bowl = 9 <= y <= 31 and abs(x - CX) <= 12 - 7 * t ** 1.5
     lip = box(x, y, 17, 7, 46, 9)
@@ -299,7 +297,7 @@ def ultimate(x, y):
     for s in (1, -1):
         wx = lambda d: CX + s * d
         wings = wings or poly(x, y, [(wx(11), 10), (wx(30), 2), (wx(29), 8), (wx(26), 9), (wx(28), 13), (wx(24), 14), (wx(25), 18), (wx(20), 18), (wx(11), 20)])
-    return bowl or lip or wings or star(x, y, CX, 3, 1.5, 3.8, 5)
+    return bowl or lip or wings
 
 
 TROPHIES = {
