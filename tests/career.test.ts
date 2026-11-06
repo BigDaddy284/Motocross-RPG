@@ -212,11 +212,9 @@ describe('roadworks and the venue route', () => {
   });
 });
 
-describe('testing pay boost', () => {
-  it('pays 5× for shifts while testing (review before Final v1)', () => {
+describe('shift pay', () => {
+  it('pays the job its own rate: the testing boost is gone (Boss, 6 Nov 2026)', () => {
     const fab = world.jobs.find((j) => j.id === 'job.fabrication')!;
-    expect(world.testPayMultiplier).toBe(5);
-    expect(jobPay(world, fab)).toBe(375);
-    expect(jobPay({ ...world, testPayMultiplier: undefined }, fab)).toBe(75);
+    expect(jobPay(world, fab)).toBe(75);
   });
 });

@@ -53,7 +53,7 @@ Dev URL params (handled in `src/scenes/BootScene.ts`): `?testtrack=<track id>` j
 
 - Comments and README notes record design decisions with who agreed and when, e.g. `(Boss, 29 Oct 2026)`, and tests cite the design document as `GDD x.y`. Keep that style, and don't reverse a dated decision without being asked.
 - The README is updated alongside features (what the build offers, controls, project status). Update the relevant section when behaviour players see changes.
-- Testing aids to remove before final release are listed under "Before release" in the README (currently `testPayMultiplier` in `public/data/world.json`, the "TEST: Always win" and "TEST: No bike wear" settings and the race screen's "TEST: Win now" button, which MUST be removed before the final merge to `main`).
+- The testing aids (Always win, No bike wear, Ride alone, Win now, the money cheat, the shift pay boost) came out of `test/v2.0` on 6 Nov 2026 (Boss); see "Before release" in the README. `test/v2.1DevOnly` keeps its own, so merging v2.0 into it must keep them.
 - Version strings: `package.json` `version` and `BUILD_LABEL` in `src/services.ts`.
 
 ## Branches (Boss, 30 Oct 2026)

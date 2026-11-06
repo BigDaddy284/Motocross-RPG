@@ -148,8 +148,6 @@ export interface RouteDef {
 }
 
 export interface WorldData {
-  /** Testing only: multiplies all shift pay. Review before Final v1. */
-  testPayMultiplier?: number;
   /** The world map screen (core/worldMap.ts). */
   worldMap?: WorldMapData;
   locks: { map: string; object: string; flag: string; message: string }[];
@@ -227,10 +225,10 @@ export const wholePounds = (p: number) => Math.round(p / 100) * 100;
 export const pence = (pounds: number) => Math.round(pounds) * 100;
 
 /**
- * A shift job's pay per part in pence, after the testing multiplier. Kept exact (75p a bracket):
+ * A shift job's pay per part in pence (the testing multiplier went for v2.0; Boss, 6 Nov 2026). Kept exact (75p a bracket):
  * the shift pays it out in whole pounds as the running total passes each £1 (core/jobs.ts finishPass).
  */
-export const jobPay = (world: WorldData, job: JobDef) => Math.round(job.pay * (world.testPayMultiplier ?? 1) * 100);
+export const jobPay = (_world: WorldData, job: JobDef) => Math.round(job.pay * 100);
 
 /** A whole batch's pay in pence, rounded to the nearest £1: what a shift pays in all. */
 export const batchPay = (world: WorldData, job: JobDef) => wholePounds(jobPay(world, job) * job.batch);

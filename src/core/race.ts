@@ -442,18 +442,6 @@ export function mixSeed(seed: number, n: number): number {
 
 const logistic = (x: number) => 1 / (1 + Math.exp(-x));
 
-/** TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 31 Oct 2026): when on, the player wins every moto (results()). */
-let testAlwaysWin = false;
-export function setTestAlwaysWin(on: boolean): void {
-  testAlwaysWin = on;
-}
-
-/** TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 2 Nov 2026): when on, the player's bike takes no wear or crash damage. */
-let testNoWear = false;
-export function setTestNoWear(on: boolean): void {
-  testNoWear = on;
-}
-
 export class MotoSim {
   readonly riders: RiderState[];
   readonly player: RiderState | undefined;
@@ -802,9 +790,6 @@ export class MotoSim {
     // A sprint is won on the timed tests added up, not on who crosses the line first.
     const raced = (r: RiderState) => (this.sprint ? r.sprintTime : r.time);
     const sorted = [...this.riders].sort((a, b) => Number(a.retired) - Number(b.retired) || b.laps - a.laps || raced(a) - raced(b));
-    // TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 31 Oct 2026): Settings > Gameplay >
-    // "TEST: Always win" puts the player first in every moto, heat and sprint, DNF or not.
-    if (testAlwaysWin && this.player) sorted.splice(0, 0, ...sorted.splice(sorted.indexOf(this.player), 1));
     const leader = sorted[0];
     return sorted.map((r, i) => ({
       id: r.e.id,
@@ -815,8 +800,8 @@ export class MotoSim {
       laps: r.laps,
       time: raced(r),
       bestLap: r.lapTimes.length ? Math.min(...r.lapTimes) : null,
-      retired: testAlwaysWin && r.e.player ? false : r.retired,
-      reason: testAlwaysWin && r.e.player ? undefined : r.reason,
+      retired: r.retired,
+      reason: r.reason,
       gap: i === 0 ? formatTime(raced(r)) : r.retired ? 'DNF' : r.laps < leader.laps ? `+${leader.laps - r.laps} lap${leader.laps - r.laps > 1 ? 's' : ''}` : `+${Math.max(0, raced(r) - raced(leader)).toFixed(1)}s`,
     }));
   }
@@ -917,8 +902,6 @@ export class MotoSim {
     const hit: string[] = [];
     for (let i = 0; i < n && pool.length; i++) hit.push(pool.splice(Math.floor(this.rng() * pool.length), 1)[0]);
     if (r.e.player && this.playerBike) {
-      // TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 2 Nov 2026): "TEST: No bike wear".
-      if (testNoWear) return hit;
       for (const slot of hit) {
         const part = this.playerBike.parts[slot];
         if (!part) continue;
@@ -975,8 +958,7 @@ export class MotoSim {
   /** Distance wear for one lap of `km` (Spec 7.3), plus the small chance of a random breakage. */
   private wearPlayer(trace: LapTrace, km: number): void {
     const bike = this.playerBike;
-    // TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 2 Nov 2026): "TEST: No bike wear".
-    if (!bike || !this.player || testNoWear) return;
+    if (!bike || !this.player) return;
     const w = this.racing.wear;
     const parts = Object.entries(bike.parts);
     const low = parts.filter(([, p]) => p.condition > 0 && p.condition <= w.lowAt);

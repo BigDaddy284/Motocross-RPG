@@ -17,7 +17,7 @@ This is a hobby project, made for fun in spare time. It is offered as-is, with n
 The game loop: **earn money, keep the bike going, race, level up, repeat.**
 
 1. **Start a career** in Home Town with a broken 50cc. Paul Phoenix, the mechanic at Phoenix MX, gets it running in the tutorial and teaches the basics.
-2. **Earn money** on shifts in the Industrial Zone: the fabrication shop (frame brackets) and the engine rebuilder (pistons). Pay is per part made, and is boosted 5× while testing.
+2. **Earn money** on shifts in the Industrial Zone: the fabrication shop (frame brackets) and the engine rebuilder (pistons). Pay is per part made.
 3. **Look after the bike.** Every lap wears its parts, and a part at 0% breaks. Buy new or better-grade parts at Moto78 (the bike shop) and the tyre shop in Home Town (fitted free, or kept as spares in your bag), and pay the local garage to repair or fit them. On a shop's Sell tab, tick spares and use **Sell selected**, or **Sell all** (Boss, 31 Oct 2026).
 4. **Get a van** and load your bike to reach the tracks on the venue road. On the Old Rusty Truck you can see it: your bike rides in the open bed in its brand colours, strapped down to the front of the bed (Boss, 30 Oct 2026).
 5. **Race.** Three venues are open: **Farmland MX**, **Riverside Arena** and **Longmoor Enduro**, with Joseph Halden at the race office of each: his family runs every track in the land, and he introduces himself the first time you talk to him (Boss, 30 Oct 2026). A race day is two motos against 15 riders (5 laps a moto, or 8 at Longmoor Enduro, and 8 in a motocross or endurance championship round), including the Local Champion: £20 entry (your first race day is free), gate picks, a start official and a pit board, with prize money to 10th in each moto. Free practice is 25% of the entry, and the backyard loop at home is free.
@@ -174,7 +174,6 @@ Built from `docs/AREAS_2_TO_8_PLAN.md` on a chain of branches, each starting fro
 
 Sidecars are coming as a class of their own, brought in late in the game: no new venues, they race only on Motocross tracks once unlocked, and they will open championships across the land for their class. **Players can't race them yet** (Boss, 1 Nov 2026: "Must remove the ability to test race the Sidecars, they will be enabled later"): the Farmland race office's test tick box is gone. They can ride in one, though: as **Ray Crispy's passenger** (below, Boss 4 Nov 2026). The racing itself is built and tested:
 
-- Under `npm run dev` only, `?testtrack=farmland&sidecar` jumps straight into a TEST sidecar race: you on a sidecar against 7 others, two motos of the laps a 50cc races there. It is free and counts for nothing: no prize money or XP, no wear, no records (you borrow a stock outfit for the day).
 - The start: 8 outfits, 4 on the front row and 4 on the back, each taking two gates. An outfit sits on an even gate (2, 4, 6, 8 in front, 10 to 16 behind) with its chair over the odd gate beside it, so only the even gates can be picked; the odd ones show "chair".
 - An outfit never whips or scrubs, whatever its rider's skill, and never loops out at the gate. It stays flat through corners, and once clear of the gate it keeps its bike far enough from the left edge for the chair to stay on the track, with more room between outfits than between solo bikes.
 - Boss's `sidecar.glb` in `public/assets/models/` is every outfit, painted in each team's colours (Plastics, Frame, Plate); without it the game draws its own bike with a chair.
@@ -372,15 +371,9 @@ To resume: `npm install`, `npm test`, `npm run dev`, then open `/tools/` (the to
 
 ## Before release
 
-Testing aids to take out before the final release:
+The testing aids came out of v2.0 (Boss, 6 Nov 2026: "For v2.0 you can now remove the test aids"): the "TEST: Always win", "TEST: No bike wear" and "TEST: Ride alone (no AI)" settings, the race screen's "TEST: Win now" button, the `moneymoneymoney` money cheat, the 5× shift pay boost (`testPayMultiplier` in `world.json`) and the dev-only `?testtrack=…&sidecar` test race. The `test/v2.1DevOnly` build keeps its own (max skills and cash, Complete Race Day and the switches above), so a merge of v2.0 into it must keep them.
 
-- **Always win (MUST REMOVE before the final merge to `main`, after the merge to `test/v1.5`; Boss, 31 Oct 2026).** Settings > Gameplay > "TEST: Always win": the player is first in every moto, heat and sprint, even after a DNF (`setTestAlwaysWin` and `testAlwaysWin` in `core/race.ts` `results()`, `testAlwaysWin` in `settings.ts`, `SettingsScene.ts`, `RaceScene.ts`). Off by default; it stays on until switched off.
-- **Shift pay boost.** `testPayMultiplier` in `world.json` (5× for Alpha v1.1).
-- **Money cheat.** A new rider named `moneymoneymoney` starts with £50,000 (`TEST_MONEY_NAME` in `careerFlow.ts`). Back in for test v1.5.
-- **Win now (MUST REMOVE before the final merge to `main`; Boss, 2 Nov 2026).** A "TEST: Win now" button under the standings on the live race screen (not practice) ends the race, heat, qualifying or challenge at once with the player first and goes straight to its results screen (`testWinNow` in `RaceScene.ts`, using `setTestAlwaysWin` in `core/race.ts`).
-- **No bike wear (MUST REMOVE before the final merge to `main`; Boss, 2 Nov 2026).** Settings > Gameplay > "TEST: No bike wear": the bike takes no distance wear and no crash damage in races and practice (`setTestNoWear` and `testNoWear` in `core/race.ts` `wearPlayer` and `crashDamage`, `testNoWear` in `settings.ts`, `SettingsScene.ts`, `RaceScene.ts`). Off by default.
-- **Ride alone.** Settings > Gameplay > "TEST: Ride alone (no AI)": practice and race days with no AI riders (`testRideAlone` in `settings.ts`, `alone` in `raceDay.ts`, `RaceScene.ts`, `SettingsScene.ts`).
-- **Sidecar test race (Boss, 1 Nov 2026).** The player's tick box is gone (Boss, 1 Nov 2026); what's left is the dev-only `?testtrack=…&sidecar` (`BootScene.ts`) and the test day it starts (`sidecarTest` in `RaceScene.ts`, `SidecarDay.test` in `raceDay.ts`, `SIDECAR_TEST_VENUE` and `testSidecar` in `core/sidecar.ts`). Replace it with the real unlock when sidecars come in late game.
+What stays, for development only: `?testtrack=<track id>` (and `&weather=<kind>`) to try a track, the `alone` option of the race day code and the test-only sidecar day (`SidecarDay.test`), which the tests use.
 
 ## Later, once Area 2 is under way
 
