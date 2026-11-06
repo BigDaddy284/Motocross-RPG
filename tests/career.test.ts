@@ -169,10 +169,10 @@ describe('money', () => {
     expect(wholePounds(3750)).toBe(3800);
   });
 
-  it('the Area 1 shifts are the Spec 15.5 batches: 50 brackets at 75p and 100 pistons at £1.25', () => {
+  it('the Area 1 shifts are the Spec 15.5 batches at double pay (Boss, 6 Nov 2026): 50 brackets at £1.50 and 100 pistons at £2.50', () => {
     const byId = Object.fromEntries(world.jobs.map((j) => [j.id, j]));
-    expect(byId['job.fabrication']).toMatchObject({ batch: 50, pay: 0.75, keeps: ['bodywork'] });
-    expect(byId['job.engine']).toMatchObject({ batch: 100, pay: 1.25, keeps: ['top_end'] });
+    expect(byId['job.fabrication']).toMatchObject({ batch: 50, pay: 1.5, keeps: ['bodywork'] });
+    expect(byId['job.engine']).toMatchObject({ batch: 100, pay: 2.5, keeps: ['top_end'] });
   });
 });
 
@@ -215,6 +215,6 @@ describe('roadworks and the venue route', () => {
 describe('shift pay', () => {
   it('pays the job its own rate: the testing boost is gone (Boss, 6 Nov 2026)', () => {
     const fab = world.jobs.find((j) => j.id === 'job.fabrication')!;
-    expect(jobPay(world, fab)).toBe(75);
+    expect(jobPay(world, fab)).toBe(150);
   });
 });
