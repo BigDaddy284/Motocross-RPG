@@ -234,7 +234,7 @@ The Area 1 Champion and the Local Champions of Areas 2 to 8 are new riders, each
 |---|---|---|---|
 | 1 Home Town | **Brandon Stocky**, Sprocket Cup Champion | orange and black, orange bike | Lee Stocky's son (Lee's T's and Wheels), looking for his next worthy opponent |
 | 2 Mountain Town | **Andy McLaren** | red and blue, red bike | 40s, worked all his life with no help for the title and isn't giving it up easy |
-| 3 Beach Town | **Justin Smyth** | yellow and black, yellow bike | trained by his dad, Dan Smyth, in the Industrial Zone; moved for a new challenge |
+| 3 Beach Town | **Justin Smyth** | yellow and black, yellow bike | trained by his dad, Dan Smyth, in the Industrial Zone; moved for a new challenge; got the holeshot once and never stops talking about it |
 | 4 Forest Town | **Jeno Rothon** | white with a little blue, blue bike | Bill Rothon's son; raced round the land, liked the woods and stayed |
 | 5 Western Works | **Jordan Styles** | pink and blue, blue bike | Jason Styles' son; moving tools round the yard at J's Tools keeps him fit |
 | 6 Highlands | **Cody Shock** | blue and white, blue bike | humble factory rider, out to bring his team another title |
