@@ -72,7 +72,7 @@ export function riderProfile(e: Entrant, stats: Record<string, number>, ceiling:
     cornerSpeed: clamp01(0.25 + 0.5 * sk('cornering') + 0.25 * st('grip') + 0.05 * msg.pace),
     scrub,
     jump: clamp01(0.1 + 0.6 * sk('jumps_ruts') + 0.2 * st('power') + 0.1 * msg.risk + 0.1 * (seed - 0.5)),
-    skim: clamp01(0.2 + 0.5 * sk('balance') + 0.3 * st('absorption')),
+    skim: clamp01(0.2 + 0.5 * sk('balance') + 0.3 * st('suspension')),
     wobble: clamp01(0.6 - 0.5 * sk('consistency') - 0.1 * msg.consistency),
     drive: clamp01(0.5 * st('power') + 0.5 * st('response')),
     agility: clamp01(0.3 + 0.35 * st('handling') + 0.35 * sk('balance')),
