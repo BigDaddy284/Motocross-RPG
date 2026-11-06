@@ -1190,8 +1190,16 @@ export class HudScene extends Phaser.Scene {
       }
       // The badges and trophies themselves, in a row.
       const won = services.content.championships.championships.map((d) => d.rewards[0]).filter((r) => r?.image && r.flag && this.flags[r.flag]);
+      // In rows across the panel, smaller as more are won so they all fit (43 to win in all since
+      // the type championships, Legends, Vets and Ultimate got trophies, Boss 6 Nov 2026).
+      const room = { w: w - 56, h: h / 2 - 16 - y };
+      let cell = 108;
+      while (cell > 36 && Math.ceil(won.length / Math.max(1, Math.floor(room.w / cell))) * cell > room.h) cell -= 4;
+      const perRow = Math.max(1, Math.floor(room.w / cell));
       won.forEach((r, i) => {
-        if (this.textures.exists(rewardTexture(r.image!))) c.add(this.add.image(left + 48 + i * 108, y + 56, rewardTexture(r.image!)).setDisplaySize(96, 96));
+        const x = left + cell / 2 + (i % perRow) * cell;
+        const yy = y + cell / 2 + Math.floor(i / perRow) * cell;
+        if (this.textures.exists(rewardTexture(r.image!))) c.add(this.add.image(x, yy, rewardTexture(r.image!)).setDisplaySize(cell - 12, cell - 12));
       });
     } else if (tab === 'records') {
       // Wins out of attempts at everything that can be raced again (core/records.ts).
@@ -1764,7 +1772,12 @@ function champLines(c: typeof services.content, career: CareerState, flags: Reco
     const me = standings(c.racing.points, active).find((r) => r.player)!;
     out.push(`${def.name}: round ${active.rounds.length + 1} of ${def.rounds.length} next at ${venue?.name ?? '?'}${active.rounds.length ? `, ${me.points} points (${me.position}${me.position === 1 ? 'st' : me.position === 2 ? 'nd' : me.position === 3 ? 'rd' : 'th'})` : ''}.`);
   }
-  const won = c.championships.championships.flatMap((d) => d.rewards[0]?.flag && flags[d.rewards[0].flag] ? [d.rewards[0].title ?? d.name] : []);
-  if (won.length) out.push(`Won: ${won.map((t) => t.replace(/^the /, '')).join(', ')}.`);
+  // What has been won: the ones with a picture are counted (the pictures follow, below), any
+  // without one named, so the line stays short with every badge and trophy won (Boss, 6 Nov 2026).
+  const won = c.championships.championships.flatMap((d) => (d.rewards[0]?.flag && flags[d.rewards[0].flag] ? [d.rewards[0]] : []));
+  const pictured = won.filter((r) => r.image).length;
+  const named = won.filter((r) => !r.image).map((r) => (r.title ?? '').replace(/^the /, '')).filter(Boolean);
+  if (pictured) out.push(`Won: ${pictured} ${pictured === 1 ? 'badge or trophy' : 'badges and trophies'}${named.length ? `, and ${named.join(', ')}` : ''}.`);
+  else if (named.length) out.push(`Won: ${named.join(', ')}.`);
   return out;
 }

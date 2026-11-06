@@ -109,7 +109,7 @@
       "purseTimes": 2.6,
       "needs": ["area3.intro_done"],
       "rewards": [
-        { "money": 1000, "flag": "trophy.area3.mx", "title": "the Sandstorm MX Championship trophy" },
+        { "money": 1000, "flag": "trophy.area3.mx", "title": "the Sandstorm MX Championship trophy", "image": "art/ui/trophy-area3-mx.png" },
         { "money": 500 },
         { "money": 250 }
       ],
@@ -129,7 +129,7 @@
       "purseTimes": 2.6,
       "needs": ["area3.intro_done"],
       "rewards": [
-        { "money": 1000, "flag": "trophy.area3.sx", "title": "the Seafront SX Series trophy" },
+        { "money": 1000, "flag": "trophy.area3.sx", "title": "the Seafront SX Series trophy", "image": "art/ui/trophy-area3-sx.png" },
         { "money": 500 },
         { "money": 250 }
       ],
@@ -149,7 +149,7 @@
       "purseTimes": 2.6,
       "needs": ["area3.intro_done"],
       "rewards": [
-        { "money": 1000, "flag": "trophy.area3.enduro", "title": "the Driftwood EN Championship trophy" },
+        { "money": 1000, "flag": "trophy.area3.enduro", "title": "the Driftwood EN Championship trophy", "image": "art/ui/trophy-area3-enduro.png" },
         { "money": 500 },
         { "money": 250 }
       ],
@@ -169,7 +169,7 @@
       "purseTimes": 1.8,
       "needs": ["met.ray", "area3.intro_done"],
       "rewards": [
-        { "money": 500, "flag": "trophy.area3.sidecar", "title": "the Dune Run SCMX Championship trophy" },
+        { "money": 500, "flag": "trophy.area3.sidecar", "title": "the Dune Run SCMX Championship trophy", "image": "art/ui/trophy-area3-sidecar.png" },
         { "money": 250 },
         { "money": 125 }
       ],
@@ -285,7 +285,7 @@
       "purseTimes": 2.6,
       "needs": ["area5.intro_done"],
       "rewards": [
-        { "money": 2600, "flag": "trophy.area5.sprint", "title": "the Ironworks SE Championship trophy" },
+        { "money": 2600, "flag": "trophy.area5.sprint", "title": "the Ironworks SE Championship trophy", "image": "art/ui/trophy-area5-sprint.png" },
         { "money": 1300 },
         { "money": 650 }
       ],
@@ -352,7 +352,7 @@
       "purseTimes": 2.6,
       "needs": ["area6.intro_done"],
       "rewards": [
-        { "money": 4000, "flag": "trophy.area6.mx", "title": "the Highland Clash MX Championship trophy" },
+        { "money": 4000, "flag": "trophy.area6.mx", "title": "the Highland Clash MX Championship trophy", "image": "art/ui/trophy-area6-mx.png" },
         { "money": 2000 },
         { "money": 1000 }
       ],
@@ -372,7 +372,7 @@
       "purseTimes": 2.6,
       "needs": ["area6.intro_done"],
       "rewards": [
-        { "money": 4000, "flag": "trophy.area6.sx", "title": "the Thunder Glen SX Series trophy" },
+        { "money": 4000, "flag": "trophy.area6.sx", "title": "the Thunder Glen SX Series trophy", "image": "art/ui/trophy-area6-sx.png" },
         { "money": 2000 },
         { "money": 1000 }
       ],
@@ -392,7 +392,7 @@
       "purseTimes": 2.6,
       "needs": ["area6.intro_done"],
       "rewards": [
-        { "money": 4000, "flag": "trophy.area6.enduro", "title": "the Moorland EN Championship trophy" },
+        { "money": 4000, "flag": "trophy.area6.enduro", "title": "the Moorland EN Championship trophy", "image": "art/ui/trophy-area6-enduro.png" },
         { "money": 2000 },
         { "money": 1000 }
       ],
@@ -412,7 +412,7 @@
       "purseTimes": 1.8,
       "needs": ["met.ray", "area6.intro_done"],
       "rewards": [
-        { "money": 2000, "flag": "trophy.area6.sidecar", "title": "the Ben Mor SCMX Championship trophy" },
+        { "money": 2000, "flag": "trophy.area6.sidecar", "title": "the Ben Mor SCMX Championship trophy", "image": "art/ui/trophy-area6-sidecar.png" },
         { "money": 1000 },
         { "money": 500 }
       ],
@@ -434,7 +434,7 @@
       "purseTimes": 2.6,
       "needs": ["area6.intro_done"],
       "rewards": [
-        { "money": 4000, "flag": "trophy.area6.sprint", "title": "the Glen Sprint SE Championship trophy" },
+        { "money": 4000, "flag": "trophy.area6.sprint", "title": "the Glen Sprint SE Championship trophy", "image": "art/ui/trophy-area6-sprint.png" },
         { "money": 2000 },
         { "money": 1000 }
       ],
@@ -501,7 +501,7 @@
       "purseTimes": 2.6,
       "needs": ["area7.intro_done"],
       "rewards": [
-        { "money": 6400, "flag": "trophy.area7.mx", "title": "the Seven Towns MX Championship trophy" },
+        { "money": 6400, "flag": "trophy.area7.mx", "title": "the Seven Towns MX Championship trophy", "image": "art/ui/trophy-area7-mx.png" },
         { "money": 3200 },
         { "money": 1600 }
       ],
@@ -521,7 +521,7 @@
       "purseTimes": 2.6,
       "needs": ["area7.intro_done"],
       "rewards": [
-        { "money": 6400, "flag": "trophy.area7.sx", "title": "the Neon Nights SX Series trophy" },
+        { "money": 6400, "flag": "trophy.area7.sx", "title": "the Neon Nights SX Series trophy", "image": "art/ui/trophy-area7-sx.png" },
         { "money": 3200 },
         { "money": 1600 }
       ],
@@ -541,7 +541,7 @@
       "purseTimes": 2.6,
       "needs": ["area7.intro_done"],
       "rewards": [
-        { "money": 6400, "flag": "trophy.area7.enduro", "title": "the Long Road EN Championship trophy" },
+        { "money": 6400, "flag": "trophy.area7.enduro", "title": "the Long Road EN Championship trophy", "image": "art/ui/trophy-area7-enduro.png" },
         { "money": 3200 },
         { "money": 1600 }
       ],
@@ -561,7 +561,7 @@
       "purseTimes": 1.8,
       "needs": ["met.ray", "area7.intro_done"],
       "rewards": [
-        { "money": 3200, "flag": "trophy.area7.sidecar", "title": "the Metro Derby SCMX Championship trophy" },
+        { "money": 3200, "flag": "trophy.area7.sidecar", "title": "the Metro Derby SCMX Championship trophy", "image": "art/ui/trophy-area7-sidecar.png" },
         { "money": 1600 },
         { "money": 800 }
       ],
@@ -583,7 +583,7 @@
       "purseTimes": 2.6,
       "needs": ["area7.intro_done"],
       "rewards": [
-        { "money": 6400, "flag": "trophy.area7.sprint", "title": "the City Limits SE Championship trophy" },
+        { "money": 6400, "flag": "trophy.area7.sprint", "title": "the City Limits SE Championship trophy", "image": "art/ui/trophy-area7-sprint.png" },
         { "money": 3200 },
         { "money": 1600 }
       ],
@@ -603,7 +603,7 @@
       "purseTimes": 2.6,
       "needs": ["area7.intro_done"],
       "rewards": [
-        { "money": 6400, "flag": "trophy.area7.endurocross", "title": "the Warehouse Wars EX Series trophy" },
+        { "money": 6400, "flag": "trophy.area7.endurocross", "title": "the Warehouse Wars EX Series trophy", "image": "art/ui/trophy-area7-endurocross.png" },
         { "money": 3200 },
         { "money": 1600 }
       ],
@@ -670,7 +670,7 @@
       "purseTimes": 2.6,
       "needs": ["area8.intro_done"],
       "rewards": [
-        { "money": 10000, "flag": "trophy.area8.mx", "title": "the National Crown MX Championship trophy" },
+        { "money": 10000, "flag": "trophy.area8.mx", "title": "the National Crown MX Championship trophy", "image": "art/ui/trophy-area8-mx.png" },
         { "money": 5000 },
         { "money": 2500 }
       ],
@@ -690,7 +690,7 @@
       "purseTimes": 2.6,
       "needs": ["area8.intro_done"],
       "rewards": [
-        { "money": 10000, "flag": "trophy.area8.sx", "title": "the Supernova SX Series trophy" },
+        { "money": 10000, "flag": "trophy.area8.sx", "title": "the Supernova SX Series trophy", "image": "art/ui/trophy-area8-sx.png" },
         { "money": 5000 },
         { "money": 2500 }
       ],
@@ -710,7 +710,7 @@
       "purseTimes": 2.6,
       "needs": ["area8.intro_done"],
       "rewards": [
-        { "money": 10000, "flag": "trophy.area8.enduro", "title": "the Kingdom Trail EN Championship trophy" },
+        { "money": 10000, "flag": "trophy.area8.enduro", "title": "the Kingdom Trail EN Championship trophy", "image": "art/ui/trophy-area8-enduro.png" },
         { "money": 5000 },
         { "money": 2500 }
       ],
@@ -730,7 +730,7 @@
       "purseTimes": 1.8,
       "needs": ["met.ray", "area8.intro_done"],
       "rewards": [
-        { "money": 5000, "flag": "trophy.area8.sidecar", "title": "the Royal Classic SCMX Championship trophy" },
+        { "money": 5000, "flag": "trophy.area8.sidecar", "title": "the Royal Classic SCMX Championship trophy", "image": "art/ui/trophy-area8-sidecar.png" },
         { "money": 2500 },
         { "money": 1250 }
       ],
@@ -752,7 +752,7 @@
       "purseTimes": 2.6,
       "needs": ["area8.intro_done"],
       "rewards": [
-        { "money": 10000, "flag": "trophy.area8.sprint", "title": "the Royal Park SE Championship trophy" },
+        { "money": 10000, "flag": "trophy.area8.sprint", "title": "the Royal Park SE Championship trophy", "image": "art/ui/trophy-area8-sprint.png" },
         { "money": 5000 },
         { "money": 2500 }
       ],
@@ -772,7 +772,7 @@
       "purseTimes": 2.6,
       "needs": ["area8.intro_done"],
       "rewards": [
-        { "money": 10000, "flag": "trophy.area8.endurocross", "title": "the Dome Gauntlet EX Series trophy" },
+        { "money": 10000, "flag": "trophy.area8.endurocross", "title": "the Dome Gauntlet EX Series trophy", "image": "art/ui/trophy-area8-endurocross.png" },
         { "money": 5000 },
         { "money": 2500 }
       ],
@@ -837,7 +837,7 @@
       "purseTimes": 3.2,
       "needs": ["trophy.area8.main"],
       "rewards": [
-        { "money": 20000, "flag": "trophy.legends", "title": "the Legends trophy", "bike": "450f" },
+        { "money": 20000, "flag": "trophy.legends", "title": "the Legends trophy", "image": "art/ui/trophy-legends.png", "bike": "450f" },
         { "money": 10000 },
         { "money": 5000 }
       ],
@@ -858,7 +858,7 @@
       "purseTimes": 3.2,
       "level": 80,
       "rewards": [
-        { "money": 12000, "flag": "trophy.vets40", "title": "the Old Guard SX Series trophy", "bike": "450f" },
+        { "money": 12000, "flag": "trophy.vets40", "title": "the Old Guard SX Series trophy", "image": "art/ui/trophy-vets-40.png", "bike": "450f" },
         { "money": 6000 },
         { "money": 3000 }
       ],
@@ -879,7 +879,7 @@
       "purseTimes": 3.2,
       "level": 90,
       "rewards": [
-        { "money": 12000, "flag": "trophy.vets50", "title": "the Silver Trail EN Championship trophy", "bike": "450f" },
+        { "money": 12000, "flag": "trophy.vets50", "title": "the Silver Trail EN Championship trophy", "image": "art/ui/trophy-vets-50.png", "bike": "450f" },
         { "money": 6000 },
         { "money": 3000 }
       ],
@@ -900,7 +900,7 @@
       "purseTimes": 3.2,
       "level": 95,
       "rewards": [
-        { "money": 12000, "flag": "trophy.vets60", "title": "the Evergreen MX Championship trophy", "bike": "450f" },
+        { "money": 12000, "flag": "trophy.vets60", "title": "the Evergreen MX Championship trophy", "image": "art/ui/trophy-vets-60.png", "bike": "450f" },
         { "money": 6000 },
         { "money": 3000 }
       ],
@@ -921,7 +921,7 @@
       "purseTimes": 3.2,
       "needs": ["trophy.legends"],
       "rewards": [
-        { "money": 50000, "flag": "trophy.ultimate", "title": "the Road to Legend Ultimate Event trophy", "bike": "450f" },
+        { "money": 50000, "flag": "trophy.ultimate", "title": "the Road to Legend Ultimate Event trophy", "image": "art/ui/trophy-ultimate.png", "bike": "450f" },
         { "money": 25000 },
         { "money": 12500 }
       ],
