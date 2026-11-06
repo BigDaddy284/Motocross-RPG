@@ -108,8 +108,10 @@ export class SupercrossNight {
     this.cls = dayClass(rc.bikes, venue.class, player.bike.class) ?? venue.class ?? '50cc';
     this.rules = supercrossRules(rc);
     const rng = seededRng(seed);
-    const rolled = rollWeather(rc.areas ? areaOfMap(rc.areas, venue.town ?? '') : undefined, rng);
-    this.weather = venue.weather && rc.racing.weather?.[venue.weather] ? venue.weather : rolled;
+    // Supercross is raced indoors, so it is always dry (Boss, 6 Nov 2026). The roll still happens, so
+    // the rest of the night's draws from the same seed are unchanged.
+    rollWeather(rc.areas ? areaOfMap(rc.areas, venue.town ?? '') : undefined, rng);
+    this.weather = 'dry';
     tunePlayer(rc, player, this.track, this.weather);
     const need = this.rules.field - 1;
     let cpus: CpuRiderDef[];
