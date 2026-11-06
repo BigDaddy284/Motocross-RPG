@@ -6,13 +6,13 @@ A single-player, offline motocross career RPG. Start as an unknown rider with a 
 | --- | --- |
 | ![Home Town, with the player standing outside Nicholls Used Motors](docs/screenshots/v2.0-home-town-nicholls-used-motors.png) | ![A race day at Farmland MX, with the player whipping the bike sideways in the air over the double](docs/screenshots/v2.0-race-day-farmland-whip.png) |
 
-This is **v2.0** (in testing): the whole career from a broken 50cc in Home Town, through all eight areas and their championships, to the **Road to Legend Ultimate Event**, with player-made tracks and your own Blender models. Much of the art is still placeholder art in the agreed style, imported from the project's art threads.
+This is **Release v1.0** (Boss, 6 Nov 2026: what was tested as v2.0, built from the `test/v2.0` branch): the whole career from a broken 50cc in Home Town, through all eight areas and their championships, to the **Road to Legend Ultimate Event**, with player-made tracks and your own Blender models. Much of the art is still placeholder art in the agreed style, imported from the project's art threads.
 
 ## A hobby project, offered as-is
 
 This is a hobby project, made for fun in spare time. It is offered as-is, with no warranty, no support and no promised updates. There may be bugs, and some may never be fixed. Issues are turned off on this repository and I'm not able to answer questions, take requests or fix problems. You're welcome to play it, learn from it and change it for your own use under the terms of the [MIT license](LICENSE), at your own risk. Back up anything you care about: your career is saved in the browser you play in, so use **Load → Export save** now and then to keep a copy as a file, and keep copies of your own tracks (the `.track.json` files in `public/mods/tracks/`, or the editor's **Export**).
 
-## What v2.0 offers
+## What Release v1.0 offers
 
 The game loop: **earn money, keep the bike going, race, level up, repeat.**
 
@@ -31,7 +31,7 @@ It runs in a browser on desktop or on a phone held sideways, and saves automatic
 
 ## Play it
 
-- **In a browser:** once GitHub Pages is switched on (Settings > Pages > Source: GitHub Actions), every push to `main` publishes the game to this repo's Pages site. The v2.0 test build is published beside it at `/test-v2.0/` from the `test/v2.0` branch, with its own saves (Boss, 6 Nov 2026; it was v1.5 at `/test-v1.5/` before).
+- **In a browser:** once GitHub Pages is switched on (Settings > Pages > Source: GitHub Actions), every push to `main` publishes the game to this repo's Pages site. The Release v1.0 build is published beside it at `/test-v2.0/` from the `test/v2.0` branch, with its own saves (Boss, 6 Nov 2026; it was v1.5 at `/test-v1.5/` before).
 - **On your own computer:** install [Node.js](https://nodejs.org) (LTS), then:
 
   ```
@@ -182,7 +182,7 @@ Built from `docs/AREAS_2_TO_8_PLAN.md` on a chain of branches, each starting fro
 
 ## Sidecar racing (Boss, 1 and 4 Nov 2026)
 
-**In v2.0 you race sidecars as Ray Crispy's passenger** (below): sidecar practice, sidecar race days and four sidecar championships, all through Ray at the Motocross and Enduro venues from Beach Town on. You never ride an outfit of your own. Sidecars are their own class with no venues of their own, and the dev-only test race on your own outfit went with the test aids (Boss, 1 Nov 2026: "Must remove the ability to test race the Sidecars, they will be enabled later"; 6 Nov 2026). How a sidecar race runs:
+**In Release v1.0 you race sidecars as Ray Crispy's passenger** (below): sidecar practice, sidecar race days and four sidecar championships, all through Ray at the Motocross and Enduro venues from Beach Town on. You never ride an outfit of your own. Sidecars are their own class with no venues of their own, and the dev-only test race on your own outfit went with the test aids (Boss, 1 Nov 2026: "Must remove the ability to test race the Sidecars, they will be enabled later"; 6 Nov 2026). How a sidecar race runs:
 
 - The start: 8 outfits, 4 on the front row and 4 on the back, each taking two gates. An outfit sits on an even gate (2, 4, 6, 8 in front, 10 to 16 behind) with its chair over the odd gate beside it, so only the even gates can be picked; the odd ones show "chair".
 - An outfit never whips or scrubs, whatever its rider's skill, and never loops out at the gate. It stays flat through corners, and once clear of the gate it keeps its bike far enough from the left edge for the chair to stay on the track, with more room between outfits than between solo bikes.
