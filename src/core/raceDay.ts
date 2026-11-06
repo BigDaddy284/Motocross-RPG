@@ -70,6 +70,8 @@ export interface VenueDef {
   map: string;
   /** The town map of the area the venue belongs to (areas.json): its weather. */
   town?: string;
+  /** The day's weather, set rather than rolled: only the test ride's ?weather= sets it, never content (Boss, 5 Nov 2026). */
+  weather?: string;
   track?: string;
   class?: string;
   field?: string;
@@ -306,9 +308,10 @@ export function lapsFor(rc: RaceContent, track: TrackDef, cls: string, champions
  */
 export interface SidecarDay {
   /**
-   * TEST ONLY, REMOVE BEFORE RELEASE (Boss, 1 Nov 2026): the Farmland tick box. The player borrows
-   * a stock sidecar for the day, the laps are their own class's here, and nothing counts: no prize
-   * money, no XP, and their own bike is never touched.
+   * A sidecar race on a borrowed stock outfit, for tests only: the dev ?testtrack=…&sidecar link
+   * that started it went with the other test aids for v2.0 (Boss, 6 Nov 2026). The laps are the
+   * player's own class's here, and nothing counts: no prize money, no XP, and their own bike is
+   * never touched.
    */
   test?: boolean;
   /**
@@ -354,7 +357,7 @@ export class RaceDay {
     readonly round?: RoundOptions,
     /** A challenge's own shape (core/challenge.ts): its motos, laps and riders. */
     custom?: { motos: number; laps: number; cpus: CpuRiderDef[] },
-    /** TEST ONLY, REMOVE BEFORE RELEASE (Boss, 30 Oct 2026): no CPU riders, to test ride a track. */
+    /** No CPU riders, for tests and tools only: the game's "TEST: Ride alone" switch went for v2.0 (Boss, 6 Nov 2026). */
     alone = false,
     /** A sidecar race day (SidecarDay): every rider on a sidecar outfit. */
     sidecar?: SidecarDay,
@@ -377,7 +380,8 @@ export class RaceDay {
     this.laps = custom?.laps ?? lapsFor(rc, this.track, sidecar?.test || sidecar?.passenger ? solo : this.cls, !!round);
     this.motoCount = custom?.motos ?? 2;
     this.rng = seededRng(seed);
-    this.weather = rollWeather(rc.areas ? areaOfMap(rc.areas, venue.town ?? '') : undefined, this.rng);
+    const rolled = rollWeather(rc.areas ? areaOfMap(rc.areas, venue.town ?? '') : undefined, this.rng);
+    this.weather = venue.weather && rc.racing.weather?.[venue.weather] ? venue.weather : rolled;
     tunePlayer(rc, player, this.track, this.weather);
     // A sidecar race has 7 other outfits, drawn from the field's whole pool.
     const cpus = alone ? [] : (custom?.cpus ?? round?.cpus ?? (sidecar ? drawPool(rc, venue, seed, SIDECAR_FIELD - 1) : drawField(rc, venue, seed)));
@@ -683,7 +687,7 @@ export function practiceSim(rc: RaceContent, venue: VenueDef, player: Entrant, s
   // A passenger practice (core/passenger.ts): every outfit out is a sidecar, on its own even gate.
   const cls = sidecar ? SIDECAR_CLASS : (dayClass(rc.bikes, venue.class, player.bike.class) ?? venue.class ?? '50cc');
   const pool = (rc.riders.fields[venue.field ?? ''] ?? []).map((id) => fieldRider(rc, venue.field, id)).filter((r): r is CpuRiderDef => !!r);
-  // TEST ONLY, REMOVE BEFORE RELEASE (Boss, 30 Oct 2026): `alone` sends nobody else out.
+  // `alone` (tests and tools only) sends nobody else out.
   const n = alone ? 0 : Math.min(venue.practiceRiders ?? 0, pool.length, sidecar ? SIDECAR_FIELD - 1 : Infinity);
   const drawn = shuffle(pool, seededRng(mixSeed(seed, 0x70726163))).slice(0, n);
   // A rough lap time: the lap's length at the class's reference speed.

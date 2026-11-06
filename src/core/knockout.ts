@@ -117,7 +117,7 @@ export class Knockout {
     readonly seed: number,
     /** The entry fee paid, in pence. */
     readonly entry: number,
-    /** TEST ONLY, REMOVE BEFORE RELEASE (Boss, 30 Oct 2026): no CPU riders, to test ride a track. */
+    /** No CPU riders, for tests and tools only: the game's "TEST: Ride alone" switch went for v2.0 (Boss, 6 Nov 2026). */
     alone = false,
   ) {
     this.cls = dayClass(rc.bikes, venue.class, player.bike.class) ?? venue.class ?? '50cc';

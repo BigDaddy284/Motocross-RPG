@@ -2,7 +2,7 @@ name: Test and publish
 
 on:
   push:
-    branches: [main, test/v1.5]
+    branches: [main, test/v2.0]
   pull_request:
   workflow_dispatch:
 
@@ -13,10 +13,11 @@ permissions:
 
 # The test build published beside the main game (Boss, 28 and 30 Oct 2026): main stays at the
 # site's address and the test branch goes in a folder of its own, with its own saves. Ask Boss
-# before changing PREVIEW_BRANCH or PREVIEW_PATH to a new test version.
+# before changing PREVIEW_BRANCH or PREVIEW_PATH to a new test version. Moved from v1.5 to
+# v2.0 (Boss, 6 Nov 2026: "update the online preview to point at v2.0").
 env:
-  PREVIEW_BRANCH: test/v1.5
-  PREVIEW_PATH: test-v1.5
+  PREVIEW_BRANCH: test/v2.0
+  PREVIEW_PATH: test-v2.0
 
 jobs:
   test:
@@ -35,7 +36,7 @@ jobs:
   # either branch keeps both. Runs on pushes to main or the test branch.
   site:
     needs: test
-    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/test/v1.5')
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/test/v2.0')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

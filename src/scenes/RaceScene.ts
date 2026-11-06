@@ -2,7 +2,7 @@ import { className } from '../core/classes';
 import Phaser from 'phaser';
 import { lastReleasedArea } from '../core/areas';
 import { bikeStats, formatMoney, raceStopper, type Bike } from '../core/career';
-import { formatTime, gateBonus, seenGates, setTestAlwaysWin, setTestNoWear, type LapTrace, type MotoSim, type RaceEvent, type RiderResult, type TrackDef } from '../core/race';
+import { formatTime, gateBonus, seenGates, type LapTrace, type MotoSim, type RaceEvent, type RiderResult, type TrackDef } from '../core/race';
 import { childLevel } from '../core/skills';
 import { PLAYER_ID, RaceDay, applyRide, playerEntrant, practiceSim, scaleXp, sumXp, trackById, type DayResult, type MotoRecord, type VenueDef } from '../core/raceDay';
 import { passengerEntrant, passengerEntry, passengerXp, passengerXpScale, type PassengerTerms } from '../core/passenger';
@@ -59,8 +59,6 @@ export interface RaceSceneData {
   champ?: ChampionshipDef;
   /** A challenge race (core/challenge.ts): one moto against the challenger, for their stake. */
   challenge?: ChallengeDef;
-  /** TEST ONLY, REMOVE BEFORE RELEASE (Boss, 1 Nov 2026): a sidecar race day from the Farmland tick box (core/sidecar.ts). */
-  sidecarTest?: boolean;
   /** Coached practice (Big Pete, Boss, 1 Nov 2026): the trainer's name and the practice XP multiplier. */
   coach?: { name: string; xpTimes: number };
   /**
@@ -206,31 +204,23 @@ export class RaceScene extends Phaser.Scene {
     this.fit();
     this.scale.on('resize', this.relayout, this);
     this.events.once('shutdown', () => this.scale.off('resize', this.relayout, this));
-    // TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 31 Oct 2026): "TEST: Always win" puts the player
-    // first, set before any branch so a challenge gets it too; "TEST: No bike wear" (Boss, 2 Nov 2026) likewise.
-    setTestAlwaysWin(services.settings.get().gameplay.testAlwaysWin);
-    setTestNoWear(services.settings.get().gameplay.testNoWear);
     if (this.args.mode === 'practice') this.startPractice();
     else if (this.args.challenge) this.showChallengeStart(this.args.challenge);
     else {
       const career = this.save.career;
       const champ = this.champ;
       const round = champ ? roundOptions(services.content, champ.def, champ.active) : undefined;
-      // TEST ONLY, REMOVE BEFORE RELEASE: Settings > Gameplay > "TEST: Ride alone" races with no AI riders.
-      const alone = services.settings.get().gameplay.testRideAlone;
-      // TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 31 Oct 2026): "TEST: Always win" puts the player first.
-      setTestAlwaysWin(services.settings.get().gameplay.testAlwaysWin);
       const seed = (Math.random() * 2 ** 32) >>> 0;
       if (!champ && this.args.venue.track && isNoTurn(trackById(services.content, this.args.venue.track))) {
         // A No-Turn Takedown: a knockout, not motos (Boss, 30 Oct 2026).
-        this.ko = new Knockout(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name, 0, this.save.flags), seed, this.args.fee, alone);
+        this.ko = new Knockout(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name, 0, this.save.flags), seed, this.args.fee);
         this.setupField();
         this.showKoSeedingStart();
         return;
       }
-      if (!this.args.sidecarTest && !this.args.passenger && this.args.venue.track && isSupercross(trackById(services.content, this.args.venue.track))) {
+      if (!this.args.passenger && this.args.venue.track && isSupercross(trackById(services.content, this.args.venue.track))) {
         // A Supercross night: heats, the LCQ and the Main (Boss, 1 Nov 2026), championship rounds too.
-        this.sx = new SupercrossNight(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name, 0, this.save.flags), seed, this.args.fee, round, alone);
+        this.sx = new SupercrossNight(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name, 0, this.save.flags), seed, this.args.fee, round);
         this.setupField();
         this.showSxStart();
         return;
@@ -242,8 +232,8 @@ export class RaceScene extends Phaser.Scene {
         const rc = services.content;
         // A Sidecar Series round races its own field's level wherever it is, Ray too (Boss, 4 Nov 2026).
         const at = champ ? { ...this.args.venue, field: champ.def.field } : this.args.venue;
-        this.day = new RaceDay(rc, this.args.venue, passengerEntrant(rc, at, career, this.save.rider.name, terms), seed, this.args.fee, round, undefined, alone, { passenger: { entry: passengerEntry(rc, this.args.venue, terms), prizeShare: terms.prizeShare, fitnessXpTimes: terms.fitnessXpTimes } });
-      } else this.day = new RaceDay(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name, 0, this.save.flags), seed, this.args.fee, round, undefined, alone, this.args.sidecarTest ? { test: true } : undefined);
+        this.day = new RaceDay(rc, this.args.venue, passengerEntrant(rc, at, career, this.save.rider.name, terms), seed, this.args.fee, round, undefined, false, { passenger: { entry: passengerEntry(rc, this.args.venue, terms), prizeShare: terms.prizeShare, fitnessXpTimes: terms.fitnessXpTimes } });
+      } else this.day = new RaceDay(services.content, this.args.venue, playerEntrant(services.content, career, this.save.rider.name, 0, this.save.flags), seed, this.args.fee, round);
       this.setupField();
       if (this.day.qualifyingDue) this.showQualifyingStart();
       else this.showGatePick();
@@ -283,7 +273,7 @@ export class RaceScene extends Phaser.Scene {
     }
     const day = this.day!;
     if (this.args.challenge) return `${this.args.challenge.name} · ${day.laps} laps`;
-    if (day.sidecar) return `${this.args.venue.name} · Sidecar race day${day.sidecar.test ? ' (TEST)' : day.sidecar.passenger && this.args.passenger ? ` in ${this.args.passenger.rider}'s chair` : ''}`;
+    if (day.sidecar) return `${this.args.venue.name} · Sidecar race day${day.sidecar.passenger && this.args.passenger ? ` in ${this.args.passenger.rider}'s chair` : ''}`;
     const c = this.champ;
     return `${this.args.venue.name} · ${className(services.content.bikes, day.cls)} ${c ? `${c.def.short} round ${c.round} of ${c.def.rounds.length}` : 'race day'}`;
   }
@@ -869,7 +859,7 @@ export class RaceScene extends Phaser.Scene {
     // The track takes the whole height, its bottom level with the Retire and Details buttons, and the
     // race line, your position, lap, gaps and bike float over its top-left corner as outlined text
     // (Boss, 28 Oct 2026; no header bar, 31 Oct 2026).
-    this.view = new RaceView(this, this.screen, sim.track, services.content.trackParts, 16, 16, vw, dh - 54, undefined, { scaleWidth: 900 });
+    this.view = new RaceView(this, this.screen, sim.track, services.content.trackParts, 16, 16, vw, dh - 54, undefined, { scaleWidth: 900, weather: this.day?.weather ?? this.sx?.weather });
     this.view.hasStart = !practice;
     // Fireworks at the finish only where riders race to the line together, not in qualifying or a knockout's seeding run.
     this.view.showFireworks = !practice && !this.qualifying && !(this.ko && !this.koHeat) && !(this.sx && this.sxRace?.kind !== 'main');
@@ -890,9 +880,7 @@ export class RaceScene extends Phaser.Scene {
     // as Position but in the pen's ink colour (Boss, 31 Oct and 1 Nov 2026), the orange of the picked
     // speed button since 2 Nov 2026 (Boss).
     this.ui.ink = this.text((map.x + map.x + map.w - penW) / 2, rowY, '', 18, COLORS.accentDark, OVERLAY).setOrigin(0.5, 0.5);
-    // TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 2 Nov 2026): room under the standings for "TEST: Win now".
-    const testH = practice ? 0 : 44;
-    this.box(right, 16, sideW, dh - 160 - testH);
+    this.box(right, 16, sideW, dh - 160);
     // The standings show as many rows as fit above the log, scrolled to keep you in view.
     // Your row is picked out by a bar behind it, so the standings lose the arrow column and the
     // times sit just after the field's longest name (Boss, 31 Oct 2026).
@@ -900,7 +888,7 @@ export class RaceScene extends Phaser.Scene {
     this.screen.add(this.towerMark);
     this.ui.tower = this.text(right + 12, 30, '', 16, COLORS.cream, { lineSpacing: 7 }).setFontFamily(MONO);
     // The log always starts under the last row.
-    this.towerRows = Math.max(6, Math.floor((dh - 160 - testH - 14 - 8) / this.towerLineH));
+    this.towerRows = Math.max(6, Math.floor((dh - 160 - 14 - 8) / this.towerLineH));
     // The race log floats over the track's bottom-left corner in the Position text one size down,
     // five lines at most. It is just wide enough for the longest line the log can write (a big crash
     // at the longest-named section breaking three parts) to split over two near-equal lines
@@ -953,10 +941,6 @@ export class RaceScene extends Phaser.Scene {
     } else {
       this.btn(right + aw / 2, dh - 60, 'Retire', () => this.confirmRetire(), aw, 44);
       this.btn(right + aw * 1.5 + 8, dh - 60, 'Details', () => this.toggleDetail(), aw, 44);
-      // TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 2 Nov 2026): "TEST: Win now", under the
-      // standings, ends the race at once with the player first and goes straight to its results screen,
-      // in any race, heat, qualifying or challenge.
-      this.btn(right + sideW / 2, dh - 144 - testH + 4 + 18, 'TEST: Win now', () => this.testWinNow(), sideW, 36);
     }
     // Zoom (Boss, 3 Nov 2026): a small binoculars button in the view's bottom-right corner cycles
     // the race camera through ×2 and ×3, then back to the usual view (×4 and ×5 dropped the same
@@ -1527,20 +1511,6 @@ export class RaceScene extends Phaser.Scene {
 
   // ---- results ----
 
-  /** TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 2 Nov 2026): runs the race to the end with the player first. */
-  private testWinNow(): void {
-    const sim = this.sim;
-    if (!sim || !this.live) return;
-    setTestAlwaysWin(true);
-    try {
-      while (!sim.finished) this.addLap(sim.nextLap());
-      this.live = false;
-      this.finishMoto();
-    } finally {
-      setTestAlwaysWin(services.settings.get().gameplay.testAlwaysWin);
-    }
-  }
-
   private finishMoto(): void {
     if (this.qualifying) return this.showQualifyingResults();
     if (this.ko) return this.koFinished();
@@ -1611,17 +1581,6 @@ export class RaceScene extends Phaser.Scene {
     const lh = t.height / (rows.length + 1);
     this.screen.add(this.add.rectangle(34, 110 + lh * (mine + 1), 520, lh, COLORS.accentDark, 0.45).setOrigin(0, 0));
     this.screen.bringToTop(t);
-
-    // TEST ONLY, REMOVE BEFORE RELEASE (Boss, 1 Nov 2026): a test sidecar race counts for nothing,
-    // so nothing goes back on the career: no money, XP, wear or records, and the rider's own bike is as it was.
-    if (day.sidecar?.test) {
-      const me = res.overall.find((r) => r.player)!;
-      this.box(580, 110, 680, 300);
-      this.text(604, 124, `${ordinal(me.position)} overall`, 26, COLORS.accent);
-      this.text(604, 170, ['TEST sidecar race: nothing counts.', 'No entry fee, prize money or XP, no wear,', 'and your own bike is just as you left it.'].join('\n'), 18, COLORS.cream, { lineSpacing: 6 });
-      this.btn(W / 2 + 300, 670, 'Back to the paddock', () => this.done(`Sidecar test race: ${ordinal(me.position)} overall.`), 300, 50);
-      return;
-    }
 
     // Money, XP and the bike go back on the career.
     const career = this.save.career;
@@ -1852,7 +1811,7 @@ export class RaceScene extends Phaser.Scene {
     const career = this.save.career;
     const passenger = this.args.passenger;
     const me = passenger ? passengerEntrant(services.content, this.args.venue, career, this.save.rider.name, passenger.terms) : playerEntrant(services.content, career, this.save.rider.name, 0, this.save.flags);
-    this.sim = practiceSim(services.content, this.args.venue, me, (Math.random() * 2 ** 32) >>> 0, services.settings.get().gameplay.testRideAlone, this.args.coach?.xpTimes ?? 1, !!passenger);
+    this.sim = practiceSim(services.content, this.args.venue, me, (Math.random() * 2 ** 32) >>> 0, false, this.args.coach?.xpTimes ?? 1, !!passenger);
     // You, and any riders already out on track (practiceRiders on the venue).
     this.sim.riders.forEach(({ e }, i) => {
       this.names.set(e.id, e.player ? 'You' : e.name);

@@ -14,7 +14,8 @@ const T = 64;
 // The closed south road's edge row narrowed to the Capital's road width under the roadworks gravel (Boss, 31 Oct 2026: "slim it down to normal road width").
 // The north and south roads' roadworks became roadblocks with their exits, opened by Area 2 and by winning the Area 8 Championship (Boss, 1 Nov 2026).
 // The hidden walk-in spots for the practice track and the running track removed: Tasha runs the running (Boss, 4 Nov 2026).
-const HOME_TOWN_SHA256 = '3c6331cf19c65a0e0e89977c967c676260bdd33b7ebae0e7fe44de44f15f9087';
+// Collisions and objects sorted by Boss in the map editor (Boss, 5 Nov 2026).
+const HOME_TOWN_SHA256 = 'fa97489d99366bc2bfdfd3eab2f20a45390a2758c361c6bda8de725772b1f648';
 
 function pngSize(rel: string): [number, number] {
   const b = fs.readFileSync(`public/assets/${rel}`);

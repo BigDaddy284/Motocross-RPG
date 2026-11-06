@@ -1,3 +1,4 @@
+import { isSupercross } from '../core/supercross';
 import { passengerEntry, passengerPracticeFee, passengerTrack, type PassengerTerms } from '../core/passenger';
 import Phaser from 'phaser';
 import { advanceStory, bikeProblem, catchUp, currentStep, earlyStep, hearEarly, fillText, formatMoney, batchPay, jobPay, matchStory, openChains, pence, wholePounds, type JobDef, type PlaceDef, type StoryEvent, type StoryStep } from '../core/career';
@@ -1356,7 +1357,9 @@ export class WorldScene extends Phaser.Scene {
     const field = fieldCount(rc, venue) + 1;
     const first = fee === 0 && venue.firstRaceFree;
     const area = venue.town ? areaOfMap(rc.areas, venue.town) : undefined;
-    const forecast = area?.weather ? ` Weather here: ${Object.keys(area.weather).map((k) => rc.racing.weather?.[k]?.name.toLowerCase() ?? k).join(', ')}; you find out at the gate.` : '';
+    // Supercross is indoors and always dry (Boss, 6 Nov 2026).
+    const indoor = isSupercross(trackById(rc, venue.track!));
+    const forecast = indoor ? ' Indoors: always dry.' : area?.weather ? ` Weather here: ${Object.keys(area.weather).map((k) => rc.racing.weather?.[k]?.name.toLowerCase() ?? k).join(', ')}; you find out at the gate.` : '';
     const short = (p: number) => career.money < p;
     const champs = services.content.championships;
     // A championship's next round here takes the place of a local race day (Spec 18.6, 6C).

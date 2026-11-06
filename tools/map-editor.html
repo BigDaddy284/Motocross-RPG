@@ -407,6 +407,7 @@ body.mode-buildings #bldStudio { display: grid; grid-template-columns: 360px 1fr
     <li><b>Markers:</b> pick Spawn, Exit, Door, Block zone, Gate, Travel, Venue, NPC or Interact on the left and click the map (drag for an area). Set it up on the right: where an exit leads, the flag that lifts a block zone and the tile drawn when it's cleared, and so on. Click a marker with Objects (<kbd>V</kbd>) to change it, drag to move it, <kbd>Del</kbd> deletes it.</li>
     <li><b>Tiles tab:</b> Pencil <kbd>P</kbd>, Eraser <kbd>E</kbd>, Fill <kbd>F</kbd>, Picker <kbd>I</kbd> (or <kbd>Alt</kbd>+click), Line <kbd>L</kbd>, Box <kbd>R</kbd> (<kbd>Shift</kbd> fills). <b>Seams</b> brings a tile's edges to the middle to fix how it joins itself. <kbd>Ctrl+S</kbd> saves the tile.</li>
     <li><b>Buildings:</b> pick one from the list and <b>Place</b> it: it follows the pointer, green where it fits and red with the reason where it doesn't; click to set it down, <kbd>Esc</kbd> cancels. Placing writes its pictures, doors, returns and solid tiles. Click a placed building to <b>Move</b>, <b>Replace</b> or <b>Remove</b> it (<kbd>Del</kbd>). <b>Edit</b> and <b>New</b> open it in the Buildings tab: its footprint (any size or shape), its pictures (draw one, import a PNG, or edit one), its doors and returns and its interior. They are saved in <code>public/data/buildings.json</code>; open the repo folder (or <code>public</code>) so the editor can find it.</li>
+    <li><b>Partitions</b> (thin walls along tile edges): make Partitions the active layer. Click a wall to pick it (yellow), drag it to move it, drag one of its square ends to make it longer or shorter, and drag along a tile edge on the floor to draw a new one. <kbd>Del</kbd> or the Eraser removes the picked wall. They snap to tile corners and run straight across or down.</li>
     <li><b>Region scope:</b> "All layers" moves tiles, collision, props, markers and partitions together. Copies never duplicate markers (doors, spawns), and Clear never deletes them.</li>
     <li><b>Collision:</b> make Collision the active layer; Brush blocks a tile, Eraser frees it.</li>
     <li><b>Layers:</b> click a layer to edit it, the eye hides it, the slider sets its opacity. <kbd>[</kbd> <kbd>]</kbd> step through layers, <kbd>G</kbd> grid, <kbd>C</kbd> collision overlay.</li>
@@ -823,7 +824,7 @@ async function openMap(c) {
     app.doc = doc;
     $('#mapSelect').value = c.path;
     app.undo = []; app.redo = [];
-    app.sel = null; app.float = null; app.selectedEnt = null; app.pendingSwap = false; app.placing = null; app.selBuilding = null;
+    app.sel = null; app.float = null; app.selectedEnt = null; app.pendingSwap = false; app.placing = null; app.selBuilding = null; app.selWall = -1;
     setDirty(false);
     buildLayersPanel();
     const firstTile = doc.layerDefs.find((l) => l.kind === 'tile');
@@ -1059,7 +1060,17 @@ function exportTmj(doc) {
   const byRef = new Map();
   for (const p of state.props) if (p.ref) byRef.set(p.ref.join(','), { p });
   for (const m of state.markers) if (m.ref) byRef.set(m.ref.join(','), { m });
-  for (const w of state.walls) byRef.set(w.ref.join(','), { w });
+  for (const w of state.walls) if (w.ref) byRef.set(w.ref.join(','), { w });
+  // A partition is written from its points; one that hasn't changed is kept exactly as it was.
+  const wallObj = (o, pts) => {
+    const same = o && o.polyline.length === pts.length && o.polyline.every((q, k) => Math.round((o.x + q.x) / TILE) === pts[k][0] && Math.round((o.y + q.y) / TILE) === pts[k][1]);
+    if (same) return o;
+    const [x0, y0] = pts[0];
+    const poly = pts.map(([x, y]) => ({ x: (x - x0) * TILE, y: (y - y0) * TILE }));
+    return o ? copyObj(o, { x: x0 * TILE, y: y0 * TILE, polyline: poly }) : { id: nextId++, name: '', type: '', x: x0 * TILE, y: y0 * TILE, width: 0, height: 0, rotation: 0, visible: true, polyline: poly };
+  };
+  const newWalls = state.walls.filter((w) => !w.ref);
+  let wallsWritten = false;
   const layers = raw.layers.map((L, li) => {
     if (L.type === 'tilelayer') {
       if (L.name === 'Collision') return copyObj(L, { data: state.collision.map((b, i) => (b ? (L.data[i] & GID_MASK ? L.data[i] : doc.blockedGid) : 0)) });
@@ -1080,9 +1091,10 @@ function exportTmj(doc) {
         return objects.push(copyObj(o, { x, y }));
       }
       if (e.m) return objects.push(e.m.x === e.m.ox && e.m.y === e.m.oy ? o : copyObj(o, { x: e.m.x, y: e.m.y }));
-      if (e.w) return objects.push(e.w.dx || e.w.dy ? copyObj(o, { x: o.x + e.w.dx * TILE, y: o.y + e.w.dy * TILE }) : o);
+      if (e.w) return objects.push(wallObj(o, e.w.pts));
       objects.push(o);
     });
+    if (L.name === 'Partitions') { wallsWritten = true; for (const w of newWalls) objects.push(wallObj(null, w.pts)); }
     for (const p of state.props) {
       if (p.ref || p.layer !== L.name) continue;
       const t = doc.tiles.get(p.key & GID_MASK);
@@ -1091,7 +1103,14 @@ function exportTmj(doc) {
     }
     return copyObj(L, { objects });
   });
-  return pyDump(copyObj(raw, { nextobjectid: nextId, layers }));
+  // A map with no Partitions layer gets one, before its Data layer, for the walls drawn here.
+  let nextLayer = raw.nextlayerid;
+  if (!wallsWritten && newWalls.length) {
+    const L = { id: nextLayer++, name: 'Partitions', type: 'objectgroup', draworder: 'index', x: 0, y: 0, opacity: 1, visible: true, objects: newWalls.map((w) => wallObj(null, w.pts)) };
+    const at = layers.findIndex((l) => l.name === 'Data');
+    layers.splice(at < 0 ? layers.length : at, 0, L);
+  }
+  return pyDump(copyObj(raw, { nextobjectid: nextId, ...(nextLayer !== raw.nextlayerid ? { nextlayerid: nextLayer } : {}), layers }));
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1104,7 +1123,8 @@ function makeLayerDefs(state, propLayers, hasCollision = true, markers = false) 
   for (const name of propLayers) defs.push({ id: `props:${name}`, kind: 'props', name, label: name, hint: hints[name] ?? 'props' });
   if (hasCollision) defs.push({ id: 'collision', kind: 'collision', label: 'Collision', hint: 'red = blocked' });
   if (state.markers.length || markers) defs.push({ id: 'markers', kind: 'markers', label: 'Data', hint: 'doors, spawns, triggers' });
-  if (state.walls.length) defs.push({ id: 'walls', kind: 'walls', label: 'Partitions', hint: 'thin walls', noedit: true });
+  // Partitions are edited here (Boss, 5 Nov 2026): every map gets the layer, so a wall can be added to one that has none.
+  defs.push({ id: 'walls', kind: 'walls', label: 'Partitions', hint: 'thin walls' });
   defs.push({ id: 'grid', kind: 'grid', label: 'Grid', hint: '', noedit: true });
   return defs;
 }
@@ -1151,6 +1171,8 @@ function setActiveLayer(def) {
   for (const el of document.querySelectorAll('.layer')) el.classList.toggle('active', el.dataset.id === def.id);
   if (!layerView(def.id).visible) toggleLayer(def.id, true);
   app.selectedEnt = null;
+  app.selWall = -1;
+  if (def.kind === 'walls') status('Partitions: click a wall to pick it, drag it to move it, drag an end to change its length, drag on the floor to draw a new one along the tile edges. Del removes the picked wall.');
   if (def.kind === 'markers' && ['brush', 'eraser', 'fill', 'picker'].includes(app.tool)) setTool('props');
   $('#layerLabel').textContent = `Editing: ${def.label}`;
   buildPalette();
@@ -1442,6 +1464,7 @@ function draw() {
     }
     ctx.globalAlpha = 1;
   }
+  if (app.activeLayer?.kind === 'walls') drawWallEditing(ctx, st, T, scale);
 
   // Grid.
   if (app.showGrid && scale >= 0.18) {
@@ -1881,6 +1904,140 @@ function deleteSelectedEnt() {
   app.selectedEnt = null;
   status('Deleted the prop.');
   requestDraw();
+}
+
+// --- Partitions ------------------------------------------------------------------------------------
+// Thin walls along tile edges: the game's edgeWalls, Tiled's Partitions polylines. With the
+// Partitions layer active, click a wall to pick it, drag it to move it, drag one of its ends to
+// change its length, drag on the floor to draw a new one, and Del (or the Eraser) removes it.
+// Everything snaps to tile corners and stays straight along one axis (Boss, 5 Nov 2026).
+
+app.selWall = -1;
+
+function segDist(px, py, ax, ay, bx, by) {
+  const vx = bx - ax, vy = by - ay;
+  const len = vx * vx + vy * vy;
+  const t = len ? clamp(((px - ax) * vx + (py - ay) * vy) / len, 0, 1) : 0;
+  return Math.hypot(px - (ax + t * vx), py - (ay + t * vy));
+}
+const wallTol = () => Math.max(TILE * 0.2, 7 / app.view.scale);
+/** The wall nearest the point, within reach, or -1. */
+function wallAt(wx, wy) {
+  let best = -1, bestD = wallTol();
+  app.doc.state.walls.forEach((w, i) => {
+    for (let k = 1; k < w.pts.length; k++) {
+      const [a, b] = [w.pts[k - 1], w.pts[k]];
+      const d = segDist(wx, wy, a[0] * TILE, a[1] * TILE, b[0] * TILE, b[1] * TILE);
+      if (d <= bestD) { best = i; bestD = d; }
+    }
+  });
+  return best;
+}
+/** Which end (or corner) of wall i the point is on, or -1. */
+function wallVertexAt(wx, wy, i) {
+  const w = app.doc?.state.walls[i];
+  if (!w) return -1;
+  return w.pts.findIndex(([x, y]) => Math.hypot(wx - x * TILE, wy - y * TILE) <= wallTol() * 1.4);
+}
+/** The tile corner nearest the point, inside the map. */
+const wallCorner = (p) => [clamp(Math.round(p.wx / TILE), 0, app.doc.width), clamp(Math.round(p.wy / TILE), 0, app.doc.height)];
+/** b moved onto the same row or column as a, whichever is nearer: walls run along tile edges. */
+const alongEdge = (a, b) => (Math.abs(b[0] - a[0]) >= Math.abs(b[1] - a[1]) ? [b[0], a[1]] : [a[0], b[1]]);
+const wallLen = (pts) => pts.slice(1).reduce((n, b, k) => n + Math.abs(b[0] - pts[k][0]) + Math.abs(b[1] - pts[k][1]), 0);
+
+function describeWall(w) {
+  const [a, b] = [w.pts[0], w.pts[w.pts.length - 1]];
+  const dir = a[0] === b[0] ? `down x ${a[0]}, from y ${Math.min(a[1], b[1])} to ${Math.max(a[1], b[1])}` : `across y ${a[1]}, from x ${Math.min(a[0], b[0])} to ${Math.max(a[0], b[0])}`;
+  return `Partition ${dir} (${wallLen(w.pts)} tile${wallLen(w.pts) === 1 ? '' : 's'} long).`;
+}
+
+function wallDown(p) {
+  if (app.tool === 'hand') return;
+  const st = app.doc.state;
+  const v = wallVertexAt(p.wx, p.wy, app.selWall);
+  if (v >= 0 && app.tool !== 'eraser') {
+    app.drag = { wall: 'end', i: app.selWall, v, orig: structuredClone(st.walls[app.selWall].pts), moved: false };
+    return;
+  }
+  const i = wallAt(p.wx, p.wy);
+  if (i >= 0) {
+    app.selWall = i;
+    if (app.tool === 'eraser') { deleteSelectedWall(); return; }
+    app.drag = { wall: 'move', i, start: wallCorner(p), orig: structuredClone(st.walls[i].pts), moved: false };
+    status(`${describeWall(st.walls[i])} Drag to move it, drag an end to change its length, Del removes it.`);
+    requestDraw();
+    return;
+  }
+  app.selWall = -1;
+  if (app.tool !== 'eraser') { const a = wallCorner(p); app.drag = { wall: 'new', a, b: a }; }
+  requestDraw();
+}
+
+function wallDragMove(d, p) {
+  const st = app.doc.state;
+  const c = wallCorner(p);
+  if (d.wall === 'new') { d.b = alongEdge(d.a, c); requestDraw(); return; }
+  const w = st.walls[d.i];
+  let pts;
+  if (d.wall === 'move') {
+    const dx = clamp(c[0] - d.start[0], -Math.min(...d.orig.map((q) => q[0])), app.doc.width - Math.max(...d.orig.map((q) => q[0])));
+    const dy = clamp(c[1] - d.start[1], -Math.min(...d.orig.map((q) => q[1])), app.doc.height - Math.max(...d.orig.map((q) => q[1])));
+    pts = d.orig.map(([x, y]) => [x + dx, y + dy]);
+  } else {
+    // An end keeps the wall straight: it moves along the line from its neighbour.
+    const n = d.orig[d.v === 0 ? 1 : d.v - 1];
+    pts = d.orig.map((q, k) => (k === d.v ? (n ? alongEdge(n, c) : c) : q));
+  }
+  if (JSON.stringify(pts) === JSON.stringify(w.pts)) return;
+  if (!d.moved) { beginChange(); d.moved = true; }
+  w.pts = pts;
+  requestDraw();
+}
+
+function wallDragEnd(d) {
+  const st = app.doc.state;
+  if (d.wall === 'new') {
+    if (d.a[0] === d.b[0] && d.a[1] === d.b[1]) { requestDraw(); return; }
+    beginChange();
+    st.walls.push({ ref: null, dx: 0, dy: 0, pts: [d.a, d.b] });
+    app.selWall = st.walls.length - 1;
+    status(`Added. ${describeWall(st.walls[app.selWall])}`, 'ok');
+  } else if (d.moved) {
+    const w = st.walls[d.i];
+    if (!wallLen(w.pts)) { st.walls.splice(d.i, 1); app.selWall = -1; status('The wall had no length left, so it was removed.'); }
+    else status(`${d.wall === 'move' ? 'Moved' : 'Resized'}. ${describeWall(w)}`, 'ok');
+  }
+  updateButtons();
+  requestDraw();
+}
+
+function deleteSelectedWall() {
+  const st = app.doc.state;
+  if (!st.walls[app.selWall]) return;
+  beginChange();
+  st.walls.splice(app.selWall, 1);
+  app.selWall = -1;
+  status('Removed the partition.');
+  requestDraw();
+}
+
+function drawWallEditing(ctx, st, T, scale) {
+  const lw = 6 / Math.max(scale, 0.5);
+  const w = st.walls[app.selWall];
+  if (w) {
+    ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = lw;
+    ctx.beginPath();
+    w.pts.forEach(([x, y], i) => (i ? ctx.lineTo(x * T, y * T) : ctx.moveTo(x * T, y * T)));
+    ctx.stroke();
+    const hs = 10 / scale;
+    ctx.fillStyle = '#ffd24a'; ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5 / scale;
+    for (const [x, y] of w.pts) { ctx.fillRect(x * T - hs / 2, y * T - hs / 2, hs, hs); ctx.strokeRect(x * T - hs / 2, y * T - hs / 2, hs, hs); }
+  }
+  const d = app.drag;
+  if (d?.wall === 'new' && (d.a[0] !== d.b[0] || d.a[1] !== d.b[1])) {
+    ctx.strokeStyle = '#4fc3f7'; ctx.lineWidth = lw;
+    ctx.beginPath(); ctx.moveTo(d.a[0] * T, d.a[1] * T); ctx.lineTo(d.b[0] * T, d.b[1] * T); ctx.stroke();
+  }
 }
 
 // --- Markers ---------------------------------------------------------------------------------------
@@ -3117,6 +3274,8 @@ canvas.addEventListener('pointerdown', (e) => {
     return;
   }
 
+  if (kind === 'walls') { wallDown(p); return; }
+
   if (app.tool === 'props' || kind === 'markers' || (kind === 'props' && ['brush', 'eraser', 'picker'].includes(app.tool))) {
     const hit = entityAt(p.wx, p.wy);
     if (kind === 'props' && app.tool === 'eraser') {
@@ -3206,6 +3365,7 @@ canvas.addEventListener('pointermove', (e) => {
     requestDraw();
     return;
   }
+  if (d?.wall) { wallDragMove(d, p); return; }
   if (d?.ent) {
     const st = app.doc.state;
     const ent = d.ent.kind === 'prop' ? st.props[d.ent.index] : st.markers[d.ent.index];
@@ -3217,8 +3377,11 @@ canvas.addEventListener('pointermove', (e) => {
     requestDraw();
     return;
   }
+  if (app.activeLayer?.kind === 'walls' && app.tool !== 'hand') {
+    canvas.style.cursor = wallVertexAt(p.wx, p.wy, app.selWall) >= 0 ? 'nwse-resize' : wallAt(p.wx, p.wy) >= 0 ? 'move' : 'crosshair';
+  }
   // Hovering a prop/marker with the Objects tool: show a pointer.
-  if (app.tool === 'props') {
+  else if (app.tool === 'props') {
     const hit = entityAt(p.wx, p.wy);
     app.hover.overEnt = !!hit;
     canvas.style.cursor = hit ? 'move' : 'crosshair';
@@ -3232,6 +3395,7 @@ function endDrag(e) {
   canvas.style.cursor = cursorFor(app.tool);
   if (!d) return;
   if (d.float && app.float) { placeFloat(); return; }
+  if (d.wall) { wallDragEnd(d); return; }
   if (d.rect) {
     const r = clipRect(normRect(d.rect.a, d.rect.b));
     if (d.select) { app.sel = r; updateButtons(); requestDraw(); return; }
@@ -3362,13 +3526,14 @@ window.addEventListener('keydown', (e) => {
     else if (app.placing) cancelPlacing();
     else if (app.float) cancelFloat();
     else if (app.pendingSwap) { app.pendingSwap = false; status('Swap cancelled.'); }
-    else { app.sel = null; app.selectedEnt = null; updateButtons(); }
+    else { app.sel = null; app.selectedEnt = null; app.selWall = -1; updateButtons(); }
     requestDraw();
     return;
   }
   if (e.key === 'Delete' || e.key === 'Backspace') {
     e.preventDefault();
-    if (app.selBuilding) removeSelectedBuilding();
+    if (app.activeLayer?.kind === 'walls' && app.doc.state.walls[app.selWall]) deleteSelectedWall();
+    else if (app.selBuilding) removeSelectedBuilding();
     else if (app.selectedEnt) deleteSelectedEnt();
     else if (app.sel) clearRegion(app.sel);
     return;

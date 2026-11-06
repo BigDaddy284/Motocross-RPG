@@ -18,9 +18,10 @@ import { content, field } from './raceHelpers';
 // a timed test to the finish line, the return lane at half speed back to the start, and the
 // lowest total test time wins.
 
+// The example sprint, kept as a test track since the mods folder holds copies of the game's tracks (Boss, 5 Nov 2026).
 const FILE = 'quarry-sprint.track.json';
 export function sprintTrack() {
-  const m = readModTrack(content, FILE, readFileSync(`public/mods/tracks/${FILE}`, 'utf8'), 'folder');
+  const m = readModTrack(content, FILE, readFileSync(`tests/fixtures/${FILE}`, 'utf8'), 'folder');
   return { ...m, track: m.track! };
 }
 
@@ -202,7 +203,7 @@ describe('the queue on the race screen', () => {
 describe('a sprint race day (mod tracks)', () => {
   it('qualifies on one timed lap, then sends riders off fastest first, and moto 2 in moto 1 order', () => {
     const rc = checkContent(rawContent(), loadManifest(), loadMaps()).content!;
-    const text = readFileSync(`public/mods/tracks/${FILE}`, 'utf8');
+    const text = readFileSync(`tests/fixtures/${FILE}`, 'utf8');
     const [mod] = loadModTracks(rc, [{ file: FILE, text }], new MemoryStore());
     expect(mod.problems).toEqual([]);
     const venue = modVenue(mod, 'area1-home-town');

@@ -101,14 +101,17 @@ export class SupercrossNight {
     readonly entry: number,
     /** Set for a championship round: its riders race, the rest of the night drawn from riders outside it. */
     readonly round?: RoundOptions,
-    /** TEST ONLY, REMOVE BEFORE RELEASE (Boss, 30 Oct 2026): no CPU riders, to test ride a track. */
+    /** No CPU riders, for tests and tools only: the game's "TEST: Ride alone" switch went for v2.0 (Boss, 6 Nov 2026). */
     alone = false,
   ) {
     this.track = trackById(rc, venue.track!);
     this.cls = dayClass(rc.bikes, venue.class, player.bike.class) ?? venue.class ?? '50cc';
     this.rules = supercrossRules(rc);
     const rng = seededRng(seed);
-    this.weather = rollWeather(rc.areas ? areaOfMap(rc.areas, venue.town ?? '') : undefined, rng);
+    // Supercross is raced indoors, so it is always dry (Boss, 6 Nov 2026). The roll still happens, so
+    // the rest of the night's draws from the same seed are unchanged.
+    rollWeather(rc.areas ? areaOfMap(rc.areas, venue.town ?? '') : undefined, rng);
+    this.weather = 'dry';
     tunePlayer(rc, player, this.track, this.weather);
     const need = this.rules.field - 1;
     let cpus: CpuRiderDef[];
