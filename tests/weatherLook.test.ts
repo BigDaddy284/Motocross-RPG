@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { WEATHER_LOOKS, weatherLook, wetShade } from '../src/core/weatherLook';
 import { playerEntrant, RaceDay } from '../src/core/raceDay';
+import { isSupercross, SupercrossNight } from '../src/core/supercross';
 import { content } from './raceHelpers';
 import { newCareerState } from '../src/core/career';
 
@@ -38,5 +39,17 @@ describe('a set weather (the test ride, ?weather=)', () => {
     for (const w of ['overcast', 'heavy_rain']) expect(new RaceDay(content, { ...venue, weather: w }, playerEntrant(content, career, 'Tester', 0, {}), 1, 0).weather).toBe(w);
     expect(new RaceDay(content, venue, playerEntrant(content, career, 'Tester', 0, {}), 1, 0).weather).toBe('dry');
     expect(new RaceDay(content, { ...venue, weather: 'snow' }, playerEntrant(content, career, 'Tester', 0, {}), 1, 0).weather).toBe('dry');
+  });
+});
+
+describe('Supercross is indoors (Boss, 6 Nov 2026)', () => {
+  it('is always dry, whatever the area or a set weather', () => {
+    const career = newCareerState(content.bikes, content.story, content.bikes.brands[0].id);
+    const sx = content.tracks.tracks.find((t) => isSupercross(t))!;
+    const wettest = content.areas!.areas.find((a) => (a.weather?.heavy_rain ?? 0) > 0)!;
+    for (let seed = 1; seed <= 20; seed++) {
+      const venue = { id: 'sx', name: 'SX', map: 'venue-supercross', town: wettest.map, track: sx.id, class: '50cc', field: 'area1.local', weather: 'heavy_rain' };
+      expect(new SupercrossNight(content, venue, playerEntrant(content, career, 'Tester', 0, {}), seed, 0).weather).toBe('dry');
+    }
   });
 });

@@ -25,3 +25,5 @@ Every other file here is a copy of one of the game's own tracks, named by its tr
 (a5-sprint-1.track.json is Western Works' first sprint, and so on), for testing and for
 opening and editing each track in the track editor (Boss, 5 Nov 2026). Changing a copy does
 not change the game's track. The Backyard isn't copied: it is practice only, with no race start.
+a6-farm.track.json is the Farmhouse track, the Highlands Farmhouse's private practice
+track (Boss, 6 Nov 2026): a placeholder to rework.
