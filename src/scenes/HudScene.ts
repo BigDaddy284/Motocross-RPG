@@ -648,6 +648,11 @@ export class HudScene extends Phaser.Scene {
 
   // ---- panels that take over input ----
 
+  /** True while a box or panel is up. */
+  get modalOpen(): boolean {
+    return !!this.modal;
+  }
+
   private openModal(c: Phaser.GameObjects.Container, onClose: (() => void) | null = null): void {
     this.closeModal();
     this.modal = c;
