@@ -102,7 +102,7 @@ export const GEAR_SETS: Record<string, Gear> = {
   'cpu-andy': gear('red', 'blue', 'red', 'blue', 'blue', 'red', 'red'),
   'cpu-justin': gear('yellow', 'black', 'yellow', 'black', 'black', 'yellow', 'yellow'),
   'cpu-jeno': gear('white', 'blue', 'white', 'white', 'white', 'white', 'blue'),
-  'cpu-jordan': gear('blue', 'pink', 'blue', 'pink', 'pink', 'blue', 'blue'),
+  'cpu-jordan': gear('pink', 'blue', 'pink', 'pink', 'blue', 'blue', 'blue'),
   'cpu-cody': gear('blue', 'white', 'blue', 'white', 'white', 'blue', 'blue'),
   'cpu-bryan': gear('green', 'white', 'green', 'white', 'green', 'green', 'green'),
   'cpu-sean': gear('blackwhite', 'white', 'black', 'black', 'black', 'black', 'black'),

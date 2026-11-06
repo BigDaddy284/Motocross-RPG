@@ -236,12 +236,12 @@ The Area 1 Champion and the Local Champions of Areas 2 to 8 are new riders, each
 | 2 Mountain Town | **Andy McLaren** | red and blue, red bike | 40s, worked all his life with no help for the title and isn't giving it up easy |
 | 3 Beach Town | **Justin Smyth** | yellow and black, yellow bike | trained by his dad, Dan Smyth, in the Industrial Zone; moved for a new challenge |
 | 4 Forest Town | **Jeno Rothon** | white with a little blue, blue bike | Bill Rothon's son; raced round the land, liked the woods and stayed |
-| 5 Western Works | **Jordan Styles** | blue and pink, blue bike | Jason Styles' son; moving tools round the yard at J's Tools keeps him fit |
+| 5 Western Works | **Jordan Styles** | pink and blue, blue bike | Jason Styles' son; moving tools round the yard at J's Tools keeps him fit |
 | 6 Highlands | **Cody Shock** | blue and white, blue bike | humble factory rider, out to bring his team another title |
 | 7 The City | **Bryan Villo** | green and white, green bike | a factory rider since he first threw a leg over a bike |
 | 8 Capital | **Sean Youngy** | black with white highlights, black bike | has won every championship so far; wants Neal Borne's Crankshaft Cup |
 
-Brandon, Andy, Justin, Jeno and Jordan raced as Area 1 regulars before; each is one rider now, the champion, and Sam Doyle, Alfie Ward and Harry Finch left the field to make room for Cody, Bryan and Sean. Supercross nights and No-Turn knockouts need 32 riders, so three people already in the game, Manny Festo, Tasha Reid and Paul Phoenix, race as low-level Area 1 regulars to fill the gap (no new names, Boss). The kits are `cpu-brandon` to `cpu-sean` in `src/world/raceBike.ts`, the town looks `npc-69` to `npc-76`.
+Brandon, Andy, Justin, Jeno and Jordan raced as Area 1 regulars before; each is one rider now, the champion, so their regular entries are gone. Sam Doyle, Alfie Ward and Harry Finch stay in the field, which keeps Area 1 at the 32 riders a supercross night needs (Boss, 6 Nov 2026). The kits are `cpu-brandon` to `cpu-sean` in `src/world/raceBike.ts`, the town looks `npc-69` to `npc-76`.
 
 ## What's new in Alpha v1.1
 
