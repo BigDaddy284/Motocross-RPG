@@ -31,7 +31,7 @@ export interface ChampionshipDef {
   size: number;
   /** Riders from the pool always in it, on top of the field's own regulars. */
   regulars?: string[];
-  /** Riders from the pool never in it, a field regular too (Dean Marsh stays out of the Local Championship). */
+  /** Riders from the pool never in it, a field regular too (the Area 1 Champion stays out of the Local Championship). */
   without?: string[];
   /** The championship's main rider, the one to beat: raced as they are, the best rider in it on skill (Boss, 28 Oct 2026). */
   main?: string;
