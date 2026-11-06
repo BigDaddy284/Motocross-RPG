@@ -128,6 +128,12 @@ export class SettingsScene extends Phaser.Scene {
         label(2, 'Repeated reminders'); toggle(this, sliderX + 26, rowY(2), s.gameplay.reminders, upd('gameplay', 'reminders'));
         // Boss, 2 Nov 2026: the task line under the money can be switched off.
         label(3, 'Show task on screen'); toggle(this, sliderX + 26, rowY(3), s.gameplay.showTask, upd('gameplay', 'showTask'));
+        // TEST ONLY, REMOVE BEFORE RELEASE (Boss, 30 Oct 2026): test ride tracks on your own.
+        label(4, 'TEST: Ride alone (no AI)'); toggle(this, sliderX + 26, rowY(4), s.gameplay.testRideAlone, upd('gameplay', 'testRideAlone'));
+        // TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 31 Oct 2026): the player wins every moto.
+        label(5, 'TEST: Always win'); toggle(this, sliderX + 26, rowY(5), s.gameplay.testAlwaysWin, upd('gameplay', 'testAlwaysWin'));
+        // TEST ONLY, MUST REMOVE BEFORE THE FINAL MERGE TO MAIN (Boss, 2 Nov 2026): the bike takes no wear or crash damage.
+        label(6, 'TEST: No bike wear'); toggle(this, sliderX + 26, rowY(6), s.gameplay.testNoWear, upd('gameplay', 'testNoWear'));
         break;
       case 'Controls': {
         // Rebinding keys (Boss, 5 Nov 2026): pick an action, then press its new key (core/keybinds.ts).

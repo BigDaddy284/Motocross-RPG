@@ -5,9 +5,9 @@ import type { TrackDef } from './race';
 // Sidecar racing (Boss, 1 Nov 2026). A sidecar outfit is a motorcycle with a chair on its left, a
 // rider and a passenger. It is its own class (bikes.json "sidecar": true), brought in late in the
 // game: no new venues, it races only on Motocross (outdoor) tracks, and once unlocked it opens
-// championships across the land for its class. Players race them as Ray Crispy's passenger
-// (core/passenger.ts; Boss, 4 Nov 2026); the dev-only test race on one of their own went with the
-// other test aids for v2.0 (Boss, 6 Nov 2026), and lives on only in the tests (SidecarDay.test).
+// championships across the land for its class. Players can't race them yet (Boss, 1 Nov 2026: "Must
+// remove the ability to test race the Sidecars, they will be enabled later"); under `npm run dev`,
+// ?testtrack=farmland&sidecar races the player on one against 7 others (README "Before release").
 //
 // The start: 8 outfits on the gate, 4 on the front row and 4 on the back, each taking two gates.
 // An outfit sits on an even gate (2, 4, 6 and 8 on the front row, 10, 12, 14 and 16 behind) and its
@@ -21,7 +21,7 @@ export const SIDECAR_CLASS = 'sidecar';
 export const SIDECAR_FIELD = 8;
 /** Outfits in a start row: each takes two of the row's 8 gates. */
 export const SIDECAR_ROW = 4;
-/** The venue the sidecar tests race at (Boss, 1 Nov 2026). */
+/** The venue the sidecar tests race at (Boss, 1 Nov 2026). TEST ONLY, REMOVE BEFORE RELEASE. */
 export const SIDECAR_TEST_VENUE = 'venue-farmland';
 
 /**
@@ -64,7 +64,7 @@ export function isSidecarClass(bikes: BikesData, cls: string): boolean {
 }
 
 /**
- * The outfit the player borrows for a test sidecar race (tests only, SidecarDay.test): a new stock sidecar in their own brand,
+ * The outfit the player borrows for a TEST sidecar race: a new stock sidecar in their own brand,
  * every part at 100%. It is lent for the day only; the rider's own bike is never touched.
  */
 export function testSidecar(bikes: BikesData, brand: string): Bike {

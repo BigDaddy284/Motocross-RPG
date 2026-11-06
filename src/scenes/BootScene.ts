@@ -1,5 +1,6 @@
 import { soldTexture, type AreasData } from '../core/areas';
 import Phaser from 'phaser';
+import { sidecarTrack } from '../core/sidecar';
 import { CONTENT_FILES, checkContent, type Manifest, type RawContent } from '../core/content';
 import type { BakedMap } from '../core/mapTypes';
 import { newCareerState, type BikesData, type WorldData } from '../core/career';
@@ -118,18 +119,18 @@ export class BootScene extends Phaser.Scene {
     if (params.has('editview')) return void this.scene.start('trackedit');
     // The models page: export the game's objects for Blender, and see what the models folder holds (ModelsScene).
     if (params.has('models')) return void this.scene.start('models');
-    // ?testtrack is the track editor's "Race it in the game" under `npm run dev` only: the published
-    // game ignores it (Boss, 6 Nov 2026: "Remove the ?test track").
-    const test = import.meta.env.DEV ? params.get('testtrack') : null;
-    if (test && content.tracks.tracks.some((t) => t.id === test)) this.testRide(test);
+    const test = params.get('testtrack');
+    if (test && content.tracks.tracks.some((t) => t.id === test)) this.testRide(test, import.meta.env.DEV && params.has('sidecar'));
     else this.scene.start('menu');
   }
 
   /**
-   * `npm run dev` only: ?testtrack=<track id> goes straight to a race day on that track with a new rider
-   * and the local field, without a venue or a save, to try a track from the track editor.
+   * Dev only: ?testtrack=<track id> goes straight to a race day on that track with a new rider
+   * and the local field, without a venue or a save, to try a track from the track editor. With
+   * &sidecar as well, on a Motocross track under `npm run dev` only, it is a TEST sidecar race
+   * (core/sidecar.ts): sidecars are off for players until they come in late game (Boss, 1 Nov 2026).
    */
-  private testRide(trackId: string): void {
+  private testRide(trackId: string, sidecar = false): void {
     const { bikes, story, tracks } = services.content;
     const track = tracks.tracks.find((t) => t.id === trackId)!;
     const career = newCareerState(bikes, story, bikes.brands[0].id);
@@ -138,7 +139,7 @@ export class BootScene extends Phaser.Scene {
     // &weather=<racing.json weather id> sets the day's weather, to see it on the race screen (Boss, 5 Nov 2026).
     const weather = new URLSearchParams(window.location.search).get('weather') ?? undefined;
     const venue: VenueDef = { id: `test-${trackId}`, name: track.name, map: START_MAP, track: trackId, class: '50cc', field: 'area1.local', weather };
-    const data: RaceSceneData = { mode: track.practiceOnly ? 'practice' : 'raceday', venue, save, fee: 0, onDone: () => this.scene.start('menu') };
+    const data: RaceSceneData = { mode: track.practiceOnly ? 'practice' : 'raceday', venue, save, fee: 0, ...(sidecar && sidecarTrack(track) ? { sidecarTest: true } : {}), onDone: () => this.scene.start('menu') };
     this.scene.start('race', data);
   }
 

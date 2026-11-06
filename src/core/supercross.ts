@@ -101,7 +101,7 @@ export class SupercrossNight {
     readonly entry: number,
     /** Set for a championship round: its riders race, the rest of the night drawn from riders outside it. */
     readonly round?: RoundOptions,
-    /** No CPU riders, for tests and tools only: the game's "TEST: Ride alone" switch went for v2.0 (Boss, 6 Nov 2026). */
+    /** TEST ONLY, REMOVE BEFORE RELEASE (Boss, 30 Oct 2026): no CPU riders, to test ride a track. */
     alone = false,
   ) {
     this.track = trackById(rc, venue.track!);

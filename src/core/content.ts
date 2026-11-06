@@ -302,9 +302,10 @@ export const STORY_SCHEMA: Schema = {
 
 export const WORLD_SCHEMA: Schema = {
   type: 'object',
-  optional: ['note', 'worldMap'],
+  optional: ['note', 'testPayMultiplier', 'worldMap'],
   fields: {
     note: { type: 'string' },
+    testPayMultiplier: { type: 'number', min: 0 },
     worldMap: WORLD_MAP_SCHEMA,
     locks: {
       type: 'array',

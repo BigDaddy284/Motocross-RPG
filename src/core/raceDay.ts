@@ -308,10 +308,9 @@ export function lapsFor(rc: RaceContent, track: TrackDef, cls: string, champions
  */
 export interface SidecarDay {
   /**
-   * A sidecar race on a borrowed stock outfit, for tests only: the dev ?testtrack=…&sidecar link
-   * that started it went with the other test aids for v2.0 (Boss, 6 Nov 2026). The laps are the
-   * player's own class's here, and nothing counts: no prize money, no XP, and their own bike is
-   * never touched.
+   * TEST ONLY, REMOVE BEFORE RELEASE (Boss, 1 Nov 2026): the Farmland tick box. The player borrows
+   * a stock sidecar for the day, the laps are their own class's here, and nothing counts: no prize
+   * money, no XP, and their own bike is never touched.
    */
   test?: boolean;
   /**
@@ -357,7 +356,7 @@ export class RaceDay {
     readonly round?: RoundOptions,
     /** A challenge's own shape (core/challenge.ts): its motos, laps and riders. */
     custom?: { motos: number; laps: number; cpus: CpuRiderDef[] },
-    /** No CPU riders, for tests and tools only: the game's "TEST: Ride alone" switch went for v2.0 (Boss, 6 Nov 2026). */
+    /** TEST ONLY, REMOVE BEFORE RELEASE (Boss, 30 Oct 2026): no CPU riders, to test ride a track. */
     alone = false,
     /** A sidecar race day (SidecarDay): every rider on a sidecar outfit. */
     sidecar?: SidecarDay,
@@ -687,7 +686,7 @@ export function practiceSim(rc: RaceContent, venue: VenueDef, player: Entrant, s
   // A passenger practice (core/passenger.ts): every outfit out is a sidecar, on its own even gate.
   const cls = sidecar ? SIDECAR_CLASS : (dayClass(rc.bikes, venue.class, player.bike.class) ?? venue.class ?? '50cc');
   const pool = (rc.riders.fields[venue.field ?? ''] ?? []).map((id) => fieldRider(rc, venue.field, id)).filter((r): r is CpuRiderDef => !!r);
-  // `alone` (tests and tools only) sends nobody else out.
+  // TEST ONLY, REMOVE BEFORE RELEASE (Boss, 30 Oct 2026): `alone` sends nobody else out.
   const n = alone ? 0 : Math.min(venue.practiceRiders ?? 0, pool.length, sidecar ? SIDECAR_FIELD - 1 : Infinity);
   const drawn = shuffle(pool, seededRng(mixSeed(seed, 0x70726163))).slice(0, n);
   // A rough lap time: the lap's length at the class's reference speed.
