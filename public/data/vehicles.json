@@ -69,6 +69,6 @@
     { "id": "motor-5", "art": "van-5", "name": "MX Sports Motorhome Medium", "reference": "Motor 5  MX Sports Motorhome Medium .png", "length": 3, "lengthM": 7.0, "stepMs": 130 },
     { "id": "motor-6", "art": "van-6", "name": "MX Sports Motorhome Long", "reference": "Motor 6  MX Sports Motorhome Long.png", "length": 5, "lengthM": 12.0, "stepMs": 140 },
     { "id": "motor-7", "art": "van-7", "name": "Factory Hauler", "reference": "Motor 7  Factory Hauler Extra Long.png", "length": 9, "lengthM": 21.0, "stepMs": 150 },
-    { "id": "motor-8", "art": "van-2", "artOf": "motor-2", "name": "Sports Car", "reference": "none yet: drawn with the Old Rusty Van sheet until its art exists (Boss, 31 Oct 2026: it needs new vehicle art)", "length": 2, "lengthM": 4.5, "stepMs": 100 }
+    { "id": "motor-8", "art": "van-8", "name": "Sports Car", "reference": "Boss, 6 Nov 2026: a blue Ford Mustang style sports car (vehgen vans.py van8, white twin stripes, bonnet scoop)", "length": 2, "lengthM": 4.5, "stepMs": 100 }
   ]
 }
