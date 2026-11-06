@@ -562,8 +562,19 @@ export class WorldScene extends Phaser.Scene {
       this.hud.toast(lock ? lock.message : `${o.name}: ${how} out onto the road to pick where to go.`);
       return;
     }
-    const msg = actionMessage(o, this.save.flags);
+    // A shift or job board station says what it's for, not "Nothing to do here" (Boss, 6 Nov 2026).
+    const station = o.type === 'interact' ? this.stationUse(o) : null;
+    const msg = station ?? actionMessage(o, this.save.flags);
     if (msg) this.hud.toast(msg);
+  }
+
+  /** What a shift or job board station is for, when no shift or job is running, or null if it isn't one. */
+  private stationUse(o: MapObject): string | null {
+    const here = (j: { map: string; stations: { object: string }[] }) => j.map === this.map.id && j.stations.some((s) => s.object === o.name);
+    const job = services.content.world.jobs.find(here);
+    const board = job ? undefined : services.content.jobboard.boards.find(here);
+    const what = job ? `the ${job.name}` : (board ? `jobs from the ${board.name}` : null);
+    return what ? `${o.name.replace(/[_-]+/g, ' ').replace(/^\w/, (c) => c.toUpperCase())}: used for ${what}.` : null;
   }
 
   /** A menu of drills: pick one to run. Every round counts, whatever the score. */
