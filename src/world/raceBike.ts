@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { OutfitRace, RaceCloth } from '../core/house';
 import { SIDECAR_CLASS } from '../core/sidecar';
 
 // The race-day bike and rider (Boss's brief, 24 Oct 2026: "Race day bike colours.png"; Boss, 25 Oct:
@@ -95,9 +96,26 @@ export const GEAR_SETS: Record<string, Gear> = {
   'cpu-louis': gear('red', 'white', 'red', 'red', 'red', 'red', 'red'),
 };
 
-/** A rider's race kit: the player's, a rider's own, the champions' hi-vis, or the field's kits in turn. */
-export function kitFor(e: { player?: boolean; tag?: string; kit?: string }, i: number): Gear {
-  if (e.player) return GEAR_SETS['player-default'];
+/** The character sheets' cloth colours (art/characters/characters.json, each ramp's base), for the outfits' race kits. */
+const CLOTH: Record<RaceCloth, Ramp> = {
+  red: RED, blue: 0x216ce4, navy: 0x364560, royal: 0x1c3edf, green: GREEN, lime: LIME, olive: 0x6f8c57, yellow: YELLOW,
+  orange: ORANGE, pink: 0xf235cb, purple: 0x8d2376, teal: 0x638fa4, white: BRIGHT_WHITE, grey: GREY, black: BLACK,
+};
+
+/** The race gear of an outfit the player is wearing (OutfitDef.race; Boss, 6 Nov 2026), in its sprite's colours. */
+export function outfitGear(k: OutfitRace, brand?: string): Gear {
+  // A brand kit's main colour is the bike's (OutfitRace.brand), as it is about town.
+  const main = k.brand && brand && BRAND_COLOURS[brand] ? BRAND_COLOURS[brand].body : null;
+  const c = (cloth: RaceCloth) => (main !== null && cloth === k.jersey ? main : CLOTH[cloth]);
+  return { helmet: c(k.helmet), helmet2: c(k.trim), visor: c(k.goggles), jersey: c(k.jersey), glove: c(k.gloves), pants: c(k.pants), boot: c(k.boots) };
+}
+
+/**
+ * A rider's race kit: the player's (the outfit they are wearing, when it has race colours, else the
+ * starter kit), a rider's own, the champions' hi-vis, or the field's kits in turn.
+ */
+export function kitFor(e: { player?: boolean; tag?: string; kit?: string; bike?: { brand: string } }, i: number, playerKit?: OutfitRace | null): Gear {
+  if (e.player) return playerKit ? outfitGear(playerKit, e.bike?.brand) : GEAR_SETS['player-default'];
   if (e.kit && GEAR_SETS[e.kit]) return GEAR_SETS[e.kit];
   return GEAR_SETS[e.tag?.endsWith('Champion') ? 'cpu-champion' : CPU_GEAR[i % CPU_GEAR.length]];
 }
