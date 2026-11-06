@@ -528,10 +528,11 @@ function checkCareerContent(c: Content, maps: Map<string, BakedMap>): ContentErr
   });
   if (!bikes.classes.some((k) => k.id === bikes.starter.class)) err(CONTENT_FILES.bikes, 'starter.class', `no class "${bikes.starter.class}"`);
   bikes.classes.forEach((k, i) => {
-    // The sidecar classes come after the solo ladder (ClassDef.sidecar, Boss 1 Nov 2026).
+    // The sidecar classes come after the solo ladder (ClassDef.sidecar, Boss 1 Nov 2026), with no unlock
+    // of their own: players ride them only as Ray Crispy's passenger (Boss, 6 Nov 2026).
     if (i > 0 && !k.sidecar && bikes.classes[i - 1].sidecar) err(CONTENT_FILES.bikes, `classes[${i}].sidecar`, `${k.name} comes after a sidecar class: the sidecar classes go last`);
     if (k.sidecar && k.id === bikes.starter.class) err(CONTENT_FILES.bikes, 'starter.class', 'a career starts on a solo bike, not a sidecar');
-    if (i > 0 && (k.unlock ?? 1) < (bikes.classes[i - 1].unlock ?? 1)) err(CONTENT_FILES.bikes, `classes[${i}].unlock`, `${k.name} unlocks below the class before it`);
+    if (i > 0 && !k.sidecar && (k.unlock ?? 1) < (bikes.classes[i - 1].unlock ?? 1)) err(CONTENT_FILES.bikes, `classes[${i}].unlock`, `${k.name} unlocks below the class before it`);
     if (k.mapImage && !bikes.classes.some((o) => o.id === k.mapImage && !o.mapImage)) err(CONTENT_FILES.bikes, `classes[${i}].mapImage`, `no class "${k.mapImage}" with a picture of its own`);
   });
   if (!slotIds.has(bikes.starter.brokenSlot)) err(CONTENT_FILES.bikes, 'starter.brokenSlot', `no slot "${bikes.starter.brokenSlot}"`);

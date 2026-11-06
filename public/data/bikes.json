@@ -1,5 +1,5 @@
 {
-  "note": "Bike stat model (Spec 5) and the four starter 50cc bikes (Spec 18.8, 18.9). Numbers are provisional first-pass values. classes are in class order (GDD 6.4): unlock is the Rider Ability level that unlocks the class, and the class also needs the main championship of the class below won (its milestone, championships.json) before the new bike is collected (Spec 18.3). Ceilings step up about 25% a class from 50cc (provisional). youth classes wear at the youth rate (racing.json wear.youth). mapImage names the world-map bike picture to use while a class has none of its own (art/ui/world-map-bikes). sidecar marks a sidecar class (Boss, 1 Nov 2026): its own class, brought in late, after the solo ladder and never moved up to from it; its unlock of 99 holds its place until Boss sets when it opens.",
+  "note": "Bike stat model (Spec 5) and the four starter 50cc bikes (Spec 18.8, 18.9). Numbers are provisional first-pass values. classes are in class order (GDD 6.4): unlock is the Rider Ability level that unlocks the class, and the class also needs the main championship of the class below won (its milestone, championships.json) before the new bike is collected (Spec 18.3). Ceilings step up about 25% a class from 50cc (provisional). youth classes wear at the youth rate (racing.json wear.youth). mapImage names the world-map bike picture to use while a class has none of its own (art/ui/world-map-bikes). sidecar marks a sidecar class (Boss, 1 Nov 2026): its own class, after the solo ladder and never moved up to from it, raced only as Ray Crispy's passenger from Area 3, so it has no unlock (Boss, 6 Nov 2026: \"Remove this 99 thing if nothing is using it\").",
   "stats": [
     { "id": "power", "name": "Power" },
     { "id": "response", "name": "Response" },
@@ -29,7 +29,7 @@
     { "id": "125cc", "name": "125cc", "ceiling": 1220, "frameGrade": 6, "unlock": 50, "mapImage": "85cc-big" },
     { "id": "250f", "name": "250cc F", "ceiling": 1525, "frameGrade": 7, "unlock": 60, "mapImage": "85cc-big" },
     { "id": "450f", "name": "450cc F", "ceiling": 1900, "frameGrade": 8, "unlock": 70, "mapImage": "85cc-big" },
-    { "id": "sidecar", "name": "Sidecar", "ceiling": 1900, "unlock": 99, "mapImage": "85cc-big", "sidecar": true }
+    { "id": "sidecar", "name": "Sidecar", "ceiling": 1900, "mapImage": "85cc-big", "sidecar": true }
   ],
   "starter": { "class": "50cc", "grade": 1, "condition": [0.5, 0.8], "brokenSlot": "top_end" },
   "brands": [
