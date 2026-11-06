@@ -15,6 +15,7 @@
         "m": "player-m-mxgear",
         "f": "player-f-mxgear"
       },
+      "race": {"m": {"helmet": "red", "trim": "white", "goggles": "white", "jersey": "red", "gloves": "red", "pants": "white", "boots": "white", "brand": true}, "f": {"helmet": "pink", "trim": "black", "goggles": "black", "jersey": "pink", "gloves": "pink", "pants": "black", "boots": "black", "brand": true}},
       "desc": "Full race kit, helmet and all, for walking about in."
     },
     {
@@ -24,6 +25,7 @@
       "sheets": {
         "m": "player-m-mx-nohelmet"
       },
+      "race": {"m": {"helmet": "royal", "trim": "yellow", "goggles": "yellow", "jersey": "royal", "gloves": "royal", "pants": "royal", "boots": "royal", "brand": true}},
       "desc": "Race kit with the helmet off."
     },
     {
@@ -35,6 +37,7 @@
         "m": "player-m-champion-kit",
         "f": "player-f-champion-kit"
       },
+      "race": {"m": {"helmet": "yellow", "trim": "black", "goggles": "black", "jersey": "yellow", "gloves": "black", "pants": "black", "boots": "black"}, "f": {"helmet": "yellow", "trim": "black", "goggles": "black", "jersey": "yellow", "gloves": "black", "pants": "black", "boots": "black"}},
       "desc": "The class champion's sponsor's kit: gold and black, number 1 (Boss, 1 Nov 2026). It comes with their free bike."
     },
     {
@@ -46,6 +49,7 @@
         "m": "player-m-sponsor-a",
         "f": "player-f-sponsor-a"
       },
+      "race": {"m": {"helmet": "red", "trim": "white", "goggles": "white", "jersey": "red", "gloves": "red", "pants": "white", "boots": "white"}, "f": {"helmet": "red", "trim": "white", "goggles": "white", "jersey": "red", "gloves": "red", "pants": "white", "boots": "white"}},
       "desc": "Your sponsor's kit, red and white, number 7. Picked when you signed."
     },
     {
@@ -57,6 +61,7 @@
         "m": "player-m-sponsor-b",
         "f": "player-f-sponsor-b"
       },
+      "race": {"m": {"helmet": "royal", "trim": "white", "goggles": "white", "jersey": "royal", "gloves": "royal", "pants": "navy", "boots": "white"}, "f": {"helmet": "royal", "trim": "white", "goggles": "white", "jersey": "royal", "gloves": "royal", "pants": "navy", "boots": "white"}},
       "desc": "Your sponsor's kit, royal blue and white, number 12. Picked when you signed."
     },
     {
@@ -68,6 +73,7 @@
         "m": "player-m-sponsor-c",
         "f": "player-f-sponsor-c"
       },
+      "race": {"m": {"helmet": "lime", "trim": "black", "goggles": "black", "jersey": "lime", "gloves": "black", "pants": "black", "boots": "black"}, "f": {"helmet": "lime", "trim": "black", "goggles": "black", "jersey": "lime", "gloves": "black", "pants": "black", "boots": "black"}},
       "desc": "Your sponsor's kit, lime and black, number 21. Picked when you signed."
     },
     {
@@ -79,6 +85,7 @@
         "m": "player-m-sponsor-d",
         "f": "player-f-sponsor-d"
       },
+      "race": {"m": {"helmet": "orange", "trim": "navy", "goggles": "navy", "jersey": "orange", "gloves": "orange", "pants": "navy", "boots": "white"}, "f": {"helmet": "orange", "trim": "navy", "goggles": "navy", "jersey": "orange", "gloves": "orange", "pants": "navy", "boots": "white"}},
       "desc": "Your sponsor's kit, orange and navy, number 33. Picked when you signed."
     },
     {
@@ -90,6 +97,7 @@
         "m": "player-m-sponsor-e",
         "f": "player-f-sponsor-e"
       },
+      "race": {"m": {"helmet": "teal", "trim": "black", "goggles": "black", "jersey": "teal", "gloves": "teal", "pants": "black", "boots": "black"}, "f": {"helmet": "teal", "trim": "black", "goggles": "black", "jersey": "teal", "gloves": "teal", "pants": "black", "boots": "black"}},
       "desc": "Your sponsor's kit, teal and black, number 46. Picked when you signed."
     },
     {
@@ -101,6 +109,7 @@
         "m": "player-m-super-a",
         "f": "player-f-super-a"
       },
+      "race": {"m": {"helmet": "white", "trim": "yellow", "goggles": "yellow", "jersey": "white", "gloves": "white", "pants": "white", "boots": "white"}, "f": {"helmet": "white", "trim": "yellow", "goggles": "yellow", "jersey": "white", "gloves": "white", "pants": "white", "boots": "white"}},
       "desc": "The Legends winner's kit, white and gold, number 1."
     },
     {
@@ -112,6 +121,7 @@
         "m": "player-m-super-b",
         "f": "player-f-super-b"
       },
+      "race": {"m": {"helmet": "black", "trim": "royal", "goggles": "royal", "jersey": "black", "gloves": "black", "pants": "black", "boots": "black"}, "f": {"helmet": "black", "trim": "royal", "goggles": "royal", "jersey": "black", "gloves": "black", "pants": "black", "boots": "black"}},
       "desc": "The Legends winner's kit, black and blue, number 99."
     },
     {
@@ -123,6 +133,7 @@
         "m": "player-m-super-c",
         "f": "player-f-super-c"
       },
+      "race": {"m": {"helmet": "purple", "trim": "yellow", "goggles": "yellow", "jersey": "purple", "gloves": "purple", "pants": "purple", "boots": "white"}, "f": {"helmet": "purple", "trim": "yellow", "goggles": "yellow", "jersey": "purple", "gloves": "purple", "pants": "purple", "boots": "white"}},
       "desc": "The Legends winner's kit, purple and gold, number 1."
     },
     {
@@ -134,6 +145,7 @@
         "m": "player-m-super-d",
         "f": "player-f-super-d"
       },
+      "race": {"m": {"helmet": "grey", "trim": "white", "goggles": "white", "jersey": "grey", "gloves": "grey", "pants": "grey", "boots": "grey"}, "f": {"helmet": "grey", "trim": "white", "goggles": "white", "jersey": "grey", "gloves": "grey", "pants": "grey", "boots": "grey"}},
       "desc": "The Legends winner's kit, silver and white, number 0."
     },
     {
@@ -145,6 +157,7 @@
         "m": "player-m-super-e",
         "f": "player-f-super-e"
       },
+      "race": {"m": {"helmet": "white", "trim": "royal", "goggles": "royal", "jersey": "royal", "gloves": "navy", "pants": "navy", "boots": "white"}, "f": {"helmet": "white", "trim": "royal", "goggles": "royal", "jersey": "royal", "gloves": "navy", "pants": "navy", "boots": "white"}},
       "desc": "The Legends winner's kit, blue and white, number 1."
     }
   ],

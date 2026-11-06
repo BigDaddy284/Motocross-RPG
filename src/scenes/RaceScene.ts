@@ -15,6 +15,7 @@ import { noteActivity } from '../core/shops';
 import { challengePrize, rigChallenge, type ChallengeDef } from '../core/challenge';
 import { challengeRuns, challengeWins, venueDays, venueWins } from '../core/records';
 import type { SaveData } from '../core/saves';
+import { raceKit } from '../core/house';
 import { services } from '../services';
 import { COLORS, textStyle } from '../ui/theme';
 import { binocularsIcon, button, panel, penMeter, type Button, type PenMeter } from '../ui/widgets';
@@ -243,7 +244,7 @@ export class RaceScene extends Phaser.Scene {
   private setupField(): void {
     (this.ko?.field ?? this.sx?.field ?? this.day!.field).forEach((e, i) => {
       this.names.set(e.id, e.player ? 'You' : e.name);
-      const gear = kitFor(e, i);
+      const gear = kitFor(e, i, raceKit(services.content.house, this.save.rider));
       this.looks.set(e.id, { brand: e.bike.brand, cls: e.bike.class, gear });
       this.colors.set(e.id, e.player ? COLORS.accent : gearColour(gear));
     });
@@ -1783,7 +1784,7 @@ export class RaceScene extends Phaser.Scene {
     // You, and any riders already out on track (practiceRiders on the venue).
     this.sim.riders.forEach(({ e }, i) => {
       this.names.set(e.id, e.player ? 'You' : e.name);
-      const gear = kitFor(e, i);
+      const gear = kitFor(e, i, raceKit(services.content.house, this.save.rider));
       this.looks.set(e.id, { brand: e.bike.brand, cls: e.bike.class, gear });
       this.colors.set(e.id, e.player ? COLORS.accent : gearColour(gear));
     });
