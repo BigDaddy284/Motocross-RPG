@@ -26,4 +26,4 @@ export const services = {
 };
 
 export const CAREER_SLOT = 'career-1';
-export const BUILD_LABEL = 'Alpha v1';
+export const BUILD_LABEL = 'Test v2.0';
