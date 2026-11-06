@@ -241,7 +241,7 @@ The Area 1 Champion and the Local Champions of Areas 2 to 8 are new riders, each
 | 7 The City | **Bryan Villo** | green and white, green bike | a factory rider since he first threw a leg over a bike |
 | 8 Capital | **Sean Youngy** | black with white highlights, black bike | has won every championship so far; wants Neal Borne's Crankshaft Cup |
 
-Brandon, Andy, Justin, Jeno and Jordan raced as Area 1 regulars before; each is one rider now, the champion, and Sam Doyle, Alfie Ward and Harry Finch left the field to make room for Cody, Bryan and Sean (no new filler names, Boss). The kits are `cpu-brandon` to `cpu-sean` in `src/world/raceBike.ts`, the town looks `npc-69` to `npc-76`.
+Brandon, Andy, Justin, Jeno and Jordan raced as Area 1 regulars before; each is one rider now, the champion, and Sam Doyle, Alfie Ward and Harry Finch left the field to make room for Cody, Bryan and Sean. Supercross nights and No-Turn knockouts need 32 riders, so three people already in the game, Manny Festo, Tasha Reid and Paul Phoenix, race as low-level Area 1 regulars to fill the gap (no new names, Boss). The kits are `cpu-brandon` to `cpu-sean` in `src/world/raceBike.ts`, the town looks `npc-69` to `npc-76`.
 
 ## What's new in Alpha v1.1
 
