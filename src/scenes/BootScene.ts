@@ -118,13 +118,15 @@ export class BootScene extends Phaser.Scene {
     if (params.has('editview')) return void this.scene.start('trackedit');
     // The models page: export the game's objects for Blender, and see what the models folder holds (ModelsScene).
     if (params.has('models')) return void this.scene.start('models');
-    const test = params.get('testtrack');
+    // ?testtrack is the track editor's "Race it in the game" under `npm run dev` only: the published
+    // game ignores it (Boss, 6 Nov 2026: "Remove the ?test track").
+    const test = import.meta.env.DEV ? params.get('testtrack') : null;
     if (test && content.tracks.tracks.some((t) => t.id === test)) this.testRide(test);
     else this.scene.start('menu');
   }
 
   /**
-   * Dev only: ?testtrack=<track id> goes straight to a race day on that track with a new rider
+   * `npm run dev` only: ?testtrack=<track id> goes straight to a race day on that track with a new rider
    * and the local field, without a venue or a save, to try a track from the track editor.
    */
   private testRide(trackId: string): void {
