@@ -59,6 +59,9 @@ const COLOURWAYS: Record<string, [Ramp, Ramp]> = {
   white: [WHITE, GREY],
   camo: [CAMO, BLACK],
   green: [GREEN, WHITE],
+  yellow: [YELLOW, BLACK],
+  // Black with white highlights (Sean Youngy, Boss, 6 Nov 2026).
+  blackwhite: [BLACK, BRIGHT_WHITE],
 };
 
 export interface Gear {
@@ -94,6 +97,15 @@ export const GEAR_SETS: Record<string, Gear> = {
   'cpu-dan': gear('orange', 'black', 'orange', 'black', 'black', 'black', 'orange'),
   'cpu-mickey': gear('green', 'white', 'green', 'white', 'white', 'green', 'green'),
   'cpu-louis': gear('red', 'white', 'red', 'red', 'red', 'red', 'red'),
+  // The Area and Local Champions in their own kits, on bikes to match (Boss, 6 Nov 2026).
+  'cpu-brandon': gear('orange', 'black', 'orange', 'black', 'black', 'orange', 'orange'),
+  'cpu-andy': gear('red', 'blue', 'red', 'blue', 'blue', 'red', 'red'),
+  'cpu-justin': gear('yellow', 'black', 'yellow', 'black', 'black', 'yellow', 'yellow'),
+  'cpu-jeno': gear('white', 'blue', 'white', 'white', 'white', 'white', 'blue'),
+  'cpu-jordan': gear('pink', 'blue', 'pink', 'pink', 'blue', 'blue', 'blue'),
+  'cpu-cody': gear('blue', 'white', 'blue', 'white', 'white', 'blue', 'blue'),
+  'cpu-bryan': gear('green', 'white', 'green', 'white', 'green', 'green', 'green'),
+  'cpu-sean': gear('blackwhite', 'white', 'black', 'black', 'black', 'black', 'black'),
 };
 
 /** The character sheets' cloth colours (art/characters/characters.json, each ramp's base), for the outfits' race kits. */
