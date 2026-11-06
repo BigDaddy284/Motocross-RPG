@@ -2,9 +2,9 @@
 
 A single-player, offline motocross career RPG. Start as an unknown rider with a broken 50cc and work your way up to legend.
 
-| Home Town: the player outside Nicholls Used Motors | Race day at Farmland MX: a rider throwing a whip over the double |
+| Home Town: the player outside Nicholls Used Motors | Race day at Farmland MX: the player throwing a whip over the double |
 | --- | --- |
-| ![Home Town, with the player standing outside Nicholls Used Motors](docs/screenshots/v1.5-home-town-nicholls-used-motors.png) | ![A race day at Farmland MX, with a rider whipping the bike sideways in the air over the double](docs/screenshots/v1.5-race-day-farmland-whip.png) |
+| ![Home Town, with the player standing outside Nicholls Used Motors](docs/screenshots/v2.0-home-town-nicholls-used-motors.png) | ![A race day at Farmland MX, with the player whipping the bike sideways in the air over the double](docs/screenshots/v2.0-race-day-farmland-whip.png) |
 
 This is **Alpha v1.1**: the whole career loop from a broken bike to race days at three venues, player-made tracks, and now the **Home Town Local Champion** for the Area 1 badge. All art is placeholder art in the agreed style, imported from the project's art threads.
 
