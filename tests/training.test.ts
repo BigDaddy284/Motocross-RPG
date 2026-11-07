@@ -32,11 +32,13 @@ describe('Fitness training (Boss, 29 Oct 2026)', () => {
       expect(perHour).toBeGreaterThanOrEqual(3000);
       expect(perHour).toBeLessThanOrEqual(6000);
     }
-    // Two rounds of bodyweight drills take Strength to level 2 (83 XP).
+    // One round of bodyweight drills takes Strength to level 3, two to level 5 (97 XP), on the
+    // table squeezed so 99 is OSRS 85 (Boss, 7 Nov 2026).
     const s = newSkillState();
     finishRound(skills, s, drillForAction(training, 'train.bodyweight')!);
+    expect(childLevel(skills, s, 'strength')).toBe(3);
     finishRound(skills, s, drillForAction(training, 'train.bodyweight')!);
-    expect(childLevel(skills, s, 'strength')).toBe(2);
+    expect(childLevel(skills, s, 'strength')).toBe(5);
   });
 
   it('gives Agility for walking, a little every few tiles', () => {

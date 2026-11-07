@@ -29,18 +29,19 @@ function day(seed: number): RaceDay {
 describe('skills and XP (Spec 2.1)', () => {
   it('uses the OSRS table for child skills', () => {
     expect(xpForLevel(1)).toBe(0);
-    expect(xpForLevel(2)).toBe(83);
-    expect(xpForLevel(10)).toBe(1154);
-    expect(xpForLevel(99)).toBe(13034431);
-    expect(levelForXp(1153)).toBe(9);
-    expect(levelForXp(1154)).toBe(10);
+    expect(xpForLevel(2)).toBe(21);
+    expect(xpForLevel(10)).toBe(288);
+    // Level 99 takes what OSRS level 85 does (Boss, 7 Nov 2026).
+    expect(xpForLevel(99)).toBe(3258594);
+    expect(levelForXp(287)).toBe(9);
+    expect(levelForXp(288)).toBe(10);
   });
 
   it('works out lead levels from the children at five times the table', () => {
     const s = newSkillState();
     const rider = content.skills.leads.find((l) => l.id === 'rider')!;
-    addXp(content.skills, s, { starts: 5770 });
-    expect(childLevel(content.skills, s, 'starts')).toBe(levelForXp(5770));
+    addXp(content.skills, s, { starts: xpForLevel(10) * 5 });
+    expect(childLevel(content.skills, s, 'starts')).toBe(levelForXp(xpForLevel(10) * 5));
     expect(leadLevel(content.skills, s, rider)).toBe(10);
   });
 
