@@ -12,7 +12,7 @@ import { applyMapState, clearedPatches, hiddenSprites } from '../core/mapState';
 import { placeArrival, roadMenu, routeArrival, routeFor, sideOf, venueHere, type RoadStop } from '../core/guides';
 import { earning, goalObjects, hopsTo, nextHop, storyGoals } from '../core/waymarks';
 import { biggestBike, bikeImage, zoneFor } from '../core/worldMap';
-import { ROUTE, spawnTile, stepTriggerAt, triggerTilesToAvoid, wayOutTiles, type Arrival, type StepResult } from '../core/travel';
+import { ROUTE, edgeClickWayOut, spawnTile, stepTriggerAt, triggerTilesToAvoid, wayOutTiles, type Arrival, type StepResult } from '../core/travel';
 import { areaFlag, areaName, areaOfMap, buyHouse, buyMotor, houseFlag, motorProblem, openAreas, openReleasedAreas, roadWaiting, soldTexture } from '../core/areas';
 import { defaultSetup, effectiveSetup, positionValue, positionsFor, setupReport, sliderUnlocked, type SliderDef } from '../core/setup';
 import { DriveMap, FACING_OF, ON_FOOT, needsMotor, bayFor, driveLeavesBy, ensureVan, exitTile, footprint, arrivalPose, haulerAt, nearestFree, placeNear, planDrive, sheetFor, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
@@ -391,7 +391,9 @@ export class WorldScene extends Phaser.Scene {
   private clickAt(wx: number, wy: number): void {
     // A click on a door or exit arrow is a click on the way out it marks (Boss, 7 Nov 2026).
     const marked = this.waymarks.arrowAt(wx, wy);
-    const tile = marked ? marked.reduce((a, b) => (dist(b, this.player.tile) < dist(a, this.player.tile) ? b : a)) : { x: Math.floor(wx / TILE), y: Math.floor(wy / TILE) };
+    const at = { x: Math.floor(wx / TILE), y: Math.floor(wy / TILE) };
+    // A click on the doorway in a building's outer wall, or the dark past it, is a click on the way out.
+    const tile = marked ? marked.reduce((a, b) => (dist(b, this.player.tile) < dist(a, this.player.tile) ? b : a)) : (this.driving ? null : edgeClickWayOut(this.map, this.grid, at)) ?? at;
     if (this.driving) {
       this.clickDriving(tile, wx, wy);
       return;

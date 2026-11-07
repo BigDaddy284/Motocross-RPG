@@ -1,4 +1,5 @@
 import type { WorldData } from './career';
+import type { Grid } from './grid';
 import { objectTile, objectTiles, type BakedMap, type MapObject, type Tile } from './mapTypes';
 
 // Doors, exits and spawns between maps, all read from the maps' Data layers:
@@ -42,6 +43,34 @@ export function stepTriggerAt(map: BakedMap, t: Tile): MapObject | undefined {
 export function wayOutTiles(map: BakedMap, via: MapObject): Tile[] {
   const same = (o: MapObject) => o === via || (o.type === via.type && o.name === via.name && JSON.stringify(o.props) === JSON.stringify(via.props));
   return map.objects.filter((o) => STEP_TYPES.has(o.type) && same(o)).flatMap((o) => objectTiles(o, map.tileSize));
+}
+
+/**
+ * The way out a click past the edge of the floor means. Interiors are drawn with the exit on the floor
+ * just inside the bottom wall, and most players leave by clicking the doorway in that wall or the dark
+ * beyond it (Boss, 7 Nov 2026: that walked to the floor beside the door and stopped). A click on the
+ * map's outer wall, or off the map, beside a door or exit tile (the doorway, or a tile either side of it)
+ * goes to that way out; the nearest one wins. Inside buildings only: a town's roads out are on its
+ * edge already. Null when the click is on the floor, or no way out is that close.
+ */
+export function edgeClickWayOut(map: BakedMap, grid: Grid, click: Tile): Tile | null {
+  if (map.kind !== 'interior') return null;
+  const edge = { x: Math.max(0, Math.min(map.width - 1, click.x)), y: Math.max(0, Math.min(map.height - 1, click.y)) };
+  const onRim = edge.x === 0 || edge.y === 0 || edge.x === map.width - 1 || edge.y === map.height - 1;
+  if (!onRim || grid.isFree(edge.x, edge.y)) return null;
+  let best: Tile | null = null;
+  let bestD = 1.5;
+  for (const o of map.objects) {
+    if (!STEP_TYPES.has(o.type)) continue;
+    for (const t of objectTiles(o, map.tileSize)) {
+      const d = Math.hypot(t.x - edge.x, t.y - edge.y);
+      if (d <= bestD && grid.inBounds(t.x, t.y) && !grid.isBlocked(t.x, t.y)) {
+        best = t;
+        bestD = d;
+      }
+    }
+  }
+  return best;
 }
 
 /**
