@@ -12,10 +12,10 @@ import { applyMapState, clearedPatches, hiddenSprites } from '../core/mapState';
 import { placeArrival, roadMenu, routeArrival, routeFor, sideOf, venueHere, type RoadStop } from '../core/guides';
 import { earning, goalObjects, hopsTo, nextHop, storyGoals } from '../core/waymarks';
 import { biggestBike, bikeImage, zoneFor } from '../core/worldMap';
-import { ROUTE, spawnTile, stepTriggerAt, type Arrival, type StepResult } from '../core/travel';
+import { ROUTE, spawnTile, stepTriggerAt, triggerTilesToAvoid, type Arrival, type StepResult } from '../core/travel';
 import { areaFlag, areaName, areaOfMap, buyHouse, buyMotor, houseFlag, motorProblem, openAreas, openReleasedAreas, roadWaiting, soldTexture } from '../core/areas';
 import { defaultSetup, effectiveSetup, positionValue, positionsFor, setupReport, sliderUnlocked, type SliderDef } from '../core/setup';
-import { DriveMap, FACING_OF, ON_FOOT, needsMotor, bayFor, ensureVan, exitTile, footprint, arrivalPose, haulerAt, nearestFree, placeNear, planDrive, sheetFor, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
+import { DriveMap, FACING_OF, ON_FOOT, needsMotor, bayFor, driveLeavesBy, ensureVan, exitTile, footprint, arrivalPose, haulerAt, nearestFree, placeNear, planDrive, sheetFor, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
 import { isNoTurn } from '../core/trackGeom';
 import { venueClassFor, entryFee, fieldCount, lapsFor, practiceFee, coachedFee, trackById, venueProblem, type VenueDef } from '../core/raceDay';
@@ -404,7 +404,10 @@ export class WorldScene extends Phaser.Scene {
       this.checkTrigger();
       return;
     }
-    const path = this.planWalk([tile], () => findPathTowards(this.grid, this.player.tile, tile));
+    // A click on a way out walks to whichever of its tiles is nearest: stepping on any of them leaves.
+    const via = stepTriggerAt(this.map, tile);
+    const ways = via ? objectTiles(via, this.map.tileSize) : [tile];
+    const path = this.planWalk(ways, () => (via && findPathToAny(this.grid, this.player.tile, ways)) || findPathTowards(this.grid, this.player.tile, tile));
     this.markTarget(tile.x * TILE + TILE / 2, tile.y * TILE + TILE / 2);
     this.setPath(path, null);
   }
@@ -454,12 +457,7 @@ export class WorldScene extends Phaser.Scene {
    * door). Falls back to any way when the only one is through a door.
    */
   private planWalk<T extends Tile[] | null>(goals: Tile[], plan: () => T): T {
-    const here = this.player.tile;
-    const isGoal = (t: Tile) => goals.some((g) => g.x === t.x && g.y === t.y) || (t.x === here.x && t.y === here.y);
-    const triggers = this.map.objects
-      .filter((o) => o.type === 'door' || o.type === 'exit')
-      .flatMap((o) => objectTiles(o, this.map.tileSize))
-      .filter((t) => !isGoal(t));
+    const triggers = triggerTilesToAvoid(this.map, [...goals, this.player.tile]);
     const kept = this.grid.avoiding(triggers, plan);
     return kept && kept.length ? kept : plan();
   }
@@ -2116,9 +2114,8 @@ export class WorldScene extends Phaser.Scene {
     for (const t of fresh) {
       const via = stepTriggerAt(this.map, t);
       if (!via || via.type !== 'exit') continue;
-      // A clicked drive only leaves by the way out that was clicked: turning round over another one on
-      // the way somewhere else doesn't open the road menu (Boss, 4 Nov 2026).
-      if (this.driveGoal !== 'any' && this.driveGoal !== via && !(this.driveGoal && this.driveGoal.name === via.name)) continue;
+      // A clicked drive only leaves by the way out that was clicked (Boss, 4 Nov 2026).
+      if (!driveLeavesBy(this.driveGoal, via)) continue;
       const r = services.travel.resolve(this.map, via, this.save.flags);
       if (!r) continue;
       this.moves = [];
