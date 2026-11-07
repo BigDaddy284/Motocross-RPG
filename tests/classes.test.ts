@@ -19,7 +19,7 @@ const riderTo = (career: ReturnType<typeof fresh>, level: number) => {
 describe('bike classes (GDD 6.4, Spec 12.1, 14.2)', () => {
   it('run in order from 50cc to the 450cc F, then the sidecar class (the Vets are championships on the 450cc F, Boss 5 Nov 2026), each with race rules and a price factor', () => {
     expect(bikes.classes.map((c) => c.id)).toEqual(['50cc', '65cc', '85cc-small', '85cc-big', '125cc-youth', '125cc', '250f', '450f', 'sidecar']);
-    expect(bikes.classes.map((c) => c.unlock)).toEqual([1, 10, 20, 30, 40, 50, 60, 70, 99]);
+    expect(bikes.classes.map((c) => c.unlock)).toEqual([1, 10, 20, 30, 40, 50, 60, 70, undefined]);
     for (const c of bikes.classes) {
       expect(racing.classes[c.id], c.id).toBeDefined();
       expect(shops.classPriceFactor[c.id], c.id).toBeGreaterThan(0);

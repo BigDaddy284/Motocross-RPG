@@ -257,6 +257,20 @@ export function cpuGatePick(track: TrackDef, seed: number, step: number, pickOrd
     const reach = free.filter((g) => gateBonus(track, g) >= top - 2);
     if (reach.length > 2) return reach[reach.length - (inOne ? 2 : 1)];
   }
+  const pickedBest = pickNear(track, seed, step, id, taken, gates, slots);
+  // Never the pick that would leave the start filled in a neat line from gate 1 (Boss, 28 Oct 2026):
+  // a field drawn just so can do it even with the wide picks (Riverside, seed 40, Boss 6 Nov 2026),
+  // so that rider goes to the outside gate in reach instead.
+  const line = taken.size + 1;
+  if (line > GATE_SURE_PICKS + 2 && pickedBest < line && [...taken.keys()].every((g) => g < line)) {
+    const reach = free.filter((g) => g >= line && gateBonus(track, g) >= top - 2);
+    if (reach.length) return reach[reach.length - 1];
+  }
+  return pickedBest;
+}
+
+/** A rider's free gate of choice: the start bonus, pulled towards their favourite spot, with their own feel for each gate. */
+function pickNear(track: TrackDef, seed: number, step: number, id: string, taken: Map<number, string>, gates: number, slots: number[]): number {
   const rng = seededRng(mixSeed(seed, hashId(id) + 7919 * step));
   const favourite = rng() * gates;
   let best = gates;

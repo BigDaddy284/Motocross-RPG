@@ -47,6 +47,9 @@ export const actionName = (action: string): string => ACTIONS[action] ?? pretty(
 const NOW: Record<string, (flags: Record<string, boolean>) => string> = {
   'shop.van': (f) => (f.van_owned ? "The motor's yours. It's parked outside your room." : 'Used motor: £600, no haggling. Talk to Jedrick.'),
   'workshop.fit_tune': () => 'The garage workbench. Nothing to fit right now.',
+  // The tutorial's tyre machine in the Home Town garage. The other spots that only said "Nothing to do
+  // here" came off the maps, their art left in place (Boss, 6 Nov 2026).
+  'train.tyre_change': () => 'The tyre machine. Nothing needs new tyres right now.',
   'storage.parts': (f) => (f.van_loaded ? 'Your spares are packed in the motor.' : 'Your spares chest.'),
   // Shops open once the opening chain is done; until then they only say they're busy.
   'shop.bike_parts': () => "The parts counter. They're busy with the garage's order. Check your task.",

@@ -73,9 +73,10 @@ describe('areas (Spec 18.1, 18.2; Areas 2 to 8 plan, Boss 30 and 31 Oct 2026)', 
 
   it('the Area 2 pool rides at least at the area level, and its champions keep their edge', () => {
     expect(riders.fieldLevel?.['area2.local']).toBe(24);
-    const jeno = fieldRider(content, 'area2.local', 'cpu.r03')!;
-    expect(jeno.level).toBe(24);
-    expect(fieldRider(content, 'area1.local', 'cpu.r03')!.level).toBe(12);
+    // Lee Stocky, a level 13 regular in Area 1 (Jeno Rothon, the old example, is Forest Town's Local Champion now).
+    const lee = fieldRider(content, 'area2.local', 'cpu.r14')!;
+    expect(lee.level).toBe(24);
+    expect(fieldRider(content, 'area1.local', 'cpu.r14')!.level).toBe(13);
     expect(fieldRider(content, 'area2.local', 'cpu.r21')!.level).toBeGreaterThan(24);
     const venue = tracks.venues.find((v) => v.id === 'venue-a2-mx')!;
     const field = drawField(content, venue, 7);

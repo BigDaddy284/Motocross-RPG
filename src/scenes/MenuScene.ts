@@ -6,6 +6,8 @@ import { startCareer } from './careerFlow';
 import { readSaveFile, saveFileName, saveFileText, type SaveData } from '../core/saves';
 import { giveFile, pickFile } from '../ui/files';
 import { cssSize, view } from '../ui/view';
+import { keepStorage, savesKept } from '../ui/persist';
+import { markBackup } from '../core/backup';
 
 // Main menu: opens directly with no intro (Spec 22). New, Continue, Load, Settings, Archive,
 // Info and Exit. Load also exports the career to a file and imports one from the device.
@@ -19,6 +21,7 @@ export class MenuScene extends Phaser.Scene {
 
   create(): void {
     this.overlay = undefined;
+    keepStorage();
     const draw = () => this.layout();
     draw();
     this.scale.on('resize', draw, this);
@@ -37,8 +40,8 @@ export class MenuScene extends Phaser.Scene {
 
     const hasSave = services.saves.load(CAREER_SLOT).status !== 'empty';
     const items: [string, () => void, boolean][] = [
-      ['New career', () => this.scene.start('newCareer'), true],
-      ['Continue', () => startCareer(this, CAREER_SLOT), hasSave],
+      ['New career', () => (keepStorage(), this.scene.start('newCareer')), true],
+      ['Continue', () => (keepStorage(), startCareer(this, CAREER_SLOT)), hasSave],
       // Always open: Import save is how a career arrives on a new device.
       ['Load', () => this.showLoad(), true],
       ['Settings', () => this.scene.start('settings', { back: 'menu' }), true],
@@ -48,6 +51,11 @@ export class MenuScene extends Phaser.Scene {
     ];
     items.forEach(([label, fn, on], i) => menu.add(button(this, 0, 180 + i * 56, label, fn).setEnabled(on)));
     this.add.text(width - 12, height - 10, BUILD_LABEL, textStyle(14, COLORS.muted)).setOrigin(1, 1);
+    // A private window, or a browser that blocks site storage, keeps the career in memory only, and
+    // it's gone when the tab closes: say so up front (Boss, 6 Nov 2026).
+    if (!savesKept(services.store)) {
+      menu.add(this.add.text(0, 180 + items.length * 56 + 4, "This browser isn't keeping saves (a private window, or storage blocked). Your career goes when the tab closes: use Load > Export save before you leave.", textStyle(15, COLORS.accent, { align: 'center', wordWrap: { width: 460 } })).setOrigin(0.5, 0));
+    }
   }
 
   private modal(title: string, h = 300): Phaser.GameObjects.Container {
@@ -93,6 +101,7 @@ export class MenuScene extends Phaser.Scene {
   /** Gives the player the current career as a file, to keep or to carry to another device. */
   private exportSave(data: SaveData): void {
     void giveFile(saveFileName(data), saveFileText(data)).then((how) => {
+      if (how !== 'cancelled') markBackup(services.store, data.career.counters['race.days'] ?? 0);
       if (how === 'downloaded') this.showInfo('Export save', `Saved ${saveFileName(data)} to your downloads.\n\nKeep it as a backup, or use Import save on another device or browser to carry on this career there.`);
     });
   }
