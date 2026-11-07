@@ -59,7 +59,8 @@ describe('the Factory Hauler', () => {
   });
 });
 
-// The sports car (Boss, 31 Oct 2026): £250,000 at Nicholls in the Capital, factory riders only; it needs new vehicle art.
+// The sports car (Boss, 31 Oct 2026): £250,000 at Nicholls in the Capital, factory riders only; its own art,
+// a blue Mustang-style car, since 6 Nov 2026 (Boss).
 describe('the sports car', () => {
   const area8 = areas.areas.find((a) => a.n === 8)!;
   const rich = () => ({ ...newCareerState(bikes, story, 'yamamoto', () => 0.5), money: 300_000 * 100 });
@@ -78,9 +79,11 @@ describe('the sports car', () => {
     expect(career.money).toBe(50_000 * 100);
   });
 
-  it('is drawn with the Old Rusty Van sheets until its art exists', () => {
+  it('has its own sheets, no longer the Old Rusty Van\'s', () => {
     const car = vehicles.designs.find((d) => d.id === 'motor-8')!;
-    expect(car.artOf).toBe('motor-2');
-    expect(sheetFor(manifest.vehicles, car)).toBe(manifest.vehicles?.['motor-2']);
+    expect(car.artOf).toBeUndefined();
+    expect(car.art).toBe('van-8');
+    expect(sheetFor(manifest.vehicles, car)).toBe(manifest.vehicles?.['motor-8']);
+    expect(manifest.vehicles?.['motor-8']?.image).toBe('art/vehicles/sheets/map/map-van-8.png');
   });
 });

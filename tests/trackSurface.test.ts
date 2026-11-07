@@ -13,7 +13,7 @@ const content = checkContent(rawContent(), loadManifest(), loadMaps()).content!;
 describe('bike setups (acceptance test 4)', () => {
   it('a better bike is faster for the same rider, and a worn one slower', () => {
     const track = content.tracks.tracks.find((t) => t.id === 'farmland')!;
-    const base = content.riders.riders.find((r) => r.id === 'cpu.r03')!;
+    const base = content.riders.riders.find((r) => r.id === 'cpu.r14')!;
     const mean: Record<string, number> = { worn: 0, stock: 0, good: 0 };
     for (let seed = 1; seed <= 30; seed++) {
       const mk = (id: string, grade: number, condition: number, gate: number) => {

@@ -16,6 +16,33 @@ export interface OutfitDef {
   desc?: string;
   /** Never on the rack: given with the champion's offer (Boss, 31 Oct 2026). */
   award?: boolean;
+  /**
+   * The kit's colours in the race view, for each rider (m or f) as in sheets (Boss, 6 Nov 2026: "the
+   * colour they chose or are wearing should be the replicated in the race view"). Wearing an outfit
+   * without one, you race in the starter kit.
+   */
+  race?: Record<string, OutfitRace>;
+}
+
+/** The cloth colours a race kit can use: the character sheets' cloth ramps (art/characters/characters.json). */
+export const RACE_CLOTH = ['red', 'blue', 'navy', 'royal', 'green', 'lime', 'olive', 'yellow', 'orange', 'pink', 'purple', 'teal', 'white', 'grey', 'black'] as const;
+export type RaceCloth = (typeof RACE_CLOTH)[number];
+
+/** A kit's colours on the race day rider: each item's cloth, as the outfit's sprite wears it. */
+export interface OutfitRace {
+  helmet: RaceCloth;
+  /** The helmet's second colour. */
+  trim: RaceCloth;
+  goggles: RaceCloth;
+  jersey: RaceCloth;
+  gloves: RaceCloth;
+  pants: RaceCloth;
+  boots: RaceCloth;
+  /**
+   * The kit's main colour (its jersey's) takes the bike brand's colour, as the rack's kits do about town
+   * (tools/art/kit-brands.py, shownLook; Boss, 2 Nov 2026).
+   */
+  brand?: boolean;
 }
 
 export interface HouseData {
@@ -66,6 +93,11 @@ export function championsKit(data: HouseData, championship: { id: string; milest
   const area = Number(/^area(\d+)\./.exec(championship.id)?.[1] ?? NaN);
   if (!(area <= data.kit.lastArea)) return null;
   return data.outfits.find((o) => o.id === data.kit!.outfit) ?? null;
+}
+
+/** The race colours of the outfit the rider is wearing, or null to race in the starter kit. */
+export function raceKit(data: HouseData, rider: RiderLook): OutfitRace | null {
+  return wornOutfit(data, rider).race?.[riderGender(rider.startLook ?? rider.look)] ?? null;
 }
 
 /** Hangs an awarded outfit in the wardrobe (nothing to pay, not put on here); nothing when it is there already. */
@@ -162,7 +194,7 @@ export const HOUSE_SCHEMA: Schema = {
   optional: ['note', 'kit', 'picks'],
   fields: {
     note: { type: 'string' },
-    outfits: { type: 'array', minItems: 1, items: { type: 'object', optional: ['desc', 'award'], fields: { id: { type: 'string', pattern: ID }, name: { type: 'string', nonEmpty: true }, price: { type: 'number', min: 0 }, sheets: { type: 'record', values: { type: 'string', pattern: ID } }, desc: { type: 'string' }, award: { type: 'boolean' } } } },
+    outfits: { type: 'array', minItems: 1, items: { type: 'object', optional: ['desc', 'award', 'race'], fields: { id: { type: 'string', pattern: ID }, name: { type: 'string', nonEmpty: true }, price: { type: 'number', min: 0 }, sheets: { type: 'record', values: { type: 'string', pattern: ID } }, desc: { type: 'string' }, award: { type: 'boolean' }, race: { type: 'record', values: { type: 'object', optional: ['brand'], fields: { ...Object.fromEntries(['helmet', 'trim', 'goggles', 'jersey', 'gloves', 'pants', 'boots'].map((k) => [k, { type: 'string', oneOf: RACE_CLOTH }])), brand: { type: 'boolean' } } } } } } },
     kit: { type: 'object', optional: ['note'], fields: { outfit: { type: 'string', pattern: ID }, lastArea: { type: 'number', integer: true, min: 1 }, note: { type: 'string' } } },
     picks: {
       type: 'object',
@@ -188,6 +220,7 @@ export function checkHouse(file: string, data: HouseData, c: { sheets: string[];
       if (!['m', 'f'].includes(g)) err(`outfits[${i}].sheets.${g}`, 'a sheet is for m or f');
       if (!c.sheets.includes(sheet)) err(`outfits[${i}].sheets.${g}`, `no character sheet "${sheet}"`);
     }
+    for (const g of Object.keys(o.race ?? {})) if (!o.sheets[g]) err(`outfits[${i}].race.${g}`, `race colours for "${g}", who has no sheet for this outfit`);
     if (o.id !== START_OUTFIT && !Object.keys(o.sheets).length) err(`outfits[${i}].sheets`, 'an outfit for sale needs a sheet for m or f');
   });
   data.rack.shops.forEach((s, i) => !c.shops.includes(s) && err(`rack.shops[${i}]`, `no shop "${s}" in shops.json`));

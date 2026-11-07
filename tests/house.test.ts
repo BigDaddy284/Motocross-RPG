@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { newCareerState } from '../src/core/career';
 import { checkContent } from '../src/core/content';
-import { START_OUTFIT, awardOutfit, buyOutfit, championsKit, checkHouse, housesOwned, legendsPickDue, pickOptions, outfitProblem, outfitSheet, ownsOutfit, rackOpen, riderGender, storageLimit, storeSpare, stored, takeSpare, wearOutfit, wornOutfit, type RiderLook } from '../src/core/house';
+import { START_OUTFIT, awardOutfit, buyOutfit, championsKit, checkHouse, housesOwned, legendsPickDue, pickOptions, raceKit, outfitProblem, outfitSheet, ownsOutfit, rackOpen, riderGender, storageLimit, storeSpare, stored, takeSpare, wearOutfit, wornOutfit, type RiderLook } from '../src/core/house';
 import { SAVE_VERSION, parseSave } from '../src/core/saves';
 import { SPARE } from '../src/core/shops';
 import { loadManifest, loadMaps, rawContent } from './helpers';
+import { BRAND_COLOURS, GEAR_SETS, kitFor, outfitGear } from '../src/world/raceBike';
 
 const manifest = loadManifest();
 const content = checkContent(rawContent(), manifest, loadMaps()).content!;
@@ -158,5 +159,57 @@ describe('sponsor and legend kit picks (Boss, 5 Nov 2026: "lock em in")', () => 
     expect(legendsPickDue(house, {})).toBe(false);
     expect(legendsPickDue(house, { 'trophy.legends': true })).toBe(true);
     expect(legendsPickDue(house, { 'trophy.legends': true, [house.picks!.legends.done]: true })).toBe(false);
+  });
+});
+
+describe('the kit you wear is the kit you race in (Boss, 6 Nov 2026: "the colour they chose or are wearing should be the replicated in the race view")', () => {
+  it('races in the starter kit in your own clothes, and in the worn outfit\'s colours once one is on', () => {
+    const r = rider('player-f-start-a');
+    expect(raceKit(data, r)).toBeNull();
+    expect(kitFor({ player: true }, 0, raceKit(data, r))).toEqual(GEAR_SETS['player-default']);
+    for (const id of ['mxgear', 'champion_kit', 'sponsor_kit_b', 'super_kit_e']) {
+      const o = data.outfits.find((x) => x.id === id)!;
+      const me = rider('player-f-start-a');
+      expect(awardOutfit(o, me).ok, id).toBe(true);
+      expect(wearOutfit(o, me).ok, id).toBe(true);
+      const k = raceKit(data, me)!;
+      expect(k, id).toEqual(o.race!.f);
+      expect(kitFor({ player: true }, 0, k), id).toEqual(outfitGear(k));
+      expect(kitFor({ player: true }, 0, k), id).not.toEqual(GEAR_SETS['player-default']);
+    }
+  });
+
+  it('gives every MX outfit race colours for each rider it is made for, matching its sprite', () => {
+    for (const o of data.outfits.filter((x) => x.id !== START_OUTFIT)) {
+      expect(Object.keys(o.race ?? {}).sort(), o.id).toEqual(Object.keys(o.sheets).sort());
+    }
+    // Spot checks against the sprites (art/characters/tools/make_characters.py).
+    expect(data.outfits.find((o) => o.id === 'mxgear')!.race!.f.jersey).toBe('pink');
+    expect(data.outfits.find((o) => o.id === 'champion_kit')!.race!.m.jersey).toBe('yellow');
+    expect(data.outfits.find((o) => o.id === 'sponsor_kit_c')!.race!.m.jersey).toBe('lime');
+  });
+
+  it('the rack\'s MX kits race in the bike brand\'s colour, as they look about town (Boss, 2 Nov 2026)', () => {
+    const me = rider('player-m-start-a');
+    buyOutfit(data, kit, { ...fresh() }, me, { [data.rack.needs]: true });
+    wearOutfit(kit, me);
+    const k = raceKit(data, me)!;
+    for (const brand of ['yamamoto', 'kwakmoto', 'sukimoto', 'hondmoto']) {
+      const g = kitFor({ player: true, bike: { brand } }, 0, k);
+      expect(g.jersey, brand).toBe(BRAND_COLOURS[brand].body);
+      expect(g.helmet, brand).toBe(BRAND_COLOURS[brand].body);
+    }
+    // A sponsor's kit keeps its own colours on any bike.
+    const lime = data.outfits.find((o) => o.id === 'sponsor_kit_c')!;
+    expect(kitFor({ player: true, bike: { brand: 'yamamoto' } }, 0, lime.race!.m).jersey).toBe(outfitGear(lime.race!.m).jersey);
+  });
+
+  it('race colours for a rider with no sheet fail the checks', () => {
+    const sheets = Object.keys(manifest.characters.sheets);
+    const shopIds = shops.shops.map((s) => s.id);
+    const bad = structuredClone(data);
+    const o = bad.outfits.find((x) => x.id === 'mx_nohelmet')!;
+    o.race!.f = o.race!.m;
+    expect(checkHouse('h', bad, { sheets, shops: shopIds }).map((e) => e.field)).toEqual([`outfits[${bad.outfits.indexOf(o)}].race.f`]);
   });
 });

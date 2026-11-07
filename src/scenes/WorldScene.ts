@@ -1,3 +1,4 @@
+import { isSupercross } from '../core/supercross';
 import { passengerEntry, passengerPracticeFee, passengerTrack, type PassengerTerms } from '../core/passenger';
 import Phaser from 'phaser';
 import { advanceStory, bikeProblem, catchUp, currentStep, earlyStep, hearEarly, fillText, formatMoney, batchPay, jobPay, matchStory, openChains, pence, wholePounds, type JobDef, type PlaceDef, type StoryEvent, type StoryStep } from '../core/career';
@@ -5,7 +6,7 @@ import { newsRead, npcsOnMap, properName, type DialogueLine, type NpcDef, type N
 import { Grid, STEPS } from '../core/grid';
 import { objectTiles, type BakedMap, type Facing, type MapObject, type Tile } from '../core/mapTypes';
 import { findPathToAny, findPathTowards, standingTiles } from '../core/pathfinding';
-import type { SaveData } from '../core/saves';
+import { saveFileName, saveFileText, type SaveData } from '../core/saves';
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../core/settings';
 import { applyMapState, clearedPatches, hiddenSprites } from '../core/mapState';
 import { placeArrival, roadMenu, routeArrival, routeFor, sideOf, venueHere, type RoadStop } from '../core/guides';
@@ -33,6 +34,8 @@ import { childLevel } from '../core/skills';
 import { leadLevel } from '../core/skills';
 import { challengeWins } from '../core/records';
 import { CAREER_SLOT, services } from '../services';
+import { backupDue, lastBackup, markBackup } from '../core/backup';
+import { giveFile } from '../ui/files';
 import { Character, TILE } from '../world/Character';
 import { MapView, OVERHEAD_DEPTH, isMapCached, loadMapImages } from '../world/MapView';
 import { actionMessage, actionName } from '../world/messages';
@@ -559,8 +562,19 @@ export class WorldScene extends Phaser.Scene {
       this.hud.toast(lock ? lock.message : `${o.name}: ${how} out onto the road to pick where to go.`);
       return;
     }
-    const msg = actionMessage(o, this.save.flags);
+    // A shift or job board station says what it's for, not "Nothing to do here" (Boss, 6 Nov 2026).
+    const station = o.type === 'interact' ? this.stationUse(o) : null;
+    const msg = station ?? actionMessage(o, this.save.flags);
     if (msg) this.hud.toast(msg);
+  }
+
+  /** What a shift or job board station is for, when no shift or job is running, or null if it isn't one. */
+  private stationUse(o: MapObject): string | null {
+    const here = (j: { map: string; stations: { object: string }[] }) => j.map === this.map.id && j.stations.some((s) => s.object === o.name);
+    const job = services.content.world.jobs.find(here);
+    const board = job ? undefined : services.content.jobboard.boards.find(here);
+    const what = job ? `the ${job.name}` : (board ? `jobs from the ${board.name}` : null);
+    return what ? `${o.name.replace(/[_-]+/g, ' ').replace(/^\w/, (c) => c.toUpperCase())}: used for ${what}.` : null;
   }
 
   /** A menu of drills: pick one to run. Every round counts, whatever the score. */
@@ -1356,7 +1370,9 @@ export class WorldScene extends Phaser.Scene {
     const field = fieldCount(rc, venue) + 1;
     const first = fee === 0 && venue.firstRaceFree;
     const area = venue.town ? areaOfMap(rc.areas, venue.town) : undefined;
-    const forecast = area?.weather ? ` Weather here: ${Object.keys(area.weather).map((k) => rc.racing.weather?.[k]?.name.toLowerCase() ?? k).join(', ')}; you find out at the gate.` : '';
+    // Supercross is indoors and always dry (Boss, 6 Nov 2026).
+    const indoor = isSupercross(trackById(rc, venue.track!));
+    const forecast = indoor ? ' Indoors: always dry.' : area?.weather ? ` Weather here: ${Object.keys(area.weather).map((k) => rc.racing.weather?.[k]?.name.toLowerCase() ?? k).join(', ')}; you find out at the gate.` : '';
     const short = (p: number) => career.money < p;
     const champs = services.content.championships;
     // A championship's next round here takes the place of a local race day (Spec 18.6, 6C).
@@ -1828,6 +1844,7 @@ export class WorldScene extends Phaser.Scene {
         if (gain > 0) this.time.delayedCall(250, () => this.hud.moneyNote(gain));
         this.milestoneSave();
         // No message on top: the results screen has said it all (Boss, 2 Nov 2026).
+        this.time.delayedCall(900, () => this.offerBackup());
       },
     };
     this.cameras.main.fadeOut(200, 20, 20, 30);
@@ -2457,6 +2474,27 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /** Autosave at milestones such as a finished task or batch (Spec 21b). */
+  /**
+   * Every few race days, offers to download the career as a file, the one copy a browser clearing
+   * its storage can't take (Boss, 6 Nov 2026: "just the browsers losing the files").
+   */
+  private offerBackup(): void {
+    const days = this.save.career.counters['race.days'] ?? 0;
+    if (this.busy || this.hud.modalOpen || !backupDue(days, lastBackup(services.store))) return;
+    const save = this.snapshot();
+    this.hud.confirm(
+      'Back up your career?\n\nYour career lives in this browser, and a browser can clear it. A backup file brings it back with Load > Import save.',
+      'Download backup',
+      () => void giveFile(saveFileName(save), saveFileText(save)).then((how) => {
+        if (how === 'cancelled') return;
+        markBackup(services.store, days);
+        this.hud.toast(how === 'shared' ? 'Backup shared' : 'Backup saved to your downloads');
+      }),
+      // Not now: ask again after the next few race days.
+      () => markBackup(services.store, days),
+    );
+  }
+
   private milestoneSave(): void {
     try {
       this.writeSave();

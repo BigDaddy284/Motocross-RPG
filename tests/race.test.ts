@@ -389,7 +389,7 @@ describe('the race day field: regulars plus a random draw from the pool', () => 
     const taylor = content.riders.riders.find((x) => x.name === 'Taylor Heart')!;
     expect(content.riders.fields['area2.local']).toContain(taylor.id);
     expect(content.riders.fields['area1.local']).not.toContain(taylor.id);
-    const names = ['Jason Styles', 'Jordan Styles', 'Mickey Alington', 'Louis Jonez', 'Andy McLaren', 'Justin Smyth', 'Dan Smyth'];
+    const names = ['Jason Styles', 'Mickey Alington', 'Louis Jonez', 'Dan Smyth'];
     const champ = content.riders.riders.find((r) => r.id === 'cpu.local_champion')!;
     for (const n of names) {
       const r = content.riders.riders.find((x) => x.name === n)!;

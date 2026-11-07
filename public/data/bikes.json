@@ -1,21 +1,21 @@
 {
-  "note": "Bike stat model (Spec 5) and the four starter 50cc bikes (Spec 18.8, 18.9). Numbers are provisional first-pass values. classes are in class order (GDD 6.4): unlock is the Rider Ability level that unlocks the class, and the class also needs the main championship of the class below won (its milestone, championships.json) before the new bike is collected (Spec 18.3). Ceilings step up about 25% a class from 50cc (provisional). youth classes wear at the youth rate (racing.json wear.youth). mapImage names the world-map bike picture to use while a class has none of its own (art/ui/world-map-bikes). sidecar marks a sidecar class (Boss, 1 Nov 2026): its own class, brought in late, after the solo ladder and never moved up to from it; its unlock of 99 holds its place until Boss sets when it opens.",
+  "note": "Bike stat model (Spec 5) and the four starter 50cc bikes (Spec 18.8, 18.9). Numbers are provisional first-pass values. classes are in class order (GDD 6.4): unlock is the Rider Ability level that unlocks the class, and the class also needs the main championship of the class below won (its milestone, championships.json) before the new bike is collected (Spec 18.3). Ceilings step up about 25% a class from 50cc (provisional). youth classes wear at the youth rate (racing.json wear.youth). mapImage names the world-map bike picture to use while a class has none of its own (art/ui/world-map-bikes). sidecar marks a sidecar class (Boss, 1 Nov 2026): its own class, after the solo ladder and never moved up to from it, raced only as Ray Crispy's passenger from Area 3, so it has no unlock (Boss, 6 Nov 2026: \"Remove this 99 thing if nothing is using it\").",
   "stats": [
     { "id": "power", "name": "Power" },
     { "id": "response", "name": "Response" },
     { "id": "handling", "name": "Handling" },
-    { "id": "absorption", "name": "Absorption" },
+    { "id": "suspension", "name": "Suspension" },
     { "id": "grip", "name": "Grip" },
     { "id": "braking", "name": "Braking" }
   ],
   "slots": [
-    { "id": "frame", "name": "Frame", "weights": { "handling": 0.35, "absorption": 0.2 } },
+    { "id": "frame", "name": "Frame", "weights": { "handling": 0.35, "suspension": 0.2 } },
     { "id": "top_end", "name": "Top end", "weights": { "power": 0.35, "response": 0.3 }, "engine": true },
     { "id": "bottom_end", "name": "Bottom end", "weights": { "power": 0.3 }, "engine": true },
     { "id": "intake_exhaust", "name": "Intake and exhaust", "weights": { "power": 0.25, "response": 0.3 } },
     { "id": "drivetrain", "name": "Drivetrain", "weights": { "power": 0.1, "response": 0.4 } },
-    { "id": "forks", "name": "Forks", "weights": { "handling": 0.25, "absorption": 0.4 } },
-    { "id": "shock", "name": "Shock", "weights": { "absorption": 0.4, "grip": 0.4 } },
+    { "id": "forks", "name": "Forks", "weights": { "handling": 0.25, "suspension": 0.4 } },
+    { "id": "shock", "name": "Shock", "weights": { "suspension": 0.4, "grip": 0.4 } },
     { "id": "wheels_tyres", "name": "Wheels and tyres", "weights": { "handling": 0.2, "grip": 0.6 } },
     { "id": "brakes", "name": "Brakes", "weights": { "braking": 1 } },
     { "id": "bodywork", "name": "Bodywork and controls", "weights": { "handling": 0.2 } }
@@ -29,29 +29,29 @@
     { "id": "125cc", "name": "125cc", "ceiling": 1220, "frameGrade": 6, "unlock": 50, "mapImage": "85cc-big" },
     { "id": "250f", "name": "250cc F", "ceiling": 1525, "frameGrade": 7, "unlock": 60, "mapImage": "85cc-big" },
     { "id": "450f", "name": "450cc F", "ceiling": 1900, "frameGrade": 8, "unlock": 70, "mapImage": "85cc-big" },
-    { "id": "sidecar", "name": "Sidecar", "ceiling": 1900, "unlock": 99, "mapImage": "85cc-big", "sidecar": true }
+    { "id": "sidecar", "name": "Sidecar", "ceiling": 1900, "mapImage": "85cc-big", "sidecar": true }
   ],
   "starter": { "class": "50cc", "grade": 1, "condition": [0.5, 0.8], "brokenSlot": "top_end" },
   "brands": [
     {
       "id": "yamamoto", "name": "Yamamoto", "starter": "Yamamoto YM50",
       "character": "Strong engine. Most power, a little less stable.",
-      "lean": { "power": 1.12, "response": 1.04, "handling": 0.96, "absorption": 0.96, "grip": 0.96, "braking": 0.96 }
+      "lean": { "power": 1.12, "response": 1.04, "handling": 0.96, "suspension": 0.96, "grip": 0.96, "braking": 0.96 }
     },
     {
       "id": "kwakmoto", "name": "Kwakmoto", "starter": "Kwakmoto KX50",
       "character": "Snappy and light. Best throttle response and starts.",
-      "lean": { "power": 1.0, "response": 1.12, "handling": 1.04, "absorption": 0.94, "grip": 0.96, "braking": 0.94 }
+      "lean": { "power": 1.0, "response": 1.12, "handling": 1.04, "suspension": 0.94, "grip": 0.96, "braking": 0.94 }
     },
     {
       "id": "sukimoto", "name": "Sukimoto", "starter": "Sukimoto SZ50",
       "character": "Sharp chassis. Best handling and grip in the corners.",
-      "lean": { "power": 0.94, "response": 0.96, "handling": 1.12, "absorption": 0.98, "grip": 1.06, "braking": 0.94 }
+      "lean": { "power": 0.94, "response": 0.96, "handling": 1.12, "suspension": 0.98, "grip": 1.06, "braking": 0.94 }
     },
     {
       "id": "hondmoto", "name": "Hondmoto", "starter": "Hondmoto HR50",
       "character": "The all-rounder. Plush and stable on landings.",
-      "lean": { "power": 0.98, "response": 0.98, "handling": 1.0, "absorption": 1.06, "grip": 0.98, "braking": 1.0 }
+      "lean": { "power": 0.98, "response": 0.98, "handling": 1.0, "suspension": 1.06, "grip": 0.98, "braking": 1.0 }
     }
   ]
 }

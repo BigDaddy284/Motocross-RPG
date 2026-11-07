@@ -85,7 +85,7 @@ When you open a map in the editor, its layers are listed on the left under **Lay
 | **Overhead** | Things always drawn above the player, such as tree tops | On top of everything |
 | **Collision** | Which cells are blocked (shown in red) | Not drawn in the game |
 | **Data** | Doors, spawn points (where the player appears), exits and triggers | Not drawn in the game |
-| **Partitions** | Thin walls between cells (view only) | Not drawn in the game |
+| **Partitions** | Thin walls along cell edges, for a wall thinner than a tile. Click one to pick it, drag it to move it, drag an end to change its length, drag along an edge to draw a new one, Del removes it | Not drawn in the game |
 | **Grid** | The grid lines (view only) | Not drawn in the game |
 
 Indoor maps have **Room** (floor and walls) instead of Ground, and **Furniture** instead of Objects.

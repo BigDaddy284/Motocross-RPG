@@ -70,6 +70,8 @@ export interface VenueDef {
   map: string;
   /** The town map of the area the venue belongs to (areas.json): its weather. */
   town?: string;
+  /** The day's weather, set rather than rolled: only the test ride's ?weather= sets it, never content (Boss, 5 Nov 2026). */
+  weather?: string;
   track?: string;
   class?: string;
   field?: string;
@@ -255,6 +257,20 @@ export function cpuGatePick(track: TrackDef, seed: number, step: number, pickOrd
     const reach = free.filter((g) => gateBonus(track, g) >= top - 2);
     if (reach.length > 2) return reach[reach.length - (inOne ? 2 : 1)];
   }
+  const pickedBest = pickNear(track, seed, step, id, taken, gates, slots);
+  // Never the pick that would leave the start filled in a neat line from gate 1 (Boss, 28 Oct 2026):
+  // a field drawn just so can do it even with the wide picks (Riverside, seed 40, Boss 6 Nov 2026),
+  // so that rider goes to the outside gate in reach instead.
+  const line = taken.size + 1;
+  if (line > GATE_SURE_PICKS + 2 && pickedBest < line && [...taken.keys()].every((g) => g < line)) {
+    const reach = free.filter((g) => g >= line && gateBonus(track, g) >= top - 2);
+    if (reach.length) return reach[reach.length - 1];
+  }
+  return pickedBest;
+}
+
+/** A rider's free gate of choice: the start bonus, pulled towards their favourite spot, with their own feel for each gate. */
+function pickNear(track: TrackDef, seed: number, step: number, id: string, taken: Map<number, string>, gates: number, slots: number[]): number {
   const rng = seededRng(mixSeed(seed, hashId(id) + 7919 * step));
   const favourite = rng() * gates;
   let best = gates;
@@ -377,7 +393,8 @@ export class RaceDay {
     this.laps = custom?.laps ?? lapsFor(rc, this.track, sidecar?.test || sidecar?.passenger ? solo : this.cls, !!round);
     this.motoCount = custom?.motos ?? 2;
     this.rng = seededRng(seed);
-    this.weather = rollWeather(rc.areas ? areaOfMap(rc.areas, venue.town ?? '') : undefined, this.rng);
+    const rolled = rollWeather(rc.areas ? areaOfMap(rc.areas, venue.town ?? '') : undefined, this.rng);
+    this.weather = venue.weather && rc.racing.weather?.[venue.weather] ? venue.weather : rolled;
     tunePlayer(rc, player, this.track, this.weather);
     // A sidecar race has 7 other outfits, drawn from the field's whole pool.
     const cpus = alone ? [] : (custom?.cpus ?? round?.cpus ?? (sidecar ? drawPool(rc, venue, seed, SIDECAR_FIELD - 1) : drawField(rc, venue, seed)));

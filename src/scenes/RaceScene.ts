@@ -15,6 +15,7 @@ import { noteActivity } from '../core/shops';
 import { challengePrize, rigChallenge, type ChallengeDef } from '../core/challenge';
 import { challengeRuns, challengeWins, venueDays, venueWins } from '../core/records';
 import type { SaveData } from '../core/saves';
+import { raceKit } from '../core/house';
 import { services } from '../services';
 import { completeRaceDay, completeSxNight } from '../core/devBuild';
 import { COLORS, textStyle } from '../ui/theme';
@@ -254,7 +255,7 @@ export class RaceScene extends Phaser.Scene {
   private setupField(): void {
     (this.ko?.field ?? this.sx?.field ?? this.day!.field).forEach((e, i) => {
       this.names.set(e.id, e.player ? 'You' : e.name);
-      const gear = kitFor(e, i);
+      const gear = kitFor(e, i, raceKit(services.content.house, this.save.rider));
       this.looks.set(e.id, { brand: e.bike.brand, cls: e.bike.class, gear });
       this.colors.set(e.id, e.player ? COLORS.accent : gearColour(gear));
     });
@@ -869,7 +870,7 @@ export class RaceScene extends Phaser.Scene {
     // The track takes the whole height, its bottom level with the Retire and Details buttons, and the
     // race line, your position, lap, gaps and bike float over its top-left corner as outlined text
     // (Boss, 28 Oct 2026; no header bar, 31 Oct 2026).
-    this.view = new RaceView(this, this.screen, sim.track, services.content.trackParts, 16, 16, vw, dh - 54, undefined, { scaleWidth: 900 });
+    this.view = new RaceView(this, this.screen, sim.track, services.content.trackParts, 16, 16, vw, dh - 54, undefined, { scaleWidth: 900, weather: this.day?.weather ?? this.sx?.weather });
     this.view.hasStart = !practice;
     // Fireworks at the finish only where riders race to the line together, not in qualifying or a knockout's seeding run.
     this.view.showFireworks = !practice && !this.qualifying && !(this.ko && !this.koHeat) && !(this.sx && this.sxRace?.kind !== 'main');
@@ -1650,15 +1651,9 @@ export class RaceScene extends Phaser.Scene {
     this.box(580, 110, 680, 530);
     this.text(604, 124, `${ordinal(me.position)} overall`, 26, COLORS.accent);
     const champ = this.champ;
-    const lines = [
-      `Entry: ${this.args.fee ? `−${formatMoney(this.args.fee)}` : 'free (first race)'}`,
-      `Moto prizes: ${formatMoney(prizes)}`,
-      `Podium bonus: ${formatMoney(res.podiumBonus)}`,
-      `Net: ${money >= 0 ? '+' : ''}${formatMoney(money)}`,
-      `Money now: ${formatMoney(career.money)}`,
-    ];
-    if (firstDay) lines.push('', finishedBoth ? 'Goal done: you finished both motos.' : 'Goal: finish both motos. Try again next time.');
     // Sponsors and reputation (core/sponsors.ts, Spec 16): the finishes count, and the contract's objectives are settled.
+    // Settled before the money lines, so the sponsor's pay shows in the breakdown and counts in Net and Money now
+    // (Boss, 6 Nov 2026: "it should be added to the last race day screen where you see what you earned and lost").
     const sponsors = services.content.sponsors;
     const settled = settleDay(sponsors, services.content, career, this.args.venue, {
       position: me.position,
@@ -1667,6 +1662,16 @@ export class RaceScene extends Phaser.Scene {
       partsAtStart: this.args.save.career.bike.parts,
       kind: champ ? (champ.def.id.includes('local_champion') ? 'local_champion' : 'main') : 'local',
     });
+    const net = money + settled.money;
+    const lines = [
+      `Entry: ${this.args.fee ? `−${formatMoney(this.args.fee)}` : 'free (first race)'}`,
+      `Moto prizes: ${formatMoney(prizes)}`,
+      `Podium bonus: ${formatMoney(res.podiumBonus)}`,
+      ...(settled.money ? [`Sponsor pay: ${formatMoney(settled.money)}`] : []),
+      `Net: ${net >= 0 ? '+' : ''}${formatMoney(net)}`,
+      `Money now: ${formatMoney(career.money)}`,
+    ];
+    if (firstDay) lines.push('', finishedBoth ? 'Goal done: you finished both motos.' : 'Goal: finish both motos. Try again next time.');
     if (settled.lines.length) lines.push('', 'Sponsor', ...settled.lines);
     lines.push('', 'Rider XP', ...this.xpLines(payout.xp));
     this.resultColumns(lines, this.upLines(payout.levelUps), this.wearLines(this.args.save.career.bike.parts, career.bike.parts), 'Bike wear today');
@@ -1856,7 +1861,7 @@ export class RaceScene extends Phaser.Scene {
     // You, and any riders already out on track (practiceRiders on the venue).
     this.sim.riders.forEach(({ e }, i) => {
       this.names.set(e.id, e.player ? 'You' : e.name);
-      const gear = kitFor(e, i);
+      const gear = kitFor(e, i, raceKit(services.content.house, this.save.rider));
       this.looks.set(e.id, { brand: e.bike.brand, cls: e.bike.class, gear });
       this.colors.set(e.id, e.player ? COLORS.accent : gearColour(gear));
     });
@@ -2421,14 +2426,7 @@ export class RaceScene extends Phaser.Scene {
     const head = res.main === 1 ? 'You won the Main Event!' : res.main !== null ? `${ordinal(res.main)} in the Main Event` : me.reached === 'Left early' ? 'You left early' : me.reached === 'Main Event' ? 'A DNF in the Main Event' : `Out in the ${me.reached === 'LCQ' ? 'LCQ' : 'heats'}`;
     this.text(604, 124, head, 26, COLORS.accent);
     const champ = this.champ;
-    const lines = [
-      `Entry: ${this.args.fee ? `−${formatMoney(this.args.fee)}` : 'free (first race)'}`,
-      `Main Event prize: ${formatMoney(res.prize)}`,
-      `Podium bonus: ${formatMoney(res.podiumBonus)}`,
-      `Net: ${money >= 0 ? '+' : ''}${formatMoney(money)}`,
-      `Money now: ${formatMoney(career.money)}`,
-    ];
-    if (firstDay) lines.push('', res.main !== null ? 'Goal done: you made the Main Event.' : 'Goal: make the Main Event. Try again next time.');
+    // The sponsor is settled first, so its pay is in the breakdown, Net and Money now (Boss, 6 Nov 2026).
     const sponsors = services.content.sponsors;
     const settled = settleDay(sponsors, services.content, career, this.args.venue, {
       position: me.position,
@@ -2437,6 +2435,16 @@ export class RaceScene extends Phaser.Scene {
       partsAtStart: this.args.save.career.bike.parts,
       kind: champ ? (champ.def.id.includes('local_champion') ? 'local_champion' : 'main') : 'local',
     });
+    const net = money + settled.money;
+    const lines = [
+      `Entry: ${this.args.fee ? `−${formatMoney(this.args.fee)}` : 'free (first race)'}`,
+      `Main Event prize: ${formatMoney(res.prize)}`,
+      `Podium bonus: ${formatMoney(res.podiumBonus)}`,
+      ...(settled.money ? [`Sponsor pay: ${formatMoney(settled.money)}`] : []),
+      `Net: ${net >= 0 ? '+' : ''}${formatMoney(net)}`,
+      `Money now: ${formatMoney(career.money)}`,
+    ];
+    if (firstDay) lines.push('', res.main !== null ? 'Goal done: you made the Main Event.' : 'Goal: make the Main Event. Try again next time.');
     if (settled.lines.length) lines.push('', 'Sponsor', ...settled.lines);
     lines.push('', 'Rider XP', ...this.xpLines(payout.xp));
     this.resultColumns(lines, this.upLines(payout.levelUps), this.wearLines(this.args.save.career.bike.parts, career.bike.parts), 'Bike wear tonight');

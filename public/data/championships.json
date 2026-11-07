@@ -1,5 +1,5 @@
 {
-  "note": "Championships (Spec 12.5, 18.6). Rounds are venues, raced in this order, each entered separately at its race office. size is the CPU riders drawn once when you enter, from the field's pool (its regulars and this championship's first), who race every round. entryTimes and purseTimes multiply the class entry and the prize money (Spec 14.2 tiers). There is no qualifying (Boss, 2 Nov 2026): moto 1 gate picks go in a random order, moto 2 in moto 1 finishing order. rewards are by final position: money in pounds, a flag to set, what it is called, and its picture (under public/assets). replay is the XP and purse share for a championship you have already won (Round 125). needs are the flags that open it. milestone is the class the championship is the milestone for (Spec 18.3): its first win sets the flag milestone.<class>, and the new bike is collected at the class dealer (shops.json). main is the rider to beat, raced as they are and the best in it on skill; every other CPU rider is buff better (0.1: 10% higher skills and bike condition) (Boss, 28 Oct 2026: Louis Jonez is the Local Champion, Dean Marsh the placeholder Area 1 champion). without are pool riders kept out, field regulars too. Reward money is provisional. drawFrom (Boss, 4 Nov 2026): the type championships that open with each area's story (MX, SX, Enduro, Sprint Enduro and EnduroCross Series) draw their riders at random from every area open by then, with no regulars and no champion to beat; they race at their own class or bigger (the rider's), and a round can be any track type and any smaller class's venue, on one points table. The Area Championships take bike-part names (Boss, 4 Nov 2026: \"Sprocket Cup to Sprocket Cup\"). Legends: every MX track in area order, then every SX track, after the Crankshaft Cup. sidecar (Boss, 4 Nov 2026): raced as Ray Crispy's passenger and entered through him, never at the race office. The four Sidecar Series from Boss's sheet (Areas 1 to 3 MX twice from Area 3's story, Areas 4 to 6 twice from Area 6's, then every MX track to Area 7 and to Area 8) replace the one-an-area sidecar championships (Boss, 4 Nov 2026); their reward money is already the passenger's half.",
+  "note": "Championships (Spec 12.5, 18.6). Rounds are venues, raced in this order, each entered separately at its race office. size is the CPU riders drawn once when you enter, from the field's pool (its regulars and this championship's first), who race every round. entryTimes and purseTimes multiply the class entry and the prize money (Spec 14.2 tiers). There is no qualifying (Boss, 2 Nov 2026): moto 1 gate picks go in a random order, moto 2 in moto 1 finishing order. rewards are by final position: money in pounds, a flag to set, what it is called, and its picture (under public/assets). replay is the XP and purse share for a championship you have already won (Round 125). needs are the flags that open it. milestone is the class the championship is the milestone for (Spec 18.3): its first win sets the flag milestone.<class>, and the new bike is collected at the class dealer (shops.json). main is the rider to beat, raced as they are and the best in it on skill; every other CPU rider is buff better (0.1: 10% higher skills and bike condition) (Boss, 28 Oct 2026: Louis Jonez is the Local Champion, Brandon Stocky the placeholder Area 1 champion). without are pool riders kept out, field regulars too. Reward money is provisional. drawFrom (Boss, 4 Nov 2026): the type championships that open with each area's story (MX, SX, Enduro, Sprint Enduro and EnduroCross Series) draw their riders at random from every area open by then, with no regulars and no champion to beat; they race at their own class or bigger (the rider's), and a round can be any track type and any smaller class's venue, on one points table. The Area Championships take bike-part names (Boss, 4 Nov 2026: \"Sprocket Cup to Sprocket Cup\"). Legends: every MX track in area order, then every SX track, after the Crankshaft Cup. sidecar (Boss, 4 Nov 2026): raced as Ray Crispy's passenger and entered through him, never at the race office. The four Sidecar Series from Boss's sheet (Areas 1 to 3 MX twice from Area 3's story, Areas 4 to 6 twice from Area 6's, then every MX track to Area 7 and to Area 8) replace the one-an-area sidecar championships (Boss, 4 Nov 2026); their reward money is already the passenger's half.",
   "championships": [
     {
       "id": "area1.local_champion",
@@ -69,7 +69,7 @@
         { "money": 80 }
       ],
       "replay": 0.5,
-      "won": "You beat Cal Mercer to the Mountain Town badge. The Chain Cup is open: win it for your 85cc and the road to Beach Town."
+      "won": "You beat Andy McLaren to the Mountain Town badge. The Chain Cup is open: win it for your 85cc and the road to Beach Town."
     },
     {
       "id": "area2.main",
@@ -109,7 +109,7 @@
       "purseTimes": 2.6,
       "needs": ["area3.intro_done"],
       "rewards": [
-        { "money": 1000, "flag": "trophy.area3.mx", "title": "the Sandstorm MX Championship trophy" },
+        { "money": 1000, "flag": "trophy.area3.mx", "title": "the Sandstorm MX Championship trophy", "image": "art/ui/trophy-area3-mx.png" },
         { "money": 500 },
         { "money": 250 }
       ],
@@ -129,7 +129,7 @@
       "purseTimes": 2.6,
       "needs": ["area3.intro_done"],
       "rewards": [
-        { "money": 1000, "flag": "trophy.area3.sx", "title": "the Seafront SX Series trophy" },
+        { "money": 1000, "flag": "trophy.area3.sx", "title": "the Seafront SX Series trophy", "image": "art/ui/trophy-area3-sx.png" },
         { "money": 500 },
         { "money": 250 }
       ],
@@ -149,7 +149,7 @@
       "purseTimes": 2.6,
       "needs": ["area3.intro_done"],
       "rewards": [
-        { "money": 1000, "flag": "trophy.area3.enduro", "title": "the Driftwood EN Championship trophy" },
+        { "money": 1000, "flag": "trophy.area3.enduro", "title": "the Driftwood EN Championship trophy", "image": "art/ui/trophy-area3-enduro.png" },
         { "money": 500 },
         { "money": 250 }
       ],
@@ -169,7 +169,7 @@
       "purseTimes": 1.8,
       "needs": ["met.ray", "area3.intro_done"],
       "rewards": [
-        { "money": 500, "flag": "trophy.area3.sidecar", "title": "the Dune Run SCMX Championship trophy" },
+        { "money": 500, "flag": "trophy.area3.sidecar", "title": "the Dune Run SCMX Championship trophy", "image": "art/ui/trophy-area3-sidecar.png" },
         { "money": 250 },
         { "money": 125 }
       ],
@@ -198,7 +198,7 @@
         { "money": 125 }
       ],
       "replay": 0.5,
-      "won": "You beat Jonah Pike to the Beach Town badge. The Spark Plug Cup is open: win it for your 85cc big wheel and the road to Forest Town."
+      "won": "You beat Justin Smyth to the Beach Town badge. The Spark Plug Cup is open: win it for your 85cc big wheel and the road to Forest Town."
     },
     {
       "id": "area3.main",
@@ -245,7 +245,7 @@
         { "money": 200 }
       ],
       "replay": 0.5,
-      "won": "You beat Rowan Ash to the Forest Town badge. The Clutch Cup is open: win it for your 125cc Youth and the road to Western Works."
+      "won": "You beat Jeno Rothon to the Forest Town badge. The Clutch Cup is open: win it for your 125cc Youth and the road to Western Works."
     },
     {
       "id": "area4.main",
@@ -285,7 +285,7 @@
       "purseTimes": 2.6,
       "needs": ["area5.intro_done"],
       "rewards": [
-        { "money": 2600, "flag": "trophy.area5.sprint", "title": "the Ironworks SE Championship trophy" },
+        { "money": 2600, "flag": "trophy.area5.sprint", "title": "the Ironworks SE Championship trophy", "image": "art/ui/trophy-area5-sprint.png" },
         { "money": 1300 },
         { "money": 650 }
       ],
@@ -312,7 +312,7 @@
         { "money": 325 }
       ],
       "replay": 0.5,
-      "won": "You beat Mick Granger to the Western Works badge. The Gearbox Cup is open: win it for your 125cc and the road to the Highlands."
+      "won": "You beat Jordan Styles to the Western Works badge. The Gearbox Cup is open: win it for your 125cc and the road to the Highlands."
     },
     {
       "id": "area5.main",
@@ -352,7 +352,7 @@
       "purseTimes": 2.6,
       "needs": ["area6.intro_done"],
       "rewards": [
-        { "money": 4000, "flag": "trophy.area6.mx", "title": "the Highland Clash MX Championship trophy" },
+        { "money": 4000, "flag": "trophy.area6.mx", "title": "the Highland Clash MX Championship trophy", "image": "art/ui/trophy-area6-mx.png" },
         { "money": 2000 },
         { "money": 1000 }
       ],
@@ -372,7 +372,7 @@
       "purseTimes": 2.6,
       "needs": ["area6.intro_done"],
       "rewards": [
-        { "money": 4000, "flag": "trophy.area6.sx", "title": "the Thunder Glen SX Series trophy" },
+        { "money": 4000, "flag": "trophy.area6.sx", "title": "the Thunder Glen SX Series trophy", "image": "art/ui/trophy-area6-sx.png" },
         { "money": 2000 },
         { "money": 1000 }
       ],
@@ -392,7 +392,7 @@
       "purseTimes": 2.6,
       "needs": ["area6.intro_done"],
       "rewards": [
-        { "money": 4000, "flag": "trophy.area6.enduro", "title": "the Moorland EN Championship trophy" },
+        { "money": 4000, "flag": "trophy.area6.enduro", "title": "the Moorland EN Championship trophy", "image": "art/ui/trophy-area6-enduro.png" },
         { "money": 2000 },
         { "money": 1000 }
       ],
@@ -412,7 +412,7 @@
       "purseTimes": 1.8,
       "needs": ["met.ray", "area6.intro_done"],
       "rewards": [
-        { "money": 2000, "flag": "trophy.area6.sidecar", "title": "the Ben Mor SCMX Championship trophy" },
+        { "money": 2000, "flag": "trophy.area6.sidecar", "title": "the Ben Mor SCMX Championship trophy", "image": "art/ui/trophy-area6-sidecar.png" },
         { "money": 1000 },
         { "money": 500 }
       ],
@@ -434,7 +434,7 @@
       "purseTimes": 2.6,
       "needs": ["area6.intro_done"],
       "rewards": [
-        { "money": 4000, "flag": "trophy.area6.sprint", "title": "the Glen Sprint SE Championship trophy" },
+        { "money": 4000, "flag": "trophy.area6.sprint", "title": "the Glen Sprint SE Championship trophy", "image": "art/ui/trophy-area6-sprint.png" },
         { "money": 2000 },
         { "money": 1000 }
       ],
@@ -461,7 +461,7 @@
         { "money": 500 }
       ],
       "replay": 0.5,
-      "won": "You beat Ailsa Burns to the Highlands badge. The Handlebar Cup is open: win it for your 250cc F and the road to The City."
+      "won": "You beat Cody Shock to the Highlands badge. The Handlebar Cup is open: win it for your 250cc F and the road to The City."
     },
     {
       "id": "area6.main",
@@ -501,7 +501,7 @@
       "purseTimes": 2.6,
       "needs": ["area7.intro_done"],
       "rewards": [
-        { "money": 6400, "flag": "trophy.area7.mx", "title": "the Seven Towns MX Championship trophy" },
+        { "money": 6400, "flag": "trophy.area7.mx", "title": "the Seven Towns MX Championship trophy", "image": "art/ui/trophy-area7-mx.png" },
         { "money": 3200 },
         { "money": 1600 }
       ],
@@ -521,7 +521,7 @@
       "purseTimes": 2.6,
       "needs": ["area7.intro_done"],
       "rewards": [
-        { "money": 6400, "flag": "trophy.area7.sx", "title": "the Neon Nights SX Series trophy" },
+        { "money": 6400, "flag": "trophy.area7.sx", "title": "the Neon Nights SX Series trophy", "image": "art/ui/trophy-area7-sx.png" },
         { "money": 3200 },
         { "money": 1600 }
       ],
@@ -541,7 +541,7 @@
       "purseTimes": 2.6,
       "needs": ["area7.intro_done"],
       "rewards": [
-        { "money": 6400, "flag": "trophy.area7.enduro", "title": "the Long Road EN Championship trophy" },
+        { "money": 6400, "flag": "trophy.area7.enduro", "title": "the Long Road EN Championship trophy", "image": "art/ui/trophy-area7-enduro.png" },
         { "money": 3200 },
         { "money": 1600 }
       ],
@@ -561,7 +561,7 @@
       "purseTimes": 1.8,
       "needs": ["met.ray", "area7.intro_done"],
       "rewards": [
-        { "money": 3200, "flag": "trophy.area7.sidecar", "title": "the Metro Derby SCMX Championship trophy" },
+        { "money": 3200, "flag": "trophy.area7.sidecar", "title": "the Metro Derby SCMX Championship trophy", "image": "art/ui/trophy-area7-sidecar.png" },
         { "money": 1600 },
         { "money": 800 }
       ],
@@ -583,7 +583,7 @@
       "purseTimes": 2.6,
       "needs": ["area7.intro_done"],
       "rewards": [
-        { "money": 6400, "flag": "trophy.area7.sprint", "title": "the City Limits SE Championship trophy" },
+        { "money": 6400, "flag": "trophy.area7.sprint", "title": "the City Limits SE Championship trophy", "image": "art/ui/trophy-area7-sprint.png" },
         { "money": 3200 },
         { "money": 1600 }
       ],
@@ -603,7 +603,7 @@
       "purseTimes": 2.6,
       "needs": ["area7.intro_done"],
       "rewards": [
-        { "money": 6400, "flag": "trophy.area7.endurocross", "title": "the Warehouse Wars EX Series trophy" },
+        { "money": 6400, "flag": "trophy.area7.endurocross", "title": "the Warehouse Wars EX Series trophy", "image": "art/ui/trophy-area7-endurocross.png" },
         { "money": 3200 },
         { "money": 1600 }
       ],
@@ -630,7 +630,7 @@
         { "money": 800 }
       ],
       "replay": 0.5,
-      "won": "You beat Dev Okafor to The City badge. The Exhaust Cup is open: win it for your 450cc F and the road to the Capital."
+      "won": "You beat Bryan Villo to The City badge. The Exhaust Cup is open: win it for your 450cc F and the road to the Capital."
     },
     {
       "id": "area7.main",
@@ -670,7 +670,7 @@
       "purseTimes": 2.6,
       "needs": ["area8.intro_done"],
       "rewards": [
-        { "money": 10000, "flag": "trophy.area8.mx", "title": "the National Crown MX Championship trophy" },
+        { "money": 10000, "flag": "trophy.area8.mx", "title": "the National Crown MX Championship trophy", "image": "art/ui/trophy-area8-mx.png" },
         { "money": 5000 },
         { "money": 2500 }
       ],
@@ -690,7 +690,7 @@
       "purseTimes": 2.6,
       "needs": ["area8.intro_done"],
       "rewards": [
-        { "money": 10000, "flag": "trophy.area8.sx", "title": "the Supernova SX Series trophy" },
+        { "money": 10000, "flag": "trophy.area8.sx", "title": "the Supernova SX Series trophy", "image": "art/ui/trophy-area8-sx.png" },
         { "money": 5000 },
         { "money": 2500 }
       ],
@@ -710,7 +710,7 @@
       "purseTimes": 2.6,
       "needs": ["area8.intro_done"],
       "rewards": [
-        { "money": 10000, "flag": "trophy.area8.enduro", "title": "the Kingdom Trail EN Championship trophy" },
+        { "money": 10000, "flag": "trophy.area8.enduro", "title": "the Kingdom Trail EN Championship trophy", "image": "art/ui/trophy-area8-enduro.png" },
         { "money": 5000 },
         { "money": 2500 }
       ],
@@ -730,7 +730,7 @@
       "purseTimes": 1.8,
       "needs": ["met.ray", "area8.intro_done"],
       "rewards": [
-        { "money": 5000, "flag": "trophy.area8.sidecar", "title": "the Royal Classic SCMX Championship trophy" },
+        { "money": 5000, "flag": "trophy.area8.sidecar", "title": "the Royal Classic SCMX Championship trophy", "image": "art/ui/trophy-area8-sidecar.png" },
         { "money": 2500 },
         { "money": 1250 }
       ],
@@ -752,7 +752,7 @@
       "purseTimes": 2.6,
       "needs": ["area8.intro_done"],
       "rewards": [
-        { "money": 10000, "flag": "trophy.area8.sprint", "title": "the Royal Park SE Championship trophy" },
+        { "money": 10000, "flag": "trophy.area8.sprint", "title": "the Royal Park SE Championship trophy", "image": "art/ui/trophy-area8-sprint.png" },
         { "money": 5000 },
         { "money": 2500 }
       ],
@@ -772,7 +772,7 @@
       "purseTimes": 2.6,
       "needs": ["area8.intro_done"],
       "rewards": [
-        { "money": 10000, "flag": "trophy.area8.endurocross", "title": "the Dome Gauntlet EX Series trophy" },
+        { "money": 10000, "flag": "trophy.area8.endurocross", "title": "the Dome Gauntlet EX Series trophy", "image": "art/ui/trophy-area8-endurocross.png" },
         { "money": 5000 },
         { "money": 2500 }
       ],
@@ -799,7 +799,7 @@
         { "money": 1250 }
       ],
       "replay": 0.5,
-      "won": "You beat Max Sterling to the Capital badge. The Crankshaft Cup is open: win it for a new 450cc F and the Legends Championship."
+      "won": "You beat Sean Youngy to the Capital badge. The Crankshaft Cup is open: win it for a new 450cc F and the Legends Championship."
     },
     {
       "id": "area8.main",
@@ -837,7 +837,7 @@
       "purseTimes": 3.2,
       "needs": ["trophy.area8.main"],
       "rewards": [
-        { "money": 20000, "flag": "trophy.legends", "title": "the Legends trophy", "bike": "450f" },
+        { "money": 20000, "flag": "trophy.legends", "title": "the Legends trophy", "image": "art/ui/trophy-legends.png", "bike": "450f" },
         { "money": 10000 },
         { "money": 5000 }
       ],
@@ -858,7 +858,7 @@
       "purseTimes": 3.2,
       "level": 80,
       "rewards": [
-        { "money": 12000, "flag": "trophy.vets40", "title": "the Old Guard SX Series trophy", "bike": "450f" },
+        { "money": 12000, "flag": "trophy.vets40", "title": "the Old Guard SX Series trophy", "image": "art/ui/trophy-vets-40.png", "bike": "450f" },
         { "money": 6000 },
         { "money": 3000 }
       ],
@@ -879,7 +879,7 @@
       "purseTimes": 3.2,
       "level": 90,
       "rewards": [
-        { "money": 12000, "flag": "trophy.vets50", "title": "the Silver Trail EN Championship trophy", "bike": "450f" },
+        { "money": 12000, "flag": "trophy.vets50", "title": "the Silver Trail EN Championship trophy", "image": "art/ui/trophy-vets-50.png", "bike": "450f" },
         { "money": 6000 },
         { "money": 3000 }
       ],
@@ -900,7 +900,7 @@
       "purseTimes": 3.2,
       "level": 95,
       "rewards": [
-        { "money": 12000, "flag": "trophy.vets60", "title": "the Evergreen MX Championship trophy", "bike": "450f" },
+        { "money": 12000, "flag": "trophy.vets60", "title": "the Evergreen MX Championship trophy", "image": "art/ui/trophy-vets-60.png", "bike": "450f" },
         { "money": 6000 },
         { "money": 3000 }
       ],
@@ -921,7 +921,7 @@
       "purseTimes": 3.2,
       "needs": ["trophy.legends"],
       "rewards": [
-        { "money": 50000, "flag": "trophy.ultimate", "title": "the Road to Legend Ultimate Event trophy", "bike": "450f" },
+        { "money": 50000, "flag": "trophy.ultimate", "title": "the Road to Legend Ultimate Event trophy", "image": "art/ui/trophy-ultimate.png", "bike": "450f" },
         { "money": 25000 },
         { "money": 12500 }
       ],
