@@ -12,7 +12,7 @@ import { applyMapState, clearedPatches, hiddenSprites } from '../core/mapState';
 import { placeArrival, roadMenu, routeArrival, routeFor, sideOf, venueHere, type RoadStop } from '../core/guides';
 import { earning, goalObjects, hopsTo, nextHop, storyGoals } from '../core/waymarks';
 import { biggestBike, bikeImage, zoneFor } from '../core/worldMap';
-import { ROUTE, spawnTile, stepTriggerAt, triggerTilesToAvoid, type Arrival, type StepResult } from '../core/travel';
+import { ROUTE, spawnTile, stepTriggerAt, triggerTilesToAvoid, wayOutTiles, type Arrival, type StepResult } from '../core/travel';
 import { areaFlag, areaName, areaOfMap, buyHouse, buyMotor, houseFlag, motorProblem, openAreas, openReleasedAreas, roadWaiting, soldTexture } from '../core/areas';
 import { defaultSetup, effectiveSetup, positionValue, positionsFor, setupReport, sliderUnlocked, type SliderDef } from '../core/setup';
 import { DriveMap, FACING_OF, ON_FOOT, needsMotor, bayFor, driveLeavesBy, ensureVan, exitTile, footprint, arrivalPose, haulerAt, nearestFree, placeNear, planDrive, sheetFor, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
@@ -389,12 +389,15 @@ export class WorldScene extends Phaser.Scene {
   // ---- clicks and interaction ----
 
   private clickAt(wx: number, wy: number): void {
-    const tile = { x: Math.floor(wx / TILE), y: Math.floor(wy / TILE) };
+    // A click on a door or exit arrow is a click on the way out it marks (Boss, 7 Nov 2026).
+    const marked = this.waymarks.arrowAt(wx, wy);
+    const tile = marked ? marked.reduce((a, b) => (dist(b, this.player.tile) < dist(a, this.player.tile) ? b : a)) : { x: Math.floor(wx / TILE), y: Math.floor(wy / TILE) };
     if (this.driving) {
       this.clickDriving(tile, wx, wy);
       return;
     }
-    const target = this.targetAt(tile, wx, wy);
+    // The arrow is drawn over everything, so it wins over whoever stands under it.
+    const target = marked ? null : this.targetAt(tile, wx, wy);
     if (target) {
       this.approach(target);
       return;
@@ -406,7 +409,7 @@ export class WorldScene extends Phaser.Scene {
     }
     // A click on a way out walks to whichever of its tiles is nearest: stepping on any of them leaves.
     const via = stepTriggerAt(this.map, tile);
-    const ways = via ? objectTiles(via, this.map.tileSize) : [tile];
+    const ways = via ? wayOutTiles(this.map, via) : [tile];
     const path = this.planWalk(ways, () => (via && findPathToAny(this.grid, this.player.tile, ways)) || findPathTowards(this.grid, this.player.tile, tile));
     this.markTarget(tile.x * TILE + TILE / 2, tile.y * TILE + TILE / 2);
     this.setPath(path, null);

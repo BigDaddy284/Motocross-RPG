@@ -35,6 +35,16 @@ export function stepTriggerAt(map: BakedMap, t: Tile): MapObject | undefined {
 }
 
 /**
+ * Every tile of the way out a door or exit object is part of. A doorway drawn as several objects that
+ * go to the same place (Phoenix MX's two-tile front exit is two "Exit" objects) counts as one, so a
+ * click on either tile walks to whichever is nearer (Boss, 7 Nov 2026).
+ */
+export function wayOutTiles(map: BakedMap, via: MapObject): Tile[] {
+  const same = (o: MapObject) => o === via || (o.type === via.type && o.name === via.name && JSON.stringify(o.props) === JSON.stringify(via.props));
+  return map.objects.filter((o) => STEP_TYPES.has(o.type) && same(o)).flatMap((o) => objectTiles(o, map.tileSize));
+}
+
+/**
  * The door and exit tiles a walk should keep off: every one except the ways out the walk is aimed at
  * (Boss, 4 Nov 2026). A goal on any tile of a way out keeps the whole of it open, so a click on a
  * two-tile-wide exit walks straight onto whichever of its tiles is nearest and leaves there, instead

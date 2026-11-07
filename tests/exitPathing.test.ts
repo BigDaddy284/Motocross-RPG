@@ -4,7 +4,7 @@ import { Grid } from '../src/core/grid';
 import type { BakedMap, Tile } from '../src/core/mapTypes';
 import { objectTiles } from '../src/core/mapTypes';
 import { findPathToAny, findPathTowards } from '../src/core/pathfinding';
-import { stepTriggerAt, triggerTilesToAvoid } from '../src/core/travel';
+import { stepTriggerAt, triggerTilesToAvoid, wayOutTiles } from '../src/core/travel';
 import { DriveMap, driveLeavesBy, footprint, planDrive, type VanPose, type VehiclesData } from '../src/core/vehicles';
 import type { MapObject } from '../src/core/mapTypes';
 
@@ -14,7 +14,7 @@ const load = (id: string): BakedMap => JSON.parse(fs.readFileSync(`public/assets
 function walk(map: BakedMap, from: Tile, click: Tile): Tile[] {
   const grid = Grid.fromMap(map);
   const via = stepTriggerAt(map, click);
-  const ways = via ? objectTiles(via, map.tileSize) : [click];
+  const ways = via ? wayOutTiles(map, via) : [click];
   const plan = () => (via && findPathToAny(grid, from, ways)) || findPathTowards(grid, from, click);
   const kept = grid.avoiding(triggerTilesToAvoid(map, [...ways, from]), plan);
   return kept.length ? kept : plan();
@@ -125,5 +125,28 @@ describe('a van turning round over a way out', () => {
     expect(driveLeavesBy(exit, exit)).toBe(true);
     expect(driveLeavesBy({ ...exit }, exit)).toBe(true);
     expect(driveLeavesBy('any', exit)).toBe(true);
+  });
+});
+
+// Boss, 7 Nov 2026: Phoenix MX's front exit is two "Exit" objects side by side. A click on one kept the
+// walk off the other, so from the left of the room it went up and round to reach the tile clicked.
+describe('a way out drawn as several objects', () => {
+  const map = load('int-home-local-garage');
+
+  it('counts as one way out, apart from a side door that goes somewhere else', () => {
+    const front = stepTriggerAt(map, { x: 4, y: 6 })!;
+    expect(wayOutTiles(map, front)).toEqual([{ x: 3, y: 6 }, { x: 4, y: 6 }]);
+    expect(wayOutTiles(map, stepTriggerAt(map, { x: 8, y: 6 })!)).toEqual([{ x: 8, y: 6 }]);
+  });
+
+  it('a click on the far tile from the left of the room leaves by the near one, straight along the wall', () => {
+    const path = walk(map, { x: 1, y: 6 }, { x: 4, y: 6 });
+    expect(path).toEqual([{ x: 2, y: 6 }, { x: 3, y: 6 }]);
+  });
+
+  it('a click on the side door still keeps off the front exit', () => {
+    const path = walk(map, { x: 2, y: 6 }, { x: 8, y: 6 });
+    expect(path.at(-1)).toEqual({ x: 8, y: 6 });
+    expect(path.some((t) => t.y === 6 && (t.x === 3 || t.x === 4))).toBe(false);
   });
 });
