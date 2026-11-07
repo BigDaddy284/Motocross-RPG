@@ -300,6 +300,8 @@ Every step of the opening chain shows where to go next (`src/core/waymarks.ts`, 
 
 Markers come from `story.json` and the maps' doors and exits, so a new step needs no marker data. They never point down a road that is still shut. Reduced effects (Settings) keeps them still.
 
+The markers are drawn again as soon as a race day ends (Boss, 7 Nov 2026): after your first race Joseph's "!" goes at once, where before it stayed up until you got in your motor or reloaded, and a cup won puts his "!" up straight away.
+
 **Money in** (Boss, 1 Nov 2026): when money comes in, from the story, shift and job pay, an errand, a sale or prize money, a small bank note with the amount pops up over your rider's head instead of along the bottom of the screen, so it never sits over the chat box. It follows you for a moment, then floats up and fades.
 
 #### After the tutorial: challenges, errands and records (Boss, 28 Oct 2026)
