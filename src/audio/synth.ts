@@ -1047,7 +1047,7 @@ export function playSfx(s: Synth, id: SfxId, o: SfxOpts = {}): void {
         e.gain.linearRampToValueAtTime(0.07 * k, t + 0.03);
         e.gain.setValueAtTime(0.07 * k, t + 0.55);
         e.gain.linearRampToValueAtTime(0, t + 0.65);
-        chain(o2, s.filt('lowpass', 2500), e, s.pan(p), s.buses.crowd);
+        chain(o2, s.filt('lowpass', 2500), e, s.pan(p), s.buses.effects);
         o2.start(t);
         o2.stop(t + 0.7);
       }

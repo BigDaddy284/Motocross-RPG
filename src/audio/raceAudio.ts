@@ -30,7 +30,8 @@ export class RaceAudio {
   constructor(kind: EngineKind, private readonly opts: { gate: boolean; crowd: number; wet: boolean }) {
     this.engine = audio.engine(kind, { level: 1 });
     this.pack = [0, 1].map((i) => audio.engine(kind, { level: 0, p: i ? 0.35 : -0.35 })).filter((e): e is Engine => !!e);
-    this.crowd = opts.crowd > 0 ? audio.crowd(0.25 * opts.crowd) : null;
+    // No crowd: it sounded like static (Boss, 7 Nov 2026: "you can remove crowd noise"). The air horns stay.
+    this.crowd = null;
     this.timer = window.setInterval(() => this.watch(), 100);
   }
 

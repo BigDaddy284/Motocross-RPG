@@ -431,7 +431,7 @@ export class RaceScene extends Phaser.Scene {
       this.soundPanel = null;
       return;
     }
-    const rows: [string, 'master' | 'engines' | 'crowd' | 'effects' | 'music'][] = [['Master', 'master'], ['Bike engines', 'engines'], ['Crowd', 'crowd'], ['Effects', 'effects'], ['Music', 'music']];
+    const rows: [string, 'master' | 'engines' | 'effects' | 'music'][] = [['Master', 'master'], ['Bike engines', 'engines'], ['Effects', 'effects'], ['Music', 'music']];
     const w = 370;
     const h = 56 + rows.length * 40 + 44;
     const c = this.add.container(right - w, bottom - h);
