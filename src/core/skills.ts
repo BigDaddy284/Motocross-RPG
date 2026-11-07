@@ -1,4 +1,4 @@
-// Skills and XP (GDD 6, Spec 2). Child skills use the OSRS XP table; a lead skill's level comes
+// Skills and XP (GDD 6, Spec 2). Child skills use the OSRS XP table, squeezed so 99 is OSRS 85; a lead skill's level comes
 // from the sum of its children's XP plus its bonus pool, against the same table times its
 // multiplier. Cross-skill bonus XP goes into the linked lead's pool, never into a child skill, so
 // child levels always reflect real practice (Spec 2.1).
@@ -37,16 +37,20 @@ export const newSkillState = (): SkillState => ({ xp: {}, bonus: {} });
 
 const TABLE: number[] = (() => {
   // OSRS: the XP to reach level L is floor(sum over l < L of floor(l + 300 × 2^(l / 7)) / 4).
-  const t = [0, 0];
+  const osrs = [0, 0];
   let points = 0;
   for (let l = 1; l < 126; l++) {
     points += Math.floor(l + 300 * 2 ** (l / 7));
-    t.push(Math.floor(points / 4));
+    osrs.push(Math.floor(points / 4));
   }
-  return t;
+  // The OSRS curve squeezed so level 99 takes what OSRS level 85 does, about a quarter of the
+  // XP at every level; the XP rewards stay as they were (Boss, 7 Nov 2026: "max level 99 in our
+  // game works out to level 85 threshold from OSRS ... keep all xp rewards as they are").
+  const scale = osrs[85] / osrs[99];
+  return osrs.map((xp) => Math.round(xp * scale));
 })();
 
-/** XP needed for a child skill level (level 1 is 0 XP, level 99 is 13,034,431). */
+/** XP needed for a child skill level (level 1 is 0 XP, level 2 is 21, level 99 is 3,258,594). */
 export function xpForLevel(level: number): number {
   return TABLE[Math.max(1, Math.min(level, TABLE.length - 1))];
 }

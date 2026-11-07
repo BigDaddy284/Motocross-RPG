@@ -94,7 +94,7 @@ describe('batch jobs (Spec 15.1, 15.5)', () => {
     const grades = (mechLevel: number) => {
       const career = fresh();
       // Spread the lead's XP evenly across its seven children.
-      const perChild = xpForLevel(mechLevel) * 5 / 7;
+      const perChild = xpForLevel(mechLevel) * 5 / 7 + 1;
       for (const c of skills.leads.find((l) => l.id === 'mech')!.children) career.skills.xp[c.id] = perChild;
       expect(leadLevel(skills, career.skills, skills.leads.find((l) => l.id === 'mech')!)).toBeGreaterThanOrEqual(mechLevel);
       let seed = 12345;
