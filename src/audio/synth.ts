@@ -506,16 +506,11 @@ function bird(s: Synth, t: number, p: number, out: AudioNode): void {
   }
 }
 
-function passingCar(s: Synth, level: number): void {
-  const e = new Engine(s, 'van', { bus: 'effects', level, p: rnd(-1, 1) });
-  e.set(2200, 0.5, 0.8);
-  e.out.gain.setTargetAtTime(0, s.now + 1.5, 0.8);
-  setTimeout(() => e.stop(), 4500);
-}
-
 export type LoopId = 'town' | 'industrial' | 'countryside' | 'beach' | 'city' | 'wind' | 'rainLight' | 'rainHeavy' | 'paddock';
 
 /** The looping backgrounds: W1 to W6, a beach and a city made from the same parts, and R1. */
+// No passing cars in town or the city, and no machine hum in the Industrial Zone (Boss, 7 Nov 2026:
+// "that car driving by noise needs removing, and the heavy humming from the ind' zone").
 export function makeLoop(s: Synth, id: LoopId, engine: EngineKind = '250f'): Loop {
   const birds = (l: Loop, min: number, max: number) => l.every(() => bird(s, s.now, rnd(-0.8, 0.8), l.out), min, max);
   switch (id) {
@@ -523,25 +518,15 @@ export function makeLoop(s: Synth, id: LoopId, engine: EngineKind = '250f'): Loo
       return new Loop(s, (l) => {
         windBed(l, 0.12);
         birds(l, 1500, 4500);
-        l.every(() => passingCar(s, 0.25), 7000, 14000);
         l.every(() => clang(s, s.now, rnd(700, 900), 0.015, 0.4), 6000, 15000);
       });
     case 'city':
       return new Loop(s, (l) => {
         windBed(l, 0.1);
         birds(l, 4000, 9000);
-        l.every(() => passingCar(s, 0.3), 2500, 6000);
-        const hum = s.noiseSrc();
-        chain(hum, s.filt('lowpass', 250, 0.7), s.gain(0.12), l.out);
-        hum.start();
-        l.stops.push(hum);
       });
     case 'industrial':
       return new Loop(s, (l) => {
-        const h = s.osc('sawtooth', 50);
-        chain(h, s.filt('lowpass', 180), s.gain(0.15), l.out);
-        h.start();
-        l.stops.push(h);
         windBed(l, 0.2);
         l.every(() => {
           clang(s, s.now, rnd(150, 300), 0.05, 0.8);
