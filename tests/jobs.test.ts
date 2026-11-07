@@ -140,3 +140,14 @@ describe('batch jobs (Spec 15.1, 15.5)', () => {
     expect(pence(0.75)).toBe(100);
   });
 });
+
+describe('batch sizes by area (Boss, 7 Nov 2026)', () => {
+  // "Area 1- 50, Area 2- 60, Area 3- 70, Area 4- 80, Area 5- 90, Area 6, 7, & 8- 100"
+  const SIZE: Record<number, number> = { 1: 50, 2: 60, 3: 70, 4: 80, 5: 90, 6: 100, 7: 100, 8: 100 };
+  const areaOf = (map: string) => (/^int-a(\d)-/.exec(map) ? Number(/^int-a(\d)-/.exec(map)![1]) : map.startsWith('int-iz-') || map.startsWith('int-home-') ? 1 : NaN);
+
+  it('every batch job in an area makes that area\'s batch', () => {
+    expect(world.jobs.length).toBeGreaterThan(8);
+    for (const j of world.jobs) expect(j.batch, `${j.id} on ${j.map}`).toBe(SIZE[areaOf(j.map)]);
+  });
+});
