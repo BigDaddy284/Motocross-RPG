@@ -1,3 +1,4 @@
+import { audio } from '../audio/audio';
 import Phaser from 'phaser';
 import { modsLabel } from '../core/modifiers';
 import { bikeProblem, bikeStats, formatMoney, journal, pence, statMax, type CareerState } from '../core/career';
@@ -327,6 +328,7 @@ export class HudScene extends Phaser.Scene {
    * never sits over the chat box. It follows the rider for a moment, then floats up and fades.
    */
   moneyNote(amount: number): void {
+    audio.play('coins');
     const head = this.headAt?.();
     if (!head) return;
     this.note?.destroy();
@@ -381,6 +383,7 @@ export class HudScene extends Phaser.Scene {
    * the bank note with "−£X" in the middle of the screen, over any open panel, that rises a little and fades.
    */
   spendNote(amount: number): void {
+    audio.play('till');
     const { width, height } = view(this);
     this.spent?.destroy();
     // The same bank note as money coming in, framed in red, at 1.5 times the size (Boss, 2 Nov 2026).
@@ -526,6 +529,7 @@ export class HudScene extends Phaser.Scene {
   levelUp(name: string, level: number): void {
     this.levelLines.push(`Level up! ${name} → level ${level}`);
     if (this.levelLines.length > 1) return;
+    audio.play('levelUp');
     this.time.delayedCall(0, () => {
       const lines = this.levelLines;
       this.levelLines = [];
@@ -540,6 +544,7 @@ export class HudScene extends Phaser.Scene {
   /** News for the task line (a new task, a championship entered): it flashes and shows the news for a few seconds, even when the task line is switched off. */
   private taskNews: string | null = null;
   news(message: string): void {
+    audio.play('notify');
     this.taskNews = message;
     this.taskText.setText(message).setAlpha(1);
     this.tweens.killTweensOf(this.taskText);
@@ -562,6 +567,7 @@ export class HudScene extends Phaser.Scene {
 
   /** Something wrong with the browser (a save that failed): a red bar along the top until it is tapped. */
   errorBar(message: string): void {
+    audio.play('error');
     this.errorBox?.destroy();
     const { width } = view(this);
     const t = this.add.text(width / 2, 22, `${message}  (tap to close)`, textStyle(this.ts(15), 0xffffff, { fontStyle: 'bold', align: 'center', wordWrap: { width: width - 40 } })).setOrigin(0.5);
@@ -572,6 +578,7 @@ export class HudScene extends Phaser.Scene {
   }
 
   saveIndicator(text: string): void {
+    if (text === 'Game saved') audio.play('save');
     this.saveText.setText(text).setAlpha(1);
     this.tweens.killTweensOf(this.saveText);
     this.tweens.add({ targets: this.saveText, alpha: 0, delay: 1500, duration: 500 });
@@ -660,6 +667,7 @@ export class HudScene extends Phaser.Scene {
   }
 
   closeModal(): void {
+    if (this.modal) audio.play('menuClose');
     const done = this.onModalClose;
     this.modal?.destroy();
     this.modal = null;
@@ -688,6 +696,7 @@ export class HudScene extends Phaser.Scene {
    * the middle of the zone they're in. Fills the screen; a click, Esc or Close shuts it.
    */
   showWorldMap(wm: WorldMapData, zone: WorldMapZone | null, here: string, bike: string | null, onClose: () => void): void {
+    if (!this.modal && !this.pause) audio.play('menuOpen');
     const { width, height } = view(this);
     const c = this.add.container(0, 0);
     c.add(this.add.rectangle(width / 2, height / 2, width, height, COLORS.ink, 0.94).setInteractive().on('pointerup', () => this.closeModal()));
@@ -804,6 +813,8 @@ export class HudScene extends Phaser.Scene {
    * and returns the lines to show (the XP and any level-ups). Esc or Done leaves.
    */
   openDrill(drill: DrillDef, who: DrillWho, onFinish: () => string[], onClose: () => void): void {
+    audio.play('breath');
+    this.time.delayedCall(900, () => audio.play('breath'));
     const { width, height, k } = this.page();
     const w = Math.min(860, width - 32);
     const h = 360;
@@ -1053,6 +1064,7 @@ export class HudScene extends Phaser.Scene {
 
   /** Bike, bag and task in one panel (the task journal lives in the bag until the home PC, Spec 21b). */
   openPanel(tab: PanelTab, onClose?: () => void): void {
+    if (!this.modal && !this.pause) audio.play('menuOpen');
     const career = this.career;
     if (!career) {
       onClose?.();
@@ -1313,6 +1325,7 @@ export class HudScene extends Phaser.Scene {
    * and Fit a spare where it has a bench (GDD 8.3 to 8.5). Every change goes straight onto the career.
    */
   openShop(shop: ShopDef, tab: ShopTab, onClose: () => void, page = 0): void {
+    if (!this.modal && !this.pause) audio.play('menuOpen');
     const career = this.career;
     if (!career) return;
     const { bikes, shops } = services.content;
@@ -1700,6 +1713,7 @@ export class HudScene extends Phaser.Scene {
             const set = toolsFor(services.content.tools, career, p.slot)!.set;
             for (const u of addXp(services.content.skills, career.skills, { [set.skill]: services.content.tools.xp.fit })) this.levelUp(u.name, u.level);
           }
+          if (r.ok) audio.play('ratchet');
           done(r, 'fit', pg);
         }, 170, 38);
         b.setEnabled(!diyProblem && (!!p.owner || (career.money >= fee && p.class === cls)));
@@ -1733,6 +1747,7 @@ export class HudScene extends Phaser.Scene {
   }
 
   openPause(): void {
+    if (!this.modal && !this.pause) audio.play('menuOpen');
     if (this.pause) return;
     const { width, height, k } = this.page();
     this.scene.pause('world');

@@ -8,6 +8,7 @@ import { SettingsScene } from './scenes/SettingsScene';
 import { ModelsScene } from './scenes/ModelsScene';
 import { TrackEditScene } from './scenes/TrackEditScene';
 import { WorldScene } from './scenes/WorldScene';
+import { audio } from './audio/audio';
 import { DPR } from './ui/view';
 
 const game = new Phaser.Game({
@@ -19,6 +20,8 @@ const game = new Phaser.Game({
   // Drawn at the screen's real resolution and shown at CSS size (see ui/view.ts); fitScreen keeps it full-window.
   scale: { mode: Phaser.Scale.NONE, width: window.innerWidth * DPR, height: window.innerHeight * DPR, zoom: 1 / DPR },
   input: { activePointers: 2 },
+  // The game's sound is its own (audio/audio.ts), so Phaser's sound system stays off.
+  audio: { noAudio: true },
   scene: [BootScene, MenuScene, NewCareerScene, SettingsScene, WorldScene, HudScene, RaceScene, TrackEditScene, ModelsScene],
 });
 
@@ -47,6 +50,9 @@ window.visualViewport?.addEventListener('resize', fitScreen);
 // Safari ignores user-scalable=no: stop pinch and double-tap zoom, which push the game off screen.
 for (const ev of ['gesturestart', 'gesturechange', 'dblclick']) document.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
 fitScreen();
+
+// Browsers only allow sound after a click, tap or key press: the first one starts it (audio/audio.ts).
+for (const ev of ['pointerdown', 'keydown', 'touchend']) document.addEventListener(ev, () => audio.unlock(), { capture: true });
 
 // Exposed for automated playtests and debugging in the browser console.
 (window as unknown as { game: Phaser.Game }).game = game;

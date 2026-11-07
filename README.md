@@ -29,6 +29,15 @@ The game loop: **earn money, keep the bike going, race, level up, repeat.**
 
 It runs in a browser on desktop or on a phone held sideways, and saves automatically.
 
+### Sound and music (sound test build, Boss, 7 Nov 2026)
+
+Every sound from the sound demo page (`tools/audio-demo.html`, each sound with its code, U1 to M5) is in the game, made in code with no audio files, so it plays offline (Boss: "let's go with them all"). Sound starts with your first click, tap or key press, as browsers require.
+
+- **Menus:** clicks, the back sound on Back and Close, toggles, slider ticks, a buzz for a button you can't use yet or a blocked door, menus opening and closing, money in, paying at a till, level ups, a championship win, Save now, and typing your name.
+- **Towns:** town music, the place's own background (birds and passing cars in town, machine hum in the Industrial Zone and Western Works, the sea at Beach Town, traffic in the city, birds and wind in the hills), footsteps on grass, paving, gravel or wooden floors, doors in and out, the shop bell, the van's door and engine while you drive, and the workshop: welding, grinding, the impact gun and the ratchet on shifts and when you fit a part yourself. Drills start with a breath.
+- **Race day:** the race-day theme over the gate pick and results, then on the live screen your bike's engine (its class's own two-stroke or four-stroke), the pack around you, the crowd, the start board, the gate drop, landings, crashes, roost (mud in the rain), rain, the pit board, the white flag, the chequered flag with the crowd and air horns, and the finish fireworks. A podium plays a short win tune; a bad moto a short sad one.
+- **Settings > Audio:** Master, Music, Bike engines, Crowd and the new **Effects** slider, and Mute all.
+
 ## Play it
 
 - **In a browser:** once GitHub Pages is switched on (Settings > Pages > Source: GitHub Actions), every push to `main` publishes the game to this repo's Pages site. Release v1.0 is what `main` publishes (Boss, 7 Nov 2026), and the `/test-v2.0/` test build came off the site.
@@ -413,6 +422,8 @@ What stays, for development only: `?testtrack=<track id>` (and `&weather=<kind>`
 | `src/core/` | Game rules with no graphics: pathfinding, saves, settings, content checks, doors and exits, money, bikes and the opening chain (`career.ts`), story changes to maps (`mapState.ts`), skills and XP (`skills.ts`), the race simulation (`race.ts`), race days, practice and venues (`raceDay.ts`), and shops, repairs and spares (`shops.ts`). Covered by tests. |
 | `src/scenes/` | Phaser screens: boot, menus, settings, the world, the on-screen HUD, and the race and practice screen. |
 | `src/world/` | Drawing maps, characters and the van (`VanView.ts`). |
+| `src/audio/` | The game's sound, made in code with the Web Audio API: the sounds (`synth.ts`), the player scenes call (`audio.ts`) and the live race's sound (`raceAudio.ts`). The rules behind it (mix, footsteps, race cues) are in `src/core/sound.ts`. |
+| `tools/audio-demo.html` | The sound demo page: every sound with its code, to listen to on its own. |
 | `public/data/` | Game content as JSON: NPCs, dialogue, bikes, items, the opening chain (`story.json`), the world map, locks and shift jobs (`world.json`), shops and repairs (`shops.json`), and the vans (`vehicles.json`). Every file is checked when the game starts. |
 | `public/assets/` | Art and baked maps, written by the import tool. Don't edit by hand. |
 | `tools/import-art.mjs` | Copies the art from the shared art folder and bakes each Tiled map into one game-ready file. |

@@ -97,8 +97,9 @@ export class SettingsScene extends Phaser.Scene {
         label(1, 'Music'); slider(this, sliderX, rowY(1), sliderW, 0, 100, s.audio.music, upd('audio', 'music'));
         label(2, 'Bike engines'); slider(this, sliderX, rowY(2), sliderW, 0, 100, s.audio.engines, upd('audio', 'engines'));
         label(3, 'Crowd'); slider(this, sliderX, rowY(3), sliderW, 0, 100, s.audio.crowd, upd('audio', 'crowd'));
-        label(4, 'Mute all'); toggle(this, sliderX + 26, rowY(4), s.audio.muted, upd('audio', 'muted'));
-        this.add.text(left, rowY(5), 'The test build has no sound yet; these are saved for later.', textStyle(15, COLORS.muted)).setOrigin(0, 0.5);
+        label(4, 'Effects'); slider(this, sliderX, rowY(4), sliderW, 0, 100, s.audio.effects, upd('audio', 'effects'));
+        label(5, 'Mute all'); toggle(this, sliderX + 26, rowY(5), s.audio.muted, upd('audio', 'muted'));
+        this.add.text(left, rowY(6), 'Effects: buttons, footsteps, doors, the van, the workshop, and the race\'s jumps and crashes.', { ...textStyle(15, COLORS.muted), wordWrap: { width: w - 64 } }).setOrigin(0, 0.5);
         break;
       case 'Display':
         label(0, 'Map zoom (%)'); slider(this, sliderX, rowY(0), sliderW, ZOOM_MIN, ZOOM_MAX, s.display.zoom, upd('display', 'zoom'), ZOOM_STEP);

@@ -8,7 +8,8 @@ export type ZoomControl = 'slider' | 'buttons';
 export const ZOOM_CONTROLS: ZoomControl[] = ['slider', 'buttons'];
 
 export interface Settings {
-  audio: { master: number; music: number; engines: number; crowd: number; muted: boolean };
+  /** effects: menu, world and race sound effects (Boss, 7 Nov 2026: the sounds went in, Effects joined the sliders). */
+  audio: { master: number; music: number; engines: number; crowd: number; effects: number; muted: boolean };
   /** zoomControl: the on-screen zoom control, a pop-out slider or + and − buttons. */
   display: { zoom: number; fullscreen: boolean; zoomControl: ZoomControl };
   accessibility: { textScale: number; reducedEffects: boolean; highContrast: boolean };
@@ -22,7 +23,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  audio: { master: 80, music: 70, engines: 80, crowd: 70, muted: false },
+  audio: { master: 80, music: 70, engines: 80, crowd: 70, effects: 80, muted: false },
   display: { zoom: 100, fullscreen: false, zoomControl: 'slider' },
   accessibility: { textScale: 130, reducedEffects: false, highContrast: false },
   gameplay: { tutorialPrompts: true, contextHints: true, reminders: true, showTask: true },

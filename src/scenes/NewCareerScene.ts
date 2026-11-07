@@ -1,3 +1,4 @@
+import { audio } from '../audio/audio';
 import Phaser from 'phaser';
 import { bikeStats, statMax, type Bike } from '../core/career';
 import { services } from '../services';
@@ -23,6 +24,7 @@ export class NewCareerScene extends Phaser.Scene {
   }
 
   create(): void {
+    audio.music('menu');
     this.index = 0;
     this.brand = 0;
     const { bikes } = services.content;

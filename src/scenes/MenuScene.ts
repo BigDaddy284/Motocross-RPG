@@ -1,3 +1,4 @@
+import { audio } from '../audio/audio';
 import Phaser from 'phaser';
 import { BUILD_LABEL, CAREER_SLOT, services } from '../services';
 import { COLORS, textStyle } from '../ui/theme';
@@ -22,6 +23,10 @@ export class MenuScene extends Phaser.Scene {
   create(): void {
     this.overlay = undefined;
     keepStorage();
+    // The menu theme (demo M1); nothing from the world carries on under it.
+    audio.music('menu');
+    audio.ambience(null);
+    audio.weather(null);
     const draw = () => this.layout();
     draw();
     this.scale.on('resize', draw, this);
