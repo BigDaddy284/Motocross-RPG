@@ -34,6 +34,21 @@ export function stepTriggerAt(map: BakedMap, t: Tile): MapObject | undefined {
   return map.objects.find((o) => STEP_TYPES.has(o.type) && objectTiles(o, map.tileSize).some((c) => c.x === t.x && c.y === t.y));
 }
 
+/**
+ * The door and exit tiles a walk should keep off: every one except the ways out the walk is aimed at
+ * (Boss, 4 Nov 2026). A goal on any tile of a way out keeps the whole of it open, so a click on a
+ * two-tile-wide exit walks straight onto whichever of its tiles is nearest and leaves there, instead
+ * of looping round by the pavement to reach the very tile clicked (Boss, 7 Nov 2026).
+ */
+export function triggerTilesToAvoid(map: BakedMap, goals: Tile[]): Tile[] {
+  const isGoal = (t: Tile) => goals.some((g) => g.x === t.x && g.y === t.y);
+  return map.objects
+    .filter((o) => STEP_TYPES.has(o.type))
+    .map((o) => objectTiles(o, map.tileSize))
+    .filter((tiles) => !tiles.some(isGoal))
+    .flat();
+}
+
 export function spawnTile(map: BakedMap, name?: string): Tile | null {
   const spawns = map.objects.filter((o) => o.type === 'spawn');
   const s = name ? spawns.find((o) => o.name === name) : spawns[0];
