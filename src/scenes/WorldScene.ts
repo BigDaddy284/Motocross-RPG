@@ -1,3 +1,6 @@
+import { audio } from '../audio/audio';
+import type { VanChug } from '../audio/synth';
+import { ambienceFor, footingAt } from '../core/sound';
 import { isSupercross } from '../core/supercross';
 import { passengerEntry, passengerPracticeFee, passengerTrack, type PassengerTerms } from '../core/passenger';
 import Phaser from 'phaser';
@@ -145,6 +148,11 @@ export class WorldScene extends Phaser.Scene {
   private markPoint: { x: number; y: number; label: string; sub?: string } | null = null;
   private markEarning = false;
 
+  /** The van's engine while you drive it (demo V3, Boss, 7 Nov 2026). */
+  private vanSound: VanChug | null = null;
+  /** Footsteps alternate left and right a touch. */
+  private stepSide = 1;
+
   constructor() {
     super('world');
   }
@@ -226,6 +234,18 @@ export class WorldScene extends Phaser.Scene {
     this.player.liftAt = (t) => standLift(this.map, t.x, t.y);
     this.player.placeAt({ x, y });
 
+    // Town music, the place's background, and a door or the shop bell coming in or out (Boss, 7 Nov 2026).
+    audio.music('town');
+    audio.ambience(ambienceFor(map));
+    audio.weather(null);
+    if (lastMap && lastMap.kind !== map.kind) audio.play(map.kind === 'interior' ? 'doorOpen' : 'doorClose');
+    if (map.kind === 'interior' && lastMap?.kind === 'area' && /shop/.test(map.id)) this.time.delayedCall(150, () => audio.play('shopBell'));
+    lastMap = { id: map.id, kind: map.kind };
+    this.events.once('shutdown', () => {
+      this.vanSound?.stop();
+      this.vanSound = null;
+    });
+
     const cam = this.cameras.main;
     this.hud.setDriving(false);
     if (this.driving) this.sitInVan();
@@ -288,6 +308,7 @@ export class WorldScene extends Phaser.Scene {
     // The van drives every frame, whatever else is going on, on real time (Phaser's smoothed
     // delta runs slow when frames are long, which would make the van crawl on a slow device).
     this.van?.update(Math.min(this.game.loop.rawDelta, 100));
+    this.updateVanSound();
     if (this.busy || this.walking || this.hud.isDialogueOpen()) return;
     const dir = this.heldDirection();
     if (this.driving) {
@@ -941,7 +962,7 @@ export class WorldScene extends Phaser.Scene {
     this.hud.confirm(`${area.house.name}: for sale at £${area.house.price}.${extras}\nBuy it?`, 'Buy', () => {
       const r = buyHouse(area, career, this.save.flags);
       // Bought: the −£ note says it, with no message (Boss, 2 Nov 2026). A refusal still says why.
-      if (!r.ok) return void this.hud.toast(r.message);
+      if (!r.ok) return void (audio.play('error'), this.hud.toast(r.message));
       this.hud.showCareer(career, this.save.flags);
       this.refreshMapState();
       this.drawSoldHouses(this.map);
@@ -963,7 +984,7 @@ export class WorldScene extends Phaser.Scene {
       this.hud.confirm(`${design?.name ?? area.motor!.design}: £${area.motor!.price} with your old motor in part exchange. ${area.motor!.pitch ?? 'Bigger than the old one, and it never needs looking after.'}\nBuy it?`, 'Buy', () => {
         const r = buyMotor(vehicles, area, career, this.save.van!, this.save.flags);
         // Bought: the −£ note says it (Boss, 2 Nov 2026); only where the new motor is parked gets a message.
-        if (!r.ok) this.hud.toast(r.message);
+        if (!r.ok) (audio.play('error'), this.hud.toast(r.message));
         if (r.ok) {
           this.hud.showCareer(career, this.save.flags);
           this.milestoneSave();
@@ -1270,6 +1291,7 @@ export class WorldScene extends Phaser.Scene {
     this.busy = true;
     this.clearStationMarks();
     this.player.reach();
+    audio.play(workSound(st.label));
     await this.hud.progress(st.label, st.ms);
     this.player.idle();
     this.busy = false;
@@ -1490,7 +1512,7 @@ export class WorldScene extends Phaser.Scene {
       ...(c ? [{ label: `Leave ${c.name}`, note: `Costs ${formatMoney(dropPenalty(data, c))} of what they've paid you, and your name among sponsors.`, onPick: () => this.hud.confirm(`Leave ${c.name} now for ${formatMoney(dropPenalty(data, c))}?`, 'Leave', () => {
         const r = dropSponsor(data, career);
         this.hud.showCareer(career, this.save.flags);
-        if (!r.ok) this.hud.toast(r.message);
+        if (!r.ok) (audio.play('error'), this.hud.toast(r.message));
         this.milestoneSave();
         again();
       }, again) }] : []),
@@ -1558,7 +1580,7 @@ export class WorldScene extends Phaser.Scene {
           const r = buyOutfit(data, o, career, rider, this.save.flags);
           this.hud.showCareer(career, this.save.flags);
           // Only a refusal gets a message over the rack (Boss, 2 Nov 2026).
-          if (!r.ok) this.hud.toast(r.message);
+          if (!r.ok) (audio.play('error'), this.hud.toast(r.message));
           this.milestoneSave();
           again();
         } };
@@ -2003,8 +2025,22 @@ export class WorldScene extends Phaser.Scene {
     });
   }
 
+  /** The van's engine runs while you are in the cab, revving with its speed. */
+  private updateVanSound(): void {
+    const on = this.driving && !!this.van && !this.scene.isPaused();
+    if (!on) {
+      this.vanSound?.stop();
+      this.vanSound = null;
+      return;
+    }
+    this.vanSound ??= audio.van(0.9);
+    // The chug quickens up to the van's cruising speed (vanMotion tuningFor: 1000 / stepMs tiles a second).
+    this.vanSound?.setSpeed((Math.abs(this.van!.speed) * this.van!.design.stepMs) / 1000);
+  }
+
   private getIn(): void {
     if (!this.van) return;
+    audio.play('vanDoor');
     this.path = [];
     this.onArrive = null;
     this.save.driving = true;
@@ -2019,6 +2055,7 @@ export class WorldScene extends Phaser.Scene {
 
   /** Steps out on the driver's side if it is clear, otherwise wherever there is room. The van stays put. */
   getOut(): void {
+    if (this.driving && this.van && !this.walking && !this.busy) audio.play('vanDoor');
     const van = this.van;
     if (!van || !this.driving || this.walking || this.busy) return;
     const len = van.design.length;
@@ -2168,7 +2205,10 @@ export class WorldScene extends Phaser.Scene {
 
   /** Takes the van out by an exit it has reached, or says why it can't go. Returns true when leaving. */
   private vanThrough(r: NonNullable<StepResult>): boolean {
-    if (r.kind === 'blocked') this.hud.toast(r.message);
+    if (r.kind === 'blocked') {
+      audio.play('error');
+      this.hud.toast(r.message);
+    }
     else if (r.kind === 'route') {
       if (this.josephFirst()) return false;
       let went = false;
@@ -2355,6 +2395,13 @@ export class WorldScene extends Phaser.Scene {
     if (!this.walking) void this.walk([]);
   }
 
+  /** A footstep on whatever the tile is: grass, paving, gravel or a wooden floor (demo W7 to W10). */
+  private footstep(t: Tile): void {
+    const id = ({ grass: 'stepGrass', hard: 'stepHard', gravel: 'stepGravel', wood: 'stepWood' } as const)[footingAt(this.map, t)];
+    this.stepSide = -this.stepSide;
+    audio.play(id, { pan: 0.12 * this.stepSide, level: 0.8 });
+  }
+
   /** Walks the queued path (or the given steps), checking doors and exits on every tile. */
   private async walk(steps: Tile[]): Promise<void> {
     if (steps.length) this.path = steps;
@@ -2370,6 +2417,7 @@ export class WorldScene extends Phaser.Scene {
       }
       // Moving along an exit (say, off it after being turned back) doesn't set it off again.
       const from = stepTriggerAt(this.map, this.player.tile);
+      this.footstep(next);
       await this.player.step(next);
       this.walkedTile();
       if (from !== stepTriggerAt(this.map, this.player.tile) && this.checkTrigger()) {
@@ -2441,7 +2489,10 @@ export class WorldScene extends Phaser.Scene {
     if (r.kind === 'blocked') {
       this.path = [];
       this.onArrive = null;
-      if (!this.offerHouse(via)) this.hud.toast(r.message);
+      if (!this.offerHouse(via)) {
+        audio.play('error');
+        this.hud.toast(r.message);
+      }
       return false;
     }
     if (r.kind === 'route') {
@@ -2453,6 +2504,7 @@ export class WorldScene extends Phaser.Scene {
       if (needsMotor(this.save.van, this.map.id, this.driving)) {
         this.path = [];
         this.onArrive = null;
+        audio.play('error');
         this.hud.toast(ON_FOOT);
         return false;
       }
@@ -2565,4 +2617,16 @@ export class WorldScene extends Phaser.Scene {
 
 function dist(a: Tile, b: Tile): number {
   return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+}
+
+/** The map you were last on, for the door sound when you go in or come out. */
+let lastMap: { id: string; kind: string } | null = null;
+
+/** A work station's sound from what it says it does (jobboard.json station labels). */
+function workSound(label: string): 'welding' | 'grinder' | 'impactGun' | 'ratchet' {
+  const l = label.toLowerCase();
+  if (/weld/.test(l)) return 'welding';
+  if (/grind|machin|lathe|mill|cut|drill|polish|bore|hone|turn|dress|clean/.test(l)) return 'grinder';
+  if (/wheel|tyre|tire|rim/.test(l)) return 'impactGun';
+  return 'ratchet';
 }

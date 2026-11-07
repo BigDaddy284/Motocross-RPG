@@ -1,3 +1,6 @@
+import { audio } from '../audio/audio';
+import { RaceAudio } from '../audio/raceAudio';
+import { engineForClass, rainFor } from '../core/sound';
 import { className } from '../core/classes';
 import Phaser from 'phaser';
 import { lastReleasedArea } from '../core/areas';
@@ -18,7 +21,7 @@ import type { SaveData } from '../core/saves';
 import { raceKit } from '../core/house';
 import { services } from '../services';
 import { COLORS, textStyle } from '../ui/theme';
-import { binocularsIcon, button, panel, penMeter, type Button, type PenMeter } from '../ui/widgets';
+import { binocularsIcon, button, panel, penMeter, slider, speakerIcon, toggle, type Button, type PenMeter } from '../ui/widgets';
 import { directorFor, ROW_SIZE, type RaceDirector } from '../core/riderAI';
 import { isSidecarGate } from '../core/sidecar';
 import { isNoTurn, NO_TURN_GATES, SPRINT_QUEUE, startGeom } from '../core/trackGeom';
@@ -119,6 +122,12 @@ export class RaceScene extends Phaser.Scene {
   private colors = new Map<string, number>();
   /** Each rider's race-day bike and gear (Boss's brief, 24 Oct 2026: Race day bike colours). */
   private looks = new Map<string, RaceLook>();
+  /** The live race's engines, crowd and cues (audio/raceAudio.ts); null off the live screen. */
+  private raceAudio: RaceAudio | null = null;
+  /** The race screen's sound sliders, open over the view (toggleSoundPanel). */
+  private soundPanel: Phaser.GameObjects.Container | null = null;
+  /** Your race's sound cues already played: the white flag and your finish. */
+  private heard = { lastLap: false, finished: false };
   private names = new Map<string, string>();
   private ui: Record<string, Phaser.GameObjects.Text> = {};
   /** The pen in the race bar: its ink is the message changes left. */
@@ -203,7 +212,12 @@ export class RaceScene extends Phaser.Scene {
     this.root.add(this.screen);
     this.fit();
     this.scale.on('resize', this.relayout, this);
-    this.events.once('shutdown', () => this.scale.off('resize', this.relayout, this));
+    this.events.once('shutdown', () => {
+      this.scale.off('resize', this.relayout, this);
+      this.raceAudio?.stop();
+      this.raceAudio = null;
+      audio.weather(null);
+    });
     if (this.args.mode === 'practice') this.startPractice();
     else if (this.args.challenge) this.showChallengeStart(this.args.challenge);
     else {
@@ -340,6 +354,11 @@ export class RaceScene extends Phaser.Scene {
   // ---- small helpers ----
 
   private clear(): void {
+    // Off the live race: its sound stops and the race-day music plays over the menu screens.
+    this.raceAudio?.stop();
+    this.raceAudio = null;
+    audio.weather(null);
+    audio.music('race');
     this.screen.removeAll(true);
     this.fit();
     this.fitDirty = true;
@@ -347,6 +366,7 @@ export class RaceScene extends Phaser.Scene {
     this.pen = null;
     this.view = null;
     this.skipButton = null;
+    this.soundPanel = null;
     this.live = false;
     this.onTick = null;
   }
@@ -399,6 +419,37 @@ export class RaceScene extends Phaser.Scene {
       made.forEach((t) => t.destroy());
       size--;
     }
+  }
+
+  /**
+   * The volume sliders over the race view's bottom-right corner, its bottom right at (right, bottom):
+   * the same settings as Settings > Audio, heard as you change them while the race goes on.
+   */
+  private toggleSoundPanel(right: number, bottom: number): void {
+    if (this.soundPanel) {
+      this.soundPanel.destroy();
+      this.soundPanel = null;
+      return;
+    }
+    const rows: [string, 'master' | 'engines' | 'effects' | 'music'][] = [['Master', 'master'], ['Bike engines', 'engines'], ['Effects', 'effects'], ['Music', 'music']];
+    const w = 370;
+    const h = 56 + rows.length * 40 + 44;
+    const c = this.add.container(right - w, bottom - h);
+    c.add(panel(this, w / 2, h / 2, w, h).setInteractive());
+    c.add(this.add.text(18, 18, 'Sound', textStyle(20, COLORS.accent)));
+    const close = button(this, w - 44, 30, 'Close', () => this.toggleSoundPanel(right, bottom), 70, 30, 15);
+    c.add(close);
+    const audioSet = services.settings.get().audio;
+    rows.forEach(([label, key], i) => {
+      const y = 76 + i * 40;
+      c.add(this.add.text(18, y, label, textStyle(16)).setOrigin(0, 0.5));
+      c.add(slider(this, 140, y, 160, 0, 100, audioSet[key], (v) => services.settings.update('audio', key, v)));
+    });
+    const my = 76 + rows.length * 40;
+    c.add(this.add.text(18, my, 'Mute all', textStyle(16)).setOrigin(0, 0.5));
+    c.add(toggle(this, 166, my, audioSet.muted, (v) => services.settings.update('audio', 'muted', v)));
+    this.screen.add(c);
+    this.soundPanel = c;
   }
 
   private openModal(w: number, h: number): Phaser.GameObjects.Container {
@@ -821,7 +872,7 @@ export class RaceScene extends Phaser.Scene {
     const right = dw - 16 - sideW;
     const vw = right - 14 - 16;
     // Room at the view's bottom-right corner for the zoom button (Boss, 3 Nov 2026).
-    this.skipX = 16 + vw - 14 - 110 - 52;
+    this.skipX = 16 + vw - 14 - 110 - 52 - 44;
     // Riders ride up to the start in the order they picked their gates.
     this.director = directorFor(sim, services.content.bikes, services.content.racing.messages, this.day?.pickOrder ?? this.sxRace?.riders);
     // The view keeps the 1280 × 720 layout's scale (900 wide), so a wider one shows more track, not bigger bikes.
@@ -830,6 +881,13 @@ export class RaceScene extends Phaser.Scene {
     // (Boss, 28 Oct 2026; no header bar, 31 Oct 2026).
     this.view = new RaceView(this, this.screen, sim.track, services.content.trackParts, 16, 16, vw, dh - 54, undefined, { scaleWidth: 900, weather: this.day?.weather ?? this.sx?.weather });
     this.view.hasStart = !practice;
+    // The live race makes its own sound: no music, the engines, the crowd and any rain (Boss, 7 Nov 2026).
+    audio.quiet();
+    const rain = rainFor(this.day?.weather ?? this.sx?.weather);
+    audio.weather(rain);
+    this.heard = { lastLap: false, finished: false };
+    this.raceAudio = new RaceAudio(engineForClass(this.looks.get(PLAYER_ID)?.cls), { gate: !practice && !this.day?.sprint, crowd: practice ? 0 : 1, wet: !!rain });
+    this.view.onFirework = (kind, pan) => audio.play(kind, { pan, level: 0.8 });
     // Fireworks at the finish only where riders race to the line together, not in qualifying or a knockout's seeding run.
     this.view.showFireworks = !practice && !this.qualifying && !(this.ko && !this.koHeat) && !(this.sx && this.sxRace?.kind !== 'main');
     // The flag man and the pit boards count the race's laps.
@@ -921,6 +979,10 @@ export class RaceScene extends Phaser.Scene {
       this.view!.zoom = zooms[zi];
     }, 36, 28);
     zoomBtn.add(binocularsIcon(this, 0, 0));
+    // Sound (Boss, 7 Nov 2026: "need some audio option available during the race view"): a speaker
+    // button beside the binoculars opens the volume sliders over the view, and the race carries on.
+    const soundBtn = this.btn(16 + vw - 14 - 20 - 44, dh - 38 - 22, '', () => this.toggleSoundPanel(16 + vw - 14, dh - 38 - 22 - 22), 36, 28);
+    soundBtn.add(speakerIcon(this, 0, 0, 22));
     this.addLap(sim.nextLap());
     // A race opens with the start procedure: the line-up, then the board and the five-second
     // hold, all in negative race time up to the gate drop at 0 (riderAI lineUp, RaceView updateStart).
@@ -1122,6 +1184,7 @@ export class RaceScene extends Phaser.Scene {
     // In a sprint (and its qualifying) the numbers over the bikes are the order on time, as in the tower.
     const sprint = !!this.day?.sprint && !practice;
     const labels = sprint ? this.sprintOrder(pos).map((r) => r.p) : order;
+    const focus = this.focus(pos, leader.id);
     this.view?.update(poses.map((p) => ({
       pose: p,
       color: this.colors.get(p.id) ?? COLORS.accent,
@@ -1129,10 +1192,22 @@ export class RaceScene extends Phaser.Scene {
       label: String(labels.findIndex((o) => o.id === p.id) + 1),
       player: p.id === PLAYER_ID,
       startRow: this.director!.startRow(p.id),
-    })), this.clock, this.frameDt, this.focus(pos, leader.id));
+    })), this.clock, this.frameDt, focus);
+    this.raceAudio?.update(poses, this.clock, focus, this.frameDt);
 
     const me = pos.find((p) => p.id === PLAYER_ID)!;
     const myLap = Math.max(1, Math.min(Math.floor(me.dist) + 1, sim.totalLaps ?? Infinity));
+    if (!practice && sim.totalLaps) {
+      // The white flag as you start your last lap; the crowd and the air horns as you take the chequered flag.
+      if (!this.heard.lastLap && sim.totalLaps > 1 && myLap === sim.totalLaps && me.dist >= sim.totalLaps - 1 && !me.out) {
+        this.heard.lastLap = true;
+        audio.play('lastLap');
+      }
+      if (!this.heard.finished && me.finished) {
+        this.heard.finished = true;
+        this.raceAudio?.cheer(order[0]?.id === PLAYER_ID ? 1.3 : 0.8, true);
+      }
+    }
     const msg = services.content.racing.messages.find((m) => m.id === sim.playerMessage)!;
     if (practice) {
       this.ui.title.setText(`${this.args.venue.name} · Practice`);
@@ -1380,6 +1455,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private pitBoard(): void {
+    audio.play('pitBoard');
     const sim = this.sim!;
     const { racing } = services.content;
     const c = this.openModal(1180, 620);
@@ -1515,6 +1591,7 @@ export class RaceScene extends Phaser.Scene {
     this.header(`Moto ${n} results`, this.dayTitle());
     this.resultTable(rec.results, 40, 110);
     const me = rec.results.find((r) => r.player)!;
+    audio.sting(!me.retired && me.position <= 3 ? 'win' : 'lose');
     this.box(740, 110, 500, 470);
     const xp = Object.values(rec.xp).reduce((a, b) => a + b, 0);
     this.text(764, 126, 'Your moto', 24, COLORS.accent);
@@ -1684,6 +1761,7 @@ export class RaceScene extends Phaser.Scene {
     if (fin.position === 1) addReputation(sponsors, career, sponsors.reputation.championshipWin * (sponsors.reputation.tierWeight[kind] ?? 1));
     const offers = sponsorsOpen(sponsors, this.save.flags) ? makeOffers(sponsors, services.content, career, (career.counters['race.days'] ?? 0) * 31 + fin.position) : [];
     if (offers.length) career.sponsorOffers = offers;
+    if (fin.position === 1) audio.play('trophy');
     this.text(764, 126, fin.position === 1 ? 'Champion!' : `${ordinal(fin.position)} in the championship`, 28, COLORS.accent);
     const lines = [];
     if (fin.position === 1) lines.push(fin.firstWin && def.won ? def.won : `You won the ${def.name} again.`);

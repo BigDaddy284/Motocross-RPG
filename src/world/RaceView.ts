@@ -368,6 +368,8 @@ export class RaceView {
   zoom = 1;
   /** False where nobody races to the line first (qualifying, a No-Turn Takedown's seeding run): no finish fireworks. */
   showFireworks = true;
+  /** Told as each finish rocket goes up and bursts, with its side (-1 left, 1 right), for the sound. */
+  onFirework: ((kind: 'rocket' | 'burst', pan: number) => void) | null = null;
   /** Scenery models' own animations, each playing on a loop (playLoops); they run in the track editor's view too. */
   private readonly loops: THREE.AnimationMixer[] = [];
   /** Scenery models' Track parts, turning to follow their rider for the lap (core LIVE_PARTS, trackStep; Boss, 1 and 3 Nov 2026). */
@@ -3762,6 +3764,8 @@ export class RaceView {
       const u0 = (at - dc - r.t) / ROCKET_RISE;
       const u = (at - r.t) / ROCKET_RISE;
       if (u0 >= 1) return;
+      if (u0 <= 0 && u > 0) this.onFirework?.('rocket', r.side * 0.6);
+      if (u0 < 1 && u >= 1) this.onFirework?.('burst', r.side * 0.6);
       for (const [a, b] of this.archTops) {
         const from = r.side < 0 ? a : b;
         const to = r.side < 0 ? b : a;

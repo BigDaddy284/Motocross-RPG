@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { audio } from '../audio/audio';
 import { COLORS, FONT, hex, textStyle } from './theme';
 
 // Small UI building blocks drawn with shapes and text until the UI art exists.
@@ -11,6 +12,9 @@ export interface Button extends Phaser.GameObjects.Container {
   /** Marks one button of a group as the current choice. */
   setSelected(on: boolean): Button;
 }
+
+/** Labels of buttons that close something or go back: they play the back sound. */
+const BACK_LABEL = /^(back|close|cancel|not now|no\b|leave|done|×|✕)/i;
 
 export function button(scene: Phaser.Scene, x: number, y: number, label: string, onClick: () => void, width = 260, height = 44, fontSize = 20): Button {
   const bg = scene.add.rectangle(0, 0, width, height, COLORS.panel).setStrokeStyle(2, COLORS.inkLine);
@@ -33,9 +37,18 @@ export function button(scene: Phaser.Scene, x: number, y: number, label: string,
   let selected = false;
   const rest = () => bg.setFillStyle(selected ? COLORS.accentDark : COLORS.panel);
   c.setSize(width, height).setInteractive({ useHandCursor: true });
-  c.on('pointerover', () => enabled && bg.setFillStyle(COLORS.accentDark));
+  c.on('pointerover', () => {
+    if (!enabled) return;
+    bg.setFillStyle(COLORS.accentDark);
+    audio.play('hover');
+  });
   c.on('pointerout', rest);
-  c.on('pointerup', () => enabled && onClick());
+  // A click, or the back sound for a button that closes or goes back (Boss, 7 Nov 2026; demo U2, U3).
+  c.on('pointerup', () => {
+    if (!enabled) return audio.play('error');
+    audio.play(BACK_LABEL.test(text.text) ? 'back' : 'click');
+    onClick();
+  });
   c.setEnabled = (on: boolean) => {
     enabled = on;
     text.setAlpha(on ? 1 : 0.4);
@@ -59,6 +72,24 @@ export function button(scene: Phaser.Scene, x: number, y: number, label: string,
     return c;
   };
   return c;
+}
+
+/** A loudspeaker drawn with shapes, about `w` wide, centred on (x, y): the race screen's sound button (Boss, 7 Nov 2026). */
+export function speakerIcon(scene: Phaser.Scene, x: number, y: number, w = 24): Phaser.GameObjects.Graphics {
+  const g = scene.add.graphics({ x, y });
+  const k = w / 24;
+  g.fillStyle(COLORS.cream, 1);
+  g.fillRect(-11 * k, -4 * k, 6 * k, 8 * k);
+  g.fillTriangle(-6 * k, -4 * k, 1 * k, -10 * k, 1 * k, 10 * k);
+  g.fillTriangle(-6 * k, -4 * k, 1 * k, 10 * k, -6 * k, 4 * k);
+  g.lineStyle(2 * k, COLORS.cream, 1);
+  g.beginPath();
+  g.arc(2 * k, 0, 5 * k, -0.9, 0.9);
+  g.strokePath();
+  g.beginPath();
+  g.arc(2 * k, 0, 9 * k, -0.9, 0.9);
+  g.strokePath();
+  return g;
 }
 
 /**
@@ -149,13 +180,17 @@ export function slider(
     if (notify && v !== value) {
       value = v;
       onChange(v);
+      audio.play('slider');
     }
   };
   set(value, false);
   const hit = scene.add.rectangle(width / 2, 0, width + 20, 30, 0, 0).setInteractive({ useHandCursor: true });
   c.add(hit);
+  // Into the slider's own space, so it works inside scaled or moved containers too (the race screen's sound panel).
   const fromPointer = (p: Phaser.Input.Pointer) => {
-    set(min + (Phaser.Math.Clamp(scene.cameras.main.getWorldPoint(p.x, p.y).x - c.x, 0, width) / width) * (max - min), true);
+    const w = scene.cameras.main.getWorldPoint(p.x, p.y);
+    const local = c.getWorldTransformMatrix().applyInverse(w.x, w.y);
+    set(min + (Phaser.Math.Clamp(local.x, 0, width) / width) * (max - min), true);
   };
   hit.on('pointerdown', (p: Phaser.Input.Pointer) => {
     fromPointer(p);
@@ -180,6 +215,7 @@ export function toggle(scene: Phaser.Scene, x: number, y: number, value: boolean
     value = !value;
     draw();
     onChange(value);
+    audio.play(value ? 'toggleOn' : 'toggleOff');
   });
   return c;
 }
@@ -247,6 +283,7 @@ export function textInput(scene: Phaser.Scene, root: Phaser.GameObjects.Containe
   // Phaser listens for keys on the window: stop them reaching the game while typing.
   const stop = (e: KeyboardEvent) => e.stopPropagation();
   el.addEventListener('keydown', stop);
+  el.addEventListener('input', () => audio.play('type'));
   el.addEventListener('keyup', stop);
   scene.events.once('shutdown', () => {
     window.removeEventListener('resize', place);
