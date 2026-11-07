@@ -1069,7 +1069,11 @@ export class WorldScene extends Phaser.Scene {
         marks.push({ kind: 'npc', x, y });
         points.push({ x, y: y - TILE, label: what });
       } else {
-        const objs = goalObjects(this.map, goal.action, career.story.used, services.content.training).map((o) => objectTiles(o, ts));
+        // A shift under way at this bench: the station rings show the work, so the bench's outline goes
+        // until the shift ends (Boss, 7 Nov 2026: the engine rebuilder's bench stayed lit once the batch began).
+        const objs = goalObjects(this.map, goal.action, career.story.used, services.content.training)
+          .filter((o) => o.name !== this.shift?.job.start)
+          .map((o) => objectTiles(o, ts));
         marks.push(...objs.map((tiles): Mark => ({ kind: 'object', tiles })));
         points.push(...objs.map((tiles) => ({ ...middle(tiles), label: what })));
       }
@@ -1207,6 +1211,7 @@ export class WorldScene extends Phaser.Scene {
       if (!r.ok) return void this.hud.toast(r.reason);
       this.shift = { job, made: r.open.made, station: 0 };
       this.showShift();
+      this.refreshWaymarks();
       void this.workStation();
     }, () => this.player.idle());
     return true;
@@ -1311,6 +1316,7 @@ export class WorldScene extends Phaser.Scene {
   private endShift(message: string): void {
     this.shift = null;
     this.clearStationMarks();
+    this.refreshWaymarks();
     this.hud.showShift(null);
     this.hud.toast(message);
   }
