@@ -46,9 +46,13 @@ export function clusters(tiles: Tile[]): Tile[][] {
 }
 
 const ARROW_ANGLE: Record<string, number> = { south: 0, west: 90, north: 180, east: 270 };
+/** Half the side of the square round an arrow's middle that counts as a click on it. */
+const ARROW_HIT = 34;
 
 export class Waymarks {
   private objects: Phaser.GameObjects.GameObject[] = [];
+  /** Where each door and exit arrow is drawn, and the tiles it marks, so a click on the arrow goes there. */
+  private arrows: { x: number; y: number; tiles: Tile[] }[] = [];
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -61,6 +65,18 @@ export class Waymarks {
       o.destroy();
     }
     this.objects = [];
+    this.arrows = [];
+  }
+
+  /**
+   * The door or exit tiles whose arrow is under a point, if any. The arrow is drawn just in front of
+   * the way out, so a click on it would otherwise land on the tile before the exit and stop there
+   * (Boss, 7 Nov 2026: leaving Phoenix MX took two clicks).
+   */
+  arrowAt(wx: number, wy: number): Tile[] | null {
+    // The arrow is about 50 by 60 pixels and bobs 10 pixels: a box round its centre covers it.
+    const hit = this.arrows.find((a) => Math.abs(wx - a.x) <= ARROW_HIT && Math.abs(wy - a.y) <= ARROW_HIT);
+    return hit ? hit.tiles : null;
   }
 
   show(marks: Mark[]): void {
@@ -140,6 +156,8 @@ export class Waymarks {
     if (!this.calm) this.scene.tweens.add({ targets: glow, alpha: 0.15, duration: 700, yoyo: true, repeat: -1 });
     const c = this.add(this.scene.add.container(x, y - TILE * 0.55, [this.arrow()]).setDepth(DEPTH));
     this.bob(c, -10, 450);
+    // The arrow's body is centred 12 pixels above the container, and the bob takes it up to 10 more.
+    this.arrows.push({ x, y: y - TILE * 0.55 - 12 - 5, tiles });
   }
 
   /** 4A once in view: the arrow on the exit, pointing the way out. */
@@ -152,6 +170,8 @@ export class Waymarks {
     const cx = x + Math.sin(rad) * back;
     const cy = y - Math.cos(rad) * back;
     const c = this.add(this.scene.add.container(cx, cy, [this.arrow()]).setDepth(DEPTH).setAngle(angle));
+    // The arrow's body is centred 12 pixels back along its tail, and the bob moves it up to 10 forward.
+    this.arrows.push({ x: cx + Math.sin(rad) * 7, y: cy - Math.cos(rad) * 7, tiles });
     if (!this.calm) {
       this.scene.tweens.add({ targets: c, x: cx - Math.sin(rad) * 10, y: cy + Math.cos(rad) * 10, duration: 450, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     }
