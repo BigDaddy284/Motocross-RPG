@@ -29,7 +29,7 @@ The game loop: **earn money, keep the bike going, race, level up, repeat.**
 
 It runs in a browser on desktop or on a phone held sideways, and saves automatically.
 
-### Sound and music (sound test build, Boss, 7 Nov 2026)
+### Sound and music (Boss, 7 Nov 2026)
 
 Every sound from the sound demo page (`tools/audio-demo.html`, each sound with its code, U1 to M5) is in the game, made in code with no audio files, so it plays offline (Boss: "let's go with them all"). Sound starts with your first click, tap or key press, as browsers require.
 
