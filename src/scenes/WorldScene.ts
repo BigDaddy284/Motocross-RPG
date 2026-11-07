@@ -1839,6 +1839,10 @@ export class WorldScene extends Phaser.Scene {
         const gain = save.career.money - this.save.career.money;
         this.save = save;
         this.busy = false;
+        // The race day can move the task on (first_race_done takes Joseph's "!" away, a cup won puts
+        // it back): draw the markers from the new save, not only when the player next gets in the van
+        // or reloads (Boss, 7 Nov 2026).
+        this.refreshWaymarks();
         onClose();
         this.hud.showCareer(this.save.career, this.save.flags);
         if (gain > 0) this.time.delayedCall(250, () => this.hud.moneyNote(gain));
