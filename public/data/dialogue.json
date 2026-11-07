@@ -113,7 +113,7 @@
       { "speaker": "npc", "text": "Tool sets, one per part group. Buy a set once and it's yours for good. With the right set you repair and fit those parts yourself, at your tool cabinet at home or out of the back of your motor, and it costs you nothing but the grade." }
     ] },
     "fabricator.hello": { "lines": [
-      { "speaker": "npc", "text": "Looking for shifts? Use the blue bench inside to start a batch of frame brackets. It's £1.50 a bracket." },
+      { "speaker": "npc", "text": "Looking for shifts? Use the blue bench inside to start a batch of frame brackets. It's £3 a bracket." },
       { "speaker": "npc", "text": "Finish the batch and one of them's yours to keep. Stop whenever you like; it'll be waiting for you." }
     ] },
     "engine_rebuilder.hello": { "lines": [
@@ -162,7 +162,7 @@
       { "speaker": "npc", "text": "Heard you've been helping out round town. Good on you." },
       { "speaker": "npc", "text": "Keep an eye out for Dan Smyth by the practice yard down the road. He's always causing trouble and telling everyone he's the fastest in the zone." },
       { "speaker": "npc", "text": "Look after your bike, and you might just beat him at his own game." },
-      { "speaker": "npc", "text": "And if you want shifts, use the blue bench inside to start a batch of frame brackets. It's £1.50 a bracket." }
+      { "speaker": "npc", "text": "And if you want shifts, use the blue bench inside to start a batch of frame brackets. It's £3 a bracket." }
     ] },
     "scrapyard_owner.offer": { "lines": [
       { "speaker": "npc", "text": "Hello there! Got a minute? This old part's seen better days, and I'm far too busy to take it in myself." },
