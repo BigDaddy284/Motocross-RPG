@@ -15,7 +15,7 @@ import { biggestBike, bikeImage, zoneFor } from '../core/worldMap';
 import { ROUTE, spawnTile, stepTriggerAt, triggerTilesToAvoid, type Arrival, type StepResult } from '../core/travel';
 import { areaFlag, areaName, areaOfMap, buyHouse, buyMotor, houseFlag, motorProblem, openAreas, openReleasedAreas, roadWaiting, soldTexture } from '../core/areas';
 import { defaultSetup, effectiveSetup, positionValue, positionsFor, setupReport, sliderUnlocked, type SliderDef } from '../core/setup';
-import { DriveMap, FACING_OF, ON_FOOT, needsMotor, bayFor, ensureVan, exitTile, footprint, arrivalPose, haulerAt, nearestFree, placeNear, planDrive, sheetFor, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
+import { DriveMap, FACING_OF, ON_FOOT, needsMotor, bayFor, driveLeavesBy, ensureVan, exitTile, footprint, arrivalPose, haulerAt, nearestFree, placeNear, planDrive, sheetFor, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
 import { forgetImport, keepImport, loadModTracks, modVenue, readModTrack, type ModTrack } from '../core/modTracks';
 import { isNoTurn } from '../core/trackGeom';
 import { venueClassFor, entryFee, fieldCount, lapsFor, practiceFee, coachedFee, trackById, venueProblem, type VenueDef } from '../core/raceDay';
@@ -2114,9 +2114,8 @@ export class WorldScene extends Phaser.Scene {
     for (const t of fresh) {
       const via = stepTriggerAt(this.map, t);
       if (!via || via.type !== 'exit') continue;
-      // A clicked drive only leaves by the way out that was clicked: turning round over another one on
-      // the way somewhere else doesn't open the road menu (Boss, 4 Nov 2026).
-      if (this.driveGoal !== 'any' && this.driveGoal !== via && !(this.driveGoal && this.driveGoal.name === via.name)) continue;
+      // A clicked drive only leaves by the way out that was clicked (Boss, 4 Nov 2026).
+      if (!driveLeavesBy(this.driveGoal, via)) continue;
       const r = services.travel.resolve(this.map, via, this.save.flags);
       if (!r) continue;
       this.moves = [];
