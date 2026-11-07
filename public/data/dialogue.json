@@ -353,7 +353,7 @@
     ] },
     "story.a2.works": { "lines": [
       { "speaker": "npc", "text": "You'll be the rider Paul mentioned. This is the Wheel works: we lace and true wheels for half the valley." },
-      { "speaker": "npc", "text": "Work a batch of 50 and you're paid £2 a wheel, Wheels XP every pass, and when the batch is done the best wheel of the lot is yours to keep." },
+      { "speaker": "npc", "text": "Work a batch of 60 and you're paid £2 a wheel, Wheels XP every pass, and when the batch is done the best wheel of the lot is yours to keep." },
       { "speaker": "npc", "text": "Start at the blue bench when you're ready. Stop whenever you like: the batch waits for you." }
     ] },
     "story.a2.training": { "lines": [

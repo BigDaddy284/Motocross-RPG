@@ -170,10 +170,10 @@ describe('money', () => {
   });
 
   // Brackets pay more than pistons: a bracket is four times the walking (Boss, 7 Nov 2026).
-  it('the Area 1 shifts are the Spec 15.5 batches (Boss, 6 and 7 Nov 2026): 50 brackets at £3 and 100 pistons at £2.50', () => {
+  it('the Area 1 shifts are the Spec 15.5 batches (Boss, 6 and 7 Nov 2026): 50 brackets at £3 and 50 pistons at £2.50', () => {
     const byId = Object.fromEntries(world.jobs.map((j) => [j.id, j]));
     expect(byId['job.fabrication']).toMatchObject({ batch: 50, pay: 3, keeps: ['bodywork'] });
-    expect(byId['job.engine']).toMatchObject({ batch: 100, pay: 2.5, keeps: ['top_end'] });
+    expect(byId['job.engine']).toMatchObject({ batch: 50, pay: 2.5, keeps: ['top_end'] });
   });
 });
 
