@@ -1,5 +1,5 @@
 import { Grid } from './grid';
-import { objectTiles, type BakedMap, type Facing, type Tile } from './mapTypes';
+import { objectTiles, type BakedMap, type Facing, type MapObject, type Tile } from './mapTypes';
 import { FOLD, flipPose, sweep } from './vanPath';
 import { validate, type ContentError, type Schema } from './validate';
 
@@ -459,6 +459,16 @@ const LANE_RUN = 4;
 /** How many tiles at each end of a van may stand off the road: two for the longest (Boss, 28 Oct 2026), one for the rest. */
 export function overhang(length: number): number {
   return length >= 7 ? 2 : 1;
+}
+
+/**
+ * Whether a drive leaves by a way out its van has just moved onto. A clicked drive only leaves by the
+ * way out that was clicked: turning round over another one on the way somewhere else doesn't open the
+ * road menu (Boss, 4 Nov 2026). `goal` is the clicked way out, null for a click anywhere else, or
+ * 'any' while steering with the keys, which takes any road out.
+ */
+export function driveLeavesBy(goal: MapObject | null | 'any', via: MapObject): boolean {
+  return goal === 'any' || goal === via || (!!goal && goal.name === via.name);
 }
 
 export type Move = { kind: 'forward' | 'reverse' | 'turn' | 'uturn' | 'backturn'; to: VanPose };
