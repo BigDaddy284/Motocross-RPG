@@ -31,7 +31,7 @@ It runs in a browser on desktop or on a phone held sideways, and saves automatic
 
 ## Play it
 
-- **In a browser:** once GitHub Pages is switched on (Settings > Pages > Source: GitHub Actions), every push to `main` publishes the game to this repo's Pages site. The Release v1.0 build is published beside it at `/test-v2.0/` from the `test/v2.0` branch, with its own saves (Boss, 6 Nov 2026; it was v1.5 at `/test-v1.5/` before).
+- **In a browser:** once GitHub Pages is switched on (Settings > Pages > Source: GitHub Actions), every push to `main` publishes the game to this repo's Pages site. Release v1.0 is what `main` publishes (Boss, 7 Nov 2026), and the `/test-v2.0/` test build came off the site.
 - **On your own computer:** install [Node.js](https://nodejs.org) (LTS), then:
 
   ```
