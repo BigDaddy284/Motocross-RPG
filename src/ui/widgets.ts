@@ -6,6 +6,8 @@ import { COLORS, FONT, hex, textStyle } from './theme';
 export interface Button extends Phaser.GameObjects.Container {
   setEnabled(on: boolean): Button;
   setLabel(text: string): Button;
+  /** Keeps the label clear of `left` px at the button's left and `right` px at its right (a badge at one end), still fitting it. */
+  makeRoom(left: number, right: number): Button;
   /** Marks one button of a group as the current choice. */
   setSelected(on: boolean): Button;
 }
@@ -13,6 +15,19 @@ export interface Button extends Phaser.GameObjects.Container {
 export function button(scene: Phaser.Scene, x: number, y: number, label: string, onClick: () => void, width = 260, height = 44, fontSize = 20): Button {
   const bg = scene.add.rectangle(0, 0, width, height, COLORS.panel).setStrokeStyle(2, COLORS.inkLine);
   const text = scene.add.text(0, 0, label, textStyle(fontSize)).setOrigin(0.5);
+  // Every label fits its button (Boss, 4 Nov 2026: "Old Tom: G3 intake and exhaust" ran out of the
+  // job board's): a long one is set smaller, then on two lines, never past the button's edges.
+  let pad = { left: 0, right: 0 };
+  const fit = () => {
+    const room = width - 16 - pad.left - pad.right;
+    let size = fontSize;
+    text.setWordWrapWidth(null).setFontSize(size);
+    while (text.width > room && size > Math.min(fontSize, 15)) text.setFontSize(--size);
+    if (text.width > room) text.setWordWrapWidth(room, true).setAlign('center');
+    while ((text.height > height - 4 || text.width > room) && size > 10) text.setFontSize(--size);
+    text.setX((pad.left - pad.right) / 2);
+  };
+  fit();
   const c = scene.add.container(x, y, [bg, text]) as Button;
   let enabled = true;
   let selected = false;
@@ -33,11 +48,73 @@ export function button(scene: Phaser.Scene, x: number, y: number, label: string,
     rest();
     return c;
   };
+  c.makeRoom = (left: number, right: number) => {
+    pad = { left, right };
+    fit();
+    return c;
+  };
   c.setLabel = (t: string) => {
     text.setText(t);
+    fit();
     return c;
   };
   return c;
+}
+
+/**
+ * Binoculars drawn with shapes, about `w` wide, centred on (x, y): the race screen's zoom button
+ * (Boss, 3 Nov 2026).
+ */
+export function binocularsIcon(scene: Phaser.Scene, x: number, y: number, w = 24): Phaser.GameObjects.Graphics {
+  const g = scene.add.graphics({ x, y });
+  const u = w / 24;
+  g.fillStyle(COLORS.cream, 1);
+  // Two barrels (wider at the front), a bridge between them and the eyepieces on top.
+  g.fillRoundedRect(-12 * u, -2 * u, 10 * u, 10 * u, 3 * u);
+  g.fillRoundedRect(2 * u, -2 * u, 10 * u, 10 * u, 3 * u);
+  g.fillRect(-3 * u, -1 * u, 6 * u, 4 * u);
+  g.fillRoundedRect(-9 * u, -8 * u, 6 * u, 7 * u, 2 * u);
+  g.fillRoundedRect(3 * u, -8 * u, 6 * u, 7 * u, 2 * u);
+  // Dark lens glass.
+  g.fillStyle(COLORS.inkLine, 1);
+  g.fillCircle(-7 * u, 3 * u, 3 * u);
+  g.fillCircle(7 * u, 3 * u, 3 * u);
+  return g;
+}
+
+/**
+ * A small gold trophy drawn with shapes, about `size` tall, centred on (x, y): marks where a
+ * championship's next round is on the road menu (Boss, 2 Nov 2026).
+ */
+/** The road menu's mark for where the task is (Boss, 2 Nov 2026): the orange "!" of the task markers. */
+export const TASK_MARK = '__task';
+
+export function trophyIcon(scene: Phaser.Scene, x: number, y: number, size = 30): Phaser.GameObjects.Graphics {
+  const g = scene.add.graphics({ x, y });
+  const u = size / 30;
+  const gold = 0xf2c14e;
+  const dark = 0x8a5a12;
+  g.lineStyle(2 * u, dark, 1);
+  // Handles, then the cup, stem and base over them.
+  g.strokeCircle(-9 * u, -6 * u, 5 * u);
+  g.strokeCircle(9 * u, -6 * u, 5 * u);
+  g.fillStyle(gold, 1);
+  g.beginPath();
+  g.moveTo(-10 * u, -14 * u);
+  g.lineTo(10 * u, -14 * u);
+  g.lineTo(7 * u, 0);
+  g.lineTo(2 * u, 3 * u);
+  g.lineTo(-2 * u, 3 * u);
+  g.lineTo(-7 * u, 0);
+  g.closePath();
+  g.fillPath();
+  g.strokePath();
+  g.fillRect(-2 * u, 3 * u, 4 * u, 6 * u);
+  g.fillRect(-8 * u, 9 * u, 16 * u, 5 * u);
+  g.strokeRect(-8 * u, 9 * u, 16 * u, 5 * u);
+  g.fillStyle(0xfff3c4, 0.8);
+  g.fillRect(-6 * u, -12 * u, 3 * u, 8 * u);
+  return g;
 }
 
 /** A dark backing panel with a thin outline. */
@@ -219,7 +296,7 @@ export function penMeter(scene: Phaser.Scene, x: number, y: number, segments: nu
     const ww = barrel - 2 * pad - 4;
     const seg = ww / n;
     for (let i = 0; i < n; i++) {
-      g.fillStyle(i < full ? 0x2e95ff : 0x34363f, 1).fillRect(wx + i * seg + (i ? 1 : 0), -h + pad, seg - (i ? 1 : 0) - (i < n - 1 ? 1 : 0), height - 2 * pad);
+      g.fillStyle(i < full ? COLORS.accentDark : 0x34363f, 1).fillRect(wx + i * seg + (i ? 1 : 0), -h + pad, seg - (i ? 1 : 0) - (i < n - 1 ? 1 : 0), height - 2 * pad);
     }
     // The section marks, drawn like the pen's printed ink lines.
     g.lineStyle(2, 0x0d0d12, 1);

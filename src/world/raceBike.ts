@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import type { OutfitRace, RaceCloth } from '../core/house';
+import { SIDECAR_CLASS } from '../core/sidecar';
 
 // The race-day bike and rider (Boss's brief, 24 Oct 2026: "Race day bike colours.png"; Boss, 25 Oct:
 // "use the model from the coloured race day rides"). A port of the vehicles thread's sprite models
@@ -57,6 +59,9 @@ const COLOURWAYS: Record<string, [Ramp, Ramp]> = {
   white: [WHITE, GREY],
   camo: [CAMO, BLACK],
   green: [GREEN, WHITE],
+  yellow: [YELLOW, BLACK],
+  // Black with white highlights (Sean Youngy, Boss, 6 Nov 2026).
+  blackwhite: [BLACK, BRIGHT_WHITE],
 };
 
 export interface Gear {
@@ -86,17 +91,43 @@ export const GEAR_SETS: Record<string, Gear> = {
   'cpu-camo': gear('black', 'white', 'white', 'camo', 'camo', 'camo'),
   'cpu-black': gear('black', 'orange', 'black', 'black', 'black', 'black'),
   'cpu-champion': gear('hivis', 'hivis', 'hivis', 'black', 'black', 'black'),
-  // Neal Gizard, the pro: blue with black (Boss, 28 Oct 2026).
+  // Neal Borne, the pro: blue with black (Boss, 28 Oct 2026).
   'cpu-neal': gear('blue', 'black', 'blue', 'black', 'blue', 'black'),
   // The named racers in their map kits, on bikes to match (Boss, 29 Oct 2026).
   'cpu-dan': gear('orange', 'black', 'orange', 'black', 'black', 'black', 'orange'),
   'cpu-mickey': gear('green', 'white', 'green', 'white', 'white', 'green', 'green'),
   'cpu-louis': gear('red', 'white', 'red', 'red', 'red', 'red', 'red'),
+  // The Area and Local Champions in their own kits, on bikes to match (Boss, 6 Nov 2026).
+  'cpu-brandon': gear('orange', 'black', 'orange', 'black', 'black', 'orange', 'orange'),
+  'cpu-andy': gear('red', 'blue', 'red', 'blue', 'blue', 'red', 'red'),
+  'cpu-justin': gear('yellow', 'black', 'yellow', 'black', 'black', 'yellow', 'yellow'),
+  'cpu-jeno': gear('white', 'blue', 'white', 'white', 'white', 'white', 'blue'),
+  'cpu-jordan': gear('pink', 'blue', 'pink', 'pink', 'blue', 'blue', 'blue'),
+  'cpu-cody': gear('blue', 'white', 'blue', 'white', 'white', 'blue', 'blue'),
+  'cpu-bryan': gear('green', 'white', 'green', 'white', 'green', 'green', 'green'),
+  'cpu-sean': gear('blackwhite', 'white', 'black', 'black', 'black', 'black', 'black'),
 };
 
-/** A rider's race kit: the player's, a rider's own, the champions' hi-vis, or the field's kits in turn. */
-export function kitFor(e: { player?: boolean; tag?: string; kit?: string }, i: number): Gear {
-  if (e.player) return GEAR_SETS['player-default'];
+/** The character sheets' cloth colours (art/characters/characters.json, each ramp's base), for the outfits' race kits. */
+const CLOTH: Record<RaceCloth, Ramp> = {
+  red: RED, blue: 0x216ce4, navy: 0x364560, royal: 0x1c3edf, green: GREEN, lime: LIME, olive: 0x6f8c57, yellow: YELLOW,
+  orange: ORANGE, pink: 0xf235cb, purple: 0x8d2376, teal: 0x638fa4, white: BRIGHT_WHITE, grey: GREY, black: BLACK,
+};
+
+/** The race gear of an outfit the player is wearing (OutfitDef.race; Boss, 6 Nov 2026), in its sprite's colours. */
+export function outfitGear(k: OutfitRace, brand?: string): Gear {
+  // A brand kit's main colour is the bike's (OutfitRace.brand), as it is about town.
+  const main = k.brand && brand && BRAND_COLOURS[brand] ? BRAND_COLOURS[brand].body : null;
+  const c = (cloth: RaceCloth) => (main !== null && cloth === k.jersey ? main : CLOTH[cloth]);
+  return { helmet: c(k.helmet), helmet2: c(k.trim), visor: c(k.goggles), jersey: c(k.jersey), glove: c(k.gloves), pants: c(k.pants), boot: c(k.boots) };
+}
+
+/**
+ * A rider's race kit: the player's (the outfit they are wearing, when it has race colours, else the
+ * starter kit), a rider's own, the champions' hi-vis, or the field's kits in turn.
+ */
+export function kitFor(e: { player?: boolean; tag?: string; kit?: string; bike?: { brand: string } }, i: number, playerKit?: OutfitRace | null): Gear {
+  if (e.player) return playerKit ? outfitGear(playerKit, e.bike?.brand) : GEAR_SETS['player-default'];
   if (e.kit && GEAR_SETS[e.kit]) return GEAR_SETS[e.kit];
   return GEAR_SETS[e.tag?.endsWith('Champion') ? 'cpu-champion' : CPU_GEAR[i % CPU_GEAR.length]];
 }
@@ -158,24 +189,20 @@ interface Model {
   twostroke: boolean;
   /** The rider's and the plastics' scale against the adult bike's. */
   rider: number; plastics: number;
-  /** Lights and a number board: the enduro bike. */
-  lights?: boolean;
-  /** Two shocks on the swingarm and steel mudguards: the vintage bike. */
-  twinshock?: boolean;
-  /** A horizontal engine and a low tank: the pit bike. */
-  pit?: boolean;
 }
 /**
  * The bike models. Races ride the youth model (50 to 85 cc) or the adult one (modelFor); the rest are
- * for the scenery bikes placed round a track (Boss, 28 Oct 2026) and never ride in a race.
+ * for the scenery bikes placed round a track (Boss, 28 Oct 2026) and never ride in a race. The mini,
+ * pit bike, enduro and twin-shock are Boss's models (core STAND_BIKE_MODELS; Boss, 3 Nov 2026), so
+ * here they only give each design's size: drawn without a model, they are a plain bike that size.
  */
 export const MODELS: Record<string, Model> = {
   youth: { wb: 1.3, fr: 0.34, rr: 0.32, seat: 0.86, twostroke: true, rider: 0.9, plastics: 1.0 },
   adult: { wb: 1.46, fr: 0.37, rr: 0.35, seat: 0.96, twostroke: false, rider: 1.0, plastics: 1.08 },
   mini: { wb: 0.95, fr: 0.25, rr: 0.25, seat: 0.6, twostroke: true, rider: 0.72, plastics: 0.75 },
-  pitbike: { wb: 1.12, fr: 0.28, rr: 0.26, seat: 0.74, twostroke: false, rider: 0.85, plastics: 0.82, pit: true },
-  enduro: { wb: 1.48, fr: 0.37, rr: 0.35, seat: 0.97, twostroke: false, rider: 1.0, plastics: 1.08, lights: true },
-  twinshock: { wb: 1.42, fr: 0.37, rr: 0.36, seat: 0.88, twostroke: true, rider: 1.0, plastics: 0.9, twinshock: true },
+  pitbike: { wb: 1.12, fr: 0.28, rr: 0.26, seat: 0.74, twostroke: false, rider: 0.85, plastics: 0.82 },
+  enduro: { wb: 1.48, fr: 0.37, rr: 0.35, seat: 0.97, twostroke: false, rider: 1.0, plastics: 1.08 },
+  twinshock: { wb: 1.42, fr: 0.37, rr: 0.36, seat: 0.88, twostroke: true, rider: 1.0, plastics: 0.9 },
 };
 /** The models the editor offers for a scenery bike, with their names. */
 export const BIKE_MODELS: [string, string][] = [['adult', 'Adult MX bike'], ['youth', 'Youth MX bike'], ['mini', '50cc mini'], ['pitbike', 'Pit bike'], ['enduro', 'Enduro bike'], ['twinshock', 'Vintage twin-shock']];
@@ -257,17 +284,10 @@ export function raceBikeParts(look: RaceLook, length: number, opts: { rider?: bo
   rod(head, add(swing, [0.02, 0, 0.06]), 0.032, brand.frame);
   rod(head, [swing[0] - 0.08, 0, seat - 0.12], 0.03, brand.frame);
   rod([swing[0] - 0.08, 0, seat - 0.12], [rx + 0.25, 0, seat - 0.02], 0.022, brand.frame);
-  const eng: V3 = [swing[0] + 0.2, 0, M.pit ? 0.36 : 0.44];
+  const eng: V3 = [swing[0] + 0.2, 0, 0.44];
   box(add(eng, [0, 0, -0.03]), [0.34, 0.2, 0.24], FIXED.engine);
-  if (M.pit) box(add(eng, [0.26, 0, 0.0]), [0.2, 0.14, 0.14], FIXED.engine2);
-  else box(add(eng, [0.06, 0, 0.17]), [0.16, 0.15, 0.15], FIXED.engine2);
-  if (M.pit) {
-    // The pit bike's pipe runs up from the horizontal cylinder to a stubby silencer under the seat.
-    const p0 = add(eng, [0.36, -0.03, 0.02]);
-    rod(p0, add(eng, [0.1, -0.15, 0.2]), 0.028, FIXED.metal);
-    rod(add(eng, [0.1, -0.15, 0.2]), [rx + 0.36, -0.15, seat - 0.1], 0.03, FIXED.metal);
-    rod([rx + 0.36, -0.15, seat - 0.1], [rx + 0.1, -0.15, seat - 0.05], 0.05, FIXED.metal, false);
-  } else if (M.twostroke) {
+  box(add(eng, [0.06, 0, 0.17]), [0.16, 0.15, 0.15], FIXED.engine2);
+  if (M.twostroke) {
     // Expansion chamber under the frame, silencer under the side panel.
     const p0 = add(eng, [0.14, -0.02, 0.14]);
     const pts: V3[] = [p0, add(p0, [0.12, -0.06, -0.1]), add(eng, [0.1, -0.16, -0.12]), add(eng, [-0.25, -0.17, 0.02]), [rx + 0.32, -0.15, seat - 0.12]];
@@ -282,8 +302,7 @@ export function raceBikeParts(look: RaceLook, length: number, opts: { rider?: bo
   }
   box([swing[0] - 0.02, 0.03, seat - 0.17], [0.14, 0.14, 0.12], brand.frame2);
   for (const y of [-0.11, 0.11]) rod(swing, [rx, y, rr], 0.032, FIXED.metal);
-  if (M.twinshock) for (const y of [-0.15, 0.15]) rod([rx + 0.3, y, seat - 0.04], [rx + 0.12, y, rr + 0.02], 0.03, FIXED.shock);
-  else rod([swing[0] - 0.12, 0, seat - 0.1], [swing[0] - 0.2, 0, 0.36], 0.045, FIXED.shock);
+  rod([swing[0] - 0.12, 0, seat - 0.1], [swing[0] - 0.2, 0, 0.36], 0.045, FIXED.shock);
   rod(add(eng, [-0.06, 0.13, -0.04]), [rx, 0.13, rr], 0.016, FIXED.chain);
   // Bodywork: the big plastics carry the brand colour.
   ell([head[0] - 0.2, 0, seat + 0.03], [0.26 * pl, 0.16 * pl, 0.11 * pl], brand.body);
@@ -293,22 +312,33 @@ export function raceBikeParts(look: RaceLook, length: number, opts: { rider?: bo
     box([rx * 0.48, y * 0.14, seat - 0.11], [0.3 * pl, 0.03, 0.19 * pl], brand.plate);
   }
   box([rx * 0.42 - 0.05, 0, seat + 0.01], [wb * 0.54, 0.22, 0.07], FIXED.seat);
-  // Mudguards: plastics, or steel on the vintage bike, whose front one sits high on the forks.
-  const guard = M.twinshock ? FIXED.metal : brand.body;
-  box([rx - 0.1, 0, seat - 0.02], [0.42 * pl, 0.16, 0.04], guard);
-  box([fx + 0.04, 0, fr * 2 + (M.twinshock ? 0.1 : 0.06)], [0.4 * pl, 0.15, 0.04], M.twinshock ? FIXED.metal : brand.body2);
-  if (M.lights) {
-    // The enduro bike's headlight in its cowl and the tail light on the rear guard.
-    box([head[0] + 0.1, 0, head[2] + 0.02], [0.05, 0.26 * pl, 0.26 * pl], brand.plate);
-    box([head[0] + 0.14, 0, head[2] + 0.03], [0.03, 0.14, 0.12], 0xfff6c0);
-    box([rx - 0.3, 0, seat - 0.05], [0.03, 0.08, 0.05], RED);
-  } else if (M.twinshock) {
-    // Oval number boards at the sides instead of a front plate.
-    for (const y of [-1, 1]) ell([rx * 0.5, y * 0.16, seat - 0.1], [0.14, 0.01, 0.1], brand.plate);
-  } else box([head[0] + 0.1, 0, head[2] + 0.02], [0.035, 0.26 * pl, 0.24 * pl], brand.plate);
+  // Mudguards and the front number plate.
+  box([rx - 0.1, 0, seat - 0.02], [0.42 * pl, 0.16, 0.04], brand.body);
+  box([fx + 0.04, 0, fr * 2 + 0.06], [0.4 * pl, 0.15, 0.04], brand.body2);
+  box([head[0] + 0.1, 0, head[2] + 0.02], [0.035, 0.26 * pl, 0.24 * pl], brand.plate);
   const bar = add(head, [-0.06, 0, 0.21]);
   rod(add(bar, [0, -0.36, 0]), add(bar, [0, 0.36, 0]), 0.018, FIXED.bar);
   rod(add(head, [0.02, 0, 0.08]), bar, 0.022, FIXED.metal);
+  // A sidecar outfit (core/sidecar.ts; Boss, 1 Nov 2026), when there's no sidecar.glb: the chair on
+  // the left, a platform for the passenger with a small wheel at its outer edge under a guard, a
+  // nose plate, and the grab rail from behind the seat to the front of the chair.
+  if (look.cls === SIDECAR_CLASS) {
+    const cw = 0.26;
+    const chair: V3 = [rx * 0.8, 1.02, cw];
+    for (const [rad, tube, col] of [[cw - 0.06, 0.06, FIXED.tyre], [cw - 0.13, 0.015, FIXED.rim]] as const) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(rad * k, tube * k, 8, 16), mat(col));
+      ring.position.copy(at(chair));
+      out.push(ring);
+    }
+    rod(add(chair, [0, -0.06, 0]), add(chair, [0, 0.04, 0]), 0.05, FIXED.metal, false);
+    box([-0.08, 0.55, 0.27], [1.0, 0.8, 0.03], FIXED.chain);
+    for (const x of [0.2, -0.16, rx * 0.6]) rod([x, 0.08, 0.28], [x, 0.98, 0.28], 0.022, brand.frame);
+    rod([0.22, 0.12, 0.3], [0.22, 0.95, 0.3], 0.022, brand.frame);
+    box([chair[0], chair[1] + 0.02, cw * 2 + 0.05], [0.62, 0.16, 0.035], brand.body);
+    box([0.24, 0.55, 0.5], [0.03, 0.4, 0.22], brand.plate);
+    const grab: V3[] = [[rx * 0.35, 0.12, seat - 0.02], [-0.1, 0.45, 0.82], [0.22, 0.6, 0.62]];
+    for (let i = 0; i < grab.length - 1; i++) rod(grab[i], grab[i + 1], 0.02, FIXED.bar);
+  }
 
   if (opts.rider === false) return out;
   // The chibi rider, seated: helmet about half the figure.

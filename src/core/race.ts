@@ -1,6 +1,8 @@
 import { bikeStats, type Bike, type BikesData } from './career';
-import { firstCorner, lapPlan, sectionBounds, startGeom, type DrawnShape, type FirstCorner, type StartGeom } from './trackGeom';
+import type { SetupState } from './setup';
+import { firstCorner, isSprint, lapPlan, RETURN_LANE, sectionBounds, SPRINT_QUEUE, startGeom, type DrawnShape, type FirstCorner, type StartGeom } from './trackGeom';
 import type { RiderStyle } from './riderProfile';
+import { climbFactor } from './climb';
 import { sectionGrades, type TrackElevation, type TrackHill } from './elevation';
 
 // The race simulation (Spec 10, GDD 11). Pure rules with no graphics: the race screen plays a
@@ -24,6 +26,55 @@ export interface SectionDef {
   /** The drawn shapes the section was meant for (trackGeom.drawnShape), as a hint; any type can be placed on any shape. */
   shapes?: DrawnShape[];
 }
+
+export interface SprintRules {
+  interval: number;
+  returnSpeed: number;
+}
+
+export interface KnockoutRules {
+  /** Seconds between riders leaving the gate on the seeding run. */
+  seedInterval: number;
+  /** Riders in a heat: one per gate. */
+  heatSize: number;
+  /** Riders from each heat who go through to the next round. */
+  through: number;
+  /** Runs in the final, scored on points. */
+  finalRuns: number;
+  /**
+   * Every CPU rider made this share better (skills and bike condition), as in a championship, so
+   * the knockout is as hard to win as a race day at the same level (Boss, 30 Oct 2026: late game).
+   */
+  buff: number;
+  /** The share of the sim's noise on a knockout run (MotoOptions.noiseScale). */
+  noise: number;
+}
+
+/** A knockout's rules when racing.json leaves them out. */
+export const KNOCKOUT_DEFAULTS: KnockoutRules = { seedInterval: 8, heatSize: 4, through: 2, finalRuns: 3, buff: 0, noise: 1 };
+
+/**
+ * A Supercross night (core/supercross.ts, Boss 1 Nov 2026): the AMA night programme. Two heats,
+ * the first heatThrough of each into the Main, the last heatOut of each going home and the rest
+ * into the LCQ, whose first lcqThrough make the Main.
+ */
+export interface SupercrossRules {
+  /** Riders on the night, the player one of them, when the field's pool is big enough. */
+  field: number;
+  heatLaps: number;
+  lcqLaps: number;
+  /** The Main's laps; left out, the race day's usual length (lapsFor). */
+  mainLaps?: number;
+  heatThrough: number;
+  heatOut: number;
+  lcqThrough: number;
+}
+
+/** A Supercross night's rules when racing.json leaves them out. */
+export const SUPERCROSS_DEFAULTS: SupercrossRules = { field: 32, heatLaps: 4, lcqLaps: 3, mainLaps: 8, heatThrough: 6, heatOut: 2, lcqThrough: 4 };
+
+/** A sprint's rules when racing.json leaves them out. */
+export const SPRINT_DEFAULTS: SprintRules = { interval: 10, returnSpeed: 0.5 };
 
 export interface MistakeOutcome {
   id: 'small' | 'big' | 'minor_crash' | 'serious_crash';
@@ -52,6 +103,8 @@ export interface ClassRules {
   /** Reference speed in metres per second: a section's base time is its length over this. */
   refSpeed: number;
   youth: boolean;
+  /** The class's own laps by track kind, in place of racing.json kindLaps. */
+  kindLaps?: { race?: Record<string, number>; championship?: Record<string, number> };
 }
 
 export interface RacingData {
@@ -76,14 +129,34 @@ export interface RacingData {
      * field, so it is never every race and never always the same rider.
      */
     firstCorner?: { chance: number; riders: [number, number] };
+    /**
+     * A loop-out (Boss, 30 Oct 2026): on lap 1 of a race, this chance that one rider pulls such a
+     * big wheelie out of the gate that the bike goes over backwards, a crash on the start straight.
+     * The weaker a rider's starts, the likelier it is them.
+     */
+    loopOut?: { chance: number };
     /** A crash collecting riders close behind: each rider arriving within `window` seconds has this chance of going down too, up to `most` of them. */
     pileup?: { chance: number; window: number; most: number };
+    /**
+     * What a crash costs beyond the time on the ground (Boss, 3 Nov 2026). A rider who comes upon
+     * a fallen rider goes round them, `around` seconds slower (a range), instead of waiting for
+     * them to remount; so the riders held up by a crash come out ahead of it, not behind it. The
+     * rider who crashed is shaken for the rest of that lap: `slowPct` slower in the next section,
+     * fading to nothing over `fadeSections` sections.
+     */
+    afterCrash?: { around: [number, number]; slowPct: number; fadeSections: number };
     /**
      * Fitness in the lap time (Spec 3.4, Boss 29 Oct 2026), each at level 99: Strength is roughPct
      * faster through rough sections and strengthLatePct late in the moto, Endurance enduranceLatePct
      * late in the moto (fading less). Late ramps in over the second half. All of it is capped at capPct.
      */
     fitness?: { roughPct: number; rough: string[]; strengthLatePct: number; enduranceLatePct: number; capPct: number };
+    /** Enduro sprints (trackGeom.isSprint): seconds between riders leaving the start line, and the return lane's speed as a share of the class's reference speed. */
+    sprint?: SprintRules;
+    /** No-Turn Takedown knockouts (core/knockout.ts): the seeding run's interval, heat size, riders through from each heat and the final's runs. */
+    knockout?: KnockoutRules;
+    /** Supercross nights (core/supercross.ts): the field, each race's laps and who goes through. */
+    supercross?: Partial<SupercrossRules>;
   };
   xp: {
     sectionFactor: number;
@@ -101,6 +174,8 @@ export interface RacingData {
    * A kind left out uses the class's laps.
    */
   kindLaps?: { race?: Record<string, number>; championship?: Record<string, number> };
+  /** Weather kinds (Spec 10.5): factor multiplies every section time, risk every mistake chance. */
+  weather?: Record<string, { name: string; factor: number; risk: number }>;
   messages: MessageDef[];
   messageEffects: {
     pacePct: number;
@@ -169,6 +244,11 @@ export interface SceneryItem {
   rot?: number;
   text?: string;
   color?: string;
+  /**
+   * A banner's or sponsor board's picture (Boss, 1 Nov 2026): a PNG in public/mods/banners/, by its
+   * name without .png, shown on the face instead of the text (core/banners.ts).
+   */
+  image?: string;
   /** A start official (start_official) only: the walk from where they stand to where they end up, as grid points after their own. */
   route?: [number, number][];
 }
@@ -233,9 +313,18 @@ export interface Entrant {
   player: boolean;
   /** Child skill levels. */
   skills: Record<string, number>;
+  /**
+   * The player only, once the Rider Trainer has taught whips and scrubs (TRICKS_FLAG): their Rider
+   * Ability level, which sets how often they throw them on the race screen (tricks.ts). Left out until then.
+   */
+  riderLevel?: number;
+  /** The player's bike setup (core/setup.ts), filled in by playerEntrant; raceDay turns it into tuning for each track. */
+  setup?: SetupState;
+  /** A time factor per track section from the bike setup (core/setup.ts tuningFactors); missing is 1. */
+  tuning?: number[];
   bike: Bike;
   tactic: Tactic;
-  /** Gate number from 0, best first. Lap 1 starts in gate order. */
+  /** Gate number from 0, best first. Lap 1 starts in gate order; in a sprint, the order riders leave the start line. */
   gate: number;
   /** How they ride on the race screen (riderProfile.ts); never changes a result. */
   style?: RiderStyle;
@@ -249,8 +338,9 @@ export interface Entrant {
 /** Events name the section by index; -1 is the start straight. */
 export type RaceEvent =
   | { kind: 'pass'; t: number; rider: string; other: string; section: number }
-  | { kind: 'failedPass'; t: number; rider: string; other: string; section: number }
-  | { kind: 'mistake'; t: number; rider: string; section: number; outcome: MistakeOutcome['id']; lost: number; damaged: string[]; /** The rider whose crash this one went down in, or 'first_corner' for a first-corner incident. */ with?: string }
+  /** Held up behind a rider they couldn't pass: `held` seconds slower than their own pace through the section, `close` when they were on the rider's wheel (within passWindow), which is when the feed mentions it. */
+  | { kind: 'failedPass'; t: number; rider: string; other: string; section: number; held: number; close: boolean }
+  | { kind: 'mistake'; t: number; rider: string; section: number; outcome: MistakeOutcome['id']; lost: number; damaged: string[]; /** The rider whose crash this one went down in, or 'first_corner' for a first-corner incident, or 'loop_out' for a loop-out out of the gate. */ with?: string }
   | { kind: 'breakdown'; t: number; rider: string; section: number; slot: string }
   | { kind: 'retire'; t: number; rider: string; reason: string };
 
@@ -284,6 +374,8 @@ interface RiderState {
   time: number;
   laps: number;
   lapTimes: number[];
+  /** A sprint's timed test laps added up: the race time that counts (results' time). 0 on other tracks. */
+  sprintTime: number;
   message: string;
   stats: Record<string, number>;
   broken: number;
@@ -297,7 +389,8 @@ interface LapStart {
   passes: number;
   xp: Record<string, number>;
   parts: Bike['parts'];
-  riders: Pick<RiderState, 'time' | 'laps' | 'lapTimes' | 'message' | 'stats' | 'broken' | 'retired' | 'reason'>[];
+  riders: Pick<RiderState, 'time' | 'laps' | 'lapTimes' | 'sprintTime' | 'message' | 'stats' | 'broken' | 'retired' | 'reason'>[];
+  lastAway: number;
 }
 
 export interface MotoOptions {
@@ -306,10 +399,29 @@ export interface MotoOptions {
   motoIndex: number;
   seed: number;
   practice?: boolean;
+  /** Practice XP times this (a trainer's coached practice, Big Pete: Boss, 1 Nov 2026). 1 when left out. */
+  xpTimes?: number;
   /** The player's message at the start; it costs no ink. */
   message?: string;
   /** Retire automatically at this many broken parts (auto-complete option). */
   retireAtBroken?: number;
+  /**
+   * A staggered start (a No-Turn Takedown's seeding run): riders leave the gate this many seconds
+   * apart in gate order, each on their own, timed from when they go. No clean air or traffic.
+   */
+  interval?: number;
+  /**
+   * A share of the sim's noise (1 when left out). A knockout run is a handful of sections, so it
+   * rides with less noise to stay as much a test of skill as a moto of many laps.
+   */
+  noiseScale?: number;
+  /** The day's weather (racing.json weather): its time factor and mistake risk (Spec 10.5). */
+  weather?: { factor: number; risk: number };
+  /**
+   * A sidecar race (core/sidecar.ts; Boss, 1 Nov 2026): outfits on every other gate, no loop-outs
+   * out of the gate (a chair keeps the front down), and in the race view no whips or scrubs.
+   */
+  sidecar?: boolean;
 }
 
 /** A small seeded generator (mulberry32), so a race can be replayed exactly. */
@@ -354,6 +466,11 @@ export class MotoSim {
   readonly firstCorner: FirstCorner | null;
   /** Everything a lap changes, as it was before the latest lap, so it can be run again (redoLap). */
   private before: LapStart | null = null;
+  /** An enduro sprint: riders leave the start line one at a time and the timed tests add up. */
+  readonly sprint: boolean;
+  readonly sprintRules: SprintRules;
+  /** A sprint: when the last rider to leave the start line left it, so the next waits the interval after them. */
+  private lastAway = 0;
 
   constructor(
     private readonly racing: RacingData,
@@ -370,6 +487,8 @@ export class MotoSim {
     this.firstCorner = firstCorner(this.start);
     this.cls = racing.classes[classId];
     this.ceiling = bikes.classes.find((c) => c.id === classId)?.ceiling ?? 1;
+    this.sprint = isSprint(track);
+    this.sprintRules = { ...SPRINT_DEFAULTS, ...racing.sim.sprint };
     this.ink = racing.ink;
     const mine = entrants.find((e) => e.player);
     this.playerBike = mine ? structuredClone(mine.bike) : null;
@@ -377,9 +496,11 @@ export class MotoSim {
       const bike = e.player ? this.playerBike! : e.bike;
       return {
         e: { ...e, bike },
-        time: opts.practice ? (e.startAt ?? 0) : 0,
+        // A sprint sends riders off the start line in their start order, the interval apart.
+        time: opts.practice ? (e.startAt ?? 0) : this.sprint ? e.gate * this.sprintRules.interval : opts.interval ? e.gate * opts.interval : 0,
         laps: 0,
         lapTimes: [],
+        sprintTime: 0,
         message: e.player ? (opts.message ?? 'steady') : e.tactic.message,
         stats: bikeStats(bikes, bike),
         broken: Object.values(bike.parts).filter((p) => p.condition <= 0).length,
@@ -387,6 +508,7 @@ export class MotoSim {
       };
     });
     this.player = this.riders.find((r) => r.e.player);
+    this.lastAway = Math.max(0, ...this.riders.map((r) => r.time));
   }
 
   get lap(): number {
@@ -438,6 +560,7 @@ export class MotoSim {
     Object.assign(this.xp, b.xp);
     if (this.playerBike) this.playerBike.parts = structuredClone(b.parts);
     this.riders.forEach((r, i) => Object.assign(r, { ...b.riders[i], lapTimes: [...b.riders[i].lapTimes] }));
+    this.lastAway = b.lastAway;
     change();
     return this.nextLap();
   }
@@ -449,7 +572,8 @@ export class MotoSim {
       passes: this.passes,
       xp: { ...this.xp },
       parts: this.playerBike ? structuredClone(this.playerBike.parts) : {},
-      riders: this.riders.map((r) => ({ time: r.time, laps: r.laps, lapTimes: [...r.lapTimes], message: r.message, stats: r.stats, broken: r.broken, retired: r.retired, reason: r.reason })),
+      riders: this.riders.map((r) => ({ time: r.time, laps: r.laps, lapTimes: [...r.lapTimes], sprintTime: r.sprintTime, message: r.message, stats: r.stats, broken: r.broken, retired: r.retired, reason: r.reason })),
+      lastAway: this.lastAway,
     };
     const lap = ++this.lapNo;
     const { sim } = this.racing;
@@ -469,6 +593,8 @@ export class MotoSim {
     const startTimes = new Map(active.map((r) => [r, r.time]));
     const cur = new Map(active.map((r) => [r, r.time]));
     const out = new Set<RiderState>();
+    // Riders shaken by a crash this lap: the leg their slowing has faded by.
+    const shakenUntil = new Map<RiderState, number>();
     // A first-corner incident on lap 1: the lap's own draw picks whether, how many and who.
     const lapRng = seededRng(mixSeed(this.opts.seed, lap * 256 + 255));
     const incident = new Set<RiderState>();
@@ -481,8 +607,28 @@ export class MotoSim {
       const n = Math.min(pool.length, fc.riders[0] + Math.floor(lapRng() * (fc.riders[1] - fc.riders[0] + 1)));
       for (let i = 0; i < n; i++) incident.add(pool.splice(Math.floor(lapRng() * pool.length), 1)[0]);
     }
+    // A loop-out out of the gate on lap 1, from its own draw so the first-corner draws stay as they were.
+    const startLeg = lap === 1 && sim.loopOut && !this.opts.practice && !this.sprint && !this.opts.sidecar ? plan.secs.indexOf(-1) : -1;
+    let looper: RiderState | null = null;
+    if (startLeg >= 0) {
+      const loopRng = seededRng(mixSeed(this.opts.seed, lap * 256 + 254));
+      if (loopRng() < sim.loopOut!.chance && active.length) {
+        const weight = (r: RiderState) => 1.15 - (r.e.skills.starts ?? 1) / 99;
+        let x = loopRng() * active.reduce((a, r) => a + weight(r), 0);
+        looper = active.find((r) => (x -= weight(r)) < 0) ?? active[active.length - 1];
+        incident.delete(looper);
+      }
+    }
+
+    // A sprint times each test from when the rider leaves the start line.
+    const away = new Map(active.map((r) => [r, r.time]));
 
     plan.secs.forEach((si, leg) => {
+      if (this.sprint && (si === SPRINT_QUEUE || this.track.sections[si]?.type === RETURN_LANE)) {
+        order = this.sprintTransit(si, plan.metres[leg], order, cur, away, out);
+        for (const r of order) trace.times[r.e.id].push(cur.get(r)!);
+        return;
+      }
       // The start straight rides as a start (gate bonus, start skills) in a race, in practice as a
       // straight; its end rides as the first corner. A lap section left as a first corner from
       // before (the first corner is no longer a section) rides as a flat corner.
@@ -500,10 +646,21 @@ export class MotoSim {
       for (const r of order) {
         if (out.has(r)) continue;
         this.rng = draws.get(r)!;
-        let t = this.sectionTime(r, sec, def, isStart ? r.e.gate : -1) * (air.get(r) ?? 1) * (si >= 0 ? this.grades[si] : 1);
+        // A start one at a time (a No-Turn Takedown's seeding run) has no gate to gain or lose on.
+        let t = this.sectionTime(r, sec, def, isStart && !this.opts.interval ? r.e.gate : -1) * (air.get(r) ?? 1) * (si >= 0 ? this.grades[si] * (r.e.tuning?.[si] ?? 1) : 1);
+        // Shaken from a crash earlier this lap: slower, fading section by section (Boss, 3 Nov 2026).
+        const shaken = shakenUntil.get(r);
+        if (shaken !== undefined && sim.afterCrash) {
+          const left = shaken - leg;
+          if (left > 0) t *= 1 + (sim.afterCrash.slowPct / 100) * (left / sim.afterCrash.fadeSections);
+          else shakenUntil.delete(r);
+        }
         let m = this.mistake(r, def, share);
         let withWhom: string | undefined;
-        if (!m?.crash && leg === firstCornerLeg && incident.has(r)) {
+        if (leg === startLeg && r === looper) {
+          m = this.crashOutcome();
+          withWhom = 'loop_out';
+        } else if (!m?.crash && leg === firstCornerLeg && incident.has(r)) {
           m = this.crashOutcome();
           withWhom = 'first_corner';
         } else if (!m?.crash && sim.pileup && si >= 0) {
@@ -521,14 +678,27 @@ export class MotoSim {
           t += lost;
           const damaged = m.crash ? this.crashDamage(r, def, !!m.serious) : [];
           if (m.crash) crashes.push({ r, at, took: 0 });
+          if (m.crash && sim.afterCrash) shakenUntil.set(r, leg + 1 + sim.afterCrash.fadeSections);
           trace.events.push({ kind: 'mistake', t: cur.get(r)! + t, rider: r.e.id, section: si, outcome: m.id, lost, damaged, ...(withWhom ? { with: withWhom } : {}) });
         }
         let arrival = cur.get(r)! + t;
+        const natural = arrival;
+        let blocker: RiderState | null = null;
+        let close = false;
         // Passing: anyone ahead who would now arrive later has to be passed (Spec 10.3).
         for (let i = done.length - 1; i >= 0; i--) {
           const q = done[i];
           const qa = cur.get(q)!;
           if (qa <= arrival) continue;
+          // A rider on the ground is gone round, not waited for (Boss, 3 Nov 2026): the riders
+          // held up by a crash come out ahead of the rider who crashed. Reaching the spot before
+          // the crash costs nothing; coming upon the fallen rider costs a moment going round.
+          const fallen = sim.afterCrash && crashes.find((c) => c.r === q);
+          if (fallen) {
+            if (arrival > fallen.at) { const [lo, hi] = sim.afterCrash!.around; arrival += lo + this.rng() * (hi - lo); }
+            trace.events.push({ kind: 'pass', t: arrival, rider: r.e.id, other: q.e.id, section: si });
+            continue;
+          }
           if (sec.passing > 0 && this.rng() < this.passChance(r, q, def, sec.passing)) {
             trace.events.push({ kind: 'pass', t: arrival, rider: r.e.id, other: q.e.id, section: si });
             if (r.e.player) {
@@ -538,9 +708,13 @@ export class MotoSim {
           } else {
             const [lo, hi] = sim.failedPassCost;
             arrival = qa + (sec.passing > 0 ? lo + this.rng() * (hi - lo) : sim.blockedGap);
-            if (sec.passing > 0 && qa - (cur.get(r)! + t) < sim.passWindow) trace.events.push({ kind: 'failedPass', t: arrival, rider: r.e.id, other: q.e.id, section: si });
+            blocker = q;
+            close = sec.passing > 0 && qa - natural < sim.passWindow;
           }
         }
+        // One event for the section, naming the rider they ended up behind, so the rider AI rides
+        // at its own pace and sits on that wheel, rather than crawling the whole section (Boss, 3 Nov 2026).
+        if (blocker) trace.events.push({ kind: 'failedPass', t: arrival, rider: r.e.id, other: blocker.e.id, section: si, held: arrival - natural, close });
         cur.set(r, arrival);
         done.push(r);
         if (r.e.player) this.sectionXp(def, sec, !m);
@@ -554,7 +728,8 @@ export class MotoSim {
       for (const r of done) trace.times[r.e.id].push(cur.get(r)!);
       order = done.slice().sort((a, b) => cur.get(a)! - cur.get(b)!);
       // Clean air and traffic after the first stretch of the lap the field joins on lap 1 (Spec 10.4).
-      if (lap === 1 && leg === Math.min(1, plan.secs.length - 1) && !this.opts.practice) {
+      // A sprint has no pack to get clear of.
+      if (lap === 1 && leg === Math.min(1, plan.secs.length - 1) && !this.opts.practice && !this.sprint && !this.opts.interval) {
         const ca = sim.cleanAir;
         order.forEach((r, i) => {
           if (i < ca.top) air.set(r, 1 - ca.bonusPct / 100);
@@ -567,11 +742,41 @@ export class MotoSim {
       if (out.has(r)) continue;
       r.time = cur.get(r)!;
       r.laps += 1;
-      r.lapTimes.push(r.time - startTimes.get(r)!);
+      // A sprint lap's time is the timed test alone, from leaving the start line to the finish line.
+      const lapTime = r.time - (this.sprint ? away.get(r)! : startTimes.get(r)!);
+      r.lapTimes.push(lapTime);
+      if (this.sprint) r.sprintTime += lapTime;
     }
     if (this.player) this.rng = draws.get(this.player)!;
     if (this.player && !this.player.retired && active.includes(this.player)) this.wearPlayer(trace, plan.metres.reduce((a, m) => a + m, 0) / 1000);
     return trace;
+  }
+
+  /**
+   * A sprint's untimed stretches, which nobody races: the roll down the return lane at the
+   * return speed, single file in the order riders finished, and the queue at the start line,
+   * where each rider leaves in the order they got there, the interval after the rider before
+   * (lastAway carries on from lap to lap, so a lap's first rider waits on the last lap's last).
+   * Returns the riding order after it.
+   */
+  private sprintTransit(si: number, metres: number, order: RiderState[], cur: Map<RiderState, number>, away: Map<RiderState, number>, out: Set<RiderState>): RiderState[] {
+    const going = order.filter((r) => !out.has(r)).sort((a, b) => cur.get(a)! - cur.get(b)!);
+    let prev = -Infinity;
+    for (const r of going) {
+      if (si === SPRINT_QUEUE) {
+        const at = Math.max(cur.get(r)!, this.lastAway + this.sprintRules.interval);
+        this.lastAway = at;
+        cur.set(r, at);
+        away.set(r, at);
+      } else {
+        // Everyone rolls at the same speed, so nobody closes on the rider ahead; a rider who
+        // finished right behind another still keeps a bike's gap.
+        const at = Math.max(cur.get(r)! + metres / (this.cls.refSpeed * this.sprintRules.returnSpeed), prev + this.racing.sim.blockedGap);
+        cur.set(r, at);
+      }
+      prev = cur.get(r)!;
+    }
+    return going;
   }
 
   /** Runs the rest of the moto with no changes, for auto-complete. */
@@ -582,7 +787,9 @@ export class MotoSim {
   }
 
   results(): RiderResult[] {
-    const sorted = [...this.riders].sort((a, b) => Number(a.retired) - Number(b.retired) || b.laps - a.laps || a.time - b.time);
+    // A sprint is won on the timed tests added up, not on who crosses the line first.
+    const raced = (r: RiderState) => (this.sprint ? r.sprintTime : r.time);
+    const sorted = [...this.riders].sort((a, b) => Number(a.retired) - Number(b.retired) || b.laps - a.laps || raced(a) - raced(b));
     const leader = sorted[0];
     return sorted.map((r, i) => ({
       id: r.e.id,
@@ -591,11 +798,11 @@ export class MotoSim {
       player: r.e.player,
       position: i + 1,
       laps: r.laps,
-      time: r.time,
+      time: raced(r),
       bestLap: r.lapTimes.length ? Math.min(...r.lapTimes) : null,
       retired: r.retired,
       reason: r.reason,
-      gap: i === 0 ? formatTime(r.time) : r.retired ? 'DNF' : r.laps < leader.laps ? `+${leader.laps - r.laps} lap${leader.laps - r.laps > 1 ? 's' : ''}` : `+${(r.time - leader.time).toFixed(1)}s`,
+      gap: i === 0 ? formatTime(raced(r)) : r.retired ? 'DNF' : r.laps < leader.laps ? `+${leader.laps - r.laps} lap${leader.laps - r.laps > 1 ? 's' : ''}` : `+${Math.max(0, raced(r) - raced(leader)).toFixed(1)}s`,
     }));
   }
 
@@ -632,13 +839,14 @@ export class MotoSim {
     const { sim, messageEffects: me } = this.racing;
     const msg = this.message(r);
     const perf = this.performance(r, def);
-    const base = sec.length / this.cls.refSpeed;
+    // A jump face or hill raised above its usual height rides as a longer section (climb.ts).
+    const base = (sec.length * climbFactor(sec)) / this.cls.refSpeed;
     const pace = 1 - (msg.pace * me.pacePct) / 100 + (msg.consistency * me.consistencyTimePct) / 100;
     const gateK = gate >= 0 ? 1 - gateBonus(this.track, gate) / 100 : 1;
     const cons = r.e.skills.consistency ?? 1;
-    const sd = sim.noise * (1 - (sim.consistencyNoiseCut * cons) / 99) * Math.max(0.2, 1 - me.consistencyNoise * msg.consistency);
+    const sd = sim.noise * (this.opts.noiseScale ?? 1) * (1 - (sim.consistencyNoiseCut * cons) / 99) * Math.max(0.2, 1 - me.consistencyNoise * msg.consistency);
     const noise = Math.max(0.7, 1 + this.gauss() * sd);
-    return base * this.difficulty(sec, def) * (1 - sim.spread * (perf - 0.5)) * pace * gateK * noise * (1 - this.fitnessCut(r, sec));
+    return base * this.difficulty(sec, def) * (1 - sim.spread * (perf - 0.5)) * pace * gateK * noise * (1 - this.fitnessCut(r, sec)) * (this.opts.weather?.factor ?? 1);
   }
 
   /** The share of a section's time a rider's Strength and Endurance take off (sim.fitness), never over its cap. */
@@ -658,7 +866,7 @@ export class MotoSim {
     const msg = this.message(r);
     const perf = this.performance(r, def);
     const cons = r.e.skills.consistency ?? 1;
-    const p = share * sim.mistakeBase * def.diff * (1.4 - perf) * Math.max(0.2, 1 + me.paceMistakes * msg.pace) * (1 - (sim.mistakeConsistencyCut * cons) / 99);
+    const p = share * sim.mistakeBase * def.diff * (1.4 - perf) * Math.max(0.2, 1 + me.paceMistakes * msg.pace) * (1 - (sim.mistakeConsistencyCut * cons) / 99) * (this.opts.weather?.risk ?? 1);
     if (this.rng() >= p) return null;
     // Risk moves share from small errors to crashes.
     const crashScale = Math.max(0.2, 1 + me.riskCrashShare * msg.risk);
@@ -740,7 +948,7 @@ export class MotoSim {
   /** Spec 2.3: 2.0 × classXP × difficulty × skill weight, plus Consistency for a clean section. */
   private sectionXp(def: SectionDef, sec: TrackSection, clean: boolean): void {
     const x = this.racing.xp;
-    const k = x.sectionFactor * this.cls.classXp * this.difficulty(sec, def) * (this.opts.practice ? x.practiceFactor : 1);
+    const k = x.sectionFactor * this.cls.classXp * this.difficulty(sec, def) * (this.opts.practice ? x.practiceFactor * (this.opts.xpTimes ?? 1) : 1);
     const g: Record<string, number> = {};
     for (const [skill, w] of Object.entries(def.skills)) g[skill] = k * w;
     if (clean) g.consistency = (g.consistency ?? 0) + k * x.consistencyWeight;
@@ -811,6 +1019,45 @@ export function gateBonus(track: Pick<TrackDef, 'gates'>, gate: number): number 
   const curve = track.gates ?? [];
   if (curve.length && gate >= curve.length) return curve[curve.length - 1] - 1;
   return curve[gate] ?? 0;
+}
+
+/**
+ * The track with its gate bonuses dealt out to the gates at random for one moto or heat (Boss, 1 Nov
+ * 2026: "fully randomise the placement of the effects so the player doesn't just chose the in side or
+ * out side gates all the time"). The same bonuses, so the start is no better or worse overall, on
+ * different gates every time, from the seed so a replay deals them the same way. count is the gates in use.
+ */
+export function dealGates<T extends Pick<TrackDef, 'gates'>>(track: T, seed: number, count: number): T {
+  if (!track.gates?.length) return track;
+  const rng = seededRng(seed);
+  const gates = [...track.gates];
+  // Only the gates in use trade places, so a small field's start keeps the same bonuses overall.
+  for (let i = Math.min(count, gates.length) - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [gates[i], gates[j]] = [gates[j], gates[i]];
+  }
+  return { ...track, gates };
+}
+
+/**
+ * The gates whose start bonus the rider can see on the gate screen (Boss, 4 Nov 2026: "more gates
+ * become visible as you level up, no specific gates, it's random and if the gate is already taken,
+ * unlucky. So the higher level you are the more beneficial it is"). Starts level 1 sees none and
+ * level maxLevel sees every gate, in proportion between. Which gates is random, taken ones included,
+ * drawn from the moto's dealt bonuses (dealGates) so the same moto always shows the same gates.
+ */
+export function seenGates(track: Pick<TrackDef, 'gates'>, slots: number[], startsLevel: number, maxLevel: number): Set<number> {
+  const n = Math.max(0, Math.min(slots.length, Math.floor((slots.length * (startsLevel - 1)) / Math.max(1, maxLevel - 1))));
+  let seed = 0x5eed;
+  for (const g of track.gates ?? []) seed = mixSeed(seed, Math.round(g * 100) + 1);
+  seed = mixSeed(seed, slots.length);
+  const rng = seededRng(seed);
+  const order = [...slots];
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return new Set(order.slice(0, n));
 }
 
 /** A time as m:ss.s, or with more decimals (qualifying times to the thousandth). */

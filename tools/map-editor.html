@@ -19,23 +19,84 @@
 <style>
 :root {
   --bg: #16181d; --panel: #1f2229; --panel2: #262a33; --line: #343945; --text: #e4e6eb; --dim: #9aa1ad;
-  --accent: #f0a020; --accent2: #3a8fd8; --danger: #e05252; --ok: #4fb36b;
+  --accent: #f0a020; --accent2: #3a8fd8; --danger: #e05252; --ok: #4fb36b; --panel3: #2d323c;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 13px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif; }
-body { display: grid; grid-template-rows: auto 1fr auto; grid-template-columns: 236px 1fr 300px; grid-template-areas: "top top top" "left main right" "foot foot foot"; overflow: hidden; }
-header { grid-area: top; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 8px; background: var(--panel); border-bottom: 1px solid var(--line); }
+/* The window (Boss, 2 Nov 2026, the same as the track editor): header, left dock, the tool rail, the map with a bottom dock under it, right dock, status bar. Each dock holds panels that drag, resize, collapse, pop out and hide. */
+body { display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; grid-template-columns: var(--lw, 250px) 6px auto minmax(0, 1fr) 6px var(--rw, 320px); grid-template-areas: "top top top top top top" "left ls tools main rs right" "left ls tools bottom rs right" "foot foot foot foot foot foot"; overflow: hidden; }
+body.noleft { grid-template-columns: 0 0 auto minmax(0, 1fr) 6px var(--rw, 320px); }
+body.noright { grid-template-columns: var(--lw, 250px) 6px auto minmax(0, 1fr) 0 0; }
+body.noleft.noright { grid-template-columns: 0 0 auto minmax(0, 1fr) 0 0; }
+body.nobottom { grid-template-rows: auto minmax(0, 1fr) 0 auto; }
+.zone { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--panel); overflow: hidden; }
+#zoneLeft { grid-area: left; border-right: 1px solid var(--line); }
+#zoneRight { grid-area: right; border-left: 1px solid var(--line); }
+#zoneBottom { grid-area: bottom; flex-direction: row; border-top: 1px solid var(--line); height: var(--bh, 230px); position: relative; }
+body.noleft #zoneLeft, body.noright #zoneRight, body.nobottom #zoneBottom { display: none; }
+.zone.drop { outline: 2px dashed var(--accent2); outline-offset: -3px; background: #1d2a3a; }
+.split { background: var(--line); cursor: col-resize; }
+#splitLeft { grid-area: ls; } #splitRight { grid-area: rs; }
+body.noleft #splitLeft, body.noright #splitRight { display: none; }
+.hsplit { height: 6px; background: var(--line); cursor: row-resize; flex: none; }
+#zoneBottom .hsplit { width: 6px; height: auto; cursor: col-resize; }
+.bsplit { position: absolute; left: 0; right: 0; top: 0; height: 6px; cursor: row-resize; z-index: 2; }
+.panel { display: flex; flex-direction: column; min-height: 30px; min-width: 0; flex: 1 1 var(--basis, 220px); background: var(--panel); overflow: hidden; }
+#zoneBottom .panel { flex: 1 1 var(--bbasis, 320px); min-width: 160px; }
+#panel-buildings { --basis: 300px; } #panel-markers { --basis: 220px; } #panel-layers { --basis: 320px; } #panel-props { --basis: 300px; } #panel-selection { --basis: 190px; } #panel-replace { --basis: 230px; } #panel-checks { --basis: 160px; } #panel-palette { --basis: 420px; }
+.panel.collapsed { flex: 0 0 auto; }
+.panel.collapsed .pb { display: none; }
+.ph { display: flex; align-items: center; gap: 6px; padding: 3px 5px 3px 8px; background: #22262e; border-bottom: 1px solid var(--line); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); cursor: grab; user-select: none; flex: none; }
+.ph:active { cursor: grabbing; }
+.ph .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #c8ccd4; }
+.ph .extra { display: flex; gap: 4px; align-items: center; text-transform: none; letter-spacing: 0; min-width: 0; }
+.ph .extra button, .ph > button { padding: 0 6px; font-size: 11px; line-height: 18px; }
+.ph .extra select, .ph .extra input { padding: 1px 5px; font-size: 12px; max-width: 190px; min-width: 0; }
+.ph .t { min-width: 54px; }
+.ph > button { border-color: transparent; background: none; color: var(--dim); }
+.ph > button:hover { background: var(--panel3); color: var(--text); border-color: var(--line); }
+.pb { padding: 8px; overflow: auto; flex: 1; min-height: 0; position: relative; }
+.panel.floating { position: fixed; z-index: 10; width: 340px; height: 380px; min-width: 220px; min-height: 120px; border: 1px solid #4a5160; border-radius: 9px; box-shadow: 0 12px 36px #000c; resize: both; overflow: hidden; background: #1f2229f6; }
+.panel.floating .ph { border-radius: 8px 8px 0 0; cursor: move; }
+.panel.dragging { opacity: .5; }
+.dragGhost { position: fixed; z-index: 50; pointer-events: none; padding: 4px 10px; background: var(--panel2); border: 1px solid var(--accent2); border-radius: 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #fff; box-shadow: 0 6px 20px #000a; }
+main.drop::after { content: "Drop here to pop the panel out"; position: absolute; inset: 8px; border: 2px dashed var(--accent2); border-radius: 8px; display: grid; place-items: center; color: #9cd0ff; background: #1d2a3a66; font-weight: 600; z-index: 3; pointer-events: none; }
+.dd { position: fixed; z-index: 40; display: flex; flex-direction: column; min-width: 170px; padding: 4px; background: var(--panel2); border: 1px solid var(--line); border-radius: 7px; box-shadow: 0 8px 24px #000a; }
+.dd button { text-align: left; border-color: transparent; background: none; }
+.dd button:hover { background: var(--panel3); }
+.dd hr { border: 0; border-top: 1px solid var(--line); margin: 3px 0; }
+/* Every button word starts with a capital (Boss, 2 Nov 2026), whatever the code names it. */
+button, #toolbar label.chk { text-transform: capitalize; }
+.tools button small, .swatches button { text-transform: none; }
+/* The tool rail: the map tools down the left of the map, one column, scrolling when the window is short, so nothing ever stacks over the map (Boss, 2 Nov 2026). */
+#toolbar { grid-area: tools; display: flex; flex-direction: column; gap: 3px; padding: 6px 4px; background: #191c22; border-right: 1px solid var(--line); overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; }
+.tools { display: flex; flex-direction: column; gap: 3px; }
+.tools button { width: 64px; min-height: 40px; padding: 4px 2px; font-size: 11px; line-height: 1.15; white-space: normal; }
+.tools button small { display: block; color: var(--dim); font-size: 10px; }
+/* Properties: the marker being set up, or a word when nothing is. */
+#mkBox:not([hidden]) + #propsNone { display: none; }
+/* The palette panel: the brush at the top, the tiles filling the rest; along the bottom dock the tiles run in two rows that scroll sideways. */
+#panel-palette .pb { display: flex; flex-direction: column; gap: 6px; }
+#zoneBottom #palette { grid-auto-flow: column; grid-template-columns: none; grid-template-rows: repeat(2, minmax(0, 1fr)); grid-auto-columns: 56px; overflow-x: auto; overflow-y: hidden; }
+#zoneBottom #palette .pt { aspect-ratio: auto; height: 100%; }
+#zoneBottom #brushBox { min-height: 0; padding: 3px 6px; }
+#zoneBottom #brushBox .sw { width: 36px; height: 36px; }
+#zoneBottom #brushBox .sw img, #zoneBottom #brushBox canvas { max-width: 36px; max-height: 36px; }
+#zoneBottom #brushHint { display: none; }
+/* The status bar: the pointer, the layer, the message, and the map's checks always in view (red with problems, green when every marker is on a free tile). */
+#checkBadge { margin-left: auto; padding: 1px 9px; border-radius: 10px; font-size: 11px; font-weight: 600; cursor: pointer; background: #3a2222; color: #f0a0a0; border: 1px solid #6a3030; }
+#checkBadge.good { background: #1f3a28; color: #9fe0b0; border-color: #2f6a40; cursor: default; }
+#checkBadge.none { background: var(--panel2); color: var(--dim); border-color: var(--line); cursor: default; }
+#checkBadge[hidden] { display: none; }
+header { grid-area: top; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 8px; background: var(--panel); border-bottom: 1px solid var(--line); min-width: 0; }
 header h1 { font-size: 14px; margin: 0 8px 0 2px; white-space: nowrap; }
 header h1 span { color: var(--accent); }
 #toolkitLink { color: var(--dim); text-decoration: none; font-size: 12px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 5px; white-space: nowrap; }
 #toolkitLink:hover { color: var(--text); border-color: #556; }
-#left, #right { background: var(--panel); overflow-y: auto; padding: 8px; }
-#left { grid-area: left; border-right: 1px solid var(--line); }
-#right { grid-area: right; border-left: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
-main { grid-area: main; position: relative; overflow: hidden; background: #0d0e11; }
+main { grid-area: main; position: relative; overflow: hidden; background: #0d0e11; min-width: 0; min-height: 0; }
 canvas#view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-footer { grid-area: foot; display: flex; gap: 14px; padding: 4px 10px; background: var(--panel); border-top: 1px solid var(--line); color: var(--dim); white-space: nowrap; overflow: hidden; }
+footer { grid-area: foot; display: flex; align-items: center; gap: 14px; padding: 4px 10px; background: var(--panel); border-top: 1px solid var(--line); color: var(--dim); white-space: nowrap; overflow: hidden; }
 footer #msg { color: var(--text); overflow: hidden; text-overflow: ellipsis; }
 footer #msg.err { color: var(--danger); }
 footer #msg.ok { color: var(--ok); }
@@ -48,12 +109,10 @@ button:disabled { opacity: .45; cursor: default; }
 button.primary { background: #3b2c10; border-color: #7a5512; }
 button.on { background: #233a52; border-color: var(--accent2); }
 select { max-width: 260px; }
+#mapSelect { max-width: 200px; }
 .sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 2px; }
 .grow { flex: 1; }
 #dirty { color: var(--accent); font-weight: 600; }
-.tools { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
-.tools button { padding: 6px 2px; font-size: 12px; }
-.tools button small { display: block; color: var(--dim); font-size: 10px; }
 .layer { display: grid; grid-template-columns: 22px 1fr; grid-template-rows: auto auto; gap: 0 6px; padding: 5px 6px; border: 1px solid transparent; border-radius: 6px; cursor: pointer; }
 .layer:hover { background: var(--panel2); }
 .layer.active { border-color: var(--accent); background: #2a2516; }
@@ -75,7 +134,7 @@ label.chk { display: flex; gap: 6px; align-items: center; color: var(--dim); }
 #brushBox .sw { width: 52px; height: 52px; display: grid; place-items: center; background: #111; border-radius: 4px; flex: none; overflow: hidden; }
 #brushBox .sw img, #brushBox canvas { max-width: 52px; max-height: 52px; image-rendering: pixelated; }
 #brushName { overflow: hidden; text-overflow: ellipsis; }
-#palette { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)); gap: 4px; align-content: start; padding: 2px; min-height: 120px; }
+#palette { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)); gap: 4px; align-content: start; padding: 2px; min-height: 120px; }
 #palette .pt { position: relative; aspect-ratio: 1; background: #111 center/contain no-repeat; border: 2px solid transparent; border-radius: 4px; cursor: pointer; padding: 0; image-rendering: pixelated; }
 #palette .pt:hover { border-color: #666; }
 #palette .pt.sel { border-color: var(--accent); }
@@ -96,6 +155,13 @@ kbd { font: 11px ui-monospace, monospace; background: #0005; border: 1px solid v
 dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 10px; max-width: 560px; }
 dialog::backdrop { background: #0008; }
 dialog li { margin: 3px 0; color: var(--dim); }
+#checkDlg { max-width: 680px; }
+#checkList { display: flex; flex-direction: column; gap: 6px; max-height: 60vh; overflow-y: auto; }
+#checkList label { align-items: flex-start; color: var(--text); padding: 6px 8px; border-radius: 6px; background: var(--panel2); border-left: 3px solid var(--line); }
+#checkList label input { margin-top: 2px; }
+#checkList .add { border-left-color: var(--ok); }
+#checkList .remove { border-left-color: var(--danger); }
+#checkList .fix, #checkList .warn { border-left-color: var(--accent); }
 input[type=file] { display: none; }
 #bldThumb { display: block; width: 100%; height: 96px; margin: 4px 0; background: #111; border-radius: 4px; }
 #bldBox .row { margin-bottom: 4px; }
@@ -106,11 +172,11 @@ input[type=file] { display: none; }
 #modes { display: flex; gap: 2px; background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 2px; }
 #modes button { border: 0; background: transparent; padding: 4px 12px; }
 #modes button.on { background: var(--accent); color: #111; font-weight: 600; }
-body.in-studio #left, body.in-studio main, body.in-studio #right, body.in-studio .maponly { display: none; }
+body.in-studio .zone, body.in-studio .split, body.in-studio #toolbar, body.in-studio main, body.in-studio .panel.floating, body.in-studio .maponly { display: none; }
 .studio label.f input[type=text] { min-width: 0; width: 100%; }
 #mkBox select { max-width: 100%; min-width: 0; }
 #mkBox input[type=number] { width: 46px; }
-.studio { grid-row: 2; grid-column: 1 / 4; display: none; min-height: 0; overflow: hidden; background: var(--bg); }
+.studio { grid-row: 2 / 4; grid-column: 1 / -1; display: none; min-height: 0; overflow: hidden; background: var(--bg); }
 body.mode-tiles #tileStudio { display: grid; grid-template-columns: 250px 1fr 290px; }
 body.mode-buildings #bldStudio { display: grid; grid-template-columns: 360px 1fr; }
 .studio > .side { background: var(--panel); overflow-y: auto; padding: 8px; border-right: 1px solid var(--line); }
@@ -170,8 +236,10 @@ body.mode-buildings #bldStudio { display: grid; grid-template-columns: 360px 1fr
   <button id="btnOpen" class="primary" title="Pick the repo, public/assets, or the art folder">Open folder…</button>
   <input type="file" id="dirInput" webkitdirectory multiple>
   <select id="mapSelect" disabled><option>No folder open</option></select>
+  <button class="maponly" id="btnNewMap" title="Start a new map from this one: its ground, collision, props and spawns, without its buildings, doors, people and triggers">New map…</button>
   <span class="sep maponly"></span>
   <button class="maponly" id="btnSave" disabled title="Ctrl+S">Save</button>
+  <label class="chk maponly" id="autosaveLabel" title="Every 2 minutes, save the map into its file without asking (with a folder or the dev server that can be written to)"><input type="checkbox" id="autosave" checked> Autosave</label>
   <button class="maponly" id="btnDownload" disabled title="Download the map file">Download</button>
   <span class="maponly" id="dirty"></span>
   <span class="sep maponly"></span>
@@ -183,11 +251,14 @@ body.mode-buildings #bldStudio { display: grid; grid-template-columns: 360px 1fr
   <button class="maponly" id="btnZoomIn" title="Zoom in (+)">+</button>
   <button class="maponly" id="btnFit" title="Fit the whole map (0)">Fit</button>
   <span class="grow"></span>
+  <button id="btnCheck" title="Compare the game's map list and building library with what's in the folders, and offer to fix any difference">Check files</button>
+  <button class="maponly" id="btnWindow" title="Show or hide the panels, and put the layout back as it was">Window ▾</button>
   <button id="btnHelp">Help</button>
 </header>
 
-<aside id="left">
-  <h2>Tools</h2>
+<div id="zoneLeft" class="zone" data-zone="left"></div>
+<div id="splitLeft" class="split" data-col="lw" title="Drag to resize"></div>
+<div id="toolbar">
   <div class="tools" id="tools">
     <button data-tool="brush" title="Paint the selected tile. Shift+drag paints a rectangle.">Brush<small>B</small></button>
     <button data-tool="eraser" title="Clear tiles or collision. Shift+drag clears a rectangle.">Eraser<small>E</small></button>
@@ -198,7 +269,32 @@ body.mode-buildings #bldStudio { display: grid; grid-template-columns: 360px 1fr
     <button data-tool="hand" title="Pan the view (or hold Space, or drag with the right/middle button)">Pan<small>H</small></button>
   </div>
 
-  <h2>Buildings</h2>
+</div>
+<main>
+  <canvas id="view"></canvas>
+  <div id="welcome">
+    <div class="card">
+      <h3>Open your map files</h3>
+      <p>Click <b>Open folder…</b> and pick one of these folders:</p>
+      <ul>
+        <li><code>the-motocross-rpg/public</code> to edit the <b>game maps</b> exactly as the game loads them, with their tiles and the building library (best).</li>
+        <li><code>the-motocross-rpg/public/assets</code> works for the maps and tiles, but not the buildings.</li>
+        <li>The shared <code>art</code> folder to edit the <b>Tiled source maps</b> (<code>.tmj</code>) that <code>npm run import-art</code> bakes into the game.</li>
+        <li>The whole repo folder also works; <code>node_modules</code> is skipped where the browser allows it.</li>
+      </ul>
+      <p>In Chrome or Edge, <b>Save</b> writes straight back into the folder. In other browsers, Save downloads the file for you to copy into place.</p>
+      <div class="row"><button class="primary" id="btnOpen2">Open folder…</button><button id="btnHelp2">Help and shortcuts</button></div>
+      <p id="serverHint" class="hint"></p>
+    </div>
+  </div>
+</main>
+<div id="zoneBottom" class="zone" data-zone="bottom"><div class="bsplit" title="Drag to resize"></div></div>
+<div id="splitRight" class="split" data-col="rw" title="Drag to resize"></div>
+<div id="zoneRight" class="zone" data-zone="right"></div>
+
+<!-- The panels, placed into the docks by the layout (they wait here, never leaving the page). -->
+<div id="panelStore" hidden>
+<div class="panel" id="panel-buildings" data-title="Buildings">
   <div id="bldBox">
     <select id="bldList" style="width:100%" disabled><option>Open a game map</option></select>
     <canvas id="bldThumb" width="216" height="96"></canvas>
@@ -218,14 +314,21 @@ body.mode-buildings #bldStudio { display: grid; grid-template-columns: 360px 1fr
     <div class="hint" id="bldInfo"></div>
   </div>
 
-  <h2>Markers</h2>
+</div>
+<div class="panel" id="panel-markers" data-title="Markers">
   <div class="mkadd" id="mkAdd"></div>
   <div class="hint" id="mkHint">Spawns, exits, doors, block zones and other triggers. Pick one and click the map (drag for an area); click a marker with Objects (V) to edit it.</div>
 
-  <h2>Layers</h2>
+</div>
+<div class="panel" id="panel-layers" data-title="Layers">
   <div id="layers"><div class="hint">Open a map to see its layers.</div></div>
 
-  <h2>Selection</h2>
+</div>
+<div class="panel" id="panel-props" data-title="Properties">
+  <div id="mkBox" hidden></div>
+  <div id="propsNone" class="hint">Nothing selected. Click a marker with Objects (V) to set it up here.</div>
+</div>
+<div class="panel" id="panel-selection" data-title="Selection">
   <div class="row" style="margin-bottom:4px">
     <label class="chk" title="Region tools change every layer (tiles, collision, props and markers), or only the active layer">
       <select id="scope"><option value="all">All layers</option><option value="active">Active layer only</option></select>
@@ -243,7 +346,8 @@ body.mode-buildings #bldStudio { display: grid; grid-template-columns: 360px 1fr
   </div>
   <div class="hint" id="selInfo">No selection. Use the Select tool (M).</div>
 
-  <h2>Replace tiles</h2>
+</div>
+<div class="panel" id="panel-replace" data-title="Replace tiles">
   <div class="slots">
     <div class="slot"><div class="sw" id="slotA"></div><div id="slotAName">Find: —</div><button id="btnSetA" style="margin-top:3px">Use brush</button></div>
     <div class="slot"><div class="sw" id="slotB"></div><div id="slotBName">With: —</div><button id="btnSetB" style="margin-top:3px">Use brush</button></div>
@@ -254,46 +358,40 @@ body.mode-buildings #bldStudio { display: grid; grid-template-columns: 360px 1fr
   </div>
   <div class="hint">Works on the active tile layer, inside the selection if there is one, otherwise the whole layer. Empty slot = empty cell.</div>
 
-  <h2>Checks</h2>
+</div>
+<div class="panel" id="panel-checks" data-title="Checks">
   <div id="checks" class="hint">Open a map.</div>
-</aside>
-
-<main>
-  <canvas id="view"></canvas>
-  <div id="welcome">
-    <div class="card">
-      <h3>Open your map files</h3>
-      <p>Click <b>Open folder…</b> and pick one of these folders:</p>
-      <ul>
-        <li><code>the-motocross-rpg/public</code> to edit the <b>game maps</b> exactly as the game loads them, with their tiles and the building library (best).</li>
-        <li><code>the-motocross-rpg/public/assets</code> works for the maps and tiles, but not the buildings.</li>
-        <li>The shared <code>art</code> folder to edit the <b>Tiled source maps</b> (<code>.tmj</code>) that <code>npm run import-art</code> bakes into the game.</li>
-        <li>The whole repo folder also works; <code>node_modules</code> is skipped where the browser allows it.</li>
-      </ul>
-      <p>In Chrome or Edge, <b>Save</b> writes straight back into the folder. In other browsers, Save downloads the file for you to copy into place.</p>
-      <div class="row"><button class="primary" id="btnOpen2">Open folder…</button><button id="btnHelp2">Help and shortcuts</button></div>
-      <p id="serverHint" class="hint"></p>
-    </div>
-  </div>
-</main>
-
-<aside id="right">
-  <div id="mkBox" hidden></div>
-  <h2>Brush</h2>
+</div>
+<div class="panel" id="panel-palette" data-title="Palette" data-extra="#palGroup, #palSearch">
+  <select id="palGroup" title="Which group of tiles to show"></select>
+  <input type="search" id="palSearch" placeholder="Search tiles…">
   <div id="brushBox"><div class="sw" id="brushSw"></div><div><div id="brushName">Nothing selected</div><div class="hint" id="brushHint">Click a tile below, or use the Picker on the map.</div></div></div>
-  <h2>Palette</h2>
-  <div class="row">
-    <select id="palGroup" style="flex:1"></select>
-  </div>
-  <input type="search" id="palSearch" placeholder="Search tiles by name…">
   <div id="palette"><div id="palEmpty">Open a map to load its tiles.</div></div>
-</aside>
+</div>
+</div>
+
 
 <footer>
   <span id="posLabel">—</span>
   <span id="layerLabel"></span>
   <span id="msg"></span>
+  <span id="checkBadge" class="none maponly" hidden title="The map's checks: every door, spawn, exit and trigger on a free tile. Click to see them."></span>
 </footer>
+
+<dialog id="newMapDlg">
+  <h3 style="margin-top:0">New map</h3>
+  <p class="hint">A new area map from <b id="nmFrom"></b>: its ground, collision, props and spawns are copied; its buildings, doors, people and triggers are left out, since each can be on one map only.</p>
+  <label class="chk" style="display:grid;grid-template-columns:110px 1fr;gap:6px">Name <input type="text" id="nmName" placeholder="Riverside Town"></label>
+  <label class="chk" style="display:grid;grid-template-columns:110px 1fr;gap:6px;margin-top:6px">On the world map <span id="nmZone"></span></label>
+  <div class="row" style="margin-top:12px"><button id="nmCancel">Cancel</button><button id="nmMake" class="primary">Make the map</button></div>
+</dialog>
+
+<dialog id="checkDlg">
+  <h3 style="margin-top:0">File check</h3>
+  <p class="hint">The game's lists (its map list and building library) don't match what's in the folders. Untick anything you don't want changed.</p>
+  <div id="checkList"></div>
+  <div class="row" style="margin-top:10px"><button id="checkLater">Not now</button><button id="checkApply" class="primary">Apply ticked</button></div>
+</dialog>
 
 <dialog id="help">
   <h3 style="margin-top:0">Map editor help</h3>
@@ -305,9 +403,11 @@ body.mode-buildings #bldStudio { display: grid; grid-template-columns: 360px 1fr
     <li><b>Select</b> <kbd>M</kbd>: drag a box. Drag inside it to move it, <kbd>Alt</kbd>+drag to move a copy. <kbd>Ctrl+C</kbd>/<kbd>X</kbd>/<kbd>V</kbd> copy, cut and paste (click to place). <kbd>Del</kbd> clears. <b>Swap with…</b> exchanges two regions. <kbd>Esc</kbd> cancels.</li>
     <li><b>Objects</b> <kbd>V</kbd>: click a prop or marker to select it, drag to move (snaps to the grid; hold <kbd>Alt</kbd> for pixels), <kbd>Del</kbd> deletes a prop. With a prop picked in the palette, click empty ground to place it on the active props layer. Buildings and their doors move together: click one and use Move, or the Select tool.</li>
     <li><b>Tabs:</b> <b>Map</b> edits the map; <b>Tiles</b> draws and changes tiles (saved to <code>public/assets/custom/tiles</code> and added to the palette); <b>Buildings</b> edits the building library, with pictures you draw or import. With <code>npm run dev</code> and <b>Load the game maps from this server</b>, Save writes straight into the game.</li>
+    <li><b>New map…</b> copies the open area map's ground, collision, props and spawns into a new map and adds it to the game. <b>Check files</b> (also run on opening) finds map files that aren't in the game's map list, listed maps whose file is gone, and building pictures not in the library, and offers to fix each.</li>
     <li><b>Markers:</b> pick Spawn, Exit, Door, Block zone, Gate, Travel, Venue, NPC or Interact on the left and click the map (drag for an area). Set it up on the right: where an exit leads, the flag that lifts a block zone and the tile drawn when it's cleared, and so on. Click a marker with Objects (<kbd>V</kbd>) to change it, drag to move it, <kbd>Del</kbd> deletes it.</li>
     <li><b>Tiles tab:</b> Pencil <kbd>P</kbd>, Eraser <kbd>E</kbd>, Fill <kbd>F</kbd>, Picker <kbd>I</kbd> (or <kbd>Alt</kbd>+click), Line <kbd>L</kbd>, Box <kbd>R</kbd> (<kbd>Shift</kbd> fills). <b>Seams</b> brings a tile's edges to the middle to fix how it joins itself. <kbd>Ctrl+S</kbd> saves the tile.</li>
     <li><b>Buildings:</b> pick one from the list and <b>Place</b> it: it follows the pointer, green where it fits and red with the reason where it doesn't; click to set it down, <kbd>Esc</kbd> cancels. Placing writes its pictures, doors, returns and solid tiles. Click a placed building to <b>Move</b>, <b>Replace</b> or <b>Remove</b> it (<kbd>Del</kbd>). <b>Edit</b> and <b>New</b> open it in the Buildings tab: its footprint (any size or shape), its pictures (draw one, import a PNG, or edit one), its doors and returns and its interior. They are saved in <code>public/data/buildings.json</code>; open the repo folder (or <code>public</code>) so the editor can find it.</li>
+    <li><b>Partitions</b> (thin walls along tile edges): make Partitions the active layer. Click a wall to pick it (yellow), drag it to move it, drag one of its square ends to make it longer or shorter, and drag along a tile edge on the floor to draw a new one. <kbd>Del</kbd> or the Eraser removes the picked wall. They snap to tile corners and run straight across or down.</li>
     <li><b>Region scope:</b> "All layers" moves tiles, collision, props, markers and partitions together. Copies never duplicate markers (doors, spawns), and Clear never deletes them.</li>
     <li><b>Collision:</b> make Collision the active layer; Brush blocks a tile, Eraser frees it.</li>
     <li><b>Layers:</b> click a layer to edit it, the eye hides it, the slider sets its opacity. <kbd>[</kbd> <kbd>]</kbd> step through layers, <kbd>G</kbd> grid, <kbd>C</kbd> collision overlay.</li>
@@ -355,7 +455,7 @@ body.mode-buildings #bldStudio { display: grid; grid-template-columns: 360px 1fr
     <div id="bPicture" hidden>
       <div class="hint" id="bPicInfo"></div>
       <div id="bPadHost"></div>
-      <div class="row"><button id="bPicSave" class="primary">Use this picture</button><button id="bPicCancel">Cancel</button></div>
+      <div class="row"><button id="bPicCancel">Cancel</button><button id="bPicSave" class="primary">Use this picture</button></div>
     </div>
     <div class="row">
       <button id="bSave" class="primary">Save to library</button>
@@ -502,12 +602,17 @@ class ListSource {
 
 class HttpSource {
   constructor(base, mapPaths) { this.base = base; this.name = base; this.files = new Map(mapPaths.map((p) => [p, true])); this.canWrite = false; this.http = true; }
-  /** On `npm run dev` the server saves too (vite.config.ts, /__toolkit/), and lists the pictures made here. */
+  /**
+   * On `npm run dev` the server saves too (vite.config.ts, /__toolkit/), and lists the map files
+   * really in the maps folder (not only the manifest's) and the pictures made here.
+   */
   async scan() {
     try {
-      const r = await fetch('/__toolkit/pictures');
+      const r = await fetch('/__toolkit/files');
       if (!r.ok || !(r.headers.get('content-type') ?? '').includes('json')) return;
-      for (const p of await r.json()) this.files.set(p, true);
+      const { maps, pictures } = await r.json();
+      for (const p of [...this.files.keys()]) if (/^maps\/[^/]+\.json$/.test(p)) this.files.delete(p);
+      for (const p of [...maps, ...pictures]) this.files.set(p, true);
       this.canWrite = true;
       this.name = 'the game (npm run dev)';
     } catch { /* a published site: read only */ }
@@ -660,7 +765,7 @@ $('#dirInput').addEventListener('change', async (e) => {
   await useSource(src);
 });
 
-async function useSource(src) {
+async function useSource(src, { check = true, open } = {}) {
   const catalog = [];
   const bakedAssets = new Set();
   for (const p of src.files.keys()) {
@@ -700,9 +805,10 @@ async function useSource(src) {
   $('#welcome').style.display = 'none';
   await loadLibrary();
   await loadKnown();
-  const first = catalog.find((c) => c.format === 'baked' && stem(c.path) === 'area1-home-town') ?? catalog.find((c) => /home-town/.test(c.path)) ?? catalog[0];
+  const first = catalog.find((c) => c.path === open) ?? catalog.find((c) => c.format === 'baked' && stem(c.path) === 'area1-home-town') ?? catalog.find((c) => /home-town/.test(c.path)) ?? catalog[0];
   sel.value = first.path;
   await openMap(first);
+  if (check) await fileCheck(false);
 }
 
 $('#mapSelect').addEventListener('change', async (e) => {
@@ -718,7 +824,7 @@ async function openMap(c) {
     app.doc = doc;
     $('#mapSelect').value = c.path;
     app.undo = []; app.redo = [];
-    app.sel = null; app.float = null; app.selectedEnt = null; app.pendingSwap = false; app.placing = null; app.selBuilding = null;
+    app.sel = null; app.float = null; app.selectedEnt = null; app.pendingSwap = false; app.placing = null; app.selBuilding = null; app.selWall = -1;
     setDirty(false);
     buildLayersPanel();
     const firstTile = doc.layerDefs.find((l) => l.kind === 'tile');
@@ -954,7 +1060,17 @@ function exportTmj(doc) {
   const byRef = new Map();
   for (const p of state.props) if (p.ref) byRef.set(p.ref.join(','), { p });
   for (const m of state.markers) if (m.ref) byRef.set(m.ref.join(','), { m });
-  for (const w of state.walls) byRef.set(w.ref.join(','), { w });
+  for (const w of state.walls) if (w.ref) byRef.set(w.ref.join(','), { w });
+  // A partition is written from its points; one that hasn't changed is kept exactly as it was.
+  const wallObj = (o, pts) => {
+    const same = o && o.polyline.length === pts.length && o.polyline.every((q, k) => Math.round((o.x + q.x) / TILE) === pts[k][0] && Math.round((o.y + q.y) / TILE) === pts[k][1]);
+    if (same) return o;
+    const [x0, y0] = pts[0];
+    const poly = pts.map(([x, y]) => ({ x: (x - x0) * TILE, y: (y - y0) * TILE }));
+    return o ? copyObj(o, { x: x0 * TILE, y: y0 * TILE, polyline: poly }) : { id: nextId++, name: '', type: '', x: x0 * TILE, y: y0 * TILE, width: 0, height: 0, rotation: 0, visible: true, polyline: poly };
+  };
+  const newWalls = state.walls.filter((w) => !w.ref);
+  let wallsWritten = false;
   const layers = raw.layers.map((L, li) => {
     if (L.type === 'tilelayer') {
       if (L.name === 'Collision') return copyObj(L, { data: state.collision.map((b, i) => (b ? (L.data[i] & GID_MASK ? L.data[i] : doc.blockedGid) : 0)) });
@@ -975,9 +1091,10 @@ function exportTmj(doc) {
         return objects.push(copyObj(o, { x, y }));
       }
       if (e.m) return objects.push(e.m.x === e.m.ox && e.m.y === e.m.oy ? o : copyObj(o, { x: e.m.x, y: e.m.y }));
-      if (e.w) return objects.push(e.w.dx || e.w.dy ? copyObj(o, { x: o.x + e.w.dx * TILE, y: o.y + e.w.dy * TILE }) : o);
+      if (e.w) return objects.push(wallObj(o, e.w.pts));
       objects.push(o);
     });
+    if (L.name === 'Partitions') { wallsWritten = true; for (const w of newWalls) objects.push(wallObj(null, w.pts)); }
     for (const p of state.props) {
       if (p.ref || p.layer !== L.name) continue;
       const t = doc.tiles.get(p.key & GID_MASK);
@@ -986,7 +1103,14 @@ function exportTmj(doc) {
     }
     return copyObj(L, { objects });
   });
-  return pyDump(copyObj(raw, { nextobjectid: nextId, layers }));
+  // A map with no Partitions layer gets one, before its Data layer, for the walls drawn here.
+  let nextLayer = raw.nextlayerid;
+  if (!wallsWritten && newWalls.length) {
+    const L = { id: nextLayer++, name: 'Partitions', type: 'objectgroup', draworder: 'index', x: 0, y: 0, opacity: 1, visible: true, objects: newWalls.map((w) => wallObj(null, w.pts)) };
+    const at = layers.findIndex((l) => l.name === 'Data');
+    layers.splice(at < 0 ? layers.length : at, 0, L);
+  }
+  return pyDump(copyObj(raw, { nextobjectid: nextId, ...(nextLayer !== raw.nextlayerid ? { nextlayerid: nextLayer } : {}), layers }));
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -999,7 +1123,8 @@ function makeLayerDefs(state, propLayers, hasCollision = true, markers = false) 
   for (const name of propLayers) defs.push({ id: `props:${name}`, kind: 'props', name, label: name, hint: hints[name] ?? 'props' });
   if (hasCollision) defs.push({ id: 'collision', kind: 'collision', label: 'Collision', hint: 'red = blocked' });
   if (state.markers.length || markers) defs.push({ id: 'markers', kind: 'markers', label: 'Data', hint: 'doors, spawns, triggers' });
-  if (state.walls.length) defs.push({ id: 'walls', kind: 'walls', label: 'Partitions', hint: 'thin walls', noedit: true });
+  // Partitions are edited here (Boss, 5 Nov 2026): every map gets the layer, so a wall can be added to one that has none.
+  defs.push({ id: 'walls', kind: 'walls', label: 'Partitions', hint: 'thin walls' });
   defs.push({ id: 'grid', kind: 'grid', label: 'Grid', hint: '', noedit: true });
   return defs;
 }
@@ -1046,6 +1171,8 @@ function setActiveLayer(def) {
   for (const el of document.querySelectorAll('.layer')) el.classList.toggle('active', el.dataset.id === def.id);
   if (!layerView(def.id).visible) toggleLayer(def.id, true);
   app.selectedEnt = null;
+  app.selWall = -1;
+  if (def.kind === 'walls') status('Partitions: click a wall to pick it, drag it to move it, drag an end to change its length, drag on the floor to draw a new one along the tile edges. Del removes the picked wall.');
   if (def.kind === 'markers' && ['brush', 'eraser', 'fill', 'picker'].includes(app.tool)) setTool('props');
   $('#layerLabel').textContent = `Editing: ${def.label}`;
   buildPalette();
@@ -1337,6 +1464,7 @@ function draw() {
     }
     ctx.globalAlpha = 1;
   }
+  if (app.activeLayer?.kind === 'walls') drawWallEditing(ctx, st, T, scale);
 
   // Grid.
   if (app.showGrid && scale >= 0.18) {
@@ -1581,7 +1709,7 @@ function afterHistory() {
 }
 function setDirty(d) {
   app.dirty = d;
-  $('#dirty').textContent = d ? '● unsaved' : '';
+  $('#dirty').textContent = d ? '● Unsaved' : '';
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1778,6 +1906,140 @@ function deleteSelectedEnt() {
   requestDraw();
 }
 
+// --- Partitions ------------------------------------------------------------------------------------
+// Thin walls along tile edges: the game's edgeWalls, Tiled's Partitions polylines. With the
+// Partitions layer active, click a wall to pick it, drag it to move it, drag one of its ends to
+// change its length, drag on the floor to draw a new one, and Del (or the Eraser) removes it.
+// Everything snaps to tile corners and stays straight along one axis (Boss, 5 Nov 2026).
+
+app.selWall = -1;
+
+function segDist(px, py, ax, ay, bx, by) {
+  const vx = bx - ax, vy = by - ay;
+  const len = vx * vx + vy * vy;
+  const t = len ? clamp(((px - ax) * vx + (py - ay) * vy) / len, 0, 1) : 0;
+  return Math.hypot(px - (ax + t * vx), py - (ay + t * vy));
+}
+const wallTol = () => Math.max(TILE * 0.2, 7 / app.view.scale);
+/** The wall nearest the point, within reach, or -1. */
+function wallAt(wx, wy) {
+  let best = -1, bestD = wallTol();
+  app.doc.state.walls.forEach((w, i) => {
+    for (let k = 1; k < w.pts.length; k++) {
+      const [a, b] = [w.pts[k - 1], w.pts[k]];
+      const d = segDist(wx, wy, a[0] * TILE, a[1] * TILE, b[0] * TILE, b[1] * TILE);
+      if (d <= bestD) { best = i; bestD = d; }
+    }
+  });
+  return best;
+}
+/** Which end (or corner) of wall i the point is on, or -1. */
+function wallVertexAt(wx, wy, i) {
+  const w = app.doc?.state.walls[i];
+  if (!w) return -1;
+  return w.pts.findIndex(([x, y]) => Math.hypot(wx - x * TILE, wy - y * TILE) <= wallTol() * 1.4);
+}
+/** The tile corner nearest the point, inside the map. */
+const wallCorner = (p) => [clamp(Math.round(p.wx / TILE), 0, app.doc.width), clamp(Math.round(p.wy / TILE), 0, app.doc.height)];
+/** b moved onto the same row or column as a, whichever is nearer: walls run along tile edges. */
+const alongEdge = (a, b) => (Math.abs(b[0] - a[0]) >= Math.abs(b[1] - a[1]) ? [b[0], a[1]] : [a[0], b[1]]);
+const wallLen = (pts) => pts.slice(1).reduce((n, b, k) => n + Math.abs(b[0] - pts[k][0]) + Math.abs(b[1] - pts[k][1]), 0);
+
+function describeWall(w) {
+  const [a, b] = [w.pts[0], w.pts[w.pts.length - 1]];
+  const dir = a[0] === b[0] ? `down x ${a[0]}, from y ${Math.min(a[1], b[1])} to ${Math.max(a[1], b[1])}` : `across y ${a[1]}, from x ${Math.min(a[0], b[0])} to ${Math.max(a[0], b[0])}`;
+  return `Partition ${dir} (${wallLen(w.pts)} tile${wallLen(w.pts) === 1 ? '' : 's'} long).`;
+}
+
+function wallDown(p) {
+  if (app.tool === 'hand') return;
+  const st = app.doc.state;
+  const v = wallVertexAt(p.wx, p.wy, app.selWall);
+  if (v >= 0 && app.tool !== 'eraser') {
+    app.drag = { wall: 'end', i: app.selWall, v, orig: structuredClone(st.walls[app.selWall].pts), moved: false };
+    return;
+  }
+  const i = wallAt(p.wx, p.wy);
+  if (i >= 0) {
+    app.selWall = i;
+    if (app.tool === 'eraser') { deleteSelectedWall(); return; }
+    app.drag = { wall: 'move', i, start: wallCorner(p), orig: structuredClone(st.walls[i].pts), moved: false };
+    status(`${describeWall(st.walls[i])} Drag to move it, drag an end to change its length, Del removes it.`);
+    requestDraw();
+    return;
+  }
+  app.selWall = -1;
+  if (app.tool !== 'eraser') { const a = wallCorner(p); app.drag = { wall: 'new', a, b: a }; }
+  requestDraw();
+}
+
+function wallDragMove(d, p) {
+  const st = app.doc.state;
+  const c = wallCorner(p);
+  if (d.wall === 'new') { d.b = alongEdge(d.a, c); requestDraw(); return; }
+  const w = st.walls[d.i];
+  let pts;
+  if (d.wall === 'move') {
+    const dx = clamp(c[0] - d.start[0], -Math.min(...d.orig.map((q) => q[0])), app.doc.width - Math.max(...d.orig.map((q) => q[0])));
+    const dy = clamp(c[1] - d.start[1], -Math.min(...d.orig.map((q) => q[1])), app.doc.height - Math.max(...d.orig.map((q) => q[1])));
+    pts = d.orig.map(([x, y]) => [x + dx, y + dy]);
+  } else {
+    // An end keeps the wall straight: it moves along the line from its neighbour.
+    const n = d.orig[d.v === 0 ? 1 : d.v - 1];
+    pts = d.orig.map((q, k) => (k === d.v ? (n ? alongEdge(n, c) : c) : q));
+  }
+  if (JSON.stringify(pts) === JSON.stringify(w.pts)) return;
+  if (!d.moved) { beginChange(); d.moved = true; }
+  w.pts = pts;
+  requestDraw();
+}
+
+function wallDragEnd(d) {
+  const st = app.doc.state;
+  if (d.wall === 'new') {
+    if (d.a[0] === d.b[0] && d.a[1] === d.b[1]) { requestDraw(); return; }
+    beginChange();
+    st.walls.push({ ref: null, dx: 0, dy: 0, pts: [d.a, d.b] });
+    app.selWall = st.walls.length - 1;
+    status(`Added. ${describeWall(st.walls[app.selWall])}`, 'ok');
+  } else if (d.moved) {
+    const w = st.walls[d.i];
+    if (!wallLen(w.pts)) { st.walls.splice(d.i, 1); app.selWall = -1; status('The wall had no length left, so it was removed.'); }
+    else status(`${d.wall === 'move' ? 'Moved' : 'Resized'}. ${describeWall(w)}`, 'ok');
+  }
+  updateButtons();
+  requestDraw();
+}
+
+function deleteSelectedWall() {
+  const st = app.doc.state;
+  if (!st.walls[app.selWall]) return;
+  beginChange();
+  st.walls.splice(app.selWall, 1);
+  app.selWall = -1;
+  status('Removed the partition.');
+  requestDraw();
+}
+
+function drawWallEditing(ctx, st, T, scale) {
+  const lw = 6 / Math.max(scale, 0.5);
+  const w = st.walls[app.selWall];
+  if (w) {
+    ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = lw;
+    ctx.beginPath();
+    w.pts.forEach(([x, y], i) => (i ? ctx.lineTo(x * T, y * T) : ctx.moveTo(x * T, y * T)));
+    ctx.stroke();
+    const hs = 10 / scale;
+    ctx.fillStyle = '#ffd24a'; ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5 / scale;
+    for (const [x, y] of w.pts) { ctx.fillRect(x * T - hs / 2, y * T - hs / 2, hs, hs); ctx.strokeRect(x * T - hs / 2, y * T - hs / 2, hs, hs); }
+  }
+  const d = app.drag;
+  if (d?.wall === 'new' && (d.a[0] !== d.b[0] || d.a[1] !== d.b[1])) {
+    ctx.strokeStyle = '#4fc3f7'; ctx.lineWidth = lw;
+    ctx.beginPath(); ctx.moveTo(d.a[0] * T, d.a[1] * T); ctx.lineTo(d.b[0] * T, d.b[1] * T); ctx.stroke();
+  }
+}
+
 // --- Markers ---------------------------------------------------------------------------------------
 // The Data layer's objects: where the player arrives, the ways in and out, block zones and the other
 // triggers the game reads (src/core/travel.ts, mapState.ts, WorldScene.ts). Added and changed here,
@@ -1795,17 +2057,18 @@ const MARKER_TYPES = {
   interact: { label: 'Interact', what: 'Something the player can use, like a desk PC or a noticeboard. The story and the shops look for its action.', fields: [['action', 'text', 'Action'], ['on_wall', 'bool', 'On a wall']] },
 };
 /** Ids the marker fields suggest, gathered from the game's data and maps. */
-const known = { flags: new Set(), npcs: [], venues: [] };
+const known = { flags: new Set(), npcs: [], venues: [], world: null };
 
 async function loadKnown() {
-  known.flags = new Set(); known.npcs = []; known.venues = [];
+  known.flags = new Set(); known.npcs = []; known.venues = []; known.world = null;
   if (!lib.path) return;
   const dir = dirOf(lib.path);
-  const read = async (f) => { const p = joinPath(dir, f); try { return source.has(p) ? await source.text(p) : null; } catch { return null; } };
+  const read = async (f) => { const p = dir ? `${dir}/${f}` : f; /* not joinPath: over http the folder is ../data */ try { return source.has(p) ? await source.text(p) : null; } catch { return null; } };
   const story = await read('story.json');
   if (story) for (const m of story.matchAll(/"flags":\s*\[([^\]]*)\]/g)) for (const f of m[1].matchAll(/"([^"]+)"/g)) known.flags.add(f[1]);
   try { known.npcs = JSON.parse(await read('npcs.json')).npcs.map((n) => n.id); } catch { /* none */ }
   try { known.venues = JSON.parse(await read('tracks.json')).venues.map((v) => v.id); } catch { /* none */ }
+  try { const text = await read('world.json'); if (text) known.world = { text, data: JSON.parse(text), path: dir ? `${dir}/world.json` : 'world.json' }; } catch { /* none */ }
   for (const m of lib.maps.values()) for (const o of m.objects ?? []) for (const k of ['cleared_by', 'unlock']) if (typeof o.props?.[k] === 'string') known.flags.add(o.props[k]);
 }
 
@@ -2008,7 +2271,7 @@ async function loadLibrary() {
     lib.manifestPath = joinPath(lib.assets, 'manifest.json');
     try { const t = await source.text(lib.manifestPath); lib.manifest = JSON.parse(t); lib.manifestNl = t.endsWith('\n'); } catch { lib.manifest = null; }
     for (const c of baked) {
-      try { const m = JSON.parse(await source.text(c.path)); lib.maps.set(m.id, { kind: m.kind, objects: m.objects, props: m.props, title: m.title, path: c.path }); } catch { /* skip */ }
+      try { const m = JSON.parse(await source.text(c.path)); lib.maps.set(stem(c.path), { kind: m.kind, objects: m.objects, props: m.props, title: m.title, path: c.path }); } catch { /* skip */ }
     }
     const cands = source.http ? ['../data/buildings.json'] : [joinPath(dirOf(lib.assets), 'data/buildings.json')];
     for (const p of cands) {
@@ -3011,6 +3274,8 @@ canvas.addEventListener('pointerdown', (e) => {
     return;
   }
 
+  if (kind === 'walls') { wallDown(p); return; }
+
   if (app.tool === 'props' || kind === 'markers' || (kind === 'props' && ['brush', 'eraser', 'picker'].includes(app.tool))) {
     const hit = entityAt(p.wx, p.wy);
     if (kind === 'props' && app.tool === 'eraser') {
@@ -3100,6 +3365,7 @@ canvas.addEventListener('pointermove', (e) => {
     requestDraw();
     return;
   }
+  if (d?.wall) { wallDragMove(d, p); return; }
   if (d?.ent) {
     const st = app.doc.state;
     const ent = d.ent.kind === 'prop' ? st.props[d.ent.index] : st.markers[d.ent.index];
@@ -3111,8 +3377,11 @@ canvas.addEventListener('pointermove', (e) => {
     requestDraw();
     return;
   }
+  if (app.activeLayer?.kind === 'walls' && app.tool !== 'hand') {
+    canvas.style.cursor = wallVertexAt(p.wx, p.wy, app.selWall) >= 0 ? 'nwse-resize' : wallAt(p.wx, p.wy) >= 0 ? 'move' : 'crosshair';
+  }
   // Hovering a prop/marker with the Objects tool: show a pointer.
-  if (app.tool === 'props') {
+  else if (app.tool === 'props') {
     const hit = entityAt(p.wx, p.wy);
     app.hover.overEnt = !!hit;
     canvas.style.cursor = hit ? 'move' : 'crosshair';
@@ -3126,6 +3395,7 @@ function endDrag(e) {
   canvas.style.cursor = cursorFor(app.tool);
   if (!d) return;
   if (d.float && app.float) { placeFloat(); return; }
+  if (d.wall) { wallDragEnd(d); return; }
   if (d.rect) {
     const r = clipRect(normRect(d.rect.a, d.rect.b));
     if (d.select) { app.sel = r; updateButtons(); requestDraw(); return; }
@@ -3197,6 +3467,8 @@ function updateButtons() {
   $('#btnSave').disabled = !has;
   $('#btnDownload').disabled = !has;
   $('#btnSave').textContent = source?.canWrite ? 'Save' : 'Save (download)';
+  $('#autosave').disabled = !source?.canWrite;
+  $('#autosaveLabel').title = source?.canWrite ? 'Every 2 minutes, save the map into its file without asking' : 'Autosave needs a folder or dev server the editor can write into; here Save can only download';
   $('#btnUndo').disabled = !app.undo.length;
   $('#btnRedo').disabled = !app.redo.length;
   const s = !!app.sel;
@@ -3254,13 +3526,14 @@ window.addEventListener('keydown', (e) => {
     else if (app.placing) cancelPlacing();
     else if (app.float) cancelFloat();
     else if (app.pendingSwap) { app.pendingSwap = false; status('Swap cancelled.'); }
-    else { app.sel = null; app.selectedEnt = null; updateButtons(); }
+    else { app.sel = null; app.selectedEnt = null; app.selWall = -1; updateButtons(); }
     requestDraw();
     return;
   }
   if (e.key === 'Delete' || e.key === 'Backspace') {
     e.preventDefault();
-    if (app.selBuilding) removeSelectedBuilding();
+    if (app.activeLayer?.kind === 'walls' && app.doc.state.walls[app.selWall]) deleteSelectedWall();
+    else if (app.selBuilding) removeSelectedBuilding();
     else if (app.selectedEnt) deleteSelectedEnt();
     else if (app.sel) clearRegion(app.sel);
     return;
@@ -3291,7 +3564,9 @@ window.addEventListener('beforeunload', (e) => { if (app.dirty) { e.preventDefau
 function runChecks() {
   const box = $('#checks');
   const doc = app.doc;
-  if (!doc || !doc.layerDefs.some((d) => d.id === 'collision')) { box.innerHTML = '<div class="hint">No collision layer on this map.</div>'; return; }
+  const badge = $('#checkBadge');
+  badge.hidden = !doc;
+  if (!doc || !doc.layerDefs.some((d) => d.id === 'collision')) { box.innerHTML = '<div class="hint">No collision layer on this map.</div>'; badge.className = 'none maponly'; badge.textContent = 'No collision layer'; return; }
   const problems = [];
   for (const m of doc.state.markers) {
     if (!MUST_BE_FREE.has(m.type)) continue;
@@ -3300,6 +3575,8 @@ function runChecks() {
     else if (doc.state.collision[t.y * doc.width + t.x]) problems.push({ m, t, why: 'is on a blocked tile' });
   }
   box.innerHTML = '';
+  badge.className = problems.length ? 'maponly' : 'good maponly';
+  badge.textContent = problems.length ? `${problems.length} check ${problems.length === 1 ? 'problem' : 'problems'}` : '✓ Checks pass';
   if (!problems.length) { box.innerHTML = '<div class="good">✓ Every door, spawn, exit and trigger is on a free tile.</div>'; return; }
   for (const p of problems) {
     const el = document.createElement('div');
@@ -3352,6 +3629,27 @@ async function save(forceDownload) {
   setDirty(false);
   status(`Downloaded ${baseName(doc.path)}. Copy it over ${doc.path}.`, 'ok');
 }
+
+// Autosave (Boss, 2 Nov 2026): every two minutes, an unsaved map is written into its file without
+// asking, when the folder or dev server can be written to (where Save would only download, there is
+// nothing to do quietly). Never mid-stroke, mid-drag, while placing a building or a floating chunk,
+// nor in the Tiles and Buildings workspaces. The Autosave tick by Save is remembered in the browser.
+const AUTOSAVE_EVERY = 2 * 60 * 1000;
+const AUTOSAVE_KEY = 'mapEditor.autosave';
+function autosaveOn() { return $('#autosave').checked; }
+async function autosave() {
+  const doc = app.doc;
+  if (!autosaveOn() || !doc || !app.dirty || !source?.canWrite || app.mode !== 'map' || app.drag || app.float || app.placing || app.addMarker) return;
+  let text;
+  try { text = exportText(doc); } catch (e) { console.error(e); status(`Autosave couldn't build the file (${e.message}). Use Save.`, 'err'); return; }
+  try { await source.write(doc.path, text); } catch (e) { console.error(e); status(`Autosave couldn't write ${doc.path} (${e.message}). Use Save.`, 'err'); return; }
+  setDirty(false);
+  const at = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  status(`Autosaved ${doc.path} at ${at}.`, 'ok');
+}
+try { $('#autosave').checked = localStorage.getItem(AUTOSAVE_KEY) !== 'off'; } catch { /* the default, on */ }
+$('#autosave').addEventListener('change', () => { try { localStorage.setItem(AUTOSAVE_KEY, autosaveOn() ? 'on' : 'off'); } catch { /* lasts the page */ } status(autosaveOn() ? 'Autosave on: the map is saved every 2 minutes.' : 'Autosave off.', 'ok'); });
+setInterval(() => { autosave().catch((e) => console.error(e)); }, AUTOSAVE_EVERY);
 
 // ---------------------------------------------------------------------------------------------
 // Status line
@@ -3917,6 +4215,305 @@ $('#bPicCancel').addEventListener('click', () => { if (pad.dirty && !confirm('Lo
 $('#bDrawPic').addEventListener('click', () => bedEditPicture(-1));
 $('#bImportPic').addEventListener('click', async () => { const got = await pickPng(); if (got) bedEditPicture(-1, got.img); });
 
+
+// --- The world map ---------------------------------------------------------------------------------
+// Every area map is in a zone of the world map (data/world.json worldMap.zones), where the rider's
+// bike is shown while they are on it. A new map goes into a zone picked here, or a new zone of its
+// own at the middle of the world map (with no picture of its own until one is drawn).
+
+function zoneOf(mapId) { return known.world?.data.worldMap?.zones.find((z) => z.maps.includes(mapId)) ?? null; }
+
+/** A zone picker: the world map's zones, and a new zone named after the map. */
+function zoneSelect(title, current) {
+  const sel = document.createElement('select');
+  const zones = known.world?.data.worldMap?.zones ?? [];
+  for (const z of zones) sel.appendChild(Object.assign(document.createElement('option'), { value: z.id, textContent: `World map zone: ${z.name}` }));
+  sel.appendChild(Object.assign(document.createElement('option'), { value: '@new', textContent: `A new world map zone: ${title}` }));
+  sel.value = current && zones.some((z) => z.id === current) ? current : '@new';
+  return sel;
+}
+
+/** Puts a map in a zone (an id, or '@new' for one of its own). */
+function putInZone(mapId, title, choice) {
+  const wm = known.world?.data.worldMap;
+  if (!wm) return false;
+  for (const z of wm.zones) z.maps = z.maps.filter((m) => m !== mapId);
+  wm.zones = wm.zones.filter((z) => z.maps.length);
+  if (choice !== '@new' && wm.zones.some((z) => z.id === choice)) wm.zones.find((z) => z.id === choice).maps.push(mapId);
+  else {
+    let id = slug(title).replace(/-/g, '_');
+    for (let n = 2; wm.zones.some((z) => z.id === id); n++) id = `${slug(title).replace(/-/g, '_')}_${n}`;
+    wm.zones.push({ id, name: title, maps: [mapId], at: [Math.round(wm.size[0] / 2), Math.round(wm.size[1] / 2)] });
+  }
+  return true;
+}
+function takeOutOfZones(mapId) {
+  const wm = known.world?.data.worldMap;
+  if (!wm || !zoneOf(mapId)) return false;
+  for (const z of wm.zones) z.maps = z.maps.filter((m) => m !== mapId);
+  wm.zones = wm.zones.filter((z) => z.maps.length);
+  return true;
+}
+
+/** world.json as the repo keeps it: only the zones list is rewritten, one zone a line. */
+async function saveWorld() {
+  const w = known.world;
+  const line = (z) => `{ ${Object.entries(z).map(([k, v]) => `${JSON.stringify(k)}: ${Array.isArray(v) ? `[${v.map((x) => JSON.stringify(x)).join(', ')}]` : JSON.stringify(v)}`).join(', ')} }`;
+  const m = /("zones": \[\n)([\s\S]*?)(\n(\s*)\])/.exec(w.text);
+  const text = m
+    ? w.text.slice(0, m.index) + m[1] + w.data.worldMap.zones.map((z) => `${m[4]}  ${line(z)}`).join(',\n') + m[3] + w.text.slice(m.index + m[0].length)
+    : `${JSON.stringify(w.data, null, 2)}\n`;
+  w.text = text;
+  return writeFile(w.path, text);
+}
+
+// --- New maps --------------------------------------------------------------------------------------
+// A copy of an area map keeps its ground, collision, props and spawns, but not what the game allows
+// on one map only: buildings lead into interiors no other map may lead into, people stand on one map,
+// and a road out (to world_map) needs its own route in data/world.json. Those are cleared out, so the
+// copy passes the game's checks and starts as a blank town to build on.
+
+const ONE_MAP_ONLY = new Set(['building', 'door', 'return', 'click', 'npc', 'interact', 'venue', 'travel']);
+
+/** Clears a copied baked map of what can stand on one map only. Returns what went, as words. */
+function clearCopy(raw) {
+  const T = raw.tileSize ?? TILE;
+  const gone = { buildings: 0, other: 0 };
+  const dropSprites = new Set();
+  for (const o of raw.objects.filter((x) => x.type === 'building')) {
+    gone.buildings++;
+    const def = libDef(String(o.props?.blueprint ?? ''));
+    const tx = Math.floor(o.x / T), ty = Math.floor(o.y / T);
+    const cells = def ? fpCells(def).filter((c) => c.solid).map((c) => [tx + c.x, ty + c.y]) : [];
+    if (!def) for (let y = 0; y < Math.round(o.h / T); y++) for (let x = 0; x < Math.round(o.w / T); x++) cells.push([tx + x, ty + y]);
+    for (const [x, y] of cells) if (raw.blocked[y]?.[x] === '#') raw.blocked[y] = raw.blocked[y].slice(0, x) + '.' + raw.blocked[y].slice(x + 1);
+    raw.sprites.forEach((s, i) => {
+      if (!s.crop) return;
+      const mine = def ? def.parts.some((p) => s.x === (tx + p.at[0]) * T && s.y === (ty + p.at[1]) * T && p.crop.join() === s.crop.join()) : s.x >= o.x && s.y >= o.y && s.x < o.x + o.w && s.y < o.y + o.h;
+      if (mine) dropSprites.add(i);
+    });
+  }
+  raw.sprites = raw.sprites.filter((_, i) => !dropSprites.has(i));
+  raw.objects = raw.objects.filter((o) => {
+    const drop = (ONE_MAP_ONLY.has(o.type)) || (o.type === 'exit' && o.props?.to === 'world_map');
+    if (drop && o.type !== 'building') gone.other++;
+    return !drop;
+  });
+  return `${gone.buildings} building${gone.buildings === 1 ? '' : 's'} and ${gone.other} door${gone.other === 1 ? '' : 's'}, people and triggers`;
+}
+
+/** Interiors a map's buildings lead into that another listed map's buildings already do. */
+function sharedInteriors(raw) {
+  const mine = new Set(raw.objects.filter((o) => o.type === 'door').map((o) => o.props?.interior));
+  const out = [];
+  for (const [id, m] of lib.maps) {
+    if (id === raw.id || !lib.manifest.maps.some((x) => x.id === id)) continue;
+    for (const o of m.objects ?? []) if (o.type === 'door' && mine.has(o.props?.interior)) out.push(o.props.interior);
+  }
+  return [...new Set(out)];
+}
+
+async function newMap() {
+  const doc = app.doc;
+  if (!doc || doc.format !== 'baked' || !lib.manifest) { status('Open a game map first.', 'err'); return; }
+  if (doc.raw.kind === 'interior') { status('For a new interior, open the building in the Buildings tab and use New interior from this.', 'err'); return; }
+  const got = await askNewMap(doc);
+  if (!got) return;
+  const { title, zone } = got;
+  const prefix = /^area\d+-/.exec(doc.name)?.[0] ?? '';
+  let id = `${prefix}${slug(title)}`;
+  for (let n = 2; lib.manifest.maps.some((m) => m.id === id) || source.has(joinPath(lib.assets, `maps/${id}.json`)); n++) id = `${prefix}${slug(title)}-${n}`;
+  const raw = JSON.parse(exportBaked(doc));
+  const what = clearCopy(raw);
+  Object.assign(raw, { id, title: title.trim(), props: { ...raw.props, title: title.trim() } });
+  const path = joinPath(lib.assets, `maps/${id}.json`);
+  const ok = await writeFile(path, `${JSON.stringify(raw)}\n`, true);
+  lib.manifest.maps.push({ id, title: title.trim(), kind: 'area' });
+  await writeFile(lib.manifestPath, `${JSON.stringify(lib.manifest, null, 1)}${lib.manifestNl ? '\n' : ''}`);
+  if (putInZone(id, title.trim(), zone)) await saveWorld();
+  if (!ok) { status(`Downloaded ${id}.json and manifest.json: put them in public/assets/maps and public/assets, then reopen the editor.`, 'ok'); return; }
+  if (app.dirty) setDirty(false);
+  await useSource(source, { check: false, open: path });
+  status(`Made ${title.trim()} (${id}), without ${what}. Add an exit to it from another map (Markers, Exit, To ${id}) so players can get there.`, 'ok');
+}
+/** Asks the new map's name and world map zone; null if cancelled. */
+function askNewMap(doc) {
+  const dlg = $('#newMapDlg');
+  $('#nmFrom').textContent = doc.raw.title ?? doc.name;
+  $('#nmName').value = '';
+  const host = $('#nmZone');
+  host.innerHTML = '';
+  const sel = zoneSelect('(its name)', zoneOf(doc.name)?.id);
+  host.appendChild(sel);
+  host.hidden = !known.world;
+  return new Promise((resolve) => {
+    const done = (v) => { dlg.close(); resolve(v); };
+    $('#nmMake').onclick = () => { const t = $('#nmName').value.trim(); if (!t) { $('#nmName').focus(); return; } done({ title: t, zone: sel.value }); };
+    $('#nmCancel').onclick = () => done(null);
+    dlg.oncancel = () => resolve(null);
+    dlg.showModal();
+    $('#nmName').focus();
+  });
+}
+$('#btnNewMap').addEventListener('click', () => {
+  if (app.dirty && !confirm('This map has unsaved changes. They are copied into the new map, but this map itself stays unsaved and is closed. Go on?')) return;
+  newMap();
+});
+
+// --- File check ------------------------------------------------------------------------------------
+// The game lists its maps in public/assets/manifest.json and its buildings in public/data/
+// buildings.json, not by what is in the folders, so a map file copied in by hand, or one deleted,
+// would otherwise go unnoticed. On opening (and with Check files) this compares the two and offers
+// each fix, ticked, to apply or leave (Boss, 30 Oct 2026). Tiles need no list: the palette is
+// read from the folders.
+
+const checkDlg = $('#checkDlg');
+let checkItems = [];
+
+async function fileCheck(show) {
+  if (!lib.manifest) { if (show) status('The file check needs the game maps: open public (or public/assets) or load them from the server.', 'err'); return; }
+  const items = [];
+  const mapsDir = joinPath(lib.assets, 'maps');
+  // A map's id is its file name, and the game only takes lower-case letters, digits, dots, dashes
+  // and underscores: a file named otherwise (a space slipped in when renaming it) is never added,
+  // and one already listed is offered for taking off the list below (Boss, 31 Oct 2026).
+  const okId = (id) => /^[a-z0-9_.-]+$/.test(id);
+  const all = [...source.files.keys()].filter((p) => dirOf(p) === mapsDir && p.endsWith('.json')).sort();
+  for (const p of all.filter((f) => !okId(stem(f)))) {
+    const fix = stem(p).trim().toLowerCase().replace(/[^a-z0-9_.-]+/g, '-').replace(/^-+|-+$/g, '');
+    items.push({ kind: 'warn', text: `"${baseName(p)}" can't be a game map: map file names are lower-case letters, digits, dots, dashes and underscores, with no spaces or capitals. Rename it ${fix || 'something else'}.json in public/assets/maps, then Check files again.` });
+  }
+  const files = all.filter((f) => okId(stem(f)));
+  const fileIds = new Set(files.map(stem));
+  const seen = new Set();
+  for (const m of lib.manifest.maps) {
+    if (seen.has(m.id)) items.push({ kind: 'remove', text: `${m.id} is in the map list twice: take out the second.`, apply: (c) => { const i = lib.manifest.maps.lastIndexOf(m); if (i >= 0) lib.manifest.maps.splice(i, 1); c.manifest = true; } });
+    seen.add(m.id);
+  }
+  for (const p of files) {
+    const id = stem(p);
+    let raw;
+    try { raw = JSON.parse(await source.text(p)); } catch (e) { items.push({ kind: 'warn', text: `${baseName(p)} can't be read as JSON (${e.message}), so it isn't added.` }); continue; }
+    if (!raw || !Array.isArray(raw.ground) || !raw.width || !raw.height) { items.push({ kind: 'warn', text: `${baseName(p)} isn't a game map (no ground layers or size), so it isn't added.` }); continue; }
+    const kind = raw.kind === 'interior' ? 'interior' : 'area';
+    const title = typeof raw.title === 'string' && raw.title.trim() ? raw.title : id;
+    const fixId = raw.id !== id;
+    const writeId = async () => { raw.id = id; await writeFile(p, `${JSON.stringify(raw)}\n`); };
+    const entry = lib.manifest.maps.find((m) => m.id === id);
+    if (!entry) {
+      const clash = fixId && lib.manifest.maps.some((m) => m.id === raw.id);
+      // An exit to the world map needs a route in world.json listing where it can go, or the game
+      // won't start (content.ts): such a map is offered unticked, saying so (Boss, 31 Oct 2026).
+      const routes = known.world?.data.routes ?? [];
+      const unrouted = kind === 'area' && known.world ? (raw.objects ?? []).filter((o) => o.type === 'exit' && o.props?.to === 'world_map' && !routes.some((r) => r.map === id && r.exit === o.name)).map((o) => `"${o.name}"`) : [];
+      const it = {
+        kind: 'add',
+        off: unrouted.length > 0,
+        text: `New ${kind === 'interior' ? 'interior' : 'map'} ${baseName(p)} ("${title}")${unrouted.length ? ` (left unticked: its exit ${unrouted.join(', ')} goes to the world map and no route in world.json says where to, so the game won't start with it listed until one does)` : ''}: add it to the game's map list${kind === 'area' && known.world ? ', and to the world map in:' : '.'}${fixId ? ` The id inside it is ${raw.id}${clash ? ', which is already another map\'s,' : ''} so it's changed to ${id} to match the file name.` : ''}`,
+        zone: kind === 'area' && known.world ? zoneSelect(title, zoneOf(id)?.id) : null,
+        apply: async (c) => { if (fixId) await writeId(); lib.manifest.maps.push({ id, title, kind }); c.manifest = true; if (it.zone && putInZone(id, title, it.zone.value)) c.world = true; },
+      };
+      items.push(it);
+      raw.id = id;
+      const shared = kind === 'area' ? sharedInteriors(raw) : [];
+      if (shared.length) {
+        items.push({
+          kind: 'fix',
+          text: `${baseName(p)} looks like a copy: its buildings lead into ${shared.length} interior${shared.length > 1 ? 's' : ''} another map's buildings already lead into (${shared.slice(0, 3).join(', ')}${shared.length > 3 ? '…' : ''}), and the game won't start like that. Clear its buildings, doors, people and triggers, keeping the ground, props and spawns (as New map does)?`,
+          apply: async () => { clearCopy(raw); await writeFile(p, `${JSON.stringify(raw)}
+`); },
+        });
+      }
+      continue;
+    }
+    if (fixId) items.push({ kind: 'fix', text: `${baseName(p)} says its id is ${raw.id}: change it to ${id} to match the file name (the game finds it by that).`, apply: writeId });
+    if (entry.title !== title) items.push({ kind: 'fix', text: `${id} is "${title}" in its file but "${entry.title}" in the map list: use "${title}".`, apply: (c) => { entry.title = title; c.manifest = true; } });
+    if (entry.kind !== kind) items.push({ kind: 'fix', text: `${id} is an ${kind} map in its file but listed as ${entry.kind}: list it as ${kind}.`, apply: (c) => { entry.kind = kind; c.manifest = true; } });
+    if (kind === 'area' && known.world && !zoneOf(id)) {
+      const it = { kind: 'fix', text: `${title} (${id}) isn't on the world map: put it in`, zone: zoneSelect(title), apply: (c) => { if (putInZone(id, title, it.zone.value)) c.world = true; } };
+      items.push(it);
+    }
+  }
+  for (const m of lib.manifest.maps) {
+    if (fileIds.has(m.id)) continue;
+    const why = okId(m.id) ? `maps/${m.id}.json isn't in the folder` : `"${m.id}" isn't a name the game takes (a space or capital in it)`;
+    items.push({ kind: 'remove', text: `${m.title ?? m.id} (${m.id}) is in the map list but ${why}: take it off the list and the world map (the game won't start while it's there).`, apply: (c) => { lib.manifest.maps = lib.manifest.maps.filter((x) => x !== m); c.manifest = true; if (takeOutOfZones(m.id)) c.world = true; } });
+  }
+  if (lib.data) {
+    // Over http only the pictures made here are listed, so only those can be found missing.
+    const has = (sheet) => (source.http && !isMine(sheet)) || source.has(joinPath(lib.assets, sheet));
+    for (const b of lib.data.buildings) {
+      const gone = [...new Set(b.parts.map((pt) => pt.sheet).filter((s) => !has(s)))];
+      if (!gone.length) continue;
+      items.push({
+        kind: 'warn', off: !!b.draft,
+        text: `${b.name}'s picture ${gone.map(baseName).join(', ')} isn't in the folder.${b.draft ? '' : ' Mark it unfinished so it can\'t be placed until it has one? (Redraw it in the Buildings tab.)'}`,
+        apply: b.draft ? null : (c) => { b.draft = true; c.library = true; },
+      });
+    }
+    const used = new Set(lib.data.buildings.flatMap((b) => b.parts.map((pt) => pt.sheet)));
+    const dir = joinPath(lib.assets, 'custom/buildings');
+    for (const p of [...source.files.keys()].filter((f) => dirOf(f) === dir && f.endsWith('.png')).sort()) {
+      const sheet = p.slice(lib.assets ? lib.assets.length + 1 : 0);
+      if (used.has(sheet)) continue;
+      const name = stem(p).replace(/[-_]+/g, ' ').replace(/^./, (ch) => ch.toUpperCase());
+      items.push({
+        kind: 'add',
+        text: `New building picture ${baseName(p)}: add "${name}" to the building library, unfinished, to set up its footprint and doors in the Buildings tab.`,
+        apply: async (c) => {
+          const e = imageAt(p);
+          await loaded(e);
+          const w = e.img.naturalWidth || TILE, h = e.img.naturalHeight || TILE;
+          let id = `bld.custom.${slug(stem(p)).replace(/-/g, '_')}`;
+          for (let n = 2; libDef(id); n++) id = `bld.custom.${slug(stem(p)).replace(/-/g, '_')}_${n}`;
+          const fw = Math.max(1, Math.round(w / TILE)), fh = Math.max(1, Math.round(h / TILE) - 1);
+          lib.data.buildings.push({ id, name, draft: true, parts: [{ sheet, crop: [0, 0, w, h], at: [0, 0] }], footprint: Array.from({ length: fh }, () => '#'.repeat(fw)), doors: [], returns: [] });
+          c.library = true;
+        },
+      });
+    }
+  }
+  checkItems = items;
+  if (!items.length) { if (show) status('File check: the map list matches the maps folder, and every building picture is in the library.', 'ok'); return; }
+  const box = $('#checkList');
+  box.innerHTML = '';
+  for (const it of items) {
+    const row = document.createElement('label');
+    row.className = `chk ${it.kind}`;
+    const c = Object.assign(document.createElement('input'), { type: 'checkbox', checked: !!it.apply && !it.off, disabled: !it.apply });
+    it.box = c;
+    const words = document.createElement('span');
+    words.append(it.text);
+    if (it.zone) { it.zone.style.display = 'block'; it.zone.style.marginTop = '4px'; words.append(it.zone); }
+    row.append(c, words);
+    box.appendChild(row);
+  }
+  $('#checkApply').disabled = !items.some((i) => i.apply);
+  checkDlg.showModal();
+}
+
+$('#checkApply').addEventListener('click', async () => {
+  const todo = checkItems.filter((i) => i.apply && i.box.checked);
+  if (!todo.length) { checkDlg.close(); return; }
+  if (app.dirty && !confirm('Applying reloads the maps, and this map has unsaved changes. Apply anyway and lose them?')) return;
+  checkDlg.close();
+  const c = {};
+  try {
+    for (const it of todo) await it.apply(c);
+    if (c.manifest) await writeFile(lib.manifestPath, `${JSON.stringify(lib.manifest, null, 1)}${lib.manifestNl ? '\n' : ''}`);
+    if (c.library) await writeFile(lib.path, libText(lib.data));
+    if (c.world) await saveWorld();
+  } catch (e) { console.error(e); status(`The file check couldn't save: ${e.message}`, 'err'); return; }
+  setDirty(false);
+  if (!source.canWrite) { status(`Downloaded ${[c.manifest && 'manifest.json', c.library && 'buildings.json', c.world && 'world.json'].filter(Boolean).join(' and ')}: copy them over the game's own, then reopen the editor.`, 'ok'); return; }
+  const was = app.doc?.path;
+  if (source.http) await source.scan();
+  await useSource(source, { check: false, open: was });
+  status(`File check: applied ${todo.length} change${todo.length > 1 ? 's' : ''}.${c.manifest ? ' New maps are in the map list.' : ''}`, 'ok');
+});
+$('#checkLater').addEventListener('click', () => checkDlg.close());
+$('#btnCheck').addEventListener('click', () => fileCheck(true));
+
 // ---------------------------------------------------------------------------------------------
 // Served over http (for example `npm run dev`, then /tools/map-editor.html): load the game maps
 // straight from the server. Saving downloads the file.
@@ -3934,7 +4531,7 @@ async function tryServer() {
       const b = document.createElement('button');
       b.textContent = `Load the ${manifest.maps.length} game maps from this server`;
       b.addEventListener('click', async () => {
-        const src = new HttpSource(base, manifest.maps.map((m) => `maps/${m.id}.json`).concat('manifest.json', ['buildings', 'story', 'npcs', 'tracks'].map((f) => `../data/${f}.json`)));
+        const src = new HttpSource(base, manifest.maps.map((m) => `maps/${m.id}.json`).concat('manifest.json', ['buildings', 'story', 'npcs', 'tracks', 'world'].map((f) => `../data/${f}.json`)));
         await src.scan();
         await useSource(src);
         status(src.canWrite ? 'Loaded the game. Save writes straight into it (maps, tiles and buildings).' : 'Loaded the game maps. This server is read only, so saving downloads the file.', 'ok');
@@ -3950,6 +4547,261 @@ setTool('brush');
 updateButtons();
 tryServer();
 window.mapEditor = { app, lib, exportText, useSource, openMap, HttpSource, ListSource, libText, placementProblems, placedBuildings, buildingProblems }; // for tests
+
+// ---------------------------------------------------------------------------------------------
+// Panels and docks (Boss, 2 Nov 2026). Every panel (Buildings, Markers, Layers, Properties,
+// Selection, Replace tiles, Checks, Palette) can be dragged by its header to the left, right or bottom dock, or dropped on the
+// view to pop out as a floating window that drags and resizes; the bars between panels and beside
+// the docks resize them; a panel collapses to its header with —, and the Window menu shows and
+// hides panels or puts the layout back. The layout is kept in this browser (localStorage).
+
+const PANEL_IDS = ['buildings', 'markers', 'layers', 'props', 'selection', 'replace', 'checks', 'palette'];
+const LAYOUT_KEY = 'mapEditor.layout.1';
+/** Buildings, Markers and Layers on the left; Properties, Selection, Replace tiles and Checks on the right; the Palette along the bottom. */
+const DEFAULT_LAYOUT = { left: ['buildings', 'markers', 'layers'], right: ['props', 'selection', 'replace', 'checks'], bottom: ['palette'], float: [], hidden: [], lw: 250, rw: 320, bh: 230, basis: {}, pos: {} };
+var docks = loadLayout(); // var: dockZones may run before this, and steps out until the layout is loaded
+/** Where each panel was docked before it popped out, to dock it back. */
+const lastDock = {};
+
+function loadLayout() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? 'null');
+    if (!saved || !Array.isArray(saved.left)) return structuredClone(DEFAULT_LAYOUT);
+    const l = { ...structuredClone(DEFAULT_LAYOUT), ...saved };
+    // Every panel exactly once: new panels go where the default puts them, unknown names are dropped.
+    const seen = new Set();
+    for (const z of ['left', 'right', 'bottom', 'float']) l[z] = (l[z] ?? []).filter((id) => PANEL_IDS.includes(id) && !seen.has(id) && seen.add(id));
+    for (const z of ['left', 'right', 'bottom', 'float']) for (const id of DEFAULT_LAYOUT[z]) if (!seen.has(id)) { l[z].push(id); seen.add(id); }
+    l.hidden = (l.hidden ?? []).filter((id) => PANEL_IDS.includes(id));
+    return l;
+  } catch { return structuredClone(DEFAULT_LAYOUT); }
+}
+function saveLayout() { try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(docks)); } catch { /* private window: the layout lasts the page */ } }
+
+/** The panel's header: title, its own controls, the dock menu, pop out or dock back, collapse. */
+function panelHeader(id, floating) {
+  const el = $(`#panel-${id}`);
+  let ph = el.querySelector(':scope > .ph');
+  if (!ph) {
+    ph = document.createElement('div');
+    ph.className = 'ph';
+    const t = document.createElement('span');
+    t.className = 't';
+    t.textContent = el.dataset.title;
+    const extra = document.createElement('span');
+    extra.className = 'extra';
+    if (el.dataset.extra) extra.append(...el.querySelectorAll(el.dataset.extra));
+    const menu = document.createElement('button');
+    menu.textContent = '▾';
+    menu.title = 'Dock this panel somewhere else, or hide it';
+    menu.addEventListener('click', (e) => { e.stopPropagation(); dockMenu(id, menu); });
+    const out = document.createElement('button');
+    out.className = 'popout';
+    const fold = document.createElement('button');
+    fold.textContent = '—';
+    fold.title = 'Collapse to the header (click again to open)';
+    fold.addEventListener('click', (e) => { e.stopPropagation(); el.classList.toggle('collapsed'); });
+    ph.append(t, extra, menu, out, fold);
+    ph.addEventListener('pointerdown', (e) => dragPanel(e, id));
+    const body = document.createElement('div');
+    body.className = 'pb';
+    body.append(...[...el.childNodes].filter((n) => n !== ph));
+    el.append(ph, body);
+  }
+  const out = ph.querySelector('.popout');
+  out.textContent = floating ? '⤡' : '⤢';
+  out.title = floating ? 'Dock it back where it was' : 'Pop out over the view';
+  out.onclick = (e) => { e.stopPropagation(); movePanel(id, floating ? 'back' : 'float'); };
+  return ph;
+}
+
+/** Puts every panel where the layout says, with the bars between them. */
+function applyLayout() {
+  // Every panel back in the store (never out of the page: the editor finds them by id), then placed.
+  for (const el of document.querySelectorAll('.panel')) $('#panelStore').appendChild(el);
+  for (const z of ['left', 'right', 'bottom']) {
+    const zone = $(`#zone${z[0].toUpperCase()}${z.slice(1)}`);
+    for (const n of [...zone.children]) if (!n.classList.contains('bsplit')) n.remove();
+    let first = true;
+    for (const id of docks[z]) {
+      const el = $(`#panel-${id}`);
+      panelHeader(id, false);
+      el.classList.remove('floating');
+      el.style.cssText = '';
+      const b = docks.basis[id];
+      if (b) el.style.flex = z === 'bottom' ? `1 1 ${b}px` : `1 1 ${b}px`;
+      el.hidden = docks.hidden.includes(id);
+      if (!first && !el.hidden) {
+        const bar = document.createElement('div');
+        bar.className = 'hsplit';
+        bar.dataset.split = z;
+        bar.addEventListener('pointerdown', (e) => dragBar(e, bar, z));
+        zone.appendChild(bar);
+      }
+      zone.appendChild(el);
+      if (!el.hidden) first = false;
+    }
+    tidyBars(zone);
+  }
+  docks.float.forEach((id, i) => {
+    const el = $(`#panel-${id}`);
+    panelHeader(id, true);
+    el.classList.add('floating');
+    el.hidden = docks.hidden.includes(id);
+    const p = docks.pos[id] ?? { x: 360 + i * 30, y: 120 + i * 30, w: 340, h: 380 };
+    el.style.cssText = `left:${p.x}px;top:${p.y}px;width:${p.w}px;height:${p.h}px`;
+    document.body.appendChild(el);
+  });
+  document.documentElement.style.setProperty('--lw', `${docks.lw}px`);
+  document.documentElement.style.setProperty('--rw', `${docks.rw}px`);
+  document.documentElement.style.setProperty('--bh', `${docks.bh}px`);
+  dockZones();
+}
+/** A bar only between two panels that show. */
+function tidyBars(zone) {
+  let prev = null;
+  for (const n of [...zone.children]) {
+    if (n.classList.contains('bsplit')) continue;
+    if (n.classList.contains('hsplit')) { n.hidden = !prev; if (prev) prev = null; else n.remove(); continue; }
+    if (n.hidden || n.classList.contains('offmode')) continue;
+    prev = n;
+  }
+}
+/** Hides a dock with nothing showing in it, so the view takes the room. */
+function dockZones() {
+  if (!docks) return;
+  const showing = (z) => docks[z].some((id) => { const el = $(`#panel-${id}`); return !el.hidden && !el.classList.contains('offmode'); });
+  document.body.classList.toggle('noleft', !showing('left'));
+  document.body.classList.toggle('noright', !showing('right'));
+  document.body.classList.toggle('nobottom', !showing('bottom'));
+  for (const z of ['Left', 'Right', 'Bottom']) tidyBars($(`#zone${z}`));
+  requestDraw();
+}
+function movePanel(id, to, index) {
+  let from = null;
+  for (const z of ['left', 'right', 'bottom', 'float']) { const i = docks[z].indexOf(id); if (i >= 0) { from = z; docks[z].splice(i, 1); } }
+  if (to === 'back') to = lastDock[id] ?? 'right';
+  if (from && from !== 'float') lastDock[id] = from;
+  if (to === 'float' && from === 'float') to = 'float';
+  if (index === undefined || index > docks[to].length) docks[to].push(id); else docks[to].splice(index, 0, id);
+  docks.hidden = docks.hidden.filter((h) => h !== id);
+  saveLayout();
+  applyLayout();
+}
+function dockMenu(id, at) {
+  const items = [['Dock left', () => movePanel(id, 'left')], ['Dock right', () => movePanel(id, 'right')], ['Dock bottom', () => movePanel(id, 'bottom')], ['Pop out', () => movePanel(id, 'float')], null, ['Hide', () => { docks.hidden.push(id); saveLayout(); applyLayout(); }]];
+  dropdown(at, items);
+}
+let openMenu = null;
+function dropdown(at, items) {
+  openMenu?.remove();
+  const dd = document.createElement('div');
+  dd.className = 'dd';
+  for (const it of items) {
+    if (!it) { dd.appendChild(document.createElement('hr')); continue; }
+    const b = document.createElement('button');
+    b.textContent = it[0];
+    if (it[2]) b.classList.add('on');
+    b.addEventListener('click', () => { dd.remove(); openMenu = null; it[1](); });
+    dd.appendChild(b);
+  }
+  document.body.appendChild(dd);
+  const r = at.getBoundingClientRect();
+  dd.style.top = `${r.bottom + 4}px`;
+  dd.style.left = `${Math.max(4, Math.min(window.innerWidth - dd.offsetWidth - 4, r.right - dd.offsetWidth))}px`;
+  openMenu = dd;
+  setTimeout(() => document.addEventListener('pointerdown', (e) => { if (!dd.contains(e.target)) { dd.remove(); if (openMenu === dd) openMenu = null; } }, { once: true }), 0);
+}
+/** The Window menu: show or hide each panel, and put the layout back. */
+$('#btnWindow').addEventListener('click', (e) => {
+  const names = { buildings: 'Buildings', markers: 'Markers', layers: 'Layers', props: 'Properties', selection: 'Selection', replace: 'Replace tiles', checks: 'Checks', palette: 'Palette' };
+  const items = PANEL_IDS.map((id) => [`${docks.hidden.includes(id) ? '○' : '●'} ${names[id]}`, () => {
+    if (docks.hidden.includes(id)) docks.hidden = docks.hidden.filter((h) => h !== id); else docks.hidden.push(id);
+    saveLayout(); applyLayout();
+  }]);
+  items.push(null, ['Reset layout', () => { docks = structuredClone(DEFAULT_LAYOUT); saveLayout(); applyLayout(); }]);
+  dropdown(e.currentTarget, items);
+});
+
+/** Dragging a panel by its header: into a dock (before the panel it is dropped on), or onto the view to pop it out. */
+function dragPanel(e, id) {
+  if (e.target.closest('button, input, select')) return;
+  const el = $(`#panel-${id}`);
+  const floating = el.classList.contains('floating');
+  const sx = e.clientX, sy = e.clientY, ox = el.offsetLeft, oy = el.offsetTop;
+  let ghost = null, over = null, moved = false, before = null;
+  const zoneAt = (x, y) => document.elementsFromPoint(x, y).find((n) => (n.dataset?.zone || n.tagName === 'MAIN') && !n.closest('.panel.floating')) ?? null;
+  const mv = (ev) => {
+    if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 4) return;
+    moved = true;
+    if (floating) { el.style.left = `${ox + ev.clientX - sx}px`; el.style.top = `${oy + ev.clientY - sy}px`; }
+    else if (!ghost) { ghost = document.createElement('div'); ghost.className = 'dragGhost'; ghost.textContent = el.dataset.title; document.body.appendChild(ghost); el.classList.add('dragging'); }
+    if (ghost) { ghost.style.left = `${ev.clientX + 12}px`; ghost.style.top = `${ev.clientY + 12}px`; }
+    const z = zoneAt(ev.clientX, ev.clientY);
+    const target = z && !(floating && z.tagName === 'MAIN') ? z : null;
+    if (over !== target) { over?.classList.remove('drop'); over = target; over?.classList.add('drop'); }
+    before = null;
+    if (over && over.dataset.zone) {
+      const p = document.elementsFromPoint(ev.clientX, ev.clientY).find((n) => n.classList?.contains('panel') && over.contains(n));
+      if (p && p !== el) { const r = p.getBoundingClientRect(); const half = over.dataset.zone === 'bottom' ? ev.clientX < r.left + r.width / 2 : ev.clientY < r.top + r.height / 2; before = half ? p : p.nextElementSibling?.closest('.panel') ?? null; if (!half && !before) before = 'end'; }
+    }
+  };
+  const ph = e.currentTarget;
+  const up = (ev) => {
+    ph.removeEventListener('pointermove', mv); ph.removeEventListener('pointerup', up); ph.removeEventListener('pointercancel', up);
+    try { ph.releasePointerCapture(e.pointerId); } catch { /* already released */ }
+    ghost?.remove(); el.classList.remove('dragging'); over?.classList.remove('drop');
+    if (floating) { docks.pos[id] = { x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight }; saveLayout(); }
+    if (!moved || !over) return;
+    if (over.tagName === 'MAIN') { docks.pos[id] = { x: ev.clientX - 60, y: ev.clientY - 12, w: el.offsetWidth || 340, h: el.offsetHeight || 380 }; movePanel(id, 'float'); return; }
+    const z = over.dataset.zone;
+    const index = before && before !== 'end' ? docks[z].indexOf(before.id.replace('panel-', '')) : undefined;
+    movePanel(id, z, index);
+  };
+  // The header keeps the pointer, so the drag carries on over the map.
+  try { ph.setPointerCapture(e.pointerId); } catch { /* a synthetic event */ }
+  ph.addEventListener('pointermove', mv); ph.addEventListener('pointerup', up); ph.addEventListener('pointercancel', up);
+  e.preventDefault();
+}
+/** Dragging the bar between two docked panels: the panel before it takes the room. */
+function dragBar(e, bar, z) {
+  const prev = (() => { let n = bar.previousElementSibling; while (n && (n.hidden || n.classList.contains('offmode') || !n.classList.contains('panel'))) n = n.previousElementSibling; return n; })();
+  if (!prev) return;
+  const horizontal = z === 'bottom';
+  const start = horizontal ? e.clientX : e.clientY, b0 = horizontal ? prev.offsetWidth : prev.offsetHeight;
+  const mv = (ev) => { const b = Math.max(40, b0 + (horizontal ? ev.clientX : ev.clientY) - start); prev.style.flex = `1 1 ${b}px`; docks.basis[prev.id.replace('panel-', '')] = b; };
+  const up = () => { bar.removeEventListener('pointermove', mv); bar.removeEventListener('pointerup', up); saveLayout(); };
+  bar.setPointerCapture(e.pointerId);
+  bar.addEventListener('pointermove', mv); bar.addEventListener('pointerup', up);
+  e.preventDefault();
+}
+/** The bars beside the docks and above the bottom dock. */
+for (const bar of document.querySelectorAll('.split[data-col]')) bar.addEventListener('pointerdown', (e) => {
+  const key = bar.dataset.col, start = e.clientX, v0 = docks[key];
+  const mv = (ev) => { docks[key] = Math.max(160, Math.min(700, v0 + (key === 'lw' ? 1 : -1) * (ev.clientX - start))); document.documentElement.style.setProperty(`--${key}`, `${docks[key]}px`); requestDraw(); };
+  const up = () => { bar.removeEventListener('pointermove', mv); bar.removeEventListener('pointerup', up); saveLayout(); };
+  bar.setPointerCapture(e.pointerId);
+  bar.addEventListener('pointermove', mv); bar.addEventListener('pointerup', up);
+  e.preventDefault();
+});
+$('#zoneBottom .bsplit').addEventListener('pointerdown', (e) => {
+  const bar = e.currentTarget, start = e.clientY, v0 = docks.bh;
+  const mv = (ev) => { docks.bh = Math.max(80, Math.min(560, v0 - (ev.clientY - start))); document.documentElement.style.setProperty('--bh', `${docks.bh}px`); requestDraw(); };
+  const up = () => { bar.removeEventListener('pointermove', mv); bar.removeEventListener('pointerup', up); saveLayout(); };
+  bar.setPointerCapture(e.pointerId);
+  bar.addEventListener('pointermove', mv); bar.addEventListener('pointerup', up);
+  e.preventDefault();
+});
+// A floating panel resized by its corner keeps its size.
+for (const id of PANEL_IDS) new ResizeObserver(() => { const el = $(`#panel-${id}`); if (el.classList.contains('floating') && !el.hidden) { docks.pos[id] = { x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight }; saveLayout(); } }).observe($(`#panel-${id}`));
+applyLayout();
+/** Shows the Checks panel (from the status bar badge). */
+$('#checkBadge').addEventListener('click', () => {
+  if (docks.hidden.includes('checks')) { docks.hidden = docks.hidden.filter((h) => h !== 'checks'); saveLayout(); applyLayout(); }
+  const el = $('#panel-checks');
+  el.classList.remove('collapsed');
+  el.scrollIntoView({ block: 'nearest' });
+});
 </script>
 </body>
 </html>

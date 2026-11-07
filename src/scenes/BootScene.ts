@@ -1,3 +1,4 @@
+import { soldTexture, type AreasData } from '../core/areas';
 import Phaser from 'phaser';
 import { CONTENT_FILES, checkContent, type Manifest, type RawContent } from '../core/content';
 import type { BakedMap } from '../core/mapTypes';
@@ -14,7 +15,10 @@ import { COLORS, textStyle } from '../ui/theme';
 import { START_MAP } from './careerFlow';
 import type { RaceSceneData } from './RaceScene';
 import { view } from '../ui/view';
-import { vanTexture, vanTurnTexture } from '../world/VanView';
+import type { VehiclesData } from '../core/vehicles';
+import { bikeImagePath, bikeTexture, vanTexture, vanTurnTexture } from '../world/VanView';
+import { HEADINGS } from '../core/vehicles';
+import { loadModModels } from '../world/modModels';
 
 // Loads the manifest, every baked map's data and the content files, checks them all, then loads
 // the character and van sheets. Map images load later, the first time each map is visited.
@@ -41,11 +45,32 @@ export class BootScene extends Phaser.Scene {
       this.load.spritesheet(`chr:${id}:act`, `assets/${sheet.act}`, { frameWidth: fw, frameHeight: fh });
       // The push-up frames are side on, so wider than a walk frame: up, then down.
       if (sheet.fit) this.load.spritesheet(`chr:${id}:fit`, `assets/${sheet.fit}`, { frameWidth: 96, frameHeight: 64 });
+      // The bench press (bar on the chest, half way, locked out) and the rider on the bike, side on
+      // (seated, attack position, soaked up low; adult bike row then youth), for the Area 2 and 3 drills.
+      if (sheet.lift) this.load.spritesheet(`chr:${id}:lift`, `assets/${sheet.lift}`, { frameWidth: 96, frameHeight: 64 });
+      if (sheet.ride) this.load.spritesheet(`chr:${id}:ride`, `assets/${sheet.ride}`, { frameWidth: 128, frameHeight: 128 });
+      // Yoga (mountain, warrior, seated) and the rowing machine (catch, drive, finish), for the Area 4 and 5 drills.
+      if (sheet.yoga) this.load.spritesheet(`chr:${id}:yoga`, `assets/${sheet.yoga}`, { frameWidth: 96, frameHeight: 80 });
+      if (sheet.row) this.load.spritesheet(`chr:${id}:row`, `assets/${sheet.row}`, { frameWidth: 96, frameHeight: 64 });
+      if (sheet.dojo) this.load.spritesheet(`chr:${id}:dojo`, `assets/${sheet.dojo}`, { frameWidth: 96, frameHeight: 72 });
     }
     for (const [id, sheet] of Object.entries(manifest.vehicles ?? {})) {
       this.load.image(vanTexture(id), `assets/${sheet.image}`);
       if (sheet.turn) this.load.image(vanTurnTexture(id), `assets/${sheet.turn.image}`);
     }
+    // A design drawn with another's sheets until its art exists (vehicles.json artOf: the sports car).
+    for (const d of (this.cache.json.get('content:vehicles') as VehiclesData | undefined)?.designs ?? []) {
+      const sheet = d.artOf && !manifest.vehicles?.[d.id] ? manifest.vehicles?.[d.artOf] : undefined;
+      if (!sheet) continue;
+      this.load.image(vanTexture(d.id), `assets/${sheet.image}`);
+      if (sheet.turn) this.load.image(vanTurnTexture(d.id), `assets/${sheet.turn.image}`);
+    }
+    // The bike on its stand in each brand, for the load bed of the Old Rusty Truck.
+    for (const b of (this.cache.json.get('content:bikes') as BikesData | undefined)?.brands ?? []) {
+      for (const model of ['youth', 'adult']) for (const h of HEADINGS) this.load.image(bikeTexture(model, b.id, h), `assets/${bikeImagePath(model, b.id, h)}`);
+    }
+    // The houses' fronts with the For Sale sign gone, drawn once bought (areas.json house.sold).
+    for (const a of (this.cache.json.get('content:areas') as AreasData | undefined)?.areas ?? []) if (a.house?.sold) this.load.image(soldTexture(a.house.sold.image), `assets/${a.house.sold.image}`);
     // Badges and trophies (championships.json rewards).
     const champs = this.cache.json.get('content:championships') as ChampionshipsData | undefined;
     for (const c of champs?.championships ?? []) for (const r of c.rewards) if (r.image) this.load.image(rewardTexture(r.image), `assets/${r.image}`);
@@ -55,7 +80,8 @@ export class BootScene extends Phaser.Scene {
     if (wm) {
       for (const img of [wm.image, ...wm.zones.flatMap((z) => (z.image ? [z.image] : []))]) this.load.image(worldMapTexture(img), `assets/${img}`);
       for (const c of bikes?.classes ?? []) for (const b of bikes?.brands ?? []) {
-        const img = bikeImage(wm, { class: c.id, brand: b.id, parts: {} });
+        if (c.mapImage) continue; // drawn with another class's picture for now
+        const img = bikeImage(wm, { class: c.id, brand: b.id, parts: {} }, bikes);
         this.load.image(worldMapTexture(img), `assets/${img}`);
       }
     }
@@ -76,7 +102,9 @@ export class BootScene extends Phaser.Scene {
     services.content = content;
     services.maps = maps;
     services.travel = new Travel(maps, content.world.locks);
-    void fetchFolder(import.meta.env.BASE_URL).then((folder) => {
+    void Promise.all([fetchFolder(import.meta.env.BASE_URL), loadModModels(import.meta.env.BASE_URL, content.trackParts.scenery)]).then(([folder, added]) => {
+      // New scenery from the models folder (world/modModels.ts), before mod tracks that may use it are checked.
+      content.trackParts.scenery.push(...added);
       services.modFolder = folder;
       services.modTracks = loadModTracks(content, folder, services.store);
       this.startGame();
@@ -88,13 +116,17 @@ export class BootScene extends Phaser.Scene {
     const params = new URLSearchParams(window.location.search);
     // The track editor's race view, in a frame inside the editor (TrackEditScene).
     if (params.has('editview')) return void this.scene.start('trackedit');
-    const test = params.get('testtrack');
+    // The models page: export the game's objects for Blender, and see what the models folder holds (ModelsScene).
+    if (params.has('models')) return void this.scene.start('models');
+    // ?testtrack is the track editor's "Race it in the game" under `npm run dev` only: the published
+    // game ignores it (Boss, 6 Nov 2026: "Remove the ?test track").
+    const test = import.meta.env.DEV ? params.get('testtrack') : null;
     if (test && content.tracks.tracks.some((t) => t.id === test)) this.testRide(test);
     else this.scene.start('menu');
   }
 
   /**
-   * Dev only: ?testtrack=<track id> goes straight to a race day on that track with a new rider
+   * `npm run dev` only: ?testtrack=<track id> goes straight to a race day on that track with a new rider
    * and the local field, without a venue or a save, to try a track from the track editor.
    */
   private testRide(trackId: string): void {
@@ -103,7 +135,9 @@ export class BootScene extends Phaser.Scene {
     const career = newCareerState(bikes, story, bikes.brands[0].id);
     for (const part of Object.values(career.bike.parts)) part.condition = 1;
     const save: SaveData = { version: SAVE_VERSION, savedAt: new Date().toISOString(), rider: { name: 'Tester', look: '' }, position: { map: START_MAP, x: 0, y: 0, facing: 'down' }, flags: { first_race_done: true }, stats: { playSeconds: 0 }, career, van: null, driving: false };
-    const venue: VenueDef = { id: `test-${trackId}`, name: track.name, map: START_MAP, track: trackId, class: '50cc', field: 'area1.local' };
+    // &weather=<racing.json weather id> sets the day's weather, to see it on the race screen (Boss, 5 Nov 2026).
+    const weather = new URLSearchParams(window.location.search).get('weather') ?? undefined;
+    const venue: VenueDef = { id: `test-${trackId}`, name: track.name, map: START_MAP, track: trackId, class: '50cc', field: 'area1.local', weather };
     const data: RaceSceneData = { mode: track.practiceOnly ? 'practice' : 'raceday', venue, save, fee: 0, onDone: () => this.scene.start('menu') };
     this.scene.start('race', data);
   }

@@ -5,6 +5,9 @@
     "task.parts_order": { "name": "Customer parts order", "desc": "A box of parts from the bike shop, for the garage." },
     "task.tyres": { "name": "Pair of new tyres", "desc": "For a customer bike at the garage. Fit them on the tyre machine." },
     "task.cylinder": { "name": "Worn cylinder", "desc": "Needs a rebore at the engine rebuilder in the Industrial Zone." },
-    "task.cylinder_rebored": { "name": "Rebored cylinder", "desc": "Back to Paul at Phoenix MX with this." }
+    "task.cylinder_rebored": { "name": "Rebored cylinder", "desc": "Back to Paul at Phoenix MX with this." },
+    "task.machine_coil": { "name": "Machine coil", "desc": "A wound coil from the Suspension shop in Forest Town, for Maggie's machine." },
+    "task.machine_valve": { "name": "Machine valve", "desc": "A precision valve from the Brake works in Beach Town, for Maggie's machine." },
+    "task.test_parts": { "name": "Maggie's test parts", "desc": "Two old parts from the Wheel works in Mountain Town, for the machine's first test." }
   }
 }

@@ -14,7 +14,7 @@ export interface Peak {
   b: number;
   c: number;
   d: number;
-  /** Its height as a share of the section's. */
+  /** Its height as a share of the section's; below 0 a hole dug into the ground (a bomb hole). */
   h: number;
 }
 
@@ -29,6 +29,17 @@ export interface Way {
   w: [number, number];
   /** The way a jump comes up short on a mistake: a hard landing on the face. */
   short?: boolean;
+  /**
+   * Tyre taps (Boss, 2 Nov 2026: "Back wheel tyre taps"): a hop that lands on a hump's top only
+   * taps the back wheel there, front wheel still up, and pops straight off it into the next hop.
+   */
+  tap?: true;
+}
+
+/** Whether hop i of a way ends in a tyre tap: the next hop takes off right where it lands. */
+export function tapsAfter(way: Way, i: number): boolean {
+  const next = way.hops[i + 1];
+  return !!next && Math.abs(next[0] - way.hops[i][1]) < 1e-9;
 }
 
 export interface JumpDef {
@@ -58,6 +69,20 @@ export const DEFAULT_HEIGHTS: Record<string, number> = {
   dragon_back: 2.2,
   uphill: 6,
   downhill: 6,
+  // Enduro sections (Boss, 29 Oct 2026): a hill climb's crest, and the size of the rocks, roots and logs.
+  hill_climb: 5,
+  rocks: 0.35,
+  roots: 0.18,
+  logs: 0.55,
+  log_step: 0.6,
+  // Endurocross obstacles (Boss, 1 Nov 2026): a concrete pipe across the track, a bed of tractor
+  // tyres on their sides, and two rows of upright machinery tyres, all packed with mud.
+  pipe: 1.8,
+  tyre_bed: 0.3,
+  tyre_wall: 2.0,
+  log_stack: 1.2,
+  // A bomb hole (Boss, 2 Nov 2026): how deep it is dug.
+  bomb_hole: 2.5,
 };
 
 const peak = (a: number, b: number, c: number, d: number, h = 1): Peak => ({ a, b, c, d, h });
@@ -127,6 +152,7 @@ export const JUMPS: Record<string, JumpDef> = {
     ways: [
       { name: 'clear', hops: [[0.3, 0.76]], w: [0.3, 1] },
       { name: 'singles', hops: [[0.3, 0.42], [0.68, 0.8]], w: [0.8, 0.1] },
+      { name: 'tap the second', hops: [[0.3, 0.68], [0.68, 0.8]], w: [0, 0.3], tap: true },
       { name: 'case', hops: [[0.3, 0.64]], w: [0.15, 0], short: true },
     ],
   },
@@ -149,6 +175,7 @@ export const JUMPS: Record<string, JumpDef> = {
       { name: 'double single', hops: [[0.3, 0.61], [0.68, 0.78]], w: [0.5, 0.4] },
       { name: 'single double', hops: [[0.3, 0.42], [0.5, 0.77]], w: [0.4, 0.3] },
       { name: 'singles', hops: [[0.3, 0.42], [0.5, 0.61], [0.68, 0.78]], w: [0.8, 0.05] },
+      { name: 'tap the middle, double', hops: [[0.3, 0.5], [0.5, 0.77]], w: [0, 0.4], tap: true },
       { name: 'case', hops: [[0.3, 0.66]], w: [0.1, 0], short: true },
     ],
   },
@@ -160,6 +187,7 @@ export const JUMPS: Record<string, JumpDef> = {
       { name: 'single double single', hops: [[0.2, 0.29], [0.4, 0.69], [0.8, 0.9]], w: [0.6, 0.3] },
       { name: 'triple single', hops: [[0.2, 0.69], [0.8, 0.9]], w: [0.1, 0.5] },
       { name: 'singles', hops: [[0.2, 0.29], [0.4, 0.49], [0.6, 0.69], [0.8, 0.9]], w: [0.8, 0.05] },
+      { name: 'double, tap, double', hops: [[0.2, 0.6], [0.6, 0.9]], w: [0, 0.4], tap: true },
       { name: 'case', hops: [[0.2, 0.76]], w: [0.05, 0], short: true },
     ],
   },
@@ -225,6 +253,7 @@ export const JUMPS: Record<string, JumpDef> = {
       { name: 'double single', hops: [[0.15, 0.6], [0.81, 0.92]], w: [0.2, 1] },
       { name: 'single double', hops: [[0.15, 0.27], [0.48, 0.92]], w: [0.2, 0.8] },
       { name: 'singles', hops: [[0.15, 0.27], [0.48, 0.6], [0.81, 0.92]], w: [1, 0.1] },
+      { name: 'tap and double', hops: [[0.15, 0.48], [0.48, 0.92]], w: [0, 0.5], tap: true },
       { name: 'case', hops: [[0.15, 0.45]], w: [0.1, 0], short: true },
     ],
   },
@@ -232,12 +261,45 @@ export const JUMPS: Record<string, JumpDef> = {
     // Four humps, each bigger than the last, building up to the big final mound and the launch off its top.
     peaks: [peak(0.05, 0.12, 0.12, 0.18, 0.18), peak(0.23, 0.3, 0.3, 0.36, 0.32), peak(0.41, 0.48, 0.48, 0.54, 0.55), peak(0.58, 0.72, 0.74, 0.88, 1)],
     ways: [
-      { name: 'skip the tops', hops: [[0.12, 0.3], [0.3, 0.48], [0.48, 0.72], [0.74, 0.93]], w: [0.3, 1] },
-      { name: 'double double', hops: [[0.12, 0.48], [0.48, 0.93]], w: [0, 0.6] },
+      { name: 'skip the tops', hops: [[0.12, 0.3], [0.3, 0.48], [0.48, 0.72], [0.74, 0.93]], w: [0.3, 1], tap: true },
+      { name: 'double double', hops: [[0.12, 0.48], [0.48, 0.93]], w: [0, 0.6], tap: true },
       { name: 'ride up, jump off', hops: [[0.74, 0.9]], w: [1, 0.1] },
     ],
   },
+  // A bomb hole (Boss, 2 Nov 2026: "like a tabletop shape turned upside down and dug out, riders drop
+  // off the in and jump up and out the other see"; then, with a picture: "add a jump lip at the top
+  // one side and skilled riders can clear it, others drop off and jump out, variety like normal").
+  // A lip on the way in, the hole dug out behind it with a flat bottom, and a steep face up and out.
+  // Its height is how deep it is dug.
+  bomb_hole: {
+    peaks: [peak(0.04, 0.14, 0.14, 0.17, 0.35), peak(0.15, 0.32, 0.58, 0.8, -1)],
+    ways: [
+      { name: 'clear', hops: [[0.14, 0.9]], w: [0, 0.8] },
+      { name: 'drop in, jump out', hops: [[0.14, 0.42], [0.79, 0.92]], w: [0.5, 0.45] },
+      { name: 'roll in, jump out', hops: [[0.79, 0.9]], w: [0.6, 0.1] },
+      { name: 'roll through', hops: [], w: [0.35, 0] },
+      { name: 'case', hops: [[0.14, 0.72]], w: [0, 0], short: true },
+    ],
+  },
 };
+
+/**
+ * Ways through whoops (Boss, 2 Nov 2026: "Wheelie through whoop, also jump rhythms in woops rider
+ * movement"). Whoops aren't jumps (no take-off faces, SKIM): most riders skim the tops, some hold a
+ * wheelie across them with the back wheel skimming, and good jumpers jump them in rhythm, two or
+ * three whoops a hop, tapping the back wheel on a top and popping straight off it (tyre taps). The
+ * whoops' tops are at WHOOP_TOPS (trackSurface.ts sectionShape: eight across the section).
+ */
+export const WHOOP_TOPS = Array.from({ length: 8 }, (_, k) => (k + 0.5) / 8);
+const top = (k: number) => WHOOP_TOPS[k];
+export const WHOOP_WAYS: Way[] = [
+  { name: 'skim', hops: [], w: [1, 0.35] },
+  { name: 'wheelie', hops: [], w: [0.15, 0.3] },
+  { name: 'doubles', hops: [[top(0), top(2)], [top(2), top(4)], [top(4), top(6)], [top(6), top(7)]], w: [0, 0.35], tap: true },
+  { name: 'triple, double, double', hops: [[top(0), top(3)], [top(3), top(5)], [top(5), top(7)]], w: [0, 0.2], tap: true },
+];
+/** Rollers are skimmed or wheelied across, never jumped. */
+export const ROLLER_WAYS: Way[] = [WHOOP_WAYS[0], { name: 'wheelie', hops: [], w: [0.2, 0.4] }];
 
 /** The section types that are jumps with hops (JUMPS), for the referee's mistakes and the editor. */
 export const HOP_JUMPS = new Set(Object.keys(JUMPS));
@@ -256,9 +318,15 @@ const ramp = (u: number, a: number, b: number) => smooth((u - a) / (b - a));
 export function jumpShape(type: string, u: number): number {
   const def = JUMPS[type];
   if (!def) return 0;
-  let h = 0;
-  for (const p of def.peaks) h = Math.max(h, p.h * ramp(u, p.a, p.b) * (1 - ramp(u, p.c, p.d)));
-  return h;
+  // The tallest hump there, less the deepest hole.
+  let up = 0;
+  let down = 0;
+  for (const p of def.peaks) {
+    const v = p.h * ramp(u, p.a, p.b) * (1 - ramp(u, p.c, p.d));
+    if (v > up) up = v;
+    else if (v < down) down = v;
+  }
+  return up + down;
 }
 
 /**
@@ -266,7 +334,9 @@ export function jumpShape(type: string, u: number): number {
  * the ways' weights at the rider's jumping (0 to 1). A mistake takes the way that comes up short.
  */
 export function pickWay(type: string, jumping: number, r: number, mistake = false): Way | null {
-  const def = JUMPS[type];
+  // A mistake in the whoops or rollers is a skim gone wrong, not a hop.
+  if ((type === 'whoops' || type === 'rollers') && mistake) return WHOOP_WAYS[0];
+  const def = type === 'whoops' ? { ways: WHOOP_WAYS } : type === 'rollers' ? { ways: ROLLER_WAYS } : JUMPS[type];
   if (!def) return null;
   if (mistake) {
     const short = def.ways.find((w) => w.short);

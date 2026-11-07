@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { checkContent } from '../src/core/content';
-import { archPlace, archSpan, footprints } from '../src/core/trackClearance';
+import { archPlace, archSpan, footprints, sceneryIssues } from '../src/core/trackClearance';
+import { FLAGGER_ITEM, sxArch, towerFlagman } from '../src/core/finishCrew';
+import { ARCH_GAP, ARCH_MODELS, limitsFor, modelRole } from '../src/core/modModels';
 import { LIP_AT } from '../src/core/trackSurface';
 import { DEFAULT_TRACK_WIDTH, type TrackPartsData } from '../src/core/trackParts';
 import { loadManifest, loadMaps, rawContent } from './helpers';
@@ -31,5 +33,33 @@ describe('finish arch', () => {
         expect(it.w).toBeUndefined();
       }
     }
+  });
+});
+
+// The supercross finish (Boss, 1 Nov 2026): a finish-line jump at a supercross kind of track is the
+// stadium gantry, with the flag man up in its scaffold tower, so no other flag man can be placed.
+describe('supercross finish arch', () => {
+  const sx = content.tracks.tracks.find((t) => t.kind === 'stadium' && (t.scenery ?? []).some((s) => s.type === 'flagger'))!;
+  const jump = { ...sx, sections: sx.sections.map((s, i) => (i === 0 ? { ...s, type: 'tabletop', finish: true as const } : s)) };
+
+  it('is built at supercross, EnduroCross and No-Turn tracks, only with a finish-line jump', () => {
+    expect(sxArch(sx)).toBe(false);
+    expect(sxArch(jump)).toBe(true);
+    expect(towerFlagman(jump)).toBe(true);
+    expect(sxArch({ kind: 'outdoor', sections: jump.sections })).toBe(false);
+    expect(sxArch({ kind: 'no_turn', sections: jump.sections })).toBe(true);
+  });
+
+  it('refuses a placed flag man there, and only there', () => {
+    const flaggerErrors = (t: typeof sx) => sceneryIssues(parts, t).filter((p) => p.level === 'error' && t.scenery![p.i].type === FLAGGER_ITEM);
+    expect(flaggerErrors(sx)).toEqual([]);
+    expect(flaggerErrors(jump).length).toBe((sx.scenery ?? []).filter((s) => s.type === FLAGGER_ITEM).length);
+    expect(flaggerErrors(jump)[0].message).toMatch(/own flag man up in its tower/);
+  });
+
+  it('takes Boss\'s arch models by name, with their own limits', () => {
+    expect(modelRole(ARCH_MODELS.sx, parts.scenery)).toBe('arch');
+    expect(modelRole(ARCH_MODELS.mx, parts.scenery)).toBe('arch');
+    expect(limitsFor('arch').long).toBeGreaterThanOrEqual(ARCH_GAP + 4);
   });
 });

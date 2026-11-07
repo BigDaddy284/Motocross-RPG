@@ -1,56 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { MotoSim } from '../src/core/race';
 import { directorFor } from '../src/core/riderAI';
-import { sectionBounds } from '../src/core/trackGeom';
 import { BIKE_LENGTH, TrackSurface } from '../src/core/trackSurface';
-import { arrivals, content, field, JUMPY, race, units } from './raceHelpers';
+import { arrivals, content, field, race, units } from './raceHelpers';
 
 
+// The per-track tests are in riderAI.<group>.test.ts (riderAITrack.ts).
 describe('rider AI (GDD 11.1)', () => {
-  for (const track of content.tracks.tracks) {
-    it(`acts out the simulation's result on ${track.id}`, () => {
-      for (const seed of [3, 77]) {
-        const { sim, dir, traces } = race(track.id, seed);
-        const bounds = sectionBounds(track);
-        // At every checkpoint the referee recorded, the rider is exactly at that point of the race.
-        for (const tr of traces) {
-          for (const [id, times] of Object.entries(tr.times)) {
-            for (let i = 1; i < times.length; i++) {
-              const p = dir.poses(times[i]).find((q) => q.id === id)!;
-              expect(p.dist).toBeCloseTo(tr.marks[i], 6);
-            }
-          }
-        }
-        // Over the race: nobody goes backwards, stays on the track, and only leaves the ground on jumps.
-        const end = Math.max(...traces.flatMap((tr) => Object.values(tr.times).map((t) => t[t.length - 1]))) + 6;
-        const last = new Map<string, number>();
-        let airborne = 0;
-        for (let t = 0; t <= end; t += 0.25) {
-          for (const p of dir.poses(t)) {
-            expect(p.dist).toBeGreaterThanOrEqual((last.get(p.id) ?? -Infinity) - 1e-9);
-            last.set(p.id, p.dist);
-            expect(p.air).toBeGreaterThanOrEqual(0);
-            expect(Number.isFinite(p.speed)).toBe(true);
-            if (p.state !== 'retired') expect(Math.abs(p.lane)).toBeLessThanOrEqual(1);
-            if (p.air > 0) {
-              expect(p.dist).toBeGreaterThan(dir.start.join);
-              const at = p.dist - Math.floor(p.dist);
-              const si = bounds.findIndex((b, k) => k > 0 && at < b + 1e-9) - 1;
-              expect(JUMPY.has(track.sections[Math.max(0, si)].type)).toBe(true);
-              airborne++;
-            }
-          }
-        }
-        if (track.sections.some((s) => JUMPY.has(s.type))) expect(airborne).toBeGreaterThan(0);
-        // Finishers end on the full distance, and in the referee's finishing order.
-        const results = sim.results().filter((r) => !r.retired);
-        const finals = dir.poses(end);
-        for (const r of results) expect(finals.find((p) => p.id === r.id)!.state).toBe('finished');
-        for (const r of sim.results().filter((x) => x.retired)) expect(finals.find((p) => p.id === r.id)!.state).toBe('retired');
-      }
-    }, 20000); // Longmoor is a long race: 16 riders over every quarter second.
-  }
-
   it('shows the same race at any playback speed', () => {
     const a = race('farmland', 5).dir;
     const b = race('farmland', 5).dir;
@@ -158,4 +114,48 @@ describe('rider AI (GDD 11.1)', () => {
     expect(wobbles).toBeGreaterThan(0);
     expect(crashes + wobbles).toBeGreaterThan(0);
   });
+});
+
+describe('a rider held up behind one they could not pass (Boss, 3 and 4 Nov 2026)', () => {
+  it('keeps riding (never stands still), and is behind that rider at the end of the section as the referee said', () => {
+    let checked = 0;
+    const metre = 1 / units(content.tracks.tracks.find((t) => t.id === 'farmland')!);
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
+      const { dir, traces } = race('farmland', seed);
+      for (const tr of traces) {
+        for (const e of tr.events) {
+          // Lap sections only: on the start straight the riders are leaving the grid, gates apart.
+          if (e.kind !== 'failedPass' || e.held < 1.5 || e.section < 0) continue;
+          const times = tr.times[e.rider];
+          const leg = tr.secs.indexOf(e.section);
+          if (leg < 0 || times.length <= leg + 1) continue;
+          // No mistake of their own in the section, so the only time to lose is behind the other rider.
+          if (tr.events.some((m) => m.kind === 'mistake' && m.rider === e.rider && m.section === e.section)) continue;
+          const t0 = times[leg];
+          const t1 = times[leg + 1];
+          let last = -1;
+          for (let t = t0 + 0.05; t < t1; t += 0.05) {
+            const me = dir.poses(t).find((p) => p.id === e.rider)!;
+            // Always moving: the held-up time is ridden more slowly, never stood for (Boss, 4 Nov 2026).
+            if (me.state === 'riding' || me.state === 'air') {
+              expect(me.speed).toBeGreaterThan(1);
+              if (last >= 0) expect(me.dist).toBeGreaterThan(last + 0.02 * metre);
+            }
+            last = me.dist;
+          }
+          // At the section's end the other rider is still ahead, or near enough: each ride is
+          // planned for flow (Boss, 4 Nov 2026: fluid racing comes first), so a rider can be
+          // drawn a little off the referee's marks, and the held-up rider may be alongside or
+          // just past the blocker at the mark, never clear of them (within 20 grid units).
+          const poses = dir.poses(t1);
+          const me = poses.find((p) => p.id === e.rider)!;
+          const other = poses.find((p) => p.id === e.other)!;
+          if (other.state === 'riding' || other.state === 'air') expect(me.dist).toBeLessThanOrEqual(other.dist + 20 * metre);
+          checked++;
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(0);
+    // Eight races checked every 0.05 s: about 6 s here, past vitest's 5 s default.
+  }, 30000);
 });

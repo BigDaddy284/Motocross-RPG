@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { newCareerState, type CareerState } from '../src/core/career';
-import { checkChampionships, champById, champRiders, champProblem, drawChampField, enter, finishChampionship, nextRoundVenue, recordRound, roundEntry, roundOptions, roundsHere, standings, titlePossible, withdraw, type ActiveChampionship } from '../src/core/championship';
+import { newCareerState, wholePounds, type CareerState } from '../src/core/career';
+import { champLine, checkChampionships, champById, otherActive, champRiders, champProblem, drawChampField, enter, finishChampionship, nextRoundVenue, nextRoundVenues, recordRound, roundEntry, roundOptions, roundsHere, standings, titlePossible, withdraw, type ActiveChampionship } from '../src/core/championship';
 import { checkContent } from '../src/core/content';
 import { PLAYER_ID, RaceDay, playerEntrant } from '../src/core/raceDay';
 import { directorFor } from '../src/core/riderAI';
@@ -19,13 +19,10 @@ function rider(): CareerState {
   return c;
 }
 
-/** Rides one round straight through: qualifying, both motos, recorded on the championship. */
+/** Rides one round straight through: both motos, recorded on the championship. */
 function rideRound(career: CareerState, active: ActiveChampionship, seed: number): RaceDay {
   const v = venue(nextRoundVenue(local, active)!);
   const day = new RaceDay(content, v, playerEntrant(content, career, 'Test'), seed, roundEntry(content, local), roundOptions(content, local, active));
-  const q = day.startQualifying('steady');
-  q.runToEnd();
-  day.finishQualifying(q);
   for (let m = 0; m < 2; m++) {
     day.assignGates(day.gatesForPlayer().free[0]);
     const sim = day.startMoto('steady');
@@ -37,6 +34,21 @@ function rideRound(career: CareerState, active: ActiveChampionship, seed: number
 }
 
 describe('championships (Spec 12.5, 18.6)', () => {
+  it('one championship at a time, and the venue line shows the one in progress (Boss, 31 Oct 2026)', () => {
+    const career = rider();
+    expect(otherActive(content.championships, career, main)).toBeNull();
+    expect(champLine(content, content.championships, career)).toBeNull();
+    const active = enter(career, content, local, 7);
+    expect(otherActive(content.championships, career, main)?.id).toBe(local.id);
+    expect(otherActive(content.championships, career, local)).toBeNull();
+    expect(champLine(content, content.championships, career)).toBe(`${local.short}: round 1 of 3 next, at ${venue(local.rounds[0]).name}.`);
+    rideRound(career, active, 3);
+    const me = standings(points, active).find((r) => r.player)!;
+    expect(champLine(content, content.championships, career)).toMatch(new RegExp(`^${local.short}: round 2 of 3 next, at ${venue(local.rounds[1]).name}\\. You're \\d+(st|nd|rd|th) on ${me.points} points\\.$`));
+    withdraw(career, local);
+    expect(otherActive(content.championships, career, main)).toBeNull();
+  });
+
   it('loads both Area 1 championships: 3 Local Champion rounds, one a track, then 6 for the area', () => {
     expect(local.rounds).toEqual(['venue-farmland', 'venue-riverside', 'venue-longmoor']);
     expect(main.rounds).toHaveLength(6);
@@ -50,8 +62,12 @@ describe('championships (Spec 12.5, 18.6)', () => {
     for (const c of content.championships.championships) for (const r of c.rewards) if (r.image) expect(publicFileExists(`assets/${r.image}`), r.image).toBe(true);
   });
 
+  it('gives Areas 2 to 8 their own numbered badge (placeholders like Area 1: Boss, 1 Nov 2026)', () => {
+    for (let n = 2; n <= 8; n++) expect(champById(content.championships, `area${n}.local_champion`)!.rewards[0].image).toBe(`art/ui/badge-area${n}.png`);
+  });
+
   it('rejects a round at a venue that has no race day, and a field bigger than its pool', () => {
-    const bad = { championships: [{ ...local, rounds: ['backyard', 'nowhere'], size: 40 }] };
+    const bad = { championships: [{ ...local, rounds: ['backyard', 'nowhere'], size: 60 }] };
     const errs = checkChampionships(bad, content).map((e) => e.field);
     expect(errs).toEqual(expect.arrayContaining(['championships[0].rounds[0]', 'championships[0].rounds[1]', 'championships[0].size']));
   });
@@ -63,8 +79,6 @@ describe('championships (Spec 12.5, 18.6)', () => {
     expect(champProblem(content, local, flags)).toBeNull();
     expect(champProblem(content, main, flags)).toMatch(/badge/);
     flags['badge.area1'] = true;
-    expect(champProblem(content, main, flags)).toMatch(/Area 2/);
-    flags['area2.ready'] = true;
     expect(champProblem(content, main, flags)).toBeNull();
   });
 
@@ -108,37 +122,27 @@ describe('championships (Spec 12.5, 18.6)', () => {
     const plain = new RaceDay(content, venue('venue-farmland'), playerEntrant(content, career, 'Test'), 5, 2000);
     expect(day.field).toHaveLength(16);
     expect(plain.field).toHaveLength(16);
-    const q = day.startQualifying('steady');
-    q.runToEnd();
-    day.finishQualifying(q);
     day.assignGates(day.gatesForPlayer().free[0]);
     const sim = day.startMoto('steady');
     sim.runToEnd();
     const rec = day.finishMoto(sim);
     const me = rec.results.find((r) => r.player)!;
     const share = content.racing.prize.shares[me.position - 1] ?? 0;
-    if (!me.retired) expect(rec.prize).toBe(Math.round(2000 * 1.8 * content.racing.prize.winnerTimesEntry * share));
+    if (!me.retired) expect(rec.prize).toBe(wholePounds(2000 * 1.8 * content.racing.prize.winnerTimesEntry * share));
   });
 
-  it('qualifies on the best timed lap, after an untimed out lap, and sets moto 1 gate picks in that order', () => {
+  it('has no qualifying (Boss, 2 Nov 2026): moto 1 gate picks are drawn at random, moto 2 in moto 1 finishing order', () => {
     const career = rider();
     const active = enter(career, content, local, 11);
-    const day = new RaceDay(content, venue('venue-riverside'), playerEntrant(content, career, 'Test'), 21, 3000, roundOptions(content, local, active));
-    expect(day.qualifyingDue).toBe(true);
-    const sim = day.startQualifying('steady');
-    expect(sim.totalLaps).toBe(local.qualifyingLaps + 1);
-    sim.runToEnd();
-    const rec = day.finishQualifying(sim);
+    const day = new RaceDay(content, venue('venue-farmland'), playerEntrant(content, career, 'Test'), 21, 3000, roundOptions(content, local, active));
     expect(day.qualifyingDue).toBe(false);
-    const times = rec.results.map((r) => r.bestLap ?? Infinity);
-    expect([...times].sort((a, b) => a - b)).toEqual(times);
-    for (const r of rec.results) {
-      const laps = sim.riders.find((x) => x.e.id === r.id)!.lapTimes;
-      if (laps.length > 1) expect(r.bestLap).toBe(Math.min(...laps.slice(1)));
-    }
+    expect(new Set(day.pickOrder)).toEqual(new Set(day.field.map((e) => e.id)));
+    day.assignGates(day.gatesForPlayer().free[0]);
+    const moto = day.startMoto('steady');
+    expect(moto.opts.motoIndex).toBe(0);
+    moto.runToEnd();
+    const rec = day.finishMoto(moto);
     expect(day.pickOrder).toEqual(rec.results.map((r) => r.id));
-    // The first moto's ruts count qualifying as one step.
-    expect(day.startMoto('steady').opts.motoIndex).toBe(1);
   });
 
   it('races a field saved at the old 19 CPU riders as 15, the main rider kept', () => {
@@ -155,9 +159,6 @@ describe('championships (Spec 12.5, 18.6)', () => {
     const career = rider();
     const active = enter(career, content, local, 3);
     const day = new RaceDay(content, venue('venue-longmoor'), playerEntrant(content, career, 'Test'), 8, 3000, roundOptions(content, local, active));
-    const q = day.startQualifying('steady');
-    q.runToEnd();
-    day.finishQualifying(q);
     day.assignGates(day.gatesForPlayer().free.at(-1)!);
     const sim = day.startMoto('steady');
     const dir = directorFor(sim, content.bikes, content.racing.messages, day.pickOrder);
@@ -223,7 +224,7 @@ describe('championships (Spec 12.5, 18.6)', () => {
     won(career, 1);
     const before = career.money;
     const fin = finishChampionship(career, flags, local, points);
-    expect(fin).toMatchObject({ position: 1, money: 15000, flag: 'badge.area1', firstWin: true, title: 'the Area 1 badge' });
+    expect(fin).toMatchObject({ position: 1, money: 15000, flag: 'badge.area1', firstWin: true, title: 'the Home Town badge' });
     expect(flags['badge.area1']).toBe(true);
     expect(career.money - before).toBe(15000);
     expect(career.champs!.active[local.id]).toBeUndefined();
@@ -257,6 +258,17 @@ describe('championships (Spec 12.5, 18.6)', () => {
     // Saves from before championships have none, and still load.
     const { champs: _c, ...old } = career;
     expect(parseSave(JSON.stringify({ ...save, career: old }))!.career.champs).toBeUndefined();
+  });
+});
+
+describe('next round marks on the road menu (Boss, 2 Nov 2026)', () => {
+  it('names each next round venue with its championship, none before entering, and moves on after a round', () => {
+    const career = rider();
+    expect(nextRoundVenues(content.championships, career).size).toBe(0);
+    const active = enter(career, content, local, 7);
+    expect([...nextRoundVenues(content.championships, career)]).toEqual([[local.rounds[0], local]]);
+    rideRound(career, active, 3);
+    expect([...nextRoundVenues(content.championships, career)]).toEqual([[local.rounds[1], local]]);
   });
 });
 

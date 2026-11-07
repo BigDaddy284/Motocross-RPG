@@ -1,0 +1,38 @@
+{
+  "note": "Tool sets (Spec 8.5, 17.2a; Boss, 30 Oct 2026). One set per part group, three versions each (first, Pro, Master), all sold at J's Tools in Home Town: each version comes in with its area and repairs parts up to its grade; a better version replaces the one below. Grade 10 parts always go to Phoenix MX. With a set the rider repairs (one grade down, as always) and fits parts for nothing at their tool cabinet or the back of their motor, for xp in the set's skill. Prices are the plan's: first sets from Spec 17.2a, Pro and Master provisional.",
+  "xp": { "repair": 20, "fit": 8 },
+  "sets": [
+    {
+      "id": "tools.bodywork", "name": "Bodywork tools", "slots": ["bodywork", "frame"], "skill": "bodywork",
+      "versions": [
+        { "id": "tools.bodywork.1", "name": "Bodywork tools", "area": 1, "price": 300, "grade": 3 },
+        { "id": "tools.bodywork.pro", "name": "Pro bodywork tools", "area": 4, "price": 1800, "grade": 6 },
+        { "id": "tools.bodywork.master", "name": "Master bodywork tools", "area": 7, "price": 12000, "grade": 9 }
+      ]
+    },
+    {
+      "id": "tools.wheels", "name": "Wheel and brake tools", "slots": ["wheels_tyres", "brakes"], "skill": "wheels",
+      "versions": [
+        { "id": "tools.wheels.1", "name": "Wheel and brake tools", "area": 2, "price": 600, "grade": 4 },
+        { "id": "tools.wheels.pro", "name": "Pro wheel and brake tools", "area": 5, "price": 2000, "grade": 6 },
+        { "id": "tools.wheels.master", "name": "Master wheel and brake tools", "area": 8, "price": 12000, "grade": 9 }
+      ]
+    },
+    {
+      "id": "tools.engine", "name": "Engine tools", "slots": ["top_end", "bottom_end", "intake_exhaust", "drivetrain"], "skill": "engine_components",
+      "versions": [
+        { "id": "tools.engine.1", "name": "Engine tools", "area": 3, "price": 3000, "grade": 5 },
+        { "id": "tools.engine.pro", "name": "Pro engine tools", "area": 6, "price": 4800, "grade": 7 },
+        { "id": "tools.engine.master", "name": "Master engine tools", "area": 8, "price": 16000, "grade": 9 }
+      ]
+    },
+    {
+      "id": "tools.suspension", "name": "Suspension tools", "slots": ["forks", "shock"], "skill": "suspension",
+      "versions": [
+        { "id": "tools.suspension.1", "name": "Suspension tools", "area": 4, "price": 1500, "grade": 5 },
+        { "id": "tools.suspension.pro", "name": "Pro suspension tools", "area": 6, "price": 2400, "grade": 7 },
+        { "id": "tools.suspension.master", "name": "Master suspension tools", "area": 8, "price": 14000, "grade": 9 }
+      ]
+    }
+  ]
+}

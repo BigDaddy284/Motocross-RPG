@@ -29,12 +29,13 @@ export function startCareer(scene: Phaser.Scene, slot: string): void {
   c.add(scene.add.text(0, -30, body, textStyle(17, COLORS.cream, { align: 'center', wordWrap: { width: 540 } })).setOrigin(0.5));
   if (r.backup) {
     const idx = r.backup.index;
-    c.add(button(scene, -130, 90, 'Load backup', () => {
+    // The accept button on the right, Cancel on the left (Boss, 2 Nov 2026).
+    c.add(button(scene, 130, 90, 'Load backup', () => {
       const data = services.saves.restoreBackup(slot, idx);
       if (data) scene.scene.start('world', { save: data });
     }, 220, 42));
   }
-  c.add(button(scene, r.backup ? 130 : 0, 90, 'Cancel', () => c.destroy(), 220, 42));
+  c.add(button(scene, r.backup ? -130 : 0, 90, 'Cancel', () => c.destroy(), 220, 42));
 }
 
 /** A fresh career at the Home Town new-game spawn. Overwrites slot 1, keeping it as backup 1. */

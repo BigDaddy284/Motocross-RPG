@@ -1,3 +1,4 @@
+import { BANNER_NAME } from './banners';
 import type { BikesData } from './career';
 import type { BakedMap } from './mapTypes';
 import type { RacingData } from './race';
@@ -46,14 +47,24 @@ export const SKILLS_SCHEMA: Schema = {
   },
 };
 
+const KIND_LAPS: Schema = {
+      type: 'object',
+      optional: ['race', 'championship'],
+      fields: {
+        race: { type: 'record', values: { type: 'number', integer: true, min: 1 } },
+        championship: { type: 'record', values: { type: 'number', integer: true, min: 1 } },
+      },
+    };
+
 export const RACING_SCHEMA: Schema = {
   type: 'object',
-  optional: ['note', 'kindLaps'],
+  optional: ['note', 'kindLaps', 'weather'],
   fields: {
     note: { type: 'string' },
+    weather: { type: 'record', values: { type: 'object', fields: { name: S, factor: { type: 'number', min: 0.5, max: 2 }, risk: { type: 'number', min: 0.5, max: 4 } } } },
     sim: {
       type: 'object',
-      optional: ['firstCorner', 'pileup', 'fitness'],
+      optional: ['firstCorner', 'loopOut', 'pileup', 'afterCrash', 'fitness', 'sprint', 'knockout', 'supercross'],
       fields: {
         fitness: {
           type: 'object',
@@ -66,7 +77,24 @@ export const RACING_SCHEMA: Schema = {
           },
         },
         firstCorner: { type: 'object', fields: { chance: SHARE, riders: RANGE } },
+        loopOut: { type: 'object', fields: { chance: SHARE } },
+        sprint: { type: 'object', fields: { interval: { type: 'number', min: 1 }, returnSpeed: { type: 'number', min: 0.1, max: 1 } } },
+        knockout: { type: 'object', optional: ['buff', 'noise'], fields: { seedInterval: { type: 'number', min: 1 }, heatSize: { type: 'number', integer: true, min: 2 }, through: { type: 'number', integer: true, min: 1 }, finalRuns: { type: 'number', integer: true, min: 1 }, buff: { type: 'number', min: 0, max: 1 }, noise: { type: 'number', min: 0, max: 1 } } },
+        supercross: {
+          type: 'object',
+          optional: ['field', 'heatLaps', 'lcqLaps', 'mainLaps', 'heatThrough', 'heatOut', 'lcqThrough'],
+          fields: {
+            field: { type: 'number', integer: true, min: 2, max: 32 },
+            heatLaps: { type: 'number', integer: true, min: 1 },
+            lcqLaps: { type: 'number', integer: true, min: 1 },
+            mainLaps: { type: 'number', integer: true, min: 1 },
+            heatThrough: { type: 'number', integer: true, min: 1 },
+            heatOut: { type: 'number', integer: true, min: 0 },
+            lcqThrough: { type: 'number', integer: true, min: 0 },
+          },
+        },
         pileup: { type: 'object', fields: { chance: SHARE, window: N0, most: { type: 'number', integer: true, min: 1 } } },
+        afterCrash: { type: 'object', fields: { around: RANGE, slowPct: { type: 'number', min: 0, max: 50 }, fadeSections: { type: 'number', integer: true, min: 1 } } },
         spread: N0,
         noise: N0,
         consistencyNoiseCut: SHARE,
@@ -95,15 +123,15 @@ export const RACING_SCHEMA: Schema = {
       type: 'object',
       fields: { sectionFactor: N0, practiceFactor: N0, finishBonus: N0, positionStep: N0, positionFloor: N0, overtakeXp: N0, consistencyWeight: N0 },
     },
-    classes: { type: 'record', values: { type: 'object', fields: { laps: { type: 'number', integer: true, min: 1 }, entry: N0, classXp: N0, refSpeed: { type: 'number', min: 1 }, youth: { type: 'boolean' } } } },
-    kindLaps: {
-      type: 'object',
-      optional: ['race', 'championship'],
-      fields: {
-        race: { type: 'record', values: { type: 'number', integer: true, min: 1 } },
-        championship: { type: 'record', values: { type: 'number', integer: true, min: 1 } },
+    classes: {
+      type: 'record',
+      values: {
+        type: 'object',
+        optional: ['kindLaps'],
+        fields: { laps: { type: 'number', integer: true, min: 1 }, entry: N0, classXp: N0, refSpeed: { type: 'number', min: 1 }, youth: { type: 'boolean' }, kindLaps: KIND_LAPS },
       },
     },
+    kindLaps: KIND_LAPS,
     messages: {
       type: 'array',
       minItems: 1,
@@ -197,8 +225,8 @@ export const TRACKS_SCHEMA: Schema = {
             type: 'array',
             items: {
               type: 'object',
-              optional: ['w', 'h', 'rot', 'text', 'color', 'route', 'variant', 'action'],
-              fields: { type: IDS, x: N, y: N, variant: { type: 'string' }, action: { type: 'string' }, w: { type: 'number', min: 0.1 }, h: { type: 'number', min: 0.1 }, rot: N, text: { type: 'string' }, color: { type: 'string', pattern: /^#[0-9a-fA-F]{3,8}$/ }, route: { type: 'array', items: { type: 'array', items: N, minItems: 2, maxItems: 2 } } },
+              optional: ['w', 'h', 'rot', 'text', 'color', 'route', 'variant', 'action', 'image'],
+              fields: { type: IDS, x: N, y: N, variant: { type: 'string' }, action: { type: 'string' }, image: { type: 'string', pattern: BANNER_NAME }, w: { type: 'number', min: 0.1 }, h: { type: 'number', min: 0.1 }, rot: N, text: { type: 'string' }, color: { type: 'string', pattern: /^#[0-9a-fA-F]{3,8}$/ }, route: { type: 'array', items: { type: 'array', items: N, minItems: 2, maxItems: 2 } } },
             },
           },
         },
@@ -208,7 +236,7 @@ export const TRACKS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['track', 'class', 'field', 'office', 'needs', 'practiceFeePct', 'firstRaceFree', 'practiceOnly', 'area', 'locked', 'regulars', 'practiceRiders'],
+        optional: ['track', 'class', 'field', 'office', 'needs', 'practiceFeePct', 'firstRaceFree', 'practiceOnly', 'area', 'locked', 'regulars', 'practiceRiders', 'town'],
         fields: {
           id: IDS,
           name: S,
@@ -223,6 +251,7 @@ export const TRACKS_SCHEMA: Schema = {
           firstRaceFree: { type: 'boolean' },
           practiceOnly: { type: 'boolean' },
           area: { type: 'array', items: { type: 'number', integer: true, min: 0 }, minItems: 4, maxItems: 4 },
+          town: IDS,
           locked: S,
           practiceRiders: { type: 'number', integer: true, min: 0, max: 15 },
         },
@@ -259,7 +288,7 @@ export const RIDERS_SCHEMA: Schema = {
         },
       },
     },
-    fields: { type: 'record', values: { type: 'object', fields: { area: { type: 'number', integer: true, min: 1, max: 8 } } } },
+    fields: { type: 'record', values: { type: 'object', optional: ['level'], fields: { area: { type: 'number', integer: true, min: 1, max: 8 }, level: LEVEL } } },
     fieldSize: { type: 'record', values: { type: 'number', integer: true, min: 1, max: 15 } },
     regulars: { type: 'record', values: { type: 'array', items: IDS } },
   },
@@ -283,6 +312,7 @@ export function checkRaceContent(c: { skills: SkillsData; racing: RacingData; tr
   const messageIds = new Set(racing.messages.map((m) => m.id));
   if (!messageIds.has('steady')) err(F.racing, 'messages', 'needs a "steady" message');
   for (const id of Object.keys(racing.classes)) if (!classIds.has(id)) err(F.racing, `classes.${id}`, `no class "${id}" in data/bikes.json`);
+  for (const id of classIds) if (!racing.classes[id]) err(F.racing, 'classes', `no race rules for class "${id}"`);
   for (const [id, s] of Object.entries(racing.sections)) {
     for (const k of Object.keys(s.skills)) if (!childIds.has(k)) err(F.racing, `sections.${id}.skills.${k}`, `no skill "${k}"`);
     s.stats.forEach((st, j) => !statIds.has(st) && err(F.racing, `sections.${id}.stats[${j}]`, `no bike stat "${st}"`));

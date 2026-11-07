@@ -36,6 +36,9 @@ export function ensureAnims(scene: Phaser.Scene, sheet: string): void {
  * A character standing on the tile grid: the player or an NPC. Drawn bottom-centre on its tile
  * with a soft shadow, depth-sorted by the bottom of its tile.
  */
+/** How far below a kiosk window's top a booth NPC's feet are (64 px frames: the window shows head and shoulders). */
+const BOOTH_FEET = 57;
+
 export class Character {
   readonly sprite: Phaser.GameObjects.Sprite;
   readonly shadow: Phaser.GameObjects.Ellipse;
@@ -51,7 +54,7 @@ export class Character {
 
   constructor(
     private readonly scene: Phaser.Scene,
-    readonly sheet: string,
+    public sheet: string,
     tile: Tile,
     facing: Facing = 'down',
   ) {
@@ -75,6 +78,21 @@ export class Character {
   placeAt(t: Tile, lift = this.liftAt?.(t) ?? 0): void {
     this.tile = { ...t };
     this.setPixel(t.x * TILE + TILE / 2, (t.y + 1) * TILE - lift);
+  }
+
+  /**
+   * Stands inside a kiosk, seen only through its window (x, y, w, h in map pixels: NpcDef.booth;
+   * Boss, 4 Nov 2026): head and shoulders at the opening, drawn over the kiosk but cut to the window.
+   */
+  inBooth(x: number, y: number, w: number, h: number): void {
+    const g = this.scene.make.graphics({}, false);
+    g.fillStyle(0xffffff).fillRect(x, y, w, h);
+    this.sprite.setMask(g.createGeometryMask());
+    this.shadow.setVisible(false);
+    const front = (this.tile.y + 1) * TILE + 1;
+    this.depthFloor = () => front;
+    // Feet below the counter, so the window shows the head and shoulders.
+    this.setPixel(this.tile.x * TILE + TILE / 2, y + BOOTH_FEET);
   }
 
   /** Shows a name over the character's head, following them about. */
@@ -109,6 +127,16 @@ export class Character {
 
   idle(): void {
     this.sprite.play(`${this.sheet}:idle-${this.facing}`, true);
+  }
+
+  /** A change of clothes (core/house.ts): the same character on another sheet. */
+  setSheet(sheet: string): void {
+    if (sheet === this.sheet) return;
+    ensureAnims(this.scene, sheet);
+    this.sheet = sheet;
+    this.sprite.stop();
+    this.sprite.setTexture(`chr:${sheet}:act`, 0);
+    if (!this.moving) this.idle();
   }
 
   /** The reach frame, used while talking or using something. */

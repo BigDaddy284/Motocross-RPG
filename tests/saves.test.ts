@@ -101,6 +101,21 @@ describe('SaveManager', () => {
     expect(data.van?.design).toBe('motor-1');
   });
 
+  it('rounds the money in a version 6 save to whole pounds (Boss, 2 Nov 2026)', () => {
+    const s = sample(1);
+    const data = parseSave(JSON.stringify({ ...s, career: { ...s.career, money: 12345 }, version: 6, savedAt: 'x' }))!;
+    expect(data.version).toBe(SAVE_VERSION);
+    expect(data.career.money).toBe(12300);
+    expect(parseSave(JSON.stringify({ ...s, career: { ...s.career, money: 12350 }, version: 6, savedAt: 'x' }))!.career.money).toBe(12400);
+  });
+
+  it('moves a version 7 save in Northern Works to Western Works (Boss, 4 Nov 2026)', () => {
+    const s = sample(1);
+    const data = parseSave(JSON.stringify({ ...s, position: { ...s.position, map: 'area5-northern-works' }, version: 7, savedAt: 'x' }))!;
+    expect(data.version).toBe(SAVE_VERSION);
+    expect(data.position.map).toBe('area5-western-works');
+  });
+
   it('a quick update keeps the rider\'s spot without pushing out backups', () => {
     const saves = new SaveManager(new MemoryStore());
     saves.write('career-1', sample(1));

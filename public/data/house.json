@@ -1,0 +1,206 @@
+{
+  "note": "The rider's house: the wardrobe and the storage chest (Spec 17; Areas 2 to 8 plan; Boss, 30 Oct 2026: buying the Area 2 Starter terrace unlocks the wardrobe, and with it Phoenix MX's clothing rack; every later house reaches the same shared storage). outfits: what the rack sells, with a character sheet per rider (m or f, from the look chosen at the start); `start` is the rider's own clothes and is always owned. rack: the Phoenix MX shops with a rack, shut until needs is set. storage: spare parts the chest holds, base for one house plus perExtraHouse for every further house bought.",
+  "outfits": [
+    {
+      "id": "start",
+      "name": "Your own clothes",
+      "price": 0,
+      "sheets": {}
+    },
+    {
+      "id": "mxgear",
+      "name": "MX race kit",
+      "price": 60,
+      "sheets": {
+        "m": "player-m-mxgear",
+        "f": "player-f-mxgear"
+      },
+      "race": {"m": {"helmet": "red", "trim": "white", "goggles": "white", "jersey": "red", "gloves": "red", "pants": "white", "boots": "white", "brand": true}, "f": {"helmet": "pink", "trim": "black", "goggles": "black", "jersey": "pink", "gloves": "pink", "pants": "black", "boots": "black", "brand": true}},
+      "desc": "Full race kit, helmet and all, for walking about in."
+    },
+    {
+      "id": "mx_nohelmet",
+      "name": "MX kit, no helmet",
+      "price": 45,
+      "sheets": {
+        "m": "player-m-mx-nohelmet"
+      },
+      "race": {"m": {"helmet": "royal", "trim": "yellow", "goggles": "yellow", "jersey": "royal", "gloves": "royal", "pants": "royal", "boots": "royal", "brand": true}},
+      "desc": "Race kit with the helmet off."
+    },
+    {
+      "id": "champion_kit",
+      "name": "Champion's kit",
+      "price": 0,
+      "award": true,
+      "sheets": {
+        "m": "player-m-champion-kit",
+        "f": "player-f-champion-kit"
+      },
+      "race": {"m": {"helmet": "yellow", "trim": "black", "goggles": "black", "jersey": "yellow", "gloves": "black", "pants": "black", "boots": "black"}, "f": {"helmet": "yellow", "trim": "black", "goggles": "black", "jersey": "yellow", "gloves": "black", "pants": "black", "boots": "black"}},
+      "desc": "The class champion's sponsor's kit: gold and black, number 1 (Boss, 1 Nov 2026). It comes with their free bike."
+    },
+    {
+      "id": "sponsor_kit_a",
+      "name": "Red Bullet kit",
+      "price": 0,
+      "award": true,
+      "sheets": {
+        "m": "player-m-sponsor-a",
+        "f": "player-f-sponsor-a"
+      },
+      "race": {"m": {"helmet": "red", "trim": "white", "goggles": "white", "jersey": "red", "gloves": "red", "pants": "white", "boots": "white"}, "f": {"helmet": "red", "trim": "white", "goggles": "white", "jersey": "red", "gloves": "red", "pants": "white", "boots": "white"}},
+      "desc": "Your sponsor's kit, red and white, number 7. Picked when you signed."
+    },
+    {
+      "id": "sponsor_kit_b",
+      "name": "Blue Wave kit",
+      "price": 0,
+      "award": true,
+      "sheets": {
+        "m": "player-m-sponsor-b",
+        "f": "player-f-sponsor-b"
+      },
+      "race": {"m": {"helmet": "royal", "trim": "white", "goggles": "white", "jersey": "royal", "gloves": "royal", "pants": "navy", "boots": "white"}, "f": {"helmet": "royal", "trim": "white", "goggles": "white", "jersey": "royal", "gloves": "royal", "pants": "navy", "boots": "white"}},
+      "desc": "Your sponsor's kit, royal blue and white, number 12. Picked when you signed."
+    },
+    {
+      "id": "sponsor_kit_c",
+      "name": "Lime Flash kit",
+      "price": 0,
+      "award": true,
+      "sheets": {
+        "m": "player-m-sponsor-c",
+        "f": "player-f-sponsor-c"
+      },
+      "race": {"m": {"helmet": "lime", "trim": "black", "goggles": "black", "jersey": "lime", "gloves": "black", "pants": "black", "boots": "black"}, "f": {"helmet": "lime", "trim": "black", "goggles": "black", "jersey": "lime", "gloves": "black", "pants": "black", "boots": "black"}},
+      "desc": "Your sponsor's kit, lime and black, number 21. Picked when you signed."
+    },
+    {
+      "id": "sponsor_kit_d",
+      "name": "Orange Works kit",
+      "price": 0,
+      "award": true,
+      "sheets": {
+        "m": "player-m-sponsor-d",
+        "f": "player-f-sponsor-d"
+      },
+      "race": {"m": {"helmet": "orange", "trim": "navy", "goggles": "navy", "jersey": "orange", "gloves": "orange", "pants": "navy", "boots": "white"}, "f": {"helmet": "orange", "trim": "navy", "goggles": "navy", "jersey": "orange", "gloves": "orange", "pants": "navy", "boots": "white"}},
+      "desc": "Your sponsor's kit, orange and navy, number 33. Picked when you signed."
+    },
+    {
+      "id": "sponsor_kit_e",
+      "name": "Teal Storm kit",
+      "price": 0,
+      "award": true,
+      "sheets": {
+        "m": "player-m-sponsor-e",
+        "f": "player-f-sponsor-e"
+      },
+      "race": {"m": {"helmet": "teal", "trim": "black", "goggles": "black", "jersey": "teal", "gloves": "teal", "pants": "black", "boots": "black"}, "f": {"helmet": "teal", "trim": "black", "goggles": "black", "jersey": "teal", "gloves": "teal", "pants": "black", "boots": "black"}},
+      "desc": "Your sponsor's kit, teal and black, number 46. Picked when you signed."
+    },
+    {
+      "id": "super_kit_a",
+      "name": "White and gold legend kit",
+      "price": 0,
+      "award": true,
+      "sheets": {
+        "m": "player-m-super-a",
+        "f": "player-f-super-a"
+      },
+      "race": {"m": {"helmet": "white", "trim": "yellow", "goggles": "yellow", "jersey": "white", "gloves": "white", "pants": "white", "boots": "white"}, "f": {"helmet": "white", "trim": "yellow", "goggles": "yellow", "jersey": "white", "gloves": "white", "pants": "white", "boots": "white"}},
+      "desc": "The Legends winner's kit, white and gold, number 1."
+    },
+    {
+      "id": "super_kit_b",
+      "name": "All black legend kit",
+      "price": 0,
+      "award": true,
+      "sheets": {
+        "m": "player-m-super-b",
+        "f": "player-f-super-b"
+      },
+      "race": {"m": {"helmet": "black", "trim": "royal", "goggles": "royal", "jersey": "black", "gloves": "black", "pants": "black", "boots": "black"}, "f": {"helmet": "black", "trim": "royal", "goggles": "royal", "jersey": "black", "gloves": "black", "pants": "black", "boots": "black"}},
+      "desc": "The Legends winner's kit, black and blue, number 99."
+    },
+    {
+      "id": "super_kit_c",
+      "name": "Royal purple legend kit",
+      "price": 0,
+      "award": true,
+      "sheets": {
+        "m": "player-m-super-c",
+        "f": "player-f-super-c"
+      },
+      "race": {"m": {"helmet": "purple", "trim": "yellow", "goggles": "yellow", "jersey": "purple", "gloves": "purple", "pants": "purple", "boots": "white"}, "f": {"helmet": "purple", "trim": "yellow", "goggles": "yellow", "jersey": "purple", "gloves": "purple", "pants": "purple", "boots": "white"}},
+      "desc": "The Legends winner's kit, purple and gold, number 1."
+    },
+    {
+      "id": "super_kit_d",
+      "name": "Chrome silver legend kit",
+      "price": 0,
+      "award": true,
+      "sheets": {
+        "m": "player-m-super-d",
+        "f": "player-f-super-d"
+      },
+      "race": {"m": {"helmet": "grey", "trim": "white", "goggles": "white", "jersey": "grey", "gloves": "grey", "pants": "grey", "boots": "grey"}, "f": {"helmet": "grey", "trim": "white", "goggles": "white", "jersey": "grey", "gloves": "grey", "pants": "grey", "boots": "grey"}},
+      "desc": "The Legends winner's kit, silver and white, number 0."
+    },
+    {
+      "id": "super_kit_e",
+      "name": "Union legend kit",
+      "price": 0,
+      "award": true,
+      "sheets": {
+        "m": "player-m-super-e",
+        "f": "player-f-super-e"
+      },
+      "race": {"m": {"helmet": "white", "trim": "royal", "goggles": "royal", "jersey": "royal", "gloves": "navy", "pants": "navy", "boots": "white"}, "f": {"helmet": "white", "trim": "royal", "goggles": "royal", "jersey": "royal", "gloves": "navy", "pants": "navy", "boots": "white"}},
+      "desc": "The Legends winner's kit, blue and white, number 1."
+    }
+  ],
+  "kit": {
+    "outfit": "champion_kit",
+    "lastArea": 4,
+    "note": "The champion's kit comes with the sponsor's free bike after an area championship up to Area 4 (Boss, 31 Oct 2026: from Area 5 sponsors bring contracts instead)."
+  },
+  "rack": {
+    "needs": "wardrobe",
+    "shops": [
+      "shop.a2.garage",
+      "shop.a3.garage",
+      "shop.a4.garage",
+      "shop.a5.garage",
+      "shop.a6.garage",
+      "shop.a7.garage",
+      "shop.a8.garage"
+    ]
+  },
+  "storage": {
+    "base": 10,
+    "perExtraHouse": 10
+  },
+  "picks": {
+    "note": "Boss, 5 Nov 2026 (\"lock em in\"): signing a sponsor lets the rider pick one of the five sponsor kits they don't own yet; winning the Legends Championship (the end-game event, standing in for the Super Event) one of the five legend kits, once.",
+    "sponsor": [
+      "sponsor_kit_a",
+      "sponsor_kit_b",
+      "sponsor_kit_c",
+      "sponsor_kit_d",
+      "sponsor_kit_e"
+    ],
+    "legends": {
+      "after": "trophy.legends",
+      "done": "picked.legends_kit",
+      "outfits": [
+        "super_kit_a",
+        "super_kit_b",
+        "super_kit_c",
+        "super_kit_d",
+        "super_kit_e"
+      ]
+    }
+  }
+}

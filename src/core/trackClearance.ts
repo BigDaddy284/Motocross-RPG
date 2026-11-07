@@ -1,6 +1,7 @@
+import { FLAGGER_ITEM, towerFlagman } from './finishCrew';
 import type { SceneryItem, TrackDef } from './race';
 import { DEFAULT_TRACK_WIDTH, type TrackPartsData } from './trackParts';
-import { headingAt, lapGeom, pointAt, START_PAD, startGeom, startHalfWidth, startPointAt } from './trackGeom';
+import { headingAt, hiddenSpans, isSprint, lapGeom, pointAt, sprintStart, START_PAD, startGeom, startHalfWidth, startPointAt } from './trackGeom';
 import { LIP_AT, LIP_H, TrackSurface } from './trackSurface';
 
 // How far things are from where bikes go: the racing surface (the lap, the start straight and the
@@ -27,10 +28,14 @@ export function surfacePoints(track: TrackDef): SurfacePoint[] {
   const hw = s.hw;
   const n = Math.max(200, Math.ceil(g.total / 0.25));
   const pts: SurfacePoint[] = [];
+  // A No-Turn Takedown's way back is never drawn: nothing on the grid has to keep clear of it.
+  const hidden = hiddenSpans(track, g, s.bounds);
   for (let i = 0; i < n; i++) {
     const f = i / n;
+    if (hidden.some(([a, b]) => f > a && f < b)) continue;
     const p = pointAt(g, f);
-    pts.push({ x: p.x, y: p.y, hw, reach: hw * (LIP_AT + Math.max(s.skirt(f, -1), s.skirt(f, 1))) });
+    const here = s.hwAt(f);
+    pts.push({ x: p.x, y: p.y, hw: here, reach: here * (LIP_AT + Math.max(s.skirt(f, -1), s.skirt(f, 1))) });
   }
   const start = startGeom(track, g);
   if (start.total > 0) {
@@ -111,7 +116,7 @@ export interface Footprint {
 export function footprints(parts: TrackPartsData, track: TrackDef): Footprint[] {
   return (track.scenery ?? []).map((it: SceneryItem, i) => {
     const def = parts.scenery.find((s) => s.id === it.type);
-    const w = it.type === 'finish_arch' ? archSpan(track.width ?? DEFAULT_TRACK_WIDTH) : it.w ?? def?.w ?? 2;
+    const w = SPANS_TRACK.has(it.type) ? archSpan(track.width ?? DEFAULT_TRACK_WIDTH) : it.w ?? def?.w ?? 2;
     return { i, type: it.type, x: it.x, y: it.y, w, d: it.h ?? def?.h ?? 2, a: ((it.rot ?? 0) * Math.PI) / 180 };
   });
 }
@@ -123,6 +128,24 @@ export function footprints(parts: TrackPartsData, track: TrackDef): Footprint[] 
  */
 export function archSpan(width: number): number {
   return width * LIP_AT + 2.4;
+}
+
+/** Items always as wide as the track's finish arch, whatever width they were saved with: the finish arch and a sprint's start. */
+export const SPANS_TRACK = new Set(['finish_arch', 'sprint_start']);
+/** An enduro sprint's start (trackside.ts sprint_start): the arch over the start line, with the timekeeper and the scorer by it. */
+export const SPRINT_START_ITEM = 'sprint_start';
+/** How far past the arch's right-hand end the officials and their clock stand, and how much room they take, in grid units. */
+export const SPRINT_CREW_AT = 1.0;
+export const SPRINT_CREW_SIZE: [number, number] = [1.3, 2.4];
+
+/** Where a sprint's start belongs: on the start line at the end of the return lane, square to the track there. Null on any other track. */
+export function sprintPlace(track: TrackDef): { x: number; y: number; rot: number } | null {
+  if (!isSprint(track) || track.path.length < 2) return null;
+  const g = lapGeom(track.path);
+  const f = sprintStart(track);
+  const p = pointAt(g, f);
+  const deg = (headingAt(g, f) * 180) / Math.PI;
+  return { x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100, rot: ((Math.round(deg) + 90) % 360 + 360) % 360 };
 }
 
 /** Where the finish arch belongs: on the finish line (the lap's first point), square to the track there. */
@@ -202,6 +225,8 @@ export function colliders(f: Footprint): Footprint[] {
       return [along(-(f.w / 2 - 0.2), 0.4, 0.4), along(f.w / 2 - 0.2, 0.4, 0.4)];
     case 'inflatable':
       return [along(-(f.w / 2 - 0.5), 1, Math.min(f.d, 1.2)), along(f.w / 2 - 0.5, 1, Math.min(f.d, 1.2))];
+    case SPRINT_START_ITEM:
+      return [along(-(f.w / 2 - 0.45), 0.9, 0.9), along(f.w / 2 - 0.45, 0.9, 0.9), along(f.w / 2 + SPRINT_CREW_AT, SPRINT_CREW_SIZE[0], SPRINT_CREW_SIZE[1])];
     case 'tree':
       return [along(0, 0.35, 0.35)];
     case 'light_tower':
@@ -270,6 +295,12 @@ export function sceneryIssues(parts: TrackPartsData, track: TrackDef, index = ne
     for (const c of colliders(f)) for (const p of footprintOutline(c)) into = Math.max(into, -index.offSurface(p.x, p.y));
     if (into > 1e-6) out.push({ i: f.i, level: 'error', message: `${name(f)} is on the racing surface, where riders would ride through it` });
     else if (into > -BIKE_HALF_WIDTH) out.push({ i: f.i, level: 'warning', message: `${name(f)} is ${(-into).toFixed(2)} from the edge of the racing surface, so a rider right on the edge would touch it` });
+  }
+  // A supercross finish-line jump has its own flag man up in the tower (finishCrew.ts towerFlagman; Boss, 1 Nov 2026).
+  if (towerFlagman(track)) {
+    (track.scenery ?? []).forEach((it, i) => {
+      if (it.type === FLAGGER_ITEM) out.push({ i, level: 'error', message: `the flag man at ${it.x}, ${it.y} isn't needed: this track's supercross finish arch has its own flag man up in its tower, so take this one away` });
+    });
   }
   for (let a = 0; a < items.length; a++) {
     for (let b = a + 1; b < items.length; b++) {

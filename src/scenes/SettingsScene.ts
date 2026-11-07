@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { TEXT_MAX, TEXT_MIN, ZOOM_CONTROLS, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP, type Settings } from '../core/settings';
+import { CONTROL_ACTIONS, keyLabel, keyName, rebind, type ControlId } from '../core/keybinds';
 import { services } from '../services';
 import { COLORS, textStyle } from '../ui/theme';
 import { button, panel, slider, toggle } from '../ui/widgets';
@@ -13,6 +14,9 @@ const TABS: Tab[] = ['Audio', 'Display', 'Accessibility', 'Gameplay', 'Controls'
 export class SettingsScene extends Phaser.Scene {
   private back: 'menu' | 'world' = 'menu';
   private tab: Tab = 'Audio';
+  /** The action waiting for its new key in Settings > Controls. */
+  private waiting: ControlId | null = null;
+  private note = '';
 
   constructor() {
     super('settings');
@@ -28,7 +32,27 @@ export class SettingsScene extends Phaser.Scene {
     this.draw();
     this.scale.on('resize', this.draw, this);
     this.events.once('shutdown', () => this.scale.off('resize', this.draw, this));
-    this.input.keyboard?.on('keydown-ESC', () => this.close());
+    this.input.keyboard?.on('keydown', (e: KeyboardEvent) => {
+      const key = keyName(e.code);
+      if (this.waiting) {
+        e.preventDefault();
+        const action = this.waiting;
+        this.waiting = null;
+        if (key === 'ESC' && action !== 'menu') this.note = '';
+        else if (!key) this.note = "That key can't be used. Pick a letter, a number or Esc.";
+        else {
+          const r = rebind(services.settings.get().controls, action, key);
+          if (r.ok) {
+            for (const [a, k] of Object.entries(r.controls) as [ControlId, string][]) if (services.settings.get().controls[a] !== k) services.settings.update('controls', a, k);
+            const name = (id: ControlId) => CONTROL_ACTIONS.find((x) => x.id === id)!.label;
+            this.note = r.swapped ? `${keyLabel(key)} is now ${name(action)}; ${name(r.swapped)} moved to ${keyLabel(r.controls[r.swapped])}.` : `${keyLabel(key)} is now ${name(action)}.`;
+          } else this.note = r.message;
+        }
+        this.draw();
+        return;
+      }
+      if (key === 'ESC') this.close();
+    });
   }
 
   private draw(): void {
@@ -53,6 +77,8 @@ export class SettingsScene extends Phaser.Scene {
     TABS.forEach((t, i) => {
       const b = button(this, cx - w / 2 + 20 + tabW * (i + 0.5), top + 82, t, () => {
         this.tab = t;
+        this.waiting = null;
+        this.note = '';
         this.draw();
       }, tabW - 6, 36);
       if (t === this.tab) (b.list[0] as Phaser.GameObjects.Rectangle).setStrokeStyle(2, COLORS.accent);
@@ -100,21 +126,25 @@ export class SettingsScene extends Phaser.Scene {
         label(0, 'Tutorial prompts'); toggle(this, sliderX + 26, rowY(0), s.gameplay.tutorialPrompts, upd('gameplay', 'tutorialPrompts'));
         label(1, 'Context hints'); toggle(this, sliderX + 26, rowY(1), s.gameplay.contextHints, upd('gameplay', 'contextHints'));
         label(2, 'Repeated reminders'); toggle(this, sliderX + 26, rowY(2), s.gameplay.reminders, upd('gameplay', 'reminders'));
+        // Boss, 2 Nov 2026: the task line under the money can be switched off.
+        label(3, 'Show task on screen'); toggle(this, sliderX + 26, rowY(3), s.gameplay.showTask, upd('gameplay', 'showTask'));
         break;
       case 'Controls': {
+        // Rebinding keys (Boss, 5 Nov 2026): pick an action, then press its new key (core/keybinds.ts).
         const c = s.controls;
-        const rows = [
-          ['Move', `${c.up} ${c.left} ${c.down} ${c.right}  or arrow keys`],
-          ['Click or tap', 'Walk there, talk to an NPC, use an object'],
-          ['Talk / use', `${c.interact} or Space`],
-          ['Zoom', 'Mouse wheel, + and - keys, or the zoom buttons'],
-          ['Pause menu', c.menu],
-        ];
-        rows.forEach(([a, b], i) => {
-          label(i, a);
-          this.add.text(sliderX, rowY(i), b, textStyle(17, COLORS.muted)).setOrigin(0, 0.5);
+        const y = (i: number) => top + 132 + i * 37;
+        CONTROL_ACTIONS.forEach((a, i) => {
+          this.add.text(left, y(i), a.label, textStyle(17)).setOrigin(0, 0.5);
+          const waiting = this.waiting === a.id;
+          button(this, sliderX + 65, y(i), waiting ? 'Press a key' : keyLabel(c[a.id]), () => {
+            this.waiting = waiting ? null : a.id;
+            this.note = waiting ? '' : `Press the new key for ${a.label.toLowerCase()}, or Esc to cancel.`;
+            this.draw();
+          }, 130, 32).setSelected(waiting);
+          if (a.extra || (a.id === 'menu' && c.menu !== 'ESC')) this.add.text(sliderX + 145, y(i), a.id === 'menu' ? 'Esc always works too' : a.extra!, textStyle(15, COLORS.muted)).setOrigin(0, 0.5);
         });
-        this.add.text(left, rowY(5), 'Rebinding keys comes in a later build.', textStyle(15, COLORS.muted)).setOrigin(0, 0.5);
+        const foot = this.note || 'Click, tap, mouse wheel and the + and - keys work as always. A key already in use swaps over.';
+        this.add.text(left, y(CONTROL_ACTIONS.length) + 4, foot, { ...textStyle(15, COLORS.muted), wordWrap: { width: w - 64 } }).setOrigin(0, 0.5);
         break;
       }
     }

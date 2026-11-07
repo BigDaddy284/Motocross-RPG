@@ -172,7 +172,7 @@ describe('tight corners', () => {
         }
       }
     }
-  });
+  }, 60000); // Every area's placeholder tracks are checked too (Areas 2 to 8 build), so this one runs long.
 
   it('mitres the same corners on sloping ground and with the lap turned round, with finite heights everywhere', () => {
     const points: [number, number, number][] = [];

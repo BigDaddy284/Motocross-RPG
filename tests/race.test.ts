@@ -160,9 +160,9 @@ describe('race simulation (Spec 10)', () => {
     expect(total(p.xp) / total(r.xp)).toBeLessThan(0.13);
     const before = career.bike.parts.top_end.condition;
     expect(p.playerBike!.parts.top_end.condition).toBeLessThan(before);
-    // 5 laps of about 1 km at 50cc (youth ×0.8) take about 4% off a 100 km top end.
-    expect(before - p.playerBike!.parts.top_end.condition).toBeGreaterThan(0.03);
-    expect(before - p.playerBike!.parts.top_end.condition).toBeLessThan(0.06);
+    // 5 laps of about 1 km at 50cc (youth ×0.8) take about 2% off a 200 km top end (wear halved; Boss, 4 Nov 2026).
+    expect(before - p.playerBike!.parts.top_end.condition).toBeGreaterThan(0.015);
+    expect(before - p.playerBike!.parts.top_end.condition).toBeLessThan(0.03);
     expect(career.bike.parts.top_end.condition).toBe(before); // the career's bike only changes when the ride is applied
   });
 
@@ -177,7 +177,7 @@ describe('race simulation (Spec 10)', () => {
 describe('race day (Spec 12, 14)', () => {
   it('pays 3 × entry to the winner and shares down to 10th', () => {
     expect(motoPrize(content.racing, 2000, 1)).toBe(6000);
-    expect(motoPrize(content.racing, 2000, 6)).toBe(1440);
+    expect(motoPrize(content.racing, 2000, 6)).toBe(1400); // £14.40, to the nearest £1 (Boss, 2 Nov 2026)
     expect(motoPrize(content.racing, 2000, 11)).toBe(0);
   });
 
@@ -347,10 +347,10 @@ describe('race content checks', () => {
     expect(errors.some((e) => e.file === 'data/riders.json' && /cpu\.local_champion/.test(e.message))).toBe(true);
   });
 
-  it("puts riders in the pools of the areas they race in, and Neal Gizard in Area 8 only (Boss, 28 Oct 2026)", () => {
+  it("puts riders in the pools of the areas they race in, and Neal Borne in Area 8 only (Boss, 28 Oct 2026)", () => {
     const pool = content.riders.fields['area1.local'];
     expect(pool).toEqual(content.riders.riders.filter((r) => r.areas.includes(1)).map((r) => r.id));
-    const neal = content.riders.riders.find((r) => r.name === 'Neal Gizard')!;
+    const neal = content.riders.riders.find((r) => r.name === 'Neal Borne')!;
     expect(neal.areas).toEqual([8]);
     expect(pool).not.toContain(neal.id);
     for (const n of ['Lee Stocky', 'Brandon Stocky']) expect(pool).toContain(content.riders.riders.find((r) => r.name === n)?.id);
@@ -385,7 +385,11 @@ describe('the race day field: regulars plus a random draw from the pool', () => 
   });
 
   it('includes every new rider by name, with average stats', () => {
-    const names = ['Harvey Gizard', 'Louie Gizard', 'Kate Gizard', 'Aidan Gizard', 'Taylor Heart', 'Jason Styles', 'Jordan Styles', 'James Nestor', 'Mickey Alington', 'Louis Jonez', 'Andy McLaren', 'Justin Smyth', 'Dan Smyth'];
+    // Taylor Heart joins in Area 2 as its champion (Areas 2 to 8 plan, Boss 31 Oct 2026), so she is in Area 2's pool, not Area 1's.
+    const taylor = content.riders.riders.find((x) => x.name === 'Taylor Heart')!;
+    expect(content.riders.fields['area2.local']).toContain(taylor.id);
+    expect(content.riders.fields['area1.local']).not.toContain(taylor.id);
+    const names = ['Jason Styles', 'Mickey Alington', 'Louis Jonez', 'Dan Smyth'];
     const champ = content.riders.riders.find((r) => r.id === 'cpu.local_champion')!;
     for (const n of names) {
       const r = content.riders.riders.find((x) => x.name === n)!;
@@ -393,5 +397,14 @@ describe('the race day field: regulars plus a random draw from the pool', () => 
       expect(content.riders.fields['area1.local']).toContain(r.id);
       expect(r.level).toBeLessThan(champ.level);
     }
+    // The future Area Champions are taken out of the Area 1 pool and join with their own area, staying on to Area 8.
+    const champions: [string, number][] = [['Aidan Borne', 3], ['Kate Borne', 4], ['Louie Borne', 5], ['James Nestor', 6], ['Harvey Borne', 7], ['Neal Borne', 8]];
+    for (const [n, area] of champions) {
+      const r = content.riders.riders.find((x) => x.name === n)!;
+      expect(r.areas, n).toEqual(Array.from({ length: 9 - area }, (_, i) => area + i));
+      expect(content.riders.fields['area1.local']).not.toContain(r.id);
+      expect(content.riders.fields[`area${area}.local`]).toContain(r.id);
+    }
   });
 });
+

@@ -52,11 +52,29 @@ export interface VanDesign {
   reference: string;
   /** The model's van sheets in the art folder (map-<art>.png), named before the motors were (Boss, 28 Oct 2026). */
   art?: string;
+  /**
+   * Another design whose sheets this one is drawn with until its own art exists (Boss, 31 Oct
+   * 2026: the sports car needs new vehicle art). The game loads that design's images under this id.
+   */
+  artOf?: string;
   /** Footprint in tiles along the heading (always one tile wide). */
   length: number;
   lengthM: number;
   /** Milliseconds per tile when driving. */
   stepMs: number;
+  /**
+   * An open load bed (Boss, 30 Oct 2026: the Old Rusty Truck shows the loaded bike on its back)
+   * in each parked view and turning frame.
+   */
+  bed?: { views: Record<Heading, BedPoint>; turn: BedPoint[] };
+}
+
+/** Where a bed is in one picture of the van, in sheet pixels from the anchor. */
+export interface BedPoint {
+  /** The middle of the bed, where the bike stands. */
+  mid: [number, number];
+  /** The bed's two front corners behind the cab, where the bike's straps are hooked. */
+  straps: [[number, number], [number, number]];
 }
 
 /** One heading of a van sheet: cell rects in the sheet, the ground anchor and the driver window in the cell. */
@@ -73,6 +91,22 @@ export interface VanSheet {
   views: Record<Heading, VanSheetView>;
   /** The closed van at evenly spaced headings for turning (frame i faces i × 360 / frames.length degrees anticlockwise from east). */
   turn?: { image: string; frames: { cell: [number, number, number, number]; anchor: [number, number]; driver: [number, number, number, number] | null }[] };
+}
+
+export interface HaulerSpot extends VanPose {
+  map: string;
+}
+
+export interface HaulerDef {
+  note?: string;
+  /** A design in `designs`. */
+  design: string;
+  /** The flag that brings it: the factory sponsor's (sponsors.json factoryFlag). */
+  flag: string;
+  /** What it carries, for the words on screen (Boss, 31 Oct 2026: 11 bikes, 400 parts, 120 tools). */
+  room: { bikes: number; parts: number; tools: number };
+  /** Where it is parked, cab at x, y, on each venue map; every venue map needs one. */
+  spots: HaulerSpot[];
 }
 
 export interface VehiclesData {
@@ -100,6 +134,12 @@ export interface VehiclesData {
    * parked here, cab at x, y, and leaves straight out by the map's exit.
    */
   bays?: { map: string; name: string; x: number; y: number; heading: Heading; minLength: number }[];
+  /**
+   * The Factory Hauler (Boss, 31 Oct 2026): never bought or driven. Once the rider has the flag
+   * (a factory sponsor), the team parks it on its spot at every venue, with room for the bikes,
+   * parts and tools, and the rider races out of it: bag, spares and tools are at the back.
+   */
+  hauler?: HaulerDef;
   /** The van the opening chain sells, and where it is parked when bought. */
   starter: { design: string; map: string; x: number; y: number; heading: Heading };
   designs: VanDesign[];
@@ -107,10 +147,12 @@ export interface VehiclesData {
 
 const ID = /^[a-z0-9_.-]+$/;
 const HEADING_ENUM = { type: 'string', enum: HEADINGS } as const;
+const POINT: Schema = { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number', integer: true } };
+const BED_POINT: Schema = { type: 'object', fields: { mid: POINT, straps: { type: 'array', minItems: 2, maxItems: 2, items: POINT } } };
 
 export const VEHICLES_SCHEMA: Schema = {
   type: 'object',
-  optional: ['note', 'kerbs', 'verges', 'carParks', 'bays'],
+  optional: ['note', 'kerbs', 'verges', 'carParks', 'bays', 'hauler'],
   fields: {
     note: { type: 'string' },
     drivable: { type: 'array', minItems: 1, items: { type: 'string', nonEmpty: true } },
@@ -148,6 +190,20 @@ export const VEHICLES_SCHEMA: Schema = {
         },
       },
     },
+    hauler: {
+      type: 'object',
+      optional: ['note'],
+      fields: {
+        note: { type: 'string' },
+        design: { type: 'string', pattern: ID },
+        flag: { type: 'string', pattern: ID },
+        room: { type: 'object', fields: { bikes: { type: 'number', integer: true, min: 1 }, parts: { type: 'number', integer: true, min: 1 }, tools: { type: 'number', integer: true, min: 1 } } },
+        spots: {
+          type: 'array',
+          items: { type: 'object', fields: { map: { type: 'string', pattern: ID }, x: { type: 'number', integer: true, min: 0 }, y: { type: 'number', integer: true, min: 0 }, heading: HEADING_ENUM } },
+        },
+      },
+    },
     starter: {
       type: 'object',
       fields: { design: { type: 'string', pattern: ID }, map: { type: 'string', pattern: ID }, x: { type: 'number', integer: true }, y: { type: 'number', integer: true }, heading: HEADING_ENUM },
@@ -158,6 +214,7 @@ export const VEHICLES_SCHEMA: Schema = {
       items: {
         type: 'object',
         fields: {
+          artOf: { type: 'string', pattern: ID },
           id: { type: 'string', pattern: ID },
           name: { type: 'string', nonEmpty: true },
           reference: { type: 'string', nonEmpty: true },
@@ -165,7 +222,15 @@ export const VEHICLES_SCHEMA: Schema = {
           length: { type: 'number', integer: true, min: 1 },
           lengthM: { type: 'number', min: 1 },
           stepMs: { type: 'number', integer: true, min: 30 },
+          bed: {
+            type: 'object',
+            fields: {
+              views: { type: 'object', fields: Object.fromEntries(HEADINGS.map((h) => [h, BED_POINT])) },
+              turn: { type: 'array', minItems: 1, items: BED_POINT },
+            },
+          },
         },
+        optional: ['bed', 'artOf'],
       },
     },
   },
@@ -218,6 +283,8 @@ export class DriveMap {
   private readonly laneEW: (-1 | 0 | 1)[];
   private readonly laneNS: (-1 | 0 | 1)[];
   private readonly npcs = new Set<string>();
+  /** Tiles under a parked vehicle that isn't the van (the Factory Hauler): solid to it. */
+  private readonly parked = new Set<string>();
 
   constructor(
     readonly map: BakedMap,
@@ -345,13 +412,19 @@ export class DriveMap {
 
   /** Free for the van right now: drivable and no NPC standing there. */
   isFree(x: number, y: number): boolean {
-    return this.isDrivable(x, y) && !this.npcs.has(key(x, y));
+    return this.isDrivable(x, y) && !this.npcs.has(key(x, y)) && !this.parked.has(key(x, y));
+  }
+
+  /** Marks the tiles under a parked vehicle (the Factory Hauler) solid, replacing the last set. */
+  setParkedTiles(tiles: Tile[]): void {
+    this.parked.clear();
+    for (const t of tiles) this.parked.add(key(t.x, t.y));
   }
 
   /** Free for a van's front or back: road, or open ground beside it (pavement, grass), with nobody there. */
   isEdgeFree(x: number, y: number): boolean {
     if (this.isFree(x, y)) return true;
-    return x >= 0 && y >= 0 && x < this.width && y < this.height && this.edge[y * this.width + x] && !this.tooSmall.has(key(x, y)) && !this.npcs.has(key(x, y));
+    return x >= 0 && y >= 0 && x < this.width && y < this.height && this.edge[y * this.width + x] && !this.tooSmall.has(key(x, y)) && !this.npcs.has(key(x, y)) && !this.parked.has(key(x, y));
   }
 
   /**
@@ -621,6 +694,52 @@ function placeWhere(dm: DriveMap, spawn: Tile, length: number, prefer: Heading, 
   return null;
 }
 
+/**
+ * Where a van arriving at `spawn` parks (Boss, 4 Nov 2026: "when driving from Home Town to the
+ * Industrial Zone the car loads in like this, make them all make sense"): as if it had just driven in
+ * by the road at the nearest map edge, so on that road, in its lane, pointing into the map, clear of
+ * the road's signs and exits. Only when no such spot fits is it parked near the spawn as before,
+ * still pointing in if it can.
+ */
+export function arrivalPose(dm: DriveMap, map: BakedMap, spawn: Tile, length: number, avoid: (t: Tile) => boolean = () => false): VanPose | null {
+  const ts = map.tileSize;
+  const signs = new Set(map.objects.filter((o) => o.type === 'travel').flatMap((o) => objectTiles(o, ts)).map((t) => key(t.x, t.y)));
+  const clear = (p: VanPose) => footprint(p, length).every((t) => dm.isFree(t.x, t.y) && !avoid(t) && !signs.has(key(t.x, t.y)));
+  // The road in: the map-edge exit nearest the spawn.
+  const exits = map.objects
+    .filter((o) => o.type === 'exit')
+    .map((o) => ({ o, tiles: objectTiles(o, ts) }))
+    .filter((e) => e.tiles.some((t) => t.x === 0 || t.y === 0 || t.x === map.width - 1 || t.y === map.height - 1))
+    .map((e) => ({ ...e, d: Math.min(...e.tiles.map((t) => Math.hypot(t.x - spawn.x, t.y - spawn.y))) }))
+    .filter((e) => e.d <= 10)
+    .sort((a, b) => a.d - b.d);
+  const road = exits[0];
+  if (road) {
+    const xs = road.tiles.map((t) => t.x);
+    const ys = road.tiles.map((t) => t.y);
+    const box = { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+    const heading: Heading = box.x0 === 0 ? 'east' : box.x1 === map.width - 1 ? 'west' : box.y0 === 0 ? 'south' : 'north';
+    const d = STEP[heading];
+    // Across the road: the exit's width and a little either side, nearest its middle first.
+    const across = heading === 'east' || heading === 'west' ? [box.y0, box.y1] : [box.x0, box.x1];
+    const mid = (across[0] + across[1]) / 2;
+    const lanes: number[] = [];
+    for (let v = across[0] - 2; v <= across[1] + 2; v++) lanes.push(v);
+    lanes.sort((a, b) => Math.abs(a - mid) - Math.abs(b - mid));
+    // The back of the van just inside the edge, then further in.
+    const edge = heading === 'east' ? box.x1 : heading === 'west' ? box.x0 : heading === 'south' ? box.y1 : box.y0;
+    for (let inBy = 1; inBy <= 14; inBy++) {
+      for (const lane of lanes) {
+        const rear = heading === 'east' || heading === 'west' ? { x: edge + d.x * inBy, y: lane } : { x: lane, y: edge + d.y * inBy };
+        const pose = { x: rear.x + d.x * (length - 1), y: rear.y + d.y * (length - 1), heading };
+        if (dm.fits(pose, length) && clear(pose)) return pose;
+      }
+    }
+  }
+  const inward = inwardHeading(map, spawn);
+  return placeWhere(dm, spawn, length, inward, 12, (p) => p.heading === inward && clear(p)) ?? placeNear(dm, spawn, length, inward, 12, (t) => avoid(t) || signs.has(key(t.x, t.y)));
+}
+
 /** The heading that points into the map from the nearest edge, for vans arriving at a spawn. */
 export function inwardHeading(map: BakedMap, t: Tile): Heading {
   const d = { west: t.x, east: map.width - 1 - t.x, north: t.y, south: map.height - 1 - t.y };
@@ -657,6 +776,31 @@ export function besideVan(p: VanPose, length: number, t: Tile): boolean {
  * the starter spot. `devDesign` (the ?van= address option) swaps the design for playtests.
  * Returns the van, or null when the rider has none.
  */
+/** The design's van sheet in the manifest: its own, or the one it is drawn with until its art exists (artOf). */
+export function sheetFor(sheets: Record<string, VanSheet> | undefined, design: VanDesign): VanSheet | undefined {
+  return sheets?.[design.id] ?? (design.artOf ? sheets?.[design.artOf] : undefined);
+}
+
+/**
+ * The Factory Hauler parked on this map, or null: it is there once the rider has its flag, on a map
+ * with a spot for it, unless the rider's own van is that design and parked here (the dev `?van=`
+ * motor-7, which takes the Riverside bay).
+ */
+export function haulerAt(
+  data: Pick<VehiclesData, 'hauler' | 'designs'>,
+  flags: Record<string, boolean>,
+  mapId: string,
+  van: { design: string; map: string } | null,
+): { design: VanDesign; pose: VanPose; room: HaulerDef['room'] } | null {
+  const h = data.hauler;
+  if (!h || !flags[h.flag]) return null;
+  const spot = h.spots.find((s) => s.map === mapId);
+  const design = data.designs.find((d) => d.id === h.design);
+  if (!spot || !design) return null;
+  if (van && van.design === design.id && van.map === mapId) return null;
+  return { design, pose: { x: spot.x, y: spot.y, heading: spot.heading }, room: h.room };
+}
+
 export function ensureVan(save: { flags: Record<string, boolean>; van: VanState | null }, data: VehiclesData, devDesign: string | null = null): VanState | null {
   const { design, map, x, y, heading } = data.starter;
   const dev = devDesign && data.designs.some((d) => d.id === devDesign) ? devDesign : null;
@@ -707,6 +851,24 @@ export function checkVehicles(file: string, raw: unknown, maps: Map<string, Bake
       }
     }
   });
+  const h = data.hauler;
+  if (h) {
+    const design = data.designs.find((d) => d.id === h.design);
+    if (!design) errors.push({ file, field: 'hauler.design', message: `no design "${h.design}"` });
+    h.spots.forEach((sp, i) => {
+      const m = maps.get(sp.map);
+      if (!m) return void errors.push({ file, field: `hauler.spots[${i}].map`, message: `no map "${sp.map}"` });
+      if (h.spots.findIndex((o) => o.map === sp.map) !== i) errors.push({ file, field: `hauler.spots[${i}].map`, message: `"${sp.map}" has two spots` });
+      if (!design) return;
+      const dm = new DriveMap(m, Grid.fromMap(m), data);
+      dm.setVanLength(design.length);
+      if (!dm.fits(sp, design.length)) errors.push({ file, field: `hauler.spots[${i}]`, message: `the ${design.name} doesn't fit at ${sp.x},${sp.y} heading ${sp.heading} on ${sp.map}` });
+    });
+    // Every venue has a spot (Boss, 31 Oct 2026: parked at every venue), so the team never leaves the bikes behind.
+    for (const id of maps.keys()) {
+      if (id.startsWith('venue-') && !h.spots.some((sp) => sp.map === id)) errors.push({ file, field: 'hauler.spots', message: `no spot on ${id}` });
+    }
+  }
   data.verges?.maps.forEach((id, i) => {
     if (!maps.has(id)) errors.push({ file, field: `verges.maps[${i}]`, message: `no map "${id}"` });
   });
@@ -720,4 +882,17 @@ export function checkVehicles(file: string, raw: unknown, maps: Map<string, Bake
     if (!dm.fits(s, design.length)) errors.push({ file, field: 'starter', message: `the ${design.name} doesn't fit at ${s.x},${s.y} heading ${s.heading} on ${s.map}` });
   }
   return { data, errors };
+}
+
+/**
+ * No walking between areas and venues (Boss, 2 Nov 2026): "the player can't travel to or from an
+ * area or venue without his vehicle", with the rider saying so to themself. Every road out (a route
+ * exit, to the venues or a neighbouring town) needs the motor once it is parked on this map; a
+ * rider whose motor is somewhere else (or who has none yet) may still walk, so nobody is stranded.
+ * Doors and the Industrial Zone's road from Home Town stay walkable.
+ */
+export const ON_FOOT = "That's a long way to go on foot. Best get the motor.";
+
+export function needsMotor(van: { map: string } | null | undefined, mapId: string, driving: boolean): boolean {
+  return !driving && !!van && van.map === mapId;
 }

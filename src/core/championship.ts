@@ -1,11 +1,16 @@
-import { pence, type CareerState } from './career';
+import { classAtLeast, className, dayClass, milestoneFlag, nextClass, prizeFlag } from './classes';
+import { areaFlag, roadFlag } from './areas';
+import { pence, wholePounds, type CareerState } from './career';
 import { mixSeed, seededRng } from './race';
-import { PLAYER_ID, type CpuRiderDef, type RaceContent, type RaceDay, type VenueDef } from './raceDay';
+import { PLAYER_ID, fieldRider, type CpuRiderDef, type RaceContent, type RaceDay, type VenueDef } from './raceDay';
+import { passengerTrack } from './passenger';
+import { SIDECAR_CLASS, SIDECAR_FIELD } from './sidecar';
 import type { ContentError, Schema } from './validate';
 
 // Championships (Spec 12.5, 18.6): a series of rounds at the area's venues, each entered
-// separately at the race office, with qualifying, the same field of 16 every round, points for
-// every moto and a reward for the top three. No calendar: one stays active until it is finished,
+// separately at the race office, the same field of 16 every round, points for every moto and a
+// reward for the top three. No qualifying (Boss, 2 Nov 2026): moto 1's gate picks go in a random
+// order and moto 2's in moto 1's finishing order, as on any race day. No calendar: one stays active until it is finished,
 // started again or given up. Pure rules with no graphics.
 
 export interface ChampionshipDef {
@@ -14,39 +19,64 @@ export interface ChampionshipDef {
   /** For buttons and the race screen: "Local Champion". */
   short: string;
   class: string;
-  /** The riders.json field the CPU riders come from. */
+  /** The riders.json field the CPU riders come from, and race at the level of. */
   field: string;
+  /**
+   * More riders.json fields the CPU riders are drawn from, at random with no regulars: the type
+   * championships that open with each area's story draw from every area open by then ("random
+   * field of available names as per area unlocks", Boss, 4 Nov 2026).
+   */
+  drawFrom?: string[];
   /** CPU riders drawn once on entering, who race every round. */
   size: number;
   /** Riders from the pool always in it, on top of the field's own regulars. */
   regulars?: string[];
-  /** Riders from the pool never in it, a field regular too (Dean Marsh stays out of the Local Championship). */
+  /** Riders from the pool never in it, a field regular too (the Area 1 Champion stays out of the Local Championship). */
   without?: string[];
   /** The championship's main rider, the one to beat: raced as they are, the best rider in it on skill (Boss, 28 Oct 2026). */
   main?: string;
   /** How much better every other CPU rider races in it: 0.1 is 10% higher skills and bike condition (Boss, 28 Oct 2026). */
   buff?: number;
-  /** Venue ids, in round order. */
+  /**
+   * Venue ids, in round order. A round's venue races this class or a smaller one, and any track
+   * type: one points table for every round, whatever the race type (Boss, 4 Nov 2026).
+   */
   rounds: string[];
   /** Entry and prize money, times the class's (Spec 14.2 event tiers). */
   entryTimes: number;
   purseTimes: number;
-  qualifyingLaps: number;
   /** Flags that open it. */
   needs?: string[];
-  /** By final position: prize money in pounds, a flag to set and what it is called. */
-  rewards: { money: number; flag?: string; title?: string; image?: string }[];
+  /**
+   * By final position: prize money in pounds, a flag to set and what it is called. bike: a new bike of
+   * that class for the first win, collected at any class dealer (core/classes.ts prizeBike; the endgame
+   * championships each give a new 450cc F, Boss 5 Nov 2026).
+   */
+  rewards: { money: number; flag?: string; title?: string; image?: string; bike?: string }[];
   /** XP and purse share once it has been won before (Round 125). */
   replay: number;
   /** Said when it is won for the first time. */
   won?: string;
+  /** The class this championship is the milestone for (Spec 18.3): its first win sets milestone.<class>. */
+  milestone?: string;
+  /** The Rider Ability level needed to enter it (the Vets open at 80, 90 and 95, Boss 5 Nov 2026). */
+  level?: number;
+  /** The area a first win opens the road to (Spec 18.2): sets road.N.won, and Manny sets area.N.open later. */
+  opens?: number;
+  /**
+   * A sidecar championship (Boss, 4 Nov 2026): the player rides it as Ray Crispy's passenger
+   * (core/passenger.ts), entered and raced through Ray, never at the race office. Its rounds are the
+   * area's Motocross and Endurance venues; it runs alongside a solo championship, since it isn't the
+   * rider's own bike.
+   */
+  sidecar?: boolean;
 }
 
 export interface ChampionshipsData {
   championships: ChampionshipDef[];
 }
 
-/** One round as it was raced: qualifying order and every rider's moto finishes (null for a DNF). */
+/** One round as it was raced: every rider's moto finishes (null for a DNF). qualifying is empty since 2 Nov 2026 (no qualifying), kept for saves. */
 export interface RoundRecord {
   venue: string;
   qualifying: string[];
@@ -77,13 +107,14 @@ export const CHAMPIONSHIPS_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['regulars', 'without', 'main', 'buff', 'needs', 'won'],
+        optional: ['drawFrom', 'regulars', 'without', 'main', 'buff', 'needs', 'won', 'milestone', 'opens', 'sidecar', 'level'],
         fields: {
           id: { type: 'string', pattern: /^[a-z0-9_.-]+$/ },
           name: { type: 'string', nonEmpty: true },
           short: { type: 'string', nonEmpty: true },
           class: { type: 'string', nonEmpty: true },
           field: { type: 'string', nonEmpty: true },
+          drawFrom: { type: 'array', minItems: 1, items: { type: 'string', nonEmpty: true } },
           size: { type: 'number', integer: true, min: 1, max: 15 },
           regulars: { type: 'array', items: { type: 'string', nonEmpty: true } },
           without: { type: 'array', items: { type: 'string', nonEmpty: true } },
@@ -92,15 +123,18 @@ export const CHAMPIONSHIPS_SCHEMA: Schema = {
           rounds: { type: 'array', minItems: 1, items: { type: 'string', nonEmpty: true } },
           entryTimes: { type: 'number', min: 0 },
           purseTimes: { type: 'number', min: 0 },
-          qualifyingLaps: { type: 'number', integer: true, min: 1, max: 10 },
           needs: { type: 'array', items: { type: 'string', nonEmpty: true } },
           rewards: {
             type: 'array',
             minItems: 1,
-            items: { type: 'object', optional: ['flag', 'title', 'image'], fields: { money: { type: 'number', min: 0 }, flag: { type: 'string', nonEmpty: true }, title: { type: 'string', nonEmpty: true }, image: { type: 'string', pattern: /^art\/[\w./-]+\.png$/ } } },
+            items: { type: 'object', optional: ['flag', 'title', 'image', 'bike'], fields: { money: { type: 'number', min: 0 }, flag: { type: 'string', nonEmpty: true }, title: { type: 'string', nonEmpty: true }, image: { type: 'string', pattern: /^art\/[\w./-]+\.png$/ }, bike: { type: 'string', nonEmpty: true } } },
           },
           replay: { type: 'number', min: 0, max: 1 },
           won: { type: 'string', nonEmpty: true },
+          milestone: { type: 'string', nonEmpty: true },
+          level: { type: 'number', integer: true, min: 1, max: 99 },
+          opens: { type: 'number', integer: true, min: 2, max: 8 },
+          sidecar: { type: 'boolean' },
         },
       },
     },
@@ -111,7 +145,7 @@ export const CHAMPIONSHIPS_SCHEMA: Schema = {
 export const rewardTexture = (image: string) => `reward:${image}`;
 
 /** Cross-checks: every venue, field, rider and class named exists, and the field fits the start. */
-export function checkChampionships(data: ChampionshipsData, rc: Pick<RaceContent, 'tracks' | 'riders' | 'racing'>): ContentError[] {
+export function checkChampionships(data: ChampionshipsData, rc: Pick<RaceContent, 'tracks' | 'riders' | 'racing' | 'bikes'>): ContentError[] {
   const file = 'data/championships.json';
   const errors: ContentError[] = [];
   const ids = new Set<string>();
@@ -119,7 +153,8 @@ export function checkChampionships(data: ChampionshipsData, rc: Pick<RaceContent
     const err = (f: string, message: string) => errors.push({ file, field: `championships[${i}].${f}`, message });
     if (ids.has(c.id)) err('id', `"${c.id}" is used twice`);
     ids.add(c.id);
-    const pool = rc.riders.fields[c.field];
+    c.drawFrom?.forEach((f, j) => !rc.riders.fields[f] && err(`drawFrom[${j}]`, `no field "${f}" in data/riders.json`));
+    const pool = rc.riders.fields[c.field] && champPool(rc, c);
     if (!pool) err('field', `no field "${c.field}" in data/riders.json`);
     else if (pool.length < c.size) err('size', `${c.size} riders, but the ${c.field} pool has ${pool.length}`);
     c.regulars?.forEach((id, j) => pool && !pool.includes(id) && err(`regulars[${j}]`, `"${id}" isn't in the ${c.field} pool`));
@@ -129,17 +164,35 @@ export function checkChampionships(data: ChampionshipsData, rc: Pick<RaceContent
     if (c.main && c.without?.includes(c.main)) err('main', `"${c.main}" is left out of it`);
     if (c.main && pool) {
       // The main rider is the one to beat on skill, with everyone else buffed.
-      const main = rc.riders.riders.find((r) => r.id === c.main);
-      const best = pool.filter((id) => id !== c.main && !c.without?.includes(id)).map((id) => rc.riders.riders.find((r) => r.id === id)!).map((r) => buffRider(r, c.buff ?? 0).level);
+      // Everyone races at the field's level where it has one (raceDay.ts fieldRider).
+      const main = fieldRider(rc, c.field, c.main);
+      const best = pool.filter((id) => id !== c.main && !c.without?.includes(id)).map((id) => fieldRider(rc, c.field, id)!).map((r) => buffRider(r, c.buff ?? 0).level);
       if (main && best.some((l) => l >= main.level)) err('main', `${main.name} (level ${main.level}) isn't the best rider in it once the others are buffed (up to level ${Math.max(...best)})`);
     }
     if (!rc.racing.classes[c.class]) err('class', `no class "${c.class}" in data/racing.json`);
+    c.rewards.forEach((r, j) => {
+      if (r.bike && !rc.bikes.classes.some((k) => k.id === r.bike)) err(`rewards[${j}].bike`, `no class "${r.bike}" in data/bikes.json`);
+      if (r.bike && j > 0) err(`rewards[${j}].bike`, 'only the winner gets a prize bike');
+    });
+    if (c.milestone) {
+      const next = nextClass(rc.bikes, c.class);
+      if (!next) err('milestone', `${c.class} is the top class`);
+      else if (next.id !== c.milestone) err('milestone', `the class after ${c.class} is ${next.id}, not "${c.milestone}"`);
+      if (data.championships.some((o) => o !== c && o.milestone === c.milestone)) err('milestone', `"${c.milestone}" has more than one milestone championship`);
+    }
     c.rounds.forEach((v, j) => {
       const venue = rc.tracks.venues.find((x) => x.id === v);
       if (!venue) err(`rounds[${j}]`, `no venue "${v}"`);
       else if (!venue.track || venue.practiceOnly || venue.locked) err(`rounds[${j}]`, `${venue.name} has no race day to hold a round`);
-      else if (venue.class !== c.class) err(`rounds[${j}]`, `${venue.name} races ${venue.class}, not ${c.class}`);
+      else if (c.sidecar) {
+        if (!passengerTrack(rc.tracks.tracks.find((t) => t.id === venue.track) ?? {})) err(`rounds[${j}]`, `${venue.name} isn't a Motocross or Endurance track, so sidecars can't race there`);
+      } else if (!classAtLeast(rc.bikes, c.class, venue.class ?? rc.bikes.classes[0].id)) err(`rounds[${j}]`, `${venue.name} races ${venue.class}, bigger than ${c.class}`);
     });
+    if (c.sidecar) {
+      if (c.class !== SIDECAR_CLASS) err('class', `a sidecar championship races the ${SIDECAR_CLASS} class, not ${c.class}`);
+      if (c.size > SIDECAR_FIELD - 1) err('size', `${c.size} riders, but a sidecar start holds ${SIDECAR_FIELD} outfits with yours`);
+      if (c.milestone || c.opens) err(c.milestone ? 'milestone' : 'opens', 'a sidecar championship opens no class or area');
+    }
   });
   return errors;
 }
@@ -153,11 +206,19 @@ export function champById(data: ChampionshipsData, id: string): ChampionshipDef 
   return data.championships.find((c) => c.id === id);
 }
 
-/** The championship's CPU riders: the field's and its own regulars, then drawn from the pool by the seed. */
+/** Every rider the championship's field can be drawn from: its field's pool and those it draws from too, each once. */
+export function champPool(rc: Pick<RaceContent, 'riders'>, def: ChampionshipDef): string[] {
+  return [...new Set([def.field, ...(def.drawFrom ?? [])].flatMap((f) => rc.riders.fields[f] ?? []))];
+}
+
+/**
+ * The championship's CPU riders: the field's and its own regulars, then drawn from the pool by the
+ * seed. One that draws from more fields has no field regulars: its field is all drawn at random.
+ */
 export function drawChampField(rc: Pick<RaceContent, 'riders'>, def: ChampionshipDef, seed: number): string[] {
-  const pool = rc.riders.fields[def.field] ?? [];
+  const pool = champPool(rc, def);
   const out = new Set(def.without ?? []);
-  const always = new Set([...(rc.riders.regulars?.[def.field] ?? []), ...(def.regulars ?? [])]);
+  const always = new Set([...(def.drawFrom ? [] : (rc.riders.regulars?.[def.field] ?? [])), ...(def.regulars ?? [])]);
   const regulars = pool.filter((id) => always.has(id) && !out.has(id));
   const rest = pool.filter((id) => !always.has(id) && !out.has(id));
   const rng = seededRng(mixSeed(seed, 0x63686d70));
@@ -189,24 +250,50 @@ export function champRiders(rc: Pick<RaceContent, 'riders'>, def: ChampionshipDe
   const others = active.field.filter((id) => id !== def.main);
   const ids = active.field.length > def.size ? [...(def.main && active.field.includes(def.main) ? [def.main] : []), ...others].slice(0, def.size) : active.field;
   return ids
-    .map((id) => rc.riders.riders.find((r) => r.id === id))
+    .map((id) => fieldRider(rc, def.field, id))
     .filter((r): r is CpuRiderDef => !!r)
     .map((r) => (r.id === def.main ? r : buffRider(r, def.buff ?? 0)));
 }
 
 /** Why the rider can't enter, or null. */
-export function champProblem(rc: Pick<RaceContent, 'tracks'>, def: ChampionshipDef, flags: Record<string, boolean>): string | null {
+export function champProblem(rc: Pick<RaceContent, 'tracks' | 'bikes'>, def: ChampionshipDef, flags: Record<string, boolean>, bikeClass?: string, riderLevel?: number): string | null {
+  if (bikeClass !== undefined && !dayClass(rc.bikes, def.class, bikeClass)) return `A ${className(rc.bikes, def.class)} championship: your ${className(rc.bikes, bikeClass)} is too small.`;
+  if (def.level && (riderLevel ?? 0) < def.level) return `Needs Rider Ability ${def.level}${riderLevel !== undefined ? `: you're level ${riderLevel}` : ''}.`;
   const missing = (def.needs ?? []).find((f) => !flags[f]);
   if (missing === 'first_race_done') return 'Locked: finish one normal race day first, at any track. Then the championship opens.';
-  // The Area 1 Championship waits for Area 2 (Boss, 29 Oct 2026): nothing sets area2.ready in this build.
-  if (missing === 'area2.ready') return 'Comes with Area 2, in a later build.';
-  if (missing?.startsWith('badge.')) return 'Needs the badge from this area’s Local Champion Championship.';
+  if (missing?.startsWith('badge.')) return 'Needs this area’s badge: win its Local Champion first.';
   if (missing) return 'Not open to you yet.';
   for (const v of def.rounds) {
     const venue = rc.tracks.venues.find((x) => x.id === v);
     if (venue?.needs && !flags[venue.needs]) return `Find ${venue.name} first: every round's track must be open to you.`;
   }
   return null;
+}
+
+/**
+ * The championship the rider is already in, other than this one: only one can be active at a time,
+ * so it must be finished or given up before another is entered (Boss, 31 Oct 2026).
+ */
+export function otherActive(data: Pick<ChampionshipsData, 'championships'>, career: CareerState, def?: ChampionshipDef): ChampionshipDef | null {
+  const active = career.champs?.active ?? {};
+  // A sidecar championship runs alongside a solo one (ChampionshipDef.sidecar): one of each at a time.
+  return data.championships.find((d) => d.id !== def?.id && active[d.id] && (!def || !!d.sidecar === !!def.sidecar)) ?? null;
+}
+
+/**
+ * The HUD's line for a championship in progress, shown at the venues instead of the task (Boss,
+ * 31 Oct 2026): its name, the next round and where, and the rider's place on points.
+ */
+export function champLine(rc: Pick<RaceContent, 'tracks' | 'racing'>, data: Pick<ChampionshipsData, 'championships'>, career: CareerState): string | null {
+  const def = otherActive(data, career);
+  const active = def && career.champs!.active[def.id];
+  if (!def || !active) return null;
+  const n = active.rounds.length + 1;
+  const where = rc.tracks.venues.find((v) => v.id === nextRoundVenue(def, active))?.name ?? 'the next track';
+  if (!active.rounds.length) return `${def.short}: round 1 of ${def.rounds.length} next, at ${where}.`;
+  const me = standings(rc.racing.points, active).find((r) => r.player)!;
+  const place = me.position === 1 ? '1st' : me.position === 2 ? '2nd' : me.position === 3 ? '3rd' : `${me.position}th`;
+  return `${def.short}: round ${n} of ${def.rounds.length} next, at ${where}. You're ${place} on ${me.points} points.`;
 }
 
 export function enter(career: CareerState, rc: Pick<RaceContent, 'riders'>, def: ChampionshipDef, seed: number): ActiveChampionship {
@@ -226,6 +313,20 @@ export function nextRoundVenue(def: ChampionshipDef, active: ActiveChampionship)
   return def.rounds[active.rounds.length] ?? null;
 }
 
+/**
+ * The venues where the championships under way hold their next round, for the trophy on the road
+ * menu's track type and track buttons (Boss, 2 Nov 2026), with the championship held there.
+ */
+export function nextRoundVenues(data: Pick<ChampionshipsData, 'championships'>, career: CareerState): Map<string, ChampionshipDef> {
+  const active = career.champs?.active ?? {};
+  const out = new Map<string, ChampionshipDef>();
+  for (const d of data.championships) {
+    const venue = active[d.id] && nextRoundVenue(d, active[d.id]);
+    if (venue && !out.has(venue)) out.set(venue, d);
+  }
+  return out;
+}
+
 /** Active championships whose next round is at this venue. */
 export function roundsHere(data: ChampionshipsData, career: CareerState, venue: VenueDef): ChampionshipDef[] {
   const state = career.champs;
@@ -234,14 +335,30 @@ export function roundsHere(data: ChampionshipsData, career: CareerState, venue: 
 }
 
 /** Entry fee for a round, in pence (Spec 14.2: class entry times the tier). */
-export function roundEntry(rc: Pick<RaceContent, 'racing'>, def: ChampionshipDef): number {
-  return pence(rc.racing.classes[def.class].entry * def.entryTimes);
+export function roundEntry(rc: Pick<RaceContent, 'racing'>, def: ChampionshipDef, cls = def.class): number {
+  return pence(rc.racing.classes[cls].entry * def.entryTimes);
 }
 
-/** What a round's race day runs with: the fixed field, qualifying and the purse (a replay's share). */
+/** What a round's race day runs with: the fixed field and the purse (a replay's share). */
 export function roundOptions(rc: Pick<RaceContent, 'riders'>, def: ChampionshipDef, active: ActiveChampionship) {
   const share = active.replay ? def.replay : 1;
-  return { cpus: champRiders(rc, def, active), qualifyingLaps: def.qualifyingLaps, purseTimes: def.purseTimes * share, xpTimes: share };
+  const inIt = new Set([...active.field, ...(def.without ?? [])]);
+  const others = champPool(rc, def)
+    .filter((id) => !inIt.has(id))
+    .map((id) => fieldRider(rc, def.field, id))
+    .filter((r): r is CpuRiderDef => !!r)
+    .map((r) => buffRider(r, def.buff ?? 0));
+  return { cpus: champRiders(rc, def, active), purseTimes: def.purseTimes * share, xpTimes: share, others };
+}
+
+/**
+ * Puts a Supercross night's round on the championship (core/supercross.ts): no qualifying, and the
+ * Main's finishes as its motos, worth a whole round (Boss, 1 Nov 2026).
+ */
+export function recordNight(active: ActiveChampionship, venue: VenueDef, motos: Record<string, number | null>[]): RoundRecord {
+  const rec: RoundRecord = { venue: venue.id, qualifying: [], motos };
+  active.rounds.push(rec);
+  return rec;
 }
 
 /** Puts a finished round's results on the championship. */
@@ -306,7 +423,8 @@ export interface ChampionshipFinish {
  * Closes a championship after its last round: the reward for the top three (a replay's share of
  * the money, and no flag it already set), and the record of it.
  */
-export function finishChampionship(career: CareerState, flags: Record<string, boolean>, def: ChampionshipDef, points: number[]): ChampionshipFinish {
+/** lastArea: the highest area this build releases (areas.json release); a win that would open a later one opens nothing. */
+export function finishChampionship(career: CareerState, flags: Record<string, boolean>, def: ChampionshipDef, points: number[], lastArea = Number.POSITIVE_INFINITY): ChampionshipFinish {
   const state = champState(career);
   const active = state.active[def.id];
   const me = standings(points, active).find((r) => r.player)!;
@@ -318,8 +436,13 @@ export function finishChampionship(career: CareerState, flags: Record<string, bo
   if (me.position === 1) record.wins++;
   record.best = Math.min(record.best, me.position);
   delete state.active[def.id];
-  const money = reward ? Math.round(pence(reward.money) * share) : 0;
+  const money = reward ? wholePounds(pence(reward.money) * share) : 0;
   career.money += money;
   if (reward?.flag) flags[reward.flag] = true;
+  if (me.position === 1 && def.milestone) flags[milestoneFlag(def.milestone)] = true;
+  // A prize bike waits at the class dealer for the first win (classes.ts prizeBike, Boss 5 Nov 2026).
+  if (firstWin && reward?.bike) flags[prizeFlag(def.id)] = true;
+  // The road opens through Joseph, Bill and Manny (areas.ts roadFlag, Boss, 2 Nov 2026), not straight away.
+  if (me.position === 1 && def.opens && def.opens <= lastArea && !flags[areaFlag(def.opens)]) flags[roadFlag(def.opens, 'won')] = true;
   return { position: me.position, money, flag: reward?.flag, title: me.position === 1 && !firstWin ? undefined : reward?.title, firstWin };
 }

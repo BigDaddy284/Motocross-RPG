@@ -1,3 +1,4 @@
+import { cleanControls } from './keybinds';
 import type { KeyValueStore } from './storage';
 
 // Settings apply immediately, save automatically and have Restore Defaults (GDD 20.1).
@@ -11,16 +12,21 @@ export interface Settings {
   /** zoomControl: the on-screen zoom control, a pop-out slider or + and − buttons. */
   display: { zoom: number; fullscreen: boolean; zoomControl: ZoomControl };
   accessibility: { textScale: number; reducedEffects: boolean; highContrast: boolean };
-  gameplay: { tutorialPrompts: boolean; contextHints: boolean; reminders: boolean };
-  controls: { up: string; down: string; left: string; right: string; interact: string; menu: string };
+  /**
+   * showTask: the current task line under the money on the world screen (Boss, 2 Nov 2026: he can switch it
+   * off; a championship in progress at a venue still shows, and the task stays in the Bag's Task tab).
+   */
+  gameplay: { tutorialPrompts: boolean; contextHints: boolean; reminders: boolean; showTask: boolean };
+  /** One key per action, Phaser KeyCodes names, rebindable in Settings > Controls (core/keybinds.ts; Boss, 5 Nov 2026). */
+  controls: { up: string; down: string; left: string; right: string; interact: string; bag: string; skills: string; map: string; menu: string };
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   audio: { master: 80, music: 70, engines: 80, crowd: 70, muted: false },
   display: { zoom: 100, fullscreen: false, zoomControl: 'slider' },
   accessibility: { textScale: 130, reducedEffects: false, highContrast: false },
-  gameplay: { tutorialPrompts: true, contextHints: true, reminders: true },
-  controls: { up: 'W', down: 'S', left: 'A', right: 'D', interact: 'E', menu: 'ESC' },
+  gameplay: { tutorialPrompts: true, contextHints: true, reminders: true, showTask: true },
+  controls: { up: 'W', down: 'S', left: 'A', right: 'D', interact: 'E', bag: 'B', skills: 'K', map: 'M', menu: 'ESC' },
 };
 
 /** Zoom range from the style guide: 50% to 200%. */
@@ -91,6 +97,7 @@ function load(store: KeyValueStore): Settings {
     }
   }
   if (!ZOOM_CONTROLS.includes(out.display.zoomControl)) out.display.zoomControl = DEFAULT_SETTINGS.display.zoomControl;
+  out.controls = cleanControls(out.controls, DEFAULT_SETTINGS.controls);
   out.display.zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, out.display.zoom));
   out.accessibility.textScale = Math.min(TEXT_MAX, Math.max(TEXT_MIN, out.accessibility.textScale));
   return out;

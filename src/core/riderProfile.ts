@@ -38,6 +38,10 @@ export interface RiderProfile {
   lane: number;
   /** A per-rider number for small differences that should stay the same all race. */
   seed: number;
+  /** The player's own rider (never the field's showman for tricks, tricks.ts). */
+  player?: boolean;
+  /** The player only, once tricks are taught (Entrant.riderLevel): Rider Ability level, for which tricks they throw and how often (playerTricks, tricks.ts). */
+  riderLevel?: number;
 }
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
@@ -68,11 +72,13 @@ export function riderProfile(e: Entrant, stats: Record<string, number>, ceiling:
     cornerSpeed: clamp01(0.25 + 0.5 * sk('cornering') + 0.25 * st('grip') + 0.05 * msg.pace),
     scrub,
     jump: clamp01(0.1 + 0.6 * sk('jumps_ruts') + 0.2 * st('power') + 0.1 * msg.risk + 0.1 * (seed - 0.5)),
-    skim: clamp01(0.2 + 0.5 * sk('balance') + 0.3 * st('absorption')),
+    skim: clamp01(0.2 + 0.5 * sk('balance') + 0.3 * st('suspension')),
     wobble: clamp01(0.6 - 0.5 * sk('consistency') - 0.1 * msg.consistency),
     drive: clamp01(0.5 * st('power') + 0.5 * st('response')),
     agility: clamp01(0.3 + 0.35 * st('handling') + 0.35 * sk('balance')),
     lane: (hash(`${e.id}:lane`) - 0.5) * 1.2,
     seed,
+    player: e.player,
+    ...(e.player && e.riderLevel !== undefined ? { riderLevel: e.riderLevel } : {}),
   };
 }

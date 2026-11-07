@@ -8,7 +8,43 @@ import type { ContentError, Schema } from './validate';
 // with no cooldowns. Pure rules with no graphics; the rounds themselves are drawn by the HUD.
 
 /** How a drill's round plays: a rep timing bar, or keeping a running pace in its band. */
-export type DrillGame = 'reps' | 'pace';
+export type DrillGame = 'reps' | 'pace' | 'react';
+
+/**
+ * What a drill's round shows (Boss, 3 Nov 2026: "all the fitness ones need different graphics like
+ * for the weights, not all doing pushups"). Each picture goes with one game: the timing stays the
+ * game's, only the picture and its words change. A drill with no scene shows its game's Area 1
+ * picture: push-ups, the gate drop or the running track.
+ */
+export const DRILL_SCENES = {
+  pushups: 'reps',
+  bench: 'reps',
+  attack: 'reps',
+  gate: 'react',
+  ruts: 'react',
+  jump: 'react',
+  track: 'pace',
+  ladder: 'pace',
+  cones: 'pace',
+  whoops: 'pace',
+  // Areas 4 and 5 (Boss, 4 Nov 2026).
+  yoga: 'reps',
+  roots: 'react',
+  rocks: 'react',
+  berm: 'pace',
+  rowing: 'pace',
+  shadow: 'pace',
+  // Areas 6 and 7 (Boss, 4 Nov 2026).
+  climb: 'pace',
+  laps: 'reps',
+  dojo: 'reps',
+  rhythm: 'reps',
+  launch: 'react',
+} as const satisfies Record<string, DrillGame>;
+export type DrillScene = keyof typeof DRILL_SCENES;
+const DEFAULT_SCENE: Record<DrillGame, DrillScene> = { reps: 'pushups', react: 'gate', pace: 'track' };
+/** The picture a drill's round shows. */
+export const drillScene = (d: DrillDef): DrillScene => d.scene ?? DEFAULT_SCENE[d.game];
 
 export interface DrillDef {
   /** The map object action that starts it (train.bodyweight), or the NPC's drill. */
@@ -23,8 +59,12 @@ export interface DrillDef {
   ms: number;
   /** The NPC who runs it (talk to them to start), if any. */
   npc?: string;
+  /** The venue whose start menu offers it (the backyard loop's gate drop), if any. */
+  venue?: string;
   /** One line on how to play, shown before the round. */
   how: string;
+  /** What the round shows (DRILL_SCENES), when not its game's Area 1 picture. */
+  scene?: DrillScene;
 }
 
 export interface TrainingData {
@@ -33,8 +73,10 @@ export interface TrainingData {
   walk: { skill: string; tiles: number; xp: number };
 }
 
-export const drillForAction = (data: TrainingData, action: string): DrillDef | undefined => data.drills.find((d) => d.id === action && !d.npc);
-export const drillForNpc = (data: TrainingData, npc: string): DrillDef | undefined => data.drills.find((d) => d.npc === npc);
+export const drillForAction = (data: TrainingData, action: string): DrillDef | undefined => data.drills.find((d) => d.id === action && !d.npc && !d.venue);
+/** The drills a coach runs when you talk to them (Tasha's running; the gym and yard coaches, Boss, 4 Nov 2026). */
+export const drillsForNpc = (data: TrainingData, npc: string): DrillDef[] => data.drills.filter((d) => d.npc === npc);
+export const drillsAtVenue = (data: TrainingData, venue: string): DrillDef[] => data.drills.filter((d) => d.venue === venue);
 
 /** Gives a finished round's XP. The score is only for the round's own screen: it never changes the XP. */
 export function finishRound(skills: SkillsData, state: SkillState, drill: DrillDef): LevelUp[] {
@@ -53,6 +95,21 @@ export function walked(data: TrainingData, skills: SkillsData, state: SkillState
 }
 
 // ---- the rounds' scoring, shared by the HUD and tests ----
+
+/**
+ * The gate drop (Boss, 30 Oct 2026): a close-up of the front wheel at the gate; watch it fall and
+ * react. A press within the window after the drop is a good start, before it a jumped start, after
+ * it a slow one. The gate drops as if slower only at much later Starts levels, from GATE_EASE_LEVEL
+ * on, so nobody gets the easy version from Area 1 alone.
+ */
+export const GATE_WINDOW_MS = 320;
+export const GATE_EASE_LEVEL = 70;
+export const GATE_EASE_PER_LEVEL_MS = 6;
+export const gateWindowMs = (startsLevel: number): number => GATE_WINDOW_MS + Math.max(0, startsLevel - GATE_EASE_LEVEL + 1) * GATE_EASE_PER_LEVEL_MS;
+/** How a press at `reactMs` after the drop (negative before it) scores. */
+export const gateStart = (reactMs: number, startsLevel: number): 'jumped' | 'good' | 'slow' => (reactMs < 0 ? 'jumped' : reactMs <= gateWindowMs(startsLevel) ? 'good' : 'slow');
+/** Seconds the gate holds before dropping: 1.5 to 4.5, never the same. */
+export const gateHoldMs = (rng: () => number): number => 1500 + rng() * 3000;
 
 /** A rep counts when the marker (0 to 1 across the bar) is inside the zone. */
 export const REP_ZONE: [number, number] = [0.4, 0.6];
@@ -75,16 +132,18 @@ export const TRAINING_SCHEMA: Schema = {
       type: 'array',
       items: {
         type: 'object',
-        optional: ['npc'],
+        optional: ['npc', 'venue', 'scene'],
         fields: {
           id: { type: 'string', pattern: ID },
           name: { type: 'string', nonEmpty: true },
           skill: { type: 'string', pattern: ID },
           xp: { type: 'number', min: 1 },
-          game: { type: 'string', oneOf: ['reps', 'pace'] },
+          game: { type: 'string', oneOf: ['reps', 'pace', 'react'] },
           ms: { type: 'number', integer: true, min: 5000 },
           npc: { type: 'string', pattern: ID },
+          venue: { type: 'string', pattern: ID },
           how: { type: 'string', nonEmpty: true },
+          scene: { type: 'string', oneOf: Object.keys(DRILL_SCENES) },
         },
       },
     },
@@ -93,7 +152,7 @@ export const TRAINING_SCHEMA: Schema = {
 };
 
 /** Checks training.json against the skills and NPCs. */
-export function checkTraining(file: string, data: TrainingData, c: { skills: SkillsData; npcs: { id: string }[] }): ContentError[] {
+export function checkTraining(file: string, data: TrainingData, c: { skills: SkillsData; npcs: { id: string }[]; tracks?: { venues: { id: string }[] } }, maps: Map<string, { objects: { type: string; props: Record<string, unknown> }[] }> = new Map()): ContentError[] {
   const errors: ContentError[] = [];
   const err = (field: string, message: string) => errors.push({ file, field, message });
   const children = new Set(c.skills.leads.flatMap((l) => l.children.map((k) => k.id)));
@@ -103,7 +162,10 @@ export function checkTraining(file: string, data: TrainingData, c: { skills: Ski
     if (seen.has(d.id)) err(at('id'), `"${d.id}" is used twice`);
     seen.add(d.id);
     if (!children.has(d.skill)) err(at('skill'), `no skill "${d.skill}"`);
+    if (d.scene && DRILL_SCENES[d.scene] && DRILL_SCENES[d.scene] !== d.game) err(at('scene'), `the "${d.scene}" picture goes with the ${DRILL_SCENES[d.scene]} game, not ${d.game}`);
     if (d.npc && !c.npcs.some((n) => n.id === d.npc)) err(at('npc'), `no NPC "${d.npc}"`);
+    // A drill's venue is a track venue, or a venue object on a map with no track of its own (a gym, a drill yard).
+    if (d.venue && c.tracks && !c.tracks.venues.some((v) => v.id === d.venue) && ![...maps.values()].some((m) => m.objects.some((o) => o.type === 'venue' && o.props.venue === d.venue))) err(at('venue'), `no venue "${d.venue}" in tracks.json or on a map`);
   });
   if (!children.has(data.walk.skill)) err('walk.skill', `no skill "${data.walk.skill}"`);
   return errors;

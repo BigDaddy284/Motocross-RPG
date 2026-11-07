@@ -26,4 +26,5 @@ export const services = {
 };
 
 export const CAREER_SLOT = 'career-1';
-export const BUILD_LABEL = 'Alpha v1';
+// The v2.0 test build became Release v1.0 (Boss, 6 Nov 2026).
+export const BUILD_LABEL = 'Release v1.0';

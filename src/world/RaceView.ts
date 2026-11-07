@@ -3,20 +3,29 @@ import Phaser from 'phaser';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { SceneryItem, TrackDef } from '../core/race';
-import { START_HOLD, type RiderPose, type RiderState } from '../core/riderAI';
+import { LOOP_RISE, type RiderPose, type RiderState } from '../core/riderAI';
 import { CHEER_ITEM, CHEER_RANGE, CHEER_WALK, cheerAction, cheerColour, cheerRoute, cheerTiming, cheerVariant, REACT_SECONDS, VARIANT_SCALE, type CheerAction } from '../core/cheer';
-import { alongRoute, OFFICIAL_ITEM, OFFICIAL_SCALE, officialPlan, placedOfficial, routeLength, walkProgress, BOARD_MOVE, BOARD_SIDEWAYS, WALK_FROM, WALK_TO, type OfficialSpot } from '../core/startOfficial';
-import { nearestOnLap, pointAt, START_PAD, startPointAt } from '../core/trackGeom';
-import { DEFAULT_TRACK_WIDTH, GRID_H, GRID_W, trackKind, type SceneryDef, type TrackPartsData } from '../core/trackParts';
-import { archSpan } from '../core/trackClearance';
-import { BIKE_LENGTH, CAM_AZ, LIP_AT, TrackSurface } from '../core/trackSurface';
+import { alongRoute, boardPose, OFFICIAL_ITEM, OFFICIAL_SCALE, officialPlan, placedOfficial, routeLength, walkProgress, WALK_FROM, WALK_TO, type OfficialSpot } from '../core/startOfficial';
+import { gridOf, hiddenSpans, isSprint, NO_TURN_LANES, NO_TURN_PLATFORM, lapMetres, nearestOnLap, pointAt, RETURN_LANE, START_PAD, startPointAt } from '../core/trackGeom';
+import { DEFAULT_TRACK_WIDTH, trackKind, type SceneryDef, type TrackPartsData } from '../core/trackParts';
+import { archSpan, SPANS_TRACK, sprintPlace, SPRINT_START_ITEM, SurfaceIndex, surfacePoints } from '../core/trackClearance';
+import { BIKE_LENGTH, CAM_AZ, LIP_AT, LOGS_AT, STACK_AT, TYRE_BED_ROWS, TYRE_ROWS, TrackSurface, type Flight } from '../core/trackSurface';
+import { downPhase } from '../core/crashRecovery';
+import { APPROACH as TRICK_APPROACH, trickPose, type Trick } from '../core/tricks';
 import { COLORS, TEXT_RES } from '../ui/theme';
-import { isPaddock } from '../core/paddock';
-import { paddockParts, U as METRE } from './paddock';
-import { FACES_TRACK, flaggerParts, marshalParts, pitCrewParts, tracksideParts, type Label } from './trackside';
-import { APPROACH, assignCrews, BOARD_PAST, boardOut, boardText, crewSpot, FLAGGER_ITEM, flagState, PIT_CREW_ITEM } from '../core/finishCrew';
+import { haulerWords, HAULER_ITEM, isPaddock, paddockColour, paddockSetup, paddockVariant, showsInSetup } from '../core/paddock';
+import { paddockParts, U as METRE, type StandBike } from './paddock';
+import { FACES_TRACK, flaggerParts, MATE_AT, marshalParts, pitCrewParts, starterBox, tracksideParts, type Label } from './trackside';
+import { FIREWORK_LEAD, fireworkShow, fireworksDue, hasFireworks, ROCKET_RISE, type Rocket } from '../core/fireworks';
+import { APPROACH, assignCrews, BOARD_PAST, boardOut, boardText, crewSpot, FLAGGER_ITEM, flagState, PIT_CREW_ITEM, SX_ARCH_KINDS, sxArch } from '../core/finishCrew';
 import { flagUp, MARSHAL_ITEM, marshalWatch, watchFocus, type Watch } from '../core/marshal';
 import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
+import { ARCH_GAP, ARCH_MODELS, ARCH_PARTS, CHEER_RISE, cheerAtRest, cheerStep, type CheerState, droneAtHome, droneStep, type DroneState, supporterFavourites, FLASH_GAP, FLASH_RANGE, FLASH_TIME, livePart, LOCKED_ITEMS, partName, trackAtRest, trackStep, type TrackState, TRACK_TURN } from '../core/modModels';
+import { bannerPath, PICTURE_ITEMS } from '../core/banners';
+import { SIDECAR_CLASS } from '../core/sidecar';
+import { weatherLook, wetShade, type WeatherLook } from '../core/weatherLook';
+import { easePoses, JUMP_POSE_RATE, LAND_TIME, poseTargets, POSE_RATE, RIDER_POSES, TAKEOFF_REACH, type PoseInput, type PoseWeights } from '../core/riderPose';
+import { withGameModels, sidecarCrew, BIKE_PAINT, bikeModel, bikeOnWheelsModel, FAN_PAINT, PIT_CREW_PAINT, figureHas, standModel, bikeOnStandModel, STAND_PAINT, textFaces, figureParts, modModel, paintModel, RIDER_PAINT, riderModel } from './modModels';
 
 // The race screen's track view (GDD 11.1): a real 3D scene, drawn by three.js and seen from an
 // isometric camera in the spirit of Super Off Road's overhead arcade view. The track is solid
@@ -31,9 +40,12 @@ import { bikeColours, raceBikeParts, type RaceLook } from './raceBike';
 
 /** Camera direction: degrees round from straight in front, and degrees down from level. */
 const CAM_EL = 38;
+/** How fast the race camera catches up across the ground and in height, per second. */
+const CAM_PAN = 4;
+const CAM_RISE = 0.8;
 /** Grid units across the view, by track kind. Riders stay big enough to follow at this size. */
 const VIEW_UNITS: Record<string, number> = { stadium: 36, outdoor: 32, endurance: 32 };
-/** Ground drawn round the 100 × 60 grid, in grid units. */
+/** Ground drawn round the grid (100 × 60, or a No-Turn Takedown's 200 × 30), in grid units. */
 const MARGIN = 24;
 // The bank at each edge of the track runs a little past its foot and a little under the ground, so
 // where the ground slopes away from a raised track its triangles (drawn flat between lattice points)
@@ -43,9 +55,14 @@ const FOOT_BURY = 0.15;
 const TILE_PX = 32;
 const ART_DIR = 'assets/art/area-map/tiled/tiles';
 const SURFACES: Record<string, number> = { hard_pack: 0xb07a45, loam: 0x8a5a33, sand: 0xd8c07a, mud: 0x6b4a2b, concrete: 0x9c9c96 };
-const CROWD = [0xc0607a, 0xe0c060, 0x60a0e0, 0xf0f0f0, 0x80c080, 0xe08040, 0x9070c0];
 
 let counter = 0;
+const TRICK_PIVOT = new THREE.Vector3();
+const LOOP_AXLE = new THREE.Vector3();
+const LOOP_TMP = new THREE.Vector3();
+const Z_AXIS = new THREE.Vector3(0, 0, 1);
+const IDENTITY = new THREE.Quaternion();
+const ORIGIN = new THREE.Vector3();
 
 export interface ViewRider {
   pose: RiderPose;
@@ -64,8 +81,13 @@ interface Marshal {
   watch: Watch;
   figure: THREE.Group;
   arm: THREE.Mesh;
+  /** A model's forearm, at the elbow, and its flag, on the pole; empty on the game's own marshal. */
+  forearm: THREE.Group;
+  flag: THREE.Group;
   /** 0 flag down, 1 up and waving; eased between. */
   raise: number;
+  /** How far up the raised flag swings: overhead, or lower under the roof of a tower. */
+  reach: number;
   phase: number;
 }
 
@@ -75,6 +97,11 @@ interface Flagger {
   figure: THREE.Group;
   white: THREE.Mesh;
   chequered: THREE.Mesh;
+  /** A model's forearms, at the elbows, and flags, on the poles; empty on the game's own flag man. */
+  whiteForearm: THREE.Group;
+  whiteFlag: THREE.Group;
+  chequeredForearm: THREE.Group;
+  chequeredFlag: THREE.Group;
   /** How far each flag is up: 0 down, 1 up; eased, the white coming down before the chequered goes up. */
   wk: number;
   ck: number;
@@ -90,6 +117,10 @@ interface PitCrew {
   figure: THREE.Group;
   arms: THREE.Mesh;
   board: THREE.Mesh;
+  /** The whole item, for painting a model's team colours (the mate's too). */
+  root: THREE.Object3D;
+  /** How far the arms are turned forward while waiting: down by their side, or the pole resting out on a pit wall. */
+  rest: number;
   /** The board's offset from the shoulder before the arms swing, and the shoulder's from the feet (scene units). */
   boardAt: THREE.Vector3;
   shoulderAt: THREE.Vector3;
@@ -122,8 +153,42 @@ export interface Cheer {
 }
 interface Bike {
   root: THREE.Group;
+  /** The bike itself. */
   body: THREE.Group;
+  /** The rider, posed with the bike unless they have come off it (a loop-out). */
+  rider: THREE.Group;
+  /** Where the rider sat, in the bike's frame (their hips), for throwing them off. */
+  seat: THREE.Vector3;
+  /** Which side a rider who comes off lands, 1 or -1. */
+  side: number;
+  /** A sidecar outfit (core/sidecar.ts): it doesn't lean into corners. */
+  sidecar?: boolean;
+  /** A sidecar's rider and passenger from sidecar_crew.glb, each on a pivot at its hips (crewPose), and how far through a hang-out and a tuck they are. */
+  crew?: { pivots: Map<string, THREE.Group>; hang: number; tuck: number };
+  /** A solo rider model's poses as shape keys (core riderPose; Boss, 3 Nov 2026): its meshes with them, how far into each it is, and what the last frame saw. */
+  poses?: { meshes: THREE.Mesh[]; w: PoseWeights; speed: number; land: number; flying: boolean };
+  /** The rider's kit colours, for their figure on foot. */
+  kit: Kit;
+  /** The rider on foot after a crash (crashRecovery.ts), made the first time they need it. */
+  runner?: Runner;
   label: Phaser.GameObjects.Text;
+}
+
+interface Kit {
+  helmet: number;
+  visor: number;
+  jersey: number;
+  pants: number;
+  boot: number;
+  glove: number;
+}
+
+/** A rider on foot: legs and arms swing at the hip and shoulder, the upper body bends at the hips. */
+interface Runner {
+  group: THREE.Group;
+  upper: THREE.Group;
+  legs: [THREE.Group, THREE.Group];
+  arms: [THREE.Group, THREE.Group];
 }
 
 interface Puff {
@@ -134,11 +199,37 @@ interface Puff {
 }
 /** Dust puffs alive at once. */
 const DUST = 200;
+/** The rain's box: how high the streaks start, each streak's length and its slant in the wind (grid units). */
+const RAIN_TOP = 24;
+const RAIN_STREAK = 0.9;
+const RAIN_SLANT = 0.25;
+/** Sparks in the finish fireworks' pool (updateFireworks). */
+const SPARKS = 2400;
+/** How big a firework spark looks, in grid units. */
+const SPARK_SIZE = 0.55;
 
+/** The one small renderer the scenery pictures share, made the first time one is asked for. */
+let pictureGl: THREE.WebGLRenderer | null = null;
+function pictureRenderer(): THREE.WebGLRenderer {
+  if (!pictureGl) {
+    pictureGl = new THREE.WebGLRenderer({ canvas: document.createElement('canvas'), antialias: true, alpha: true, preserveDrawingBuffer: true });
+    pictureGl.setPixelRatio(1);
+    pictureGl.shadowMap.enabled = true;
+    pictureGl.shadowMap.type = THREE.PCFSoftShadowMap;
+  }
+  return pictureGl;
+}
 const hex = (s: string | undefined, fallback: number) => (s && /^#[0-9a-f]{6}$/i.test(s) ? parseInt(s.slice(1), 16) : fallback);
 function shade(c: number, k: number): number {
   const ch = (v: number) => Math.max(0, Math.min(255, Math.round(v * k)));
   return (ch((c >> 16) & 255) << 16) | (ch((c >> 8) & 255) << 8) | ch(c & 255);
+}
+/** Dark letters on a light colour, white on a dark one, so words on a white or yellow banner or hauler can be read (Boss, 1 Nov 2026). */
+/** Scenery whose model faces the track when not turned by hand, as the game's own stand rises away from it. */
+const MODEL_FACES_TRACK = new Set(['stand', 'crowd']);
+function inkOn(c: number): string {
+  const lum = (0.299 * ((c >> 16) & 255) + 0.587 * ((c >> 8) & 255) + 0.114 * (c & 255)) / 255;
+  return lum > 0.62 ? '#16161a' : '#ffffff';
 }
 /** A steady pseudo-random number from 0 to 1 for an integer, for grain and crowds. */
 function noise(i: number): number {
@@ -146,8 +237,52 @@ function noise(i: number): number {
   return x - Math.floor(x);
 }
 
+/** Banner pictures by URL, loaded once and shared; a load the browser cancels is tried again a few times before the words are kept (Boss, 1 Nov 2026). */
+/**
+ * A picture for a tall face (a feather flag, an inflatable's column): a wide picture is turned a
+ * quarter to read upwards, as the words do there, so one sponsor PNG suits a banner and a flag alike;
+ * a tall one is used as it is (Boss, 2 Nov 2026).
+ */
+function uprightPicture(img: HTMLImageElement): HTMLImageElement | HTMLCanvasElement {
+  if (img.naturalWidth <= img.naturalHeight) return img;
+  const cv = document.createElement('canvas');
+  cv.width = img.naturalHeight;
+  cv.height = img.naturalWidth;
+  const ctx = cv.getContext('2d');
+  if (!ctx) return img;
+  ctx.translate(0, cv.height);
+  ctx.rotate(-Math.PI / 2);
+  ctx.drawImage(img, 0, 0);
+  return cv;
+}
+const bannerImages = new Map<string, Promise<HTMLImageElement | null>>();
+function bannerImage(url: string): Promise<HTMLImageElement | null> {
+  let p = bannerImages.get(url);
+  if (!p) {
+    const once = () =>
+      new Promise<HTMLImageElement | null>((done) => {
+        const img = new Image();
+        img.onload = () => done(img);
+        img.onerror = () => done(null);
+        img.src = url;
+      });
+    p = (async () => {
+      for (let i = 0; i < 4; i++) {
+        const img = await once();
+        if (img) return img;
+        await new Promise((r) => setTimeout(r, 500 * (i + 1)));
+      }
+      return null;
+    })();
+    bannerImages.set(url, p);
+  }
+  return p;
+}
+
 export class RaceView {
   readonly surface: TrackSurface;
+  /** The lap in metres, for distances along it in the race view (tricks). */
+  private readonly lapMetres: number;
   readonly follow: boolean;
   private readonly key: string;
   private readonly renderer: THREE.WebGLRenderer;
@@ -162,14 +297,24 @@ export class RaceView {
   private puffNext = 0;
   private dust: THREE.InstancedMesh | null = null;
   private readonly puffMap: THREE.Texture;
+  /** The tops of each finish arch's two posts, where its fireworks go up from (updateFireworks). */
+  private readonly archTops: [THREE.Vector3, THREE.Vector3][] = [];
+  /** The finish fireworks as the winner finishes: the show and its clock once started, and the spark pool. */
+  private fireworks: { show: Rocket[]; at: number; sparks: THREE.Points | null; pos: Float32Array; col: Float32Array; vel: Float32Array; life: Float32Array; full: Float32Array; base: Float32Array; free: number } | null = null;
   private readonly groundCanvas: HTMLCanvasElement;
   private readonly groundTex: THREE.CanvasTexture;
   private readonly mapDots: Phaser.GameObjects.Graphics;
   private mapFrame: Phaser.GameObjects.Graphics | null = null;
   private readonly mapBox: { x: number; y: number; k: number };
+  /** The lap map's frame on the race screen, for laying out what sits around it. */
+  readonly mapRect: { x: number; y: number; w: number; h: number };
   private readonly viewUnits: number;
   private readonly dir: THREE.Vector3;
   private readonly bg: number;
+  /** How the day's weather looks (core/weatherLook.ts; Boss, 5 Nov 2026). */
+  private readonly look: WeatherLook;
+  /** The falling rain: streaks in a box that follows the camera, and their heights (updateRain). */
+  private rain: { lines: THREE.LineSegments; pos: Float32Array; speed: number } | null = null;
   private cam: THREE.Vector3 | null = null;
   /** The ground, the track and the start straight: what a click in the track editor's race view lands on. */
   private readonly ground: THREE.Mesh[] = [];
@@ -187,6 +332,9 @@ export class RaceView {
   private readonly gapFrom: number;
   /** The stretches of the drawing that aren't track (fractions of it): the gap back to the start, and any gaps left between pieces of an unfinished track. */
   private readonly gaps: [number, number][];
+  /** The grid's size in grid units (trackGeom gridOf). */
+  private readonly gw: number;
+  private readonly gh: number;
   /** The track editor's markers (selection, brush, checks), drawn over everything; empty in a race. */
   readonly overlay = new THREE.Group();
   /** Goes up when the picture changes by itself (the ground's art arriving), for a view that only draws on a change. */
@@ -194,6 +342,8 @@ export class RaceView {
   private lastClock = 0;
   private dead = false;
   private readonly patchSpans: { from: number; to: number; color: number }[];
+  /** Lap fractions of the water crossings' streams, where the back wheel throws up spray. */
+  private readonly waterSpans: [number, number][] = [];
   private terrain = new Float32Array(0);
   private readonly labels: Phaser.GameObjects.Container;
   /** Tall scenery that fades when a rider is behind it, so it never hides the racing. */
@@ -214,6 +364,24 @@ export class RaceView {
   private board: { stand: THREE.Group; panel: THREE.Group; arms: THREE.Group[]; legs: THREE.Group[]; route: OfficialSpot[]; length: number } | null = null;
   /** False for practice, which has no start procedure: the start board stays down. */
   hasStart = true;
+  /** The race camera's zoom (Boss, 3 Nov 2026): 1 is the usual view; 2, 3, 4 or 5 shows that much less track, that much bigger, still following the rider. */
+  zoom = 1;
+  /** False where nobody races to the line first (qualifying, a No-Turn Takedown's seeding run): no finish fireworks. */
+  showFireworks = true;
+  /** Scenery models' own animations, each playing on a loop (playLoops); they run in the track editor's view too. */
+  private readonly loops: THREE.AnimationMixer[] = [];
+  /** Scenery models' Track parts, turning to follow their rider for the lap (core LIVE_PARTS, trackStep; Boss, 1 and 3 Nov 2026). */
+  private readonly trackers: { node: THREE.Object3D; rest: number; state: TrackState; seed: number }[] = [];
+  /** Scenery models' Flash parts, blinking as a rider goes by close. */
+  private readonly flashes: { node: THREE.Object3D; until: number; next: number; seed: number }[] = [];
+  /** Scenery models' Drone parts, flying off after a rider and back (core droneStep; Boss, 2 Nov 2026). */
+  private readonly drones: { node: THREE.Object3D; rest: THREE.Vector3; restY: number; state: DroneState | null; seed: number; lift: number }[] = [];
+  /**
+   * Scenery models' Cheer sections and Supporters, standing as their rider goes by (core cheerStep;
+   * Boss, 2 Nov 2026). Supporters of one item share its favourites.
+   */
+  private readonly cheerParts: { node: THREE.Object3D; seated: THREE.Object3D | null; standing: THREE.Object3D | null; restY: number; state: CheerState; seed: number; up: boolean; favourites: { list: number[] | null; count: number } | null }[] = [];
+  private liveClock = 0;
   /** Frame times in ms (whole update, the 3D draw, and handing the picture to Phaser), for the performance check. */
   readonly frameMs: number[] = [];
   readonly renderMs: number[] = [];
@@ -231,11 +399,14 @@ export class RaceView {
     /** The track editor's race view passes the last view's renderer on, so a rebuild reuses its WebGL context and compiled shaders. */
     renderer?: THREE.WebGLRenderer,
     /** The track editor's race view, for an unfinished track: see gapFrom, and gaps between its pieces (fractions of the drawing). */
-    opts: { gapFrom?: number; gaps?: [number, number][]; scaleWidth?: number; /** A scenery item (by index) not built: the one the track editor is dragging, which it draws itself (ghostItem). */ skipItem?: number } = {},
+    opts: { gapFrom?: number; gaps?: [number, number][]; scaleWidth?: number; /** A scenery item (by index) not built: the one the track editor is dragging, which it draws itself (ghostItem). */ skipItem?: number; /** The day's weather (racing.json weather id): the light, rain and wet ground (core/weatherLook.ts). */ weather?: string } = {},
   ) {
     this.gapFrom = opts.gapFrom ?? 1;
-    this.gaps = [...(opts.gaps ?? []), ...(this.gapFrom < 1 ? [[this.gapFrom, 1] as [number, number]] : [])];
     this.surface = new TrackSurface(track);
+    // A No-Turn Takedown's way back from the run-off to the start line is never drawn (trackGeom hiddenSpans).
+    this.gaps = [...(opts.gaps ?? []), ...(this.gapFrom < 1 ? [[this.gapFrom, 1] as [number, number]] : []), ...hiddenSpans(track, this.surface.g, this.surface.bounds)];
+    ({ w: this.gw, h: this.gh } = gridOf(track));
+    this.lapMetres = lapMetres(track);
     const kind = trackKind(parts, track);
     this.follow = true;
     // A view wider than scaleWidth shows more track at the same scale, rather than the same track bigger.
@@ -243,7 +414,8 @@ export class RaceView {
     const lap = this.surface.mpu * this.surface.g.total;
     this.patchSpans = (track.patches ?? []).map((p) => ({ from: p.at / lap, to: (p.at + p.length) / lap, color: hex(parts.surfaces.find((s) => s.id === p.surface)?.color, 0x888888) }));
     const ground = track.ground ?? { base: parts.ground[0]?.id ?? 'grass', cell: 2, paint: {} };
-    this.bg = hex(parts.ground.find((g) => g.id === ground.base)?.color, 0x5f8f3c);
+    this.look = weatherLook(opts.weather);
+    this.bg = wetShade(hex(parts.ground.find((g) => g.id === ground.base)?.color, 0x5f8f3c), this.look.wet);
 
     // Draw at the screen's real resolution, so the picture stays sharp when the window is big.
     const k = Math.min(scene.scale.width / 1280, scene.scale.height / 720);
@@ -264,8 +436,9 @@ export class RaceView {
 
     this.scene3 = new THREE.Scene();
     this.scene3.background = new THREE.Color(this.bg);
-    this.scene3.add(new THREE.HemisphereLight(0xe8f0ff, 0x6a5a40, 1.1));
-    this.sun = new THREE.DirectionalLight(0xfff1dc, 2.2);
+    // The light is the day's weather: greyer and dimmer under cloud, the sun and its shadows fading in the rain.
+    this.scene3.add(new THREE.HemisphereLight(this.look.skyColour, 0x6a5a40, this.look.sky));
+    this.sun = new THREE.DirectionalLight(0xfff1dc, this.look.sun);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
     this.sun.shadow.bias = -0.0006;
@@ -288,8 +461,8 @@ export class RaceView {
 
     // Ground, track and scenery.
     this.groundCanvas = document.createElement('canvas');
-    this.groundCanvas.width = ((GRID_W + 2 * MARGIN) / 2) * TILE_PX;
-    this.groundCanvas.height = ((GRID_H + 2 * MARGIN) / 2) * TILE_PX;
+    this.groundCanvas.width = ((this.gw + 2 * MARGIN) / 2) * TILE_PX;
+    this.groundCanvas.height = ((this.gh + 2 * MARGIN) / 2) * TILE_PX;
     this.groundTex = new THREE.CanvasTexture(this.groundCanvas);
     this.groundTex.colorSpace = THREE.SRGBColorSpace;
     this.groundTex.magFilter = THREE.NearestFilter;
@@ -299,8 +472,15 @@ export class RaceView {
     this.ground.push(this.terrainMesh(), this.buildTrack(), ...this.buildPortals(), ...this.buildFinishArches());
     if (this.surface.start.total > 0) this.ground.push(this.buildStart());
     this.scene3.add(...this.ground);
+    if (this.archExtras.length) this.scene3.add(...this.archExtras);
     this.scene3.add(this.overlay);
-    if (this.surface.start.total > 0) {
+    if (this.look.puddles > 0) this.scene3.add(this.buildPuddles());
+    if (this.look.drops > 0) this.buildRain();
+    if (this.surface.start.total > 0 && this.surface.raised) {
+      // A No-Turn Takedown's start platform: four gates, two each side of the starter's box, and no start board.
+      this.scene3.add(this.noTurnGate());
+      this.addTall(this.platformFrame());
+    } else if (this.surface.start.total > 0) {
       this.scene3.add(this.startGate());
       this.scene3.add(this.startBoard());
     } else if (this.track.scenery?.some((it) => it.type === OFFICIAL_ITEM)) {
@@ -319,7 +499,7 @@ export class RaceView {
       obj.updateMatrixWorld(true);
       const box = new THREE.Box3().setFromObject(obj);
       // Fans move, so they are never baked into the still scenery.
-      if (box.max.y < 1.2 && it.type !== CHEER_ITEM) {
+      if (box.max.y < 1.2 && it.type !== CHEER_ITEM && !obj.userData.moving) {
         const plain: THREE.Mesh[] = [];
         obj.traverse((o) => {
           const m = o as THREE.Mesh;
@@ -347,6 +527,7 @@ export class RaceView {
       const flat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
       this.scene3.add(this.mergeParts(low, flat));
     }
+    this.buildEnduro();
 
     this.marker = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.55, 4), new THREE.MeshBasicMaterial({ color: COLORS.accent }));
     this.marker.rotation.x = Math.PI;
@@ -357,10 +538,11 @@ export class RaceView {
     this.labels = scene.add.container(0, 0);
     parent.add(this.labels);
     const mw = 190;
-    const mk = mw / GRID_W;
+    const mk = mw / this.gw;
     this.mapBox = { x: x + w - mw - 12, y: y + 12, k: mk };
+    this.mapRect = { x: this.mapBox.x - 6, y: this.mapBox.y - 6, w: mw + 12, h: this.gh * mk + 12 };
     const mg = scene.add.graphics();
-    mg.fillStyle(COLORS.ink, 0.85).fillRoundedRect(this.mapBox.x - 6, this.mapBox.y - 6, mw + 12, GRID_H * mk + 12, 6);
+    mg.fillStyle(COLORS.ink, 0.85).fillRoundedRect(this.mapBox.x - 6, this.mapBox.y - 6, mw + 12, this.gh * mk + 12, 6);
     mg.lineStyle(4, 0xc98a4b, 1);
     mg.beginPath();
     if (!this.gaps.length) this.surface.g.pts.forEach((p, i) => (i ? mg.lineTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk) : mg.moveTo(this.mapBox.x + p.x * mk, this.mapBox.y + p.y * mk)));
@@ -425,8 +607,8 @@ export class RaceView {
     const painted = new Map<string, string>();
     for (const [id, cells] of Object.entries(ground.paint ?? {})) for (const [cx, cy] of cells) painted.set(`${cx},${cy}`, id);
     const px = TILE_PX / 2;
-    for (let gy = -MARGIN; gy < GRID_H + MARGIN; gy += cell) {
-      for (let gx = -MARGIN; gx < GRID_W + MARGIN; gx += cell) {
+    for (let gy = -MARGIN; gy < this.gh + MARGIN; gy += cell) {
+      for (let gx = -MARGIN; gx < this.gw + MARGIN; gx += cell) {
         const id = painted.get(`${Math.floor(gx / cell)},${Math.floor(gy / cell)}`) ?? ground.base;
         const def = this.parts.ground.find((g) => g.id === id);
         const key = def?.art && this.scene.textures.exists(`trackart:${def.art}`) ? `trackart:${def.art}` : null;
@@ -439,6 +621,11 @@ export class RaceView {
         }
       }
     }
+    // Wet ground is darker and a little bluer.
+    if (this.look.wet > 0) {
+      ctx.fillStyle = `rgba(10, 22, 40, ${0.3 * this.look.wet})`;
+      ctx.fillRect(0, 0, this.groundCanvas.width, this.groundCanvas.height);
+    }
   }
 
   // ---- the land ----
@@ -449,8 +636,8 @@ export class RaceView {
    */
   private buildTerrain(): void {
     const s = this.surface;
-    const tw = GRID_W + 2 * MARGIN + 1;
-    const th = GRID_H + 2 * MARGIN + 1;
+    const tw = this.gw + 2 * MARGIN + 1;
+    const th = this.gh + 2 * MARGIN + 1;
     this.terrain = new Float32Array(tw * th);
     const hills: { x: number; z: number; e: number }[] = [];
     const flats: { x: number; z: number }[] = [];
@@ -485,12 +672,12 @@ export class RaceView {
         const f = i / n;
         if (!this.drawn(f)) continue;
         const p = s.spot(f, 0);
-        mid.push({ x: p.x, z: p.z, r: s.hw * (LIP_AT + Math.max(s.skirt(f, -1), s.skirt(f, 1))), l: s.lift(f), seg: 0 });
+        mid.push({ x: p.x, z: p.z, r: s.hwAt(f) * (LIP_AT + Math.max(s.skirt(f, -1), s.skirt(f, 1))), l: s.lift(f), seg: 0 });
       }
       const lapEnd = mid.length;
       for (let u = -START_PAD; u < s.start.total; u += 0.5) {
         const p = startPointAt(s.start, u);
-        mid.push({ x: p.x, z: p.y, r: s.startHw(u) * LIP_AT + 0.4, l: s.startGround(u), seg: 1, u });
+        mid.push({ x: p.x, z: p.y, r: s.startHw(u) * LIP_AT + 0.4, l: s.startBase(u), seg: 1, u });
       }
       // The level of the track at the bit of route nearest a point: interpolated along the route
       // between the nearest bit and its neighbours, so under the track and at its foot the ground
@@ -500,7 +687,7 @@ export class RaceView {
         const q = mid[k];
         // The start straight's level is graded to the lap where they meet, so it is a function of
         // the spot itself.
-        if (q.seg === 1) return s.startGround(q.u!, x, z);
+        if (q.seg === 1) return s.startBase(q.u!, x, z);
         const nb = (j: number) => {
           if (q.seg === 0) return mid[((j % lapEnd) + lapEnd) % lapEnd];
           return j >= lapEnd && j < mid.length ? mid[j] : undefined;
@@ -596,6 +783,7 @@ export class RaceView {
         }
       }
     }
+    this.digHoles();
     if (!hills.length) return;
     const r0 = s.hw * 1.3;
     for (let j = 0; j < th; j++) {
@@ -622,10 +810,44 @@ export class RaceView {
     }
   }
 
+  /**
+   * Bomb holes (jumps.ts; Boss, 2 Nov 2026) are dug into the ground: the terrain under and beside one
+   * comes down to the hole's floor and sides, so the hole isn't buried under the grass.
+   */
+  private digHoles(): void {
+    const s = this.surface;
+    const tw = this.gw + 2 * MARGIN + 1;
+    const th = this.gh + 2 * MARGIN + 1;
+    s.track.sections.forEach((sec, si) => {
+      if (sec.type !== 'bomb_hole') return;
+      const f0 = s.bounds[si];
+      const f1 = s.bounds[si + 1];
+      let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+      for (let k = 0; k <= 40; k++) {
+        const f = f0 + ((f1 - f0) * k) / 40;
+        const p = s.spot(f, 0);
+        const r = s.hwAt(f) * (LIP_AT + s.skirt(f, 1)) + 1;
+        x0 = Math.min(x0, p.x - r); x1 = Math.max(x1, p.x + r);
+        z0 = Math.min(z0, p.z - r); z1 = Math.max(z1, p.z + r);
+      }
+      for (let j = Math.max(0, Math.floor(z0 + MARGIN)); j <= Math.min(th - 1, Math.ceil(z1 + MARGIN)); j++) {
+        for (let i = Math.max(0, Math.floor(x0 + MARGIN)); i <= Math.min(tw - 1, Math.ceil(x1 + MARGIN)); i++) {
+          const x = i - MARGIN;
+          const z = j - MARGIN;
+          const near = nearestOnLap(s.g, x, z);
+          if (near.f < f0 || near.f > f1 || s.centre(near.f) >= 0) continue;
+          const dug = s.height(near.f, near.d / s.hwAt(near.f)) - 0.15;
+          const k = j * tw + i;
+          if (dug < this.terrain[k]) this.terrain[k] = dug;
+        }
+      }
+    });
+  }
+
   /** Ground height at a point on the grid. */
   terrainAt(x: number, z: number): number {
-    const tw = GRID_W + 2 * MARGIN + 1;
-    const th = GRID_H + 2 * MARGIN + 1;
+    const tw = this.gw + 2 * MARGIN + 1;
+    const th = this.gh + 2 * MARGIN + 1;
     const gx = Math.max(0, Math.min(tw - 1.001, x + MARGIN));
     const gz = Math.max(0, Math.min(th - 1.001, z + MARGIN));
     const i = Math.floor(gx);
@@ -638,10 +860,33 @@ export class RaceView {
     return a * (1 - fz) + b * fz - 0.01;
   }
 
+  /**
+   * The height a scenery item stands at (Boss, 3 Nov 2026: "Is there a way to stop object sinking in
+   * the ground post earth transformation"): the highest ground under its footprint (`w` by `d` grid
+   * units, turned `rot` degrees), not just under its middle, so on a slope or raised ground no corner
+   * is buried. Sampled every grid unit or so across it.
+   */
+  footingAt(x: number, z: number, w: number, d: number, rot: number): number {
+    const a = (rot * Math.PI) / 180;
+    const ca = Math.cos(a);
+    const sa = Math.sin(a);
+    const nx = Math.max(2, Math.min(12, Math.ceil(w)));
+    const nz = Math.max(2, Math.min(12, Math.ceil(d)));
+    let top = this.terrainAt(x, z);
+    for (let i = 0; i <= nx; i++) {
+      for (let j = 0; j <= nz; j++) {
+        const u = (i / nx - 0.5) * w;
+        const v = (j / nz - 0.5) * d;
+        top = Math.max(top, this.terrainAt(x + u * ca - v * sa, z + u * sa + v * ca));
+      }
+    }
+    return top;
+  }
+
   /** The ground as one mesh, shaped by the terrain and painted with the editor's ground tiles. */
   private terrainMesh(): THREE.Mesh {
-    const tw = GRID_W + 2 * MARGIN + 1;
-    const th = GRID_H + 2 * MARGIN + 1;
+    const tw = this.gw + 2 * MARGIN + 1;
+    const th = this.gh + 2 * MARGIN + 1;
     const pos: number[] = [];
     const uv: number[] = [];
     for (let j = 0; j < th; j++) {
@@ -705,8 +950,8 @@ export class RaceView {
         if (Math.abs(lane) <= 1 || open > 0.5) color = shade(patch ?? base, grain * (0.97 + 0.06 * noise(i * 31 + j)));
         else if (Math.abs(lane) <= LIP_AT + 1e-6) color = shade(patch ?? base, 0.82 * grain);
         else if (wall) color = foot ? 0x7a7a78 : 0x9a9a98;
-        else color = shade(base, foot ? 0.62 : 0.72);
-        c.setHex(color);
+        else color = wall ? 0x24324e : shade(base, foot ? 0.62 : 0.72);
+        c.setHex(wetShade(color, this.look.wet));
         col.push(c.r, c.g, c.b);
       });
     }
@@ -750,13 +995,34 @@ export class RaceView {
       const f0 = s.bounds[si];
       const f1 = s.bounds[si + 1];
       if (f1 === undefined) return;
-      const f = f0 + (ARCH_AT[sec.type] ?? 0.5) * (f1 - f0);
+      // A No-Turn Takedown's finish-line jump ends on the finish line, the end of the run, and the arch stands over the line.
+      const f = s.raised ? f1 - 1e-4 : f0 + (ARCH_AT[sec.type] ?? 0.5) * (f1 - f0);
       const c = s.spot(f, 0);
       const deck = s.height(f, 0);
       const top = deck + ARCH_CLEAR;
-      for (const side of [-1, 1]) {
-        const lane = (side * span) / 2 / s.hw;
+      // Boss's arch model for the kind of track, when there is one (core ARCH_MODELS; Boss, 1 Nov 2026).
+      const sx = sxArch(this.track);
+      const drop = (side: number): number => {
+        const lane = (side * span) / 2 / s.hwAt(f);
         const p = s.spot(f, lane);
+        return deck - Math.min(this.terrainAt(p.x, p.z), s.height(f, lane)) + 0.2;
+      };
+      const model = this.archModel(sx, span - 1, def?.text || 'FINISH', color, drop, sx);
+      if (model) {
+        const g = model.group;
+        g.position.set(c.x, deck, c.z);
+        g.rotation.y = Math.PI / 2 - c.ang;
+        g.updateMatrixWorld(true);
+        this.archExtras.push(g);
+        this.archTops.push([g.localToWorld(model.tops[0]), g.localToWorld(model.tops[1])]);
+        if (sx) this.towerFlagman(model.flagger && g.localToWorld(model.flagger));
+        return;
+      }
+      const tops: THREE.Vector3[] = [];
+      for (const side of [-1, 1]) {
+        const lane = (side * span) / 2 / s.hwAt(f);
+        const p = s.spot(f, lane);
+        tops.push(new THREE.Vector3(p.x, top + 0.9, p.z));
         const base = Math.min(this.terrainAt(p.x, p.z), s.height(f, lane)) - 0.2;
         const post = new THREE.Mesh(new THREE.BoxGeometry(0.5, top - base, 0.5), this.mat(0xd8d8d8));
         post.position.set(p.x, (top + base) / 2, p.z);
@@ -772,8 +1038,106 @@ export class RaceView {
       banner.rotation.y = Math.PI / 2 - c.ang;
       banner.castShadow = true;
       out.push(banner);
+      this.archTops.push([tops[0], tops[1]]);
+      // The game's own supercross finish: the flag man up in a scaffold tower just before the line, beside the right post.
+      if (sx) {
+        const lane = (span / 2 + 1.3) / s.hwAt(f);
+        const back = Math.max(0, f - 1.2 / s.g.total);
+        const p = s.spot(back, lane);
+        this.towerFlagman(new THREE.Vector3(p.x, this.terrainAt(p.x, p.z), p.z), 'tower');
+      }
     });
     return out;
+  }
+
+  /** Finish arch models and the flag men in their towers, added to the scene after the ground (buildFinishArches). */
+  private readonly archExtras: THREE.Object3D[] = [];
+
+  /**
+   * Boss's finish arch model (core ARCH_MODELS; Boss, 1 Nov 2026), the supercross gantry or the
+   * motocross truss arch, fitted to a gap of `gap` grid units between its sides: Left and Right
+   * move out to it and stretch down from their tops by `drop(side)` grid units to reach the
+   * ground, Middle stretches across, and the flag man's tower (FlagTower, with Flagger where he
+   * stands) moves with Right, or is left out without `tower`. Its Text faces show the arch's words
+   * and Team its colour. The posts' tops and the flag man's spot are in the group's own frame.
+   * Null without the model.
+   */
+  private archModel(sx: boolean, gap: number, text: string, color: number, drop: (side: number) => number, tower: boolean, image?: string): { group: THREE.Group; tops: [THREE.Vector3, THREE.Vector3]; flagger: THREE.Vector3 | null } | null {
+    const group = modModel(sx ? ARCH_MODELS.sx : ARCH_MODELS.mx);
+    if (!group) return null;
+    const copy = group.children[0];
+    const parts = new Map<string, THREE.Object3D>();
+    copy.traverse((o) => {
+      const n = partName(o.name, ARCH_PARTS);
+      if (n && !parts.has(n)) parts.set(n, o);
+    });
+    if (!tower) for (const n of ['FlagTower', 'Flagger']) parts.get(n)?.removeFromParent();
+    // In the model's own metres: how far each side moves out, from the gap it was drawn for to this one.
+    const metres = Math.max(1, gap / METRE);
+    const out = (metres - ARCH_GAP) / 2;
+    const middle = parts.get('Middle');
+    if (middle) {
+      const k = metres / ARCH_GAP;
+      middle.scale.x *= k;
+      middle.position.x *= k;
+    }
+    // The group has no parent yet, so its world is its own frame; boxes in the model's metres are taken through the copy's.
+    const toModel = (o: THREE.Object3D): THREE.Box3 => {
+      // Every matrix up to date first, or the first side is measured where it was drawn.
+      group.updateMatrixWorld(true);
+      return new THREE.Box3().setFromObject(o).applyMatrix4(copy.matrixWorld.clone().invert());
+    };
+    const tops: THREE.Vector3[] = [];
+    for (const [name, side] of [['Left', -1], ['Right', 1]] as const) {
+      const o = parts.get(name);
+      if (!o) continue;
+      o.position.x += side * out;
+      // Stretched down from its top, which stays put under the beam, until its foot is on the ground.
+      const b = toModel(o);
+      const down = Math.max(0, drop(side)) / METRE;
+      if (down > 0.01 && b.max.y > b.min.y) {
+        const k = (b.max.y - b.min.y + down) / (b.max.y - b.min.y);
+        o.scale.y *= k;
+        o.position.y = b.max.y - (b.max.y - o.position.y) * k;
+      }
+      group.updateMatrixWorld(true);
+      const w = new THREE.Box3().setFromObject(o);
+      tops.push(new THREE.Vector3((w.min.x + w.max.x) / 2, w.max.y, (w.min.z + w.max.z) / 2));
+    }
+    // The tower's legs and stairs are drawn reaching down below the deck, so it moves across with Right and no more.
+    for (const n of ['FlagTower', 'Flagger']) {
+      const o = parts.get(n);
+      if (o?.parent) o.position.x += out;
+    }
+    group.updateMatrixWorld(true);
+    const spot = parts.get('Flagger');
+    const flagger = tower && spot?.parent ? spot.getWorldPosition(new THREE.Vector3()) : null;
+    if (tops.length < 2) {
+      const high = new THREE.Box3().setFromObject(group).max.y;
+      tops.splice(0, tops.length, new THREE.Vector3(-gap / 2, high, 0), new THREE.Vector3(gap / 2, high, 0));
+    }
+    paintModel(group, { team: color, teamdark: shade(color, 0.7) }, STAND_PAINT);
+    textFaces(group, (aspect) => this.withPicture(this.textTexture(text, color, inkOn(color), Math.min(2048, Math.max(64, Math.round(64 * aspect))), 64), image));
+    group.traverse((o) => {
+      o.castShadow = true;
+      o.receiveShadow = true;
+    });
+    return { group, tops: [tops[0], tops[1]], flagger };
+  }
+
+  /**
+   * The flag man up in the supercross finish tower (finishCrew.ts towerFlagman; Boss, 1 Nov 2026):
+   * the track's flag man, standing at `at` (on Boss's tower at its Flagger, else on the game's own
+   * tower), facing the track and flagging as a placed one does.
+   */
+  private towerFlagman(at: THREE.Vector3 | null, variant: 'ground' | 'tower' = 'ground'): void {
+    const def = this.parts.scenery.find((d) => d.id === FLAGGER_ITEM);
+    if (!def || !at) return;
+    const it: SceneryItem = { type: FLAGGER_ITEM, x: at.x, y: at.z, variant };
+    const g = new THREE.Group();
+    g.position.copy(at);
+    this.flaggerFigure(g, it, def);
+    this.archExtras.push(g);
   }
 
   /** Concrete portal frames round each tunnel's holes: a lintel along the deck's edge and a jamb at each end, both sides. */
@@ -839,11 +1203,13 @@ export class RaceView {
       const u = -START_PAD + ((st.total + START_PAD) * i) / rows;
       const dip = 0.006 * Math.max(0, Math.min(1, (u - merge) / 0.5));
       const lip = s.startHeight(u, LIP_AT);
-      const sk = Math.max(0.35, lip * 0.9) / s.startHw(u);
+      // A No-Turn Takedown's start platform stands on steel: its sides go straight down to the ground (platformFrame) until the drop-in reaches it.
+      const wall = s.platform(u) > 0.05;
+      const sk = wall ? 0.02 / s.startHw(u) : Math.max(0.35, lip * 0.9) / s.startHw(u);
       const lanes = [-(LIP_AT + sk * FOOT_OUT), -(LIP_AT + sk * 0.45), -LIP_AT, ...inner, LIP_AT, LIP_AT + sk * 0.45, LIP_AT + sk * FOOT_OUT];
       const grain = 0.94 + 0.1 * noise(i + 977);
-      // Concrete under the gate and the line-up, dirt from just past the gate.
-      const pad = u < 0.9;
+      // Concrete under the gate and the line-up (the whole deck of a start platform), dirt from just past the gate.
+      const pad = u < (s.raised ? NO_TURN_PLATFORM.deck : 0.9);
       lanes.forEach((lane, j) => {
         const p = s.startSpot(u, lane);
         const foot = j === 0 || j === cols - 1;
@@ -853,7 +1219,7 @@ export class RaceView {
         if (Math.abs(lane) <= 1) color = pad ? shade(0xa8a49a, 0.95 + 0.06 * noise(i * 7 + j)) : shade(base, grain * (0.97 + 0.06 * noise(i * 31 + j)));
         else if (Math.abs(lane) <= LIP_AT + 1e-6) color = shade(base, 0.82 * grain);
         else color = shade(base, foot ? 0.62 : 0.72);
-        c.setHex(color);
+        c.setHex(wetShade(color, this.look.wet));
         col.push(c.r, c.g, c.b);
       });
     }
@@ -873,6 +1239,352 @@ export class RaceView {
     mesh.receiveShadow = true;
     mesh.castShadow = true;
     return mesh;
+  }
+
+  // ---- enduro sections and sprints (Boss, 29 Oct 2026) ----
+
+  /**
+   * What the enduro sections are made of, laid on the track: rocks, roots and logs where the
+   * surface bucks (trackSurface sectionShape), a stream across a water crossing, and trees close
+   * on both sides of woods singletrack. On a sprint, its start at the start line (unless the track
+   * places one), and stakes and tape down both sides of the return lane.
+   */
+  private buildEnduro(): void {
+    const s = this.surface;
+    const parts: THREE.Mesh[] = [];
+    const water: THREE.Mesh[] = [];
+    const rnd = (k: number) => noise(k * 13.37 + 5.1);
+    let near: SurfaceIndex | null = null;
+    const index = () => (near ??= new SurfaceIndex(surfacePoints(this.track)));
+    const sitting = (m: THREE.Mesh, f: number, lane: number, lift = 0) => {
+      const p = s.spot(f, lane);
+      m.position.set(p.x, s.height(f, lane) + lift, p.z);
+      return p;
+    };
+    // The lap's heading at f; a cylinder turned by Math.PI / 2 - across(f) about the vertical lies across the track.
+    const across = (f: number) => s.spot(f, 0).ang;
+    this.track.sections.forEach((sec, si) => {
+      const f0 = s.bounds[si];
+      const f1 = s.bounds[si + 1];
+      const len = (f1 - f0) * s.g.total;
+      const at = (u: number) => f0 + (f1 - f0) * u;
+      switch (sec.type) {
+        case 'rocks': {
+          // A rock garden edge to edge (Boss, 1 Nov 2026): rocks of every size packed over the whole
+          // section, the biggest towards the edges where riders steer round them.
+          const n = Math.round(len * 28);
+          for (let k = 0; k < n; k++) {
+            const f = at(0.02 + 0.96 * rnd(si * 997 + k));
+            const lane = (rnd(si * 53 + k * 3) * 2 - 1) * 1.15;
+            const big = rnd(si * 31 + k * 7) > 0.82 || Math.abs(lane) > 0.95;
+            const r = (big ? 0.24 : 0.13) + 0.14 * rnd(si * 71 + k);
+            const m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), this.mat(shade(0x9a958a, 0.7 + 0.4 * rnd(si * 19 + k)), { flatShading: true }));
+            sitting(m, f, lane, r * 0.4);
+            m.scale.set(1 + 0.4 * rnd(k * 5), 0.65, 1 + 0.4 * rnd(k * 11));
+            m.rotation.set(rnd(k) * 3, rnd(k * 3) * 3, 0);
+            parts.push(m);
+          }
+          break;
+        }
+        case 'roots': {
+          // Roots snaking across the track from the trees either side, half sunk in the dirt.
+          const n = Math.max(3, Math.round(len * 0.9));
+          for (let k = 0; k < n; k++) {
+            const f = at(0.06 + 0.88 * rnd(si * 211 + k));
+            const reach = s.hwAt(f) * 2.5;
+            const m = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.07, reach, 6), this.mat(shade(0x5a3a20, 0.85 + 0.3 * rnd(k))));
+            sitting(m, f, 0, 0.02);
+            m.rotation.set(0, Math.PI / 2 - across(f) + (rnd(si * 7 + k) - 0.5) * 0.9, Math.PI / 2);
+            parts.push(m);
+          }
+          break;
+        }
+        case 'logs':
+        case 'log_step': {
+          // Logs across the track, as wide as its lips, on the humps the surface has for them.
+          const h = this.metreUnits(sec.height ?? (sec.type === 'logs' ? 0.55 : 0.6));
+          const spots = sec.type === 'logs' ? LOGS_AT : [0.5];
+          spots.forEach((u, k) => {
+            const f = at(u);
+            const r = h / 2;
+            const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.05, s.hwAt(f) * 2 * LIP_AT + 0.3, 12), this.mat(shade(0x5e3d22, 0.9 + 0.2 * rnd(si + k))));
+            // On top of its hump, not inside it: the dirt is packed to three quarters of the log.
+            sitting(m, f, 0, -h / 2 + r * 0.9);
+            m.position.y = s.lift(f) + h * 1.05;
+            m.rotation.set(0, Math.PI / 2 - across(f), Math.PI / 2);
+            parts.push(m);
+            for (const side of [-1, 1]) {
+              const e = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.9, r * 0.9, 0.02, 12), this.mat(0xc8a878));
+              const p = s.spot(f, side * (LIP_AT + 0.15 / s.hwAt(f)));
+              e.position.set(p.x, s.lift(f) + h * 1.05, p.z);
+              e.rotation.set(0, Math.PI / 2 - across(f), Math.PI / 2);
+              parts.push(e);
+            }
+          });
+          // Cut rounds packed between the logs (Boss, 1 Nov 2026): firewood lengths lying the way
+          // the logs do, in rows filling each gap, the odd one on its end.
+          if (sec.type === 'logs') {
+            const gaps = [[0, LOGS_AT[0]], ...LOGS_AT.slice(0, -1).map((u, k) => [u, LOGS_AT[k + 1]]), [LOGS_AT[LOGS_AT.length - 1], 1]];
+            gaps.forEach(([u0, u1], g) => {
+              const a0 = u0 + (g === 0 ? 0.03 : 0.07);
+              const a1 = u1 - (g === gaps.length - 1 ? 0.03 : 0.07);
+              const rows = Math.max(1, Math.round(((a1 - a0) * len) / this.metreUnits(0.4)));
+              for (let row = 0; row < rows; row++) {
+                const f = at(a0 + ((row + 0.5) / rows) * (a1 - a0));
+                const w = s.hwAt(f) * 2 * LIP_AT;
+                let x = -w / 2 + this.metreUnits(0.15) * rnd(si * 7 + g * 13 + row);
+                let k = 0;
+                while (x < w / 2 - this.metreUnits(0.3)) {
+                  const cr = this.metreUnits(0.12 + 0.06 * rnd(si * 3 + g * 17 + row * 5 + k));
+                  const cl = Math.min(w / 2 - x, this.metreUnits(0.5 + 0.4 * rnd(si * 5 + g * 19 + row * 7 + k)));
+                  const onEnd = rnd(si * 11 + g * 23 + row * 3 + k) > 0.88;
+                  const cut = new THREE.Mesh(new THREE.CylinderGeometry(cr, cr, onEnd ? cr * 2.2 : cl, 9), this.mat(shade(0x9c7448, 0.8 + 0.4 * rnd(g * 29 + row * 11 + k))));
+                  const lane = (x + (onEnd ? cr : cl / 2)) / s.hwAt(f);
+                  sitting(cut, f, lane, cr * (onEnd ? 1.05 : 0.9));
+                  cut.rotation.set(0, Math.PI / 2 - across(f) + (rnd(k + row * 4) - 0.5) * 0.25, onEnd ? 0 : Math.PI / 2);
+                  parts.push(cut);
+                  x += (onEnd ? cr * 2 : cl) + this.metreUnits(0.1);
+                  k++;
+                }
+              }
+            });
+          }
+          break;
+        }
+        case 'pipe': {
+          // A concrete pipe lying across the track, mud packed up both sides (the surface hump).
+          const h = this.metreUnits(sec.height ?? 1.8);
+          const f = at(0.5);
+          const r = h / 2;
+          const wide = s.hwAt(f) * 2 * LIP_AT + 0.8;
+          const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, wide, 18), this.mat(0xa8a8a2));
+          m.position.copy(new THREE.Vector3(s.spot(f, 0).x, s.lift(f) + h * 0.6, s.spot(f, 0).z));
+          m.rotation.set(0, Math.PI / 2 - across(f), Math.PI / 2);
+          parts.push(m);
+          for (const side of [-1, 1]) {
+            // The open ends: a dark hole in a concrete rim.
+            const hole = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.82, r * 0.82, 0.03, 18), this.mat(0x2c2a26));
+            const p = s.spot(f, side * (wide / 2 + 0.01) / s.hwAt(f));
+            hole.position.set(p.x, s.lift(f) + h * 0.6, p.z);
+            hole.rotation.set(0, Math.PI / 2 - across(f), Math.PI / 2);
+            parts.push(hole);
+          }
+          break;
+        }
+        case 'tyre_bed': {
+          // Tractor tyres thrown down on their sides over the whole section: a bed two or three
+          // abreast, and between the rows tyres sitting half on their neighbours, tipped up on a
+          // rim, so the bed is all lips and edges (Boss, 1 Nov 2026).
+          const dia = this.metreUnits(1.6);
+          const tube = this.metreUnits(0.24);
+          const rows = Math.round(TYRE_BED_ROWS * 1.5);
+          const tyreMat = (j: number) => this.mat(shade(0x2e2e2c, 0.85 + 0.3 * rnd(j)));
+          const place = (u: number, lane: number, lift: number, tiltAlong: number, tiltAcross: number, j: number) => {
+            const f = at(u);
+            const reach = Math.max(0.3, s.hwAt(f) * LIP_AT - dia / 2 + 0.1);
+            const tyre = new THREE.Mesh(new THREE.TorusGeometry(dia / 2 - tube, tube, 8, 20), tyreMat(j));
+            sitting(tyre, f, (Math.max(-1, Math.min(1, lane)) * reach) / s.hwAt(f), lift);
+            tyre.rotation.set(Math.PI / 2 + tiltAcross, 0, tiltAlong);
+            parts.push(tyre);
+          };
+          for (let k = 0; k < rows; k++) {
+            const u = 0.06 + (0.88 * (k + 0.5)) / rows;
+            const lanes = k % 2 ? [-1, -0.33, 0.33, 1] : [-0.66, 0, 0.66];
+            lanes.forEach((lane, i) => {
+              const j = si * 7 + k * 5 + i;
+              place(u + (rnd(j + 1) - 0.5) * 0.03, lane + (rnd(j + 2) - 0.5) * 0.25, tube * 0.9, (rnd(j + 3) - 0.5) * 0.12, (rnd(j + 4) - 0.5) * 0.12, j);
+            });
+            if (k > 0) {
+              // One or two tyres across the gap to the row before, each up on the rim of one below.
+              const n = rnd(si + k * 3) > 0.4 ? 2 : 1;
+              for (let i = 0; i < n; i++) {
+                const j = si * 11 + k * 7 + i + 100;
+                const side = (i === 0 ? 1 : -1) * (rnd(j) > 0.5 ? 1 : -1);
+                place(u - 0.44 / rows, side * (0.2 + 0.6 * rnd(j + 1)), tube * 2.1, (rnd(j + 2) > 0.5 ? 1 : -1) * (0.3 + 0.25 * rnd(j + 3)), (rnd(j + 4) - 0.5) * 0.3, j);
+              }
+            }
+          }
+          break;
+        }
+        case 'log_stack': {
+          // Two stacks of logs across the track, each a triangle: three on the ground, two, then one
+          // on top, their cut ends showing, ridden up and over (Boss, 1 Nov 2026).
+          const h = this.metreUnits(sec.height ?? 1.2);
+          const d = h / 2.74;
+          const r = d / 2;
+          const tiers: [number, number][] = [[-1, 0], [0, 0], [1, 0], [-0.5, 0.87], [0.5, 0.87], [0, 1.74]];
+          STACK_AT.forEach((at0, stack) => {
+            const f = at(at0);
+            const wide = s.hwAt(f) * 2 * LIP_AT + 0.4;
+            const base = s.lift(f) + h * 0.3;
+            // Not a perfect triangle (Boss, 1 Nov 2026): every log its own thickness and taper, laid
+            // a little askew, but the ends chainsawed flush with the track's edges.
+            tiers.forEach(([dx, dy], k) => {
+              const j = si * 3 + stack * 11 + k;
+              const lr = r * (0.8 + 0.5 * rnd(j));
+              const ll = wide;
+              const shift = 0;
+              const u = at(at0 + ((dx + (rnd(j + 150) - 0.5) * 0.35) * d) / len);
+              const yaw = (rnd(j + 200) - 0.5) * 0.06;
+              const log = new THREE.Mesh(new THREE.CylinderGeometry(lr, lr * (0.7 + 0.5 * rnd(j + 250)), ll, 12), this.mat(shade(0x7a5230, 0.7 + 0.6 * rnd(j + 300))));
+              const p = s.spot(u, shift / s.hwAt(f));
+              log.position.set(p.x, base + lr + dy * d, p.z);
+              log.rotation.set(0, Math.PI / 2 - across(f) + yaw, Math.PI / 2);
+              parts.push(log);
+              for (const side of [-1, 1]) {
+                const e = new THREE.Mesh(new THREE.CylinderGeometry(lr * 0.9, lr * 0.9, 0.02, 12), this.mat(shade(0xc8a878, 0.9 + 0.2 * rnd(j + side))));
+                const q = s.spot(u, (shift + side * (ll / 2 + 0.01)) / s.hwAt(f));
+                e.position.set(q.x, base + lr + dy * d, q.z);
+                e.rotation.set(0, Math.PI / 2 - across(f) + yaw, Math.PI / 2);
+                parts.push(e);
+              }
+            });
+          });
+          break;
+        }
+        case 'tyre_wall': {
+          // Two rows of big machinery tyres standing on their treads and packed together across the
+          // track, mud packed up both sides of each row (the surface humps).
+          const h = this.metreUnits(sec.height ?? 2);
+          const R = h / 2;
+          const tube = R * 0.4;
+          TYRE_ROWS.forEach((u, row) => {
+            const f = at(u);
+            const w = s.hwAt(f) * 2 * LIP_AT + 0.4;
+            const n = Math.max(2, Math.round(w / (2.2 * tube)));
+            for (let k = 0; k < n; k++) {
+              const x = -w / 2 + tube + ((k + 0.5) * (w - 2 * tube)) / n;
+              const tyre = new THREE.Mesh(new THREE.TorusGeometry(R - tube, tube, 8, 22), this.mat(shade(0x2a2a28, 0.85 + 0.3 * rnd(si * 5 + row * 7 + k))));
+              const p = s.spot(f, x / s.hwAt(f));
+              // Standing on the ground with the mud packed to just over half way up, the top clear of the dirt.
+              tyre.position.set(p.x, s.lift(f) + h * 0.95, p.z);
+              // Standing the way a wheel rolls down the track, packed side by side across it.
+              tyre.rotation.set(0, -across(f) + (rnd(row * 3 + k) - 0.5) * 0.12, 0);
+              parts.push(tyre);
+            }
+          });
+          break;
+        }
+        case 'water_crossing': {
+          // A stream running across the track: water over the section and out into the grass both sides.
+          const rows = Math.max(6, Math.ceil(len / 0.3));
+          const pos: number[] = [];
+          const idx: number[] = [];
+          // Across: out into the grass each side (grid units past the lip), wavering along the stream's banks.
+          const lanesOut = [-4, -2.2, -LIP_AT, -1, 0, 1, LIP_AT, 2.2, 4];
+          for (let i = 0; i <= rows; i++) {
+            const u = 0.15 + (0.7 * i) / rows;
+            const f = at(u);
+            const hw = s.hwAt(f);
+            const bank = Math.sin(Math.PI * (i / rows));
+            for (const l of lanesOut) {
+              const out = Math.abs(l) > LIP_AT ? (Math.abs(l) - LIP_AT) * (0.55 + 0.45 * bank) * (0.85 + 0.3 * rnd(si * 17 + i * 3 + (l > 0 ? 1 : 0))) : 0;
+              const lane = Math.abs(l) > LIP_AT ? Math.sign(l) * (LIP_AT + out / hw) : l;
+              const p = s.spot(f, lane);
+              const y = Math.abs(lane) <= LIP_AT ? s.height(f, lane) : this.terrainAt(p.x, p.z);
+              pos.push(p.x, y + 0.06, p.z);
+            }
+            // Ripples and the odd stone in the stream.
+            if (i % 3 === 1) {
+              const rip = new THREE.Mesh(new THREE.BoxGeometry(0.6 + rnd(i) * 0.6, 0.015, 0.05), this.mat(0xcfe6f6));
+              const lane = (rnd(si * 5 + i) * 2 - 1) * (LIP_AT + 1.5 / hw);
+              const p = s.spot(f, lane);
+              rip.position.set(p.x, (Math.abs(lane) <= LIP_AT ? s.height(f, lane) : this.terrainAt(p.x, p.z)) + 0.075, p.z);
+              rip.rotation.y = -across(f) + Math.PI / 2;
+              parts.push(rip);
+            }
+          }
+          const cols = lanesOut.length;
+          for (let i = 0; i < rows; i++) for (let j = 0; j < cols - 1; j++) {
+            const a = i * cols + j;
+            idx.push(a, a + cols, a + 1, a + 1, a + cols, a + cols + 1);
+          }
+          const geo = new THREE.BufferGeometry();
+          geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+          geo.setIndex(idx);
+          geo.computeVertexNormals();
+          const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: 0x4a86c0, transparent: true, opacity: 0.78, side: THREE.DoubleSide }));
+          m.receiveShadow = true;
+          water.push(m);
+          this.waterSpans.push([at(0.15), at(0.85)]);
+          break;
+        }
+        case 'woods': {
+          // Trees close on both sides, each clear of the rest of the track.
+          const step = 2.2;
+          const n = Math.max(2, Math.floor(len / step));
+          for (let k = 0; k <= n; k++) {
+            for (const side of [-1, 1]) {
+              const f = at(k / n);
+              const hw = s.hwAt(f);
+              const off = hw * LIP_AT + 1.0 + 1.4 * rnd(si * 41 + k * 2 + side);
+              const p = s.spot(f, side * (off / hw));
+              if (index().offTrack(p.x, p.z) < 1.2) continue;
+              const tree = this.buildItem({ type: rnd(si * 9 + k * 5 + side) > 0.25 ? 'tree' : 'bush', x: p.x, y: p.z, w: 2.4 + rnd(k + si) * 1.4, h: 2.4 });
+              if (tree) this.addTall(tree);
+            }
+          }
+          break;
+        }
+        case RETURN_LANE: {
+          if (!isSprint(this.track) || si !== 0) break;
+          // Stakes and tape down both sides, so the lane reads as single file.
+          const n = Math.max(2, Math.floor(len / 2.5));
+          const tape = this.mat(0xf0e030);
+          for (let k = 1; k < n; k++) {
+            for (const side of [-1, 1]) {
+              const f = at(k / n);
+              const hw = s.hwAt(f);
+              const p = s.spot(f, side * (LIP_AT + 0.35 / hw));
+              const stake = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.6, 0.05), this.mat(0xe8e8e8));
+              stake.position.set(p.x, this.terrainAt(p.x, p.z) + 0.3, p.z);
+              parts.push(stake);
+              if (k + 1 < n) {
+                const q = s.spot(at((k + 1) / n), side * (LIP_AT + 0.35 / s.hwAt(at((k + 1) / n))));
+                const run = Math.hypot(q.x - p.x, q.z - p.z);
+                const t = new THREE.Mesh(new THREE.BoxGeometry(run, 0.04, 0.02), tape);
+                t.position.set((p.x + q.x) / 2, (this.terrainAt(p.x, p.z) + this.terrainAt(q.x, q.z)) / 2 + 0.52, (p.z + q.z) / 2);
+                t.rotation.y = -Math.atan2(q.z - p.z, q.x - p.x);
+                parts.push(t);
+              }
+            }
+          }
+          break;
+        }
+      }
+    });
+    if (parts.length) {
+      for (const m of parts) m.updateMatrix();
+      this.scene3.add(this.mergeParts(parts, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })));
+    }
+    for (const m of water) this.scene3.add(m);
+    // A sprint's start, built at the start line unless the track places its own.
+    const place = sprintPlace(this.track);
+    if (place && !this.track.scenery?.some((it) => it.type === SPRINT_START_ITEM)) {
+      const start = this.buildItem({ type: SPRINT_START_ITEM, ...place });
+      if (start) this.scene3.add(start);
+    }
+  }
+
+  /** Adds a tall object that fades when it stands between the camera and a rider (fadeBlockers), as placed scenery does. */
+  private addTall(obj: THREE.Object3D): void {
+    this.scene3.add(obj);
+    obj.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(obj);
+    const mats: THREE.Material[] = [];
+    obj.traverse((o) => {
+      const m = (o as THREE.Mesh).material;
+      if (m) mats.push(...(Array.isArray(m) ? m : [m]));
+    });
+    for (const m of mats) m.transparent = true;
+    const corners: THREE.Vector3[] = [];
+    for (const cx of [box.min.x, box.max.x]) for (const cy of [box.min.y, box.max.y]) for (const cz of [box.min.z, box.max.z]) corners.push(new THREE.Vector3(cx, cy, cz));
+    this.tall.push({ corners, mats, faded: false });
+  }
+
+  /** Metres of height to grid units, as the track surface draws them. */
+  private metreUnits(m: number): number {
+    return this.surface.units(m);
   }
 
   /** The start gate across the start straight, just ahead of the line-up. */
@@ -898,6 +1610,155 @@ export class RaceView {
   }
 
   /**
+   * A No-Turn Takedown's start gate (Boss, 30 Oct 2026): a gate for each of the four riders, two
+   * each side of the starter's box in the middle of the platform, their pickets hinged to drop
+   * together at the start like any start gate's.
+   */
+  private noTurnGate(): THREE.Object3D {
+    const s = this.surface;
+    const u = 0.75;
+    const at = s.startSpot(u, 0);
+    const hw = s.startHw(u);
+    const g = new THREE.Group();
+    g.position.set(at.x, s.startHeight(u, 0), at.z);
+    g.rotation.y = -at.ang;
+    const d = 1;
+    // Along the riders' way is +x here, across the platform +z (the riders' right).
+    const hinge = new THREE.Group();
+    hinge.position.set(d * 0.3 + 0.04, 0.12, 0);
+    const steel = this.mat(0x8a8a8a);
+    const picket = this.mat(0x5a5a60);
+    const rail = this.mat(0xd8d8d8);
+    const lane = (hw * (NO_TURN_LANES[1] - NO_TURN_LANES[0])) * 0.92;
+    for (const side of [-1, 1]) {
+      const inner = Math.abs(NO_TURN_LANES[2]) * hw - lane / 2;
+      const outer = Math.abs(NO_TURN_LANES[3]) * hw + lane / 2;
+      const mid = side * (inner + outer) / 2;
+      g.add(this.boxMesh(d, 0.12, outer - inner, steel, 0, 0, mid));
+      for (const l of NO_TURN_LANES.filter((x) => Math.sign(x) === side)) {
+        hinge.add(this.boxMesh(0.08, 0.55, lane * 0.82, picket, 0, 0, l * hw));
+      }
+      hinge.add(this.boxMesh(0.18, 0.18, outer - inner, this.mat(0xc8302a), -0.1, 0.55, mid));
+      // A post at each end of each pair, holding the gate's pivot.
+      for (const z of [inner, outer]) g.add(this.boxMesh(0.12, 0.85, 0.12, rail, 0.3, 0, side * z));
+    }
+    g.add(hinge);
+    this.gateDrop = hinge;
+    // The starter's box between the pairs, just behind the gate line, the starter facing down the run.
+    const inner = (Math.abs(NO_TURN_LANES[1]) * hw - lane / 2) * 2;
+    const box = this.mergeParts(starterBox(Math.min(1.2, (inner * 0.9) / METRE), 0));
+    box.rotation.y = Math.PI / 2;
+    box.position.set(-0.2, 0, 0);
+    g.add(box);
+    return g;
+  }
+
+  /**
+   * The frame under a No-Turn Takedown's start platform: steel legs down each side of the deck and
+   * the drop-in to the ground, a rail along the deck's edges, and the panel across its back.
+   */
+  private platformFrame(): THREE.Object3D {
+    const s = this.surface;
+    const g = new THREE.Group();
+    const steel = this.mat(0x6a6e78);
+    const rail = this.mat(0xd8d8d8);
+    const panel = this.mat(0x24324e);
+    const end = NO_TURN_PLATFORM.deck + NO_TURN_PLATFORM.drop;
+    const post = (u: number, lane: number, h0: number, h1: number, w: number, m: THREE.Material) => {
+      const p = s.startSpot(u, lane);
+      const top = s.startHeight(u, lane);
+      const mesh = this.boxMesh(w, Math.max(0.02, top - h1 - h0), w, m, p.x, h0, p.z);
+      mesh.position.y = h0 + (top - h1 - h0) / 2;
+      g.add(mesh);
+    };
+    for (let u = -START_PAD + 0.2; u < end; u += 1) {
+      for (const side of [-1, 1]) {
+        const lane = side * (LIP_AT + 0.02);
+        const p = s.startSpot(u, lane);
+        const base = this.terrainAt(p.x, p.z);
+        if (s.startHeight(u, lane) - base > 0.15) post(u, lane, base, 0, 0.14, steel);
+      }
+    }
+    // A rail along each side of the deck, on posts.
+    for (const side of [-1, 1]) {
+      const lane = side * LIP_AT;
+      const a = s.startSpot(-START_PAD, lane);
+      const b = s.startSpot(NO_TURN_PLATFORM.deck, lane);
+      const y = s.startHeight(0, lane) + 0.85;
+      const len = Math.hypot(b.x - a.x, b.z - a.z);
+      const bar = this.boxMesh(len, 0.06, 0.06, rail, (a.x + b.x) / 2, y, (a.z + b.z) / 2);
+      bar.rotation.y = -Math.atan2(b.z - a.z, b.x - a.x);
+      g.add(bar);
+      for (let u = -START_PAD; u <= NO_TURN_PLATFORM.deck + 0.01; u += (NO_TURN_PLATFORM.deck + START_PAD) / 4) {
+        const p = s.startSpot(u, lane);
+        g.add(this.boxMesh(0.06, 0.85, 0.06, rail, p.x, s.startHeight(u, lane), p.z));
+      }
+    }
+    // The panel across the back of the deck, from its top down to the ground.
+    const l = s.startSpot(-START_PAD, -LIP_AT);
+    const r = s.startSpot(-START_PAD, LIP_AT);
+    const c = { x: (l.x + r.x) / 2, z: (l.z + r.z) / 2 };
+    const top = s.startHeight(-START_PAD, 0);
+    const base = this.terrainAt(c.x, c.z);
+    const back = this.boxMesh(Math.hypot(r.x - l.x, r.z - l.z), top - base, 0.12, panel, c.x, base, c.z);
+    back.rotation.y = -Math.atan2(r.z - l.z, r.x - l.x);
+    g.add(back);
+    return g;
+  }
+
+  /**
+   * The start official, standing at the origin: legs, body, head, and arms that swing at the
+   * shoulder, up to hold the board high or down to hold it low, and the board. Their own model's
+   * parts swap in (fitFigure), the board staying the game's.
+   */
+  private officialFigure(): { stand: THREE.Group; panel: THREE.Group; arms: THREE.Group[]; legs: THREE.Group[] } {
+    const stand = new THREE.Group();
+    stand.name = 'Body';
+    // Drawn 10% smaller than first built, board and all: the scale is on this group alone.
+    stand.scale.setScalar(OFFICIAL_SCALE);
+    // The official: legs, body, head, and arms that swing at the shoulder, up to hold the board
+    // high or down to hold it low.
+    const kit = this.mat(0x2a3a5a);
+    const skin = this.mat(0xe0b090);
+    // Legs swing at the hip as they walk.
+    const legs = [-0.1, 0.1].map((x) => {
+      const leg = new THREE.Group();
+      leg.name = x < 0 ? 'LegR' : 'LegL';
+      leg.position.set(x, 0.7, 0);
+      leg.add(this.boxMesh(0.12, 0.7, 0.14, kit, 0, -0.7, 0));
+      stand.add(leg);
+      return leg;
+    });
+    stand.add(this.boxMesh(0.42, 0.62, 0.24, this.mat(0xf0a020), 0, 0.7, 0));
+    stand.add(this.boxMesh(0.22, 0.22, 0.22, skin, 0, 1.34, 0));
+    const arms = [-1, 1].map((sd) => {
+      const arm = new THREE.Group();
+      arm.name = sd < 0 ? 'ArmR' : 'ArmL';
+      arm.position.set(sd * 0.27, 1.24, 0.04);
+      arm.add(this.boxMesh(0.09, 0.8, 0.09, skin, 0, 0, 0));
+      stand.add(arm);
+      return arm;
+    });
+    // The board: face on the front, plain white on the back. It turns in its own plane about its centre.
+    const panel = new THREE.Group();
+    const W = 1.8;
+    const H = 1.35;
+    const front = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshLambertMaterial({ map: this.boardTexture() }));
+    front.position.z = 0.03;
+    const back = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshLambertMaterial({ color: 0xf4f4f0 }));
+    back.rotation.y = Math.PI;
+    back.position.z = -0.03;
+    const core = new THREE.Mesh(new THREE.BoxGeometry(W, H, 0.05), this.mat(0xdedede));
+    for (const m of [front, back, core]) m.castShadow = true;
+    panel.add(core, front, back);
+    // The board the view turns and lifts; a start official model keeps the game's (and the models page leaves it out).
+    panel.userData.gameOnly = true;
+    stand.add(panel);
+    this.fitFigure(OFFICIAL_ITEM, stand, [['Body', stand], ['LegR', legs[0]], ['LegL', legs[1]], ['ArmR', arms[0]], ['ArmL', arms[1]]]);
+    return { stand, panel, arms, legs };
+  }
+
+  /**
    * The start board: an official beside the start straight, there all race (startOfficial). They
    * wait at A near the gate with the board held low, white side out, while the riders line up;
    * raise it face out and walk to B as the five-second hold begins, turn it sideways at three, and
@@ -916,47 +1777,12 @@ export class RaceView {
       return stand;
     }
     if (!plan) return stand;
-    stand.position.set(plan.a.x, this.heightAt(plan.a.x, plan.a.y), plan.a.y);
-    stand.rotation.y = plan.facing;
-    // Drawn 10% smaller than first built, board and all: the scale is on this group alone.
-    stand.scale.setScalar(OFFICIAL_SCALE);
-    // The official: legs, body, head, and arms that swing at the shoulder, up to hold the board
-    // high or down to hold it low.
-    const kit = this.mat(0x2a3a5a);
-    const skin = this.mat(0xe0b090);
-    // Legs swing at the hip as they walk.
-    const legs = [-0.1, 0.1].map((x) => {
-      const leg = new THREE.Group();
-      leg.position.set(x, 0.7, 0);
-      leg.add(this.boxMesh(0.12, 0.7, 0.14, kit, 0, -0.7, 0));
-      stand.add(leg);
-      return leg;
-    });
-    stand.add(this.boxMesh(0.42, 0.62, 0.24, this.mat(0xf0a020), 0, 0.7, 0));
-    stand.add(this.boxMesh(0.22, 0.22, 0.22, skin, 0, 1.34, 0));
-    const arms = [-1, 1].map((sd) => {
-      const arm = new THREE.Group();
-      arm.position.set(sd * 0.27, 1.24, 0.04);
-      arm.add(this.boxMesh(0.09, 0.8, 0.09, skin, 0, 0, 0));
-      stand.add(arm);
-      return arm;
-    });
-    // The board: face on the front, plain white on the back. It turns in its own plane about its centre.
-    const panel = new THREE.Group();
-    const W = 1.8;
-    const H = 1.35;
-    const front = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshLambertMaterial({ map: this.boardTexture() }));
-    front.position.z = 0.03;
-    const back = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshLambertMaterial({ color: 0xf4f4f0 }));
-    back.rotation.y = Math.PI;
-    back.position.z = -0.03;
-    const core = new THREE.Mesh(new THREE.BoxGeometry(W, H, 0.05), this.mat(0xdedede));
-    for (const m of [front, back, core]) m.castShadow = true;
-    panel.add(core, front, back);
-    stand.add(panel);
-    this.board = { stand, panel, arms, legs, route: plan.route, length: routeLength(plan.route) };
+    const { stand: figure, panel, arms, legs } = this.officialFigure();
+    figure.position.set(plan.a.x, this.heightAt(plan.a.x, plan.a.y), plan.a.y);
+    figure.rotation.y = plan.facing;
+    this.board = { stand: figure, panel, arms, legs, route: plan.route, length: routeLength(plan.route) };
     this.updateStart(-Infinity);
-    return stand;
+    return figure;
   }
 
   /** The start board's face: START over a big red 30, as held up at the gate. */
@@ -998,16 +1824,12 @@ export class RaceView {
   private updateStart(clock: number): void {
     if (this.board) {
       const { stand, panel, arms, legs, route, length } = this.board;
-      const ease = (x: number) => {
-        const t = Math.max(0, Math.min(1, x));
-        return t * t * (3 - 2 * t);
-      };
-      // How far up the board is: 0 held low, 1 held high. Practice has no start, so it stays low.
-      const up = !this.hasStart ? 0 : clock < WALK_TO ? ease((clock + START_HOLD) / BOARD_MOVE) : 1 - ease((clock - WALK_TO) / BOARD_MOVE);
-      // Low: in front of the official's legs, turned round so the white back faces out.
-      panel.position.set(0, 0.72 + (2.45 - 0.72) * up, 0.42 + (0.12 - 0.42) * up);
-      panel.rotation.set(0, Math.PI * (1 - up), clock >= BOARD_SIDEWAYS ? (Math.PI / 2) * up : 0);
-      for (const arm of arms) arm.rotation.x = 2.7 * (1 - up);
+      // The board's path (core boardPose): raised in front, flipped face out above their head,
+      // turned sideways and lowered again, never through the official; the arms follow its height.
+      const b = boardPose(clock, this.hasStart);
+      panel.position.set(0, b.y, b.z);
+      panel.rotation.set(0, b.flip, b.side);
+      for (const arm of arms) arm.rotation.x = 2.7 * (1 - b.arms);
       // The walk from A along the route to B, setting off and stopping gently, with the legs swinging in step.
       const k = !this.hasStart ? 0 : Math.max(0, Math.min(1, (clock - WALK_FROM) / (WALK_TO - WALK_FROM)));
       const walked = this.hasStart ? length * walkProgress(clock) : 0;
@@ -1022,8 +1844,8 @@ export class RaceView {
   }
 
   /**
-   * Grey-scale dirt that the track's colours are multiplied by: clods and stones, and the dark
-   * grooves riders cut along the racing line.
+   * Grey-scale dirt that the track's colours are multiplied by: clods and stones. Plain graded
+   * dirt, no lines along it (Boss, 1 Nov 2026).
    */
   private dirtTexture(): THREE.CanvasTexture {
     const size = 128;
@@ -1034,10 +1856,8 @@ export class RaceView {
     for (let y = 0; y < size; y++) {
       for (let x = 0; x < size; x++) {
         // v (y) runs across the track: the racing surface is the middle half of the texture.
-        const across = y / size;
-        const groove = Math.abs(Math.sin(across * Math.PI * 9)) < 0.18 && across > 0.27 && across < 0.73 ? 0.86 : 1;
         const grain = 0.86 + 0.14 * noise(x * 131 + y * 17) + 0.06 * Math.sin(x * 0.4 + noise(y) * 6);
-        const v = Math.max(0, Math.min(255, Math.round(255 * grain * groove)));
+        const v = Math.max(0, Math.min(255, Math.round(255 * grain)));
         const i = (y * size + x) * 4;
         img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
         img.data[i + 3] = 255;
@@ -1113,6 +1933,35 @@ export class RaceView {
     return mesh;
   }
 
+  /**
+   * The picture on an item's face, `aspect` wide to 1 high: the item's words on its colour, or its
+   * PNG from the banners folder when one is picked (core/banners.ts; Boss, 1 Nov 2026), which shows
+   * once loaded. A picture that won't load leaves the words.
+   */
+  private faceTexture(it: SceneryItem, text: string, color: number, aspect: number): THREE.Texture {
+    const h = 64;
+    return this.withPicture(this.textTexture(text, color, inkOn(color), Math.min(2048, Math.max(64, Math.round(h * aspect))), h), PICTURE_ITEMS.has(it.type) ? it.image : undefined);
+  }
+
+  /**
+   * The words' texture, given the picture named `image` from the banners folder in their place once it
+   * has loaded (Boss, 2 Nov 2026: every item with words can show a PNG). No picture, a bad name or one
+   * that won't load leaves the words.
+   */
+  private withPicture(words: THREE.Texture, image: string | undefined, vertical = false): THREE.Texture {
+    const path = bannerPath(image);
+    if (!path) return words;
+    // The words show until the picture arrives, and stay if it never does.
+    void bannerImage(`${import.meta.env.BASE_URL}${path}`).then((img) => {
+      if (!img) return;
+      // Free the words' GPU copy, sized for the words, so the picture gets storage of its own size.
+      words.dispose();
+      words.image = vertical ? uprightPicture(img) : img;
+      words.needsUpdate = true;
+    });
+    return words;
+  }
+
   private textTexture(text: string, bg: number, fg = '#ffffff', w = 256, h = 48, vertical = false): THREE.CanvasTexture {
     const cv = document.createElement('canvas');
     cv.width = w;
@@ -1151,9 +2000,19 @@ export class RaceView {
     const cheers = this.cheers.length;
     const flaggers = this.flaggers.length;
     const crews = this.crews.length;
+    const loops = this.loops.length;
+    const trackers = this.trackers.length;
+    const flashes = this.flashes.length;
+    const drones = this.drones.length;
+    const cheerParts = this.cheerParts.length;
     this.ghostIndex = index ?? -1;
     const obj = this.buildItem(it);
     this.ghostIndex = -1;
+    this.loops.length = loops;
+    this.trackers.length = trackers;
+    this.flashes.length = flashes;
+    this.drones.length = drones;
+    this.cheerParts.length = cheerParts;
     this.marshals.length = marshals;
     this.flaggers.length = flaggers;
     this.crews.length = crews;
@@ -1186,20 +2045,361 @@ export class RaceView {
     return i >= 0 ? i : this.ghostIndex;
   }
 
+  /**
+   * A picture of one scenery item as the race view draws it (your model when the models folder has
+   * one, else the game's own), at its default size from the race camera's angle, on a see-through
+   * background with its shadow: the track editor's Scenery tiles (Boss, 2 Nov 2026). A PNG data URL,
+   * or null for an item that can't be drawn.
+   */
+  picture(type: string, w: number, h: number): string | null {
+    const obj = type === OFFICIAL_ITEM ? this.officialFigure().stand : this.buildItem({ type, x: 0, y: 0, rot: 0 });
+    if (!obj) return null;
+    obj.position.set(0, 0, 0);
+    obj.rotation.set(0, 0, 0);
+    obj.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) o.castShadow = true;
+    });
+    const box = new THREE.Box3().setFromObject(obj);
+    if (box.isEmpty()) return null;
+    const c = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const scene = new THREE.Scene();
+    scene.add(new THREE.HemisphereLight(0xe8f0ff, 0x6a5a40, 1.1));
+    const sun = new THREE.DirectionalLight(0xfff1dc, 2.2);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.bias = -0.0006;
+    sun.shadow.normalBias = 0.02;
+    const reach = Math.max(size.x, size.z) * 1.5 + 2;
+    sun.shadow.camera.left = -reach;
+    sun.shadow.camera.right = reach;
+    sun.shadow.camera.top = reach;
+    sun.shadow.camera.bottom = -reach;
+    sun.shadow.camera.near = 1;
+    sun.shadow.camera.far = 200;
+    sun.position.copy(c).add(new THREE.Vector3(-30, 60, -12));
+    sun.target.position.copy(c);
+    scene.add(sun, sun.target, obj);
+    // The ground only shows the shadow: the tile's own background shows round the item.
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(reach * 4, reach * 4), new THREE.ShadowMaterial({ opacity: 0.3 }));
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.set(c.x, box.min.y, c.z);
+    ground.receiveShadow = true;
+    scene.add(ground);
+    // Framed as the race camera sees it: the item's longest span across the tile, with room round it.
+    const halfW = Math.max(size.x, size.y, size.z) * 0.6 + 0.4;
+    const halfH = (halfW * h) / w;
+    const camera = new THREE.OrthographicCamera(-halfW, halfW, halfH, -halfH, 1, 400);
+    camera.position.copy(c).add(this.dir.clone().multiplyScalar(60));
+    camera.lookAt(c);
+    const r = pictureRenderer();
+    r.setSize(w, h, false);
+    r.setClearColor(0x000000, 0);
+    r.render(scene, camera);
+    ground.geometry.dispose();
+    return r.domElement.toDataURL('image/png');
+  }
+
+  /**
+   * One scenery item as the game itself draws it (its own model, never one from the models folder),
+   * standing at the origin at its default size and unturned, in grid units: what the models page exports.
+   */
+  builtInItem(type: string): THREE.Object3D | null {
+    return withGameModels(() => {
+      const obj = type === OFFICIAL_ITEM ? this.officialFigure().stand : this.buildItem({ type, x: 0, y: 0, rot: 0 });
+      obj?.position.set(0, 0, 0);
+      obj?.rotation.set(0, 0, 0);
+      // The boards the game paints itself (a pit crew's) aren't part of the figure's model.
+      const own: THREE.Object3D[] = [];
+      obj?.traverse((o) => {
+        if (o.userData.gameOnly) own.push(o);
+      });
+      for (const o of own) o.removeFromParent();
+      return obj;
+    });
+  }
+
+  /**
+   * A vehicle or trackside model set up as picked (Boss, 1 Nov 2026): parts with a `setups` (or
+   * `variants`) custom property show only in those set-ups (or designs) (core/paddock.ts showsInSetup), and each empty named StandBike
+   * (shown in this set-up) gets a race bike on the paddock stand, in a colour picked for it, added
+   * to `g` where the empty stands (bikeOnStandModel).
+   */
+  private vehicleSetup(model: THREE.Group, g: THREE.Group, setup: string | undefined, variant: string | undefined, index: number, tint: number): void {
+    const hidden: THREE.Object3D[] = [];
+    const spots: THREE.Object3D[] = [];
+    model.traverse((o) => {
+      if (o === model) return;
+      // A `variants` property works the same for the item's designs (a camera operator standing or kneeling; Boss, 1 Nov 2026).
+      if (!showsInSetup(o.userData.setups, setup) || !showsInSetup(o.userData.variants, variant)) hidden.push(o);
+      // StandBike, StandBike.001 (three.js loads it as StandBike001) and so on.
+      else if (/^standbike\d*$/i.test(o.name.replace(/[._]\d+$/, ''))) spots.push(o);
+    });
+    for (const o of hidden) o.removeFromParent();
+    if (!spots.length) return;
+    model.updateMatrixWorld(true);
+    const colours = [0xc21c15, 0x3b86da, 0xecbe2a, 0xa0c33e, 0xe07020, 0xf0f0f0];
+    spots.forEach((o, k) => {
+      // Only spots still in the model: one inside a part left out for this set-up goes with it.
+      let inModel = false;
+      model.traverse((x) => { if (x === o) inModel = true; });
+      if (!inModel) return;
+      // A StandBike with a custom property colour = "item" is in the item's colour (a bike wash's bike), as the game's own.
+      const colour = o.userData.colour === 'item' ? tint : colours[Math.floor(noise(index * 13 + k * 7) * colours.length)];
+      // stand = "none": the bike on its wheels at the empty, with no stand or lift (strapped on a trailer).
+      const bike = o.userData.stand === 'none' ? bikeOnWheelsModel(colour) : bikeOnStandModel('adult', colour);
+      if (!bike) return;
+      const at = o.getWorldPosition(new THREE.Vector3());
+      const turn = new THREE.Euler().setFromQuaternion(o.getWorldQuaternion(new THREE.Quaternion()), 'YXZ');
+      bike.position.copy(at);
+      bike.rotation.y = turn.y;
+      g.add(bike);
+    });
+  }
+
+  /** A scenery model's live parts (core LIVE_PARTS): its Track parts to turn and its Flash parts, hidden until they blink. */
+  private liveParts(model: THREE.Object3D, index: number): boolean {
+    let found = false;
+    const favourites = { list: null as number[] | null, count: 0 };
+    model.traverse((o) => {
+      const kind = livePart(o.name);
+      if (kind === 'Track') this.trackers.push({ node: o, rest: o.rotation.y, state: trackAtRest(), seed: index * 41 + this.trackers.length * 7 + 3 });
+      else if (kind === 'Flash') {
+        o.visible = false;
+        this.flashes.push({ node: o, until: 0, next: 0, seed: index * 17 + this.flashes.length * 5 + 1 });
+      } else if (kind === 'Cheer' || kind === 'Supporter') {
+        // A section's (or supporter's) children named Seated and Standing swap; with neither it rises.
+        // By the start of the name, as three.js drops a name's dots ("Seated.s000" loads as "Seateds000").
+        const child = (name: string) => o.children.find((c) => c.name.trim().toLowerCase().startsWith(name)) ?? null;
+        const seated = child('seated');
+        const standing = child('standing');
+        if (standing) standing.visible = false;
+        const seed = index * 53 + this.cheerParts.length * 11 + 5;
+        this.cheerParts.push({ node: o, seated, standing, restY: o.position.y, state: cheerAtRest(), seed, up: false, favourites: kind === 'Supporter' ? favourites : null });
+      } else if (kind === 'Drone') this.drones.push({ node: o, rest: o.position.clone(), restY: o.rotation.y, state: null, seed: index * 31 + this.drones.length * 7 + 3, lift: 0 });
+      if (kind) found = true;
+    });
+    return found;
+  }
+
+  /**
+   * Turns each Track part about its vertical to face its rider for the lap while within TRACK_RANGE
+   * (core trackStep; back to rest otherwise), at most TRACK_TURN a second, and blinks each Flash part as a rider goes by
+   * within FLASH_RANGE, at most once every FLASH_GAP and a little at random, so a row of
+   * photographers doesn't flash as one.
+   */
+  private updateLiveParts(dt: number, bikes: { x: number; z: number }[]): void {
+    this.liveClock += dt;
+    const now = this.liveClock;
+    const at = new THREE.Vector3();
+    const nearest = (x: number, z: number): { x: number; z: number; d: number } | null => {
+      let best: { x: number; z: number; d: number } | null = null;
+      for (const b of bikes) {
+        const d = Math.hypot(b.x - x, b.z - z);
+        if (!best || d < best.d) best = { ...b, d };
+      }
+      return best;
+    };
+    for (const t of this.trackers) {
+      if (!t.node.parent) continue;
+      t.node.getWorldPosition(at);
+      const next = trackStep(t.state, { x: at.x, z: at.z }, bikes, (count) => {
+        t.seed += 1;
+        return noise(t.seed * 4.7) * count;
+      });
+      t.state = next;
+      const n = next.aim >= 0 ? bikes[next.aim] : null;
+      let want = t.rest;
+      if (n) {
+        // Where the rider is, in the frame the part turns in; the part's front is +Z.
+        const p = t.node.parent.worldToLocal(new THREE.Vector3(n.x, at.y, n.z));
+        want = Math.atan2(p.x - t.node.position.x, p.z - t.node.position.z);
+      }
+      let d = want - t.node.rotation.y;
+      d = Math.atan2(Math.sin(d), Math.cos(d));
+      const step = TRACK_TURN * dt;
+      t.node.rotation.y += Math.max(-step, Math.min(step, d));
+    }
+    for (const f of this.flashes) {
+      if (now < f.until) continue;
+      f.node.visible = false;
+      if (now < f.next) continue;
+      f.node.getWorldPosition(at);
+      const n = nearest(at.x, at.z);
+      if (!n || n.d > FLASH_RANGE) continue;
+      // A chance a frame, so each photographer fires in their own time while a rider is close.
+      f.seed += 1;
+      if (noise(f.seed * 13.7) > 4 * dt) continue;
+      f.node.visible = true;
+      f.until = now + FLASH_TIME;
+      f.next = now + FLASH_GAP * (1 + noise(f.seed * 3.1));
+    }
+    for (const dr of this.drones) this.flyDrone(dr, dt, bikes);
+    for (const c of this.cheerParts) this.cheerPart(c, dt, bikes, at);
+  }
+
+  /**
+   * A Cheer section or Supporter (core cheerStep; Boss, 2 Nov 2026): sat down until their rider comes
+   * by, then up cheering (Standing shown, Seated hidden, or raised CHEER_RISE) until a moment after.
+   */
+  private cheerPart(c: RaceView['cheerParts'][number], dt: number, bikes: { x: number; z: number }[], at: THREE.Vector3): void {
+    if (!c.node.parent) return;
+    c.node.getWorldPosition(at);
+    const rnd = () => {
+      c.seed += 1;
+      return noise(c.seed * 5.9);
+    };
+    const choose = (count: number): number => {
+      if (!c.favourites) return rnd() * count;
+      const fav = c.favourites;
+      // Drawn again when the field changes size (riders joining or retiring), so every rider can be a favourite.
+      if (!fav.list || fav.count !== count) {
+        fav.list = supporterFavourites(count, rnd);
+        fav.count = count;
+      }
+      return fav.list[Math.floor(rnd() * fav.list.length)] ?? 0;
+    };
+    const next = cheerStep(c.state, dt, { x: at.x, z: at.z }, bikes, choose);
+    c.state = next;
+    if (next.up === c.up && !(next.up && !c.standing)) return;
+    c.up = next.up;
+    if (c.standing || c.seated) {
+      if (c.standing) c.standing.visible = c.up;
+      if (c.seated) c.seated.visible = !c.up;
+      return;
+    }
+    // No Standing pose: the section rises out of its seats (model metres), with a little bounce while up.
+    c.node.position.y = c.restY + (c.up ? CHEER_RISE * (1 + 0.15 * Math.sin(this.liveClock * 9 + c.seed)) : 0);
+  }
+
+  /**
+   * A Drone part (core droneStep; Boss, 2 Nov 2026): it hovers at its rest spot by the pilot, flies
+   * off after a rider picked at random as the riders come by, keeping its height above the ground
+   * it crosses, faces the way it flies, and comes home to wait for the next pass.
+   */
+  private flyDrone(dr: RaceView['drones'][number], dt: number, bikes: { x: number; z: number }[]): void {
+    const parent = dr.node.parent;
+    if (!parent) return;
+    const homeW = parent.localToWorld(dr.rest.clone());
+    const home = { x: homeW.x, z: homeW.z };
+    const state = (dr.state ??= droneAtHome(home));
+    const was = { x: state.x, z: state.z };
+    dr.state = droneStep(state, dt, home, bikes, () => {
+      dr.seed += 1;
+      return noise(dr.seed * 7.3);
+    });
+    const s = dr.state;
+    // Its height over the ground it is above, the same as at rest; a gentle bob while it waits.
+    const above = homeW.y - this.terrainAt(home.x, home.z);
+    const bob = s.mode === 'home' ? 0.06 * Math.sin(this.liveClock * 2.2 + dr.seed) : 0;
+    const wantY = this.terrainAt(s.x, s.z) + above + bob;
+    dr.lift = s.mode === 'home' && Math.hypot(s.x - home.x, s.z - home.z) < 0.01 ? wantY : dr.lift === 0 ? wantY : dr.lift + (wantY - dr.lift) * Math.min(1, dt * 4);
+    const local = parent.worldToLocal(new THREE.Vector3(s.x, dr.lift, s.z));
+    dr.node.position.copy(local);
+    // Face the way it flies (its front is +Z); at home it turns back to its rest heading.
+    const moved = Math.hypot(s.x - was.x, s.z - was.z);
+    let want = dr.restY;
+    if (moved > 1e-4) {
+      const a = parent.worldToLocal(new THREE.Vector3(was.x, dr.lift, was.z));
+      want = Math.atan2(local.x - a.x, local.z - a.z);
+    }
+    let d = want - dr.node.rotation.y;
+    d = Math.atan2(Math.sin(d), Math.cos(d));
+    const step = TRACK_TURN * 2 * dt;
+    dr.node.rotation.y += Math.max(-step, Math.min(step, d));
+  }
+
+  /**
+   * Plays a scenery model's own animations on a loop, each copy starting at its own point so a
+   * row of them never moves as one.
+   */
+  private playLoops(model: THREE.Object3D, i: number): void {
+    const clips = model.userData.clips as THREE.AnimationClip[] | undefined;
+    if (!clips?.length) return;
+    const mixer = new THREE.AnimationMixer(model.userData.clipRoot as THREE.Object3D);
+    for (const clip of clips) mixer.clipAction(clip).play();
+    mixer.setTime(noise(i * 37 + 5) * Math.max(...clips.map((c) => c.duration), 0));
+    this.loops.push(mixer);
+  }
+
+  /**
+   * Swaps a moving figure's parts for its model's named parts (core FIGURE_PARTS), each on its
+   * joint: the joint (a pivot the view turns) moves to where the model has the part's origin, the
+   * game's own shapes on it are hidden, and the model's part hangs from it as it sat in the model.
+   * `pivots` go parents first; `root` is the item (a pivot named Base swaps the stand on it).
+   * `scale` sizes the model (a fan's build); `keep` are shapes on a pivot to leave alone (a pit
+   * board). False when the item has no figure model, and the game's own figure stays.
+   */
+  private fitFigure(type: string, root: THREE.Object3D, pivots: [string, THREE.Object3D][], opts: { scale?: THREE.Vector3; keep?: THREE.Object3D[] } = {}): boolean {
+    const parts = figureParts(type);
+    if (!parts) return false;
+    root.updateMatrixWorld(true);
+    // The model's metres into the world: the item's place and turn, without any scale of its own.
+    const place = new THREE.Matrix4().compose(root.getWorldPosition(new THREE.Vector3()), root.getWorldQuaternion(new THREE.Quaternion()), new THREE.Vector3(1, 1, 1));
+    const size = (opts.scale ?? new THREE.Vector3(1, 1, 1)).clone().multiplyScalar(METRE);
+    const toWorld = place.multiply(new THREE.Matrix4().makeScale(size.x, size.y, size.z));
+    const joints = new Set(pivots.map(([, p]) => p));
+    const keep = new Set(opts.keep ?? []);
+    for (const [name, pivot] of pivots) {
+      const part = parts.get(name);
+      if (!part) continue;
+      if (pivot !== root && pivot.parent) {
+        pivot.parent.updateMatrixWorld(true);
+        pivot.position.copy(pivot.parent.worldToLocal(part.origin.clone().applyMatrix4(toWorld)));
+        pivot.updateMatrixWorld(true);
+      }
+      const mesh = pivot as THREE.Mesh;
+      if (mesh.isMesh) mesh.geometry = new THREE.BufferGeometry();
+      for (const c of pivot.children) if ((c as THREE.Mesh).isMesh && !joints.has(c) && !keep.has(c)) c.visible = false;
+      const holder = new THREE.Group();
+      new THREE.Matrix4().copy(pivot.matrixWorld).invert().multiply(toWorld).multiply(part.matrix).decompose(holder.position, holder.quaternion, holder.scale);
+      holder.add(part.object);
+      pivot.add(holder);
+    }
+    return true;
+  }
+
   /** Builds one scenery item as 3D shapes standing on the ground. */
   private buildItem(it: SceneryItem): THREE.Object3D | null {
     // The start official placed as scenery is built with the start (startBoard).
     if (it.type === OFFICIAL_ITEM) return null;
     const def = this.parts.scenery.find((s) => s.id === it.type);
     // The finish arch always spans the track (trackClearance.ts archSpan), whatever width it was saved with.
-    const w = it.type === 'finish_arch' ? archSpan(this.track.width ?? DEFAULT_TRACK_WIDTH) : it.w ?? def?.w ?? 2;
+    const w = SPANS_TRACK.has(it.type) ? archSpan(this.track.width ?? DEFAULT_TRACK_WIDTH) : it.w ?? def?.w ?? 2;
     const d = it.h ?? def?.h ?? 2;
     const color = hex(it.color ?? def?.color, 0x888888);
     const text = it.text ?? def?.text ?? '';
     const g = new THREE.Group();
-    g.position.set(it.x, this.terrainAt(it.x, it.y), it.y);
+    g.position.set(it.x, this.footingAt(it.x, it.y, w, d, it.rot ?? 0), it.y);
     g.rotation.y = -(((it.rot ?? 0) * Math.PI) / 180);
     const add = (o: THREE.Object3D) => g.add(o);
+    // Your own model for this item (world/modModels.ts): its size in metres at the item's default
+    // size, stretched with the footprint when an item is placed longer or deeper (a long tyre wall
+    // or line of tape), its height going with the smaller stretch.
+    const custom = LOCKED_ITEMS.has(it.type) ? null : modModel(it.type);
+    if (custom) {
+      const sx = def ? Math.max(0.1, w / def.w) : 1;
+      const sz = def ? Math.max(0.1, d / def.h) : 1;
+      custom.scale.set(sx, Math.min(sx, sz), sz);
+      // A paddock vehicle's colour and set-up are picked for it as for the game's own (core/paddock.ts; Boss, 1 Nov 2026).
+      const index = this.itemIndex(it);
+      const paddock = def && isPaddock(def);
+      const tint = paddock ? hex(paddockColour(def, it, index), color) : color;
+      const words = it.type === HAULER_ITEM && def ? (it.text ?? haulerWords(paddockColour(def, it, index))) : text;
+      if (paddock) this.vehicleSetup(custom, g, paddockSetup(def, it, index), paddockVariant(def, it, index), index, tint);
+      // Its Team and TeamDark materials take the item's colour, as the game's own item does (Boss, 1 Nov 2026).
+      paintModel(custom, { team: tint, teamdark: shade(tint, 0.7) }, STAND_PAINT);
+      // Its Text material shows the item's words on its colour, as the game's own banner does (Boss, 1 Nov 2026).
+      textFaces(custom, (aspect) => this.faceTexture(it, words, tint, aspect));
+      add(custom);
+      // Live parts move, so the item is never baked into the still scenery.
+      if (this.liveParts(custom, this.itemIndex(it))) g.userData.moving = true;
+      this.playLoops(custom, this.itemIndex(it));
+      if (custom.userData.clips) g.userData.moving = true;
+      // People face the track, and so do the seats of a stand or crowd model (Boss, 1 Nov 2026), unless turned by hand.
+      if (it.rot === undefined && (FACES_TRACK.has(it.type) || MODEL_FACES_TRACK.has(it.type)) && this.awayFromTrack(it) === 1) g.rotation.y += Math.PI;
+      return g;
+    }
     if (def && it.type === MARSHAL_ITEM) {
       this.marshalFigure(g, it, def);
       return g;
@@ -1213,13 +2413,22 @@ export class RaceView {
       return g;
     }
     if (def && isPaddock(def)) {
-      // A paddock vehicle or a trackside item (paddock.ts, trackside.ts): one vertex-coloured mesh
-      // each, so a full paddock costs a draw an item, plus a textured box for each label with words on.
+      // A bike on a stand or the sprint start (paddock.ts, trackside.ts): one vertex-coloured mesh
+      // each, plus a textured box for each label with words on. Any other paddock or trackside item
+      // is the game's own model, drawn above; without it, a plain box of its size and colour.
       const index = this.itemIndex(it);
       const built = tracksideParts(def, it, index) ?? { parts: paddockParts(def, it, index), labels: [] as Label[] };
-      if (built.parts.length) add(this.mergeParts(built.parts));
+      if (!built.parts.length && !built.labels.length) {
+        add(this.boxMesh(w, 0.6, d, this.mat(color)));
+        return g;
+      }
+      // A bike on a stand item can be all stand bike, with nothing left to merge.
+      const rest = this.standBikes(built.parts, add);
+      if (rest.length) add(this.mergeParts(rest));
       for (const l of built.labels) {
-        const face = this.mat(0xffffff, { map: this.textTexture(l.text, l.bg, l.fg, l.vertical ? 48 : 256, l.vertical ? 256 : 48, l.vertical) });
+        // The item's own words show its picture when one is picked (Boss, 2 Nov 2026).
+        const words = this.textTexture(l.text, l.bg, l.fg, l.vertical ? 48 : 256, l.vertical ? 256 : 48, l.vertical);
+        const face = this.mat(0xffffff, { map: l.picture && PICTURE_ITEMS.has(it.type) ? this.withPicture(words, it.image, l.vertical) : words });
         const side = this.mat(l.bg);
         const back = l.both ? face : side;
         const box = this.boxMesh(l.l * METRE, l.h * METRE, l.w * METRE, [side, side, side, side, face, back], l.x * METRE, l.y * METRE, l.z * METRE);
@@ -1231,21 +2440,22 @@ export class RaceView {
       if (it.rot === undefined && FACES_TRACK.has(def.id) && this.awayFromTrack(it) === 1) g.rotation.y += Math.PI;
       return g;
     }
+    // Every other item is the game's own model (public/assets/models; Boss, 2 Nov 2026: "I want the
+    // models you made to become the built in models"), drawn above; these few are still built here,
+    // and an item whose model is missing shows as a plain box of its size and colour.
     switch (it.type) {
-      case 'banner':
-      case 'sponsor_board': {
-        const H = it.type === 'banner' ? 1 : 1.3;
-        const face = this.mat(0xffffff, { map: this.textTexture(text, color) });
-        const side = this.mat(shade(color, 0.7));
-        add(this.boxMesh(w, H, 0.1, [side, side, side, side, face, face], 0, 0.35, 0));
-        for (const sx of [-0.45, 0.45]) add(this.boxMesh(0.08, 0.35, 0.08, this.mat(0x5a5a60), sx * w, 0, 0));
-        break;
-      }
       case 'finish_arch': {
-        for (const sx of [-1, 1]) add(this.boxMesh(0.5, 4.2, 0.5, this.mat(0xd8d8d8), sx * (w / 2 - 0.25), 0, 0));
-        const face = this.mat(0xffffff, { map: this.textTexture(text || 'FINISH', color) });
-        const side = this.mat(shade(color, 0.8));
-        add(this.boxMesh(w, 0.9, 0.35, [side, side, side, side, face, face], 0, 4.2, 0));
+        // Boss's arch model, the supercross gantry at supercross kinds of track (without its flag man's tower) or the motocross one (Boss, 1 Nov 2026).
+        const model = this.archModel(SX_ARCH_KINDS.has(this.track.kind ?? ''), w - 1, text || 'FINISH', color, () => 0, false, it.image);
+        if (!model) {
+          add(this.boxMesh(w, 0.6, d, this.mat(color)));
+          break;
+        }
+        add(model.group);
+        if ((this.track.scenery ?? []).includes(it) && this.ghostIndex < 0) {
+          g.updateMatrixWorld(true);
+          this.archTops.push([model.group.localToWorld(model.tops[0]), model.group.localToWorld(model.tops[1])]);
+        }
         break;
       }
       case 'start_gate': {
@@ -1255,146 +2465,9 @@ export class RaceView {
         add(this.boxMesh(w, 0.18, 0.18, this.mat(color), 0, 0.67, -d * 0.4));
         break;
       }
-      case 'tuff_block': {
-        // White blocks with red bands, the supercross track marker.
-        add(this.boxMesh(w, 0.5, d * 0.8, this.mat(color)));
-        for (let i = 0; i < 3; i++) add(this.boxMesh(w / 7, 0.52, d * 0.82, this.mat(0xd33a2c), -w / 2 + (w / 3) * (i + 0.5), -0.01, 0));
-        break;
-      }
-      case 'hay_bale': {
-        // A straw bale with its two strings round it and a lighter cut end.
-        add(this.boxMesh(w, 0.6, d, [this.mat(shade(color, 1.12)), this.mat(shade(color, 1.12)), this.mat(color), this.mat(color), this.mat(color), this.mat(color)]));
-        for (const fx of [-0.25, 0.25]) add(this.boxMesh(0.05, 0.62, d + 0.02, this.mat(shade(color, 0.7)), fx * w, -0.01, 0));
-        break;
-      }
-      case 'tyre_wall': {
-        const n = Math.max(1, Math.round(w / Math.max(0.5, d)));
-        const r = Math.min(w / n, d) / 2;
-        const geo = new THREE.CylinderGeometry(r, r, 0.3, 12);
-        for (let i = 0; i < n; i++) for (let k = 0; k < 2; k++) {
-          const t = new THREE.Mesh(geo, this.mat(color));
-          t.position.set(-w / 2 + (w / n) * (i + 0.5), 0.15 + k * 0.3, 0);
-          t.castShadow = true;
-          add(t);
-        }
-        break;
-      }
-      case 'tape': {
-        const posts = Math.max(1, Math.round(w / 2));
-        for (let i = 0; i <= posts; i++) add(this.boxMesh(0.06, 0.65, 0.06, this.mat(0x5a5a60), -w / 2 + (w * i) / posts, 0, 0));
-        add(this.boxMesh(w, 0.05, 0.02, this.mat(color), 0, 0.55, 0));
-        break;
-      }
-      case 'flag_post': {
-        add(this.boxMesh(0.08, 2.4, 0.08, this.mat(0xdddddd)));
-        const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.5), this.mat(color, { side: THREE.DoubleSide }));
-        flag.position.set(0.4, 2.15, 0);
-        flag.castShadow = true;
-        add(flag);
-        break;
-      }
-      case 'stand': {
-        // Seating steps rising away from the track, with a row of fans on each.
-        const away = this.awayFromTrack(it);
-        const tiers = 4;
-        for (let i = 0; i < tiers; i++) {
-          const z = (-d / 2 + (d / tiers) * (i + 0.5)) * away;
-          const hh = 0.7 + i * 0.75;
-          add(this.boxMesh(w, hh, d / tiers, this.mat(i % 2 ? shade(color, 1.12) : color), 0, 0, z));
-          this.fans(g, w * 0.96, d / tiers * 0.5, 0, hh, z, Math.round(w * 1.3), i);
-        }
-        add(this.boxMesh(w, 0.3, 0.2, this.mat(0x4a4a50), 0, 0.7 + tiers * 0.75, (d / 2) * away));
-        break;
-      }
-      case 'crowd':
-        this.fans(g, w, d, 0, 0, 0, Math.round(w * d * 1.4), 7);
-        break;
       case CHEER_ITEM:
         this.cheerFigure(g, it);
         break;
-      case 'pit_tent': {
-        for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) add(this.boxMesh(0.08, 1.9, 0.08, this.mat(0xcccccc), (sx * w) / 2.1, 0, (sz * d) / 2.1));
-        // Turned and stretched in the geometry so the corners sit on the legs (a mesh scales before it turns).
-        const roof = new THREE.Mesh(new THREE.ConeGeometry(Math.hypot(w, d) / 2, 0.9, 4).rotateY(Math.PI / 4).scale(w / Math.hypot(w, d) * Math.SQRT2, 1, d / Math.hypot(w, d) * Math.SQRT2), this.mat(color));
-        roof.position.set(0, 2.35, 0);
-        roof.castShadow = true;
-        add(roof);
-        add(this.boxMesh(w, 0.25, d, this.mat(shade(color, 0.9)), 0, 1.65, 0));
-        break;
-      }
-      case 'van': {
-        add(this.boxMesh(w * 0.72, 1.7, d * 0.9, this.mat(color), -w * 0.14, 0.3, 0));
-        add(this.boxMesh(w * 0.26, 1.2, d * 0.9, this.mat(shade(color, 0.95)), w * 0.36, 0.3, 0));
-        add(this.boxMesh(0.05, 0.5, d * 0.7, this.mat(0x223344), w * 0.495, 0.85, 0));
-        const wheel = new THREE.CylinderGeometry(0.32, 0.32, 0.2, 12);
-        for (const [sx, sz] of [[-0.3, -1], [-0.3, 1], [0.32, -1], [0.32, 1]]) {
-          const t = new THREE.Mesh(wheel, this.mat(0x1c1c22));
-          t.rotation.x = Math.PI / 2;
-          t.position.set(sx * w, 0.32, (sz * d * 0.9) / 2);
-          add(t);
-        }
-        break;
-      }
-      case 'light_tower': {
-        add(this.boxMesh(0.25, 7.5, 0.25, this.mat(0x6a6a70)));
-        add(this.boxMesh(w * 0.9, 0.7, 0.35, this.mat(0x3a3a40), 0, 7.5, 0));
-        add(this.boxMesh(w * 0.8, 0.5, 0.05, new THREE.MeshBasicMaterial({ color: 0xfff6c0 }), 0, 7.6, 0.2));
-        break;
-      }
-      case 'tree': {
-        add(this.boxMesh(0.35, 1.6, 0.35, this.mat(0x6a4a2a)));
-        const leaf = this.mat(color, { flatShading: true });
-        for (const [r, y, ox] of [[w * 0.42, 2.3, 0], [w * 0.32, 3.2, 0.2], [w * 0.28, 2.5, -0.5]]) {
-          const ball = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 0), leaf);
-          ball.position.set(ox, y, ox * 0.5);
-          ball.castShadow = true;
-          ball.receiveShadow = true;
-          add(ball);
-        }
-        break;
-      }
-      case 'bush': {
-        const ball = new THREE.Mesh(new THREE.IcosahedronGeometry(Math.min(w, d) * 0.45, 0), this.mat(color, { flatShading: true }));
-        // Sunk a little, so its lower faces meet the ground instead of a point hovering over it.
-        ball.position.y = Math.min(w, d) * 0.2;
-        ball.scale.y = 0.75;
-        ball.castShadow = true;
-        add(ball);
-        break;
-      }
-      case 'hedge': {
-        // A clipped hedge, lumpy along the top and sides.
-        const leaf = this.mat(color, { flatShading: true });
-        add(this.boxMesh(w, 1.0, d * 0.6, leaf));
-        const n = Math.max(2, Math.round(w / 0.6));
-        for (let k = 0; k < n; k++) {
-          const ball = new THREE.Mesh(new THREE.IcosahedronGeometry(d * 0.24, 0), this.mat(shade(color, k % 2 ? 1.08 : 0.94), { flatShading: true }));
-          ball.position.set(-w / 2 + (w / n) * (k + 0.5), 0.95 + (k % 3) * 0.04, (k % 2 ? 0.08 : -0.08) * d);
-          ball.castShadow = true;
-          add(ball);
-        }
-        break;
-      }
-      case 'fence':
-        for (const sx of [-0.45, 0, 0.45]) add(this.boxMesh(0.1, 0.9, 0.1, this.mat(color), sx * w, 0, 0));
-        for (const y of [0.35, 0.7]) add(this.boxMesh(w, 0.08, 0.06, this.mat(color), 0, y, 0));
-        break;
-      case 'barrels':
-      case 'tyre_stack': {
-        const geo = it.type === 'barrels' ? new THREE.CylinderGeometry(0.32, 0.32, 0.9, 12) : new THREE.TorusGeometry(0.3, 0.13, 8, 14);
-        const n = 3;
-        for (let i = 0; i < n; i++) {
-          const m = new THREE.Mesh(geo, this.mat(color));
-          if (it.type === 'barrels') m.position.set((i - 1) * 0.7 * (w / 2), 0.45, 0);
-          else {
-            m.rotation.x = Math.PI / 2;
-            m.position.set((i - 1) * 0.15, 0.13 + i * 0.26, 0);
-          }
-          m.castShadow = true;
-          add(m);
-        }
-        break;
-      }
       case 'skip': {
         // A UK builder's skip, drawn from the real thing (an 8-yard skip is about 3.7 m by 1.8 m,
         // 1.2 m tall): one solid hull sitting flat on the ground, its long sides vertical and its
@@ -1509,8 +2582,9 @@ export class RaceView {
   private marshalFigure(g: THREE.Group, it: SceneryItem, def: SceneryDef): void {
     const i = this.itemIndex(it);
     const built = marshalParts(def, it, i);
-    if (built.base.length) g.add(this.mergeParts(built.base));
+    this.addStand(g, MARSHAL_ITEM, built);
     const figure = new THREE.Group();
+    figure.name = 'Body';
     figure.position.set(built.feet[0] * METRE, built.feet[1] * METRE, built.feet[2] * METRE);
     const body = this.mergeParts(built.figure);
     body.position.set(-built.feet[0] * METRE, -built.feet[1] * METRE, -built.feet[2] * METRE);
@@ -1518,14 +2592,30 @@ export class RaceView {
     const arm = this.mergeParts(built.arm);
     arm.geometry.translate(-built.shoulder[0] * METRE, -built.shoulder[1] * METRE, -built.shoulder[2] * METRE);
     arm.position.set((built.shoulder[0] - built.feet[0]) * METRE, (built.shoulder[1] - built.feet[1]) * METRE, (built.shoulder[2] - built.feet[2]) * METRE);
+    arm.name = 'Arm';
     figure.add(arm);
+    // The elbow, and the cloth's edge on the pole, for a model's Forearm and Flag (the game's own arm is one piece).
+    const forearm = new THREE.Group();
+    forearm.name = 'Forearm';
+    forearm.position.set(0, -0.35 * METRE, 0);
+    arm.add(forearm);
+    const flag = new THREE.Group();
+    flag.name = 'Flag';
+    // At the foot of the game's pole (marshalParts), where its flag hangs, from the elbow.
+    flag.position.set(0.06 * METRE, (built.feet[1] + 0.12 - (built.shoulder[1] - 0.35)) * METRE, 0.12 * METRE);
+    forearm.add(flag);
     g.add(figure);
+    const mate = this.mate(g, built.mate, MATE_AT);
+    const fitted = this.fitFigure(MARSHAL_ITEM, g, [['Base', g], ['Body', figure], ['Arm', arm], ['Forearm', forearm], ['Flag', flag], ...mate]);
+    // A model is built standing on the ground; without its own Base it stands on the game's stand, at its height.
+    if (fitted && !figureHas(MARSHAL_ITEM, 'Base')) figure.position.y += built.feet[1] * METRE;
     const watch = marshalWatch(this.surface.g, it);
     if (it.rot === undefined) {
       const at = watchFocus(this.surface.g, watch);
       g.rotation.y = -Math.atan2(at.y - it.y, at.x - it.x) + Math.PI / 2;
     }
-    this.marshals.push({ watch, figure, arm, raise: 0, phase: noise(i * 29 + 7) * Math.PI * 2 });
+    // On a tower the flag stays under the roof, as the flag man's does (Boss, 1 Nov 2026).
+    this.marshals.push({ watch, figure, arm, forearm, flag, raise: 0, reach: built.variant === 'tower' ? 0.52 : 0.9, phase: noise(i * 29 + 7) * Math.PI * 2 });
   }
 
   /** The race's laps, for the flag man and the pit boards. */
@@ -1541,9 +2631,21 @@ export class RaceView {
     return arm;
   }
 
-  /** A figure group standing at the feet, with the body built in the item's frame. */
+  /**
+   * The mate beside a marshal, flag man or pit crew on their pair design (else nothing): still, standing at `at`, for a
+   * model's Mate to take their place (Boss, 1 Nov 2026). Returns the joint to fit, if any.
+   */
+  private mate(g: THREE.Group, parts: THREE.Mesh[], at: [number, number, number]): [string, THREE.Object3D][] {
+    if (!parts.length) return [];
+    const mate = Object.assign(this.pivotArm(parts, at, [0, 0, 0]), { name: 'Mate' });
+    g.add(mate);
+    return [['Mate', mate]];
+  }
+
+    /** A figure group standing at the feet, with the body built in the item's frame. */
   private standingFigure(parts: THREE.Mesh[], feet: [number, number, number]): THREE.Group {
     const figure = new THREE.Group();
+    figure.name = 'Body';
     figure.position.set(feet[0] * METRE, feet[1] * METRE, feet[2] * METRE);
     const body = this.mergeParts(parts);
     body.position.set(-feet[0] * METRE, -feet[1] * METRE, -feet[2] * METRE);
@@ -1558,28 +2660,75 @@ export class RaceView {
     g.rotation.y = -Math.atan2(at.y - it.y, at.x - it.x) + Math.PI / 2;
   }
 
+  /**
+   * A marshal's, flag man's or pit crew's stand: Boss's model for the design (core STAND_MODELS),
+   * in the item's colour, else the game's own. A figure model with its own Base keeps that instead (fitFigure).
+   */
+  private addStand(g: THREE.Group, type: string, built: { base: THREE.Mesh[]; variant: string; colour: number }): void {
+    const model = figureHas(type, 'Base') ? null : standModel(built.variant, built.colour, shade(built.colour, 0.7));
+    if (model) g.add(Object.assign(model, { name: 'Base' }));
+    else if (built.base.length) g.add(Object.assign(this.mergeParts(built.base), { name: 'Base' }));
+  }
+
+  /**
+   * The bikes on stands in a paddock or trackside item (a van's awning, a pit tent), swapped for
+   * Boss's paddock stand with his race bike on it when there are those models (bikeOnStandModel;
+   * Boss, 1 Nov 2026), each added with `add`. Returns the item's other meshes, to merge.
+   */
+  private standBikes(parts: THREE.Mesh[], add: (o: THREE.Object3D) => void): THREE.Mesh[] {
+    if (!parts.some((p) => p.userData.standBike)) return parts;
+    const done = new Map<StandBike, THREE.Object3D | null>();
+    for (const p of parts) {
+      const tag = p.userData.standBike as StandBike | undefined;
+      if (!tag || done.has(tag)) continue;
+      const model = bikeOnStandModel(tag.design, tag.colour);
+      if (model) {
+        model.position.set(tag.x * METRE, 0, tag.z * METRE);
+        model.rotation.y = tag.ry;
+        add(model);
+      }
+      done.set(tag, model);
+    }
+    return parts.filter((p) => !p.userData.standBike || !done.get(p.userData.standBike));
+  }
+
   /** The flag man: his stand, the figure, and each arm with its flag, the view raising them in turn. */
   private flaggerFigure(g: THREE.Group, it: SceneryItem, def: SceneryDef): void {
     const i = this.itemIndex(it);
     const built = flaggerParts(def, it, i);
-    if (built.base.length) g.add(this.mergeParts(built.base));
+    this.addStand(g, FLAGGER_ITEM, built);
     const figure = this.standingFigure(built.figure, built.feet);
-    const white = this.pivotArm(built.white, built.left, built.feet);
-    const chequered = this.pivotArm(built.chequered, built.right, built.feet);
+    const white = Object.assign(this.pivotArm(built.white, built.left, built.feet), { name: 'WhiteArm' });
+    const chequered = Object.assign(this.pivotArm(built.chequered, built.right, built.feet), { name: 'ChequeredArm' });
     figure.add(white, chequered);
+    // The elbows, and the cloths' edges on the poles, for a model's forearms and flags (the game's own arms are one piece).
+    const joint = (name: string, parent: THREE.Object3D): THREE.Group => {
+      const j = new THREE.Group();
+      j.name = name;
+      parent.add(j);
+      return j;
+    };
+    const whiteForearm = joint('WhiteForearm', white);
+    const whiteFlag = joint('WhiteFlag', whiteForearm);
+    const chequeredForearm = joint('ChequeredForearm', chequered);
+    const chequeredFlag = joint('ChequeredFlag', chequeredForearm);
     g.add(figure);
+    const mate = this.mate(g, built.mate, MATE_AT);
+    const fitted = this.fitFigure(FLAGGER_ITEM, g, [...mate, ['Base', g], ['Body', figure], ['WhiteArm', white], ['WhiteForearm', whiteForearm], ['WhiteFlag', whiteFlag], ['ChequeredArm', chequered], ['ChequeredForearm', chequeredForearm], ['ChequeredFlag', chequeredFlag]]);
+    // A model is built standing on the ground; without its own Base it stands on the game's stand, at its height.
+    if (fitted && !figureHas(FLAGGER_ITEM, 'Base')) figure.position.y += built.feet[1] * METRE;
     this.faceTrack(g, it);
     const roofed = built.variant === 'tower';
-    this.flaggers.push({ spot: crewSpot(this.surface.g, it), figure, white, chequered, wk: 0, ck: 0, reach: roofed ? 0.6 : 0.92, phase: noise(i * 31 + 3) * Math.PI * 2 });
+    this.flaggers.push({ spot: crewSpot(this.surface.g, it), figure, white, chequered, whiteForearm, whiteFlag, chequeredForearm, chequeredFlag, wk: 0, ck: 0, reach: roofed ? 0.52 : 0.92, phase: noise(i * 31 + 3) * Math.PI * 2 });
   }
 
   /** A pit crew member: the figure, the arms with the pole, and the board with its words, which the view keeps up to date. */
   private pitCrewFigure(g: THREE.Group, it: SceneryItem, def: SceneryDef): void {
     const i = this.itemIndex(it);
     const built = pitCrewParts(def, it, i);
-    if (built.base.length) g.add(this.mergeParts(built.base));
+    this.addStand(g, PIT_CREW_ITEM, built);
     const figure = this.standingFigure(built.figure, built.feet);
-    const arms = this.pivotArm(built.arms, built.shoulder, built.feet);
+    const arms = Object.assign(this.pivotArm(built.arms, built.shoulder, built.feet), { name: 'Arms' });
     figure.add(arms);
     const canvas = document.createElement('canvas');
     canvas.width = 128;
@@ -1587,12 +2736,22 @@ export class RaceView {
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     const board = new THREE.Mesh(new THREE.PlaneGeometry(0.75 * METRE, 0.56 * METRE), new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide }));
+    // The board the view paints, which a pit crew model keeps (and the models page leaves out).
+    board.userData.gameOnly = true;
     figure.add(board);
     g.add(figure);
+    // The mate beside them, still, for a model's Mate (Boss, 1 Nov 2026).
+    const mate = this.mate(g, built.mate, built.mateAt);
+    this.fitFigure(PIT_CREW_ITEM, g, [['Base', g], ['Body', figure], ['Arms', arms], ...mate], { keep: [board] });
+    // A model's Team and TeamTrim materials take the crew's own colour until the race gives them a rider (updateFinishCrew).
+    paintModel(g, { team: built.colour, teamtrim: shade(built.colour, 0.78) }, PIT_CREW_PAINT);
     this.faceTrack(g, it);
     const crew: PitCrew = {
       index: this.crews.length,
       spot: crewSpot(this.surface.g, it),
+      root: g,
+      // Behind a pit wall the pole rests out on the wall, so the board never swings through it (Boss, 1 Nov 2026).
+      rest: built.variant === 'wall' ? 1.05 : 0.35,
       figure,
       arms,
       board,
@@ -1634,7 +2793,7 @@ export class RaceView {
   /** Puts the arms and the board where the crew's lean (k) has them: down by their side, or held out towards the track. */
   private poseCrew(c: PitCrew): void {
     const k = c.k;
-    c.arms.rotation.x = -0.35 - 1.45 * k;
+    c.arms.rotation.x = -c.rest - (1.8 - c.rest) * k;
     c.figure.rotation.x = 0.2 * k;
     const p = c.boardAt.clone().applyAxisAngle(new THREE.Vector3(1, 0, 0), c.arms.rotation.x).add(c.shoulderAt);
     c.board.position.copy(p);
@@ -1658,17 +2817,29 @@ export class RaceView {
       const wantC = want === 'chequered' && f.wk < 0.15 ? 1 : 0;
       f.wk += Math.max(-dt * 2.2, Math.min(dt * 2.2, wantW - f.wk));
       f.ck += Math.max(-dt * 2.2, Math.min(dt * 2.2, wantC - f.ck));
-      f.white.rotation.x = -f.reach * Math.PI * f.wk;
-      f.white.rotation.z = 0.12 * f.wk * Math.sin(clock * 3 + f.phase);
-      f.chequered.rotation.x = -f.reach * Math.PI * f.ck;
-      f.chequered.rotation.z = -0.5 * f.ck * Math.sin(clock * 9 + f.phase);
+      // The white flag is held out steady, a little above level (Boss, 1 Nov 2026): only a model's cloth stirs.
+      f.white.rotation.x = -Math.min(f.reach, 0.62) * Math.PI * f.wk;
+      f.whiteForearm.rotation.x = -0.25 * f.wk;
+      f.whiteFlag.rotation.y = 0.12 * f.wk * Math.sin(clock * 3 + f.phase);
+      f.whiteFlag.scale.x = 0.3 + 0.7 * f.wk;
+      // The chequered flag is waved as a marshal waves theirs (Boss, 1 Nov 2026).
+      const w = clock * 7 + f.phase;
+      this.waveFlag(f.chequered, f.chequeredForearm, f.chequeredFlag, f.ck, f.reach, w);
       f.figure.rotation.x = 0.12 * Math.max(f.wk, f.ck);
+      f.figure.rotation.z = -0.06 * f.ck * Math.sin(w);
     }
     if (!this.crews.length) return;
     if (riders.length && this.crews.some((c) => c.rider === null)) {
       const player = riders.find((r) => r.player)?.pose.id ?? '';
       const picks = assignCrews(this.crews.length, riders.map((r) => r.pose.id), player, this.crews.length + Math.round(g.total));
-      this.crews.forEach((c, k) => (c.rider = picks[k] ?? ''));
+      this.crews.forEach((c, k) => {
+        c.rider = picks[k] ?? '';
+        // A model's crew wears the team colour of the rider they're boarding this race: their bike's (Boss, 1 Nov 2026).
+        const r = riders.find((x) => x.pose.id === c.rider);
+        if (!r) return;
+        const team = bikeColours(r.color, r.player, r.look).plastics;
+        paintModel(c.root, { team, teamtrim: shade(team, 0.78) }, PIT_CREW_PAINT);
+      });
     }
     for (const c of this.crews) {
       const r = riders.find((x) => x.pose.id === c.rider);
@@ -1680,13 +2851,25 @@ export class RaceView {
   }
 
   /** Raises each marshal's flag while a rider is down on their watch: the arm swings up and waves, the figure leans out. */
+  /**
+   * A flag raised and waving, `k` of the way up, to `reach` of a half turn, at `w` through its beat. A model's forearm bends a
+   * little at the elbow (the way an elbow bends) and whips the wave on a beat behind the arm; its flag swings round the pole,
+   * and is bunched against it while it's down.
+   */
+  private waveFlag(arm: THREE.Object3D, forearm: THREE.Object3D, flag: THREE.Object3D, k: number, reach: number, w: number): void {
+    arm.rotation.z = k * 0.45 * Math.sin(w);
+    arm.rotation.x = -reach * Math.PI * k;
+    forearm.rotation.set(-0.25 * k, 0, k * 0.4 * Math.sin(w - 0.9));
+    flag.rotation.y = k * 0.7 * Math.sin(w - 1.8);
+    flag.scale.x = 0.3 + 0.7 * k;
+  }
+
   updateMarshals(dt: number, clock: number, riders: { dist: number; state: RiderState }[]): void {
     for (const m of this.marshals) {
       const want = flagUp(m.watch, riders) ? 1 : 0;
       m.raise += Math.max(-dt * 2.5, Math.min(dt * 2.5, want - m.raise));
       const k = m.raise;
-      m.arm.rotation.z = k * 0.45 * Math.sin(clock * 7 + m.phase);
-      m.arm.rotation.x = -0.9 * Math.PI * k;
+      this.waveFlag(m.arm, m.forearm, m.flag, k, m.reach, clock * 7 + m.phase);
       m.figure.rotation.x = 0.22 * k;
       m.figure.rotation.z = -0.06 * k * Math.sin(clock * 7 + m.phase);
     }
@@ -1722,12 +2905,18 @@ export class RaceView {
     const variant = cheerVariant(it, i);
     const sc = VARIANT_SCALE[variant];
     const figure = new THREE.Group();
+    figure.name = 'Body';
     figure.scale.set(OFFICIAL_SCALE * sc.w, OFFICIAL_SCALE * sc.h, OFFICIAL_SCALE * sc.w);
-    const kit = this.mat(hex(cheerColour(it, i), 0xe04040));
-    const trousers = this.mat([0x2a3a5a, 0x4a4a50, 0x6a5040, 0x3a5a3a][Math.floor(noise(i * 17 + 9) * 4)]);
-    const skin = this.mat([0xe0b090, 0xc08860, 0x8a5a3a, 0xf0d0b0][Math.floor(noise(i * 19 + 11) * 4)]);
+    const kitColour = hex(cheerColour(it, i), 0xe04040);
+    const trousersColour = [0x2a3a5a, 0x4a4a50, 0x6a5040, 0x3a5a3a][Math.floor(noise(i * 17 + 9) * 4)];
+    const skinColour = [0xe0b090, 0xc08860, 0x8a5a3a, 0xf0d0b0][Math.floor(noise(i * 19 + 11) * 4)];
+    const kit = this.mat(kitColour);
+    const trousers = this.mat(trousersColour);
+    const skin = this.mat(skinColour);
+    // Left and right are the fan's own: they face +z, so their right is -x.
     const legs = [-0.1, 0.1].map((x) => {
       const leg = new THREE.Group();
+      leg.name = x < 0 ? 'LegR' : 'LegL';
       leg.position.set(x, 0.7, 0);
       leg.add(this.boxMesh(0.12, 0.7, 0.14, trousers, 0, -0.7, 0));
       figure.add(leg);
@@ -1738,6 +2927,7 @@ export class RaceView {
     figure.add(this.boxMesh(0.22, 0.22, 0.22, skin, 0, 1.34, 0));
     const arms = [-1, 1].map((sd) => {
       const arm = new THREE.Group();
+      arm.name = sd < 0 ? 'ArmR' : 'ArmL';
       arm.position.set(sd * 0.27, 1.24, 0.04);
       // Hung from the shoulder: the box sits below its pivot, so the arm swings from the shoulder, not its middle.
       arm.add(this.boxMesh(0.09, 0.8, 0.09, skin, 0, -0.8, 0));
@@ -1745,6 +2935,9 @@ export class RaceView {
       return arm;
     });
     g.add(figure);
+    this.fitFigure(CHEER_ITEM, g, [['Body', figure], ['LegR', legs[0]], ['LegL', legs[1]], ['ArmR', arms[0]], ['ArmL', arms[1]]], { scale: new THREE.Vector3(sc.w, sc.h, sc.w) });
+    // A model's fans keep the colours this fan would have had (Boss, 31 Oct 2026).
+    paintModel(figure, { top: kitColour, toptrim: shade(kitColour, 0.78), trousers: trousersColour, skin: skinColour }, FAN_PAINT);
     const route = cheerRoute(it);
     // Where they end up they face the track (the nearest point of it), unless turned by hand.
     const end = route[route.length - 1];
@@ -1827,9 +3020,10 @@ export class RaceView {
         right.rotation.set(up, 0, -0.45 * env * Math.sin(k * Math.PI * 6));
         break;
       case 'clap': {
+        // arms[0] (`left` here) is the fan's right arm, on -x: turning it +z brings the hands together (Boss, 31 Oct 2026).
         const meet = 0.32 * env * (0.5 + 0.5 * Math.sin(k * Math.PI * 8));
-        left.rotation.set(-Math.PI / 2 * env, 0, -meet);
-        right.rotation.set(-Math.PI / 2 * env, 0, meet);
+        left.rotation.set(-Math.PI / 2 * env, 0, meet);
+        right.rotation.set(-Math.PI / 2 * env, 0, -meet);
         break;
       }
       case 'fist_pump':
@@ -1844,27 +3038,6 @@ export class RaceView {
     }
   }
 
-  private fans(g: THREE.Group, w: number, d: number, x: number, y: number, z: number, n: number, seed: number): void {
-    const body = new THREE.BoxGeometry(0.22, 0.42, 0.18);
-    const head = new THREE.BoxGeometry(0.16, 0.16, 0.16);
-    const bodies = new THREE.InstancedMesh(body, this.mat(0xffffff), n);
-    const heads = new THREE.InstancedMesh(head, this.mat(0xe8c0a0), n);
-    const m = new THREE.Matrix4();
-    const c = new THREE.Color();
-    for (let i = 0; i < n; i++) {
-      const px = x + (noise(i * 7 + seed * 13) - 0.5) * w;
-      const pz = z + (noise(i * 11 + seed * 17) - 0.5) * d;
-      m.makeTranslation(px, y + 0.21, pz);
-      bodies.setMatrixAt(i, m);
-      c.setHex(CROWD[Math.floor(noise(i * 3 + seed) * CROWD.length)]);
-      bodies.setColorAt(i, c);
-      m.makeTranslation(px, y + 0.5, pz);
-      heads.setMatrixAt(i, m);
-    }
-    bodies.castShadow = true;
-    g.add(bodies, heads);
-  }
-
   // ---- riders ----
 
   /**
@@ -1876,7 +3049,24 @@ export class RaceView {
     const root = new THREE.Group();
     const body = new THREE.Group();
     root.add(body);
-    if (look) return this.finishBike(root, body, raceBikeParts(look, BIKE_LENGTH));
+    // Your own race bike and rider models (world/modModels.ts), painted in this rider's colours.
+    const c0 = bikeColours(color, player, look);
+    // A sidecar carries its rider and passenger from sidecar_crew.glb when there is one (Boss, 1 Nov 2026).
+    const crew = look?.cls === SIDECAR_CLASS ? sidecarCrew() : null;
+    const custom = { bike: bikeModel(look?.cls ?? ''), rider: crew?.root ?? riderModel() };
+    if (custom.bike) paintModel(custom.bike, { plastics: c0.plastics, frame: c0.frame, plate: c0.plate }, BIKE_PAINT);
+    // A youth class's smaller bike carries a rider of the same scale, a child of that size (Boss, 1 Nov 2026).
+    const riderScale = custom.bike?.userData.riderScale as number | undefined;
+    if (custom.rider && riderScale) custom.rider.scale.multiplyScalar(riderScale);
+    if (look) {
+      const all = raceBikeParts(look, BIKE_LENGTH);
+      const bikeOnly = raceBikeParts(look, BIKE_LENGTH, { rider: false }).length;
+      const g = look.gear;
+      const kit = { helmet: g.helmet, visor: g.visor, jersey: g.jersey, pants: g.pants, boot: g.boot, glove: g.glove };
+      const made = this.finishBike(root, body, all.slice(0, bikeOnly), all.slice(bikeOnly), kit, custom);
+      if (crew) made.crew = { pivots: crew.pivots, hang: 0, tuck: 0 };
+      return made;
+    }
     const L = BIKE_LENGTH;
     const r = 0.22;
     const c = bikeColours(color, player, look);
@@ -1906,6 +3096,7 @@ export class RaceView {
     piece(0.42, 0.04, 0.14, paint, L / 2 - 0.12, r + 0.27, 0, -0.1); // front guard
     piece(0.3, 0.04, 0.14, paint, -L / 2 + 0.05, r + 0.3, 0, 0.25); // rear guard
     // Rider: legs, body leaning over the bars, arms and helmet.
+    const riderFrom = parts.length;
     piece(0.34, 0.1, 0.1, this.mat(c.legs), -0.04, r + 0.42, 0.13, -0.6);
     piece(0.34, 0.1, 0.1, this.mat(c.legs), -0.04, r + 0.42, -0.13, -0.6);
     piece(0.2, 0.4, 0.28, this.mat(c.torso), -0.02, r + 0.68, 0, -0.45);
@@ -1915,16 +3106,114 @@ export class RaceView {
     helmet.position.set(0.12, r + 0.98, 0);
     parts.push(helmet);
     piece(0.08, 0.06, 0.18, this.mat(c.visor), 0.24, r + 0.97); // visor
-    return this.finishBike(root, body, parts);
+    return this.finishBike(root, body, parts.slice(0, riderFrom), parts.slice(riderFrom), { helmet: c.helmet, visor: c.visor, jersey: c.torso, pants: c.legs, boot: 0x1c1c22, glove: c.arms }, custom);
   }
 
-  private finishBike(root: THREE.Group, body: THREE.Group, parts: THREE.Mesh[]): Bike {
-    // One mesh per bike, coloured per part, so a field of bikes costs one draw each.
-    body.add(this.mergeParts(parts));
+  private finishBike(root: THREE.Group, body: THREE.Group, parts: THREE.Mesh[], riderParts: THREE.Mesh[], kit: Kit, custom: { bike: THREE.Group | null; rider: THREE.Group | null } = { bike: null, rider: null }): Bike {
+    // One mesh for the bike and one for the rider, coloured per part, so a field costs two draws each.
+    body.add(custom.bike ?? this.mergeParts(parts));
+    const rider = new THREE.Group();
+    const seat = new THREE.Vector3(0, 0.55, 0);
+    if (custom.rider) {
+      paintModel(custom.rider, { helmet: kit.helmet, visor: kit.visor, jersey: kit.jersey, pants: kit.pants, boots: kit.boot, gloves: kit.glove }, RIDER_PAINT);
+      const box = new THREE.Box3().setFromObject(custom.rider);
+      seat.set((box.min.x + box.max.x) / 2, box.min.y + (box.max.y - box.min.y) * 0.35, 0);
+      rider.add(custom.rider);
+    } else if (riderParts.length) {
+      const mesh = this.mergeParts(riderParts);
+      mesh.geometry.computeBoundingBox();
+      const box = mesh.geometry.boundingBox!;
+      seat.set((box.min.x + box.max.x) / 2, box.min.y + (box.max.y - box.min.y) * 0.35, 0);
+      rider.add(mesh);
+    }
+    root.add(rider);
     this.scene3.add(root);
     const label = this.scene.add.text(0, 0, '', { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '13px', color: '#ffffff', fontStyle: 'bold', stroke: '#14141e', strokeThickness: 3, resolution: TEXT_RES }).setOrigin(0.5, 1);
     this.labels.add(label);
-    return { root, body, label };
+    // A solo rider model's poses (core RIDER_POSES), on whichever of its meshes carry them.
+    const meshes: THREE.Mesh[] = [];
+    custom.rider?.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (m.isMesh && m.morphTargetDictionary && RIDER_POSES.some((n) => m.morphTargetDictionary![n] !== undefined)) meshes.push(m);
+    });
+    const poses = meshes.length ? { meshes, w: {}, speed: 0, land: 0, flying: false } : undefined;
+    return { root, body, rider, seat, side: (this.bikes.size % 2) * 2 - 1, kit, label, poses };
+  }
+
+  /**
+   * The solo rider's body for what they are doing (core poseTargets; Boss, 3 Nov 2026): stood up
+   * over bumps and fast, sat with the inside leg out through slow corners, leaning in on berms,
+   * back on the brakes, forward on the gas, compressed into a jump's face, neutral in the air and
+   * soaking up the landing, feet down at the gate and sat back in a wheelie. Eased, quicker for
+   * the jumps.
+   */
+  private riderPose(b: Bike, p: RiderPose, f: number, onStart: boolean, turn: number, flying: boolean, dc: number, dt: number): void {
+    const ps = b.poses!;
+    const accel = dc > 0 ? (p.speed - ps.speed) / dc : 0;
+    ps.speed = p.speed;
+    if (ps.flying && !flying) ps.land = LAND_TIME;
+    ps.flying = flying;
+    ps.land = Math.max(0, ps.land - dt);
+    let jump: PoseInput['jump'] = flying ? 'air' : ps.land > 0 ? 'land' : null;
+    if (!jump && !onStart && p.flight) {
+      const reach = TAKEOFF_REACH / this.lapMetres;
+      for (const [f0] of p.flight.hops) {
+        const ahead = f0 - f - Math.floor(f0 - f);
+        if (ahead > 0 && ahead < reach) jump = 'takeoff';
+      }
+    }
+    const s = this.surface;
+    const want = poseTargets({
+      turn,
+      speed: p.speed,
+      accel,
+      section: onStart ? null : s.track.sections[s.at(f).si]?.type ?? null,
+      jump,
+      gate: onStart && p.speed < 0.5,
+      wheelie: p.wheelie ?? 0,
+      off: !!p.down || p.state === 'crashed' || p.state === 'remount',
+    });
+    const quick = jump || ps.w.Air || ps.w.Land || ps.w.Takeoff;
+    ps.w = easePoses(ps.w, want, Math.min(0.1, dt), quick ? JUMP_POSE_RATE : POSE_RATE);
+    for (const m of ps.meshes) {
+      const keys = m.morphTargetDictionary!;
+      for (const n of RIDER_POSES) {
+        const i = keys[n];
+        if (i !== undefined) m.morphTargetInfluences![i] = ps.w[n] ?? 0;
+      }
+    }
+  }
+
+  /** A rider on foot in their kit, feet at the origin, facing +x, about as tall as the seated rider. */
+  private makeRunner(root: THREE.Group, kit: Kit): Runner {
+    const group = new THREE.Group();
+    const part = (geo: THREE.BufferGeometry, color: number, x: number, y: number, z: number, parent: THREE.Object3D) => {
+      const m = new THREE.Mesh(geo, this.mat(color));
+      m.position.set(x, y, z);
+      m.castShadow = true;
+      parent.add(m);
+      return m;
+    };
+    const HIP = 0.36;
+    const limb = (len: number, r: number, color: number, end: number, endR: number, x: number, y: number, z: number, parent: THREE.Object3D) => {
+      const pivot = new THREE.Group();
+      pivot.position.set(x, y, z);
+      part(new THREE.CapsuleGeometry(r, len - 2 * r, 3, 8), color, 0, -len / 2, 0, pivot);
+      part(new THREE.SphereGeometry(endR, 8, 6), end, 0.02, -len, 0, pivot);
+      parent.add(pivot);
+      return pivot;
+    };
+    const legs: [THREE.Group, THREE.Group] = [limb(HIP - 0.04, 0.065, kit.pants, kit.boot, 0.07, 0, HIP, -0.08, group), limb(HIP - 0.04, 0.065, kit.pants, kit.boot, 0.07, 0, HIP, 0.08, group)];
+    const upper = new THREE.Group();
+    upper.position.set(0, HIP, 0);
+    group.add(upper);
+    part(new THREE.BoxGeometry(0.2, 0.3, 0.3), kit.jersey, 0, 0.15, 0, upper);
+    part(new THREE.SphereGeometry(0.17, 12, 10), kit.helmet, 0.02, 0.45, 0, upper);
+    part(new THREE.BoxGeometry(0.06, 0.08, 0.2), kit.visor, 0.17, 0.45, 0, upper);
+    const arms: [THREE.Group, THREE.Group] = [limb(0.28, 0.05, kit.jersey, kit.glove, 0.05, 0, 0.27, -0.19, upper), limb(0.28, 0.05, kit.jersey, kit.glove, 0.05, 0, 0.27, 0.19, upper)];
+    group.visible = false;
+    root.add(group);
+    return { group, upper, legs, arms };
   }
 
   /** Bakes meshes (each with a plain coloured material) into one vertex-coloured, shadow-casting mesh. */
@@ -1947,6 +3236,56 @@ export class RaceView {
     return mesh;
   }
 
+  /**
+   * A sidecar's crew through the corners and over the jumps (Boss, 1 Nov 2026): `turn` is how hard
+   * the outfit is turning, positive to the right. In a left-hander the passenger hangs out over the
+   * chair, low and leaning out; in a right-hander they climb across over the back of the bike to
+   * keep the chair down. The rider leans a little into each turn. In the air and on landing both
+   * tuck down and forward. Eased, so the crew moves rather than snapping.
+   */
+  private crewPose(b: Bike, turn: number, air: boolean, dt: number): void {
+    const c = b.crew!;
+    const ease = 1 - Math.exp(-Math.min(0.1, dt) * 6);
+    c.hang += (Math.max(-1, Math.min(1, turn / 0.45)) - c.hang) * ease;
+    c.tuck += ((air ? 1 : 0) - c.tuck) * ease;
+    const rider = c.pivots.get('Rider');
+    const passenger = c.pivots.get('Passenger');
+    const out = Math.max(0, -c.hang);
+    const over = Math.max(0, c.hang);
+    // A figure with its own poses as shape keys (Left, Right, Jump; core SIDECAR_CREW_POSES) blends
+    // between them and stays on its hips: the passenger's hang-out, climb across and jump grip as
+    // Boss shaped them. Without them, the whole figure is moved and turned about its hips.
+    const posed = new Set<THREE.Object3D>();
+    for (const pivot of [rider, passenger]) {
+      if (!pivot) continue;
+      pivot.traverse((o) => {
+        const m = o as THREE.Mesh;
+        const keys = m.isMesh ? m.morphTargetDictionary : undefined;
+        if (!keys || !m.morphTargetInfluences) return;
+        const set = (name: string, v: number) => {
+          const i = keys[name] ?? keys[name.toLowerCase()];
+          if (i !== undefined) {
+            m.morphTargetInfluences![i] = v;
+            posed.add(pivot);
+          }
+        };
+        // In the air the jump grip takes over from any corner pose, so the two never add up.
+        set('Left', out * (1 - c.tuck));
+        set('Right', over * (1 - c.tuck));
+        set('Jump', c.tuck);
+      });
+    }
+    // Model metres: +X forward, Y up, +Z to the right (the chair is at -Z).
+    for (const [pivot, k] of [[rider, 0.35], [passenger, 1]] as const) {
+      if (!pivot || posed.has(pivot)) continue;
+      const rest = pivot.userData.rest as THREE.Vector3;
+      // A left-hander: out over the chair; a right-hander: across over the bike.
+      pivot.position.set(rest.x - 0.12 * c.tuck * k - 0.1 * over * k, rest.y - (0.1 * c.tuck + 0.12 * out) * k, rest.z - 0.28 * out * k + 0.38 * over * k);
+      // Roll about the direction of travel into the turn, and bend forward in a tuck.
+      pivot.rotation.set(0.7 * c.hang * k, 0, -0.35 * c.tuck);
+    }
+  }
+
   /** Draws the riders at their poses. clock is race time, dt real seconds since the last frame. */
   update(riders: ViewRider[], clock: number, dt: number, focus: string | null): void {
     if (this.dead) return;
@@ -1961,7 +3300,14 @@ export class RaceView {
       let b = this.bikes.get(p.id);
       if (!b) {
         b = this.makeBike(r.color, r.player, r.look);
+        b.sidecar = r.look?.cls === SIDECAR_CLASS;
         this.bikes.set(p.id, b);
+      }
+      // Not on show: waiting off the start platform for their turn, or gone from the run-off (riderAI).
+      if (p.hidden) {
+        b.root.visible = false;
+        b.label.setVisible(false);
+        continue;
       }
       let dist = p.dist;
       // The second start row waits a bike length behind the gate and closes up as the race starts.
@@ -1973,50 +3319,103 @@ export class RaceView {
       for (const wh of [back, front]) wh.y = Math.max(wh.y, this.terrainAt(wh.x, wh.z));
       const mx = (back.x + front.x) / 2;
       const mz = (back.z + front.z) / 2;
-      const my = (back.y + front.y) / 2;
+      let my = (back.y + front.y) / 2;
       let yaw = Math.atan2(front.z - back.z, front.x - back.x);
       const run = Math.hypot(front.x - back.x, front.z - back.z);
       // A bike tips with the ground under its wheels, but never further than a steep jump face.
-      const pitch = Math.max(-0.7, Math.min(0.7, Math.atan2(front.y - back.y, run)));
+      let pitch = Math.max(-0.7, Math.min(0.7, Math.atan2(front.y - back.y, run)));
+      // In the air it flies as one piece: its middle on the hop's arc, turning steadily from the
+      // angle of the face it left to the angle of the landing.
+      const flying = onStart ? null : this.inFlight(p.flight, f, p.lane);
+      if (flying) {
+        if (flying.y !== null) my = flying.y;
+        pitch = flying.pitch;
+      }
       // Lean into the corner, more the faster the bike.
-      let lean = Math.max(-0.6, Math.min(0.6, s.curvatureAt(dist) * Math.min(p.speed, 20) * 0.9));
+      // A sidecar outfit stays flat on its three wheels (Boss, 1 Nov 2026); its crew lean instead (crewPose).
+      const turn = Math.max(-0.6, Math.min(0.6, s.curvatureAt(dist) * Math.min(p.speed, 20) * 0.9));
+      let lean = b.sidecar ? 0 : turn;
       if (p.state === 'wobble') yaw += 0.35 * Math.sin(clock * 16);
       b.root.position.set(mx, my, mz);
       b.root.rotation.set(0, -yaw, 0);
-      b.body.rotation.set(0, 0, 0);
+      b.body.rotation.set(0, 0, 0, 'XYZ');
       b.body.position.set(0, 0, 0);
-      if (p.state === 'crashed') {
-        // Down on its side, sliding.
-        b.body.rotation.set(Math.PI / 2.2, 0, 0);
+      if (p.down) {
+        // Thrown off, back on foot, back to the bike and on again (crashRecovery.ts); after a whip or
+        // scrub gone wrong it goes down on the side it was laid over to.
+        const bail = onStart ? null : this.bailAt(p.flight, f);
+        this.recover(b, p.down, p.stunt?.kind === 'loop', bail?.dir ?? b.side);
+        lean = 0;
+      } else if (p.state === 'crashed') {
+        // Down on its side, sliding: after a whip or scrub gone wrong, on the side it was laid over to.
+        const bail = onStart ? null : this.bailAt(p.flight, f);
+        b.body.rotation.set((bail?.dir ?? 1) * (Math.PI / 2.2), bail ? -bail.dir * 0.5 : 0, 0);
         b.body.position.set(0, 0.12, 0);
         lean = 0;
       } else {
         b.body.rotation.z = pitch;
         b.body.rotation.x = lean;
+        const trick = onStart ? null : this.trickAt(p.flight, f);
+        if (trick) {
+          // Swung across the line of flight and laid over, about the bike's middle, not its wheels; a
+          // whip swings the rear out round the headstock.
+          b.body.rotation.order = 'YXZ';
+          b.body.rotation.set(lean + trick.roll, trick.yaw, pitch);
+          TRICK_PIVOT.set(trick.kind === 'whip' ? BIKE_LENGTH * 0.35 : 0, 0.45, 0);
+          b.body.position.copy(TRICK_PIVOT).sub(TRICK_PIVOT.clone().applyEuler(b.body.rotation));
+        } else if (p.wheelie && !b.sidecar && !flying) {
+          // A subtle wheelie (wheelie.ts; Boss, 2 Nov 2026): the front lifts, the bike turning on its
+          // back wheel so the rear tyre stays on the ground.
+          // Shifted so the back axle sits where it would with no wheelie.
+          TRICK_PIVOT.set(-BIKE_LENGTH / 2, 0, 0);
+          const axle = TRICK_PIVOT.clone().applyEuler(b.body.rotation);
+          // Held across whoops or rollers (Boss's clip, 2 Nov 2026): the back wheel skims the tops,
+          // sinking a little between them, and the nose bobs a few degrees as it taps each one.
+          let drop = 0;
+          if (p.wheelieHold) drop = 0.2 * Math.min(0, s.height(f - BIKE_LENGTH / 2 / s.g.total, p.lane) - back.y);
+          b.body.rotation.z = pitch + p.wheelie + Math.min(0.08, -drop / BIKE_LENGTH);
+          b.body.position.copy(axle).sub(TRICK_PIVOT.applyEuler(b.body.rotation));
+          b.body.position.y += drop;
+        }
       }
-      b.root.visible = !(p.state === 'remount' && !blink);
+      if (b.crew) this.crewPose(b, p.down || p.state === 'crashed' ? 0 : turn, !p.down && (p.air > 0.25 || !!flying), dt);
+      else if (b.poses) this.riderPose(b, p, f, onStart, turn, !p.down && (p.air > 0.25 || !!flying), dc, dt);
+      if (!p.down) {
+        if (b.runner) b.runner.group.visible = false;
+        b.rider.visible = true;
+        if (p.stunt?.kind === 'loop') this.loopOut(b, p.stunt.t);
+        else {
+          b.rider.position.copy(b.body.position);
+          b.rider.quaternion.copy(b.body.quaternion);
+        }
+      }
+      b.root.visible = !!p.down || !(p.state === 'remount' && !blink);
       if (p.id === focus) target = new THREE.Vector3(mx, my, mz);
       if (r.player) this.marker.position.set(mx, my + 1.75 + 0.08 * Math.sin(clock * 4), mz);
       b.label.setText(r.player ? '' : r.label).setVisible(!r.player && p.state !== 'retired');
       // Dust off the back wheel.
       if (dc > 0 && p.speed > 6 && p.air < 0.15 && p.state === 'riding' && Math.abs(p.lane) <= 1) {
         const n = Math.min(2, dc * p.speed * 0.12);
-        const water = !onStart && this.patchAt(f) === 0x4a86c0;
-        for (let k = 0; k < n || (k === 0 && noise(clock * 977 + mx) < n); k++) this.puff(back.x, back.y + 0.1, back.z, water ? 0xdff0ff : 0xcaa478);
+        const water = !onStart && (this.patchAt(f) === 0x4a86c0 || this.waterSpans.some(([a, b]) => f >= a && f <= b));
+        for (let k = 0; k < n || (k === 0 && noise(clock * 977 + mx) < n); k++) this.puff(back.x, back.y + 0.1, back.z, water ? 0xdff0ff : this.look.spray);
       }
     }
     this.agePuffs(Math.min(1, dc * 1.4 + dt * 0.3));
+    if (this.laps && this.showFireworks && hasFireworks(this.track.kind)) this.updateFireworks(dc, riders);
     this.updateStart(clock);
+    for (const mixer of this.loops) mixer.update(Math.min(0.1, dt));
     if (this.marshals.length) this.updateMarshals(Math.min(0.1, dt), clock, riders.map((r) => r.pose));
     if (this.flaggers.length || this.crews.length) this.updateFinishCrew(Math.min(0.1, dt), clock, riders);
-    if (this.cheers.length) {
+    if (this.cheers.length || this.trackers.length || this.flashes.length || this.drones.length || this.cheerParts.length) {
       const spots: { x: number; z: number }[] = [];
       for (const r of riders) { const b = this.bikes.get(r.pose.id); if (b && r.pose.state !== 'retired') spots.push({ x: b.root.position.x, z: b.root.position.z }); }
-      this.updateCheers(Math.min(0.1, dt), spots);
+      if (this.cheers.length) this.updateCheers(Math.min(0.1, dt), spots);
+      if (this.trackers.length || this.flashes.length || this.drones.length || this.cheerParts.length) this.updateLiveParts(Math.min(0.1, dt), spots);
     }
     if (!riders.some((r) => r.player && r.pose.state !== 'retired')) this.marker.visible = false;
     else this.marker.visible = true;
     this.moveCamera(target, dt);
+    this.updateRain(dt);
     this.fadeBlockers(riders);
     const r0 = performance.now();
     this.renderer.render(this.scene3, this.camera);
@@ -2034,6 +3433,189 @@ export class RaceView {
     if (this.frameMs.length > 600) this.frameMs.shift();
   }
 
+  /**
+   * A rider down after a crash, t seconds in (crashRecovery.ts): thrown a short way off the bike
+   * (or off the back, after a loop-out), down a moment, up, running back to it, lifting it upright
+   * by the bars from its top side, and back on. `side` is the side the bike goes down on.
+   */
+  private recover(b: Bike, down: { t: number; lost: number }, loop: boolean, side: number): void {
+    const smooth = (x: number) => { const k = Math.max(0, Math.min(1, x)); return k * k * (3 - 2 * k); };
+    const { phase, k } = downPhase(down.t, down.lost);
+    const runner = (b.runner ??= this.makeRunner(b.root, b.kit));
+    const thrown = phase === 'thrown';
+    // The bike lying where it fell, and the rider lying where they landed.
+    const LIE = new THREE.Euler(side * 0.35, 0, Math.PI / 2, 'XYZ');
+    let hip: THREE.Vector3;
+    if (loop) {
+      this.loopOut(b, thrown ? Math.min(k * 0.7, 0.7) : 0.7);
+      hip = new THREE.Vector3(-BIKE_LENGTH / 2 - 0.55, 0.12, b.side * 0.5);
+      side = b.side;
+    } else {
+      const fall = thrown ? smooth(k / 0.5) : 1;
+      b.body.rotation.set(side * (Math.PI / 2.2) * fall, -side * 0.5 * fall, 0, 'XYZ');
+      b.body.position.set(0, 0.12 * fall, 0);
+      hip = new THREE.Vector3(BIKE_LENGTH * 1.5, 0.12, side * 0.85);
+      if (thrown) {
+        // Over the bars in a short tumbling arc, landing on their back.
+        const start = b.seat.clone();
+        const at = start.clone().lerp(hip, smooth(k));
+        at.y = start.y + (0.12 - start.y) * smooth(k) + 0.35 * Math.sin(Math.PI * k);
+        b.rider.rotation.set(side * (0.35 + 2 * Math.PI * smooth(k)), 0, (Math.PI / 2) * smooth(k), 'XYZ');
+        b.rider.position.copy(at).sub(b.seat.clone().applyEuler(b.rider.rotation));
+      }
+    }
+    if (thrown || phase === 'down') {
+      runner.group.visible = false;
+      b.rider.visible = true;
+      if (phase === 'down') {
+        b.rider.rotation.copy(LIE);
+        b.rider.position.copy(hip).sub(b.seat.clone().applyEuler(LIE));
+      }
+      return;
+    }
+    // Back on foot. The spot to lift the bike from: beside its bars on its top side.
+    const lying = { pos: b.body.position.clone(), quat: b.body.quaternion.clone() };
+    const spot = new THREE.Vector3(BIKE_LENGTH * 0.25, 0, side * 0.75);
+    const g = runner.group;
+    const face = (dx: number, dz: number) => Math.atan2(-dz, dx);
+    const pose = (legSwing: number, armSwing: number, bend: number, reach: number) => {
+      runner.legs[0].rotation.set(0, 0, legSwing);
+      runner.legs[1].rotation.set(0, 0, -legSwing);
+      runner.arms[0].rotation.set(0, 0, -armSwing + reach);
+      runner.arms[1].rotation.set(0, 0, armSwing + reach);
+      runner.upper.rotation.set(0, 0, -bend);
+    };
+    b.rider.visible = phase === 'mount' && k >= 0.6;
+    g.visible = !b.rider.visible;
+    if (phase === 'up') {
+      // Up off their back, turning to face the bike.
+      const e = smooth(k);
+      g.position.set(hip.x, 0, hip.z);
+      g.rotation.set(0, face(spot.x - hip.x, spot.z - hip.z), (Math.PI / 2) * (1 - e), 'YXZ');
+      pose(0.6 * (1 - e), 0, 0.5 * (1 - e), 0.4 * (1 - e));
+    } else if (phase === 'run') {
+      const at = hip.clone().lerp(spot, smooth(k));
+      g.position.set(at.x, 0.04 * Math.abs(Math.sin(k * Math.PI * 4)), at.z);
+      g.rotation.set(0, face(spot.x - hip.x, spot.z - hip.z), 0, 'YXZ');
+      const swing = 0.9 * Math.sin(k * Math.PI * 4) * Math.min(1, k * 4, (1 - k) * 4);
+      pose(swing, swing * 0.8, 0.25, 0);
+    } else if (phase === 'lift') {
+      // Bent over the bars, then straightening as the bike comes up.
+      g.position.set(spot.x, 0, spot.z);
+      g.rotation.set(0, face(0, -side), 0, 'YXZ');
+      const e = smooth(k);
+      pose(0.15, 0, 0.9 * (1 - e) + 0.15, 1.3 - 0.5 * e);
+      b.body.quaternion.slerpQuaternions(lying.quat, IDENTITY, e);
+      b.body.position.lerpVectors(lying.pos, ORIGIN, e);
+    } else {
+      // A leg over and sat on.
+      b.body.rotation.set(0, 0, 0, 'XYZ');
+      b.body.position.set(0, 0, 0);
+      const e = smooth(k / 0.6);
+      g.position.set(spot.x + (b.seat.x - spot.x) * e, 0.1 * Math.sin(Math.PI * e), spot.z * (1 - e));
+      g.rotation.set(0, face(1, 0) * e + face(0, -side) * (1 - e), 0, 'YXZ');
+      pose(0.8 * Math.sin(Math.PI * e), 0, 0.2, 1.1);
+      b.rider.position.set(0, 0, 0);
+      b.rider.rotation.set(0, 0, 0);
+    }
+  }
+
+  /**
+   * A loop-out out of the gate (riderAI LOOP_RISE), t seconds from the rider coming off: the front
+   * comes up as the rider holds it wide open, the wheelie goes past the balance point and the bike
+   * goes over backwards on its rear wheel, landing upside down behind it. The rider is pitched off
+   * the back as it passes the point of no return and lands on their back to one side, clear of it.
+   */
+  private loopOut(b: Bike, t: number): void {
+    const smooth = (x: number) => { const k = Math.max(0, Math.min(1, x)); return k * k * (3 - 2 * k); };
+    const ease = (x: number) => { const k = Math.max(0, Math.min(1, x)); return k * k; };
+    const axle = LOOP_AXLE.set(-BIKE_LENGTH / 2, 0.22, 0);
+    const lost = 1.25;
+    const pivot = (theta: number, out: THREE.Vector3, from: THREE.Vector3) => out.copy(from).sub(axle).applyAxisAngle(Z_AXIS, theta).add(axle);
+    // The bike: up to the balance point, then over, then lying on its back (lifted onto its bars and seat).
+    const over = ease(t / 0.7);
+    const theta = t < 0 ? lost * ease((t + LOOP_RISE) / LOOP_RISE) : lost + (Math.PI - lost) * over;
+    b.body.rotation.set(t < 0 ? 0 : b.side * 0.35 * smooth(t / 0.7), 0, theta, 'XYZ');
+    // Turned about the rear axle, which stays on the ground.
+    b.body.position.copy(axle).sub(LOOP_TMP.copy(axle).applyEuler(b.body.rotation));
+    b.body.position.y += 0.34 * smooth(t / 0.7);
+    if (t < 0) {
+      b.rider.position.copy(b.body.position);
+      b.rider.quaternion.copy(b.body.quaternion);
+      return;
+    }
+    // The rider: from the seat at the balance point, off the back in a short arc, onto their back to the side.
+    const k = smooth(t / 0.55);
+    const start = pivot(lost, LOOP_TMP, b.seat);
+    const hip = new THREE.Vector3(-BIKE_LENGTH / 2 - 0.55, 0.12, b.side * 0.5);
+    hip.lerp(start, 1 - k);
+    hip.y = start.y + (0.12 - start.y) * k + 0.25 * Math.sin(Math.PI * k);
+    b.rider.rotation.set(b.side * 0.35 * k, 0, lost + (Math.PI / 2 - lost) * k, 'XYZ');
+    b.rider.position.copy(hip).sub(b.seat.clone().applyEuler(b.rider.rotation));
+  }
+
+  /**
+   * A whip or scrub in progress at lap fraction f of a flight, as the turn of the bike (tricks.ts),
+   * or null. A scrub starts leaning over on the face, APPROACH metres before the lip.
+   */
+  private trickAt(flight: Flight | null, f: number): { yaw: number; roll: number; kind: Trick['kind'] } | null {
+    if (!flight?.tricks) return null;
+    const pre = TRICK_APPROACH / this.lapMetres;
+    for (let i = 0; i < flight.hops.length; i++) {
+      const [f0, f1] = flight.hops[i];
+      const t = flight.tricks[i];
+      if (!t || f >= f1) continue;
+      if (f > f0) return { ...trickPose(t, (f - f0) / (f1 - f0)), kind: t.kind };
+      if (t.kind === 'scrub' && f > f0 - pre) return { ...trickPose(t, (f - f0) / pre), kind: t.kind };
+    }
+    return null;
+  }
+
+  /**
+   * A bike in the air at lap fraction f (its middle between a hop's take-off and landing): where
+   * its middle is on the arc, and its pitch. Turned by its wheels' heights instead, a bike on a
+   * short hop (a single) dipped its nose as soon as the front wheel passed the top of the arc,
+   * while the back wheel was still on the face, so it looked as if it rolled over the lip and
+   * left the ground late (Boss, 30 Oct 2026). A real bike leaves nose up at the face's angle and
+   * rotates slowly to meet the landing.
+   */
+  private inFlight(flight: Flight | null, f: number, lane: number): { y: number | null; pitch: number } | null {
+    if (!flight) return null;
+    const s = this.surface;
+    const half = BIKE_LENGTH / 2 / s.g.total;
+    const angle = (at: number) => {
+      const [back, front] = s.wheels(at, lane, flight);
+      return Math.max(-0.7, Math.min(0.7, Math.atan2(front.y - back.y, BIKE_LENGTH)));
+    };
+    let last = -Infinity;
+    for (const [f0, f1] of flight.hops) {
+      // From the front wheel reaching the lip to the back wheel touching down. Off a tyre tap (a hop
+      // taking off where the last landed; jumps.ts tapsAfter) it carries on from the tap, the bike
+      // pivoting on its back wheel with the front still up, never dipping its nose to the hump.
+      const tap = Math.abs(f0 - last) < 1e-9;
+      const from = tap ? f0 + half : f0 - half;
+      last = f1;
+      const to = f1 + half;
+      if (f <= from || f >= to) continue;
+      const k = (f - from) / (to - from);
+      const e = k * k * (3 - 2 * k);
+      // Its middle rides the arc while it is over the gap; either end, its wheels still say where it is.
+      return { y: f > f0 && f < f1 ? s.flightY(f, lane, flight) : null, pitch: angle(from) * (1 - e) + angle(to) * e };
+    }
+    return null;
+  }
+
+  /** The trick gone wrong a rider has just landed from at lap fraction f, if any: they go down on its side. */
+  private bailAt(flight: Flight | null, f: number): Trick | null {
+    if (!flight?.tricks) return null;
+    const near = 6 / this.lapMetres;
+    for (let i = 0; i < flight.hops.length; i++) {
+      const t = flight.tricks[i];
+      if (t?.bail && f >= flight.hops[i][1] - near && f <= flight.hops[i][1] + near) return t;
+    }
+    return null;
+  }
+
   private softDot(): THREE.Texture {
     const cv = document.createElement('canvas');
     cv.width = cv.height = 32;
@@ -2044,6 +3626,72 @@ export class RaceView {
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 32, 32);
     return new THREE.CanvasTexture(cv);
+  }
+
+  // ---- the weather (core/weatherLook.ts; Boss, 5 Nov 2026) ----
+
+  /** Puddles on the racing surface in the rain: flat, dark, shiny pools across the lap, off the jumps. */
+  private buildPuddles(): THREE.Group {
+    const s = this.surface;
+    const group = new THREE.Group();
+    const mat = new THREE.MeshPhongMaterial({ color: 0x2e3a46, specular: 0xc8d8e8, shininess: 80, transparent: true, opacity: 0.8, depthWrite: false });
+    const geo = new THREE.CircleGeometry(1, 20);
+    const count = Math.round((this.look.puddles * s.g.total) / 100);
+    for (let i = 0; i < count * 3 && group.children.length < count; i++) {
+      const f = noise(i * 53 + 7);
+      if (!this.drawn(f) || s.tunnelAt(f)) continue;
+      const lane = (noise(i * 17 + 3) - 0.5) * 1.2;
+      const d = 0.6 / s.g.total;
+      const h = s.height(f, lane);
+      // Water lies only where the track is level: never on a jump's face or a bank.
+      if (Math.abs(s.height(f + d, lane) - h) > 0.04 || Math.abs(s.height(f - d, lane) - h) > 0.04 || Math.abs(s.height(f, lane + 0.3) - h) > 0.04) continue;
+      const p = s.spot(f, lane);
+      const q = s.spot(f + d, lane);
+      const m = new THREE.Mesh(geo, mat);
+      // Laid flat, its long side along the track.
+      m.rotation.order = 'YXZ';
+      m.rotation.set(-Math.PI / 2, -Math.atan2(q.z - p.z, q.x - p.x), 0);
+      const len = 0.5 + noise(i * 29) * 0.7;
+      m.scale.set(len, len * (0.45 + 0.3 * noise(i * 41)), 1);
+      m.position.set(p.x, h + 0.025, p.z);
+      m.renderOrder = 2;
+      group.add(m);
+    }
+    return group;
+  }
+
+  /** The falling rain: thin pale streaks in a box round the camera's spot, slanting a little in the wind. */
+  private buildRain(): void {
+    const n = this.look.drops;
+    const pos = new Float32Array(n * 6);
+    const R = this.viewUnits * 0.75;
+    for (let i = 0; i < n; i++) {
+      const x = (noise(i * 13 + 1) - 0.5) * 2 * R;
+      const z = (noise(i * 7 + 5) - 0.5) * 2 * R;
+      const y = noise(i * 3 + 11) * RAIN_TOP;
+      pos.set([x, y, z, x + RAIN_SLANT, y - RAIN_STREAK, z + RAIN_SLANT * 0.4], i * 6);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const lines = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0xdce6f0, transparent: true, opacity: 0.35 + 0.25 * this.look.wet, depthWrite: false }));
+    lines.frustumCulled = false;
+    lines.renderOrder = 5;
+    this.scene3.add(lines);
+    this.rain = { lines, pos, speed: 26 + 10 * this.look.wet };
+  }
+
+  private updateRain(dt: number): void {
+    const r = this.rain;
+    if (!r) return;
+    if (this.cam) r.lines.position.set(this.cam.x, this.cam.y, this.cam.z);
+    const fall = r.speed * Math.min(0.1, dt);
+    for (let i = 0; i < r.pos.length; i += 6) {
+      let y = r.pos[i + 1] - fall;
+      if (y < 0) y += RAIN_TOP;
+      r.pos[i + 1] = y;
+      r.pos[i + 4] = y - RAIN_STREAK;
+    }
+    (r.lines.geometry.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true;
   }
 
   /** A puff of dust (or spray): one of a pool of camera-facing quads drawn in a single batch. */
@@ -2065,6 +3713,103 @@ export class RaceView {
     this.puffs[i] = { x: x + (noise(x * 91) - 0.5) * 0.2, y, z: z + (noise(z * 37) - 0.5) * 0.2, life: 1 };
     this.dust.setColorAt(i, new THREE.Color(color));
     this.dust.instanceColor!.needsUpdate = true;
+  }
+
+  /**
+   * The finish fireworks (core/fireworks.ts, Boss, 30 Oct 2026): from a little before the winner
+   * crosses the line, rockets go up from the tops of the finish arch's posts and burst over the
+   * track. Run on the race clock, so they stop with Pause. A track with no arch has them go up from
+   * either side of the finish line.
+   */
+  private updateFireworks(dc: number, riders: ViewRider[]): void {
+    const s = this.surface;
+    if (!this.fireworks) {
+      if (!fireworksDue(this.laps, FIREWORK_LEAD / s.g.total, riders.map((r) => r.pose))) return;
+      if (!this.archTops.length) {
+        const f = s.raised ? 1 - 1e-4 : 0;
+        const top = s.height(f, 0) + 5;
+        this.archTops.push([-1, 1].map((side) => {
+          const p = s.spot(f, side * 1.2);
+          return new THREE.Vector3(p.x, top, p.z);
+        }) as [THREE.Vector3, THREE.Vector3]);
+      }
+      this.fireworks = { show: fireworkShow(), at: 0, sparks: null, pos: new Float32Array(SPARKS * 3), col: new Float32Array(SPARKS * 3), vel: new Float32Array(SPARKS * 3), life: new Float32Array(SPARKS), full: new Float32Array(SPARKS), base: new Float32Array(SPARKS * 3), free: 0 };
+      const fw = this.fireworks;
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(fw.pos, 3).setUsage(THREE.DynamicDrawUsage));
+      geo.setAttribute('color', new THREE.BufferAttribute(fw.col, 3).setUsage(THREE.DynamicDrawUsage));
+      const mat = new THREE.PointsMaterial({ size: 1, sizeAttenuation: false, map: this.puffMap, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+      fw.sparks = new THREE.Points(geo, mat);
+      fw.sparks.frustumCulled = false;
+      this.scene3.add(fw.sparks);
+    }
+    const fw = this.fireworks;
+    if (dc <= 0) return;
+    const at = fw.at + dc;
+    fw.at = at;
+    const spark = (x: number, y: number, z: number, vx: number, vy: number, vz: number, life: number, color: number) => {
+      const i = fw.free;
+      fw.free = (i + 1) % SPARKS;
+      fw.pos.set([x, y, z], i * 3);
+      fw.vel.set([vx, vy, vz], i * 3);
+      fw.base.set([((color >> 16) & 255) / 255, ((color >> 8) & 255) / 255, (color & 255) / 255], i * 3);
+      fw.life[i] = life;
+      fw.full[i] = life;
+    };
+    // Each rocket in the air leaves a trail of sparks, and bursts at the top of its climb.
+    fw.show.forEach((r, k) => {
+      if (at < r.t) return;
+      const u0 = (at - dc - r.t) / ROCKET_RISE;
+      const u = (at - r.t) / ROCKET_RISE;
+      if (u0 >= 1) return;
+      for (const [a, b] of this.archTops) {
+        const from = r.side < 0 ? a : b;
+        const to = r.side < 0 ? b : a;
+        const across = to.clone().sub(from).setY(0).normalize();
+        const where = (v: number) => {
+          const e = 1 - (1 - Math.min(1, v)) ** 2;
+          return from.clone().addScaledVector(across, r.drift * v).setY(from.y + r.height * e);
+        };
+        const p = where(u);
+        if (u < 1) {
+          spark(p.x, p.y, p.z, 0, -0.6, 0, 0.35, 0xffe0a0);
+          continue;
+        }
+        for (let n = 0; n < r.sparks; n++) {
+          // Spread evenly over a sphere, a little jitter so no two bursts look the same.
+          const yv = 1 - (2 * (n + 0.5)) / r.sparks;
+          const rad = Math.sqrt(1 - yv * yv);
+          const th = n * 2.39996 + k;
+          const sp = 3.4 + noise(k * 131 + n) * 1.4;
+          const c = noise(k * 17 + n) < 0.08 ? 0xffffff : r.color;
+          spark(p.x, p.y, p.z, Math.cos(th) * rad * sp, yv * sp, Math.sin(th) * rad * sp, 1.3 + noise(k * 7 + n * 3) * 0.7, c);
+        }
+      }
+    });
+    // Sparks slow in the air, fall, and fade out with a twinkle at the end.
+    const drag = Math.exp(-dc * 1.6);
+    for (let i = 0; i < SPARKS; i++) {
+      if (fw.life[i] <= 0) continue;
+      fw.life[i] -= dc;
+      const j = i * 3;
+      fw.vel[j] *= drag;
+      fw.vel[j + 1] = fw.vel[j + 1] * drag - 4 * dc;
+      fw.vel[j + 2] *= drag;
+      fw.pos[j] += fw.vel[j] * dc;
+      fw.pos[j + 1] += fw.vel[j + 1] * dc;
+      fw.pos[j + 2] += fw.vel[j + 2] * dc;
+      const k = Math.max(0, fw.life[i] / fw.full[i]);
+      const glow = k < 0.3 ? k * (0.5 + 0.5 * Math.sin(fw.life[i] * 60 + i)) * 3 : Math.min(0.85, k * 1.4);
+      fw.col[j] = fw.base[j] * glow;
+      fw.col[j + 1] = fw.base[j + 1] * glow;
+      fw.col[j + 2] = fw.base[j + 2] * glow;
+    }
+    // An orthographic camera draws points a fixed number of pixels across: kept at a spark's size in the scene.
+    const c = this.camera;
+    (fw.sparks!.material as THREE.PointsMaterial).size = (SPARK_SIZE * this.renderer.domElement.height * c.zoom) / (c.top - c.bottom);
+    const geo = fw.sparks!.geometry;
+    geo.attributes.position.needsUpdate = true;
+    geo.attributes.color.needsUpdate = true;
   }
 
   private agePuffs(k: number): void {
@@ -2114,8 +3859,24 @@ export class RaceView {
       const p = this.surface.place(this.surface.start.from, 0);
       return new THREE.Vector3(p.x, 0, p.z);
     })();
+    // A steady TV-style camera (Boss, 1 Nov 2026): it pans after the rider smoothly, and only slowly
+    // follows their height, so jumps, whoops and bumps don't bounce the picture; hills still come through.
+    {
+      // The view's width at the zoom, kept up to date as the zoom button cycles.
+      const halfW = this.viewUnits / 2 / Math.max(1, this.zoom);
+      const halfH = (halfW * this.h) / this.w;
+      const c = this.camera;
+      if (c.right !== halfW || c.top !== halfH) {
+        Object.assign(c, { left: -halfW, right: halfW, top: halfH, bottom: -halfH });
+        c.updateProjectionMatrix();
+      }
+    }
     if (!this.cam || want.distanceTo(this.cam) > this.viewUnits) this.cam = want.clone();
-    else this.cam.lerp(want, 1 - Math.exp(-dt * 9));
+    else {
+      const pan = 1 - Math.exp(-dt * CAM_PAN);
+      const rise = 1 - Math.exp(-dt * CAM_RISE);
+      this.cam.set(this.cam.x + (want.x - this.cam.x) * pan, this.cam.y + (want.y - this.cam.y) * rise, this.cam.z + (want.z - this.cam.z) * pan);
+    }
     this.camera.position.copy(this.cam).addScaledVector(this.dir, 120);
     this.camera.lookAt(this.cam);
     // The sun follows the camera so shadows near the action stay sharp.
@@ -2223,7 +3984,7 @@ export class RaceView {
     g.clear();
     const order = [...riders].sort((a, b) => Number(a.player) - Number(b.player));
     for (const r of order) {
-      if (r.pose.state === 'retired') continue;
+      if (r.pose.state === 'retired' || r.pose.hidden) continue;
       const q = this.surface.place(r.pose.dist, 0);
       const p = { x: q.x, y: q.z };
       g.fillStyle(r.color, 1).fillCircle(box.x + p.x * box.k, box.y + p.y * box.k, r.player ? 4 : 2.6);

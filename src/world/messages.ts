@@ -6,7 +6,7 @@ import type { MapObject } from '../core/mapTypes';
 const ACTIONS: Record<string, string> = {
   outfit: 'Changing outfits',
   'storage.parts': 'Parts storage',
-  'storage.tools': 'Tool storage',
+  'storage.tools': 'Your tools',
   'train.bodyweight': 'Bodyweight training',
   'workshop.fit_tune': 'Fitting and tuning',
   'workshop.bike': 'Working on bikes',
@@ -18,7 +18,7 @@ const ACTIONS: Record<string, string> = {
   'shop.display_bike': 'The display bike',
   'shop.bike_parts': 'The parts shop',
   'shop.tyres_wheels': 'The tyres and wheels shop',
-  'shop.tool_sets': 'The tool set shop',
+  'shop.tool_sets': "J's Tools",
   'shop.van': 'Buying the motor',
   'story.neighbour_pc': "The neighbour's computer",
   'job.shift': 'Work shifts',
@@ -26,6 +26,13 @@ const ACTIONS: Record<string, string> = {
   'train.bodywork_fitting': 'Bodywork fitting training',
   'jobs.fabrication': 'Fabrication jobs',
   'train.machining': 'Machining training',
+  'train.brake_bleeding': 'Brake bleeding training',
+  'train.suspension_service': 'Suspension service training',
+  'train.suspension_bleed': 'Suspension bleeding training',
+  'train.frame_dressing': 'Frame dressing training',
+  'train.gearbox_test': 'Gearbox testing training',
+  'train.flow_test': 'Flow testing training',
+  'train.dyno_test': 'Dyno testing training',
   'train.engine_build': 'Engine building',
   'jobs.engine': 'Engine jobs',
   'story.modifier_machine': 'The modifier machine',
@@ -40,6 +47,9 @@ export const actionName = (action: string): string => ACTIONS[action] ?? pretty(
 const NOW: Record<string, (flags: Record<string, boolean>) => string> = {
   'shop.van': (f) => (f.van_owned ? "The motor's yours. It's parked outside your room." : 'Used motor: £600, no haggling. Talk to Jedrick.'),
   'workshop.fit_tune': () => 'The garage workbench. Nothing to fit right now.',
+  // The tutorial's tyre machine in the Home Town garage. The other spots that only said "Nothing to do
+  // here" came off the maps, their art left in place (Boss, 6 Nov 2026).
+  'train.tyre_change': () => 'The tyre machine. Nothing needs new tyres right now.',
   'storage.parts': (f) => (f.van_loaded ? 'Your spares are packed in the motor.' : 'Your spares chest.'),
   // Shops open once the opening chain is done; until then they only say they're busy.
   'shop.bike_parts': () => "The parts counter. They're busy with the garage's order. Check your task.",
@@ -54,7 +64,8 @@ export function actionMessage(o: MapObject, flags: Record<string, boolean> = {})
       const action = String(o.props.action ?? '');
       if (NOW[action]) return NOW[action](flags);
       const what = ACTIONS[action] ?? pretty(action || o.name);
-      return `${pretty(o.name)}: ${what} comes in a later build.`;
+      // No "later build" talk in v2.0 (Boss, 5 Nov 2026: nothing is release locked).
+      return `${pretty(o.name)}: ${what}. Nothing to do here right now.`;
     }
     case 'click':
       return `${o.name}: nobody's in right now.`;

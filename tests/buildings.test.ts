@@ -11,7 +11,11 @@ const T = 64;
 
 /** The Home Town map file as it stands (Alpha v1: 2×2 road exits and the local racer outside the garage). */
 // Updated for the Used Motors building and its seller (Boss, 28 Oct 2026), the garage renamed Phoenix MX and Used Motors renamed Nicholls Used Motors and the bike shop renamed Moto78 (29 Oct 2026).
-const HOME_TOWN_SHA256 = '30d047f8b45cbc5efa088fb475005aeb35fc64812c43652a04c77fdb6a7f8400';
+// The closed south road's edge row narrowed to the Capital's road width under the roadworks gravel (Boss, 31 Oct 2026: "slim it down to normal road width").
+// The north and south roads' roadworks became roadblocks with their exits, opened by Area 2 and by winning the Area 8 Championship (Boss, 1 Nov 2026).
+// The hidden walk-in spots for the practice track and the running track removed: Tasha runs the running (Boss, 4 Nov 2026).
+// Collisions and objects sorted by Boss in the map editor (Boss, 5 Nov 2026).
+const HOME_TOWN_SHA256 = 'fa97489d99366bc2bfdfd3eab2f20a45390a2758c361c6bda8de725772b1f648';
 
 function pngSize(rel: string): [number, number] {
   const b = fs.readFileSync(`public/assets/${rel}`);
@@ -37,7 +41,10 @@ describe('building library', () => {
   it('matches every building on every map, and passes its own checks', () => {
     expect(problems(lib)).toEqual([]);
     const placed = [...maps.values()].flatMap((m) => m.objects.filter((o) => o.type === 'building').map((o) => String(o.props.blueprint)));
-    expect(placed.length).toBe(16);
+    // Area 1's 16, Mountain Town's 10, Beach Town's 11, Forest Town's 10, Western Works' 10, the Highlands' 10, The City's 10 and the Capital's 10 (drawn, Boss, 31 Oct 2026), and 12 more
+    // for every town still stamped from Home Town (tools/gen-area.mjs).
+    const stamped = JSON.parse(fs.readFileSync('public/data/areas.json', 'utf8')).areas.filter((a: { town?: unknown }) => a.town).length - 7;
+    expect(placed.length).toBe(16 + 10 + 11 + 10 + 10 + 10 + 10 + 10 + 12 * stamped);
     for (const id of placed) expect(lib.buildings.some((b) => b.id === id), id).toBe(true);
   });
 

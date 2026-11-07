@@ -206,7 +206,7 @@ Steps:
 3. Put your PNG in it.
 4. Open `tools/map-editor.html` in Chrome or Edge (double-click it, or go to <http://localhost:5173/tools/map-editor.html> while `npm run dev` is running).
 5. Click **Open folder…** and pick the `public` folder inside the game folder.
-6. Pick a map in the list at the top (for example `area1-venue-farmland`).
+6. Pick a map in the list at the top (for example `venue-motocross`).
 7. In the **Palette** list on the right, pick `my-tiles`. Your tile appears.
 8. Click it, then click the map to paint.
 9. Click **Save**.
@@ -220,7 +220,7 @@ Steps:
 
 *The same tile in the game, on Farmland MX.*
 
-> ⚠️ **Do not edit Home Town for practice.** Home Town's map file is protected by a test. Any change to it makes `npm test` fail with "Home Town changed". Practise on another map, such as `area1-venue-farmland`.
+> ⚠️ **Do not edit Home Town for practice.** Home Town's map file is protected by a test. Any change to it makes `npm test` fail with "Home Town changed". Practise on another map, such as `venue-motocross`.
 
 ### 5.2 Map props (objects that stand on the map)
 
@@ -308,7 +308,7 @@ You can add an eleventh by adding one entry to that file. This is **data, not co
 
 ### 5.5 A new colour of surface patch
 
-Surface patches (Mud, Sand, Water splash, Ruts, Loose stones, Concrete pad) are coloured stripes along the track. They are listed under `"surfaces"` in `public/data/trackParts.json`, like this:
+Surface patches (Mud, Sand, Water splash, Loose stones, Concrete pad) are coloured stripes along the track. Ruts was taken out on 2 Nov 2026 (Boss): it was only a darker stripe, and the Rutted corner section and ruts deepening through the day are the real ruts; an older track's Ruts patches are dropped when it loads (`RETIRED_SURFACES` in `src/core/trackParts.ts`). They are listed under `"surfaces"` in `public/data/trackParts.json`, like this:
 
 ```json
 {"id": "mud", "name": "Mud", "color": "#5a3d22"},
@@ -428,7 +428,7 @@ Features are placed **on top of** the route. In **Layout** mode, the **Features*
 1. Click a feature type, such as **Tabletop**.
 2. Move the pointer onto the route. A band shows where it would go. **,** and **.** make it shorter or longer (2 to 60 grid units).
 3. Click to place it.
-4. Afterwards, drag it along the route, drag its **white diamonds** to stretch it, or press **Del** to remove it. Its line and jump height are under **Sections**.
+4. Afterwards, drag it along the route, drag its **white diamonds** to stretch it, or press **Del** to remove it. Its line and jump height are under **Sections**. A jump or hill set taller than its usual height takes longer to ride: its face is longer and the climb costs speed, so the section races as if it were longer (`src/core/climb.ts`; Boss, 2 Nov 2026). Lower than usual changes nothing.
 
 Good to know:
 
@@ -573,7 +573,7 @@ Ground tiles are drawn on a black background. Fill every pixel, or put your see-
 
 1. **Reload the game page.** The game keeps a copy of each map's ground while it is open.
 2. **The map was not saved.** Look for "● unsaved" at the top of the map editor, and click **Save**.
-3. **The saved file went to your Downloads folder.** In browsers other than Chrome and Edge (or if you opened the folder a certain way), Save downloads the file instead, and the button says **Save (download)**. Copy the downloaded file over the one named in the status line, such as `public/assets/maps/area1-venue-farmland.json`.
+3. **The saved file went to your Downloads folder.** In browsers other than Chrome and Edge (or if you opened the folder a certain way), Save downloads the file instead, and the button says **Save (download)**. Copy the downloaded file over the one named in the status line, such as `public/assets/maps/venue-motocross.json`.
 4. **You edited the Tiled source map (`.tmj`) instead of the game map.** Tiled maps only reach the game after `npm run import-art` (read the warning in 5.9 first).
 
 ### My track does not appear under Mod Track

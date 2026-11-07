@@ -1,0 +1,252 @@
+// The rider's house: the wardrobe and the storage chest (Spec 17; Areas 2 to 8 plan). Boss, 30 Oct
+// 2026: buying the Area 2 Starter terrace unlocks the wardrobe, and with it the clothing rack at
+// Phoenix MX in every area from Mountain Town on; every house bought later is a home in that town
+// that reaches the one shared storage. Numbers and the outfits live in data/house.json.
+import { pence, type CareerState } from './career';
+import { SPARE, roomFor, fullMessage, type ShopsData, type SparePart } from './shops';
+import type { Schema } from './validate';
+
+export interface OutfitDef {
+  id: string;
+  name: string;
+  /** Pounds. */
+  price: number;
+  /** The character sheet for each rider (m or f); a rider with no sheet here can't buy it. `start` has none: it is the rider's own look. */
+  sheets: Record<string, string>;
+  desc?: string;
+  /** Never on the rack: given with the champion's offer (Boss, 31 Oct 2026). */
+  award?: boolean;
+  /**
+   * The kit's colours in the race view, for each rider (m or f) as in sheets (Boss, 6 Nov 2026: "the
+   * colour they chose or are wearing should be the replicated in the race view"). Wearing an outfit
+   * without one, you race in the starter kit.
+   */
+  race?: Record<string, OutfitRace>;
+}
+
+/** The cloth colours a race kit can use: the character sheets' cloth ramps (art/characters/characters.json). */
+export const RACE_CLOTH = ['red', 'blue', 'navy', 'royal', 'green', 'lime', 'olive', 'yellow', 'orange', 'pink', 'purple', 'teal', 'white', 'grey', 'black'] as const;
+export type RaceCloth = (typeof RACE_CLOTH)[number];
+
+/** A kit's colours on the race day rider: each item's cloth, as the outfit's sprite wears it. */
+export interface OutfitRace {
+  helmet: RaceCloth;
+  /** The helmet's second colour. */
+  trim: RaceCloth;
+  goggles: RaceCloth;
+  jersey: RaceCloth;
+  gloves: RaceCloth;
+  pants: RaceCloth;
+  boots: RaceCloth;
+  /**
+   * The kit's main colour (its jersey's) takes the bike brand's colour, as the rack's kits do about town
+   * (tools/art/kit-brands.py, shownLook; Boss, 2 Nov 2026).
+   */
+  brand?: boolean;
+}
+
+export interface HouseData {
+  outfits: OutfitDef[];
+  /** The champion's kit: the outfit given with the sponsor's free bike after an area championship up to lastArea. */
+  kit?: { outfit: string; lastArea: number; note?: string };
+  rack: { needs: string; shops: string[] };
+  storage: { base: number; perExtraHouse: number };
+  /**
+   * Outfits picked from a set of five (GDD: "Player chooses from several designs when signing"; Boss,
+   * 5 Nov 2026): sponsor, on signing a sponsor; legends, once, after the after flag (the Legends trophy).
+   */
+  picks?: { note?: string; sponsor: string[]; legends: { after: string; done: string; outfits: string[] } };
+}
+
+/** What the save keeps about the rider's clothes: the look on now, the one they started with, and the outfits owned. */
+export interface RiderLook {
+  look: string;
+  startLook?: string;
+  outfits?: string[];
+}
+
+export const START_OUTFIT = 'start';
+
+/** m or f from a look's sheet name (player-m-start-a, player-f-mxgear...). */
+export const riderGender = (look: string): string => (look.match(/^player-([mf])-/)?.[1] ?? 'm');
+
+/** The sheet an outfit puts on this rider, or null when it isn't made for them. */
+export function outfitSheet(outfit: OutfitDef, rider: RiderLook): string | null {
+  if (outfit.id === START_OUTFIT) return rider.startLook ?? rider.look;
+  return outfit.sheets[riderGender(rider.startLook ?? rider.look)] ?? null;
+}
+
+export const ownsOutfit = (rider: RiderLook, id: string): boolean => id === START_OUTFIT || (rider.outfits ?? []).includes(id);
+
+/** The outfit the rider is wearing now. */
+export function wornOutfit(data: HouseData, rider: RiderLook): OutfitDef {
+  return data.outfits.find((o) => o.id !== START_OUTFIT && outfitSheet(o, rider) === rider.look) ?? data.outfits.find((o) => o.id === START_OUTFIT)!;
+}
+
+/**
+ * The champion's kit that comes with the sponsor's free bike for this milestone championship, or
+ * null: championships up to the kit's last area (Boss, 31 Oct 2026: Areas 1 to 4; from Area 5 a
+ * sponsor contract brings its own kit).
+ */
+export function championsKit(data: HouseData, championship: { id: string; milestone?: string }): OutfitDef | null {
+  if (!data.kit || !championship.milestone) return null;
+  const area = Number(/^area(\d+)\./.exec(championship.id)?.[1] ?? NaN);
+  if (!(area <= data.kit.lastArea)) return null;
+  return data.outfits.find((o) => o.id === data.kit!.outfit) ?? null;
+}
+
+/** The race colours of the outfit the rider is wearing, or null to race in the starter kit. */
+export function raceKit(data: HouseData, rider: RiderLook): OutfitRace | null {
+  return wornOutfit(data, rider).race?.[riderGender(rider.startLook ?? rider.look)] ?? null;
+}
+
+/** Hangs an awarded outfit in the wardrobe (nothing to pay, not put on here); nothing when it is there already. */
+export function awardOutfit(outfit: OutfitDef, rider: RiderLook): { ok: boolean; message: string } {
+  if (ownsOutfit(rider, outfit.id)) return { ok: false, message: `${outfit.name}: you have one already.` };
+  if (!outfitSheet(outfit, rider)) return { ok: false, message: `${outfit.name}: they had none in your size.` };
+  rider.startLook ??= rider.look;
+  (rider.outfits ??= []).push(outfit.id);
+  return { ok: true, message: `${outfit.name}: yours, hanging in the wardrobe.` };
+}
+
+/** The outfits of a pick the rider can still choose: awards in their size they don't own yet. */
+export function pickOptions(data: HouseData, ids: string[], rider: RiderLook): OutfitDef[] {
+  return ids.map((id) => data.outfits.find((o) => o.id === id)).filter((o): o is OutfitDef => !!o && !ownsOutfit(rider, o.id) && !!outfitSheet(o, rider));
+}
+
+/** Whether the Legends kit pick is waiting: the trophy won and the pick not made yet. */
+export const legendsPickDue = (data: HouseData, flags: Record<string, boolean>): boolean => !!data.picks && !!flags[data.picks.legends.after] && !flags[data.picks.legends.done];
+
+/** Whether the rack is open to this rider: it needs the wardrobe (the Area 2 house). */
+export const rackOpen = (data: HouseData, flags: Record<string, boolean>): boolean => !!flags[data.rack.needs];
+
+/** Why the rider can't buy this outfit at the rack, or null. */
+export function outfitProblem(data: HouseData, outfit: OutfitDef, career: CareerState, rider: RiderLook, flags: Record<string, boolean>): string | null {
+  if (!rackOpen(data, flags)) return 'Nothing on the rack is for sale until you have a wardrobe to hang it in.';
+  if (outfit.id === START_OUTFIT) return "Those are your own clothes.";
+  if (outfit.award) return "That one isn't for sale: it comes with a champion's offer.";
+  if (ownsOutfit(rider, outfit.id)) return 'You have that one.';
+  if (!outfitSheet(outfit, rider)) return "They don't do that one in your size.";
+  if (career.money < pence(outfit.price)) return `It's £${outfit.price}. You can't afford it.`;
+  return null;
+}
+
+/** Buys an outfit from the rack into the wardrobe (it isn't put on here). */
+export function buyOutfit(data: HouseData, outfit: OutfitDef, career: CareerState, rider: RiderLook, flags: Record<string, boolean>): { ok: boolean; message: string } {
+  const problem = outfitProblem(data, outfit, career, rider, flags);
+  if (problem) return { ok: false, message: problem };
+  career.money -= pence(outfit.price);
+  rider.startLook ??= rider.look;
+  (rider.outfits ??= []).push(outfit.id);
+  return { ok: true, message: `${outfit.name}: yours, hanging in the wardrobe.` };
+}
+
+/** Puts an owned outfit on at the wardrobe: the rider's look changes to its sheet. */
+export function wearOutfit(outfit: OutfitDef, rider: RiderLook): { ok: boolean; message: string } {
+  if (!ownsOutfit(rider, outfit.id)) return { ok: false, message: "That's not in your wardrobe." };
+  const sheet = outfitSheet(outfit, rider);
+  if (!sheet) return { ok: false, message: "It doesn't fit." };
+  rider.startLook ??= rider.look;
+  rider.look = sheet;
+  return { ok: true, message: outfit.id === START_OUTFIT ? 'Back in your own clothes.' : `${outfit.name} on.` };
+}
+
+// ---- the storage chest ----
+
+/** Houses bought so far (core/areas.ts houseFlag: house.N). */
+export const housesOwned = (flags: Record<string, boolean>): number => Object.keys(flags).filter((f) => /^house\.\d+$/.test(f) && flags[f]).length;
+
+/** How many spares the shared storage holds for this many houses. */
+export const storageLimit = (data: HouseData, flags: Record<string, boolean>): number => {
+  const n = housesOwned(flags);
+  return n ? data.storage.base + data.storage.perExtraHouse * (n - 1) : 0;
+};
+
+export const stored = (career: CareerState): SparePart[] => (career.storage ??= []);
+
+/** Puts a bag spare into the chest. */
+export function storeSpare(data: HouseData, career: CareerState, index: number, flags: Record<string, boolean>): { ok: boolean; message: string } {
+  const part = career.bag[index]?.part;
+  if (!part) return { ok: false, message: 'Nothing to put away.' };
+  if (part.owner) return { ok: false, message: `That's ${part.owner.name}'s, not yours to put away.` };
+  if (stored(career).length >= storageLimit(data, flags)) return { ok: false, message: `The chest is full: ${storageLimit(data, flags)} parts. Buy another house for more room.` };
+  career.bag.splice(index, 1);
+  stored(career).push(part);
+  return { ok: true, message: 'Put away.' };
+}
+
+/** Takes a stored spare back into the bag. */
+export function takeSpare(shops: ShopsData, career: CareerState, index: number): { ok: boolean; message: string } {
+  const part = stored(career)[index];
+  if (!part) return { ok: false, message: 'Nothing there.' };
+  if (!roomFor(shops, career, null)) return { ok: false, message: fullMessage(shops) };
+  stored(career).splice(index, 1);
+  career.bag.push({ id: SPARE, part });
+  return { ok: true, message: 'In your bag.' };
+}
+
+// ---- content checks ----
+
+const ID = /^[a-z0-9_.-]+$/;
+
+export const HOUSE_SCHEMA: Schema = {
+  type: 'object',
+  optional: ['note', 'kit', 'picks'],
+  fields: {
+    note: { type: 'string' },
+    outfits: { type: 'array', minItems: 1, items: { type: 'object', optional: ['desc', 'award', 'race'], fields: { id: { type: 'string', pattern: ID }, name: { type: 'string', nonEmpty: true }, price: { type: 'number', min: 0 }, sheets: { type: 'record', values: { type: 'string', pattern: ID } }, desc: { type: 'string' }, award: { type: 'boolean' }, race: { type: 'record', values: { type: 'object', optional: ['brand'], fields: { ...Object.fromEntries(['helmet', 'trim', 'goggles', 'jersey', 'gloves', 'pants', 'boots'].map((k) => [k, { type: 'string', oneOf: RACE_CLOTH }])), brand: { type: 'boolean' } } } } } } },
+    kit: { type: 'object', optional: ['note'], fields: { outfit: { type: 'string', pattern: ID }, lastArea: { type: 'number', integer: true, min: 1 }, note: { type: 'string' } } },
+    picks: {
+      type: 'object',
+      optional: ['note'],
+      fields: {
+        note: { type: 'string' },
+        sponsor: { type: 'array', minItems: 1, items: { type: 'string', pattern: ID } },
+        legends: { type: 'object', fields: { after: { type: 'string', pattern: ID }, done: { type: 'string', pattern: ID }, outfits: { type: 'array', minItems: 1, items: { type: 'string', pattern: ID } } } },
+      },
+    },
+    rack: { type: 'object', fields: { needs: { type: 'string', pattern: ID }, shops: { type: 'array', items: { type: 'string', pattern: ID } } } },
+    storage: { type: 'object', fields: { base: { type: 'number', integer: true, min: 1 }, perExtraHouse: { type: 'number', integer: true, min: 0 } } },
+  },
+};
+
+/** Cross-checks: the start outfit exists, every sheet is a character sheet, and every rack shop a shop. */
+export function checkHouse(file: string, data: HouseData, c: { sheets: string[]; shops: string[] }): { file: string; field: string; message: string }[] {
+  const errors: { file: string; field: string; message: string }[] = [];
+  const err = (field: string, message: string) => errors.push({ file, field, message });
+  if (!data.outfits.some((o) => o.id === START_OUTFIT)) err('outfits', `no "${START_OUTFIT}" outfit (the rider's own clothes)`);
+  data.outfits.forEach((o, i) => {
+    for (const [g, sheet] of Object.entries(o.sheets)) {
+      if (!['m', 'f'].includes(g)) err(`outfits[${i}].sheets.${g}`, 'a sheet is for m or f');
+      if (!c.sheets.includes(sheet)) err(`outfits[${i}].sheets.${g}`, `no character sheet "${sheet}"`);
+    }
+    for (const g of Object.keys(o.race ?? {})) if (!o.sheets[g]) err(`outfits[${i}].race.${g}`, `race colours for "${g}", who has no sheet for this outfit`);
+    if (o.id !== START_OUTFIT && !Object.keys(o.sheets).length) err(`outfits[${i}].sheets`, 'an outfit for sale needs a sheet for m or f');
+  });
+  data.rack.shops.forEach((s, i) => !c.shops.includes(s) && err(`rack.shops[${i}]`, `no shop "${s}" in shops.json`));
+  if (data.kit) {
+    const kit = data.outfits.find((o) => o.id === data.kit!.outfit);
+    if (!kit) err('kit.outfit', `no outfit "${data.kit.outfit}"`);
+    else if (!kit.award) err('kit.outfit', `"${data.kit.outfit}" should be an award (never on the rack)`);
+  }
+  if (data.picks) {
+    for (const [field, ids] of [['picks.sponsor', data.picks.sponsor], ['picks.legends.outfits', data.picks.legends.outfits]] as const) {
+      for (const id of ids) {
+        const o = data.outfits.find((x) => x.id === id);
+        if (!o) err(field, `no outfit "${id}"`);
+        else if (!o.award) err(field, `"${id}" should be an award (never on the rack)`);
+      }
+    }
+  }
+  return errors;
+}
+
+/**
+ * The sheet the rider is drawn with: a race kit in their bike's brand colours when the art has it
+ * (tools/art/kit-brands.py, <sheet>-<brand>), so the kit matches the bike (Boss, 2 Nov 2026). The
+ * save keeps the kit's own sheet, so a new bike of another brand changes the colours with it.
+ */
+export function shownLook(look: string, brand: string, hasSheet: (sheet: string) => boolean): string {
+  const branded = `${look}-${brand}`;
+  return hasSheet(branded) ? branded : look;
+}

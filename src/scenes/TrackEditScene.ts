@@ -3,9 +3,9 @@ import * as THREE from 'three';
 import type { SceneryItem, TrackDef } from '../core/race';
 import { CHEER_ITEM } from '../core/cheer';
 import { OFFICIAL_ITEM, placedOfficial } from '../core/startOfficial';
-import { sectionBounds } from '../core/trackGeom';
+import { isNoTurn, sectionBounds } from '../core/trackGeom';
 import type { TrackPartsData } from '../core/trackParts';
-import { GRID_H, GRID_W } from '../core/trackParts';
+import { gridOf } from '../core/trackParts';
 import { services } from '../services';
 import { COLORS, textStyle } from '../ui/theme';
 import { RaceView } from '../world/RaceView';
@@ -85,6 +85,7 @@ const REBUILD_EVERY = 300;
 
 export class TrackEditScene extends Phaser.Scene {
   private view: RaceView | null = null;
+  private pictureTimer = 0;
   private holder!: Phaser.GameObjects.Container;
   private turnLabel!: Phaser.GameObjects.Text;
   private state: EditViewState | null = null;
@@ -125,6 +126,7 @@ export class TrackEditScene extends Phaser.Scene {
       // Camera keys pressed while the editor around the view has the keyboard.
       if (e.data.type === 'camkey') return void this.camKey(String(e.data.key), !!e.data.down);
       if (e.data.type === 'play') return void this.markPlay(typeof e.data.f === 'number' ? e.data.f : null);
+      if (e.data.type === 'pictures') return void this.pictures(Array.isArray(e.data.ids) ? e.data.ids.map(String) : [], Number(e.data.w) || 160, Number(e.data.h) || 130);
       if (e.data.type !== 'track') return;
       this.state = e.data.state as EditViewState;
       status.setVisible(false);
@@ -235,6 +237,7 @@ export class TrackEditScene extends Phaser.Scene {
     });
     this.events.once('shutdown', () => {
       for (const f of this.off) f();
+      window.clearTimeout(this.pictureTimer);
       this.view?.destroy();
     });
     send({ type: 'ready' });
@@ -273,7 +276,9 @@ export class TrackEditScene extends Phaser.Scene {
   }
 
   private zoom(k: number): void {
-    this.cam.zoom = Math.max(0.35, Math.min(4, this.cam.zoom * k));
+    // Out far enough to see the whole grid, a longer one too.
+    const w = this.state ? gridOf(this.state.track).w : 100;
+    this.cam.zoom = Math.max((0.35 * 100) / Math.max(100, w), Math.min(4, this.cam.zoom * k));
   }
 
   private resetCam(): void {
@@ -281,12 +286,15 @@ export class TrackEditScene extends Phaser.Scene {
     if (!t) return;
     if (this.state?.gapFrom === 0) {
       // Nothing built yet: the middle of the grid.
-      this.cam = { x: 50, z: 30, zoom: 0.45, az: this.cam.az };
+      const grid = gridOf(t);
+      this.cam = { x: grid.w / 2, z: grid.h / 2, zoom: 0.45, az: this.cam.az };
       this.azTo = 0;
       return;
     }
-    const xs = t.path.map((p) => p[0]);
-    const ys = t.path.map((p) => p[1]);
+    // A No-Turn Takedown's way back is never drawn: centre on the run, platform to run-off.
+    const pts = isNoTurn(t) ? [...(t.start?.path ?? []), t.path[0], t.path[1]] : t.path;
+    const xs = pts.map((p) => p[0]);
+    const ys = pts.map((p) => p[1]);
     this.cam = { x: (Math.min(...xs) + Math.max(...xs)) / 2, z: (Math.min(...ys) + Math.max(...ys)) / 2, zoom: 0.45, az: this.cam.az };
     this.azTo = 0;
   }
@@ -294,6 +302,35 @@ export class TrackEditScene extends Phaser.Scene {
   /** Rebuilds the 3D scene for a changed track, at most every REBUILD_EVERY ms. */
   private queue(): void {
     this.pending = true;
+  }
+
+  /**
+   * Pictures of scenery items for the editor's Scenery tiles (RaceView.picture; Boss, 2 Nov 2026),
+   * sent back one by one as they are drawn, a few a frame so the view keeps moving. They wait for the
+   * first track, since the view that draws them is built from it.
+   */
+  private pictures(ids: string[], w: number, h: number): void {
+    const queue = [...ids];
+    const step = () => {
+      if (!this.view) {
+        this.pictureTimer = window.setTimeout(step, 250);
+        return;
+      }
+      const t0 = performance.now();
+      while (queue.length && performance.now() - t0 < 12) {
+        const id = queue.shift()!;
+        let url: string | null = null;
+        try {
+          url = this.view.picture(id, w, h);
+        } catch {
+          url = null;
+        }
+        window.parent.postMessage({ type: 'picture', id, url }, '*');
+      }
+      if (queue.length) this.pictureTimer = window.setTimeout(step, 0);
+    };
+    window.clearTimeout(this.pictureTimer);
+    step();
   }
 
   private rebuild(): void {
@@ -332,8 +369,10 @@ export class TrackEditScene extends Phaser.Scene {
     const my = (this.keys.has('w') ? 1 : 0) - (this.keys.has('s') ? 1 : 0);
     this.cam.x += step * (mx * right.x + my * up.x);
     this.cam.z += step * (mx * right.z + my * up.z);
-    this.cam.x = Math.max(-10, Math.min(110, this.cam.x));
-    this.cam.z = Math.max(-10, Math.min(70, this.cam.z));
+    // Kept over the track's own grid, 10 units out (a No-Turn Takedown's is 200 × 30).
+    const grid = this.state ? gridOf(this.state.track) : { w: 100, h: 60 };
+    this.cam.x = Math.max(-10, Math.min(grid.w + 10, this.cam.x));
+    this.cam.z = Math.max(-10, Math.min(grid.h + 10, this.cam.z));
     // Turning eases to the angle asked for, the short way round, at up to 240° a second.
     const dAz = ((this.azTo - this.cam.az + 540) % 360) - 180;
     if (dAz !== 0) this.cam.az = Math.abs(dAz) < 0.5 ? this.azTo : wrapDeg(this.cam.az + Math.sign(dAz) * Math.min(Math.abs(dAz), Math.max(Math.abs(dAz) * 0.25, (240 * dtMs) / 1000)));
@@ -440,11 +479,12 @@ export class TrackEditScene extends Phaser.Scene {
     // is placed can be seen against it (a section may cross it while the track is built).
     {
       const edge: { x: number; z: number }[] = [];
+      const { w: gw, h: gh } = gridOf(t);
       const corners = [
         [0, 0],
-        [GRID_W, 0],
-        [GRID_W, GRID_H],
-        [0, GRID_H],
+        [gw, 0],
+        [gw, gh],
+        [0, gh],
       ];
       for (let i = 0; i < 4; i++) {
         const [ax, az] = corners[i];

@@ -1,5 +1,5 @@
 import type { Grid } from './grid';
-import { objectTiles, type BakedMap, type MapSprite } from './mapTypes';
+import { objectTiles, type BakedMap, type MapObject, type MapSprite } from './mapTypes';
 
 // Story changes to a map that the save decides, such as roadworks cleared at the end of the
 // opening chain. A blocker object names the flag that clears it (cleared_by); once set, its tiles
@@ -49,4 +49,11 @@ export function clearedPatches(map: BakedMap, flags: Record<string, boolean>): {
     }
   }
   return out;
+}
+
+/** Whether a door or exit is behind a roadblock the save hasn't cleared yet (Boss, 1 Nov 2026: the
+ * roads to the Race Hub and to the next area are shut until their story or championship opens them). */
+export function behindBlocker(map: BakedMap, via: MapObject, flags: Record<string, boolean>): boolean {
+  return map.objects.some((b) => b.type === 'blocker' && !(typeof b.props.cleared_by === 'string' && flags[b.props.cleared_by])
+    && b.x < via.x + via.w && via.x < b.x + b.w && b.y < via.y + via.h && via.y < b.y + b.h);
 }

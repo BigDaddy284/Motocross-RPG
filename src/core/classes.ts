@@ -1,0 +1,176 @@
+// Bike classes and the class milestone (GDD 6.4, 8.1; Spec 18.3; Boss, 30 and 31 Oct 2026). The
+// classes run in order from 50cc to 60+ Vets. A class opens at its Rider Ability level, and the
+// rider moves up to it by winning the main championship of the class below (its milestone) and
+// collecting the new bike at the class dealer: the champion's sponsor offers a stock bike of their
+// brand for nothing, or the rider buys a stock bike of any brand. The old bike retires.
+// A stock bike has Grade 1 parts on the class's frame grade (ClassDef.frameGrade, Boss 5 Nov 2026).
+
+import type { Bike, BikesData, CareerState } from './career';
+import type { ChampionshipDef, ChampionshipsData } from './championship';
+import { partPrice, type ShopsData } from './shops';
+import { leadLevel, type SkillsData } from './skills';
+
+export interface ClassDef {
+  id: string;
+  name: string;
+  ceiling: number;
+  /** Rider Ability level that unlocks the class (GDD 6.4). */
+  unlock?: number;
+  youth?: boolean;
+  /** The world-map bike picture to use while the class has none of its own. */
+  mapImage?: string;
+  /**
+   * A sidecar class (Boss, 1 Nov 2026): its own class, brought in late in the game, apart from the
+   * solo classes' ladder. No solo class moves up to it, and it is no bigger or smaller than any of them.
+   */
+  sidecar?: boolean;
+  /**
+   * The grade of the class's frame: the new class bike's frame, and Moto78's stock frame for the class
+   * (Boss, 5 Nov 2026: "65cc frame is Grade 2 and bill stocks Grade 2, the 85sw is Grade 3"). Default 1.
+   */
+  frameGrade?: number;
+}
+
+/** The frame slot. */
+const FRAME = 'frame';
+
+/** The grade of a class's frame (frameGrade, or 1). */
+export const frameGradeOf = (bikes: BikesData, cls: string): number => bikes.classes.find((c) => c.id === cls)?.frameGrade ?? 1;
+
+/** A bike the rider has moved on from (GDD 8.1): kept as it was, unrideable. */
+export interface RetiredBike {
+  bike: Bike;
+  /** The championship whose win retired it. */
+  milestone: string;
+}
+
+export const classIndex = (bikes: BikesData, cls: string): number => bikes.classes.findIndex((c) => c.id === cls);
+
+export const classDef = (bikes: BikesData, cls: string): ClassDef | undefined => bikes.classes.find((c) => c.id === cls);
+
+export const className = (bikes: BikesData, cls: string): string => classDef(bikes, cls)?.name ?? cls;
+
+/** Whether class a is b or a bigger class. A sidecar class is only ever its own size (ClassDef.sidecar). */
+export const classAtLeast = (bikes: BikesData, a: string, b: string): boolean =>
+  !!classDef(bikes, a)?.sidecar === !!classDef(bikes, b)?.sidecar && classIndex(bikes, a) >= classIndex(bikes, b);
+
+/** The class after this one, or null at the top. A sidecar class is never the next class up (ClassDef.sidecar). */
+export function nextClass(bikes: BikesData, cls: string): ClassDef | null {
+  const i = classIndex(bikes, cls);
+  const next = i >= 0 ? (bikes.classes[i + 1] ?? null) : null;
+  return next && !!next.sidecar === !!bikes.classes[i].sidecar ? next : null;
+}
+
+/**
+ * The class a race day runs in: the rider's own class when it is the venue's class or bigger
+ * (Spec 18.0: a venue's class is a minimum, bigger classes are allowed), else null, as a smaller
+ * bike can't enter. Every CPU rider then races a bike of that class.
+ */
+export function dayClass(bikes: BikesData, venueClass: string | undefined, bikeClass: string): string | null {
+  const min = venueClass ?? bikes.classes[0].id;
+  return classAtLeast(bikes, bikeClass, min) ? bikeClass : null;
+}
+
+/** The save flag for a class milestone won (Spec 18.3 step 2). */
+export const milestoneFlag = (cls: string) => `milestone.${cls}`;
+/** The save flag for a class's bike collected (step 3): the rider now races that class. */
+export const classFlag = (cls: string) => `class.${cls}`;
+
+export type MilestoneStatus =
+  | { kind: 'none' }
+  | { kind: 'needLevel'; cls: ClassDef; level: number; have: number }
+  | { kind: 'ready'; cls: ClassDef };
+
+/**
+ * The next class the rider can collect: its milestone won and the bike not yet collected. They
+ * still need the class's Rider Ability level to take it (GDD 6.4).
+ */
+export function milestoneStatus(bikes: BikesData, skills: SkillsData, career: CareerState, flags: Record<string, boolean>): MilestoneStatus {
+  const next = nextClass(bikes, career.bike.class);
+  if (!next || !flags[milestoneFlag(next.id)] || flags[classFlag(next.id)]) return { kind: 'none' };
+  const rider = skills.leads.find((l) => l.id === 'rider');
+  const have = rider ? leadLevel(skills, career.skills, rider) : 1;
+  const level = next.unlock ?? 1;
+  return have >= level ? { kind: 'ready', cls: next } : { kind: 'needLevel', cls: next, level, have };
+}
+
+/** A new stock bike: Grade 1 parts on the class's frame grade, all at 100%. */
+export function stockBike(bikes: BikesData, brand: string, cls: string): Bike {
+  return { brand, class: cls, parts: Object.fromEntries(bikes.slots.map((s) => [s.id, { grade: s.id === FRAME ? frameGradeOf(bikes, cls) : 1, condition: 1 }])) };
+}
+
+/** What a stock bike of a class costs at the class dealer, in pence: the sum of its parts' prices (Spec 14.4). */
+export function stockBikePrice(shops: ShopsData, bikes: BikesData, cls: string): number {
+  return bikes.slots.reduce((a, s) => a + partPrice(shops, s.id, s.id === FRAME ? frameGradeOf(bikes, cls) : 1, cls), 0);
+}
+
+/**
+ * The champion's sponsor's brand for a class: one of the four, fixed for the career and class so
+ * the offer doesn't change between visits (Areas 1 to 4: a one-off offer with no contract, Boss
+ * 31 Oct 2026).
+ */
+export function sponsorBrand(bikes: BikesData, career: CareerState, cls: string): string {
+  let h = 2166136261;
+  for (const ch of `${career.shops?.seed ?? 0}:${cls}`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  return bikes.brands[(h >>> 0) % bikes.brands.length].id;
+}
+
+/** The championship that is a class's milestone. */
+export const milestoneOf = (champs: ChampionshipsData, cls: string) => champs.championships.find((c) => c.milestone === cls);
+
+export type CollectResult = { ok: true; message: string } | { ok: false; message: string };
+
+/**
+ * Collects the new class's bike: the old one retires with its exact parts (GDD 8.1) and the new
+ * stock bike takes its place. Free from the sponsor, or paid at the class dealer.
+ */
+export function collectBike(bikes: BikesData, champs: ChampionshipsData, career: CareerState, flags: Record<string, boolean>, brand: string, pricePence: number): CollectResult {
+  const next = nextClass(bikes, career.bike.class);
+  if (!next || !flags[milestoneFlag(next.id)]) return { ok: false, message: 'No new class to collect yet.' };
+  if (career.money < pricePence) return { ok: false, message: `You're short: a stock ${next.name} is ${pricePence / 100 | 0} pounds.` };
+  if (!bikes.brands.some((b) => b.id === brand)) return { ok: false, message: `No brand "${brand}".` };
+  career.money -= pricePence;
+  career.retired ??= [];
+  career.retired.push({ bike: career.bike, milestone: milestoneOf(champs, next.id)?.id ?? '' });
+  career.bike = stockBike(bikes, brand, next.id);
+  flags[classFlag(next.id)] = true;
+  const brandName = bikes.brands.find((b) => b.id === brand)?.name ?? brand;
+  return { ok: true, message: `Your ${brandName} ${next.name} is ready: Grade 1 parts on a Grade ${frameGradeOf(bikes, next.id)} frame, brand new. The old bike goes on display, as it was.` };
+}
+
+/**
+ * Prize bikes (Boss, 5 Nov 2026): the Crankshaft Cup, the Legends Championship, the three Vets
+ * championships and the Road to Legend Ultimate Event each give a new 450cc F for the first win. It
+ * waits at any class dealer (Bill at Moto78) until the rider takes it or turns it down; taking it
+ * retires the bike they ride now, as moving up a class does.
+ */
+export const prizeFlag = (champ: string) => `prize.${champ}`;
+/** Set once a prize bike is taken or turned down. */
+export const prizeDoneFlag = (champ: string) => `prize.${champ}.done`;
+
+/** The first prize bike waiting to be collected: its championship and class. */
+export function prizeBike(bikes: BikesData, champs: ChampionshipsData, flags: Record<string, boolean>): { champ: ChampionshipDef; cls: ClassDef } | null {
+  for (const champ of champs.championships) {
+    const cls = champ.rewards[0]?.bike && classDef(bikes, champ.rewards[0].bike);
+    if (cls && flags[prizeFlag(champ.id)] && !flags[prizeDoneFlag(champ.id)]) return { champ, cls };
+  }
+  return null;
+}
+
+/** Takes a prize bike of this brand: free, the bike ridden now retires as it is (GDD 8.1). */
+export function collectPrize(bikes: BikesData, champs: ChampionshipsData, career: CareerState, flags: Record<string, boolean>, champId: string, brand: string): CollectResult {
+  const prize = prizeBike(bikes, champs, flags);
+  if (!prize || prize.champ.id !== champId) return { ok: false, message: 'No prize bike waiting.' };
+  if (!bikes.brands.some((b) => b.id === brand)) return { ok: false, message: `No brand "${brand}".` };
+  career.retired ??= [];
+  career.retired.push({ bike: career.bike, milestone: champId });
+  career.bike = stockBike(bikes, brand, prize.cls.id);
+  flags[prizeDoneFlag(champId)] = true;
+  const brandName = bikes.brands.find((b) => b.id === brand)?.name ?? brand;
+  return { ok: true, message: `Your prize ${brandName} ${prize.cls.name} is ready: Grade 1 parts on a Grade ${frameGradeOf(bikes, prize.cls.id)} frame, brand new. The old bike goes on display, as it was.` };
+}
+
+/** Turns a prize bike down: the rider keeps the bike they have. */
+export function declinePrize(flags: Record<string, boolean>, champId: string): void {
+  flags[prizeDoneFlag(champId)] = true;
+}
