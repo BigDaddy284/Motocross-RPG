@@ -4,7 +4,7 @@ import { Grid } from '../src/core/grid';
 import type { BakedMap, Tile } from '../src/core/mapTypes';
 import { objectTiles } from '../src/core/mapTypes';
 import { findPathToAny, findPathTowards } from '../src/core/pathfinding';
-import { stepTriggerAt, triggerTilesToAvoid, wayOutTiles } from '../src/core/travel';
+import { edgeClickWayOut, stepTriggerAt, triggerTilesToAvoid, wayOutTiles } from '../src/core/travel';
 import { DriveMap, driveLeavesBy, footprint, planDrive, type VanPose, type VehiclesData } from '../src/core/vehicles';
 import type { MapObject } from '../src/core/mapTypes';
 
@@ -148,5 +148,50 @@ describe('a way out drawn as several objects', () => {
     const path = walk(map, { x: 2, y: 6 }, { x: 8, y: 6 });
     expect(path.at(-1)).toEqual({ x: 8, y: 6 });
     expect(path.some((t) => t.y === 6 && (t.x === 3 || t.x === 4))).toBe(false);
+  });
+});
+
+// Boss, 7 Nov 2026: "clicking outside the door way, which I expect most players would do to leave",
+// walked into the wall beside the door and stopped. Every interior's exits sit on the floor just inside
+// its bottom wall; a click on that wall or in the dark below it, near an exit, now leaves.
+describe('a click past the doorway of a building', () => {
+  const interiors = fs.readdirSync('public/assets/maps').filter((f) => f.startsWith('int-')).map((f) => f.replace(/\.json$/, ''));
+
+  it('finds the interiors', () => expect(interiors.length).toBeGreaterThan(50));
+
+  for (const id of interiors) {
+    it(`${id}: a click on the wall or off the map below an exit walks out by it`, () => {
+      const map = load(id);
+      const grid = Grid.fromMap(map);
+      const spawn = map.objects.find((o) => o.type === 'spawn')!;
+      const from = { x: Math.floor(spawn.x / map.tileSize), y: Math.floor(spawn.y / map.tileSize) - 1 };
+      const start = grid.isFree(from.x, from.y) ? from : { x: from.x, y: from.y + 1 };
+      const exits = map.objects.filter((o) => o.type === 'exit').flatMap((o) => objectTiles(o, map.tileSize));
+      expect(exits.length).toBeGreaterThan(0);
+      for (const e of exits) {
+        for (const click of [{ x: e.x, y: e.y + 1 }, { x: e.x, y: e.y + 3 }, { x: e.x - 1, y: e.y + 1 }, { x: e.x + 1, y: e.y + 2 }]) {
+          const way = edgeClickWayOut(map, grid, click);
+          expect(way, `click ${click.x},${click.y}`).not.toBeNull();
+          // Directly below an exit always means that exit.
+          if (click.x === e.x) expect(way).toEqual(e);
+          const path = walk(map, start, way!);
+          expect(stepTriggerAt(map, path.at(-1) ?? start)?.type, `walk to ${way!.x},${way!.y}`).toBe('exit');
+        }
+      }
+    });
+  }
+
+  it('leaves a click on the floor, or on a wall far from any exit, alone', () => {
+    const map = load('int-home-local-garage');
+    const grid = Grid.fromMap(map);
+    expect(edgeClickWayOut(map, grid, { x: 3, y: 5 })).toBeNull();
+    expect(edgeClickWayOut(map, grid, { x: 3, y: 0 })).toBeNull();
+    expect(edgeClickWayOut(map, grid, { x: 0, y: 3 })).toBeNull();
+    expect(edgeClickWayOut(map, grid, { x: 6, y: 7 })).toBeNull();
+  });
+
+  it('only in buildings: a town edge is left to the usual walk', () => {
+    const map = load('area1-home-town');
+    expect(edgeClickWayOut(map, Grid.fromMap(map), { x: 47, y: 11 })).toBeNull();
   });
 });

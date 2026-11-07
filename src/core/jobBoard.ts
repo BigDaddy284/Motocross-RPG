@@ -133,3 +133,21 @@ export function checkJobBoard(file: string, data: JobBoardData, maps: Map<string
   });
   return errors;
 }
+
+/**
+ * The map objects that start work here: each shift job's first machine and each customer job board
+ * open to the rider (their `needs` flag set). The world draws a ring round them so a player can see
+ * they do something (Boss, 7 Nov 2026: "All the first machines that start a batch should have the
+ * orange circle round them, same for the job board").
+ */
+export function workSpots<O extends { name: string; props: Record<string, unknown> }>(
+  map: { id: string; objects: O[] },
+  jobs: JobDef[],
+  boards: BoardDef[],
+  flags: Record<string, unknown>,
+): O[] {
+  const open = (needs?: string) => !needs || !!flags[needs];
+  const starts = new Set(jobs.filter((j) => j.map === map.id && open(j.needs)).map((j) => j.start));
+  const actions = new Set(boards.filter((b) => b.map === map.id && open(b.needs)).map((b) => b.action));
+  return map.objects.filter((o) => starts.has(o.name) || (typeof o.props.action === 'string' && actions.has(o.props.action)));
+}

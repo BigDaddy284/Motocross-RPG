@@ -12,7 +12,7 @@ import { applyMapState, clearedPatches, hiddenSprites } from '../core/mapState';
 import { placeArrival, roadMenu, routeArrival, routeFor, sideOf, venueHere, type RoadStop } from '../core/guides';
 import { earning, goalObjects, hopsTo, nextHop, storyGoals } from '../core/waymarks';
 import { biggestBike, bikeImage, zoneFor } from '../core/worldMap';
-import { ROUTE, spawnTile, stepTriggerAt, triggerTilesToAvoid, wayOutTiles, type Arrival, type StepResult } from '../core/travel';
+import { ROUTE, edgeClickWayOut, spawnTile, stepTriggerAt, triggerTilesToAvoid, wayOutTiles, type Arrival, type StepResult } from '../core/travel';
 import { areaFlag, areaName, areaOfMap, buyHouse, buyMotor, houseFlag, motorProblem, openAreas, openReleasedAreas, roadWaiting, soldTexture } from '../core/areas';
 import { defaultSetup, effectiveSetup, positionValue, positionsFor, setupReport, sliderUnlocked, type SliderDef } from '../core/setup';
 import { DriveMap, FACING_OF, ON_FOOT, needsMotor, bayFor, driveLeavesBy, ensureVan, exitTile, footprint, arrivalPose, haulerAt, nearestFree, placeNear, planDrive, sheetFor, steer, HEADING_OF, type Heading, type Move, type VanDesign, type VanPose } from '../core/vehicles';
@@ -29,7 +29,7 @@ import { challengeReady, challengeVenue, lossHint, type ChallengeDef } from '../
 import { drillForAction, drillsForNpc, drillsAtVenue, finishRound, walked, type DrillDef } from '../core/training';
 import { finishBatch, finishPass, openJobAt, passXp, startJob } from '../core/jobs';
 import { className } from '../core/classes';
-import { ticketJob, ticketProblem, ticketsOffered, type BoardDef, type Ticket } from '../core/jobBoard';
+import { ticketJob, ticketProblem, ticketsOffered, workSpots, type BoardDef, type Ticket } from '../core/jobBoard';
 import { childLevel } from '../core/skills';
 import { leadLevel } from '../core/skills';
 import { challengeWins } from '../core/records';
@@ -104,6 +104,8 @@ export class WorldScene extends Phaser.Scene {
   private intro = false;
   private shift: Shift | null = null;
   private stationMarks: Phaser.GameObjects.GameObject[] = [];
+  /** Ovals under the machines that start a batch and the job boards, while no shift is running. */
+  private workMarks: Phaser.GameObjects.GameObject[] = [];
   /** The player's van, when it is parked (or being driven) on this map. */
   private van: VanView | null = null;
   /** The Factory Hauler the team parks at every venue once the rider has a factory sponsor (Boss, 31 Oct 2026). */
@@ -154,6 +156,7 @@ export class WorldScene extends Phaser.Scene {
     this.intro = !!data.intro;
     this.shift = null;
     this.stationMarks = [];
+    this.workMarks = [];
     this.npcs = [];
     this.path = [];
     this.onArrive = null;
@@ -391,7 +394,9 @@ export class WorldScene extends Phaser.Scene {
   private clickAt(wx: number, wy: number): void {
     // A click on a door or exit arrow is a click on the way out it marks (Boss, 7 Nov 2026).
     const marked = this.waymarks.arrowAt(wx, wy);
-    const tile = marked ? marked.reduce((a, b) => (dist(b, this.player.tile) < dist(a, this.player.tile) ? b : a)) : { x: Math.floor(wx / TILE), y: Math.floor(wy / TILE) };
+    const at = { x: Math.floor(wx / TILE), y: Math.floor(wy / TILE) };
+    // A click on the doorway in a building's outer wall, or the dark past it, is a click on the way out.
+    const tile = marked ? marked.reduce((a, b) => (dist(b, this.player.tile) < dist(a, this.player.tile) ? b : a)) : (this.driving ? null : edgeClickWayOut(this.map, this.grid, at)) ?? at;
     if (this.driving) {
       this.clickDriving(tile, wx, wy);
       return;
@@ -1037,6 +1042,7 @@ export class WorldScene extends Phaser.Scene {
 
   /** Marks the current story step's NPC or equipment here, or the door or exit on the way to it. */
   private refreshWaymarks(): void {
+    this.markWorkSpots();
     this.van?.setLoad(this.vanLoad());
     this.waymarks.clear();
     this.markPoint = null;
@@ -1232,6 +1238,7 @@ export class WorldScene extends Phaser.Scene {
       r.open.ticket = ticket;
       this.shift = { job, made: r.open.made, station: 0 };
       this.showShift();
+      this.refreshWaymarks();
       this.hud.flashShift();
     };
     if (open?.ticket) {
@@ -1324,17 +1331,33 @@ export class WorldScene extends Phaser.Scene {
     this.hud.toast(message);
   }
 
+  /** The pulsing orange oval under a work object, the one batch production shows at the next station. */
+  private workRing(o: MapObject): Phaser.GameObjects.Ellipse {
+    const tiles = objectTiles(o, this.map.tileSize);
+    const cx = (tiles.reduce((a, t) => a + t.x, 0) / tiles.length + 0.5) * TILE;
+    const cy = (tiles.reduce((a, t) => a + t.y, 0) / tiles.length + 0.5) * TILE;
+    const ring = this.add.ellipse(cx, cy + 18, TILE * Math.max(1, tiles.length * 0.8), 26).setStrokeStyle(4, 0xef6c18, 0.95).setDepth(OVERHEAD_DEPTH);
+    if (!services.settings.get().accessibility.reducedEffects) this.tweens.add({ targets: ring, alpha: 0.35, duration: 600, yoyo: true, repeat: -1 });
+    return ring;
+  }
+
   /** A pulsing ring under every object that can do the next station. */
   private markStation(name: string): void {
     this.clearStationMarks();
-    for (const o of this.map.objects.filter((x) => x.name === name)) {
-      const tiles = objectTiles(o, this.map.tileSize);
-      const cx = (tiles.reduce((a, t) => a + t.x, 0) / tiles.length + 0.5) * TILE;
-      const cy = (tiles.reduce((a, t) => a + t.y, 0) / tiles.length + 0.5) * TILE;
-      const ring = this.add.ellipse(cx, cy + 18, TILE * Math.max(1, tiles.length * 0.8), 26).setStrokeStyle(4, 0xef6c18, 0.95).setDepth(OVERHEAD_DEPTH);
-      if (!services.settings.get().accessibility.reducedEffects) this.tweens.add({ targets: ring, alpha: 0.35, duration: 600, yoyo: true, repeat: -1 });
-      this.stationMarks.push(ring);
-    }
+    for (const o of this.map.objects.filter((x) => x.name === name)) this.stationMarks.push(this.workRing(o));
+  }
+
+  /**
+   * The batch oval under each machine that starts a batch and each job board open to the rider, so they
+   * read as things to use (Boss, 7 Nov 2026: "the oval one that shows during batch production"). Hidden
+   * while a shift runs: then the next station's oval shows the way.
+   */
+  private markWorkSpots(): void {
+    for (const m of this.workMarks) m.destroy();
+    this.workMarks = [];
+    if (this.shift) return;
+    const { world, jobboard } = services.content;
+    for (const o of workSpots(this.map, world.jobs, jobboard.boards, this.save.flags)) this.workMarks.push(this.workRing(o));
   }
 
   private clearStationMarks(): void {
