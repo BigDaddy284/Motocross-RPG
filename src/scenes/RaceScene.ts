@@ -21,7 +21,7 @@ import type { SaveData } from '../core/saves';
 import { raceKit } from '../core/house';
 import { services } from '../services';
 import { COLORS, textStyle } from '../ui/theme';
-import { binocularsIcon, button, panel, penMeter, type Button, type PenMeter } from '../ui/widgets';
+import { binocularsIcon, button, panel, penMeter, slider, speakerIcon, toggle, type Button, type PenMeter } from '../ui/widgets';
 import { directorFor, ROW_SIZE, type RaceDirector } from '../core/riderAI';
 import { isSidecarGate } from '../core/sidecar';
 import { isNoTurn, NO_TURN_GATES, SPRINT_QUEUE, startGeom } from '../core/trackGeom';
@@ -124,6 +124,8 @@ export class RaceScene extends Phaser.Scene {
   private looks = new Map<string, RaceLook>();
   /** The live race's engines, crowd and cues (audio/raceAudio.ts); null off the live screen. */
   private raceAudio: RaceAudio | null = null;
+  /** The race screen's sound sliders, open over the view (toggleSoundPanel). */
+  private soundPanel: Phaser.GameObjects.Container | null = null;
   /** Your race's sound cues already played: the white flag and your finish. */
   private heard = { lastLap: false, finished: false };
   private names = new Map<string, string>();
@@ -364,6 +366,7 @@ export class RaceScene extends Phaser.Scene {
     this.pen = null;
     this.view = null;
     this.skipButton = null;
+    this.soundPanel = null;
     this.live = false;
     this.onTick = null;
   }
@@ -416,6 +419,37 @@ export class RaceScene extends Phaser.Scene {
       made.forEach((t) => t.destroy());
       size--;
     }
+  }
+
+  /**
+   * The volume sliders over the race view's bottom-right corner, its bottom right at (right, bottom):
+   * the same settings as Settings > Audio, heard as you change them while the race goes on.
+   */
+  private toggleSoundPanel(right: number, bottom: number): void {
+    if (this.soundPanel) {
+      this.soundPanel.destroy();
+      this.soundPanel = null;
+      return;
+    }
+    const rows: [string, 'master' | 'engines' | 'crowd' | 'effects' | 'music'][] = [['Master', 'master'], ['Bike engines', 'engines'], ['Crowd', 'crowd'], ['Effects', 'effects'], ['Music', 'music']];
+    const w = 370;
+    const h = 56 + rows.length * 40 + 44;
+    const c = this.add.container(right - w, bottom - h);
+    c.add(panel(this, w / 2, h / 2, w, h).setInteractive());
+    c.add(this.add.text(18, 18, 'Sound', textStyle(20, COLORS.accent)));
+    const close = button(this, w - 44, 30, 'Close', () => this.toggleSoundPanel(right, bottom), 70, 30, 15);
+    c.add(close);
+    const audioSet = services.settings.get().audio;
+    rows.forEach(([label, key], i) => {
+      const y = 76 + i * 40;
+      c.add(this.add.text(18, y, label, textStyle(16)).setOrigin(0, 0.5));
+      c.add(slider(this, 140, y, 160, 0, 100, audioSet[key], (v) => services.settings.update('audio', key, v)));
+    });
+    const my = 76 + rows.length * 40;
+    c.add(this.add.text(18, my, 'Mute all', textStyle(16)).setOrigin(0, 0.5));
+    c.add(toggle(this, 166, my, audioSet.muted, (v) => services.settings.update('audio', 'muted', v)));
+    this.screen.add(c);
+    this.soundPanel = c;
   }
 
   private openModal(w: number, h: number): Phaser.GameObjects.Container {
@@ -838,7 +872,7 @@ export class RaceScene extends Phaser.Scene {
     const right = dw - 16 - sideW;
     const vw = right - 14 - 16;
     // Room at the view's bottom-right corner for the zoom button (Boss, 3 Nov 2026).
-    this.skipX = 16 + vw - 14 - 110 - 52;
+    this.skipX = 16 + vw - 14 - 110 - 52 - 44;
     // Riders ride up to the start in the order they picked their gates.
     this.director = directorFor(sim, services.content.bikes, services.content.racing.messages, this.day?.pickOrder ?? this.sxRace?.riders);
     // The view keeps the 1280 × 720 layout's scale (900 wide), so a wider one shows more track, not bigger bikes.
@@ -945,6 +979,10 @@ export class RaceScene extends Phaser.Scene {
       this.view!.zoom = zooms[zi];
     }, 36, 28);
     zoomBtn.add(binocularsIcon(this, 0, 0));
+    // Sound (Boss, 7 Nov 2026: "need some audio option available during the race view"): a speaker
+    // button beside the binoculars opens the volume sliders over the view, and the race carries on.
+    const soundBtn = this.btn(16 + vw - 14 - 20 - 44, dh - 38 - 22, '', () => this.toggleSoundPanel(16 + vw - 14, dh - 38 - 22 - 22), 36, 28);
+    soundBtn.add(speakerIcon(this, 0, 0, 22));
     this.addLap(sim.nextLap());
     // A race opens with the start procedure: the line-up, then the board and the five-second
     // hold, all in negative race time up to the gate drop at 0 (riderAI lineUp, RaceView updateStart).

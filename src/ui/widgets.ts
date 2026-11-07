@@ -74,6 +74,24 @@ export function button(scene: Phaser.Scene, x: number, y: number, label: string,
   return c;
 }
 
+/** A loudspeaker drawn with shapes, about `w` wide, centred on (x, y): the race screen's sound button (Boss, 7 Nov 2026). */
+export function speakerIcon(scene: Phaser.Scene, x: number, y: number, w = 24): Phaser.GameObjects.Graphics {
+  const g = scene.add.graphics({ x, y });
+  const k = w / 24;
+  g.fillStyle(COLORS.cream, 1);
+  g.fillRect(-11 * k, -4 * k, 6 * k, 8 * k);
+  g.fillTriangle(-6 * k, -4 * k, 1 * k, -10 * k, 1 * k, 10 * k);
+  g.fillTriangle(-6 * k, -4 * k, 1 * k, 10 * k, -6 * k, 4 * k);
+  g.lineStyle(2 * k, COLORS.cream, 1);
+  g.beginPath();
+  g.arc(2 * k, 0, 5 * k, -0.9, 0.9);
+  g.strokePath();
+  g.beginPath();
+  g.arc(2 * k, 0, 9 * k, -0.9, 0.9);
+  g.strokePath();
+  return g;
+}
+
 /**
  * Binoculars drawn with shapes, about `w` wide, centred on (x, y): the race screen's zoom button
  * (Boss, 3 Nov 2026).
@@ -168,8 +186,11 @@ export function slider(
   set(value, false);
   const hit = scene.add.rectangle(width / 2, 0, width + 20, 30, 0, 0).setInteractive({ useHandCursor: true });
   c.add(hit);
+  // Into the slider's own space, so it works inside scaled or moved containers too (the race screen's sound panel).
   const fromPointer = (p: Phaser.Input.Pointer) => {
-    set(min + (Phaser.Math.Clamp(scene.cameras.main.getWorldPoint(p.x, p.y).x - c.x, 0, width) / width) * (max - min), true);
+    const w = scene.cameras.main.getWorldPoint(p.x, p.y);
+    const local = c.getWorldTransformMatrix().applyInverse(w.x, w.y);
+    set(min + (Phaser.Math.Clamp(local.x, 0, width) / width) * (max - min), true);
   };
   hit.on('pointerdown', (p: Phaser.Input.Pointer) => {
     fromPointer(p);

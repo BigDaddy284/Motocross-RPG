@@ -339,6 +339,64 @@ export function flyBy(s: Synth, kind: EngineKind, delay = 0, o: { rpm?: number; 
   return e;
 }
 
+/**
+ * The van while you drive (demo V3, Boss, 7 Nov 2026: "lets go v3", in place of the droning W15):
+ * an old diesel's separate putts, a beat you can count that quickens with speed.
+ */
+export class VanChug implements Stoppable {
+  private readonly out: GainNode;
+  private readonly lp: BiquadFilterNode;
+  private readonly timer: number;
+  private next: number;
+  private speed = 0;
+  stopped = false;
+
+  constructor(private readonly s: Synth, level = 1) {
+    this.out = s.gain(0);
+    this.out.connect(s.buses.effects);
+    this.lp = s.filt('lowpass', 500, 0.7);
+    this.lp.connect(this.out);
+    this.out.gain.setTargetAtTime(level, s.now, 0.15);
+    this.next = s.now;
+    this.timer = window.setInterval(() => this.putts(), 40);
+  }
+
+  /** 0 parked and idling, 1 cruising. */
+  setSpeed(v: number): void {
+    this.speed = Math.max(0, Math.min(1, v));
+  }
+
+  private putts(): void {
+    const s = this.s;
+    const sp = this.speed;
+    const gap = 0.16 - sp * 0.09;
+    if (this.next < s.now) this.next = s.now + 0.02;
+    while (this.next < s.now + 0.1) {
+      const t = this.next;
+      const k = 0.5 + 0.5 * Math.random();
+      const o = s.osc('sine', 70 + sp * 40);
+      o.frequency.setValueAtTime(70 + sp * 40, t);
+      o.frequency.exponentialRampToValueAtTime(40, t + 0.08);
+      chain(o, s.env(t, 0.004, (0.22 + sp * 0.15) * k, 0.09), this.lp);
+      o.start(t);
+      o.stop(t + 0.12);
+      const n = s.noiseSrc(false);
+      chain(n, s.filt('bandpass', 700 + sp * 500, 1.2), s.env(t, 0.002, 0.08 * k, 0.05), this.lp);
+      n.start(t, rnd(0, 2));
+      n.stop(t + 0.08);
+      this.next = t + gap * rnd(0.9, 1.1);
+    }
+    this.lp.frequency.setTargetAtTime(450 + sp * 600, s.now, 0.2);
+  }
+
+  stop(): void {
+    if (this.stopped) return;
+    this.stopped = true;
+    clearInterval(this.timer);
+    this.out.gain.setTargetAtTime(0, this.s.now, 0.15);
+  }
+}
+
 // ---------- crowd ----------
 
 /** The crowd along the track (R14), with cheers on top (R15). */

@@ -1,5 +1,5 @@
 import { audio } from '../audio/audio';
-import type { Engine } from '../audio/synth';
+import type { VanChug } from '../audio/synth';
 import { ambienceFor, footingAt } from '../core/sound';
 import { isSupercross } from '../core/supercross';
 import { passengerEntry, passengerPracticeFee, passengerTrack, type PassengerTerms } from '../core/passenger';
@@ -146,8 +146,8 @@ export class WorldScene extends Phaser.Scene {
   private markPoint: { x: number; y: number; label: string; sub?: string } | null = null;
   private markEarning = false;
 
-  /** The van's engine while you drive it (demo W15). */
-  private vanSound: Engine | null = null;
+  /** The van's engine while you drive it (demo V3, Boss, 7 Nov 2026). */
+  private vanSound: VanChug | null = null;
   /** Footsteps alternate left and right a touch. */
   private stepSide = 1;
 
@@ -2010,10 +2010,9 @@ export class WorldScene extends Phaser.Scene {
       this.vanSound = null;
       return;
     }
-    this.vanSound ??= audio.engine('van', { bus: 'effects', level: 0.8 });
-    const v = Math.abs(this.van!.speed);
-    // Cruising is a few tiles a second: up through the revs to there, a touch of throttle to pull away.
-    this.vanSound?.setFrac(Math.min(0.75, 0.05 + v / 7), v > 0.3 ? 0.6 : 0, 0.15);
+    this.vanSound ??= audio.van(0.9);
+    // The chug quickens up to the van's cruising speed (vanMotion tuningFor: 1000 / stepMs tiles a second).
+    this.vanSound?.setSpeed((Math.abs(this.van!.speed) * this.van!.design.stepMs) / 1000);
   }
 
   private getIn(): void {

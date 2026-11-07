@@ -1,6 +1,6 @@
 import { CHANNELS, mixGains, type EngineKind } from '../core/sound';
 import { services } from '../services';
-import { Crowd, Engine, makeLoop, makeSong, playSfx, Synth, type LoopId, type SfxId, type SfxOpts, type SongId, type Stoppable } from './synth';
+import { Crowd, Engine, VanChug, makeLoop, makeSong, playSfx, Synth, type LoopId, type SfxId, type SfxOpts, type SongId, type Stoppable } from './synth';
 
 // The game's sound player (Boss, 7 Nov 2026). Scenes ask for music, a background loop and
 // effects by id; this keeps one of each going, follows the Audio settings, and stays silent
@@ -100,6 +100,12 @@ class GameAudio {
   engine(kind: EngineKind, o: { bus?: 'engines' | 'effects'; p?: number; level?: number } = {}): Engine | null {
     const s = this.live;
     return s ? new Engine(s, kind, o) : null;
+  }
+
+  /** The van's diesel chug while you drive (demo V3). */
+  van(level = 1): VanChug | null {
+    const s = this.live;
+    return s ? new VanChug(s, level) : null;
   }
 
   crowd(level = 0.35): Crowd | null {
